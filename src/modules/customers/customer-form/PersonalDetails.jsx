@@ -2,8 +2,6 @@ import React from "react";
 import { Form, Input, DatePicker, Select, Row, Col, Tag, Space } from "antd";
 import {
   UserOutlined,
-  PhoneOutlined,
-  HomeOutlined,
   MailOutlined,
   PlusCircleOutlined,
   MinusCircleOutlined,

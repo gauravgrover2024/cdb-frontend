@@ -1,3 +1,4 @@
+// api/delivery-orders/[loanId].js
 import { connectToDatabase } from "../../lib/mongodb";
 
 export default async function handler(req, res) {
@@ -12,10 +13,12 @@ export default async function handler(req, res) {
   }
 
   const { db } = await connectToDatabase();
-  const collection = db.collection("payments");
+  const collection = db.collection("deliveryOrders");
 
   if (method === "GET") {
-    const doc = await collection.findOne({ loanId });
+    const doc =
+      (await collection.findOne({ loanId })) ||
+      (await collection.findOne({ do_loanId: loanId }));
     res.status(200).json(doc || null);
     return;
   }
@@ -23,7 +26,6 @@ export default async function handler(req, res) {
   if (method === "PUT" || method === "POST") {
     let payload = req.body;
 
-    // If body is a string, parse it
     if (typeof payload === "string") {
       try {
         payload = JSON.parse(payload);
@@ -38,12 +40,13 @@ export default async function handler(req, res) {
       return;
     }
 
-    // ❗ Never try to update _id
     const { _id, ...rest } = payload || {};
 
+    const docLoanId = rest.do_loanId || rest.loanId || loanId;
+
     await collection.updateOne(
-      { loanId },
-      { $set: { ...rest, loanId } },
+      { loanId: docLoanId },
+      { $set: { ...rest, loanId: docLoanId } },
       { upsert: true }
     );
 

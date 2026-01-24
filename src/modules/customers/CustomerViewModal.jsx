@@ -1,18 +1,8 @@
 // src/modules/customers/CustomerViewModal.jsx
 
 import React from "react";
-import {
-  Modal,
-  Descriptions,
-  Button,
-  Table,
-  Row,
-  Col,
-  Card,
-  Space,
-  Tag,
-  Divider,
-} from "antd";
+
+import { Modal, Row, Col, Card, Space, Tag, Divider } from "antd";
 import {
   UserOutlined,
   PhoneOutlined,
@@ -68,16 +58,6 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
       : "orange";
 
   // Helper function to safely get nested values
-  const getValue = (obj, path, fallback = null) => {
-    if (!obj) return fallback;
-    const keys = path.split(".");
-    let value = obj;
-    for (let key of keys) {
-      value = value?.[key];
-      if (value === undefined || value === null) return fallback;
-    }
-    return value;
-  };
 
   return (
     <Modal
