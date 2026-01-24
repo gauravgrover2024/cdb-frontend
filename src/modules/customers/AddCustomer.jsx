@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Form, Button, Affix, Space, message } from "antd";
+import { Form, Button, Space, message, Divider } from "antd";
 import {
   IdcardOutlined,
   SolutionOutlined,
@@ -9,6 +9,8 @@ import {
   TeamOutlined,
   PhoneOutlined,
   HomeOutlined,
+  SaveOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -63,6 +65,7 @@ const AddCustomer = () => {
   const navigate = useNavigate();
 
   const [activeSection, setActiveSection] = useState("personal");
+
   const [headerInfo, setHeaderInfo] = useState({
     name: "",
     mobile: "",
@@ -75,24 +78,69 @@ const AddCustomer = () => {
   const creatingRef = useRef(false);
   const autosaveTimer = useRef(null);
 
+  // Header height (used to ensure form starts below sticky header)
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(180);
+
+  // -----------------------------
+  // Measure header height (so form starts below it)
+  // -----------------------------
+  useEffect(() => {
+    const measure = () => {
+      if (!headerRef.current) return;
+      const h = headerRef.current.getBoundingClientRect().height;
+      if (h && h > 100) setHeaderHeight(h);
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  // -----------------------------
+  // Scroll helper (scroll inside #app-scroll-container)
+  // -----------------------------
   const scrollToSection = (targetId) => {
+    const container = document.getElementById("app-scroll-container");
     const el = document.getElementById(targetId);
-    if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 96;
-      window.scrollTo({ top: y, behavior: "smooth" });
-    }
+
+    if (!container || !el) return;
+
+    const containerTop = container.getBoundingClientRect().top;
+    const elTop = el.getBoundingClientRect().top;
+
+    // dynamic offset = sticky header height + small gap
+    const SCROLL_OFFSET = headerHeight + 16;
+
+    const scrollTop =
+      container.scrollTop + (elTop - containerTop) - SCROLL_OFFSET;
+
+    container.scrollTo({
+      top: scrollTop,
+      behavior: "smooth",
+    });
   };
 
+  // -----------------------------
+  // Scroll Spy (active pill highlight)
+  // -----------------------------
   useEffect(() => {
+    const container = document.getElementById("app-scroll-container");
+    if (!container) return;
+
     const onScroll = () => {
+      const OFFSET = headerHeight + 16;
+
       const offsets = sectionsConfig.map((s) => {
         const el = document.getElementById(s.targetId);
         if (!el) return { key: s.key, top: Infinity };
-        return { key: s.key, top: el.getBoundingClientRect().top };
+
+        const rect = el.getBoundingClientRect();
+        return { key: s.key, top: rect.top };
       });
 
       const visible = offsets.reduce((prev, curr) =>
-        Math.abs(curr.top - 96) < Math.abs(prev.top - 96) ? curr : prev
+        Math.abs(curr.top - OFFSET) < Math.abs(prev.top - OFFSET) ? curr : prev
       );
 
       if (visible.key && visible.key !== activeSection) {
@@ -100,16 +148,24 @@ const AddCustomer = () => {
       }
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [activeSection]);
+    container.addEventListener("scroll", onScroll, { passive: true });
+    onScroll(); // run once on load
 
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [activeSection, headerHeight]);
+
+  // -----------------------------
+  // Cleanup autosave timer
+  // -----------------------------
   useEffect(() => {
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
   }, []);
 
+  // -----------------------------
+  // Create customer ONLY when required
+  // -----------------------------
   const createCustomerIfNeeded = async () => {
     if (customerId) return customerId;
     if (creatingRef.current) return null;
@@ -149,6 +205,9 @@ const AddCustomer = () => {
     }
   };
 
+  // -----------------------------
+  // Save to mongo (PUT)
+  // -----------------------------
   const saveToMongo = async (values) => {
     const id = await createCustomerIfNeeded();
     if (!id) throw new Error("Customer ID not available");
@@ -172,11 +231,23 @@ const AddCustomer = () => {
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) {
-      throw new Error("Failed to save customer");
-    }
+    if (!res.ok) throw new Error("Failed to save customer");
   };
 
+  // -----------------------------
+  // Check meaningful input
+  // -----------------------------
+  const hasMeaningfulData = (values) => {
+    return (
+      (values?.customerName && values.customerName.trim()) ||
+      (values?.primaryMobile && values.primaryMobile.trim()) ||
+      (values?.panNumber && values.panNumber.trim())
+    );
+  };
+
+  // -----------------------------
+  // Header live update + autosave debounce
+  // -----------------------------
   const onValuesChange = (_, allValues) => {
     setHeaderInfo({
       name: allValues.customerName || "",
@@ -188,33 +259,40 @@ const AddCustomer = () => {
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
 
     autosaveTimer.current = setTimeout(() => {
+      if (!hasMeaningfulData(allValues)) return;
+
       saveToMongo(allValues).catch((err) => {
         console.error("Customer Autosave Error:", err);
       });
-    }, 600);
+    }, 700);
   };
 
-  const isCustomerFormBlank = (values) => {
-    const importantFields = [
-      values.customerName,
-      values.primaryMobile,
-      values.panNumber,
-      values.aadhaarNumber,
-      values.city,
-      values.residenceAddress,
-      values.bankName,
-      values.accountNumber,
-    ];
+  // -----------------------------
+  // Save buttons
+  // -----------------------------
+  const handleSaveOnly = async () => {
+    try {
+      const values = form.getFieldsValue(true);
 
-    return importantFields.every((v) => !v || String(v).trim().length === 0);
+      if (!hasMeaningfulData(values)) {
+        message.warning("Please enter Name / Mobile / PAN before saving");
+        return;
+      }
+
+      await saveToMongo(values);
+      message.success("Saved ✅");
+    } catch (err) {
+      console.error("Save Error:", err);
+      message.error("Save failed ❌");
+    }
   };
 
   const handleSaveAndExit = async () => {
     try {
       const values = form.getFieldsValue(true);
 
-      if (isCustomerFormBlank(values)) {
-        message.warning("Form is blank. Customer not created ❌");
+      if (!hasMeaningfulData(values)) {
+        message.warning("Please enter Name / Mobile / PAN before saving");
         return;
       }
 
@@ -227,163 +305,184 @@ const AddCustomer = () => {
     }
   };
 
-  const handleSaveOnly = async () => {
-    try {
-      const values = form.getFieldsValue(true);
-
-      if (isCustomerFormBlank(values)) {
-        message.warning("Form is blank. Customer not created ❌");
-        return;
-      }
-
-      await saveToMongo(values);
-      message.success("Saved ✅");
-    } catch (err) {
-      console.error("Save Error:", err);
-      message.error("Save failed ❌");
-    }
-  };
+  // -----------------------------
+  // UI helper chip
+  // -----------------------------
+  const InfoChip = ({ icon, value, placeholder }) => (
+    <Space
+      size={6}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 999,
+        background: "#ffffff",
+        border: "1px solid #f0f0f0",
+        fontSize: 12,
+      }}
+    >
+      {icon}
+      <span style={{ color: value ? "#262626" : "#8c8c8c" }}>
+        {value || placeholder}
+      </span>
+    </Space>
+  );
 
   return (
-    <div>
-      <Affix offsetTop={64}>
+    <div style={{ padding: 16 }}>
+      {/* Same width wrapper for header + form */}
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {/* ✅ Sticky Header (works in scroll container) */}
         <div
           style={{
-            background: "#f8f3ff",
-            padding: "10px 18px 12px",
-            borderBottom: "1px solid #f0f0f0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            zIndex: 10,
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            background: "transparent",
           }}
         >
           <div
+            ref={headerRef}
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 16,
+              background: "#ffffff",
+              border: "1px solid #f0f0f0",
+              borderRadius: 14,
+              padding: "12px 14px",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: 16 }}>Customer Master</div>
-
-            <Space>
-              <Button size="small" onClick={handleSaveAndExit}>
-                Save & Exit
-              </Button>
-
-              <Button size="small" type="primary" onClick={handleSaveOnly}>
-                Save
-              </Button>
-            </Space>
-          </div>
-
-          <Space size={12} style={{ fontSize: 12, color: "#595959" }} wrap>
-            <Space
-              size={6}
+            {/* Top row */}
+            <div
               style={{
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: "#ffffff",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
               }}
             >
-              <IdcardOutlined style={{ color: "#8c8c8c" }} />
-              <span>{headerInfo.name || "Name not set"}</span>
-            </Space>
-
-            <Space
-              size={6}
-              style={{
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: "#ffffff",
-              }}
-            >
-              <PhoneOutlined style={{ color: "#8c8c8c" }} />
-              <span>{headerInfo.mobile || "Mobile"}</span>
-            </Space>
-
-            <Space
-              size={6}
-              style={{
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: "#ffffff",
-              }}
-            >
-              <HomeOutlined style={{ color: "#8c8c8c" }} />
-              <span>{headerInfo.city || "City"}</span>
-            </Space>
-
-            <Space
-              size={6}
-              style={{
-                padding: "2px 8px",
-                borderRadius: 12,
-                background: "#ffffff",
-              }}
-            >
-              <ProfileOutlined style={{ color: "#8c8c8c" }} />
-              <span>{headerInfo.pan || "PAN"}</span>
-            </Space>
-          </Space>
-
-          <Space size={6} wrap>
-            {sectionsConfig.map((section) => {
-              const active = activeSection === section.key;
-              return (
-                <div
-                  key={section.key}
-                  onClick={() => scrollToSection(section.targetId)}
-                  style={{
-                    cursor: "pointer",
-                    padding: "4px 10px",
-                    borderRadius: 16,
-                    fontSize: 12,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    backgroundColor: active ? "#ffffff" : "#f4f0ff",
-                    color: active ? "#1d39c4" : "#595959",
-                    border: active
-                      ? "1px solid #adc6ff"
-                      : "1px solid transparent",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  {React.cloneElement(section.icon, {
-                    style: {
-                      fontSize: 14,
-                      color: active ? "#1d39c4" : "#8c8c8c",
-                    },
-                  })}
-                  <span>{section.label}</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>
+                  Customer Master
                 </div>
-              );
-            })}
-          </Space>
+                <div style={{ fontSize: 12, color: "#8c8c8c" }}>
+                  Add New Customer
+                </div>
+              </div>
 
-          <div style={{ fontSize: 11, color: "#8c8c8c" }}>
-            Mongo ID: <b>{customerId || "not created yet"}</b>
+              <Space wrap>
+                <Button
+                  icon={<LogoutOutlined />}
+                  size="small"
+                  onClick={handleSaveAndExit}
+                >
+                  Save & Exit
+                </Button>
+
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  size="small"
+                  onClick={handleSaveOnly}
+                >
+                  Save
+                </Button>
+              </Space>
+            </div>
+
+            <Divider style={{ margin: "10px 0" }} />
+
+            {/* Info row */}
+            <Space wrap>
+              <InfoChip
+                icon={<IdcardOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.name}
+                placeholder="Name"
+              />
+              <InfoChip
+                icon={<PhoneOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.mobile}
+                placeholder="Mobile"
+              />
+              <InfoChip
+                icon={<HomeOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.city}
+                placeholder="City"
+              />
+              <InfoChip
+                icon={<ProfileOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.pan}
+                placeholder="PAN"
+              />
+
+              <div style={{ fontSize: 12, color: "#8c8c8c", marginLeft: 8 }}>
+                ID: <b>{customerId || "Not created yet"}</b>
+              </div>
+            </Space>
+
+            {/* Section pills */}
+            <div style={{ marginTop: 10 }}>
+              <Space size={8} wrap>
+                {sectionsConfig.map((s) => {
+                  const active = activeSection === s.key;
+
+                  return (
+                    <div
+                      key={s.key}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => scrollToSection(s.targetId)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") scrollToSection(s.targetId);
+                      }}
+                      style={{
+                        cursor: "pointer",
+                        userSelect: "none",
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: active ? "#f0f5ff" : "#fafafa",
+                        border: active
+                          ? "1px solid #adc6ff"
+                          : "1px solid #f0f0f0",
+                        color: active ? "#1d39c4" : "#595959",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {React.cloneElement(s.icon, {
+                        style: {
+                          fontSize: 14,
+                          color: active ? "#1d39c4" : "#8c8c8c",
+                        },
+                      })}
+                      {s.label}
+                    </div>
+                  );
+                })}
+              </Space>
+            </div>
           </div>
         </div>
-      </Affix>
 
-      <Form
-        id="customer-form"
-        form={form}
-        layout="vertical"
-        onValuesChange={onValuesChange}
-        style={{ maxWidth: 1200, marginTop: 16 }}
-      >
-        <PersonalDetails />
-        <EmploymentDetails />
-        <IncomeDetails />
-        <BankDetails />
-        <ReferenceDetails />
-        <KycDetails />
-      </Form>
+        {/* ✅ Form starts BELOW sticky header always */}
+        <div style={{ paddingTop: 14 }}>
+          <Form
+            id="customer-form"
+            form={form}
+            layout="vertical"
+            onValuesChange={onValuesChange}
+          >
+            <PersonalDetails />
+            <EmploymentDetails />
+            <IncomeDetails />
+            <BankDetails />
+            <ReferenceDetails />
+            <KycDetails />
+          </Form>
+        </div>
+      </div>
     </div>
   );
 };

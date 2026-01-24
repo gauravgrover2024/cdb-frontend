@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Layout, Menu, Tooltip } from "antd";
 import {
   DashboardOutlined,
   UserAddOutlined,
-  TeamOutlined,
   FileTextOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   CarOutlined,
   WalletOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
@@ -19,33 +19,49 @@ const CustomerLayout = () => {
   const location = useLocation();
 
   const selectedKey = useMemo(() => {
-    if (location.pathname.startsWith("/customers/new")) return "customerNew";
-    if (location.pathname.startsWith("/customers/new")) return "customerNew";
-    if (location.pathname.startsWith("/customers")) return "customerDashboard";
+    const path = location.pathname;
 
-    if (location.pathname.startsWith("/customers")) return "customerDashboard";
+    // Customers
+    if (path.startsWith("/customers/new")) return "customerNew";
+    if (path.startsWith("/customers/edit")) return "customerEdit";
+    if (path.startsWith("/customers")) return "customerDashboard";
 
-    if (location.pathname.startsWith("/loans/new")) return "loanNew";
-    if (location.pathname.startsWith("/loans/edit")) return "loanEdit";
-    if (location.pathname.startsWith("/loans")) return "loanDashboard";
+    // Loans
+    if (path.startsWith("/loans/new")) return "loanNew";
+    if (path.startsWith("/loans/edit")) return "loanEdit";
+    if (path.startsWith("/loans")) return "loanDashboard";
 
-    // ✅ PAYOUTS
-    if (location.pathname.startsWith("/payouts/receivables"))
-      return "payoutReceivables";
-    if (location.pathname.startsWith("/payouts/payables"))
-      return "payoutPayables";
-    if (location.pathname.startsWith("/payouts")) return "payoutReceivables";
+    // Payouts
+    if (path.startsWith("/payouts/receivables")) return "payoutReceivables";
+    if (path.startsWith("/payouts/payables")) return "payoutPayables";
+    if (path.startsWith("/payouts")) return "payoutReceivables";
 
-    // ✅ DELIVERY ORDERS
-    if (location.pathname.startsWith("/delivery-orders/new"))
-      return "deliveryOrderNew";
-    if (location.pathname.startsWith("/delivery-orders"))
-      return "deliveryOrderDashboard";
+    // Delivery Orders
+    if (path.startsWith("/delivery-orders/new")) return "deliveryOrderNew";
+    if (path.startsWith("/delivery-orders")) return "deliveryOrderDashboard";
 
-    // ✅ PAYMENTS
-    if (location.pathname.startsWith("/payments")) return "paymentsDashboard";
+    // Payments
+    if (path.startsWith("/payments")) return "paymentsDashboard";
 
     return "";
+  }, [location.pathname]);
+
+  const pageTitle = useMemo(() => {
+    const path = location.pathname;
+
+    if (path.startsWith("/customers/new")) return "New Customer";
+    if (path.startsWith("/customers/edit")) return "Edit Customer";
+    if (path.startsWith("/customers")) return "Customer Dashboard";
+
+    if (path.startsWith("/loans/new")) return "New Loan";
+    if (path.startsWith("/loans/edit")) return "Edit Loan";
+    if (path.startsWith("/loans")) return "Loan Dashboard";
+
+    if (path.startsWith("/payouts")) return "Payout Management";
+    if (path.startsWith("/delivery-orders")) return "Delivery Orders";
+    if (path.startsWith("/payments")) return "Payments";
+
+    return "Dashboard";
   }, [location.pathname]);
 
   const menuItem = (key, icon, label, to) => ({
@@ -64,30 +80,55 @@ const CustomerLayout = () => {
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
       {/* SIDEBAR */}
       <Sider
-        width={200}
-        collapsedWidth={64}
+        width={230}
+        collapsedWidth={72}
         collapsed={collapsed}
         trigger={null}
         theme="light"
         style={{
-          borderRight: "1px solid #f0f0f0",
           background: "#ffffff",
+          borderRight: "1px solid #f0f0f0",
+          boxShadow: "2px 0 10px rgba(0,0,0,0.03)",
         }}
       >
         {/* BRAND */}
         <div
           style={{
-            height: 48,
-            margin: "8px 12px",
+            height: 56,
+            padding: "0 14px",
             display: "flex",
             alignItems: "center",
-            fontWeight: 600,
-            fontSize: collapsed ? 16 : 14,
-            color: "#1d39c4",
-            whiteSpace: "nowrap",
+            gap: 10,
+            borderBottom: "1px solid #f0f0f0",
           }}
         >
-          {collapsed ? "AC" : "Autocredits"}
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              background: "#f0f5ff",
+              border: "1px solid #d6e4ff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 800,
+              color: "#1d39c4",
+            }}
+          >
+            AC
+          </div>
+
+          {!collapsed && (
+            <div style={{ lineHeight: 1.1 }}>
+              <div style={{ fontWeight: 800, color: "#1d39c4" }}>
+                Autocredits
+              </div>
+              <div style={{ fontSize: 11, color: "#8c8c8c" }}>
+                CDrive Platform
+              </div>
+            </div>
+          )}
         </div>
 
         {/* MENU */}
@@ -96,8 +137,8 @@ const CustomerLayout = () => {
           selectedKeys={[selectedKey]}
           style={{
             borderRight: 0,
-            padding: "4px",
-            height: "calc(100vh - 64px)",
+            padding: 10,
+            height: "calc(100vh - 56px)",
             overflowY: "auto",
           }}
           items={[
@@ -108,7 +149,7 @@ const CustomerLayout = () => {
                 menuItem(
                   "customerDashboard",
                   <DashboardOutlined />,
-                  "Customer Dashboard",
+                  "Dashboard",
                   "/customers"
                 ),
                 menuItem(
@@ -117,9 +158,17 @@ const CustomerLayout = () => {
                   "New Customer",
                   "/customers/new"
                 ),
+                menuItem(
+                  "customerEdit",
+                  <UserOutlined />,
+                  "Edit Customer",
+                  "/customers"
+                ),
               ],
             },
+
             { type: "divider" },
+
             {
               type: "group",
               label: !collapsed && "Loans",
@@ -127,7 +176,7 @@ const CustomerLayout = () => {
                 menuItem(
                   "loanDashboard",
                   <DashboardOutlined />,
-                  "Loan Dashboard",
+                  "Dashboard",
                   "/loans"
                 ),
                 menuItem(
@@ -138,9 +187,9 @@ const CustomerLayout = () => {
                 ),
               ],
             },
+
             { type: "divider" },
 
-            // ✅ PAYOUTS GROUP (unchanged)
             {
               type: "group",
               label: !collapsed && "Payouts",
@@ -162,7 +211,6 @@ const CustomerLayout = () => {
 
             { type: "divider" },
 
-            // ✅ DELIVERY ORDERS GROUP (unchanged)
             {
               type: "group",
               label: !collapsed && "Delivery Orders",
@@ -178,7 +226,6 @@ const CustomerLayout = () => {
 
             { type: "divider" },
 
-            // ✅ PAYMENTS GROUP (ONLY ADDED THIS)
             {
               type: "group",
               label: !collapsed && "Payments",
@@ -203,40 +250,55 @@ const CustomerLayout = () => {
             background: "#ffffff",
             padding: "0 16px",
             height: 56,
-            lineHeight: "56px",
             borderBottom: "1px solid #f0f0f0",
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: 12,
           }}
         >
-          {/* COLLAPSE TOGGLE */}
-          <div
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              cursor: "pointer",
-              fontSize: 18,
-              color: "#595959",
-            }}
-          >
-            {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          {/* LEFT */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              onClick={() => setCollapsed(!collapsed)}
+              style={{
+                cursor: "pointer",
+                fontSize: 18,
+                color: "#595959",
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid #f0f0f0",
+                background: "#fafafa",
+              }}
+            >
+              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            </div>
+
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>{pageTitle}</div>
+              <div style={{ fontSize: 11, color: "#8c8c8c" }}>
+                Autocredits • CDrive
+              </div>
+            </div>
           </div>
 
-          <div style={{ fontWeight: 500 }}>
-            {location.pathname.startsWith("/loans")
-              ? "Loan Dashboard"
-              : location.pathname.startsWith("/payouts")
-              ? "Payout Management"
-              : location.pathname.startsWith("/delivery-orders")
-              ? "Delivery Orders"
-              : location.pathname.startsWith("/payments")
-              ? "Payments"
-              : "Customer Dashboard"}
+          {/* RIGHT */}
+          <div style={{ fontSize: 12, color: "#8c8c8c" }}>
+            {new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
           </div>
         </Header>
 
         {/* CONTENT */}
         <Content
+          id="app-scroll-container"
           style={{
             padding: 0,
             background: "#f5f7fa",
@@ -247,6 +309,19 @@ const CustomerLayout = () => {
           <Outlet />
         </Content>
       </Layout>
+
+      {/* small CSS override for better selected menu */}
+      <style>{`
+        .ant-menu-item-selected {
+          background: #f0f5ff !important;
+          border-radius: 12px !important;
+          font-weight: 700 !important;
+        }
+        .ant-menu-item {
+          border-radius: 12px !important;
+          margin: 4px 0 !important;
+        }
+      `}</style>
     </Layout>
   );
 };
