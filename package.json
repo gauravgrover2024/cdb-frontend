@@ -14,7 +14,7 @@
     "tailwind-merge": "^2.2.1",
     "class-variance-authority": "^0.7.0",
     "@radix-ui/react-slot": "^1.0.2",
-    "lucide-react": "^0.390.0"
+    "lucide-react": "0.562.0"
   },
   "scripts": {
     "start": "react-scripts start",
