@@ -23,7 +23,7 @@ const CustomerLayout = () => {
 
     // Customers
     if (path.startsWith("/customers/new")) return "customerNew";
-    if (path.startsWith("/customers/edit")) return "customerEdit";
+    if (path.startsWith("/customers/edit")) return "customerDashboard";
     if (path.startsWith("/customers")) return "customerDashboard";
 
     // Loans
@@ -157,12 +157,6 @@ const CustomerLayout = () => {
                   <UserAddOutlined />,
                   "New Customer",
                   "/customers/new"
-                ),
-                menuItem(
-                  "customerEdit",
-                  <UserOutlined />,
-                  "Edit Customer",
-                  "/customers"
                 ),
               ],
             },

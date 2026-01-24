@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, Row, Col, Card, Space, Tag, Divider } from "antd";
+import { Modal, Row, Col, Card, Space, Tag, Divider, Button } from "antd";
 import {
   UserOutlined,
   PhoneOutlined,
@@ -83,8 +83,11 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
       onCancel={onClose}
       footer={null}
       width={1000}
-      bodyStyle={{ padding: 0 }}
       centered
+      destroyOnClose
+      styles={{
+        body: { padding: 0 },
+      }}
     >
       {/* Header Strip */}
       <div
@@ -228,7 +231,11 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <Col xs={24} md={12}>
               <InfoRow
                 label="Extra Mobiles"
-                value={(customer.extraMobiles || []).join(", ")}
+                value={
+                  Array.isArray(customer.extraMobiles)
+                    ? customer.extraMobiles.join(", ")
+                    : ""
+                }
               />
             </Col>
             <Col xs={24} md={12}>
@@ -263,7 +270,11 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <Col xs={24} md={12}>
               <InfoRow
                 label="Nature of Business"
-                value={(customer.businessNature || []).join(", ")}
+                value={
+                  Array.isArray(customer.businessNature)
+                    ? customer.businessNature.join(", ")
+                    : ""
+                }
               />
               <InfoRow label="Monthly Salary" value={customer.salaryMonthly} />
               <InfoRow
@@ -457,38 +468,11 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
           background: "#ffffff",
         }}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            border: "1px solid #d9d9d9",
-            borderRadius: 6,
-            padding: "6px 16px",
-            fontSize: 13,
-            background: "#fff",
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
-        >
-          Close
-        </button>
+        <Button onClick={onClose}>Close</Button>
 
-        <button
-          type="button"
-          onClick={() => onEdit(customer)}
-          style={{
-            border: "none",
-            borderRadius: 6,
-            padding: "6px 18px",
-            fontSize: 13,
-            background: "#722ed1",
-            color: "#fff",
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
+        <Button type="primary" onClick={() => (onEdit ? onEdit() : null)}>
           Edit Customer
-        </button>
+        </Button>
       </div>
     </Modal>
   );

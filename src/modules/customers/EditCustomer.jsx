@@ -1,7 +1,7 @@
 // src/modules/customers/EditCustomer.jsx
 
-import React, { useEffect, useState } from "react";
-import { Form, Button, Affix, Space, message } from "antd";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Form, Button, Space, message, Divider, Spin } from "antd";
 import dayjs from "dayjs";
 import {
   IdcardOutlined,
@@ -12,6 +12,8 @@ import {
   TeamOutlined,
   PhoneOutlined,
   HomeOutlined,
+  SaveOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -22,9 +24,6 @@ import KycDetails from "./customer-form/KycDetails";
 import BankDetails from "./customer-form/BankDetails";
 import ReferenceDetails from "./customer-form/ReferenceDetails";
 
-// -----------------------------
-// Sections config
-// -----------------------------
 const sectionsConfig = [
   {
     key: "personal",
@@ -92,6 +91,8 @@ const EditCustomer = () => {
   const { id } = useParams();
 
   const [customer, setCustomer] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const [activeSection, setActiveSection] = useState("personal");
 
   const [headerInfo, setHeaderInfo] = useState({
@@ -104,6 +105,28 @@ const EditCustomer = () => {
   const [saving, setSaving] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
+  // Header height (for correct scroll offset)
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(180);
+
+  // Autosave timer
+  const autosaveTimer = useRef(null);
+
+  // -----------------------------
+  // Measure header height
+  // -----------------------------
+  useEffect(() => {
+    const measure = () => {
+      if (!headerRef.current) return;
+      const h = headerRef.current.getBoundingClientRect().height;
+      if (h && h > 100) setHeaderHeight(h);
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   // -----------------------------
   // Load customer from Mongo
   // -----------------------------
@@ -112,17 +135,20 @@ const EditCustomer = () => {
 
     const load = async () => {
       try {
+        setLoading(true);
+
         const found = await fetchCustomerById(id);
+
         if (!found) {
           message.error("Customer not found");
+          navigate("/customers");
           return;
         }
 
         setCustomer(found);
 
-        // Fill form
+        // Patch dates into dayjs
         form.setFieldsValue({
-          // Personal
           customerName: found.customerName || "",
           sdwOf: found.sdwOf || "",
           gender: found.gender || "",
@@ -143,7 +169,6 @@ const EditCustomer = () => {
           nomineeDob: found.nomineeDob ? dayjs(found.nomineeDob) : null,
           nomineeRelation: found.nomineeRelation || "",
 
-          // Employment
           occupationType: found.occupationType || "",
           companyName: found.companyName || "",
           companyType: found.companyType || "",
@@ -156,11 +181,9 @@ const EditCustomer = () => {
           designation: found.designation || "",
           incorporationYear: found.incorporationYear || "",
 
-          // Income
           panNumber: found.panNumber || "",
           itrYears: found.itrYears || "",
 
-          // Bank
           bankName: found.bankName || "",
           accountNumber: found.accountNumber || "",
           ifsc: found.ifsc || "",
@@ -168,18 +191,15 @@ const EditCustomer = () => {
           accountSinceYears: found.accountSinceYears || "",
           accountType: found.accountType || "",
 
-          // References
           reference1: found.reference1 || null,
           reference2: found.reference2 || null,
 
-          // KYC
           aadhaarNumber: found.aadhaarNumber || "",
           passportNumber: found.passportNumber || "",
           gstNumber: found.gstNumber || "",
           dlNumber: found.dlNumber || "",
         });
 
-        // Header chips
         setHeaderInfo({
           name: found.customerName || "",
           mobile: found.primaryMobile || "",
@@ -191,25 +211,55 @@ const EditCustomer = () => {
       } catch (err) {
         console.error("Load Customer Error:", err);
         message.error("Failed to load customer ❌");
+      } finally {
+        setLoading(false);
       }
     };
 
     load();
-  }, [id, form]);
+  }, [id, form, navigate]);
 
   // -----------------------------
-  // Scroll Spy
+  // Scroll helper (scroll inside #app-scroll-container)
+  // -----------------------------
+  const scrollToSection = (targetId) => {
+    const container = document.getElementById("app-scroll-container");
+    const el = document.getElementById(targetId);
+
+    if (!container || !el) return;
+
+    const containerTop = container.getBoundingClientRect().top;
+    const elTop = el.getBoundingClientRect().top;
+
+    const SCROLL_OFFSET = headerHeight + 16;
+
+    const scrollTop =
+      container.scrollTop + (elTop - containerTop) - SCROLL_OFFSET;
+
+    container.scrollTo({
+      top: scrollTop,
+      behavior: "smooth",
+    });
+  };
+
+  // -----------------------------
+  // Scroll Spy (active pill highlight)
   // -----------------------------
   useEffect(() => {
+    const container = document.getElementById("app-scroll-container");
+    if (!container) return;
+
     const onScroll = () => {
+      const OFFSET = headerHeight + 16;
+
       const offsets = sectionsConfig.map((s) => {
         const el = document.getElementById(s.targetId);
         if (!el) return { key: s.key, top: Infinity };
         return { key: s.key, top: el.getBoundingClientRect().top };
       });
 
-      const visible = offsets.reduce((a, b) =>
-        Math.abs(b.top - 96) < Math.abs(a.top - 96) ? b : a
+      const visible = offsets.reduce((prev, curr) =>
+        Math.abs(curr.top - OFFSET) < Math.abs(prev.top - OFFSET) ? curr : prev
       );
 
       if (visible.key && visible.key !== activeSection) {
@@ -217,16 +267,11 @@ const EditCustomer = () => {
       }
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [activeSection]);
+    container.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
 
-  const scrollToSection = (targetId) => {
-    const el = document.getElementById(targetId);
-    if (!el) return;
-    const y = el.getBoundingClientRect().top + window.scrollY - 96;
-    window.scrollTo({ top: y, behavior: "smooth" });
-  };
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [activeSection, headerHeight]);
 
   // -----------------------------
   // Header live update
@@ -241,46 +286,47 @@ const EditCustomer = () => {
   };
 
   // -----------------------------
-  // Autosave (debounced + safe)
+  // Autosave (debounced) - only after initial load
   // -----------------------------
   const valuesSnapshot = Form.useWatch([], form);
+
+  const autosavePayload = useMemo(() => {
+    if (!valuesSnapshot) return null;
+
+    return {
+      ...valuesSnapshot,
+      dob: valuesSnapshot?.dob ? valuesSnapshot.dob.format("YYYY-MM-DD") : "",
+      nomineeDob: valuesSnapshot?.nomineeDob
+        ? valuesSnapshot.nomineeDob.format("YYYY-MM-DD")
+        : "",
+      updatedAt: new Date().toISOString(),
+    };
+  }, [valuesSnapshot]);
 
   useEffect(() => {
     if (!id) return;
     if (!hasLoaded) return;
-    if (!valuesSnapshot) return;
-    if (saving) return;
+    if (!autosavePayload) return;
 
-    const timer = setTimeout(async () => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+
+    autosaveTimer.current = setTimeout(async () => {
       try {
-        const payload = {
-          ...valuesSnapshot,
-
-          // IMPORTANT: store null instead of "" so DB doesn't get corrupted
-          dob: valuesSnapshot?.dob
-            ? valuesSnapshot.dob.format("YYYY-MM-DD")
-            : null,
-
-          nomineeDob: valuesSnapshot?.nomineeDob
-            ? valuesSnapshot.nomineeDob.format("YYYY-MM-DD")
-            : null,
-
-          updatedAt: new Date().toISOString(),
-        };
-
-        await updateCustomerById(id, payload);
+        await updateCustomerById(id, autosavePayload);
       } catch (err) {
-        console.error("Autosave Customer Error:", err);
+        console.error("Autosave Error:", err);
       }
-    }, 900);
+    }, 800);
 
-    return () => clearTimeout(timer);
-  }, [id, hasLoaded, valuesSnapshot, saving]);
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+  }, [id, hasLoaded, autosavePayload]);
 
   // -----------------------------
-  // Manual Save (validate + exit)
+  // Manual Save buttons
   // -----------------------------
-  const handleSave = async () => {
+  const handleSaveOnly = async () => {
     if (!id) return;
 
     try {
@@ -290,113 +336,224 @@ const EditCustomer = () => {
 
       const payload = {
         ...values,
-        dob: values?.dob ? values.dob.format("YYYY-MM-DD") : null,
+        dob: values?.dob ? values.dob.format("YYYY-MM-DD") : "",
         nomineeDob: values?.nomineeDob
           ? values.nomineeDob.format("YYYY-MM-DD")
-          : null,
+          : "",
         updatedAt: new Date().toISOString(),
       };
 
       await updateCustomerById(id, payload);
 
-      message.success("Customer updated successfully ✅");
-      navigate("/customers");
+      message.success("Saved ✅");
     } catch (err) {
-      console.error("Save Customer Error:", err);
+      console.error("Save Error:", err);
       message.error("Save failed ❌");
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSaveAndExit = async () => {
+    try {
+      await handleSaveOnly();
+      navigate("/customers");
+    } catch (err) {
+      // already handled
+    }
+  };
+
+  // -----------------------------
+  // UI helper chip
+  // -----------------------------
+  const InfoChip = ({ icon, value, placeholder }) => (
+    <Space
+      size={6}
+      style={{
+        padding: "4px 10px",
+        borderRadius: 999,
+        background: "#ffffff",
+        border: "1px solid #f0f0f0",
+        fontSize: 12,
+      }}
+    >
+      {icon}
+      <span style={{ color: value ? "#262626" : "#8c8c8c" }}>
+        {value || placeholder}
+      </span>
+    </Space>
+  );
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, display: "flex", justifyContent: "center" }}>
+        <Spin />
+      </div>
+    );
+  }
+
   if (!customer) {
-    return <div style={{ padding: 24 }}>Loading...</div>;
+    return <div style={{ padding: 24 }}>Customer not found</div>;
   }
 
   return (
-    <div>
-      {/* HEADER */}
-      <Affix offsetTop={64}>
+    <div style={{ padding: 16 }}>
+      {/* Same width wrapper for header + form */}
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        {/* Sticky Header */}
         <div
           style={{
-            background: "#f8f3ff",
-            padding: "10px 18px 12px",
-            borderBottom: "1px solid #f0f0f0",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            background: "transparent",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <div style={{ fontWeight: 600 }}>
-              Edit Customer – {customer.customerName || "Customer"}
+          <div
+            ref={headerRef}
+            style={{
+              background: "#ffffff",
+              border: "1px solid #f0f0f0",
+              borderRadius: 14,
+              padding: "12px 14px",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+            }}
+          >
+            {/* Top row */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>
+                  Customer Master
+                </div>
+                <div style={{ fontSize: 12, color: "#8c8c8c" }}>
+                  Edit Customer
+                </div>
+              </div>
+
+              <Space wrap>
+                <Button
+                  icon={<LogoutOutlined />}
+                  size="small"
+                  onClick={handleSaveAndExit}
+                >
+                  Save & Exit
+                </Button>
+
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  size="small"
+                  loading={saving}
+                  onClick={handleSaveOnly}
+                >
+                  Save
+                </Button>
+              </Space>
             </div>
 
-            <Button
-              type="primary"
-              size="small"
-              loading={saving}
-              onClick={handleSave}
-            >
-              Save
-            </Button>
-          </div>
+            <Divider style={{ margin: "10px 0" }} />
 
-          {/* Header Chips */}
-          <Space size={12} wrap style={{ fontSize: 12 }}>
-            <Space>
-              <IdcardOutlined /> {headerInfo.name || "Name"}
-            </Space>
-            <Space>
-              <PhoneOutlined /> {headerInfo.mobile || "Mobile"}
-            </Space>
-            <Space>
-              <HomeOutlined /> {headerInfo.city || "City"}
-            </Space>
-            <Space>
-              <ProfileOutlined /> {headerInfo.pan || "PAN"}
-            </Space>
-          </Space>
+            {/* Info row */}
+            <Space wrap>
+              <InfoChip
+                icon={<IdcardOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.name}
+                placeholder="Name"
+              />
+              <InfoChip
+                icon={<PhoneOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.mobile}
+                placeholder="Mobile"
+              />
+              <InfoChip
+                icon={<HomeOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.city}
+                placeholder="City"
+              />
+              <InfoChip
+                icon={<ProfileOutlined style={{ color: "#8c8c8c" }} />}
+                value={headerInfo.pan}
+                placeholder="PAN"
+              />
 
-          {/* Section Nav */}
-          <Space size={6} wrap>
-            {sectionsConfig.map((s) => (
-              <div
-                key={s.key}
-                onClick={() => scrollToSection(s.targetId)}
-                style={{
-                  cursor: "pointer",
-                  padding: "4px 10px",
-                  borderRadius: 16,
-                  fontSize: 12,
-                  background: activeSection === s.key ? "#fff" : "#f4f0ff",
-                }}
-              >
-                {s.label}
+              <div style={{ fontSize: 12, color: "#8c8c8c", marginLeft: 8 }}>
+                ID: <b>{id}</b>
               </div>
-            ))}
-          </Space>
-        </div>
-      </Affix>
+            </Space>
 
-      {/* FORM */}
-      <Form
-        form={form}
-        layout="vertical"
-        onValuesChange={onValuesChange}
-        style={{
-          maxWidth: 1200,
-          margin: "16px auto 0",
-          width: "100%",
-        }}
-      >
-        <PersonalDetails />
-        <EmploymentDetails />
-        <IncomeDetails />
-        <BankDetails />
-        <ReferenceDetails />
-        <KycDetails />
-      </Form>
+            {/* Section pills */}
+            <div style={{ marginTop: 10 }}>
+              <Space size={8} wrap>
+                {sectionsConfig.map((s) => {
+                  const active = activeSection === s.key;
+
+                  return (
+                    <div
+                      key={s.key}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => scrollToSection(s.targetId)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") scrollToSection(s.targetId);
+                      }}
+                      style={{
+                        cursor: "pointer",
+                        userSelect: "none",
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: active ? "#f0f5ff" : "#fafafa",
+                        border: active
+                          ? "1px solid #adc6ff"
+                          : "1px solid #f0f0f0",
+                        color: active ? "#1d39c4" : "#595959",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {React.cloneElement(s.icon, {
+                        style: {
+                          fontSize: 14,
+                          color: active ? "#1d39c4" : "#8c8c8c",
+                        },
+                      })}
+                      {s.label}
+                    </div>
+                  );
+                })}
+              </Space>
+            </div>
+          </div>
+        </div>
+
+        {/* Form starts below header */}
+        <div style={{ paddingTop: 14 }}>
+          <Form
+            id="customer-form"
+            form={form}
+            layout="vertical"
+            onValuesChange={onValuesChange}
+          >
+            <PersonalDetails />
+            <EmploymentDetails />
+            <IncomeDetails />
+            <BankDetails />
+            <ReferenceDetails />
+            <KycDetails />
+          </Form>
+        </div>
+      </div>
     </div>
   );
 };
