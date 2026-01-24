@@ -1,4 +1,4 @@
-import { getDb } from "../../lib/mongodb";
+import { getDb } from "../../../lib/mongodb";
 
 const isPlainObject = (v) =>
   v !== null && typeof v === "object" && !Array.isArray(v);
