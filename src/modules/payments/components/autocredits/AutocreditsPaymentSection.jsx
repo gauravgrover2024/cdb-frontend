@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Collapse, message } from "antd";
 
 import AutocreditsPaymentHeader from "./AutocreditsPaymentHeader";
@@ -16,9 +16,19 @@ const AutocreditsPaymentSection = ({
   showroomData = {},
   showroomTotals = {},
   hasLoadedPayments = false,
+
+  // ✅ controlled props from PaymentForm (Mongo document)
+  autocreditsRows = [],
+  setAutocreditsRows = () => {},
+
+  autocreditsTotals: autocreditsTotalsProp,
+  setAutocreditsTotals = () => {},
+
+  isAutocreditsVerified,
+  setIsAutocreditsVerified = () => {},
 }) => {
-  const [autocreditsRows, setAutocreditsRows] = useState([]);
-  const [autocreditsTotals, setAutocreditsTotals] = useState({
+  // fallback defaults (only used if parent doesn't pass totals yet)
+  const [localTotals, setLocalTotals] = useState({
     receiptAmountTotal: 0,
     receiptBreakup: {
       Insurance: 0,
@@ -28,79 +38,14 @@ const AutocreditsPaymentSection = ({
     },
   });
 
-  const [isAutocreditsVerified, setIsAutocreditsVerified] = useState(false);
+  // if parent totals exist, use them, else use localTotals
+  const autocreditsTotals = autocreditsTotalsProp || localTotals;
 
-  // Load savedPayments (Autocredits only)
+  // keep local totals synced if parent doesn't control it
   useEffect(() => {
-    if (!loanId) return;
-
-    const savedPayments = JSON.parse(
-      localStorage.getItem("savedPayments") || "[]"
-    );
-
-    const found =
-      (savedPayments || []).find((p) => p?.loanId === loanId) ||
-      (savedPayments || []).find((p) => p?.do_loanId === loanId);
-
-    if (found?.autocreditsRows?.length)
-      setAutocreditsRows(found.autocreditsRows);
-
-    if (found?.autocreditsTotals) {
-      setAutocreditsTotals((prev) => ({
-        ...prev,
-        ...found.autocreditsTotals,
-      }));
-    }
-
-    if (typeof found?.isAutocreditsVerified === "boolean") {
-      setIsAutocreditsVerified(found.isAutocreditsVerified);
-    }
-  }, [loanId]);
-
-  // Autosave (Autocredits only)
-  useEffect(() => {
-    if (!loanId) return;
-    if (!hasLoadedPayments) return;
-
-    try {
-      const savedPayments = JSON.parse(
-        localStorage.getItem("savedPayments") || "[]"
-      );
-
-      const updated = Array.isArray(savedPayments)
-        ? savedPayments.filter(
-            (p) => p?.loanId !== loanId && p?.do_loanId !== loanId
-          )
-        : [];
-
-      const existing =
-        (savedPayments || []).find((p) => p?.loanId === loanId) ||
-        (savedPayments || []).find((p) => p?.do_loanId === loanId) ||
-        {};
-
-      const payload = {
-        ...existing,
-        loanId,
-        do_loanId: doLoanId || existing?.do_loanId || loanId,
-        updatedAt: new Date().toISOString(),
-        autocreditsRows,
-        autocreditsTotals,
-        isAutocreditsVerified,
-      };
-
-      updated.push(payload);
-      localStorage.setItem("savedPayments", JSON.stringify(updated));
-    } catch (err) {
-      console.error("Autosave Autocredits Error:", err);
-    }
-  }, [
-    loanId,
-    doLoanId,
-    hasLoadedPayments,
-    autocreditsRows,
-    autocreditsTotals,
-    isAutocreditsVerified,
-  ]);
+    if (autocreditsTotalsProp) return;
+    // parent is not controlling totals, keep local state active
+  }, [autocreditsTotalsProp]);
 
   // Net margin from DO (already computed in PaymentForm and passed via showroomData)
   const autocreditsMargin = asInt(showroomData?.autocreditsMargin || 0);
@@ -115,7 +60,6 @@ const AutocreditsPaymentSection = ({
   const marginReceivable = autocreditsMargin + showroomAutoPaid - exchangeAdj;
 
   const canVerify = useMemo(() => {
-    // Net receivable for verification: margin + showroom payments + insurance - exchange
     const netReceivable =
       autocreditsMargin + showroomAutoPaid + insuranceRecv - exchangeAdj;
 
@@ -129,6 +73,14 @@ const AutocreditsPaymentSection = ({
     exchangeAdj,
     autocreditsTotals,
   ]);
+
+  const handleTotalsChange = (t) => {
+    if (typeof setAutocreditsTotals === "function") {
+      setAutocreditsTotals(t);
+    } else {
+      setLocalTotals(t);
+    }
+  };
 
   return (
     <div style={{ marginTop: 26 }}>
@@ -158,10 +110,10 @@ const AutocreditsPaymentSection = ({
                     insuranceReceivable={insuranceRecv}
                     exchangeReceivable={exchangeAdj}
                     marginReceivable={marginReceivable}
-                    onTotalsChange={(t) => setAutocreditsTotals(t)}
+                    onTotalsChange={handleTotalsChange}
                     onRowsChange={(r) => setAutocreditsRows(r)}
                     initialRows={autocreditsRows}
-                    readOnly={isAutocreditsVerified}
+                    readOnly={!!isAutocreditsVerified}
                   />
                 </div>
 
@@ -172,7 +124,7 @@ const AutocreditsPaymentSection = ({
                     data={showroomData}
                     showroomTotals={showroomTotals}
                     autocreditsTotals={autocreditsTotals}
-                    isVerified={isAutocreditsVerified}
+                    isVerified={!!isAutocreditsVerified}
                     canVerify={canVerify}
                     onToggleVerified={() => {
                       if (!isAutocreditsVerified && !canVerify) {

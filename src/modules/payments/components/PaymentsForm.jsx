@@ -66,6 +66,7 @@ const PaymentForm = () => {
   const [loan, setLoan] = useState(null);
   const [doRec, setDoRec] = useState(null);
 
+  // Showroom section states
   const [entryTotals, setEntryTotals] = useState({
     paymentAmountLoan: 0,
     paymentAmountAutocredits: 0,
@@ -77,19 +78,39 @@ const PaymentForm = () => {
   });
 
   const [showroomRows, setShowroomRows] = useState([]);
-  const [hasLoadedPayments, setHasLoadedPayments] = useState(false);
-
   const [isVerified, setIsVerified] = useState(false);
 
-  // keep the latest saved doc in memory (so we don't GET before every autosave)
+  // Autocredits section states (NOW FROM SAME MONGO DOC)
+  const [autocreditsRows, setAutocreditsRows] = useState([]);
+  const [autocreditsTotals, setAutocreditsTotals] = useState({
+    receiptAmountTotal: 0,
+    receiptBreakup: {
+      Insurance: 0,
+      "Margin Money": 0,
+      "Exchange Vehicle": 0,
+      Commission: 0,
+    },
+  });
+  const [isAutocreditsVerified, setIsAutocreditsVerified] = useState(false);
+
+  const [hasLoadedPayments, setHasLoadedPayments] = useState(false);
+
+  // Keep latest saved doc in memory (so we don't GET before every autosave)
   const [existingPayment, setExistingPayment] = useState(null);
 
-  // debounce to prevent saving on every keystroke
+  // Debounced values (prevents saving on every keystroke)
   const debouncedShowroomRows = useDebounce(showroomRows, 800);
   const debouncedEntryTotals = useDebounce(entryTotals, 800);
   const debouncedIsVerified = useDebounce(isVerified, 800);
 
-  // avoid showing "saved" toast too frequently
+  const debouncedAutocreditsRows = useDebounce(autocreditsRows, 800);
+  const debouncedAutocreditsTotals = useDebounce(autocreditsTotals, 800);
+  const debouncedIsAutocreditsVerified = useDebounce(
+    isAutocreditsVerified,
+    800
+  );
+
+  // Avoid toast spam
   const lastSaveAtRef = useRef(0);
 
   // Load Loan + DO (still from localStorage for now)
@@ -107,7 +128,7 @@ const PaymentForm = () => {
     setDoRec(foundDO || null);
   }, [loanId]);
 
-  // Load savedPayments (Showroom ONLY) from API
+  // Load savedPayments (FULL DOC) from API
   useEffect(() => {
     if (!loanId) return;
 
@@ -117,13 +138,31 @@ const PaymentForm = () => {
 
         setExistingPayment(found || null);
 
-        if (found?.showroomRows?.length) setShowroomRows(found.showroomRows);
+        // Showroom
+        if (Array.isArray(found?.showroomRows))
+          setShowroomRows(found.showroomRows);
 
         if (found?.entryTotals) {
           setEntryTotals((prev) => ({ ...prev, ...found.entryTotals }));
         }
 
         if (found?.isVerified === true) setIsVerified(true);
+
+        // Autocredits
+        if (Array.isArray(found?.autocreditsRows)) {
+          setAutocreditsRows(found.autocreditsRows);
+        }
+
+        if (found?.autocreditsTotals) {
+          setAutocreditsTotals((prev) => ({
+            ...prev,
+            ...found.autocreditsTotals,
+          }));
+        }
+
+        if (typeof found?.isAutocreditsVerified === "boolean") {
+          setIsAutocreditsVerified(found.isAutocreditsVerified);
+        }
       } catch (err) {
         console.error("Load Payments Error:", err);
       } finally {
@@ -134,7 +173,7 @@ const PaymentForm = () => {
     load();
   }, [loanId]);
 
-  // Autosave (Showroom ONLY) via API (Debounced + No extra GET)
+  // Autosave (FULL DOC) via API (Debounced + Single Document)
   useEffect(() => {
     if (!loanId) return;
     if (!hasLoadedPayments) return;
@@ -143,26 +182,27 @@ const PaymentForm = () => {
       try {
         const existing = existingPayment || null;
 
+        // ---- Commission replicate logic: showroom -> autocredits ----
         const showroomCommission = asInt(
           debouncedEntryTotals?.paymentCommissionReceived || 0
         );
 
         const commissionDate = getShowroomCommissionDate(debouncedShowroomRows);
 
-        const existingAutocreditsRows = Array.isArray(existing?.autocreditsRows)
-          ? existing.autocreditsRows
+        const baseAutocreditsRows = Array.isArray(debouncedAutocreditsRows)
+          ? debouncedAutocreditsRows
           : [];
 
-        const hasCommissionRow = existingAutocreditsRows.some(
+        const hasCommissionRow = baseAutocreditsRows.some(
           (r) =>
             Array.isArray(r.receiptTypes) &&
             r.receiptTypes.includes("Commission")
         );
 
-        const autocreditsRows =
+        const autocreditsRowsToSave =
           !hasCommissionRow && showroomCommission > 0
             ? [
-                ...existingAutocreditsRows,
+                ...baseAutocreditsRows,
                 {
                   id: `auto-commission-${Date.now()}`,
                   receiptTypes: ["Commission"],
@@ -174,25 +214,32 @@ const PaymentForm = () => {
                   remarks: "Commission received from dealer",
                 },
               ]
-            : existingAutocreditsRows;
+            : baseAutocreditsRows;
 
+        // ---- Build full Mongo document payload ----
         const payload = {
           ...(existing || {}),
           loanId,
           do_loanId: doRec?.do_loanId || loanId,
           updatedAt: new Date().toISOString(),
+
+          // Showroom
           showroomRows: debouncedShowroomRows,
           entryTotals: debouncedEntryTotals,
           isVerified: debouncedIsVerified,
-          autocreditsRows,
+
+          // Autocredits
+          autocreditsRows: autocreditsRowsToSave,
+          autocreditsTotals: debouncedAutocreditsTotals,
+          isAutocreditsVerified: debouncedIsAutocreditsVerified,
         };
 
         await savePaymentByLoanId(loanId, payload);
 
-        // update local cache so next autosave uses latest saved doc
+        // update cache for next autosave
         setExistingPayment(payload);
 
-        // optional: show "saved" toast but not spammy
+        // optional toast every 5 sec max
         const now = Date.now();
         if (now - lastSaveAtRef.current > 5000) {
           lastSaveAtRef.current = now;
@@ -200,7 +247,7 @@ const PaymentForm = () => {
         }
       } catch (err) {
         console.error("Autosave Payments Error:", err);
-        // message.error("Auto-save failed ❌"); // keep silent to avoid spam
+        // keep silent to avoid spam
       }
     };
 
@@ -210,9 +257,14 @@ const PaymentForm = () => {
     hasLoadedPayments,
     doRec,
     existingPayment,
+
     debouncedShowroomRows,
     debouncedEntryTotals,
     debouncedIsVerified,
+
+    debouncedAutocreditsRows,
+    debouncedAutocreditsTotals,
+    debouncedIsAutocreditsVerified,
   ]);
 
   const showroomData = useMemo(() => {
@@ -276,9 +328,7 @@ const PaymentForm = () => {
       norm(exchangePurchasedBy) === "autocredits" ? exchangeValue : 0;
 
     const insuranceBy = String(doRec?.do_insuranceBy || "");
-
     const insuranceByNorm = norm(insuranceBy);
-
     const isAutocreditsInsurance = insuranceByNorm.includes("autocredits");
 
     const autocreditsInsuranceReceivable = isAutocreditsInsurance
@@ -396,6 +446,12 @@ const PaymentForm = () => {
             showroomData={showroomData}
             showroomTotals={entryTotals}
             hasLoadedPayments={hasLoadedPayments}
+            autocreditsRows={autocreditsRows}
+            setAutocreditsRows={setAutocreditsRows}
+            autocreditsTotals={autocreditsTotals}
+            setAutocreditsTotals={setAutocreditsTotals}
+            isAutocreditsVerified={isAutocreditsVerified}
+            setIsAutocreditsVerified={setIsAutocreditsVerified}
           />
         </div>
       </Card>
