@@ -75,7 +75,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
 
     try {
       const res = await fetch(
-        `/api/customers/search?q=${encodeURIComponent(q)}`,
+        `pages/api/customers/search?q=${encodeURIComponent(q)}`,
         {
           method: "GET",
           headers: { Accept: "application/json" },
