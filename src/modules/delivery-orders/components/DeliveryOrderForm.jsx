@@ -20,7 +20,6 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 
-// ✅ SECTIONS
 import Section2DealerDetails from "./sections/Section2DealerDetails";
 import Section3VehicleDetailsShowroom from "./sections/Section3VehicleDetailsShowroom";
 import Section4VehicleDetailsCustomer from "./sections/Section4VehicleDetailsCustomer";
@@ -46,6 +45,22 @@ const toDayjs = (v) => {
   return d.isValid() ? d : undefined;
 };
 
+// ---- API helpers for DOs ----
+const fetchDOByLoanId = async (loanId) => {
+  const res = await fetch(`/api/delivery-orders/${loanId}`);
+  if (!res.ok) throw new Error("Failed to fetch DO");
+  return res.json(); // can be null
+};
+
+const saveDOByLoanId = async (loanId, payload) => {
+  const res = await fetch(`/api/delivery-orders/${loanId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to save DO");
+};
+
 // -------------------------------------
 // Main Component
 // -------------------------------------
@@ -56,17 +71,12 @@ const DeliveryOrderForm = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  // -----------------------------
-  // Watch checkbox for Section 4
-  // -----------------------------
   const showCustomerVehicleSection = Form.useWatch(
     "do_showCustomerVehicleSection",
     form
   );
 
-  // -------------------------------------
   // Load Loan from localStorage (prefill)
-  // -------------------------------------
   const loanData = useMemo(() => {
     const editingLoanRaw = localStorage.getItem("editingLoan");
     if (editingLoanRaw) {
@@ -93,81 +103,67 @@ const DeliveryOrderForm = () => {
   }, [loanId]);
 
   // -------------------------------------
-  // ✅ Load Saved DO (Edit/View populate)
+  // ✅ Load Saved DO from API (Edit/View)
   // -------------------------------------
   useEffect(() => {
     if (!loanId) return;
 
-    const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
+    const load = async () => {
+      try {
+        const foundDO = await fetchDOByLoanId(loanId);
 
-    const foundDO =
-      (savedDOs || []).find((d) => d?.loanId === loanId) ||
-      (savedDOs || []).find((d) => d?.do_loanId === loanId);
+        if (!foundDO) return;
 
-    // ✅ If DO exists → populate form from saved DO and STOP
-    if (foundDO) {
-      const patched = { ...foundDO };
+        const patched = { ...foundDO };
 
-      // ✅ convert any ISO string date fields to dayjs
-      Object.keys(patched).forEach((key) => {
-        if (
-          key.toLowerCase().includes("date") &&
-          typeof patched[key] === "string"
-        ) {
-          const d = dayjs(patched[key]);
-          patched[key] = d.isValid() ? d : undefined;
-        }
-      });
+        Object.keys(patched).forEach((key) => {
+          if (
+            key.toLowerCase().includes("date") &&
+            typeof patched[key] === "string"
+          ) {
+            const d = dayjs(patched[key]);
+            patched[key] = d.isValid() ? d : undefined;
+          }
+        });
 
-      form.setFieldsValue({
-        ...patched,
-        do_loanId: patched?.do_loanId || patched?.loanId || loanId,
-        loanId: patched?.loanId || patched?.do_loanId || loanId,
-      });
+        form.setFieldsValue({
+          ...patched,
+          do_loanId: patched?.do_loanId || patched?.loanId || loanId,
+          loanId: patched?.loanId || patched?.do_loanId || loanId,
+        });
+      } catch (err) {
+        console.error("Load DO Error:", err);
+      }
+    };
 
-      return;
-    }
-
-    // ❌ If no DO exists, do nothing here (new DO will be handled in next effect)
+    load();
   }, [loanId, form]);
 
   // -------------------------------------
   // ✅ Prefill ONLY when DO not found
+  //    (API load above leaves form untouched when no DO)
   // -------------------------------------
   useEffect(() => {
     if (!loanId) return;
 
-    const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
-
-    const foundDO =
-      (savedDOs || []).find((d) => d?.loanId === loanId) ||
-      (savedDOs || []).find((d) => d?.do_loanId === loanId);
-
-    // ✅ DO exists → don't overwrite it
-    if (foundDO) return;
-
     const existing = form.getFieldsValue(true);
 
-    // DO meta
     if (!existing.do_date) form.setFieldsValue({ do_date: dayjs() });
 
     if (!existing.do_refNo) {
       form.setFieldsValue({ do_refNo: generateDONumber() });
     }
 
-    // Default checkbox OFF
     if (existing.do_showCustomerVehicleSection === undefined) {
       form.setFieldsValue({ do_showCustomerVehicleSection: false });
     }
 
-    // Loan Id
     if (!existing.do_loanId) {
       form.setFieldsValue({
         do_loanId: loanData?.loanId || loanId || "",
       });
     }
 
-    // Customer Details (from Customer Profile)
     form.setFieldsValue({
       customerName: safeText(loanData?.customerName),
       residenceAddress: safeText(loanData?.residenceAddress),
@@ -194,8 +190,6 @@ const DeliveryOrderForm = () => {
       setLoading(true);
       const values = await form.validateFields();
 
-      const allDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
-
       const payload = {
         ...values,
         loanId: values.do_loanId || loanData?.loanId || loanId,
@@ -203,20 +197,14 @@ const DeliveryOrderForm = () => {
         createdAt: values?.createdAt || new Date().toISOString(),
       };
 
-      const idx = allDOs.findIndex(
-        (x) => x.loanId === payload.loanId || x.do_loanId === payload.loanId
-      );
+      const finalLoanId = payload.loanId || loanId;
 
-      if (idx >= 0) {
-        allDOs[idx] = { ...allDOs[idx], ...payload };
-      } else {
-        allDOs.push(payload);
-      }
+      await saveDOByLoanId(finalLoanId, payload);
 
-      localStorage.setItem("savedDOs", JSON.stringify(allDOs));
       message.success("Delivery Order saved successfully");
     } catch (err) {
-      // validation errors
+      console.error("Save DO Error:", err);
+      // validation errors will be handled by antd; other errors we log
     } finally {
       setLoading(false);
     }
@@ -269,9 +257,7 @@ const DeliveryOrderForm = () => {
       </div>
 
       <Form form={form} layout="vertical">
-        {/* ========================= */}
         {/* DO DETAILS BLOCK */}
-        {/* ========================= */}
         <Card style={{ borderRadius: 12 }}>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
             Delivery Order Details
@@ -300,9 +286,7 @@ const DeliveryOrderForm = () => {
 
         <div style={{ height: 16 }} />
 
-        {/* ========================= */}
         {/* CUSTOMER DETAILS BLOCK */}
-        {/* ========================= */}
         <Card style={{ borderRadius: 12 }}>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
             Customer Details
@@ -379,23 +363,17 @@ const DeliveryOrderForm = () => {
 
         <div style={{ height: 16 }} />
 
-        {/* ========================= */}
         {/* SECTION 2 */}
-        {/* ========================= */}
         <Section2DealerDetails form={form} loan={loanData} />
 
         <div style={{ height: 16 }} />
 
-        {/* ========================= */}
         {/* SECTION 3 — Showroom Vehicle Details */}
-        {/* ========================= */}
         <Section3VehicleDetailsShowroom loan={loanData} />
 
         <div style={{ height: 16 }} />
 
-        {/* ========================= */}
         {/* SECTION 4 — Customer Vehicle Details */}
-        {/* ========================= */}
         <Card style={{ borderRadius: 12 }}>
           <Row align="middle" justify="space-between">
             <Col>
@@ -429,9 +407,7 @@ const DeliveryOrderForm = () => {
 
         <div style={{ height: 16 }} />
 
-        {/* ========================= */}
         {/* SECTION 5 — DO DETAILS */}
-        {/* ========================= */}
         <Section5DODetails loan={loanData} />
 
         <div style={{ height: 20 }} />
