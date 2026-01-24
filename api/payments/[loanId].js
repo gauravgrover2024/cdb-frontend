@@ -1,62 +1,61 @@
-import { connectToDatabase } from "../../lib/mongodb";
+import { getDb } from "../../lib/mongodb";
 
 export default async function handler(req, res) {
-  const {
-    query: { loanId },
-    method,
-  } = req;
+  const { loanId } = req.query;
+  const { method } = req;
 
   if (!loanId || typeof loanId !== "string") {
-    res.status(400).json({ error: "loanId is required" });
-    return;
+    return res.status(400).json({ ok: false, error: "loanId is required" });
   }
 
-  const { db } = await connectToDatabase();
-  const collection = db.collection("payments");
+  try {
+    const db = await getDb();
+    const collection = db.collection("payments");
 
-  if (method === "GET") {
-    const doc = await collection.findOne({ loanId });
-    res.status(200).json(doc || null);
-    return;
-  }
+    if (method === "GET") {
+      const doc = await collection.findOne({ loanId });
+      return res.status(200).json(doc || null);
+    }
 
-  if (method === "PUT" || method === "POST") {
-    let payload = req.body;
+    if (method === "POST" || method === "PUT") {
+      let payload = req.body;
 
-    // If body is a string, parse it
-    if (typeof payload === "string") {
-      try {
-        payload = JSON.parse(payload);
-      } catch {
-        res.status(400).json({ error: "Invalid JSON payload" });
-        return;
+      if (typeof payload === "string") {
+        try {
+          payload = JSON.parse(payload);
+        } catch {
+          return res.status(400).json({ ok: false, error: "Invalid JSON" });
+        }
       }
+
+      if (!payload || typeof payload !== "object") {
+        return res.status(400).json({ ok: false, error: "Invalid payload" });
+      }
+
+      const { _id, ...rest } = payload;
+
+      await collection.updateOne(
+        { loanId },
+        { $set: { ...rest, loanId } },
+        { upsert: true }
+      );
+
+      return res.status(200).json({ ok: true });
     }
 
-    if (!payload || typeof payload !== "object") {
-      res.status(400).json({ error: "Invalid payload" });
-      return;
+    if (method === "DELETE") {
+      await collection.deleteOne({ loanId });
+      return res.status(200).json({ ok: true });
     }
 
-    // ❗ Never try to update _id
-    const { _id, ...rest } = payload || {};
-
-    await collection.updateOne(
-      { loanId },
-      { $set: { ...rest, loanId } },
-      { upsert: true }
-    );
-
-    res.status(200).json({ ok: true });
-    return;
+    res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
+    return res
+      .status(405)
+      .json({ ok: false, error: `Method ${method} Not Allowed` });
+  } catch (err) {
+    return res.status(500).json({
+      ok: false,
+      error: err.message || "Server error",
+    });
   }
-
-  if (method === "DELETE") {
-    await collection.deleteOne({ loanId });
-    res.status(200).json({ ok: true });
-    return;
-  }
-
-  res.setHeader("Allow", ["GET", "PUT", "POST", "DELETE"]);
-  res.status(405).end(`Method ${method} Not Allowed`);
 }

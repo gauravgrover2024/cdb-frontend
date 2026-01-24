@@ -1,14 +1,11 @@
-import { MongoClient } from "mongodb";
+import { connectToDatabase } from "../../lib/mongodb";
 
-const uri =
-  "mongodb+srv://gauravgrover:uQjRFOimiRgVDvBa@cluster0.uijfp7e.mongodb.net/?appName=Cluster0";
-
-async function run() {
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db("cdb_app");
-  console.log("Connected OK:", db.databaseName);
-  await client.close();
+export default async function handler(req, res) {
+  try {
+    const db = await connectToDatabase();
+    await db.command({ ping: 1 });
+    return res.status(200).json({ ok: true, message: "Mongo connected" });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
 }
-
-run().catch(console.error);
