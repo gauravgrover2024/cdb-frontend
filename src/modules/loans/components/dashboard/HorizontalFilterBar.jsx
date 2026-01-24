@@ -1,8 +1,6 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Icon from "../../../../components/AppIcon";
 import Button from "../../../../components/ui/Button";
-
-
 
 const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -23,12 +21,12 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters }) => {
   ];
 
   const statuses = [
-    { value: "pending", label: "Pending", color: "bg-warning" },
-    { value: "in-progress", label: "In Progress", color: "bg-primary" },
-    { value: "approved", label: "Approved", color: "bg-success" },
-    { value: "disbursed", label: "Disbursed", color: "bg-success" },
-    { value: "rejected", label: "Rejected", color: "bg-error" },
-    { value: "on-hold", label: "On Hold", color: "bg-muted" },
+    { value: "pending", label: "Pending", dot: "bg-warning" },
+    { value: "in progress", label: "In Progress", dot: "bg-primary" },
+    { value: "approved", label: "Approved", dot: "bg-success" },
+    { value: "disbursed", label: "Disbursed", dot: "bg-success" },
+    { value: "rejected", label: "Rejected", dot: "bg-error" },
+    { value: "on hold", label: "On Hold", dot: "bg-muted" },
   ];
 
   const agingBuckets = [
@@ -47,29 +45,54 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters }) => {
     { value: "20+", label: "₹20L+" },
   ];
 
-  const activeFilterCount =
-    (filters?.loanTypes?.length || 0) +
-    (filters?.stages?.length || 0) +
-    (filters?.statuses?.length || 0) +
-    (filters?.agingBuckets?.length || 0) +
-    (filters?.amountRanges?.length || 0);
+  const activeFilterCount = useMemo(() => {
+    return (
+      (filters?.loanTypes?.length || 0) +
+      (filters?.stages?.length || 0) +
+      (filters?.statuses?.length || 0) +
+      (filters?.agingBuckets?.length || 0) +
+      (filters?.amountRanges?.length || 0)
+    );
+  }, [filters]);
 
   const removeFilter = (category, value) => {
-    const newValues = filters[category].filter((v) => v !== value);
+    const newValues = (filters?.[category] || []).filter((v) => v !== value);
     onFilterChange(category, newValues);
   };
 
+  const Chip = ({ label, onRemove }) => (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">
+      {label}
+      <button onClick={onRemove} className="hover:text-error">
+        <Icon name="X" size={12} />
+      </button>
+    </span>
+  );
+
+  const TogglePill = ({ selected, children, onClick, withDot, dotClass }) => (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-xl text-xs border transition-colors inline-flex items-center gap-2 ${
+        selected
+          ? "bg-primary text-white border-primary"
+          : "bg-background text-foreground border-border hover:border-primary"
+      }`}
+    >
+      {withDot && <span className={`w-2 h-2 rounded-full ${dotClass}`} />}
+      {children}
+    </button>
+  );
+
   return (
-    
-    <div className="bg-card border border-border rounded-lg mb-4">
-      {/* Filter Header */}
-      <div className="p-3 md:p-4 flex items-center justify-between border-b border-border">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
+          className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
         >
           <Icon name="Filter" size={16} />
-          <span>Filters</span>
+          Filters
           {activeFilterCount > 0 && (
             <span className="px-2 py-0.5 bg-primary text-white rounded-full text-xs">
               {activeFilterCount}
@@ -82,251 +105,193 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters }) => {
           />
         </button>
 
-        <div className="flex items-center gap-2">
-          {activeFilterCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              iconName="X"
-              onClick={onResetFilters}
-            >
-              Clear All
-            </Button>
-          )}
-        </div>
+        {activeFilterCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            iconName="X"
+            onClick={onResetFilters}
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
-      {/* Active Filter Chips */}
+      {/* Chips */}
       {activeFilterCount > 0 && !isExpanded && (
-        <div className="p-3 flex flex-wrap gap-2">
-          {filters?.loanTypes?.map((type) => (
-            <span
-              key={type}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs border border-primary/20"
-            >
-              {loanTypes.find((t) => t.value === type)?.label}
-              <button
-                onClick={() => removeFilter("loanTypes", type)}
-                className="hover:text-error"
-              >
-                <Icon name="X" size={12} />
-              </button>
-            </span>
+        <div className="px-4 py-3 flex flex-wrap gap-2">
+          {filters?.loanTypes?.map((v) => (
+            <Chip
+              key={`loanType-${v}`}
+              label={loanTypes.find((x) => x.value === v)?.label || v}
+              onRemove={() => removeFilter("loanTypes", v)}
+            />
           ))}
-          {filters?.stages?.map((stage) => (
-            <span
-              key={stage}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs border border-primary/20"
-            >
-              {stages.find((s) => s.value === stage)?.label}
-              <button
-                onClick={() => removeFilter("stages", stage)}
-                className="hover:text-error"
-              >
-                <Icon name="X" size={12} />
-              </button>
-            </span>
+
+          {filters?.stages?.map((v) => (
+            <Chip
+              key={`stage-${v}`}
+              label={stages.find((x) => x.value === v)?.label || v}
+              onRemove={() => removeFilter("stages", v)}
+            />
           ))}
-          {filters?.statuses?.map((status) => (
-            <span
-              key={status}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs border border-primary/20"
-            >
-              {statuses.find((s) => s.value === status)?.label}
-              <button
-                onClick={() => removeFilter("statuses", status)}
-                className="hover:text-error"
-              >
-                <Icon name="X" size={12} />
-              </button>
-            </span>
+
+          {filters?.statuses?.map((v) => (
+            <Chip
+              key={`status-${v}`}
+              label={statuses.find((x) => x.value === v)?.label || v}
+              onRemove={() => removeFilter("statuses", v)}
+            />
           ))}
-          {filters?.agingBuckets?.map((bucket) => (
-            <span
-              key={bucket}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs border border-primary/20"
-            >
-              {agingBuckets.find((b) => b.value === bucket)?.label}
-              <button
-                onClick={() => removeFilter("agingBuckets", bucket)}
-                className="hover:text-error"
-              >
-                <Icon name="X" size={12} />
-              </button>
-            </span>
+
+          {filters?.agingBuckets?.map((v) => (
+            <Chip
+              key={`aging-${v}`}
+              label={agingBuckets.find((x) => x.value === v)?.label || v}
+              onRemove={() => removeFilter("agingBuckets", v)}
+            />
           ))}
-          {filters?.amountRanges?.map((range) => (
-            <span
-              key={range}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs border border-primary/20"
-            >
-              {amountRanges.find((r) => r.value === range)?.label}
-              <button
-                onClick={() => removeFilter("amountRanges", range)}
-                className="hover:text-error"
-              >
-                <Icon name="X" size={12} />
-              </button>
-            </span>
+
+          {filters?.amountRanges?.map((v) => (
+            <Chip
+              key={`amount-${v}`}
+              label={amountRanges.find((x) => x.value === v)?.label || v}
+              onRemove={() => removeFilter("amountRanges", v)}
+            />
           ))}
         </div>
       )}
 
-      {/* Expanded Filters */}
+      {/* Expanded */}
       {isExpanded && (
         <div className="p-4 space-y-4">
-          {/* Row 1: Loan Type & Stage */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                Loan Type
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {loanTypes.map((type) => {
-                  const isSelected = filters?.loanTypes?.includes(type.value);
-                  return (
-                    <button
-                      key={type.value}
-                      onClick={() => {
-                        const newTypes = isSelected
-                          ? filters.loanTypes.filter((t) => t !== type.value)
-                          : [...(filters.loanTypes || []), type.value];
-                        onFilterChange("loanTypes", newTypes);
-                      }}
-                      className={`px-3 py-1.5 rounded-md text-xs border transition-colors ${
-                        isSelected
-                          ? "bg-primary text-white border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary"
-                      }`}
-                    >
-                      {type.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                Current Stage
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {stages.map((stage) => {
-                  const isSelected = filters?.stages?.includes(stage.value);
-                  return (
-                    <button
-                      key={stage.value}
-                      onClick={() => {
-                        const newStages = isSelected
-                          ? filters.stages.filter((s) => s !== stage.value)
-                          : [...(filters.stages || []), stage.value];
-                        onFilterChange("stages", newStages);
-                      }}
-                      className={`px-3 py-1.5 rounded-md text-xs border transition-colors ${
-                        isSelected
-                          ? "bg-primary text-white border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary"
-                      }`}
-                    >
-                      {stage.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Row 2: Status & Aging */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                Status
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {statuses.map((status) => {
-                  const isSelected = filters?.statuses?.includes(status.value);
-                  return (
-                    <button
-                      key={status.value}
-                      onClick={() => {
-                        const newStatuses = isSelected
-                          ? filters.statuses.filter((s) => s !== status.value)
-                          : [...(filters.statuses || []), status.value];
-                        onFilterChange("statuses", newStatuses);
-                      }}
-                      className={`px-3 py-1.5 rounded-md text-xs border transition-colors flex items-center gap-1.5 ${
-                        isSelected
-                          ? "bg-primary text-white border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary"
-                      }`}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${status.color}`} />
-                      {status.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                Aging
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {agingBuckets.map((bucket) => {
-                  const isSelected = filters?.agingBuckets?.includes(
-                    bucket.value
-                  );
-                  return (
-                    <button
-                      key={bucket.value}
-                      onClick={() => {
-                        const newBuckets = isSelected
-                          ? filters.agingBuckets.filter(
-                              (b) => b !== bucket.value
-                            )
-                          : [...(filters.agingBuckets || []), bucket.value];
-                        onFilterChange("agingBuckets", newBuckets);
-                      }}
-                      className={`px-3 py-1.5 rounded-md text-xs border transition-colors ${
-                        isSelected
-                          ? "bg-primary text-white border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary"
-                      }`}
-                    >
-                      {bucket.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Row 3: Amount Range */}
+          {/* Loan type */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-2 block">
-              Loan Amount Range
-            </label>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Loan Type
+            </div>
             <div className="flex flex-wrap gap-2">
-              {amountRanges.map((range) => {
-                const isSelected = filters?.amountRanges?.includes(range.value);
+              {loanTypes.map((t) => {
+                const selected = filters?.loanTypes?.includes(t.value);
                 return (
-                  <button
-                    key={range.value}
+                  <TogglePill
+                    key={t.value}
+                    selected={selected}
                     onClick={() => {
-                      const newRanges = isSelected
-                        ? filters.amountRanges.filter((r) => r !== range.value)
-                        : [...(filters.amountRanges || []), range.value];
-                      onFilterChange("amountRanges", newRanges);
+                      const next = selected
+                        ? filters.loanTypes.filter((x) => x !== t.value)
+                        : [...(filters.loanTypes || []), t.value];
+                      onFilterChange("loanTypes", next);
                     }}
-                    className={`px-3 py-1.5 rounded-md text-xs border transition-colors ${
-                      isSelected
-                        ? "bg-primary text-white border-primary"
-                        : "bg-background text-foreground border-border hover:border-primary"
-                    }`}
                   >
-                    {range.label}
-                  </button>
+                    {t.label}
+                  </TogglePill>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Stage */}
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Stage
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {stages.map((s) => {
+                const selected = filters?.stages?.includes(s.value);
+                return (
+                  <TogglePill
+                    key={s.value}
+                    selected={selected}
+                    onClick={() => {
+                      const next = selected
+                        ? filters.stages.filter((x) => x !== s.value)
+                        : [...(filters.stages || []), s.value];
+                      onFilterChange("stages", next);
+                    }}
+                  >
+                    {s.label}
+                  </TogglePill>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Status */}
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Status
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {statuses.map((s) => {
+                const selected = filters?.statuses?.includes(s.value);
+                return (
+                  <TogglePill
+                    key={s.value}
+                    selected={selected}
+                    withDot
+                    dotClass={s.dot}
+                    onClick={() => {
+                      const next = selected
+                        ? filters.statuses.filter((x) => x !== s.value)
+                        : [...(filters.statuses || []), s.value];
+                      onFilterChange("statuses", next);
+                    }}
+                  >
+                    {s.label}
+                  </TogglePill>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Aging */}
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Aging
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {agingBuckets.map((b) => {
+                const selected = filters?.agingBuckets?.includes(b.value);
+                return (
+                  <TogglePill
+                    key={b.value}
+                    selected={selected}
+                    onClick={() => {
+                      const next = selected
+                        ? filters.agingBuckets.filter((x) => x !== b.value)
+                        : [...(filters.agingBuckets || []), b.value];
+                      onFilterChange("agingBuckets", next);
+                    }}
+                  >
+                    {b.label}
+                  </TogglePill>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Amount */}
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Amount
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {amountRanges.map((r) => {
+                const selected = filters?.amountRanges?.includes(r.value);
+                return (
+                  <TogglePill
+                    key={r.value}
+                    selected={selected}
+                    onClick={() => {
+                      const next = selected
+                        ? filters.amountRanges.filter((x) => x !== r.value)
+                        : [...(filters.amountRanges || []), r.value];
+                      onFilterChange("amountRanges", next);
+                    }}
+                  >
+                    {r.label}
+                  </TogglePill>
                 );
               })}
             </div>
@@ -336,7 +301,5 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters }) => {
     </div>
   );
 };
-
-
 
 export default HorizontalFilterBar;

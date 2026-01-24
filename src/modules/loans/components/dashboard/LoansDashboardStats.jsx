@@ -1,117 +1,96 @@
-import React from "react";
+import React, { useMemo } from "react";
 import Icon from "../../../../components/AppIcon";
 
-const LoansDashboardStats = ({ loans }) => {
-  const totalLoans = loans?.length || 0;
-  const pendingApprovals = loans?.filter(
-    (l) => l.currentStage === "approval" && l.status === "pending"
-  ).length;
+const LoansDashboardStats = ({ loans, loading }) => {
+  const stats = useMemo(() => {
+    const totalLoans = loans?.length || 0;
 
-  const approvedToday = loans?.filter((l) => {
+    const pendingApprovals =
+      loans?.filter(
+        (l) =>
+          (l.currentStage || "") === "approval" &&
+          ((l.status || "").toLowerCase() === "pending" ||
+            (l.status || "").toLowerCase() === "in progress")
+      ).length || 0;
+
     const today = new Date().toDateString();
-    return (
-      l.status === "approved" && new Date(l.updatedAt).toDateString() === today
-    );
-  }).length;
+    const approvedToday =
+      loans?.filter((l) => {
+        const updated = l.updatedAt ? new Date(l.updatedAt).toDateString() : "";
+        return (
+          (l.status || "").toLowerCase() === "approved" && updated === today
+        );
+      }).length || 0;
 
-  const totalDisbursed = loans
-    ?.filter((l) => l.status === "disbursed")
-    ?.reduce((sum, l) => sum + (l.loanAmount || 0), 0);
+    const totalDisbursed =
+      loans
+        ?.filter((l) => (l.status || "").toLowerCase() === "disbursed")
+        ?.reduce((sum, l) => sum + (l.loanAmount || 0), 0) || 0;
 
-  const formatAmount = (amount) => {
-    if (amount >= 10000000) {
-      return `₹${(amount / 10000000).toFixed(2)}Cr`;
-    } else if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(2)}L`;
-    }
-    return `₹${amount.toLocaleString("en-IN")}`;
-  };
+    const formatAmount = (amount) => {
+      if (!amount) return "₹0";
+      if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
+      if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
+      return `₹${amount.toLocaleString("en-IN")}`;
+    };
 
-  const stats = [
-    {
-      id: 1,
-      label: "Total Loans",
-      value: totalLoans.toString(),
-      change: "+12",
-      changeType: "increase",
-      icon: "FileText",
-      color: "bg-primary/10 text-primary",
-    },
-    {
-      id: 2,
-      label: "Pending Approvals",
-      value: pendingApprovals.toString(),
-      change: "+5",
-      changeType: "increase",
-      icon: "Clock",
-      color: "bg-warning/10 text-warning",
-    },
-    {
-      id: 3,
-      label: "Approved Today",
-      value: approvedToday.toString(),
-      change: "+8",
-      changeType: "increase",
-      icon: "CheckCircle2",
-      color: "bg-success/10 text-success",
-    },
-    {
-      id: 4,
-      label: "Total Disbursed",
-      value: formatAmount(totalDisbursed),
-      change: "+₹45L",
-      changeType: "increase",
-      icon: "TrendingUp",
-      color: "bg-accent/10 text-accent",
-    },
-  ];
+    return [
+      {
+        id: "total",
+        label: "Total Loans",
+        value: totalLoans.toString(),
+        icon: "FileText",
+        color: "bg-primary/10 text-primary border-primary/20",
+      },
+      {
+        id: "pending",
+        label: "Pending Approvals",
+        value: pendingApprovals.toString(),
+        icon: "Clock",
+        color: "bg-warning/10 text-warning border-warning/20",
+      },
+      {
+        id: "today",
+        label: "Approved Today",
+        value: approvedToday.toString(),
+        icon: "CheckCircle2",
+        color: "bg-success/10 text-success border-success/20",
+      },
+      {
+        id: "disbursed",
+        label: "Total Disbursed",
+        value: formatAmount(totalDisbursed),
+        icon: "TrendingUp",
+        color: "bg-accent/10 text-accent border-border",
+      },
+    ];
+  }, [loans]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-      {stats?.map((stat) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      {stats.map((s) => (
         <div
-          key={stat?.id}
-          className="bg-card border border-border rounded-lg p-4 md:p-6 hover:shadow-elevation-2 transition-all duration-250"
+          key={s.id}
+          className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-sm"
         >
-          <div className="flex items-start justify-between mb-4">
-            <div
-              className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center ${stat?.color}`}
-            >
-              <Icon name={stat?.icon} size={20} />
-            </div>
-            <div className="flex items-center gap-1 text-xs font-medium">
-              <Icon
-                name={
-                  stat?.changeType === "increase"
-                    ? "TrendingUp"
-                    : "TrendingDown"
-                }
-                size={14}
-                className={
-                  stat?.changeType === "increase"
-                    ? "text-success"
-                    : "text-error"
-                }
-              />
-              <span
-                className={
-                  stat?.changeType === "increase"
-                    ? "text-success"
-                    : "text-error"
-                }
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center border ${s.color}`}
               >
-                {stat?.change}
-              </span>
+                <Icon name={s.icon} size={18} />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
+                <div className="text-xl font-semibold text-foreground data-text">
+                  {loading ? "…" : s.value}
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <p className="text-xs md:text-sm text-muted-foreground mb-1">
-              {stat?.label}
-            </p>
-            <p className="text-xl md:text-2xl font-semibold text-foreground data-text">
-              {stat?.value}
-            </p>
+            <div className="text-xs text-muted-foreground">
+              <Icon name="ChevronRight" size={16} />
+            </div>
           </div>
         </div>
       ))}

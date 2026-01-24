@@ -12,16 +12,15 @@ export default async function handler(req, res) {
     const db = await getDb();
     const collection = db.collection("loans");
 
-    // ✅ GET: fetch loan by loanId
+    // ✅ GET one
     if (method === "GET") {
       const doc = await collection.findOne({ loanId });
       return res.status(200).json(doc || null);
     }
 
-    // ✅ PUT/POST: upsert loan by loanId
+    // ✅ PUT/POST upsert (update/create)
     if (method === "PUT" || method === "POST") {
       let payload = req.body;
-
       if (typeof payload === "string") payload = JSON.parse(payload);
 
       if (!payload || typeof payload !== "object") {
@@ -48,7 +47,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // ✅ DELETE: delete loan by loanId
+    // ✅ DELETE
     if (method === "DELETE") {
       await collection.deleteOne({ loanId });
       return res.status(200).json({ ok: true });

@@ -1,59 +1,126 @@
-import React, { useState } from "react";
-import { Button } from "antd";
+// src/modules/loans/components/LoanStickyHeader.jsx
+import React, { useMemo, useState } from "react";
+import { Button, Form, message } from "antd";
 import dayjs from "dayjs";
 
 import Icon from "../../../components/AppIcon";
 
-// Notes Modal Component
-const NotesModal = ({ form, onClose }) => {
-  const [notes, setNotes] = useState(() => {
-    if (!form) return "";
-    return form.getFieldValue("loan_notes") || "";
-  });
+/**
+ * FIX: Header not updating live
+ * - Using Form.useWatch() so component rerenders on field changes.
+ *
+ * Header shows LIVE:
+ * - Customer Name
+ * - Vehicle
+ * - Case Type
+ * - Amount (Expected till approval, then Approved/Loan amount)
+ * - After disbursed: EMI + ROI
+ */
+
+/* --------------------------- Helpers --------------------------- */
+const toNumber = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatMoney = (v) => {
+  const n = toNumber(v);
+  if (!n) return "—";
+  return `₹${n.toLocaleString("en-IN")}`;
+};
+
+const formatPercent = (v) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  return `${n}%`;
+};
+
+const statusPillClass = (status) => {
+  const s = (status || "").toLowerCase();
+
+  if (["approved", "disbursed", "completed"].includes(s)) {
+    return "bg-success/10 text-success border-success/20";
+  }
+  if (["in progress", "in-progress"].includes(s)) {
+    return "bg-primary/10 text-primary border-primary/20";
+  }
+  if (["rejected"].includes(s)) {
+    return "bg-error/10 text-error border-error/20";
+  }
+  if (["pending", ""].includes(s)) {
+    return "bg-muted text-muted-foreground border-border";
+  }
+  return "bg-muted text-muted-foreground border-border";
+};
+
+const sanitizeForJSON = (obj) => {
+  if (obj == null) return obj;
+
+  if (Array.isArray(obj)) return obj.map(sanitizeForJSON);
+
+  if (typeof obj === "object") {
+    if (dayjs?.isDayjs?.(obj)) return obj.toISOString();
+    if (obj instanceof Date) return obj.toISOString();
+
+    const out = {};
+    for (const k in obj) out[k] = sanitizeForJSON(obj[k]);
+    return out;
+  }
+
+  return obj;
+};
+
+/* --------------------------- Notes Modal --------------------------- */
+const NotesModal = ({ open, form, onClose }) => {
+  const [notes, setNotes] = useState(
+    () => form?.getFieldValue("loan_notes") || ""
+  );
+
+  if (!open) return null;
 
   const handleSave = () => {
     if (!form) return;
     form.setFieldsValue({ loan_notes: notes });
-    alert("Notes saved successfully!");
-    onClose();
+    message.success("Notes saved");
+    onClose?.();
   };
-
-  if (!form) return null;
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-2xl">
+      <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-2xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Icon name="MessageSquare" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
+            <div className="text-sm font-semibold text-foreground">
               Loan Notes
-            </span>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted">
             <Icon name="X" size={18} />
           </button>
         </div>
 
         <div className="p-4">
           <textarea
-            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background min-h-[200px]"
-            placeholder="Add notes about this loan application..."
+            className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background min-h-[220px] focus:outline-none"
+            placeholder="Add internal notes for this loan..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border bg-muted/20">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-border rounded-md text-sm hover:bg-muted"
+            className="px-4 py-2 border border-border rounded-xl text-sm hover:bg-muted"
           >
             Cancel
           </button>
+
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-primary text-white rounded-md text-sm hover:bg-primary/90"
+            className="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primary/90"
           >
             Save Notes
           </button>
@@ -63,716 +130,358 @@ const NotesModal = ({ form, onClose }) => {
   );
 };
 
-// Documents Modal Component with Viewer
-const DocumentsModal = ({ form, onClose }) => {
-  const safeText = (v) => {
-    if (v == null) return "";
-    if (typeof v === "string" || typeof v === "number") return String(v);
-    return ""; // block objects like dayjs
-  };
-
-  const [viewingDocument, setViewingDocument] = useState(null);
-
-  if (!form) return null;
-
-  // Get all document-related data
-  const invoiceFile = form.getFieldValue("delivery_invoiceFile");
-  const rcFile = form.getFieldValue("delivery_rcFile");
-
-  // Check for document management uploads
-  const uploadedDocs = form.getFieldValue("postfile_documents") || [];
-
-  const documents = [
-    // Standard KYC documents
-    {
-      name: "Aadhaar Card",
-      field: "identityProofNumber",
-      value: form.getFieldValue("identityProofNumber"),
-      uploaded: !!form.getFieldValue("identityProofNumber"),
-      type: "text",
-    },
-    {
-      name: "PAN Card",
-      field: "addressProofNumber",
-      value: form.getFieldValue("addressProofNumber"),
-      uploaded: !!form.getFieldValue("addressProofNumber"),
-      type: "text",
-    },
-    // Delivery documents
-    ...(invoiceFile
-      ? [
-          {
-            name: "Invoice",
-            field: "delivery_invoiceFile",
-            value: invoiceFile,
-            uploaded: true,
-            type: "file",
-          },
-        ]
-      : []),
-    ...(rcFile
-      ? [
-          {
-            name: "RC Document",
-            field: "delivery_rcFile",
-            value: rcFile,
-            uploaded: true,
-            type: "file",
-          },
-        ]
-      : []),
-    // Post-File uploaded documents
-    ...uploadedDocs.map((doc, index) => ({
-      name:
-        safeText(doc?.tag) || safeText(doc?.name) || `Document ${index + 1}`,
-      field: `postfile_doc_${index}`,
-      value: doc,
-      uploaded: true,
-      type: "file",
-    })),
-  ];
-
-  const uploadedCount = documents.filter((d) => d.uploaded).length;
+/* --------------------------- Documents Modal (kept simple) --------------------------- */
+const DocumentsModal = ({ open, onClose }) => {
+  if (!open) return null;
 
   return (
-    <>
-      <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-        <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-3xl max-h-[80vh] flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Icon name="FileText" size={18} className="text-primary" />
-              <span className="text-sm font-semibold text-foreground">
-                All Documents ({uploadedCount}/{documents.length})
-              </span>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-muted"
-            >
-              <Icon name="X" size={18} />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {documents.map((doc, index) => (
-                <div
-                  key={doc.field || index}
-                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Icon
-                      name="FileText"
-                      size={18}
-                      className={
-                        doc.uploaded ? "text-success" : "text-muted-foreground"
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground">
-                        {doc.name}
-                      </div>
-                      {doc.uploaded && doc.value && doc.type === "text" && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {doc.value}
-                        </div>
-                      )}
-                      {doc.uploaded && doc.type === "file" && (
-                        <div className="text-xs text-muted-foreground">
-                          File uploaded
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {doc.uploaded ? (
-                      <>
-                        {doc.type === "file" && doc.value?.url && (
-                          <button
-                            onClick={() => setViewingDocument(doc.value)}
-                            className="px-2 py-1 text-xs border border-primary/20 text-primary rounded hover:bg-primary/10"
-                          >
-                            View
-                          </button>
-                        )}
-                        <Icon
-                          name="CheckCircle2"
-                          size={18}
-                          className="text-success"
-                        />
-                      </>
-                    ) : (
-                      <Icon
-                        name="Circle"
-                        size={18}
-                        className="text-muted-foreground"
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-border rounded-md text-sm hover:bg-muted"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Document Viewer */}
-      {viewingDocument && (
-        <DocumentViewer
-          document={viewingDocument}
-          onClose={() => setViewingDocument(null)}
-        />
-      )}
-    </>
-  );
-};
-
-// Document Viewer Component
-const DocumentViewer = ({ document, onClose }) => {
-  return (
-    <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-2xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <Icon name="Eye" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
-              {document.name || "Document"}
-            </span>
+            <Icon name="FileText" size={18} className="text-primary" />
+            <div className="text-sm font-semibold text-foreground">
+              Documents
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted">
             <Icon name="X" size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-muted/20">
-          {document.url ? (
-            <img
-              src={document.url}
-              alt={document.name}
-              className="max-w-full max-h-full object-contain"
-            />
-          ) : (
-            <div className="text-center">
-              <Icon
-                name="FileText"
-                size={48}
-                className="text-muted-foreground mx-auto mb-4"
-              />
-              <p className="text-muted-foreground">No preview available</p>
-            </div>
-          )}
+        <div className="p-4 text-sm text-muted-foreground">
+          Documents UI is already handled inside steps (Post-file / Delivery).{" "}
+          <br />
+          This modal can later show aggregated docs from API.
         </div>
 
-        <div className="flex justify-between items-center px-4 py-3 border-t border-border">
-          <div className="text-xs text-muted-foreground">
-            {document.size || "Size unknown"}
-          </div>
-          <div className="flex gap-2">
-            {document.url && (
-              <button
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = document.url;
-                  link.download = document.name || "document";
-                  link.click();
-                }}
-                className="px-3 py-1.5 border border-border rounded-md text-sm hover:bg-muted flex items-center gap-2"
-              >
-                <Icon name="Download" size={14} />
-                Download
-              </button>
-            )}
-          </div>
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border bg-muted/20">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-border rounded-xl text-sm hover:bg-muted"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-// Main LoanStickyHeader Component
+/* --------------------------- Main Sticky Header --------------------------- */
 const LoanStickyHeader = ({
-  title,
   onSave,
   onExit,
   activeStep,
   onStepChange,
   isFinanced,
   form,
-  isDisbursed, // ADD THIS
+  isDisbursed,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
 
-  // Use getFieldValue for reliable data across all stages
-  const customerName = form?.getFieldValue("customerName") || "Not entered";
-  const mobile = form?.getFieldValue("primaryMobile") || "";
-  const make = form?.getFieldValue("vehicleMake") || "";
-  const model = form?.getFieldValue("vehicleModel") || "";
-  const variant = form?.getFieldValue("vehicleVariant") || "";
-  const loanType = form?.getFieldValue("typeOfLoan") || "";
-  const financeExpectation = form?.getFieldValue("financeExpectation") || "";
-  const bankName = form?.getFieldValue("approval_bankName") || "";
-  const approvalStatus = form?.getFieldValue("approval_status") || "";
-  const loanId = form?.getFieldValue("loanId") || "New Loan";
+  // ✅ LIVE WATCHERS (this is the fix)
+  const loanId = Form.useWatch("loanId", form);
+  const customerName = Form.useWatch("customerName", form);
+  const primaryMobile = Form.useWatch("primaryMobile", form);
 
-  const vehicleLabel =
-    [make, model, variant].filter(Boolean).join(" ") || "Not selected";
+  const typeOfLoan = Form.useWatch("typeOfLoan", form);
 
-  const STEPS = [
-    { key: "profile", label: "Customer Profile" },
-    { key: "prefile", label: "Pre-File" },
-    { key: "approval", label: "Loan Approval" },
-    { key: "postfile", label: "Post-File" },
-    { key: "delivery", label: "Vehicle Delivery" },
-    { key: "payout", label: "Payout" }, // ADD THIS
-  ];
+  const vehicleMake = Form.useWatch("vehicleMake", form);
+  const vehicleModel = Form.useWatch("vehicleModel", form);
+  const vehicleVariant = Form.useWatch("vehicleVariant", form);
 
-  const filteredSteps = STEPS.filter((step) => {
-    // Skip finance steps if cash sale
+  const financeExpectation = Form.useWatch("financeExpectation", form);
+
+  const approvalStatus = Form.useWatch("approval_status", form);
+  const approvalBankName = Form.useWatch("approval_bankName", form);
+  const approvalLoanAmountApproved = Form.useWatch(
+    "approval_loanAmountApproved",
+    form
+  );
+
+  const postfileEmiAmount = Form.useWatch("postfile_emiAmount", form);
+  const postfileRoi = Form.useWatch("postfile_roi", form);
+
+  const vehicleLabel = useMemo(() => {
+    const v = [vehicleMake, vehicleModel, vehicleVariant]
+      .filter(Boolean)
+      .join(" ");
+    return v || "Not selected";
+  }, [vehicleMake, vehicleModel, vehicleVariant]);
+
+  const isBeforeOrAtApproval = ["profile", "prefile", "approval"].includes(
+    activeStep
+  );
+
+  const amountLabel = isBeforeOrAtApproval
+    ? "Expected Loan Amount"
+    : "Loan Amount";
+  const amountValue = isBeforeOrAtApproval
+    ? financeExpectation
+    : approvalLoanAmountApproved;
+
+  const showDisbursedExtras =
+    (approvalStatus || "").toLowerCase() === "disbursed" || !!isDisbursed;
+
+  const STEPS = useMemo(
+    () => [
+      { key: "profile", label: "Customer Profile" },
+      { key: "prefile", label: "Pre-File" },
+      { key: "approval", label: "Loan Approval" },
+      { key: "postfile", label: "Post-File" },
+      { key: "delivery", label: "Vehicle Delivery" },
+      { key: "payout", label: "Payout" },
+    ],
+    []
+  );
+
+  const filteredSteps = useMemo(() => {
     if (isFinanced === "No") {
-      return step.key === "profile" || step.key === "delivery";
+      return STEPS.filter((s) => s.key === "profile" || s.key === "delivery");
     }
+    return STEPS.filter((s) => (s.key === "payout" ? !!isDisbursed : true));
+  }, [STEPS, isFinanced, isDisbursed]);
 
-    // Only show payout if disbursed
-    if (step.key === "payout" && !isDisbursed) {
-      return false;
-    }
+  const currentIndex = useMemo(() => {
+    return filteredSteps.findIndex((s) => s.key === activeStep);
+  }, [filteredSteps, activeStep]);
 
-    return true;
-  });
-
-  const currentIndex = filteredSteps.findIndex((s) => s.key === activeStep);
-
-  const visibleSteps = filteredSteps.map((step, index) => {
-    let status = "pending";
-    if (step.key === activeStep) {
-      status = "current";
-    } else if (index < currentIndex) {
-      status = "completed";
-    }
-    return { ...step, status };
-  });
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "approved":
-      case "disbursed":
-        return "bg-success/10 text-success border-success/20";
-      case "in progress":
-        return "bg-warning/10 text-warning border-warning/20";
-      case "rejected":
-        return "bg-error/10 text-error border-error/20";
-      case "pending":
-        return "bg-muted text-muted-foreground border-border";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
-
-  const handleSave = () => {
-    onSave && onSave();
-  };
-
-  const handleExtractJSON = () => {
-    const allFields = form.getFieldsValue(true);
-
-    const convertDatesToStrings = (obj) => {
-      if (!obj) return obj;
-
-      if (Array.isArray(obj)) {
-        return obj.map((item) => convertDatesToStrings(item));
-      }
-
-      if (typeof obj === "object") {
-        if (dayjs?.isDayjs?.(obj)) return obj.toISOString();
-        if (obj instanceof Date) return obj.toISOString();
-
-        const result = {};
-        for (const key in obj) {
-          result[key] = convertDatesToStrings(obj[key]);
-        }
-        return result;
-      }
-
-      return obj;
-    };
-
-    const sanitized = convertDatesToStrings(allFields);
-
-    navigator.clipboard.writeText(JSON.stringify(allFields, null, 2));
-    const blob = new Blob([JSON.stringify(allFields, null, 2)], {
-      type: "application/json",
+  const visibleSteps = useMemo(() => {
+    return filteredSteps.map((step, index) => {
+      let status = "pending";
+      if (step.key === activeStep) status = "current";
+      else if (index < currentIndex) status = "completed";
+      return { ...step, status };
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `loan-form-data-${Date.now()}.json`;
-    a.click();
-    alert("Form data copied to clipboard and downloaded!");
+  }, [filteredSteps, activeStep, currentIndex]);
+
+  const handleExtractJSON = async () => {
+    try {
+      if (!form?.getFieldsValue) {
+        message.error("Form not ready");
+        return;
+      }
+
+      const allFields = form.getFieldsValue(true);
+      const sanitized = sanitizeForJSON(allFields);
+
+      await navigator.clipboard.writeText(JSON.stringify(sanitized, null, 2));
+
+      const blob = new Blob([JSON.stringify(sanitized, null, 2)], {
+        type: "application/json",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = window.document.createElement("a");
+      a.href = url;
+      a.download = `loan-form-data-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      message.success("JSON copied + downloaded");
+    } catch (e) {
+      console.error("Extract JSON Error:", e);
+      message.error("Failed to extract JSON");
+    }
   };
+
   return (
-    <div
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 1000,
-        background: "#ffffff",
-        borderBottom: "1px solid #e5e7eb",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-        marginBottom: 16,
-        marginTop: 0, // ADD THIS to pull it up
-      }}
-    >
-      {/* Info Bar */}
-      <div style={{ padding: "12px 24px", borderBottom: "1px solid #f0f0f0" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-          }}
-        >
-          {/* Left: Case Info */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                minWidth: 120,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  color: "#6b7280",
-                  textTransform: "uppercase",
-                  fontWeight: 600,
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Loan ID
-              </span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
-                {loanId}
-              </span>
-            </div>
-
-            <div
-              className="hidden md:block w-px h-8"
-              style={{ background: "#e5e7eb" }}
-            />
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-                minWidth: 0,
-              }}
-              className="hidden md:flex"
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  color: "#6b7280",
-                  textTransform: "uppercase",
-                  fontWeight: 600,
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Customer
-              </span>
-              <span
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "#111827",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {customerName}
-              </span>
-              {mobile && (
-                <span style={{ fontSize: 11, color: "#6b7280" }}>{mobile}</span>
-              )}
-            </div>
-
-            {(isExpanded || window.innerWidth >= 768) && (
-              <>
-                <div
-                  className="hidden md:block w-px h-8"
-                  style={{ background: "#e5e7eb" }}
-                />
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    flex: 1,
-                    minWidth: 0,
-                  }}
-                  className="hidden md:flex"
-                >
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: "#6b7280",
-                      textTransform: "uppercase",
-                      fontWeight: 600,
-                      letterSpacing: "0.5px",
-                    }}
-                  >
-                    Vehicle
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "#111827",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {vehicleLabel}
-                  </span>
+    <>
+      <div className="sticky top-0 z-[50] bg-background/95 backdrop-blur-md border-b border-border">
+        {/* Header Top */}
+        <div className="px-4 md:px-6 py-3">
+          <div className="flex items-start md:items-center justify-between gap-3">
+            {/* Left */}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-10 h-10 rounded-2xl border border-border bg-muted/30 flex items-center justify-center">
+                  <Icon name="FileText" size={18} className="text-primary" />
                 </div>
 
-                {isFinanced === "Yes" && financeExpectation && (
-                  <>
-                    <div
-                      className="hidden lg:block w-px h-8"
-                      style={{ background: "#e5e7eb" }}
-                    />
+                <div className="min-w-0">
+                  {/* MAIN LINE */}
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <h1 className="text-base md:text-lg font-semibold text-foreground truncate">
+                      {customerName || "Not entered"}
+                    </h1>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        minWidth: 120,
-                      }}
-                      className="hidden lg:flex"
-                    >
-                      <span
-                        style={{
-                          fontSize: 10,
-                          color: "#6b7280",
-                          textTransform: "uppercase",
-                          fontWeight: 600,
-                          letterSpacing: "0.5px",
-                        }}
-                      >
-                        Loan Amount
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 600,
-                          color: "#111827",
-                        }}
-                      >
-                        ₹{financeExpectation}
-                      </span>
-                      {bankName && (
-                        <span style={{ fontSize: 11, color: "#6b7280" }}>
-                          {bankName}
-                        </span>
-                      )}
-                    </div>
-                  </>
-                )}
+                    <span className="text-xs px-2 py-1 rounded-full border border-border bg-muted text-muted-foreground">
+                      {loanId || "New Loan"}
+                    </span>
 
-                {approvalStatus && (
-                  <>
-                    <div
-                      className="hidden lg:block w-px h-8"
-                      style={{ background: "#e5e7eb" }}
-                    />
-
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        minWidth: 100,
-                      }}
-                      className="hidden lg:flex"
-                    >
-                      <span
-                        style={{
-                          fontSize: 10,
-                          color: "#6b7280",
-                          textTransform: "uppercase",
-                          fontWeight: 600,
-                          letterSpacing: "0.5px",
-                        }}
-                      >
-                        Status
+                    {typeOfLoan && (
+                      <span className="text-xs px-2 py-1 rounded-full border border-border bg-muted/40 text-foreground">
+                        {typeOfLoan}
                       </span>
+                    )}
+
+                    {approvalStatus && (
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border w-fit ${getStatusColor(
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${statusPillClass(
                           approvalStatus
                         )}`}
-                        style={{ marginTop: 2 }}
                       >
                         <Icon name="Circle" size={6} />
                         {approvalStatus}
                       </span>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
+                    )}
+                  </div>
 
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors"
-            >
-              <Icon name={isExpanded ? "ChevronUp" : "ChevronDown"} size={20} />
-            </button>
-          </div>
+                  {/* SUBLINE */}
+                  <div className="text-xs text-muted-foreground truncate">
+                    {primaryMobile ? `${primaryMobile} • ` : ""}
+                    {vehicleLabel}
+                  </div>
+                </div>
+              </div>
 
-          {/* Right: Actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDocumentsModal(true)}
-            >
-              <Icon name="FileText" size={14} style={{ marginRight: 4 }} />
-              <span className="hidden md:inline">Documents</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowNotesModal(true)}
-            >
-              <Icon name="MessageSquare" size={14} style={{ marginRight: 4 }} />
-              <span className="hidden md:inline">Notes</span>
-            </Button>
-            <Button
-              size="sm"
-              style={{ background: "#10b981", color: "#fff", border: "none" }}
-              onClick={handleExtractJSON}
-            >
-              <span className="hidden md:inline">Extract</span>
-              <span className="md:hidden">JSON</span>
-            </Button>
-            <Button size="sm" type="primary" onClick={handleSave}>
-              <Icon name="Save" size={14} style={{ marginRight: 4 }} />
-              Save
-            </Button>
-          </div>
-        </div>
-      </div>
-      {/* Workflow Progress Bar */}
-      <div style={{ padding: "16px 24px", background: "#fafafa" }}>
-        <div
-          className="workflow-progress"
-          style={{ display: "flex", alignItems: "center" }}
-        >
-          {visibleSteps.map((stage, index) => (
-            <React.Fragment key={stage.key}>
-              <div
-                className="workflow-step"
-                onClick={() => onStepChange(stage.key)}
-                style={{
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <div
-                  className={`workflow-step-indicator ${stage.status}`}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background:
-                      stage.status === "completed"
-                        ? "#10b981"
-                        : stage.status === "current"
-                        ? "#667eea"
-                        : "#e5e7eb",
-                    color: stage.status === "pending" ? "#6b7280" : "#fff",
-                  }}
-                >
-                  {stage.status === "completed" ? (
-                    <Icon name="Check" size={16} />
-                  ) : (
-                    <span>{index + 1}</span>
+              {/* Chips */}
+              {(isExpanded || window.innerWidth >= 768) && (
+                <div className="mt-2 hidden md:flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {isFinanced === "Yes" && (
+                    <span className="px-2 py-1 rounded-full border border-border bg-muted/30">
+                      {amountLabel}:{" "}
+                      <span className="text-foreground font-semibold">
+                        {formatMoney(amountValue)}
+                      </span>
+                    </span>
+                  )}
+
+                  {approvalBankName && (
+                    <span className="px-2 py-1 rounded-full border border-border bg-muted/30">
+                      Bank:{" "}
+                      <span className="text-foreground">
+                        {approvalBankName}
+                      </span>
+                    </span>
+                  )}
+
+                  {showDisbursedExtras && (
+                    <>
+                      <span className="px-2 py-1 rounded-full border border-border bg-muted/30">
+                        EMI:{" "}
+                        <span className="text-foreground font-semibold">
+                          {formatMoney(postfileEmiAmount)}
+                        </span>
+                      </span>
+                      <span className="px-2 py-1 rounded-full border border-border bg-muted/30">
+                        ROI:{" "}
+                        <span className="text-foreground font-semibold">
+                          {formatPercent(postfileRoi)}
+                        </span>
+                      </span>
+                    </>
                   )}
                 </div>
-                <span
-                  className={`workflow-step-label ${
-                    stage.status === "current" ? "current" : ""
-                  } hidden md:inline`}
-                  style={{
-                    fontSize: 13,
-                    fontWeight: stage.status === "current" ? 600 : 500,
-                    color: stage.status === "pending" ? "#6b7280" : "#111827",
-                  }}
-                >
-                  {stage.label}
-                </span>
-              </div>
-              {index < visibleSteps.length - 1 && (
-                <div
-                  className={`workflow-connector ${
-                    stage.status === "completed" ? "completed" : ""
-                  }`}
-                  style={{
-                    flex: 1,
-                    height: 2,
-                    maxWidth: 80,
-                    margin: "0 8px",
-                    background:
-                      stage.status === "completed" ? "#10b981" : "#e5e7eb",
-                  }}
-                />
               )}
-            </React.Fragment>
-          ))}
+            </div>
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowDocumentsModal(true)}
+                className="px-3 py-2 rounded-xl border border-border bg-background hover:bg-muted text-sm flex items-center gap-2"
+              >
+                <Icon name="FileText" size={16} />
+                <span className="hidden md:inline">Documents</span>
+              </button>
+
+              <button
+                onClick={() => setShowNotesModal(true)}
+                className="px-3 py-2 rounded-xl border border-border bg-background hover:bg-muted text-sm flex items-center gap-2"
+              >
+                <Icon name="MessageSquare" size={16} />
+                <span className="hidden md:inline">Notes</span>
+              </button>
+
+              <button
+                onClick={handleExtractJSON}
+                className="px-3 py-2 rounded-xl border border-border bg-background hover:bg-muted text-sm flex items-center gap-2"
+              >
+                <Icon name="Braces" size={16} />
+                <span className="hidden md:inline">Extract JSON</span>
+              </button>
+
+              <Button type="primary" onClick={() => onSave?.()}>
+                <span className="flex items-center gap-2">
+                  <Icon name="Save" size={16} />
+                  Save
+                </span>
+              </Button>
+
+              <button
+                onClick={() => setIsExpanded((p) => !p)}
+                className="md:hidden p-2 rounded-xl hover:bg-muted border border-border"
+                title="Toggle details"
+              >
+                <Icon
+                  name={isExpanded ? "ChevronUp" : "ChevronDown"}
+                  size={18}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Steps Row (reduced height) */}
+        <div className="px-4 md:px-6 pb-3">
+          <div className="bg-muted/20 border border-border rounded-2xl px-2 py-1 overflow-x-auto">
+            <div className="flex items-center gap-1.5 min-w-max">
+              {visibleSteps.map((step, idx) => {
+                const isCurrent = step.status === "current";
+                const isDone = step.status === "completed";
+
+                return (
+                  <button
+                    key={step.key}
+                    onClick={() => onStepChange?.(step.key)}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-2xl border transition-colors ${
+                      isCurrent
+                        ? "bg-primary text-white border-primary"
+                        : isDone
+                        ? "bg-success/10 text-success border-success/20"
+                        : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold ${
+                        isCurrent
+                          ? "bg-white/20"
+                          : isDone
+                          ? "bg-success text-white"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {isDone ? <Icon name="Check" size={12} /> : idx + 1}
+                    </div>
+
+                    <span className="text-[12px] font-semibold whitespace-nowrap">
+                      {step.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Modals */}
-      {showNotesModal && (
-        <NotesModal form={form} onClose={() => setShowNotesModal(false)} />
-      )}
-      {showDocumentsModal && (
-        <DocumentsModal
-          form={form}
-          onClose={() => setShowDocumentsModal(false)}
-        />
-      )}
-    </div>
+      <NotesModal
+        open={showNotesModal}
+        form={form}
+        onClose={() => setShowNotesModal(false)}
+      />
+
+      <DocumentsModal
+        open={showDocumentsModal}
+        onClose={() => setShowDocumentsModal(false)}
+      />
+    </>
   );
 };
 

@@ -11,7 +11,7 @@ const LoanManagement = () => {
       <Route path="/" element={<LoanLayout />}>
         <Route index element={<LoanDashboard />} />
         <Route path="new" element={<CreateLoan />} />
-        <Route path="edit" element={<EditLoan />} />
+        <Route path="edit/:loanId" element={<EditLoan />} />
       </Route>
     </Routes>
   );

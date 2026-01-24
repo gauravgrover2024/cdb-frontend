@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Icon from "../../../../components/AppIcon";
 import Button from "../../../../components/ui/Button";
 import { Checkbox } from "../../../../components/ui/Checkbox";
@@ -10,7 +10,9 @@ const LoansDataGrid = ({
   onSelectAll,
   onLoanClick,
   onBulkAction,
+  onDeleteLoan,
   userRole,
+  loading,
 }) => {
   const [sortConfig, setSortConfig] = useState({
     key: "aging",
@@ -18,9 +20,8 @@ const LoansDataGrid = ({
   });
 
   const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
+    switch ((status || "").toLowerCase()) {
       case "approved":
-        return "bg-success/10 text-success border-success/20";
       case "disbursed":
       case "completed":
         return "bg-success/10 text-success border-success/20";
@@ -52,25 +53,27 @@ const LoansDataGrid = ({
     }));
   };
 
-  const sortedLoans = [...loans]?.sort((a, b) => {
-    if (sortConfig?.key === "aging") {
-      return sortConfig?.direction === "asc"
-        ? a?.aging - b?.aging
-        : b?.aging - a?.aging;
-    }
-    if (sortConfig?.key === "loanAmount") {
-      const aAmount = a?.loanAmount || 0;
-      const bAmount = b?.loanAmount || 0;
-      return sortConfig?.direction === "asc"
-        ? aAmount - bAmount
-        : bAmount - aAmount;
-    }
-    return 0;
-  });
+  const sortedLoans = useMemo(() => {
+    return [...(loans || [])].sort((a, b) => {
+      if (sortConfig?.key === "aging") {
+        return sortConfig?.direction === "asc"
+          ? (a?.aging || 0) - (b?.aging || 0)
+          : (b?.aging || 0) - (a?.aging || 0);
+      }
+      if (sortConfig?.key === "loanAmount") {
+        const aAmount = a?.loanAmount || 0;
+        const bAmount = b?.loanAmount || 0;
+        return sortConfig?.direction === "asc"
+          ? aAmount - bAmount
+          : bAmount - aAmount;
+      }
+      return 0;
+    });
+  }, [loans, sortConfig]);
 
   const formatCurrency = (amount) => {
     if (!amount || amount === 0) return "Cash Sale";
-    return `₹${amount?.toLocaleString("en-IN")}`;
+    return `₹${amount.toLocaleString("en-IN")}`;
   };
 
   const getStageLabel = (stage) => {
@@ -84,31 +87,55 @@ const LoansDataGrid = ({
     return stageMap[stage] || stage;
   };
 
+  const allChecked =
+    selectedLoans?.length === loans?.length && loans?.length > 0;
+  const someChecked =
+    selectedLoans?.length > 0 && selectedLoans?.length < loans?.length;
+
   return (
-    <div className="h-full flex flex-col bg-card">
-      <div className="p-4 md:p-6 border-b border-border">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-base md:text-lg font-semibold text-foreground">
-              Loans ({loans?.length})
-            </h2>
-            {selectedLoans?.length > 0 && (
-              <span className="text-sm text-muted-foreground">
-                {selectedLoans?.length} selected
-              </span>
-            )}
+    <div className="h-full flex flex-col bg-card rounded-2xl border border-border overflow-hidden">
+      {/* Top bar */}
+      <div className="px-4 py-3 md:px-5 md:py-4 border-b border-border bg-card">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center border border-border">
+              <Icon name="Table2" size={16} className="text-foreground" />
+            </div>
+
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm md:text-base font-semibold text-foreground">
+                  Cases
+                </h2>
+                <span className="text-[11px] px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
+                  {loans?.length || 0}
+                </span>
+              </div>
+
+              {selectedLoans?.length > 0 ? (
+                <span className="text-xs text-muted-foreground">
+                  {selectedLoans.length} selected
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  Click any row to preview
+                </span>
+              )}
+            </div>
           </div>
 
+          {/* Bulk actions */}
           {selectedLoans?.length > 0 && (
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                iconName="FileText"
+                iconName="FileDown"
                 onClick={() => onBulkAction("export")}
               >
                 Export
               </Button>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -117,6 +144,7 @@ const LoansDataGrid = ({
               >
                 Dispatch
               </Button>
+
               {userRole === "admin" && (
                 <Button
                   variant="default"
@@ -132,44 +160,43 @@ const LoansDataGrid = ({
         </div>
       </div>
 
+      {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full">
-          <thead className="sticky top-0 bg-muted z-10">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur border-b border-border">
             <tr>
-              <th className="p-3 md:p-4 text-left">
+              <th className="p-3 text-left w-[44px]">
                 <Checkbox
-                  checked={
-                    selectedLoans?.length === loans?.length && loans?.length > 0
-                  }
-                  indeterminate={
-                    selectedLoans?.length > 0 &&
-                    selectedLoans?.length < loans?.length
-                  }
+                  checked={allChecked}
+                  indeterminate={someChecked}
                   onChange={(e) => onSelectAll(e?.target?.checked)}
                 />
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Loan ID
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                Loan
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Customer
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Vehicle
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Loan Type
-              </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Bank
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Stage
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 <button
                   onClick={() => handleSort("aging")}
-                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
                 >
                   Aging
                   <Icon
@@ -183,10 +210,11 @@ const LoansDataGrid = ({
                   />
                 </button>
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 <button
                   onClick={() => handleSort("loanAmount")}
-                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
                 >
                   Amount
                   <Icon
@@ -200,139 +228,172 @@ const LoansDataGrid = ({
                   />
                 </button>
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Status
               </th>
-              <th className="p-3 md:p-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+
+              <th className="p-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[140px]">
                 Actions
               </th>
             </tr>
           </thead>
+
           <tbody>
-            {sortedLoans?.map((loan) => (
-              <tr
-                key={loan?.id}
-                className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer"
-                onClick={() => onLoanClick(loan)}
-              >
-                <td
-                  className="p-3 md:p-4"
-                  onClick={(e) => e?.stopPropagation()}
+            {sortedLoans?.map((loan) => {
+              const loanKey = loan?.loanId || loan?._id;
+
+              return (
+                <tr
+                  key={loanKey}
+                  className="border-b border-border hover:bg-muted/40 transition-colors cursor-pointer"
+                  onClick={() => onLoanClick(loan)}
                 >
-                  <Checkbox
-                    checked={selectedLoans?.includes(loan?.id)}
-                    onChange={(e) => onSelectLoan(loan?.id, e?.target?.checked)}
-                  />
-                </td>
-                <td className="p-3 md:p-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground data-text">
-                      {loan?.loanId}
+                  <td className="p-3" onClick={(e) => e?.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedLoans?.includes(loan?.loanId)}
+                      onChange={(e) =>
+                        onSelectLoan(loan?.loanId, e?.target?.checked)
+                      }
+                    />
+                  </td>
+
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-foreground">
+                          {loan?.loanId || "-"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {loan?.typeOfLoan || loan?.loanType || "—"}
+                        </span>
+                      </div>
+
+                      {loan?.priority === "high" && (
+                        <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-error/10 text-error border border-error/20">
+                          <Icon name="AlertCircle" size={12} />
+                          High
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  <td className="p-3">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">
+                        {loan?.customerName || "—"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {loan?.primaryMobile || "—"}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="p-3">
+                    <div className="flex flex-col">
+                      <span className="text-foreground">
+                        {(loan?.vehicleMake || "") +
+                          " " +
+                          (loan?.vehicleModel || "")}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {loan?.vehicleVariant || "—"}
+                      </span>
+                    </div>
+                  </td>
+
+                  <td className="p-3">
+                    <span className="text-foreground">
+                      {loan?.bankName || loan?.approval_bankName || "—"}
                     </span>
-                    {loan?.priority === "high" && (
-                      <Icon
-                        name="AlertCircle"
-                        size={14}
-                        className="text-error"
+                  </td>
+
+                  <td className="p-3">
+                    <span className="text-foreground">
+                      {getStageLabel(loan?.currentStage)}
+                    </span>
+                  </td>
+
+                  <td className="p-3">
+                    <span
+                      className={`font-semibold ${getAgingColor(
+                        loan?.aging || 0
+                      )}`}
+                    >
+                      {loan?.aging || 0}d
+                    </span>
+                  </td>
+
+                  <td className="p-3">
+                    <span className="font-semibold text-foreground whitespace-nowrap">
+                      {formatCurrency(loan?.loanAmount)}
+                    </span>
+                  </td>
+
+                  <td className="p-3">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border ${getStatusColor(
+                        loan?.status
+                      )}`}
+                    >
+                      <Icon name="Circle" size={6} />
+                      {loan?.status || "—"}
+                    </span>
+                  </td>
+
+                  <td className="p-3" onClick={(e) => e?.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconName="Eye"
+                        onClick={() => onLoanClick(loan)}
                       />
-                    )}
-                  </div>
-                </td>
-                <td className="p-3 md:p-4">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-foreground">
-                      {loan?.customerName}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {loan?.primaryMobile}
-                    </span>
-                  </div>
-                </td>
-                <td className="p-3 md:p-4">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-foreground">
-                      {loan?.vehicleMake} {loan?.vehicleModel}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {loan?.vehicleVariant}
-                    </span>
-                  </div>
-                </td>
-                <td className="p-3 md:p-4">
-                  <span className="text-sm text-foreground">
-                    {loan?.typeOfLoan || loan?.loanType}
-                  </span>
-                </td>
-                <td className="p-3 md:p-4">
-                  <span className="text-sm text-foreground">
-                    {loan?.bankName || loan?.approval_bankName || "-"}
-                  </span>
-                </td>
-                <td className="p-3 md:p-4">
-                  <span className="text-sm text-foreground">
-                    {getStageLabel(loan?.currentStage)}
-                  </span>
-                </td>
-                <td className="p-3 md:p-4">
-                  <span
-                    className={`text-sm font-medium data-text ${getAgingColor(
-                      loan?.aging
-                    )}`}
-                  >
-                    {loan?.aging} days
-                  </span>
-                </td>
-                <td className="p-3 md:p-4">
-                  <span className="text-sm font-medium text-foreground data-text whitespace-nowrap">
-                    {formatCurrency(loan?.loanAmount)}
-                  </span>
-                </td>
-                <td className="p-3 md:p-4">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2 md:px-3 py-1 rounded-md text-xs font-medium border ${getStatusColor(
-                      loan?.status
-                    )}`}
-                  >
-                    <Icon name="Circle" size={6} />
-                    {loan?.status}
-                  </span>
-                </td>
-                <td
-                  className="p-3 md:p-4"
-                  onClick={(e) => e?.stopPropagation()}
-                >
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      iconName="Eye"
-                      onClick={() => onLoanClick(loan)}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      iconName="Edit"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onLoanClick(loan, "edit");
-                      }}
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconName="Edit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLoanClick(loan, "edit");
+                        }}
+                      />
+
+                      {userRole === "admin" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          iconName="Trash2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteLoan?.(loan);
+                          }}
+                        />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
-        {/* Empty State */}
-        {loans?.length === 0 && (
-          <div className="text-center py-12">
+        {/* Loading / Empty */}
+        {loading && (
+          <div className="text-center py-12 text-sm text-muted-foreground">
+            Loading loans...
+          </div>
+        )}
+
+        {!loading && loans?.length === 0 && (
+          <div className="text-center py-14">
             <Icon
               name="FileText"
-              size={48}
+              size={46}
               className="text-muted-foreground mx-auto mb-4"
             />
-            <p className="text-base font-medium text-foreground">
+            <p className="text-base font-semibold text-foreground">
               No loans found
             </p>
             <p className="text-sm text-muted-foreground mt-1">
@@ -342,20 +403,20 @@ const LoansDataGrid = ({
         )}
       </div>
 
-      <div className="p-4 md:p-6 border-t border-border">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="text-sm text-muted-foreground">
-            Showing {sortedLoans?.length} of {loans?.length} loans
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-border bg-card">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div>
+            Showing <span className="font-semibold">{sortedLoans?.length}</span>{" "}
+            loan(s)
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" iconName="ChevronLeft" disabled>
               Previous
             </Button>
-            <div className="flex items-center gap-1">
-              <Button variant="default" size="sm">
-                1
-              </Button>
-            </div>
+            <Button variant="default" size="sm">
+              1
+            </Button>
           </div>
         </div>
       </div>
