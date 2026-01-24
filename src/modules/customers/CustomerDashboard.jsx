@@ -11,6 +11,9 @@ import {
   Table,
   Button,
   message,
+  Typography,
+  Divider,
+  Popconfirm,
 } from "antd";
 import {
   UserOutlined,
@@ -19,29 +22,46 @@ import {
   SearchOutlined,
   PlusOutlined,
   ReloadOutlined,
+  EyeOutlined,
+  EditOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import CustomerViewModal from "./CustomerViewModal";
-import { Popconfirm } from "antd";
 
 const { Search } = Input;
+const { Title, Text } = Typography;
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
 
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const [searchText, setSearchText] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
+  // ✅ Use env if present, otherwise default to Vercel API
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
+
+  console.log("API_BASE =", API_BASE);
+
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/customers");
-      if (!res.ok) throw new Error("Failed to fetch customers");
-      const data = await res.json();
+
+      const url = `${API_BASE}/api/customers`;
+      console.log("Fetching:", url);
+
+      const res = await fetch(`${API_BASE}/api/customers`);
+      console.log("Status:", res.status);
+
+      const text = await res.text();
+      console.log("Raw response:", text);
+
+      const data = JSON.parse(text);
       setCustomers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Load Customers Error:", err);
@@ -74,25 +94,31 @@ const CustomerDashboard = () => {
     setIsViewModalOpen(false);
     setSelectedCustomer(null);
   };
+
   const handleDeleteCustomer = async (record) => {
     const id = record?._id || record?.id;
     if (!id) return;
 
     try {
-      setLoading(true);
-      const res = await fetch(`/api/customers/${id}`, {
+      setDeletingId(id);
+
+      const res = await fetch(`${API_BASE}/api/customers/${id}`, {
         method: "DELETE",
       });
 
-      if (!res.ok) throw new Error("Failed to delete customer");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Delete failed");
+      }
 
       message.success("Customer deleted ✅");
-      await loadCustomers(); // refresh list
+      await loadCustomers();
     } catch (err) {
       console.error("Delete Customer Error:", err);
-      message.error("Delete failed ❌");
+      message.error(`Delete failed ❌ (${err.message})`);
     } finally {
-      setLoading(false);
+      setDeletingId(null);
     }
   };
 
@@ -120,9 +146,8 @@ const CustomerDashboard = () => {
     (c) => c.kycStatus === "Completed"
   ).length;
   const pendingDocs = customers.filter(
-    (c) => c.kycStatus !== "Completed"
+    (c) => c.kycStatus === "Pending Docs"
   ).length;
-
   const repeat = customers.filter(
     (c) => String(c.customerType || "").toLowerCase() === "repeat"
   ).length;
@@ -133,13 +158,17 @@ const CustomerDashboard = () => {
       key: "customer",
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Space size={6}>
+          <Space size={8}>
             <UserOutlined style={{ color: "#722ed1" }} />
-            <span style={{ fontWeight: 500 }}>
+            <span style={{ fontWeight: 600 }}>
               {record.customerName || "—"}
             </span>
+
             {record.customerType && (
-              <Tag color={record.customerType === "Repeat" ? "purple" : "blue"}>
+              <Tag
+                style={{ borderRadius: 999 }}
+                color={record.customerType === "Repeat" ? "purple" : "blue"}
+              >
                 {record.customerType}
               </Tag>
             )}
@@ -149,6 +178,7 @@ const CustomerDashboard = () => {
             <span>
               <PhoneOutlined /> {record.primaryMobile || "N/A"}
             </span>
+            <span>•</span>
             <span>{record.city || "—"}</span>
           </Space>
         </Space>
@@ -163,8 +193,10 @@ const CustomerDashboard = () => {
       key: "employment",
       render: (_, record) => (
         <Space direction="vertical" size={2} style={{ fontSize: 12 }}>
-          <span>{record.occupationType || "—"}</span>
-          <span style={{ color: "#8c8c8c" }}>{record.companyName || ""}</span>
+          <span style={{ fontWeight: 500 }}>
+            {record.occupationType || "—"}
+          </span>
+          <span style={{ color: "#8c8c8c" }}>{record.companyName || "—"}</span>
         </Space>
       ),
       sorter: (a, b) =>
@@ -177,8 +209,8 @@ const CustomerDashboard = () => {
       key: "bank",
       render: (_, record) => (
         <Space direction="vertical" size={2} style={{ fontSize: 12 }}>
-          <span>{record.bankName || "—"}</span>
-          <span style={{ color: "#8c8c8c" }}>{record.accountType || ""}</span>
+          <span style={{ fontWeight: 500 }}>{record.bankName || "—"}</span>
+          <span style={{ color: "#8c8c8c" }}>{record.accountType || "—"}</span>
         </Space>
       ),
       sorter: (a, b) =>
@@ -191,7 +223,7 @@ const CustomerDashboard = () => {
       sorter: (a, b) =>
         String(a.kycStatus || "").localeCompare(String(b.kycStatus || "")),
       render: (status) => {
-        if (!status) return "-";
+        if (!status) return "—";
         const color =
           status === "Completed"
             ? "green"
@@ -199,7 +231,11 @@ const CustomerDashboard = () => {
             ? "blue"
             : "orange";
         return (
-          <Tag color={color} icon={<FileDoneOutlined />}>
+          <Tag
+            style={{ borderRadius: 999, padding: "2px 10px" }}
+            color={color}
+            icon={<FileDoneOutlined />}
+          >
             {status}
           </Tag>
         );
@@ -209,16 +245,19 @@ const CustomerDashboard = () => {
       title: "Created",
       dataIndex: "createdOn",
       key: "createdOn",
-      render: (v) => v || "—",
+      render: (v) => (
+        <span style={{ fontSize: 12, color: "#595959" }}>{v || "—"}</span>
+      ),
     },
     {
       title: "Actions",
       key: "actions",
+      width: 220,
       render: (_, record) => (
         <Space size={8}>
           <Button
             size="small"
-            type="link"
+            icon={<EyeOutlined />}
             onClick={() => openViewModal(record)}
           >
             View
@@ -226,7 +265,8 @@ const CustomerDashboard = () => {
 
           <Button
             size="small"
-            type="link"
+            type="primary"
+            icon={<EditOutlined />}
             onClick={() => handleEditCustomer(record)}
           >
             Edit
@@ -234,12 +274,18 @@ const CustomerDashboard = () => {
 
           <Popconfirm
             title="Delete this customer?"
-            description="This action cannot be undone."
-            okText="Yes, Delete"
+            description="This cannot be undone."
+            okText="Delete"
+            okButtonProps={{ danger: true }}
             cancelText="Cancel"
             onConfirm={() => handleDeleteCustomer(record)}
           >
-            <Button size="small" type="link" danger>
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              loading={deletingId === (record?._id || record?.id)}
+            >
               Delete
             </Button>
           </Popconfirm>
@@ -249,78 +295,117 @@ const CustomerDashboard = () => {
   ];
 
   return (
-    <div>
-      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-        <Col>
-          <div style={{ fontSize: 20, fontWeight: 600 }}>Customers</div>
-          <div style={{ fontSize: 12, color: "#8c8c8c" }}>
-            Total {total} customers • Showing {filtered.length}
-          </div>
-        </Col>
-
-        <Col>
-          <Space>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={loadCustomers}
-              loading={loading}
-            >
-              Refresh
-            </Button>
-
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleNewCustomer}
-            >
-              New Customer
-            </Button>
-          </Space>
-        </Col>
-      </Row>
-
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic
-              title="All Customers"
-              value={total}
-              prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic
-              title="KYC Completed"
-              value={completedKyc}
-              valueStyle={{ color: "#3f8600" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic
-              title="Pending Docs"
-              value={pendingDocs}
-              valueStyle={{ color: "#fa8c16" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic title="Repeat Customers" value={repeat} />
-          </Card>
-        </Col>
-      </Row>
-
+    <div style={{ padding: 16 }}>
+      {/* Top Header */}
       <Card
-        size="small"
-        style={{ marginBottom: 12 }}
-        bodyStyle={{ padding: 12 }}
+        style={{
+          borderRadius: 14,
+          border: "1px solid #f0f0f0",
+          marginBottom: 14,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+        }}
+        bodyStyle={{ padding: 16 }}
       >
-        <Row justify="space-between" align="middle" gutter={12}>
-          <Col xs={24} md={12}>
+        <Row justify="space-between" align="middle" gutter={[12, 12]}>
+          <Col>
+            <Title level={4} style={{ margin: 0 }}>
+              Customers
+            </Title>
+            <Text type="secondary">
+              Total <b>{total}</b> customers • Showing <b>{filtered.length}</b>
+            </Text>
+          </Col>
+
+          <Col>
+            <Space>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={loadCustomers}
+                loading={loading}
+              >
+                Refresh
+              </Button>
+
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleNewCustomer}
+              >
+                New Customer
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+
+        <Divider style={{ margin: "14px 0" }} />
+
+        {/* Stats */}
+        <Row gutter={[12, 12]}>
+          <Col xs={12} md={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: 12,
+                border: "1px solid #f0f0f0",
+                background: "#fafcff",
+              }}
+            >
+              <Statistic title="All Customers" value={total} />
+            </Card>
+          </Col>
+
+          <Col xs={12} md={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: 12,
+                border: "1px solid #f0f0f0",
+                background: "#f6ffed",
+              }}
+            >
+              <Statistic title="KYC Completed" value={completedKyc} />
+            </Card>
+          </Col>
+
+          <Col xs={12} md={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: 12,
+                border: "1px solid #f0f0f0",
+                background: "#fff7e6",
+              }}
+            >
+              <Statistic title="Pending Docs" value={pendingDocs} />
+            </Card>
+          </Col>
+
+          <Col xs={12} md={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: 12,
+                border: "1px solid #f0f0f0",
+                background: "#f9f0ff",
+              }}
+            >
+              <Statistic title="Repeat Customers" value={repeat} />
+            </Card>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Search + Table */}
+      <Card
+        style={{
+          borderRadius: 14,
+          border: "1px solid #f0f0f0",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
+        }}
+        bodyStyle={{ padding: 14 }}
+      >
+        <Row justify="space-between" align="middle" gutter={[12, 12]}>
+          <Col xs={24} md={10}>
             <Search
               allowClear
               placeholder="Search by name, mobile, city, PAN"
@@ -328,17 +413,23 @@ const CustomerDashboard = () => {
               onChange={(e) => setSearchText(e.target.value)}
             />
           </Col>
+          <Col xs={24} md={14} style={{ textAlign: "right" }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Tip: Use PAN / mobile for fastest search
+            </Text>
+          </Col>
         </Row>
-      </Card>
 
-      <Card size="small">
+        <Divider style={{ margin: "12px 0" }} />
+
         <Table
           columns={columns}
           dataSource={filtered}
           rowKey={(r) => r._id || r.id}
-          size="small"
+          size="middle"
           loading={loading}
           pagination={{ pageSize: 10, showSizeChanger: false }}
+          style={{ borderRadius: 12 }}
         />
       </Card>
 
