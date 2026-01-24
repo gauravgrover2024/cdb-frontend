@@ -1,6 +1,6 @@
 // src/modules/delivery-orders/components/DeliveryOrderForm.jsx
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   Button,
@@ -38,22 +38,58 @@ const generateDONumber = () => {
 
 const safeText = (v) => (v === undefined || v === null ? "" : String(v));
 
-const toDayjs = (v) => {
-  if (!v) return undefined;
-  if (dayjs.isDayjs(v)) return v;
-  const d = dayjs(v);
-  return d.isValid() ? d : undefined;
+const patchDateFieldsToDayjs = (obj = {}) => {
+  const patched = { ...(obj || {}) };
+
+  Object.keys(patched).forEach((key) => {
+    const val = patched[key];
+
+    if (!val) return;
+
+    if (key.toLowerCase().includes("date")) {
+      if (dayjs.isDayjs(val)) return;
+
+      if (typeof val === "string") {
+        const d = dayjs(val);
+        patched[key] = d.isValid() ? d : undefined;
+      }
+    }
+  });
+
+  return patched;
+};
+
+const serializeDatesToISO = (obj = {}) => {
+  const out = { ...(obj || {}) };
+
+  Object.keys(out).forEach((key) => {
+    const val = out[key];
+    if (dayjs.isDayjs(val)) {
+      out[key] = val.toISOString();
+    }
+  });
+
+  return out;
+};
+
+const useDebounce = (value, delay = 800) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 };
 
 // ---- API helpers for DOs ----
 const fetchDOByLoanId = async (loanId) => {
-  const res = await fetch(`/api/delivery-orders/${loanId}`);
+  const res = await fetch(`/api/do/${loanId}`);
   if (!res.ok) throw new Error("Failed to fetch DO");
   return res.json(); // can be null
 };
 
 const saveDOByLoanId = async (loanId, payload) => {
-  const res = await fetch(`/api/delivery-orders/${loanId}`, {
+  const res = await fetch(`/api/do/${loanId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -75,6 +111,11 @@ const DeliveryOrderForm = () => {
     "do_showCustomerVehicleSection",
     form
   );
+
+  const [hasLoadedDO, setHasLoadedDO] = useState(false);
+  const [existingDO, setExistingDO] = useState(null);
+
+  const lastSaveAtRef = useRef(0);
 
   // Load Loan from localStorage (prefill)
   const loanData = useMemo(() => {
@@ -103,7 +144,7 @@ const DeliveryOrderForm = () => {
   }, [loanId]);
 
   // -------------------------------------
-  // ✅ Load Saved DO from API (Edit/View)
+  // ✅ Load Saved DO from API
   // -------------------------------------
   useEffect(() => {
     if (!loanId) return;
@@ -114,17 +155,9 @@ const DeliveryOrderForm = () => {
 
         if (!foundDO) return;
 
-        const patched = { ...foundDO };
+        setExistingDO(foundDO);
 
-        Object.keys(patched).forEach((key) => {
-          if (
-            key.toLowerCase().includes("date") &&
-            typeof patched[key] === "string"
-          ) {
-            const d = dayjs(patched[key]);
-            patched[key] = d.isValid() ? d : undefined;
-          }
-        });
+        const patched = patchDateFieldsToDayjs(foundDO);
 
         form.setFieldsValue({
           ...patched,
@@ -133,6 +166,8 @@ const DeliveryOrderForm = () => {
         });
       } catch (err) {
         console.error("Load DO Error:", err);
+      } finally {
+        setHasLoadedDO(true);
       }
     };
 
@@ -140,8 +175,7 @@ const DeliveryOrderForm = () => {
   }, [loanId, form]);
 
   // -------------------------------------
-  // ✅ Prefill ONLY when DO not found
-  //    (API load above leaves form untouched when no DO)
+  // ✅ Prefill defaults ONLY when empty
   // -------------------------------------
   useEffect(() => {
     if (!loanId) return;
@@ -178,6 +212,55 @@ const DeliveryOrderForm = () => {
   }, [form, loanData, loanId]);
 
   // -------------------------------------
+  // ✅ Autosave DO (Debounced)
+  // -------------------------------------
+  const allValues = Form.useWatch([], form);
+  const debouncedValues = useDebounce(allValues, 800);
+
+  useEffect(() => {
+    if (!loanId) return;
+    if (!hasLoadedDO) return;
+
+    const autosave = async () => {
+      try {
+        // if form has nothing meaningful yet, skip
+        if (!debouncedValues || typeof debouncedValues !== "object") return;
+
+        const values = serializeDatesToISO(debouncedValues);
+
+        const finalLoanId =
+          values?.do_loanId ||
+          existingDO?.do_loanId ||
+          loanData?.loanId ||
+          loanId;
+
+        const payload = {
+          ...(existingDO || {}),
+          ...values,
+          loanId: finalLoanId,
+          do_loanId: finalLoanId,
+          updatedAt: new Date().toISOString(),
+          createdAt: existingDO?.createdAt || new Date().toISOString(),
+        };
+
+        await saveDOByLoanId(finalLoanId, payload);
+
+        setExistingDO(payload);
+
+        const now = Date.now();
+        if (now - lastSaveAtRef.current > 5000) {
+          lastSaveAtRef.current = now;
+          // message.success("Auto-saved DO ✅"); // optional
+        }
+      } catch (err) {
+        console.error("Autosave DO Error:", err);
+      }
+    };
+
+    autosave();
+  }, [loanId, hasLoadedDO, debouncedValues, existingDO, loanData]);
+
+  // -------------------------------------
   // Actions
   // -------------------------------------
   const handleDiscardAndExit = () => {
@@ -188,23 +271,32 @@ const DeliveryOrderForm = () => {
   const handleSave = async () => {
     try {
       setLoading(true);
+
       const values = await form.validateFields();
+      const serialized = serializeDatesToISO(values);
+
+      const finalLoanId =
+        serialized?.do_loanId ||
+        existingDO?.do_loanId ||
+        loanData?.loanId ||
+        loanId;
 
       const payload = {
-        ...values,
-        loanId: values.do_loanId || loanData?.loanId || loanId,
+        ...(existingDO || {}),
+        ...serialized,
+        loanId: finalLoanId,
+        do_loanId: finalLoanId,
         updatedAt: new Date().toISOString(),
-        createdAt: values?.createdAt || new Date().toISOString(),
+        createdAt: existingDO?.createdAt || new Date().toISOString(),
       };
-
-      const finalLoanId = payload.loanId || loanId;
 
       await saveDOByLoanId(finalLoanId, payload);
 
-      message.success("Delivery Order saved successfully");
+      setExistingDO(payload);
+
+      message.success("Delivery Order saved successfully ✅");
     } catch (err) {
       console.error("Save DO Error:", err);
-      // validation errors will be handled by antd; other errors we log
     } finally {
       setLoading(false);
     }
