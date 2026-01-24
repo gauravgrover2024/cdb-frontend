@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Form, Button, Affix, Space } from "antd";
+import React, { useEffect, useRef, useState } from "react";
+import { Form, Button, Affix, Space, message } from "antd";
 import {
   IdcardOutlined,
   SolutionOutlined,
@@ -10,7 +10,7 @@ import {
   PhoneOutlined,
   HomeOutlined,
 } from "@ant-design/icons";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import PersonalDetails from "./customer-form/PersonalDetails";
 import EmploymentDetails from "./customer-form/EmploymentDetails";
@@ -61,8 +61,6 @@ const sectionsConfig = [
 const AddCustomer = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const location = useLocation();
-  const existingList = location.state?.customers || [];
 
   const [activeSection, setActiveSection] = useState("personal");
   const [headerInfo, setHeaderInfo] = useState({
@@ -71,6 +69,11 @@ const AddCustomer = () => {
     city: "",
     pan: "",
   });
+
+  const [customerId, setCustomerId] = useState(null);
+
+  const creatingRef = useRef(false);
+  const autosaveTimer = useRef(null);
 
   const scrollToSection = (targetId) => {
     const el = document.getElementById(targetId);
@@ -85,13 +88,13 @@ const AddCustomer = () => {
       const offsets = sectionsConfig.map((s) => {
         const el = document.getElementById(s.targetId);
         if (!el) return { key: s.key, top: Infinity };
-        const rect = el.getBoundingClientRect();
-        return { key: s.key, top: rect.top };
+        return { key: s.key, top: el.getBoundingClientRect().top };
       });
 
       const visible = offsets.reduce((prev, curr) =>
         Math.abs(curr.top - 96) < Math.abs(prev.top - 96) ? curr : prev
       );
+
       if (visible.key && visible.key !== activeSection) {
         setActiveSection(visible.key);
       }
@@ -101,6 +104,79 @@ const AddCustomer = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, [activeSection]);
 
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+  }, []);
+
+  const createCustomerIfNeeded = async () => {
+    if (customerId) return customerId;
+    if (creatingRef.current) return null;
+
+    creatingRef.current = true;
+
+    try {
+      const res = await fetch("/api/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerType: "New",
+          kycStatus: "In Progress",
+          createdOn: new Date().toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create customer");
+
+      const data = await res.json();
+      const id = data?._id;
+
+      if (!id) throw new Error("Customer id missing from response");
+
+      setCustomerId(id);
+      return id;
+    } catch (err) {
+      console.error("Create Customer Error:", err);
+      message.error("Failed to create customer ❌");
+      return null;
+    } finally {
+      creatingRef.current = false;
+    }
+  };
+
+  const saveToMongo = async (values) => {
+    const id = await createCustomerIfNeeded();
+    if (!id) throw new Error("Customer ID not available");
+
+    const payload = {
+      ...values,
+      customerType: "New",
+      kycStatus: values?.kycStatus || "In Progress",
+      createdOn:
+        values?.createdOn ||
+        new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+    };
+
+    const res = await fetch(`/api/customers/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to save customer");
+    }
+  };
+
   const onValuesChange = (_, allValues) => {
     setHeaderInfo({
       name: allValues.customerName || "",
@@ -108,91 +184,41 @@ const AddCustomer = () => {
       city: allValues.city || "",
       pan: allValues.panNumber || "",
     });
+
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+
+    autosaveTimer.current = setTimeout(() => {
+      saveToMongo(allValues).catch((err) => {
+        console.error("Customer Autosave Error:", err);
+      });
+    }, 600);
   };
 
-  const handleSave = (exit = true) => {
-    const values = form.getFieldsValue(true);
-
-    const flat = {
-      id: Date.now(),
-      // Personal Details
-      customerName: values.customerName,
-      sdwOf: values.sdwOf,
-      gender: values.gender,
-      dob: values.dob,
-      motherName: values.motherName,
-      residenceAddress: values.residenceAddress,
-      pincode: values.pincode,
-      city: values.city,
-      yearsInCurrentHouse: values.yearsInCurrentHouse,
-      houseType: values.houseType,
-      education: values.education,
-      maritalStatus: values.maritalStatus,
-      dependents: values.dependents,
-      primaryMobile: values.primaryMobile,
-      extraMobiles: values.extraMobiles,
-      email: values.email,
-      nomineeName: values.nomineeName,
-      nomineeDob: values.nomineeDob,
-      nomineeRelation: values.nomineeRelation,
-
-      // Employment Details
-      occupationType: values.occupationType,
-      companyName: values.companyName,
-      companyType: values.companyType,
-      businessNature: values.businessNature,
-      employmentAddress: values.employmentAddress,
-      employmentPincode: values.employmentPincode,
-      employmentCity: values.employmentCity,
-      employmentPhone: values.employmentPhone,
-      salaryMonthly: values.salaryMonthly,
-      designation: values.designation,
-      incorporationYear: values.incorporationYear,
-
-      // Income Details
-      panNumber: values.panNumber,
-      itrYears: values.itrYears,
-
-      // Banking Details
-      bankName: values.bankName,
-      accountNumber: values.accountNumber,
-      ifsc: values.ifsc,
-      branch: values.branch,
-      accountSinceYears: values.accountSinceYears,
-      accountType: values.accountType,
-
-      // References
-      reference1: values.reference1,
-      reference2: values.reference2,
-
-      // KYC Details
-      aadhaarNumber: values.aadhaarNumber,
-      passportNumber: values.passportNumber,
-      gstNumber: values.gstNumber,
-      dlNumber: values.dlNumber,
-
-      // Standard Fields
-      customerType: "New",
-      kycStatus: "In Progress",
-      createdOn: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-    };
-
-    const updatedList = [flat, ...existingList];
-    navigate("/customers", { state: { customers: updatedList } });
-
-    if (!exit) {
-      form.resetFields();
+  const handleSaveAndExit = async () => {
+    try {
+      const values = form.getFieldsValue(true);
+      await saveToMongo(values);
+      message.success("Customer saved ✅");
+      navigate("/customers");
+    } catch (err) {
+      console.error("Save & Exit Error:", err);
+      message.error("Save failed ❌");
     }
   };
 
+  const handleSaveOnly = async () => {
+    try {
+      const values = form.getFieldsValue(true);
+      await saveToMongo(values);
+      message.success("Saved ✅");
+    } catch (err) {
+      console.error("Save Error:", err);
+      message.error("Save failed ❌");
+    }
+  };
 
   return (
     <div>
-      {/* Header Affix */}
       <Affix offsetTop={64}>
         <div
           style={{
@@ -205,7 +231,6 @@ const AddCustomer = () => {
             zIndex: 10,
           }}
         >
-          {/* Row 1: title + actions */}
           <div
             style={{
               display: "flex",
@@ -215,21 +240,18 @@ const AddCustomer = () => {
             }}
           >
             <div style={{ fontWeight: 600, fontSize: 16 }}>Customer Master</div>
+
             <Space>
-              <Button size="small" onClick={() => handleSave(true)}>
+              <Button size="small" onClick={handleSaveAndExit}>
                 Save & Exit
               </Button>
-              <Button
-                size="small"
-                type="primary"
-                onClick={() => handleSave(false)}
-              >
+
+              <Button size="small" type="primary" onClick={handleSaveOnly}>
                 Save
               </Button>
             </Space>
           </div>
 
-          {/* Row 2: customer info chips */}
           <Space size={12} style={{ fontSize: 12, color: "#595959" }} wrap>
             <Space
               size={6}
@@ -242,6 +264,7 @@ const AddCustomer = () => {
               <IdcardOutlined style={{ color: "#8c8c8c" }} />
               <span>{headerInfo.name || "Name not set"}</span>
             </Space>
+
             <Space
               size={6}
               style={{
@@ -253,6 +276,7 @@ const AddCustomer = () => {
               <PhoneOutlined style={{ color: "#8c8c8c" }} />
               <span>{headerInfo.mobile || "Mobile"}</span>
             </Space>
+
             <Space
               size={6}
               style={{
@@ -264,6 +288,7 @@ const AddCustomer = () => {
               <HomeOutlined style={{ color: "#8c8c8c" }} />
               <span>{headerInfo.city || "City"}</span>
             </Space>
+
             <Space
               size={6}
               style={{
@@ -277,7 +302,6 @@ const AddCustomer = () => {
             </Space>
           </Space>
 
-          {/* Row 3: section nav */}
           <Space size={6} wrap>
             {sectionsConfig.map((section) => {
               const active = activeSection === section.key;
@@ -312,10 +336,13 @@ const AddCustomer = () => {
               );
             })}
           </Space>
+
+          <div style={{ fontSize: 11, color: "#8c8c8c" }}>
+            Mongo ID: <b>{customerId || "not created yet"}</b>
+          </div>
         </div>
       </Affix>
 
-      {/* MAIN FORM */}
       <Form
         id="customer-form"
         form={form}

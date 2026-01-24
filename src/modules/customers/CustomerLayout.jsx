@@ -20,7 +20,9 @@ const CustomerLayout = () => {
 
   const selectedKey = useMemo(() => {
     if (location.pathname.startsWith("/customers/new")) return "customerNew";
-    if (location.pathname.startsWith("/customers/edit")) return "customerEdit";
+    if (location.pathname.startsWith("/customers/new")) return "customerNew";
+    if (location.pathname.startsWith("/customers")) return "customerDashboard";
+
     if (location.pathname.startsWith("/customers")) return "customerDashboard";
 
     if (location.pathname.startsWith("/loans/new")) return "loanNew";
@@ -114,12 +116,6 @@ const CustomerLayout = () => {
                   <UserAddOutlined />,
                   "New Customer",
                   "/customers/new"
-                ),
-                menuItem(
-                  "customerEdit",
-                  <TeamOutlined />,
-                  "Edit Customer",
-                  "/customers/edit"
                 ),
               ],
             },

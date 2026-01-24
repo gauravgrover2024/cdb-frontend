@@ -10,6 +10,7 @@ import {
   Space,
   Table,
   Button,
+  message,
 } from "antd";
 import {
   UserOutlined,
@@ -17,37 +18,50 @@ import {
   FileDoneOutlined,
   SearchOutlined,
   PlusOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
-import { useNavigate, useLocation } from "react-router-dom";
-import demoCustomers from "./demoCustomers";
+import { useNavigate } from "react-router-dom";
 import CustomerViewModal from "./CustomerViewModal";
 
 const { Search } = Input;
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const [customers, setCustomers] = useState(demoCustomers);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   const [searchText, setSearchText] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // accept updated list from Add/Edit exactly once
-  useEffect(() => {
-    if (location.state && location.state.customers) {
-      setCustomers(location.state.customers);
-      // clear location.state so refresh or manual click doesn't break
-      window.history.replaceState({}, document.title, location.pathname);
+  const loadCustomers = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/customers");
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      const data = await res.json();
+      setCustomers(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Load Customers Error:", err);
+      message.error("Failed to load customers ❌");
+    } finally {
+      setLoading(false);
     }
-  }, [location]);
+  };
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
 
   const handleNewCustomer = () => {
-    navigate("/customers/new", { state: { customers } });
+    navigate("/customers/new");
   };
 
   const handleEditCustomer = (record) => {
-    navigate("/customers/edit", { state: { customer: record, customers } });
+    const id = record?._id || record?.id;
+    if (!id) return;
+    navigate(`/customers/edit/${id}`);
   };
 
   const openViewModal = (record) => {
@@ -63,12 +77,18 @@ const CustomerDashboard = () => {
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return customers;
-    return customers.filter((c) => {
-      const name = (c.customerName || c.name || "").toLowerCase();
-      const mobile = c.primaryMobile || c.mobile || "";
-      const city = (c.city || "").toLowerCase();
+
+    return (customers || []).filter((c) => {
+      const name = String(c.customerName || "").toLowerCase();
+      const mobile = String(c.primaryMobile || "");
+      const city = String(c.city || "").toLowerCase();
+      const pan = String(c.panNumber || "").toLowerCase();
+
       return (
-        name.includes(q) || mobile.includes(q) || (city && city.includes(q))
+        name.includes(q) ||
+        mobile.includes(q) ||
+        city.includes(q) ||
+        pan.includes(q)
       );
     });
   }, [searchText, customers]);
@@ -78,10 +98,11 @@ const CustomerDashboard = () => {
     (c) => c.kycStatus === "Completed"
   ).length;
   const pendingDocs = customers.filter(
-    (c) => c.kycStatus === "Pending Docs"
+    (c) => c.kycStatus !== "Completed"
   ).length;
+
   const repeat = customers.filter(
-    (c) => (c.customerType || "").toLowerCase() === "repeat"
+    (c) => String(c.customerType || "").toLowerCase() === "repeat"
   ).length;
 
   const columns = [
@@ -93,7 +114,7 @@ const CustomerDashboard = () => {
           <Space size={6}>
             <UserOutlined style={{ color: "#722ed1" }} />
             <span style={{ fontWeight: 500 }}>
-              {record.customerName || record.name}
+              {record.customerName || "—"}
             </span>
             {record.customerType && (
               <Tag color={record.customerType === "Repeat" ? "purple" : "blue"}>
@@ -101,17 +122,18 @@ const CustomerDashboard = () => {
               </Tag>
             )}
           </Space>
+
           <Space size={12} style={{ fontSize: 12, color: "#595959" }}>
             <span>
-              <PhoneOutlined /> {record.primaryMobile || record.mobile || "N/A"}
+              <PhoneOutlined /> {record.primaryMobile || "N/A"}
             </span>
-            <span>{record.city}</span>
+            <span>{record.city || "—"}</span>
           </Space>
         </Space>
       ),
       sorter: (a, b) =>
-        (a.customerName || a.name || "").localeCompare(
-          b.customerName || b.name || ""
+        String(a.customerName || "").localeCompare(
+          String(b.customerName || "")
         ),
     },
     {
@@ -119,29 +141,33 @@ const CustomerDashboard = () => {
       key: "employment",
       render: (_, record) => (
         <Space direction="vertical" size={2} style={{ fontSize: 12 }}>
-          <span>{record.occupationType}</span>
-          <span style={{ color: "#8c8c8c" }}>{record.companyName}</span>
+          <span>{record.occupationType || "—"}</span>
+          <span style={{ color: "#8c8c8c" }}>{record.companyName || ""}</span>
         </Space>
       ),
       sorter: (a, b) =>
-        (a.occupationType || "").localeCompare(b.occupationType || ""),
+        String(a.occupationType || "").localeCompare(
+          String(b.occupationType || "")
+        ),
     },
     {
       title: "Bank",
       key: "bank",
       render: (_, record) => (
         <Space direction="vertical" size={2} style={{ fontSize: 12 }}>
-          <span>{record.bankName}</span>
-          <span style={{ color: "#8c8c8c" }}>{record.accountType}</span>
+          <span>{record.bankName || "—"}</span>
+          <span style={{ color: "#8c8c8c" }}>{record.accountType || ""}</span>
         </Space>
       ),
-      sorter: (a, b) => (a.bankName || "").localeCompare(b.bankName || ""),
+      sorter: (a, b) =>
+        String(a.bankName || "").localeCompare(String(b.bankName || "")),
     },
     {
       title: "KYC",
       dataIndex: "kycStatus",
       key: "kycStatus",
-      sorter: (a, b) => (a.kycStatus || "").localeCompare(b.kycStatus || ""),
+      sorter: (a, b) =>
+        String(a.kycStatus || "").localeCompare(String(b.kycStatus || "")),
       render: (status) => {
         if (!status) return "-";
         const color =
@@ -161,12 +187,7 @@ const CustomerDashboard = () => {
       title: "Created",
       dataIndex: "createdOn",
       key: "createdOn",
-      sorter: (a, b) => {
-        if (!a.createdOn || !b.createdOn) return 0;
-        const pa = a.createdOn.split(" ").reverse().join("-");
-        const pb = b.createdOn.split(" ").reverse().join("-");
-        return new Date(pa) - new Date(pb);
-      },
+      render: (v) => v || "—",
     },
     {
       title: "Actions",
@@ -201,14 +222,25 @@ const CustomerDashboard = () => {
             Total {total} customers • Showing {filtered.length}
           </div>
         </Col>
+
         <Col>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleNewCustomer}
-          >
-            New Customer
-          </Button>
+          <Space>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadCustomers}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleNewCustomer}
+            >
+              New Customer
+            </Button>
+          </Space>
         </Col>
       </Row>
 
@@ -256,7 +288,7 @@ const CustomerDashboard = () => {
           <Col xs={24} md={12}>
             <Search
               allowClear
-              placeholder="Search by name, mobile, city"
+              placeholder="Search by name, mobile, city, PAN"
               prefix={<SearchOutlined />}
               onChange={(e) => setSearchText(e.target.value)}
             />
@@ -268,8 +300,9 @@ const CustomerDashboard = () => {
         <Table
           columns={columns}
           dataSource={filtered}
-          rowKey="id"
+          rowKey={(r) => r._id || r.id}
           size="small"
+          loading={loading}
           pagination={{ pageSize: 10, showSizeChanger: false }}
         />
       </Card>

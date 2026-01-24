@@ -8,6 +8,7 @@ import {
   Input,
   Typography,
   Tooltip,
+  message,
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import {
@@ -30,18 +31,41 @@ const asInt = (val) => {
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
+// ✅ API helper
+const fetchAllDOs = async () => {
+  const res = await fetch("/api/do");
+  if (!res.ok) throw new Error("Failed to load DO list");
+  return res.json(); // array
+};
+
 const DeliveryOrderDashboard = () => {
   const navigate = useNavigate();
   const [loans, setLoans] = useState([]);
   const [deliveryOrders, setDeliveryOrders] = useState([]);
   const [search, setSearch] = useState("");
+  const [loadingDOs, setLoadingDOs] = useState(false);
 
-  const loadData = () => {
+  const loadLoansFromLocal = () => {
     const savedLoans = JSON.parse(localStorage.getItem("savedLoans") || "[]");
-    const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
-
     setLoans(savedLoans);
-    setDeliveryOrders(savedDOs);
+  };
+
+  const loadDOsFromMongo = async () => {
+    try {
+      setLoadingDOs(true);
+      const docs = await fetchAllDOs();
+      setDeliveryOrders(Array.isArray(docs) ? docs : []);
+    } catch (err) {
+      console.error("Load DO Dashboard Error:", err);
+      message.error("Failed to load Delivery Orders from server ❌");
+    } finally {
+      setLoadingDOs(false);
+    }
+  };
+
+  const loadData = async () => {
+    loadLoansFromLocal();
+    await loadDOsFromMongo();
   };
 
   useEffect(() => {
@@ -55,7 +79,6 @@ const DeliveryOrderDashboard = () => {
       if (d?.loanId) map[d.loanId] = d;
       if (d?.do_loanId) map[d.do_loanId] = d; // fallback
     });
-
     return map;
   }, [deliveryOrders]);
 
@@ -225,8 +248,12 @@ const DeliveryOrderDashboard = () => {
           </div>
 
           <Space>
-            <Tooltip title="Reload from localStorage">
-              <Button icon={<ReloadOutlined />} onClick={loadData}>
+            <Tooltip title="Reload Loans (localStorage) + DOs (Mongo)">
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={loadData}
+                loading={loadingDOs}
+              >
                 Refresh
               </Button>
             </Tooltip>

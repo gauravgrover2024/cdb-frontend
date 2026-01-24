@@ -13,7 +13,7 @@ import {
   PhoneOutlined,
   HomeOutlined,
 } from "@ant-design/icons";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import PersonalDetails from "./customer-form/PersonalDetails";
 import EmploymentDetails from "./customer-form/EmploymentDetails";
@@ -22,6 +22,9 @@ import KycDetails from "./customer-form/KycDetails";
 import BankDetails from "./customer-form/BankDetails";
 import ReferenceDetails from "./customer-form/ReferenceDetails";
 
+// -----------------------------
+// Sections config
+// -----------------------------
 const sectionsConfig = [
   {
     key: "personal",
@@ -61,14 +64,36 @@ const sectionsConfig = [
   },
 ];
 
+// -----------------------------
+// API helpers
+// -----------------------------
+const fetchCustomerById = async (id) => {
+  const res = await fetch(`/api/customers/${id}`);
+  if (!res.ok) throw new Error("Failed to load customer");
+  return res.json();
+};
+
+const updateCustomerById = async (id, payload) => {
+  const res = await fetch(`/api/customers/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to update customer");
+  return res.json();
+};
+
+// -----------------------------
+// Component
+// -----------------------------
 const EditCustomer = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { id } = useParams();
 
   const [customer, setCustomer] = useState(null);
-  const [existingList, setExistingList] = useState([]);
   const [activeSection, setActiveSection] = useState("personal");
+
   const [headerInfo, setHeaderInfo] = useState({
     name: "",
     mobile: "",
@@ -76,79 +101,105 @@ const EditCustomer = () => {
     pan: "",
   });
 
-  /* =========================
-     LOAD CUSTOMER DATA
-  ========================= */
+  const [saving, setSaving] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  // -----------------------------
+  // Load customer from Mongo
+  // -----------------------------
   useEffect(() => {
-    if (!location.state?.customer || !location.state?.customers) return;
+    if (!id) return;
 
-    const cust = location.state.customer;
-    setCustomer(cust);
-    setExistingList(location.state.customers);
+    const load = async () => {
+      try {
+        const found = await fetchCustomerById(id);
+        if (!found) {
+          message.error("Customer not found");
+          return;
+        }
 
-    setHeaderInfo({
-      name: cust.customerName || cust.name || "",
-      mobile: cust.primaryMobile || cust.mobile || "",
-      city: cust.city || "",
-      pan: cust.panNumber || "",
-    });
+        setCustomer(found);
 
-    form.setFieldsValue({
-      customerName: cust.customerName || cust.name || "",
-      sdwOf: cust.sdwOf || "",
-      gender: cust.gender || "",
-      dob: cust.dob ? dayjs(cust.dob) : null,
-      motherName: cust.motherName || "",
-      residenceAddress: cust.residenceAddress || "",
-      pincode: cust.pincode || "",
-      city: cust.city || "",
-      yearsInCurrentHouse: cust.yearsInCurrentHouse || "",
-      houseType: cust.houseType || "",
-      education: cust.education || "",
-      maritalStatus: cust.maritalStatus || "",
-      dependents: cust.dependents || "",
-      primaryMobile: cust.primaryMobile || "",
-      extraMobiles: cust.extraMobiles || [],
-      email: cust.email || "",
-      nomineeName: cust.nomineeName || "",
-      nomineeDob: cust.nomineeDob ? dayjs(cust.nomineeDob) : null,
-      nomineeRelation: cust.nomineeRelation || "",
+        // Fill form
+        form.setFieldsValue({
+          // Personal
+          customerName: found.customerName || "",
+          sdwOf: found.sdwOf || "",
+          gender: found.gender || "",
+          dob: found.dob ? dayjs(found.dob) : null,
+          motherName: found.motherName || "",
+          residenceAddress: found.residenceAddress || "",
+          pincode: found.pincode || "",
+          city: found.city || "",
+          yearsInCurrentHouse: found.yearsInCurrentHouse || "",
+          houseType: found.houseType || "",
+          education: found.education || "",
+          maritalStatus: found.maritalStatus || "",
+          dependents: found.dependents || "",
+          primaryMobile: found.primaryMobile || "",
+          extraMobiles: found.extraMobiles || [],
+          email: found.email || "",
+          nomineeName: found.nomineeName || "",
+          nomineeDob: found.nomineeDob ? dayjs(found.nomineeDob) : null,
+          nomineeRelation: found.nomineeRelation || "",
 
-      occupationType: cust.occupationType || "",
-      companyName: cust.companyName || "",
-      companyType: cust.companyType || "",
-      businessNature: cust.businessNature || [],
-      employmentAddress: cust.employmentAddress || "",
-      employmentPincode: cust.employmentPincode || "",
-      employmentCity: cust.employmentCity || "",
-      employmentPhone: cust.employmentPhone || "",
-      salaryMonthly: cust.salaryMonthly || "",
-      designation: cust.designation || "",
-      incorporationYear: cust.incorporationYear || "",
+          // Employment
+          occupationType: found.occupationType || "",
+          companyName: found.companyName || "",
+          companyType: found.companyType || "",
+          businessNature: found.businessNature || [],
+          employmentAddress: found.employmentAddress || "",
+          employmentPincode: found.employmentPincode || "",
+          employmentCity: found.employmentCity || "",
+          employmentPhone: found.employmentPhone || "",
+          salaryMonthly: found.salaryMonthly || "",
+          designation: found.designation || "",
+          incorporationYear: found.incorporationYear || "",
 
-      panNumber: cust.panNumber || "",
-      itrYears: cust.itrYears || "",
+          // Income
+          panNumber: found.panNumber || "",
+          itrYears: found.itrYears || "",
 
-      bankName: cust.bankName || "",
-      accountNumber: cust.accountNumber || "",
-      ifsc: cust.ifsc || "",
-      branch: cust.branch || "",
-      accountSinceYears: cust.accountSinceYears || "",
-      accountType: cust.accountType || "",
+          // Bank
+          bankName: found.bankName || "",
+          accountNumber: found.accountNumber || "",
+          ifsc: found.ifsc || "",
+          branch: found.branch || "",
+          accountSinceYears: found.accountSinceYears || "",
+          accountType: found.accountType || "",
 
-      reference1: cust.reference1 || null,
-      reference2: cust.reference2 || null,
+          // References
+          reference1: found.reference1 || null,
+          reference2: found.reference2 || null,
 
-      aadhaarNumber: cust.aadhaarNumber || "",
-      passportNumber: cust.passportNumber || "",
-      gstNumber: cust.gstNumber || "",
-      dlNumber: cust.dlNumber || "",
-    });
-  }, [location, form]);
+          // KYC
+          aadhaarNumber: found.aadhaarNumber || "",
+          passportNumber: found.passportNumber || "",
+          gstNumber: found.gstNumber || "",
+          dlNumber: found.dlNumber || "",
+        });
 
-  /* =========================
-     SCROLL SPY
-  ========================= */
+        // Header chips
+        setHeaderInfo({
+          name: found.customerName || "",
+          mobile: found.primaryMobile || "",
+          city: found.city || "",
+          pan: found.panNumber || "",
+        });
+
+        setHasLoaded(true);
+      } catch (err) {
+        console.error("Load Customer Error:", err);
+        message.error("Failed to load customer ❌");
+      }
+    };
+
+    load();
+  }, [id, form]);
+
+  // -----------------------------
+  // Scroll Spy
+  // -----------------------------
   useEffect(() => {
     const onScroll = () => {
       const offsets = sectionsConfig.map((s) => {
@@ -170,13 +221,16 @@ const EditCustomer = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, [activeSection]);
 
-  const scrollToSection = (id) => {
-    const el = document.getElementById(id);
+  const scrollToSection = (targetId) => {
+    const el = document.getElementById(targetId);
     if (!el) return;
     const y = el.getBoundingClientRect().top + window.scrollY - 96;
     window.scrollTo({ top: y, behavior: "smooth" });
   };
 
+  // -----------------------------
+  // Header live update
+  // -----------------------------
   const onValuesChange = (_, allValues) => {
     setHeaderInfo({
       name: allValues.customerName || "",
@@ -186,31 +240,73 @@ const EditCustomer = () => {
     });
   };
 
-  /* =========================
-     SAVE
-  ========================= */
-  const handleSave = () => {
-    if (!customer) return;
+  // -----------------------------
+  // Autosave (debounced + safe)
+  // -----------------------------
+  const valuesSnapshot = Form.useWatch([], form);
 
-    const values = form.getFieldsValue(true);
+  useEffect(() => {
+    if (!id) return;
+    if (!hasLoaded) return;
+    if (!valuesSnapshot) return;
+    if (saving) return;
 
-    const updatedCustomer = {
-      ...customer,
-      ...values,
-      dob: values.dob ? values.dob.format("YYYY-MM-DD") : "",
-      nomineeDob: values.nomineeDob
-        ? values.nomineeDob.format("YYYY-MM-DD")
-        : "",
-      name: values.customerName,
-      mobile: values.primaryMobile,
-    };
+    const timer = setTimeout(async () => {
+      try {
+        const payload = {
+          ...valuesSnapshot,
 
-    const updatedList = existingList.map((c) =>
-      c.id === customer.id ? updatedCustomer : c
-    );
+          // IMPORTANT: store null instead of "" so DB doesn't get corrupted
+          dob: valuesSnapshot?.dob
+            ? valuesSnapshot.dob.format("YYYY-MM-DD")
+            : null,
 
-    navigate("/customers", { state: { customers: updatedList } });
-    message.success("Customer updated successfully");
+          nomineeDob: valuesSnapshot?.nomineeDob
+            ? valuesSnapshot.nomineeDob.format("YYYY-MM-DD")
+            : null,
+
+          updatedAt: new Date().toISOString(),
+        };
+
+        await updateCustomerById(id, payload);
+      } catch (err) {
+        console.error("Autosave Customer Error:", err);
+      }
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [id, hasLoaded, valuesSnapshot, saving]);
+
+  // -----------------------------
+  // Manual Save (validate + exit)
+  // -----------------------------
+  const handleSave = async () => {
+    if (!id) return;
+
+    try {
+      setSaving(true);
+
+      const values = await form.validateFields();
+
+      const payload = {
+        ...values,
+        dob: values?.dob ? values.dob.format("YYYY-MM-DD") : null,
+        nomineeDob: values?.nomineeDob
+          ? values.nomineeDob.format("YYYY-MM-DD")
+          : null,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await updateCustomerById(id, payload);
+
+      message.success("Customer updated successfully ✅");
+      navigate("/customers");
+    } catch (err) {
+      console.error("Save Customer Error:", err);
+      message.error("Save failed ❌");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!customer) {
@@ -233,13 +329,20 @@ const EditCustomer = () => {
         >
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <div style={{ fontWeight: 600 }}>
-              Edit Customer – {customer.customerName || customer.name}
+              Edit Customer – {customer.customerName || "Customer"}
             </div>
-            <Button type="primary" size="small" onClick={handleSave}>
+
+            <Button
+              type="primary"
+              size="small"
+              loading={saving}
+              onClick={handleSave}
+            >
               Save
             </Button>
           </div>
 
+          {/* Header Chips */}
           <Space size={12} wrap style={{ fontSize: 12 }}>
             <Space>
               <IdcardOutlined /> {headerInfo.name || "Name"}
@@ -255,6 +358,7 @@ const EditCustomer = () => {
             </Space>
           </Space>
 
+          {/* Section Nav */}
           <Space size={6} wrap>
             {sectionsConfig.map((s) => (
               <div
