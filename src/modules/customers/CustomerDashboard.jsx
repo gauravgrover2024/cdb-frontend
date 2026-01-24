@@ -22,6 +22,7 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import CustomerViewModal from "./CustomerViewModal";
+import { Popconfirm } from "antd";
 
 const { Search } = Input;
 
@@ -72,6 +73,27 @@ const CustomerDashboard = () => {
   const closeViewModal = () => {
     setIsViewModalOpen(false);
     setSelectedCustomer(null);
+  };
+  const handleDeleteCustomer = async (record) => {
+    const id = record?._id || record?.id;
+    if (!id) return;
+
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/customers/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete customer");
+
+      message.success("Customer deleted ✅");
+      await loadCustomers(); // refresh list
+    } catch (err) {
+      console.error("Delete Customer Error:", err);
+      message.error("Delete failed ❌");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -201,6 +223,7 @@ const CustomerDashboard = () => {
           >
             View
           </Button>
+
           <Button
             size="small"
             type="link"
@@ -208,6 +231,18 @@ const CustomerDashboard = () => {
           >
             Edit
           </Button>
+
+          <Popconfirm
+            title="Delete this customer?"
+            description="This action cannot be undone."
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            onConfirm={() => handleDeleteCustomer(record)}
+          >
+            <Button size="small" type="link" danger>
+              Delete
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },

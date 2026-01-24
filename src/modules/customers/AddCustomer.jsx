@@ -194,9 +194,30 @@ const AddCustomer = () => {
     }, 600);
   };
 
+  const isCustomerFormBlank = (values) => {
+    const importantFields = [
+      values.customerName,
+      values.primaryMobile,
+      values.panNumber,
+      values.aadhaarNumber,
+      values.city,
+      values.residenceAddress,
+      values.bankName,
+      values.accountNumber,
+    ];
+
+    return importantFields.every((v) => !v || String(v).trim().length === 0);
+  };
+
   const handleSaveAndExit = async () => {
     try {
       const values = form.getFieldsValue(true);
+
+      if (isCustomerFormBlank(values)) {
+        message.warning("Form is blank. Customer not created ❌");
+        return;
+      }
+
       await saveToMongo(values);
       message.success("Customer saved ✅");
       navigate("/customers");
@@ -209,6 +230,12 @@ const AddCustomer = () => {
   const handleSaveOnly = async () => {
     try {
       const values = form.getFieldsValue(true);
+
+      if (isCustomerFormBlank(values)) {
+        message.warning("Form is blank. Customer not created ❌");
+        return;
+      }
+
       await saveToMongo(values);
       message.success("Saved ✅");
     } catch (err) {
