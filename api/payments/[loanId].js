@@ -21,11 +21,7 @@ export default async function handler(req, res) {
       let payload = req.body;
 
       if (typeof payload === "string") {
-        try {
-          payload = JSON.parse(payload);
-        } catch {
-          return res.status(400).json({ ok: false, error: "Invalid JSON" });
-        }
+        payload = JSON.parse(payload);
       }
 
       if (!payload || typeof payload !== "object") {
@@ -49,13 +45,8 @@ export default async function handler(req, res) {
     }
 
     res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
-    return res
-      .status(405)
-      .json({ ok: false, error: `Method ${method} Not Allowed` });
-  } catch (err) {
-    return res.status(500).json({
-      ok: false,
-      error: err.message || "Server error",
-    });
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
   }
 }
