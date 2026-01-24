@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Card, Button, message } from "antd";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Card, message } from "antd";
 import { useParams } from "react-router-dom";
 
 import PaymentGlobalHeader from "./PaymentGlobalHeader";
@@ -49,6 +49,17 @@ const savePaymentByLoanId = async (loanId, payload) => {
   if (!res.ok) throw new Error("Failed to save payment");
 };
 
+const useDebounce = (value, delay = 800) => {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+
+  return debounced;
+};
+
 const PaymentForm = () => {
   const { loanId } = useParams();
 
@@ -70,60 +81,16 @@ const PaymentForm = () => {
 
   const [isVerified, setIsVerified] = useState(false);
 
-  const handleSavePayments = async () => {
-    try {
-      const existing = await fetchPaymentByLoanId(loanId);
+  // keep the latest saved doc in memory (so we don't GET before every autosave)
+  const [existingPayment, setExistingPayment] = useState(null);
 
-      const showroomCommission = asInt(
-        entryTotals?.paymentCommissionReceived || 0
-      );
+  // debounce to prevent saving on every keystroke
+  const debouncedShowroomRows = useDebounce(showroomRows, 800);
+  const debouncedEntryTotals = useDebounce(entryTotals, 800);
+  const debouncedIsVerified = useDebounce(isVerified, 800);
 
-      const commissionDate = getShowroomCommissionDate(showroomRows);
-
-      const existingAutocreditsRows = Array.isArray(existing?.autocreditsRows)
-        ? existing.autocreditsRows
-        : [];
-
-      const hasCommissionRow = existingAutocreditsRows.some(
-        (r) =>
-          Array.isArray(r.receiptTypes) && r.receiptTypes.includes("Commission")
-      );
-
-      const autocreditsRows =
-        !hasCommissionRow && showroomCommission > 0
-          ? [
-              ...existingAutocreditsRows,
-              {
-                id: `auto-commission-${Date.now()}`,
-                receiptTypes: ["Commission"],
-                receiptMode: "Online Transfer/UPI",
-                receiptAmount: String(showroomCommission),
-                receiptDate: commissionDate || null,
-                transactionDetails: "",
-                bankName: "",
-                remarks: "Commission received from dealer",
-              },
-            ]
-          : existingAutocreditsRows;
-
-      const payload = {
-        ...(existing || {}),
-        loanId,
-        do_loanId: doRec?.do_loanId || loanId,
-        updatedAt: new Date().toISOString(),
-        showroomRows,
-        entryTotals,
-        isVerified,
-        autocreditsRows,
-      };
-
-      await savePaymentByLoanId(loanId, payload);
-      message.success("Payments saved successfully ✅");
-    } catch (err) {
-      console.error("Save Payments Error:", err);
-      message.error("Failed to save payments ❌");
-    }
-  };
+  // avoid showing "saved" toast too frequently
+  const lastSaveAtRef = useRef(0);
 
   // Load Loan + DO (still from localStorage for now)
   useEffect(() => {
@@ -148,6 +115,8 @@ const PaymentForm = () => {
       try {
         const found = await fetchPaymentByLoanId(loanId);
 
+        setExistingPayment(found || null);
+
         if (found?.showroomRows?.length) setShowroomRows(found.showroomRows);
 
         if (found?.entryTotals) {
@@ -165,20 +134,20 @@ const PaymentForm = () => {
     load();
   }, [loanId]);
 
-  // Autosave (Showroom ONLY) via API
+  // Autosave (Showroom ONLY) via API (Debounced + No extra GET)
   useEffect(() => {
     if (!loanId) return;
     if (!hasLoadedPayments) return;
 
     const autosave = async () => {
       try {
-        const existing = await fetchPaymentByLoanId(loanId);
+        const existing = existingPayment || null;
 
         const showroomCommission = asInt(
-          entryTotals?.paymentCommissionReceived || 0
+          debouncedEntryTotals?.paymentCommissionReceived || 0
         );
 
-        const commissionDate = getShowroomCommissionDate(showroomRows);
+        const commissionDate = getShowroomCommissionDate(debouncedShowroomRows);
 
         const existingAutocreditsRows = Array.isArray(existing?.autocreditsRows)
           ? existing.autocreditsRows
@@ -212,20 +181,39 @@ const PaymentForm = () => {
           loanId,
           do_loanId: doRec?.do_loanId || loanId,
           updatedAt: new Date().toISOString(),
-          showroomRows,
-          entryTotals,
-          isVerified,
+          showroomRows: debouncedShowroomRows,
+          entryTotals: debouncedEntryTotals,
+          isVerified: debouncedIsVerified,
           autocreditsRows,
         };
 
         await savePaymentByLoanId(loanId, payload);
+
+        // update local cache so next autosave uses latest saved doc
+        setExistingPayment(payload);
+
+        // optional: show "saved" toast but not spammy
+        const now = Date.now();
+        if (now - lastSaveAtRef.current > 5000) {
+          lastSaveAtRef.current = now;
+          // message.success("Auto-saved ✅"); // uncomment if you want
+        }
       } catch (err) {
         console.error("Autosave Payments Error:", err);
+        // message.error("Auto-save failed ❌"); // keep silent to avoid spam
       }
     };
 
     autosave();
-  }, [loanId, showroomRows, entryTotals, hasLoadedPayments, doRec, isVerified]);
+  }, [
+    loanId,
+    hasLoadedPayments,
+    doRec,
+    existingPayment,
+    debouncedShowroomRows,
+    debouncedEntryTotals,
+    debouncedIsVerified,
+  ]);
 
   const showroomData = useMemo(() => {
     const financed = norm(loan?.isFinanced) === "yes";
@@ -350,19 +338,6 @@ const PaymentForm = () => {
   return (
     <div style={{ padding: 20 }}>
       <PaymentGlobalHeader data={showroomData} />
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: 12,
-          gap: 10,
-        }}
-      >
-        <Button type="primary" onClick={handleSavePayments}>
-          Save Payments (test)
-        </Button>
-      </div>
 
       <Card style={{ borderRadius: 14 }}>
         {/* SHOWROOM */}
