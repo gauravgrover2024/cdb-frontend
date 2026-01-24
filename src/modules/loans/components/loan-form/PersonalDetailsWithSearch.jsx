@@ -58,6 +58,14 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  // ✅ Abort any in-flight request when component unmounts
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   const fetchCustomers = async (q) => {
     if (!q) {
       setFilteredCustomers([]);
@@ -74,8 +82,9 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
     setApiError("");
 
     try {
+      // ✅ IMPORTANT: Must start with "/" so it works on /loans/new also
       const res = await fetch(
-        `api/customers/search?q=${encodeURIComponent(q)}`,
+        `/api/customers/search?q=${encodeURIComponent(q)}`,
         {
           method: "GET",
           headers: { Accept: "application/json" },
