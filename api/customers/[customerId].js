@@ -67,21 +67,21 @@ export default async function handler(req, res) {
       });
     }
 
+    // ✅ DELETE customer
+    if (req.method === "DELETE") {
+      const filter = isObjectId
+        ? { _id: new ObjectId(customerId) }
+        : { customerId };
+
+      await col.deleteOne(filter);
+
+      return res.status(200).json({ ok: true });
+    }
+
     res.setHeader("Allow", ["GET", "PUT", "DELETE"]);
     return res.status(405).json({ error: "Method Not Allowed" });
   } catch (err) {
     console.error("API /customers/[customerId] Error:", err);
     return res.status(500).json({ error: "Internal Server Error" });
   }
-}
-
-// ✅ DELETE customer
-if (req.method === "DELETE") {
-  const filter = isObjectId
-    ? { _id: new ObjectId(customerId) }
-    : { customerId };
-
-  await col.deleteOne(filter);
-
-  return res.status(200).json({ ok: true });
 }
