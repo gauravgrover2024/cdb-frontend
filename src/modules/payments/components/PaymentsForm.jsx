@@ -3,11 +3,9 @@ import { Card, Button, message } from "antd";
 import { useParams } from "react-router-dom";
 
 import PaymentGlobalHeader from "./PaymentGlobalHeader";
-
 import ShowroomPaymentHeader from "./showroom/ShowroomPaymentHeader";
 import ShowroomVehicleDetailsSection from "./showroom/ShowroomVehicleDetailsSection";
 import ShowroomPaymentsEntryTable from "./showroom/ShowroomPaymentsEntryTable";
-
 import AutocreditsPaymentSection from "./autocredits/AutocreditsPaymentSection";
 
 const asInt = (val) => {
@@ -27,13 +25,28 @@ const getShowroomCommissionDate = (rows = []) => {
     (r) => r?.paymentType === "Commission" && r?.paymentDate
   );
   if (!commissionRows.length) return null;
-  // take the latest dated row
   const sorted = [...commissionRows].sort((a, b) => {
     const da = new Date(a.paymentDate).getTime() || 0;
     const db = new Date(b.paymentDate).getTime() || 0;
     return db - da;
   });
   return sorted[0].paymentDate;
+};
+
+// ---- API helpers (Mongo via Vercel API) ----
+const fetchPaymentByLoanId = async (loanId) => {
+  const res = await fetch(`/api/payments/${loanId}`);
+  if (!res.ok) throw new Error("Failed to fetch payment");
+  return res.json(); // can be null
+};
+
+const savePaymentByLoanId = async (loanId, payload) => {
+  const res = await fetch(`/api/payments/${loanId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to save payment");
 };
 
 const PaymentForm = () => {
@@ -57,16 +70,9 @@ const PaymentForm = () => {
 
   const [isVerified, setIsVerified] = useState(false);
 
-  const handleSavePayments = () => {
+  const handleSavePayments = async () => {
     try {
-      const savedPayments = JSON.parse(
-        localStorage.getItem("savedPayments") || "[]"
-      );
-
-      const existing =
-        (savedPayments || []).find((p) => p?.loanId === loanId) ||
-        (savedPayments || []).find((p) => p?.do_loanId === loanId) ||
-        {};
+      const existing = await fetchPaymentByLoanId(loanId);
 
       const showroomCommission = asInt(
         entryTotals?.paymentCommissionReceived || 0
@@ -74,123 +80,7 @@ const PaymentForm = () => {
 
       const commissionDate = getShowroomCommissionDate(showroomRows);
 
-      // existing autocredits rows if any
-      const existingAutocreditsRows = Array.isArray(existing.autocreditsRows)
-        ? existing.autocreditsRows
-        : [];
-
-      // check if a commission row already exists
-      const hasCommissionRow = existingAutocreditsRows.some(
-        (r) =>
-          Array.isArray(r.receiptTypes) && r.receiptTypes.includes("Commission")
-      );
-
-      // if there is showroom commission and no commission row yet,
-      // append one auto row
-      const autocreditsRows =
-        !hasCommissionRow && showroomCommission > 0
-          ? [
-              ...existingAutocreditsRows,
-              {
-                id: `auto-commission-${Date.now()}`,
-                receiptTypes: ["Commission"],
-                receiptMode: "Online Transfer/UPI", // or "Cash"
-                receiptAmount: String(showroomCommission),
-                receiptDate: commissionDate || null,
-                transactionDetails: "",
-                bankName: "",
-                remarks: "Commission received from dealer",
-              },
-            ]
-          : existingAutocreditsRows;
-
-      const payload = {
-        ...existing,
-        loanId,
-        do_loanId: doRec?.do_loanId || loanId,
-        updatedAt: new Date().toISOString(),
-
-        showroomRows,
-        entryTotals,
-        isVerified,
-
-        // ✅ new field: keep / update autocreditsRows
-        autocreditsRows,
-      };
-      const updated = Array.isArray(savedPayments)
-        ? savedPayments.filter(
-            (p) => p?.loanId !== loanId && p?.do_loanId !== loanId
-          )
-        : [];
-
-      updated.push(payload);
-
-      localStorage.setItem("savedPayments", JSON.stringify(updated));
-      message.success("Payments saved successfully ✅");
-    } catch (err) {
-      console.error("Save Payments Error:", err);
-      message.error("Failed to save payments ❌");
-    }
-  };
-
-  // Load Loan + DO
-  useEffect(() => {
-    const savedLoans = JSON.parse(localStorage.getItem("savedLoans") || "[]");
-    const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
-
-    const foundLoan = (savedLoans || []).find((l) => l?.loanId === loanId);
-    setLoan(foundLoan || null);
-
-    const foundDO =
-      (savedDOs || []).find((d) => d?.loanId === loanId) ||
-      (savedDOs || []).find((d) => d?.do_loanId === loanId);
-
-    setDoRec(foundDO || null);
-  }, [loanId]);
-
-  // Load savedPayments (Showroom ONLY)
-  useEffect(() => {
-    const savedPayments = JSON.parse(
-      localStorage.getItem("savedPayments") || "[]"
-    );
-
-    const found =
-      (savedPayments || []).find((p) => p?.loanId === loanId) ||
-      (savedPayments || []).find((p) => p?.do_loanId === loanId);
-
-    if (found?.showroomRows?.length) setShowroomRows(found.showroomRows);
-
-    if (found?.entryTotals) {
-      setEntryTotals((prev) => ({ ...prev, ...found.entryTotals }));
-    }
-
-    if (found?.isVerified === true) setIsVerified(true);
-
-    setHasLoadedPayments(true);
-  }, [loanId]);
-
-  // Autosave (Showroom ONLY)
-  useEffect(() => {
-    if (!loanId) return;
-    if (!hasLoadedPayments) return;
-
-    try {
-      const savedPayments = JSON.parse(
-        localStorage.getItem("savedPayments") || "[]"
-      );
-
-      const existing =
-        (savedPayments || []).find((p) => p?.loanId === loanId) ||
-        (savedPayments || []).find((p) => p?.do_loanId === loanId) ||
-        {};
-
-      const showroomCommission = asInt(
-        entryTotals?.paymentCommissionReceived || 0
-      );
-
-      const commissionDate = getShowroomCommissionDate(showroomRows);
-
-      const existingAutocreditsRows = Array.isArray(existing.autocreditsRows)
+      const existingAutocreditsRows = Array.isArray(existing?.autocreditsRows)
         ? existing.autocreditsRows
         : [];
 
@@ -217,29 +107,124 @@ const PaymentForm = () => {
           : existingAutocreditsRows;
 
       const payload = {
-        ...existing,
+        ...(existing || {}),
         loanId,
         do_loanId: doRec?.do_loanId || loanId,
         updatedAt: new Date().toISOString(),
-
         showroomRows,
         entryTotals,
         isVerified,
         autocreditsRows,
       };
 
-      const updated = Array.isArray(savedPayments)
-        ? savedPayments.filter(
-            (p) => p?.loanId !== loanId && p?.do_loanId !== loanId
-          )
-        : [];
-
-      updated.push(payload);
-
-      localStorage.setItem("savedPayments", JSON.stringify(updated));
+      await savePaymentByLoanId(loanId, payload);
+      message.success("Payments saved successfully ✅");
     } catch (err) {
-      console.error("Autosave Payments Error:", err);
+      console.error("Save Payments Error:", err);
+      message.error("Failed to save payments ❌");
     }
+  };
+
+  // Load Loan + DO (still from localStorage for now)
+  useEffect(() => {
+    const savedLoans = JSON.parse(localStorage.getItem("savedLoans") || "[]");
+    const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
+
+    const foundLoan = (savedLoans || []).find((l) => l?.loanId === loanId);
+    setLoan(foundLoan || null);
+
+    const foundDO =
+      (savedDOs || []).find((d) => d?.loanId === loanId) ||
+      (savedDOs || []).find((d) => d?.do_loanId === loanId);
+
+    setDoRec(foundDO || null);
+  }, [loanId]);
+
+  // Load savedPayments (Showroom ONLY) from API
+  useEffect(() => {
+    if (!loanId) return;
+
+    const load = async () => {
+      try {
+        const found = await fetchPaymentByLoanId(loanId);
+
+        if (found?.showroomRows?.length) setShowroomRows(found.showroomRows);
+
+        if (found?.entryTotals) {
+          setEntryTotals((prev) => ({ ...prev, ...found.entryTotals }));
+        }
+
+        if (found?.isVerified === true) setIsVerified(true);
+      } catch (err) {
+        console.error("Load Payments Error:", err);
+      } finally {
+        setHasLoadedPayments(true);
+      }
+    };
+
+    load();
+  }, [loanId]);
+
+  // Autosave (Showroom ONLY) via API
+  useEffect(() => {
+    if (!loanId) return;
+    if (!hasLoadedPayments) return;
+
+    const autosave = async () => {
+      try {
+        const existing = await fetchPaymentByLoanId(loanId);
+
+        const showroomCommission = asInt(
+          entryTotals?.paymentCommissionReceived || 0
+        );
+
+        const commissionDate = getShowroomCommissionDate(showroomRows);
+
+        const existingAutocreditsRows = Array.isArray(existing?.autocreditsRows)
+          ? existing.autocreditsRows
+          : [];
+
+        const hasCommissionRow = existingAutocreditsRows.some(
+          (r) =>
+            Array.isArray(r.receiptTypes) &&
+            r.receiptTypes.includes("Commission")
+        );
+
+        const autocreditsRows =
+          !hasCommissionRow && showroomCommission > 0
+            ? [
+                ...existingAutocreditsRows,
+                {
+                  id: `auto-commission-${Date.now()}`,
+                  receiptTypes: ["Commission"],
+                  receiptMode: "Online Transfer/UPI",
+                  receiptAmount: String(showroomCommission),
+                  receiptDate: commissionDate || null,
+                  transactionDetails: "",
+                  bankName: "",
+                  remarks: "Commission received from dealer",
+                },
+              ]
+            : existingAutocreditsRows;
+
+        const payload = {
+          ...(existing || {}),
+          loanId,
+          do_loanId: doRec?.do_loanId || loanId,
+          updatedAt: new Date().toISOString(),
+          showroomRows,
+          entryTotals,
+          isVerified,
+          autocreditsRows,
+        };
+
+        await savePaymentByLoanId(loanId, payload);
+      } catch (err) {
+        console.error("Autosave Payments Error:", err);
+      }
+    };
+
+    autosave();
   }, [loanId, showroomRows, entryTotals, hasLoadedPayments, doRec, isVerified]);
 
   const showroomData = useMemo(() => {
@@ -260,7 +245,6 @@ const PaymentForm = () => {
     const dealerContactNumber = doRec?.do_dealerMobile || "";
     const dealerAddress = doRec?.do_dealerAddress || "";
 
-    // ✅ IMPORTANT: Showroom Net OnRoad comes directly from DO field
     const netOnRoadVehicleCost = asInt(
       doRec?.do_customer_netOnRoadVehicleCost || 0
     );
@@ -290,20 +274,16 @@ const PaymentForm = () => {
 
     const doMarginMoney = asInt(doRec?.do_marginMoneyPaid || 0);
 
-    // ✅ Customer Net OnRoad (Section 4 field)
     const customerNetOnRoadVehicleCost = asInt(
       doRec?.do_customer_netOnRoadVehicleCost || 0
     );
-    // Showroom Net OnRoad (Section 3 field)
     const showroomNetOnRoadVehicleCost = asInt(
       doRec?.do_netOnRoadVehicleCost || 0
     );
 
-    // Autocredits Margin = customer net - showroom net (from DO only)
     const autocreditsMargin =
       customerNetOnRoadVehicleCost - showroomNetOnRoadVehicleCost;
 
-    // Exchange deduction only if purchased by autocredits
     const autocreditsExchangeDeduction =
       norm(exchangePurchasedBy) === "autocredits" ? exchangeValue : 0;
 
@@ -311,7 +291,6 @@ const PaymentForm = () => {
 
     const insuranceByNorm = norm(insuranceBy);
 
-    // consider both "autocredits" and "autocredits india llp" as Autocredits
     const isAutocreditsInsurance = insuranceByNorm.includes("autocredits");
 
     const autocreditsInsuranceReceivable = isAutocreditsInsurance
@@ -335,11 +314,9 @@ const PaymentForm = () => {
       model,
       variant,
 
-      // keep old values also for showroom UI
       onRoadVehicleCost,
       discountExclVehicleValue,
 
-      // ✅ Correct net value for showroom
       netOnRoadVehicleCost,
 
       ...entryTotals,
@@ -360,16 +337,12 @@ const PaymentForm = () => {
       do_exchangeYear: doRec?.do_exchangeYear || "",
       do_exchangeRegdNumber: doRec?.do_exchangeRegdNumber || "",
 
-      // customer account net
       customerNetOnRoadVehicleCost,
-      // showroom account net (for margin calc)
       showroomNetOnRoadVehicleCost,
 
-      // autocredits rules
       autocreditsExchangeDeduction,
       autocreditsInsuranceReceivable,
 
-      // margin (from DO nets only)
       autocreditsMargin,
     };
   }, [loan, doRec, loanId, entryTotals]);
@@ -387,7 +360,7 @@ const PaymentForm = () => {
         }}
       >
         <Button type="primary" onClick={handleSavePayments}>
-          Save Payments
+          Save Payments (test)
         </Button>
       </div>
 
