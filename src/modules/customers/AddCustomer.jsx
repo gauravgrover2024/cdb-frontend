@@ -148,7 +148,7 @@ const AddCustomer = () => {
       });
 
       const visible = offsets.reduce((prev, curr) =>
-        Math.abs(curr.top - OFFSET) < Math.abs(prev.top - OFFSET) ? curr : prev
+        Math.abs(curr.top - OFFSET) < Math.abs(prev.top - OFFSET) ? curr : prev,
       );
 
       if (visible.key && visible.key !== activeSection) {
@@ -181,19 +181,22 @@ const AddCustomer = () => {
     creatingRef.current = true;
 
     try {
-      const res = await fetch("/api/customers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerType: "New",
-          kycStatus: "In Progress",
-          createdOn: new Date().toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
+      const res = await fetch(
+        `${process.env.REACT_APP_API_BASE_URL}/api/customers`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerType: "New",
+            kycStatus: "In Progress",
+            createdOn: new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
           }),
-        }),
-      });
+        },
+      );
 
       const text = await res.text();
       let data = {};
@@ -247,11 +250,14 @@ const AddCustomer = () => {
         }),
     };
 
-    const res = await fetch(`/api/customers/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await fetch(
+      `${process.env.REACT_APP_API_BASE_URL}/api/customers/${id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
 
     const text = await res.text();
     let data = {};

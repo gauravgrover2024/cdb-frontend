@@ -53,7 +53,9 @@ const LoanDashboard = () => {
   const fetchLoans = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/loans");
+      const res = await fetch(
+        `${process.env.REACT_APP_API_BASE_URL}/api/loans`,
+      );
       if (!res.ok) throw new Error("Failed to load loans");
       const data = await res.json();
       setLoans((data || []).map(normalizeLoan));
@@ -85,7 +87,7 @@ const LoanDashboard = () => {
 
   const handleSelectLoan = (loanId, checked) => {
     setSelectedLoans((prev) =>
-      checked ? [...prev, loanId] : prev?.filter((id) => id !== loanId)
+      checked ? [...prev, loanId] : prev?.filter((id) => id !== loanId),
     );
   };
 
@@ -122,7 +124,7 @@ const LoanDashboard = () => {
     if (!loan?.loanId) return;
 
     const ok = window.confirm(
-      `Delete loan ${loan.loanId}?\n\nThis will permanently remove it from database.`
+      `Delete loan ${loan.loanId}?\n\nThis will permanently remove it from database.`,
     );
     if (!ok) return;
 

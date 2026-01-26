@@ -31,6 +31,7 @@ import CustomerViewModal from "./CustomerViewModal";
 
 const { Search } = Input;
 const { Title, Text } = Typography;
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
@@ -47,7 +48,7 @@ const CustomerDashboard = () => {
     try {
       setLoading(true);
 
-      const url = `/api/customers`;
+      const url = `${API_BASE_URL}/api/customers`;
       const res = await fetch(url);
 
       const text = await res.text();
@@ -60,7 +61,7 @@ const CustomerDashboard = () => {
         throw new Error("Customers API did not return JSON");
       }
 
-      setCustomers(Array.isArray(data) ? data : []);
+      setCustomers(Array.isArray(data?.data) ? data.data : []);
     } catch (err) {
       console.error("Load Customers Error:", err);
       message.error("Failed to load customers ❌");
@@ -100,7 +101,7 @@ const CustomerDashboard = () => {
     try {
       setDeletingId(id);
 
-      const res = await fetch(`/api/customers/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
         method: "DELETE",
       });
 
@@ -141,13 +142,13 @@ const CustomerDashboard = () => {
 
   const total = customers.length;
   const completedKyc = customers.filter(
-    (c) => c.kycStatus === "Completed"
+    (c) => c.kycStatus === "Completed",
   ).length;
   const pendingDocs = customers.filter(
-    (c) => c.kycStatus === "Pending Docs"
+    (c) => c.kycStatus === "Pending Docs",
   ).length;
   const repeat = customers.filter(
-    (c) => String(c.customerType || "").toLowerCase() === "repeat"
+    (c) => String(c.customerType || "").toLowerCase() === "repeat",
   ).length;
 
   const columns = [
@@ -183,7 +184,7 @@ const CustomerDashboard = () => {
       ),
       sorter: (a, b) =>
         String(a.customerName || "").localeCompare(
-          String(b.customerName || "")
+          String(b.customerName || ""),
         ),
     },
     {
@@ -199,7 +200,7 @@ const CustomerDashboard = () => {
       ),
       sorter: (a, b) =>
         String(a.occupationType || "").localeCompare(
-          String(b.occupationType || "")
+          String(b.occupationType || ""),
         ),
     },
     {
@@ -226,8 +227,8 @@ const CustomerDashboard = () => {
           status === "Completed"
             ? "green"
             : status === "In Progress"
-            ? "blue"
-            : "orange";
+              ? "blue"
+              : "orange";
         return (
           <Tag
             style={{ borderRadius: 999, padding: "2px 10px" }}

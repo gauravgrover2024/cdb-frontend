@@ -23,6 +23,7 @@ import IncomeDetails from "./customer-form/IncomeDetails";
 import KycDetails from "./customer-form/KycDetails";
 import BankDetails from "./customer-form/BankDetails";
 import ReferenceDetails from "./customer-form/ReferenceDetails";
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 
 const sectionsConfig = [
   {
@@ -68,7 +69,7 @@ const sectionsConfig = [
 // -----------------------------
 const fetchCustomerById = async (id) => {
   // ✅ Correct Next.js API path
-  const res = await fetch(`/api/customers/${id}`, {
+  const res = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
     method: "GET",
     headers: { Accept: "application/json" },
   });
@@ -87,12 +88,12 @@ const fetchCustomerById = async (id) => {
     throw new Error(data?.error || "Failed to load customer");
   }
 
-  return data;
+  return data?.data || null;
 };
 
 const updateCustomerById = async (id, payload) => {
   // ✅ Correct Next.js API path
-  const res = await fetch(`/api/customers/${id}`, {
+  const res = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
@@ -112,7 +113,7 @@ const updateCustomerById = async (id, payload) => {
     throw new Error(data?.error || "Failed to update customer");
   }
 
-  return data;
+  return data?.data || null;
 };
 
 // -----------------------------
@@ -292,7 +293,7 @@ const EditCustomer = () => {
       });
 
       const visible = offsets.reduce((prev, curr) =>
-        Math.abs(curr.top - OFFSET) < Math.abs(prev.top - OFFSET) ? curr : prev
+        Math.abs(curr.top - OFFSET) < Math.abs(prev.top - OFFSET) ? curr : prev,
       );
 
       if (visible.key && visible.key !== activeSection) {
