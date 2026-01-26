@@ -1,3 +1,4 @@
+// pages/api/customers/search.js
 import { getDb } from "../../../lib/mongodb";
 
 export default async function handler(req, res) {
@@ -8,7 +9,6 @@ export default async function handler(req, res) {
     }
 
     const q = String(req.query.q || "").trim();
-
     if (!q) {
       return res.status(200).json([]);
     }
@@ -16,7 +16,6 @@ export default async function handler(req, res) {
     const db = await getDb();
     const col = db.collection("customers");
 
-    // search by name / mobile / customer number / customerId
     const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 
     const customers = await col

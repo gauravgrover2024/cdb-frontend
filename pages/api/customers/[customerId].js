@@ -1,18 +1,6 @@
-import { MongoClient, ObjectId } from "mongodb";
-
-let cachedClient = null;
-
-async function getClient() {
-  if (cachedClient) return cachedClient;
-
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("Missing MONGODB_URI in env");
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  cachedClient = client;
-  return client;
-}
+// pages/api/customers/[customerId].js
+import { ObjectId } from "mongodb";
+import { getDb } from "../../../lib/mongodb";
 
 export default async function handler(req, res) {
   try {
@@ -22,12 +10,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "customerId missing" });
     }
 
-    const client = await getClient();
-    const db = client.db(process.env.MONGODB_DB || "cdrive");
+    const db = await getDb();
     const col = db.collection("customers");
 
     const isObjectId = ObjectId.isValid(customerId);
-
     const filter = isObjectId
       ? { _id: new ObjectId(customerId) }
       : { customerId };
@@ -45,7 +31,15 @@ export default async function handler(req, res) {
 
     // ✅ PUT update single customer
     if (req.method === "PUT") {
-      const body = req.body || {};
+      let body = req.body || {};
+      if (typeof body === "string") {
+        try {
+          body = JSON.parse(body || "{}");
+        } catch {
+          body = {};
+        }
+      }
+
       delete body._id;
 
       const payload = {
@@ -69,12 +63,7 @@ export default async function handler(req, res) {
 
     // ✅ DELETE customer
     if (req.method === "DELETE") {
-      const filter = isObjectId
-        ? { _id: new ObjectId(customerId) }
-        : { customerId };
-
       await col.deleteOne(filter);
-
       return res.status(200).json({ ok: true });
     }
 

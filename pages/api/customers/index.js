@@ -1,23 +1,9 @@
-import { MongoClient } from "mongodb";
-
-let cachedClient = null;
-
-async function getClient() {
-  if (cachedClient) return cachedClient;
-
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("Missing MONGODB_URI in env");
-
-  const client = new MongoClient(uri);
-  await client.connect();
-  cachedClient = client;
-  return client;
-}
+// pages/api/customers/index.js
+import { getDb } from "../../../lib/mongodb";
 
 export default async function handler(req, res) {
   try {
-    const client = await getClient();
-    const db = client.db(process.env.MONGODB_DB || "cdrive");
+    const db = await getDb();
     const col = db.collection("customers");
 
     // ✅ GET all customers (dashboard list)
@@ -36,20 +22,21 @@ export default async function handler(req, res) {
       return res.status(200).json(normalized);
     }
 
-    // ✅ POST create customer
+    // ✅ POST create customer (skeleton)
     if (req.method === "POST") {
       let body = req.body;
       if (typeof body === "string") body = JSON.parse(body || "{}");
       if (!body || typeof body !== "object") body = {};
 
+      const nowIso = new Date().toISOString();
+
       const payload = {
         ...body,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
       };
 
       const result = await col.insertOne(payload);
-
       const created = await col.findOne({ _id: result.insertedId });
 
       return res.status(201).json({
