@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     const db = client.db(process.env.MONGODB_DB || "cdrive");
     const col = db.collection("customers");
 
-    // ✅ GET all customers
+    // ✅ GET all customers (dashboard list)
     if (req.method === "GET") {
       const rows = await col
         .find({})
@@ -38,7 +38,9 @@ export default async function handler(req, res) {
 
     // ✅ POST create customer
     if (req.method === "POST") {
-      const body = req.body || {};
+      let body = req.body;
+      if (typeof body === "string") body = JSON.parse(body || "{}");
+      if (!body || typeof body !== "object") body = {};
 
       const payload = {
         ...body,
@@ -63,4 +65,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 }
-    

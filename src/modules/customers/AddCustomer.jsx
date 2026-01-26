@@ -13,6 +13,7 @@ import {
   LogoutOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
 
 import PersonalDetails from "./customer-form/PersonalDetails";
 import EmploymentDetails from "./customer-form/EmploymentDetails";
@@ -59,6 +60,13 @@ const sectionsConfig = [
     icon: <FileProtectOutlined />,
   },
 ];
+
+const formatDateForApi = (val) => {
+  if (!val) return "";
+  if (dayjs.isDayjs(val)) return val.format("YYYY-MM-DD");
+  const d = dayjs(val);
+  return d.isValid() ? d.format("YYYY-MM-DD") : "";
+};
 
 const AddCustomer = () => {
   const [form] = Form.useForm();
@@ -187,10 +195,19 @@ const AddCustomer = () => {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to create customer");
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error("Customer create API did not return JSON");
+      }
 
-      const data = await res.json();
-      const id = data?._id;
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to create customer");
+      }
+
+      const id = data?._id || data?.customer?._id || data?.data?._id;
 
       if (!id) throw new Error("Customer id missing from response");
 
@@ -198,7 +215,7 @@ const AddCustomer = () => {
       return id;
     } catch (err) {
       console.error("Create Customer Error:", err);
-      message.error("Failed to create customer ❌");
+      message.error(`Failed to create customer ❌ (${err.message})`);
       return null;
     } finally {
       creatingRef.current = false;
@@ -214,6 +231,11 @@ const AddCustomer = () => {
 
     const payload = {
       ...values,
+
+      // ✅ convert dayjs values safely
+      dob: formatDateForApi(values?.dob),
+      nomineeDob: formatDateForApi(values?.nomineeDob),
+
       customerType: "New",
       kycStatus: values?.kycStatus || "In Progress",
       createdOn:
@@ -231,7 +253,19 @@ const AddCustomer = () => {
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) throw new Error("Failed to save customer");
+    const text = await res.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.error || "Failed to save customer");
+    }
+
+    return true;
   };
 
   // -----------------------------
@@ -283,7 +317,7 @@ const AddCustomer = () => {
       message.success("Saved ✅");
     } catch (err) {
       console.error("Save Error:", err);
-      message.error("Save failed ❌");
+      message.error(`Save failed ❌ (${err.message})`);
     }
   };
 
@@ -301,7 +335,7 @@ const AddCustomer = () => {
       navigate("/customers");
     } catch (err) {
       console.error("Save & Exit Error:", err);
-      message.error("Save failed ❌");
+      message.error(`Save failed ❌ (${err.message})`);
     }
   };
 
@@ -330,7 +364,7 @@ const AddCustomer = () => {
     <div style={{ padding: 16 }}>
       {/* Same width wrapper for header + form */}
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        {/* ✅ Sticky Header (works in scroll container) */}
+        {/* ✅ Sticky Header */}
         <div
           style={{
             position: "sticky",
@@ -466,7 +500,7 @@ const AddCustomer = () => {
           </div>
         </div>
 
-        {/* ✅ Form starts BELOW sticky header always */}
+        {/* Form starts BELOW sticky header */}
         <div style={{ paddingTop: 14 }}>
           <Form
             id="customer-form"

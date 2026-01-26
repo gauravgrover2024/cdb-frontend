@@ -43,25 +43,23 @@ const CustomerDashboard = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // ✅ Use env if present, otherwise default to Vercel API
-  const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
-
-  console.log("API_BASE =", API_BASE);
-
   const loadCustomers = async () => {
     try {
       setLoading(true);
 
-      const url = `${API_BASE}/api/customers`;
-      console.log("Fetching:", url);
-
-      const res = await fetch(`${API_BASE}/api/customers`);
-      console.log("Status:", res.status);
+      const url = `/api/customers`;
+      const res = await fetch(url);
 
       const text = await res.text();
-      console.log("Raw response:", text);
 
-      const data = JSON.parse(text);
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("❌ /api/customers returned non-JSON:", text);
+        throw new Error("Customers API did not return JSON");
+      }
+
       setCustomers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Load Customers Error:", err);
@@ -102,7 +100,7 @@ const CustomerDashboard = () => {
     try {
       setDeletingId(id);
 
-      const res = await fetch(`${API_BASE}/api/customers/${id}`, {
+      const res = await fetch(`/api/customers/${id}`, {
         method: "DELETE",
       });
 
@@ -436,7 +434,7 @@ const CustomerDashboard = () => {
       <CustomerViewModal
         open={isViewModalOpen}
         customer={selectedCustomer}
-        onClose={closeViewModal}
+        onClose={() => closeViewModal()}
         onEdit={() => {
           if (selectedCustomer) {
             handleEditCustomer(selectedCustomer);

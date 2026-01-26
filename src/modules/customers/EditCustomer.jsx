@@ -67,19 +67,52 @@ const sectionsConfig = [
 // API helpers
 // -----------------------------
 const fetchCustomerById = async (id) => {
-  const res = await fetch(`/api/customers/${id}`);
-  if (!res.ok) throw new Error("Failed to load customer");
-  return res.json();
+  // ✅ Correct Next.js API path
+  const res = await fetch(`/api/customers/${id}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  const text = await res.text();
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error("❌ /api/customers/[id] returned non-JSON:", text);
+    throw new Error("Customer API returned invalid response (not JSON)");
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.error || "Failed to load customer");
+  }
+
+  return data;
 };
 
 const updateCustomerById = async (id, payload) => {
+  // ✅ Correct Next.js API path
   const res = await fetch(`/api/customers/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Failed to update customer");
-  return res.json();
+
+  const text = await res.text();
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error("❌ PUT /api/customers/[id] returned non-JSON:", text);
+    throw new Error("Customer API returned invalid response (not JSON)");
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.error || "Failed to update customer");
+  }
+
+  return data;
 };
 
 // -----------------------------
