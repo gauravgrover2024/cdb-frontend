@@ -160,6 +160,39 @@ const LoanDashboard = () => {
     if (actionId === "new-case") navigate("/loans/new");
   };
 
+  const handleDeleteLoan = async (loan) => {
+    if (!loan) return;
+
+    const id = loan._id || loan.loanId;
+    if (!id) {
+      alert("Invalid loan id");
+      return;
+    }
+
+    const confirm = window.confirm(
+      `Are you sure you want to delete loan ${loan.loanId}? This cannot be undone.`,
+    );
+    if (!confirm) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/loans/${id}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "Delete failed");
+      }
+
+      // ✅ refresh dashboard
+      fetchLoans();
+    } catch (err) {
+      console.error("Delete loan failed:", err);
+      alert(`Delete failed ❌\n${err.message}`);
+    }
+  };
+
   // ----------------------------
   // Filtering logic (single source of truth)
   // ----------------------------
@@ -267,6 +300,7 @@ const LoanDashboard = () => {
               onSelectLoan={handleSelectLoan}
               onSelectAll={handleSelectAll}
               onLoanClick={handleLoanClick}
+              onDeleteLoan={handleDeleteLoan}
               userRole={userRole}
               loading={loading}
             />
