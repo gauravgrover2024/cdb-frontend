@@ -151,7 +151,7 @@ const LoanFormWithSteps = () => {
       throw new Error(json?.error || "Failed to create loan");
     }
 
-    return json?.data || null;
+    return json;
   }, []);
 
   const updateLoan = useCallback(async (loanId, payload) => {
@@ -318,7 +318,8 @@ const LoanFormWithSteps = () => {
         if (!isEditMode) {
           const created = await createLoan(payload);
 
-          const newLoanId = created?._id;
+          const newLoanId = created?.loanId;
+
           if (!newLoanId) {
             throw new Error("Loan created but loanId not returned");
           }
@@ -594,7 +595,6 @@ const LoanFormWithSteps = () => {
 
     return [name, vehicle, type].filter(Boolean).join(" • ");
   }, [form]);
-
 
   return (
     <Form
