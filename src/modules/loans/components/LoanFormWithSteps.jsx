@@ -107,10 +107,11 @@ const LoanFormWithSteps = () => {
   const params = useParams();
   const location = useLocation();
 
-  const loanIdFromRoute = params?.loanId;
+  const loanIdFromRoute = params?.loanId || params?.id;
+
   const isEditMode = useMemo(() => {
-    return Boolean(loanIdFromRoute) || location.pathname.includes("/edit/");
-  }, [loanIdFromRoute, location.pathname]);
+    return Boolean(loanIdFromRoute);
+  }, [loanIdFromRoute]);
 
   const [activeStep, setActiveStep] = useState("profile");
 
