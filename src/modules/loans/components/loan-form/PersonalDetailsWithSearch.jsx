@@ -18,6 +18,8 @@ import PersonalDetails from "../../../customers/customer-form/PersonalDetails";
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 
+/* ---------------- helpers ---------------- */
+
 const safeText = (v) => {
   if (v === null || v === undefined) return "";
   if (typeof v === "string" || typeof v === "number") return String(v);
@@ -30,6 +32,8 @@ const toDayjsSafe = (val) => {
   const d = dayjs(val);
   return d.isValid() ? d : undefined;
 };
+
+/* ---------------- component ---------------- */
 
 const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
   const form = Form.useFormInstance();
@@ -47,20 +51,17 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
 
   const query = useMemo(() => searchTerm.trim(), [searchTerm]);
 
-  // ✅ Close dropdown when clicking outside
+  /* close dropdown on outside click */
   useEffect(() => {
     const onClickOutside = (e) => {
       if (!dropdownRef.current) return;
-      if (!dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
+      if (!dropdownRef.current.contains(e.target)) setIsOpen(false);
     };
-
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  // ✅ Abort any in-flight request when component unmounts
+  /* cleanup */
   useEffect(() => {
     return () => {
       if (abortRef.current) abortRef.current.abort();
@@ -68,6 +69,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
     };
   }, []);
 
+  /* fetch customers */
   const fetchCustomers = async (q) => {
     if (!q) {
       setFilteredCustomers([]);
@@ -76,7 +78,6 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
       return;
     }
 
-    // cancel previous in-flight request
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
 
@@ -84,47 +85,39 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
     setApiError("");
 
     try {
-      // ✅ IMPORTANT: Must start with "/" so it works on /loans/new also
       const res = await fetch(
         `${API_BASE_URL}/api/customers/search?q=${encodeURIComponent(q)}`,
         {
-          method: "GET",
           headers: { Accept: "application/json" },
           signal: abortRef.current.signal,
         },
       );
 
-      // protect against HTML response
       const text = await res.text();
+      let json;
 
-      let data;
       try {
-        data = JSON.parse(text);
-      } catch (err) {
-        console.error("❌ Customer Search API returned non-JSON:", text);
-        throw new Error(
-          "Customer Search API is not returning JSON. Check API route or proxy.",
-        );
+        json = JSON.parse(text);
+      } catch {
+        throw new Error("Customer search API returned non-JSON");
       }
 
       if (!res.ok) {
-        throw new Error(data?.error || "Failed to fetch customers");
+        throw new Error(json?.error || "Failed to search customers");
       }
 
-      const list = Array.isArray(data) ? data : data?.data || [];
-      setFilteredCustomers(list);
+      setFilteredCustomers(Array.isArray(json?.data) ? json.data : []);
     } catch (e) {
-      // ignore abort errors
-      if (e?.name === "AbortError") return;
-
-      console.error("❌ Customer search error:", e);
+      if (e.name === "AbortError") return;
+      console.error("Customer search error:", e);
       setFilteredCustomers([]);
-      setApiError(e?.message || "Customer search failed");
+      setApiError(e.message);
     } finally {
       setLoading(false);
     }
   };
 
+  /* debounce search */
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -139,23 +132,24 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
       fetchCustomers(query);
     }, 350);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => debounceRef.current && clearTimeout(debounceRef.current);
   }, [query]);
 
+  /* select customer */
   const handleCustomerSelect = (customer) => {
     if (!customer) return;
 
     const fieldValues = {
-      // 🔹 PERSONAL DETAILS
-      customerName: customer.customerName || customer.name || "",
-      customerNumber: customer.customerNumber || customer.customerId || "",
+      /* 🔑 link loan → customer */
+      customerId: customer._id,
+
+      /* PERSONAL */
+      customerName: customer.customerName || "",
       sdwOf: customer.sdwOf || "",
       gender: customer.gender || "",
       dob: toDayjsSafe(customer.dob),
       motherName: customer.motherName || "",
-      residenceAddress: customer.residenceAddress || customer.address || "",
+      residenceAddress: customer.residenceAddress || "",
       pincode: customer.pincode || "",
       city: customer.city || "",
       yearsInCurrentHouse: customer.yearsInCurrentHouse || "",
@@ -163,14 +157,14 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
       education: customer.education || "",
       maritalStatus: customer.maritalStatus || "",
       dependents: customer.dependents || "",
-      primaryMobile: customer.primaryMobile || customer.phone || "",
+      primaryMobile: customer.primaryMobile || "",
       email: customer.email || "",
 
       nomineeName: customer.nomineeName || "",
       nomineeDob: toDayjsSafe(customer.nomineeDob),
       nomineeRelation: customer.nomineeRelation || "",
 
-      // 🔹 EMPLOYMENT DETAILS
+      /* EMPLOYMENT */
       occupationType: customer.occupationType || "",
       companyName: customer.companyName || "",
       companyType: customer.companyType || "",
@@ -179,54 +173,37 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
         ? customer.businessNature
         : [],
 
-      employmentAddress:
-        customer.employmentAddress || customer.officeAddress || "",
-      employmentPincode:
-        customer.employmentPincode || customer.officePincode || "",
-      employmentCity: customer.employmentCity || customer.officeCity || "",
-      employmentPhone: customer.employmentPhone || customer.officePhone || "",
+      employmentAddress: customer.employmentAddress || "",
+      employmentPincode: customer.employmentPincode || "",
+      employmentCity: customer.employmentCity || "",
+      employmentPhone: customer.employmentPhone || "",
 
       salaryMonthly: customer.salaryMonthly || "",
       incorporationYear: customer.incorporationYear || "",
 
-      // 🔹 INCOME DETAILS
+      /* INCOME */
       panNumber: customer.panNumber || "",
       itrYears: customer.itrYears || "",
 
-      // 🔹 BANK DETAILS
+      /* BANK */
       bankName: customer.bankName || "",
       accountNumber: customer.accountNumber || "",
-      ifsc: customer.ifsc || customer.ifscCode || "",
+      ifsc: customer.ifsc || "",
       branch: customer.branch || "",
       accountType: customer.accountType || "",
       accountSinceYears: customer.accountSinceYears || "",
 
-      // 🔹 REFERENCES
-      reference1: customer.reference1 || {
-        name: "",
-        mobile: "",
-        address: "",
-        pincode: "",
-        city: "",
-      },
-      reference2: customer.reference2 || {
-        name: "",
-        mobile: "",
-        address: "",
-        pincode: "",
-        city: "",
-      },
+      /* REFERENCES */
+      reference1: customer.reference1 || {},
+      reference2: customer.reference2 || {},
 
-      // 🔹 KYC
+      /* KYC */
       aadhaarNumber: customer.aadhaarNumber || "",
       passportNumber: customer.passportNumber || "",
       gstNumber: customer.gstNumber || "",
       dlNumber: customer.dlNumber || "",
     };
 
-    const current = form.getFieldsValue(true);
-
-    // keep only meaningful values (don’t overwrite with blanks)
     const merged = Object.fromEntries(
       Object.entries(fieldValues).filter(([_, v]) => {
         if (v === "" || v === null || v === undefined) return false;
@@ -236,19 +213,18 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
     );
 
     form.setFieldsValue({
-      ...current,
+      ...form.getFieldsValue(true),
       ...merged,
     });
 
-    // close dropdown
     setSearchTerm("");
     setFilteredCustomers([]);
     setIsOpen(false);
   };
 
+  /* UI */
   return (
     <>
-      {/* SEARCH CUSTOMER */}
       <div
         ref={dropdownRef}
         style={{
@@ -259,133 +235,51 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
           border: "1px solid #f0f0f0",
         }}
       >
-        <Space
-          style={{
-            marginBottom: 14,
-            display: "flex",
-            justifyContent: "space-between",
-          }}
-        >
-          <Space>
-            <UserOutlined style={{ color: "#722ed1" }} />
-            <span style={{ fontWeight: 600 }}>Search & Select Customer</span>
-          </Space>
-
-          <Tag color="blue">Mongo Search</Tag>
+        <Space style={{ marginBottom: 14 }}>
+          <UserOutlined style={{ color: "#722ed1" }} />
+          <b>Search & Select Customer</b>
+          <Tag color="blue">Mongo</Tag>
         </Space>
 
-        <Row>
-          <Col span={24}>
-            <div style={{ position: "relative" }}>
-              <Input
-                placeholder="Search by customer name, mobile, or customer number"
-                prefix={<SearchOutlined />}
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setIsOpen(true);
-                }}
-                onFocus={() => {
-                  if (query) setIsOpen(true);
-                }}
-                allowClear
-              />
+        <Input
+          placeholder="Search by name or mobile"
+          prefix={<SearchOutlined />}
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setIsOpen(true);
+          }}
+          allowClear
+        />
 
-              {isOpen && query && (
-                <Card
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    right: 0,
-                    marginTop: 6,
-                    zIndex: 50,
-                    maxHeight: 320,
-                    overflowY: "auto",
-                    borderRadius: 10,
-                  }}
-                >
-                  {loading ? (
-                    <div className="py-6 flex items-center justify-center gap-2">
-                      <Spin size="small" />
-                      <span style={{ fontSize: 12, color: "#666" }}>
-                        Searching customers...
-                      </span>
-                    </div>
-                  ) : apiError ? (
-                    <div style={{ padding: 12 }}>
-                      <div style={{ fontSize: 12, color: "#ff4d4f" }}>
-                        {apiError}
-                      </div>
-                      <div
-                        style={{ fontSize: 11, color: "#888", marginTop: 6 }}
-                      >
-                        Tip: Check your API route: <b>/api/customers/search</b>
-                      </div>
-                    </div>
-                  ) : filteredCustomers.length ? (
-                    <List
-                      dataSource={filteredCustomers}
-                      renderItem={(customer) => (
-                        <List.Item
-                          onClick={() => handleCustomerSelect(customer)}
-                          style={{
-                            cursor: "pointer",
-                            padding: "10px 12px",
-                            borderRadius: 8,
-                          }}
-                        >
-                          <List.Item.Meta
-                            title={
-                              <div
-                                style={{
-                                  display: "flex",
-                                  gap: 8,
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <span style={{ fontWeight: 600 }}>
-                                  {safeText(
-                                    customer.customerName || customer.name,
-                                  ) || "Unnamed Customer"}
-                                </span>
-
-                                {(customer.customerNumber ||
-                                  customer.customerId) && (
-                                  <span style={{ fontSize: 12, color: "#999" }}>
-                                    #
-                                    {safeText(
-                                      customer.customerNumber ||
-                                        customer.customerId,
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-                            }
-                            description={
-                              <div style={{ fontSize: 12, color: "#666" }}>
-                                {safeText(
-                                  customer.primaryMobile ||
-                                    customer.phone ||
-                                    customer.email,
-                                )}
-                              </div>
-                            }
-                          />
-                        </List.Item>
-                      )}
+        {isOpen && query && (
+          <Card style={{ marginTop: 6, maxHeight: 320, overflowY: "auto" }}>
+            {loading ? (
+              <Spin />
+            ) : apiError ? (
+              <div style={{ color: "red", fontSize: 12 }}>{apiError}</div>
+            ) : filteredCustomers.length ? (
+              <List
+                dataSource={filteredCustomers}
+                renderItem={(customer) => (
+                  <List.Item
+                    onClick={() => handleCustomerSelect(customer)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <List.Item.Meta
+                      title={customer.customerName || "Unnamed"}
+                      description={customer.primaryMobile || ""}
                     />
-                  ) : (
-                    <Empty description="No customers found" />
-                  )}
-                </Card>
-              )}
-            </div>
-          </Col>
-        </Row>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Empty description="No customers found" />
+            )}
+          </Card>
+        )}
       </div>
 
-      {/* PERSONAL DETAILS FORM */}
       <PersonalDetails excludeFields={excludeFields} />
     </>
   );
