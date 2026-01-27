@@ -292,7 +292,9 @@ const LoanFormWithSteps = () => {
         ...extra,
       };
 
+      // 🚫 DO NOT reconvert values already strings
       const sanitized = convertDatesToStringsDeep(raw);
+      delete sanitized._id;
 
       const payload = {
         ...sanitized,
