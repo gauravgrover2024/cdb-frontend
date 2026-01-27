@@ -60,15 +60,27 @@ const convertAnyDateToDayjsDeep = (value) => {
   if (value instanceof Date) return dayjs(value);
 
   if (typeof value === "string") {
+    // ✅ ONLY convert real ISO-like date strings
+    // Examples:
+    // 2026-01-27T09:35:54.250Z
+    // 1993-06-16
+    const isIsoDate = /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(value);
+
+    if (!isIsoDate) return value;
+
     const d = dayjs(value);
     return d.isValid() ? d : value;
   }
 
-  if (Array.isArray(value)) return value.map(convertAnyDateToDayjsDeep);
+  if (Array.isArray(value)) {
+    return value.map(convertAnyDateToDayjsDeep);
+  }
 
   if (typeof value === "object") {
     const out = {};
-    for (const k in value) out[k] = convertAnyDateToDayjsDeep(value[k]);
+    for (const k in value) {
+      out[k] = convertAnyDateToDayjsDeep(value[k]);
+    }
     return out;
   }
 
