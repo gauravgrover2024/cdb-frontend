@@ -73,7 +73,7 @@ const sanitizeForJSON = (obj) => {
 /* --------------------------- Notes Modal --------------------------- */
 const NotesModal = ({ open, form, onClose }) => {
   const [notes, setNotes] = useState(
-    () => form?.getFieldValue("loan_notes") || ""
+    () => form?.getFieldValue("loan_notes") || "",
   );
 
   if (!open) return null;
@@ -200,7 +200,7 @@ const LoanStickyHeader = ({
   const approvalBankName = Form.useWatch("approval_bankName", form);
   const approvalLoanAmountApproved = Form.useWatch(
     "approval_loanAmountApproved",
-    form
+    form,
   );
 
   const postfileEmiAmount = Form.useWatch("postfile_emiAmount", form);
@@ -214,12 +214,16 @@ const LoanStickyHeader = ({
   }, [vehicleMake, vehicleModel, vehicleVariant]);
 
   const isBeforeOrAtApproval = ["profile", "prefile", "approval"].includes(
-    activeStep
+    activeStep,
   );
 
-  const amountLabel = isBeforeOrAtApproval
-    ? "Expected Loan Amount"
-    : "Loan Amount";
+  const amountLabel =
+    approvalStatus === "Approved"
+      ? "Approved Loan Amount"
+      : approvalStatus === "Disbursed"
+        ? "Disbursed Loan Amount"
+        : "Expected Loan Amount";
+
   const amountValue = isBeforeOrAtApproval
     ? financeExpectation
     : approvalLoanAmountApproved;
@@ -236,7 +240,7 @@ const LoanStickyHeader = ({
       { key: "delivery", label: "Vehicle Delivery" },
       { key: "payout", label: "Payout" },
     ],
-    []
+    [],
   );
 
   const filteredSteps = useMemo(() => {
@@ -322,7 +326,7 @@ const LoanStickyHeader = ({
                     {approvalStatus && (
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${statusPillClass(
-                          approvalStatus
+                          approvalStatus,
                         )}`}
                       >
                         <Icon name="Circle" size={6} />
@@ -443,8 +447,8 @@ const LoanStickyHeader = ({
                       isCurrent
                         ? "bg-primary text-white border-primary"
                         : isDone
-                        ? "bg-success/10 text-success border-success/20"
-                        : "bg-background text-foreground border-border hover:bg-muted"
+                          ? "bg-success/10 text-success border-success/20"
+                          : "bg-background text-foreground border-border hover:bg-muted"
                     }`}
                   >
                     <div
@@ -452,8 +456,8 @@ const LoanStickyHeader = ({
                         isCurrent
                           ? "bg-white/20"
                           : isDone
-                          ? "bg-success text-white"
-                          : "bg-muted text-muted-foreground"
+                            ? "bg-success text-white"
+                            : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {isDone ? <Icon name="Check" size={12} /> : idx + 1}

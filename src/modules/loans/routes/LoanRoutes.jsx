@@ -5,8 +5,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import LoanLayout from "../LoanLayout";
 import LoanDashboard from "../components/LoanDashboard";
-
-// We will use this as the form UI for both Create + Edit
 import LoanFormWithSteps from "../components/LoanFormWithSteps";
 
 const LoanRoutes = () => {
@@ -17,13 +15,10 @@ const LoanRoutes = () => {
         <Route index element={<LoanDashboard />} />
 
         {/* /loans/new */}
-        <Route path="new" element={<LoanFormWithSteps mode="create" />} />
+        <Route path="new" element={<LoanFormWithSteps />} />
 
         {/* /loans/edit/:loanId */}
-        <Route
-          path="edit/:loanId"
-          element={<LoanFormWithSteps mode="edit" />}
-        />
+        <Route path="edit/:loanId" element={<LoanFormWithSteps />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/loans" replace />} />

@@ -10,7 +10,7 @@ const LoansDashboardStats = ({ loans, loading }) => {
         (l) =>
           (l.currentStage || "") === "approval" &&
           ((l.status || "").toLowerCase() === "pending" ||
-            (l.status || "").toLowerCase() === "in progress")
+            (l.status || "").toLowerCase() === "in progress"),
       ).length || 0;
 
     const today = new Date().toDateString();
@@ -83,7 +83,7 @@ const LoansDashboardStats = ({ loans, loading }) => {
               <div>
                 <div className="text-xs text-muted-foreground">{s.label}</div>
                 <div className="text-xl font-semibold text-foreground data-text">
-                  {loading ? "…" : s.value}
+                  {loading ? <span className="animate-pulse">—</span> : s.value}
                 </div>
               </div>
             </div>

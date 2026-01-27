@@ -35,6 +35,8 @@ import StageFooter from "./StageFooter";
 
 dayjs.extend(customParseFormat);
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+
 // ----------------------------
 // Date helpers (safe for AntD)
 // ----------------------------
@@ -128,39 +130,44 @@ const LoanFormWithSteps = () => {
   // ----------------------------
   const fetchLoanById = useCallback(async (loanId) => {
     if (!loanId) return null;
-    const res = await fetch(`/api/loans/${loanId}`);
+
+    const res = await fetch(`${API_BASE_URL}/api/loans/${loanId}`);
     if (!res.ok) throw new Error("Failed to load loan");
-    return res.json();
+
+    const json = await res.json();
+    return json?.data || null;
   }, []);
 
   const createLoan = useCallback(async (payload) => {
-    const res = await fetch(`/api/loans`, {
+    const res = await fetch(`${API_BASE_URL}/api/loans`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
+    const json = await res.json().catch(() => null);
+
     if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.error || "Failed to create loan");
+      throw new Error(json?.error || "Failed to create loan");
     }
 
-    return res.json(); // expect { ok:true, loanId, ... }
+    return json?.data || null;
   }, []);
 
   const updateLoan = useCallback(async (loanId, payload) => {
-    const res = await fetch(`/api/loans/${loanId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/loans/${loanId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
+    const json = await res.json().catch(() => null);
+
     if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      throw new Error(err?.error || "Failed to update loan");
+      throw new Error(json?.error || "Failed to update loan");
     }
 
-    return res.json();
+    return json?.data || null;
   }, []);
 
   // ----------------------------
@@ -256,7 +263,7 @@ const LoanFormWithSteps = () => {
       approval_status: primaryBank.status || "Pending",
       approval_loanAmountApproved: cleanNumber(primaryBank.loanAmount),
       approval_loanAmountDisbursed: cleanNumber(
-        primaryBank.disbursedAmount || primaryBank.loanAmount
+        primaryBank.disbursedAmount || primaryBank.loanAmount,
       ),
       approval_roi: Number(primaryBank.interestRate) || undefined,
       approval_tenureMonths: Number(primaryBank.tenure) || undefined,
@@ -297,7 +304,7 @@ const LoanFormWithSteps = () => {
       // if new create, backend should set createdAt
       return payload;
     },
-    [activeStep, banksData, form, syncPrimaryApprovalToForm]
+    [activeStep, banksData, form, syncPrimaryApprovalToForm],
   );
 
   const handleSaveLoan = useCallback(
@@ -311,7 +318,7 @@ const LoanFormWithSteps = () => {
         if (!isEditMode) {
           const created = await createLoan(payload);
 
-          const newLoanId = created?.loanId || created?._id;
+          const newLoanId = created?._id;
           if (!newLoanId) {
             throw new Error("Loan created but loanId not returned");
           }
@@ -353,7 +360,7 @@ const LoanFormWithSteps = () => {
       isEditMode,
       loanIdFromRoute,
       navigate,
-    ]
+    ],
   );
 
   // ----------------------------
@@ -364,7 +371,7 @@ const LoanFormWithSteps = () => {
   const handleDiscard = () => {
     if (
       window.confirm(
-        "Are you sure you want to discard changes and exit? This cannot be undone."
+        "Are you sure you want to discard changes and exit? This cannot be undone.",
       )
     ) {
       navigate("/loans");
@@ -575,6 +582,20 @@ const LoanFormWithSteps = () => {
     </>
   );
 
+  const headerTitle = useMemo(() => {
+    const name = form.getFieldValue("customerName") || "Loan";
+    const vehicle = [
+      form.getFieldValue("vehicleMake"),
+      form.getFieldValue("vehicleModel"),
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const type = form.getFieldValue("typeOfLoan");
+
+    return [name, vehicle, type].filter(Boolean).join(" • ");
+  }, [form]);
+
+
   return (
     <Form
       form={form}
@@ -593,7 +614,7 @@ const LoanFormWithSteps = () => {
         }}
       >
         <LoanStickyHeader
-          title="Create Loan"
+          title={headerTitle}
           activeStep={activeStep}
           onStepChange={setActiveStep}
           isFinanced={isFinancedValue}

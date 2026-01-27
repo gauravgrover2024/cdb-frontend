@@ -10,6 +10,8 @@ import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import Icon from "../../../components/AppIcon";
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+
 const LoanDashboard = () => {
   const navigate = useNavigate();
 
@@ -53,15 +55,20 @@ const LoanDashboard = () => {
   const fetchLoans = async () => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/loans`,
-      );
+
+      const res = await fetch(`${API_BASE_URL}/api/loans`);
       if (!res.ok) throw new Error("Failed to load loans");
-      const data = await res.json();
-      setLoans((data || []).map(normalizeLoan));
+
+      const json = await res.json();
+
+      // ✅ loans API returns ARRAY directly
+      const list = Array.isArray(json) ? json : [];
+
+      setLoans(list.map(normalizeLoan));
     } catch (e) {
       console.error("Fetch Loans Error:", e);
       setLoans([]);
+      alert("Failed to load loans ❌");
     } finally {
       setLoading(false);
     }
@@ -109,9 +116,6 @@ const LoanDashboard = () => {
 
   const handleQuickAction = (actionId) => {
     if (actionId === "new-case") {
-      localStorage.removeItem("editingLoan");
-      localStorage.removeItem("editingLoanId");
-      localStorage.removeItem("loanDraft");
       navigate("/loans/new");
     }
   };
@@ -129,7 +133,7 @@ const LoanDashboard = () => {
     if (!ok) return;
 
     try {
-      const res = await fetch(`/api/loans/${loan.loanId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/loans/${loan.loanId}`, {
         method: "DELETE",
       });
 

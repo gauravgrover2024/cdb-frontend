@@ -16,6 +16,8 @@ import dayjs from "dayjs";
 
 import PersonalDetails from "../../../customers/customer-form/PersonalDetails";
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+
 const safeText = (v) => {
   if (v === null || v === undefined) return "";
   if (typeof v === "string" || typeof v === "number") return String(v);
@@ -84,12 +86,12 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
     try {
       // ✅ IMPORTANT: Must start with "/" so it works on /loans/new also
       const res = await fetch(
-        `/api/customers/search?q=${encodeURIComponent(q)}`,
+        `${API_BASE_URL}/api/customers/search?q=${encodeURIComponent(q)}`,
         {
           method: "GET",
           headers: { Accept: "application/json" },
           signal: abortRef.current.signal,
-        }
+        },
       );
 
       // protect against HTML response
@@ -101,7 +103,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
       } catch (err) {
         console.error("❌ Customer Search API returned non-JSON:", text);
         throw new Error(
-          "Customer Search API is not returning JSON. Check API route or proxy."
+          "Customer Search API is not returning JSON. Check API route or proxy.",
         );
       }
 
@@ -230,7 +232,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
         if (v === "" || v === null || v === undefined) return false;
         if (Array.isArray(v) && v.length === 0) return false;
         return true;
-      })
+      }),
     );
 
     form.setFieldsValue({
@@ -344,7 +346,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
                               >
                                 <span style={{ fontWeight: 600 }}>
                                   {safeText(
-                                    customer.customerName || customer.name
+                                    customer.customerName || customer.name,
                                   ) || "Unnamed Customer"}
                                 </span>
 
@@ -354,7 +356,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
                                     #
                                     {safeText(
                                       customer.customerNumber ||
-                                        customer.customerId
+                                        customer.customerId,
                                     )}
                                   </span>
                                 )}
@@ -365,7 +367,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false }) => {
                                 {safeText(
                                   customer.primaryMobile ||
                                     customer.phone ||
-                                    customer.email
+                                    customer.email,
                                 )}
                               </div>
                             }
