@@ -107,7 +107,7 @@ const PayoutPayablesDashboard = () => {
         loan.loan_payables,
         loan.loanPayables,
         loan.payables,
-        loan.loan_payouts // combined format
+        loan.loan_payouts, // combined format
       );
 
       const payablesOnly = list.filter((p) => {
@@ -155,8 +155,8 @@ const PayoutPayablesDashboard = () => {
         rawRows
           .map((r) => r.payout_party_name)
           .filter(Boolean)
-          .map((x) => String(x).trim())
-      )
+          .map((x) => String(x).trim()),
+      ),
     );
     return parties.sort();
   }, [rawRows]);
@@ -184,7 +184,7 @@ const PayoutPayablesDashboard = () => {
       const expectedOk = isWithinExpectedDateRange(
         r.payout_expected_date,
         expectedFrom,
-        expectedTo
+        expectedTo,
       );
 
       return searchOk && statusOk && partyOk && typeOk && expectedOk;
@@ -290,7 +290,7 @@ const PayoutPayablesDashboard = () => {
               updateTrackingField(
                 row.payoutId,
                 "payout_received_date",
-                new Date().toISOString().split("T")[0]
+                new Date().toISOString().split("T")[0],
               );
             }
 
@@ -319,7 +319,7 @@ const PayoutPayablesDashboard = () => {
             updateTrackingField(
               row.payoutId,
               "payout_expected_date",
-              e.target.value
+              e.target.value,
             )
           }
         />
@@ -338,7 +338,7 @@ const PayoutPayablesDashboard = () => {
             updateTrackingField(
               row.payoutId,
               "payout_received_date",
-              e.target.value
+              e.target.value,
             )
           }
         />

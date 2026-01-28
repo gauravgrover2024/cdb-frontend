@@ -4,10 +4,28 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
+import { useParams } from "react-router-dom";
+import { useRef } from "react";
+
+const useDebouncedEffect = (effect, deps, delay) => {
+  const timeoutRef = useRef();
+
+  useEffect(() => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(effect, delay);
+    return () => clearTimeout(timeoutRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, delay]);
+};
 
 const PayoutSection = ({ form, readOnly = false }) => {
   const [receivables, setReceivables] = useState([]);
   const [payables, setPayables] = useState([]);
+
+  const { loanId, id } = useParams();
+  const activeLoanId = loanId || id;
+
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 
   // =========================
   // WATCH REQUIRED FIELDS (ALWAYS TOP LEVEL)
@@ -18,7 +36,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
 
   const netLoanApproved = Form.useWatch(
     "approval_breakup_netLoanApproved",
-    form
+    form,
   );
 
   const recordSource = Form.useWatch("recordSource", form);
@@ -29,7 +47,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
   // Prefile payout %
   const prefileSourcePayout = Form.useWatch(
     "prefile_sourcePayoutPercentage",
-    form
+    form,
   );
 
   // Bank payout % (approval)
@@ -193,6 +211,28 @@ const PayoutSection = ({ form, readOnly = false }) => {
   ]);
 
   // =========================
+  // API AUTOSAVE (800ms)
+  // =========================
+  useDebouncedEffect(
+    () => {
+      if (!activeLoanId) return;
+
+      fetch(`${API_BASE_URL}/api/loans/${activeLoanId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loan_receivables: receivables,
+          loan_payables: payables,
+        }),
+      }).catch((err) => {
+        console.error("Payout autosave failed:", err);
+      });
+    },
+    [receivables, payables],
+    800,
+  );
+
+  // =========================
   // ADD payout rows
   // =========================
   const addReceivable = () => {
@@ -252,7 +292,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
         updated.tds_amount = calculateTdsAmount(
           updated.payout_amount,
           "Yes",
-          updated.tds_percentage
+          updated.tds_percentage,
         );
       } else {
         updated.tds_amount = 0;
@@ -264,7 +304,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
         updated.tds_amount = calculateTdsAmount(
           updated.payout_amount,
           "Yes",
-          updated.tds_percentage
+          updated.tds_percentage,
         );
       } else {
         updated.tds_amount = 0;
@@ -293,7 +333,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
         if (p.id !== id) return p;
         let updated = { ...p, [field]: value };
         return applyUpdateRules(updated, field, value, "Receivable");
-      })
+      }),
     );
   };
 
@@ -303,7 +343,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
         if (p.id !== id) return p;
         let updated = { ...p, [field]: value };
         return applyUpdateRules(updated, field, value, "Payable");
-      })
+      }),
     );
   };
 
@@ -322,26 +362,26 @@ const PayoutSection = ({ form, readOnly = false }) => {
     () =>
       receivables.reduce(
         (sum, p) => sum + (parseFloat(p.payout_amount) || 0),
-        0
+        0,
       ),
-    [receivables]
+    [receivables],
   );
 
   const totalPayables = useMemo(
     () =>
       payables.reduce((sum, p) => sum + (parseFloat(p.payout_amount) || 0), 0),
-    [payables]
+    [payables],
   );
 
   const totalTdsReceivables = useMemo(
     () =>
       receivables.reduce((sum, p) => sum + (parseFloat(p.tds_amount) || 0), 0),
-    [receivables]
+    [receivables],
   );
 
   const totalTdsPayables = useMemo(
     () => payables.reduce((sum, p) => sum + (parseFloat(p.tds_amount) || 0), 0),
-    [payables]
+    [payables],
   );
 
   const netReceivables = totalReceivables - totalTdsReceivables;

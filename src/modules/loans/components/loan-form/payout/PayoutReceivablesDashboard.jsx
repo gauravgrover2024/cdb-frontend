@@ -6,6 +6,8 @@ import dayjs from "dayjs";
 
 const { Option } = Select;
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+
 /* ==============================
    Helpers
 ============================== */
@@ -70,7 +72,7 @@ const PayoutReceivablesDashboard = () => {
         loan.loan_receivables,
         loan.loanReceivables,
         loan.receivables,
-        loan.loan_payouts // fallback for old combined storage
+        loan.loan_payouts, // fallback for old combined storage
       );
 
       // In case old combined format exists, filter only receivables
@@ -111,8 +113,8 @@ const PayoutReceivablesDashboard = () => {
         rows
           .map((r) => r.payout_party_name)
           .filter(Boolean)
-          .map((b) => String(b).trim())
-      )
+          .map((b) => String(b).trim()),
+      ),
     );
     return banks.sort();
   }, [rows]);
