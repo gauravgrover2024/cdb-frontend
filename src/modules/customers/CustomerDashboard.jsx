@@ -1,257 +1,67 @@
 // src/modules/customers/CustomerDashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-/**
- * Fully self-contained Snow UI dashboard (no AntD)
- * - Header + actions (Refresh, New, Dark mode)
- * - Stats tiles
- * - Search (client-side)
- * - Table with View / Edit / Delete
- * - Pagination, sorting
- * - CustomerViewModal (in-file)
- * - ConfirmDeleteDialog (in-file)
- *
- * Replace your current file with this one.
- */
+import Icon from "../../components/AppIcon"; // adjust path if needed
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 
-/* ----------------- Theme system ----------------- */
-const THEMES = {
-  light: {
-    name: "light",
-    page: "#f6f8fb",
-    card: "rgba(255,255,255,0.95)",
-    cardSoft: "rgba(255,255,255,0.98)",
-    text: "#0f172a",
-    subText: "#64748b",
-    accent: "#6366f1",
-    border: "rgba(15,23,42,0.06)",
-    shadow: "0 14px 32px rgba(15,23,42,0.06)",
-  },
-  dark: {
-    name: "dark",
-    page: "#060819",
-    card: "rgba(8,10,16,0.8)",
-    cardSoft: "rgba(8,10,16,0.9)",
-    text: "#e6eef8",
-    subText: "#94a3b8",
-    accent: "#8b5cf6",
-    border: "rgba(148,163,184,0.12)",
-    shadow: "0 14px 32px rgba(0,0,0,0.6)",
-  },
+// KYC chip helper
+const getKycChipClass = (status = "") => {
+  const s = status.toLowerCase();
+  if (s === "completed")
+    return "inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-0.5 text-[11px] font-medium";
+  if (s === "in progress")
+    return "inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 text-[11px] font-medium";
+  if (s.includes("pending"))
+    return "inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-0.5 text-[11px] font-medium";
+  return "inline-flex items-center rounded-full bg-muted text-muted-foreground border border-border px-2.5 py-0.5 text-[11px] font-medium";
 };
 
-/* ----------------- Utilities ----------------- */
 const formatDate = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString();
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
-
-/* ----------------- Modal & Dialog Components ----------------- */
-
-/**
- * Lightweight modal
- */
-function Modal({ open, onClose, title, children, theme }) {
-  if (!open) return null;
-  return (
-    <div style={styles.modalOverlay}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title || "modal"}
-        style={{
-          ...styles.modalCard,
-          background: theme.card,
-          boxShadow: theme.shadow,
-        }}
-      >
-        <div style={styles.modalHeader}>
-          <strong style={{ color: theme.text }}>{title}</strong>
-          <button
-            aria-label="Close"
-            onClick={onClose}
-            style={styles.iconButton(theme)}
-          >
-            ✕
-          </button>
-        </div>
-        <div style={{ marginTop: 8 }}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Confirm delete dialog
- */
-function ConfirmDeleteDialog({ open, onCancel, onConfirm, theme, message }) {
-  return (
-    <Modal open={open} onClose={onCancel} title="Confirm delete" theme={theme}>
-      <div style={{ color: theme.subText, marginBottom: 16 }}>{message}</div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button onClick={onCancel} style={styles.btnPlain(theme)}>
-          Cancel
-        </button>
-        <button onClick={onConfirm} style={styles.btnDanger}>
-          Delete
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-/**
- * Customer view modal — shows customer data and actions
- */
-function CustomerViewModal({
-  open,
-  onClose,
-  customer,
-  onEdit,
-  onDelete,
-  theme,
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={customer ? customer.customerName || "Customer" : "Customer"}
-      theme={theme}
-    >
-      {!customer ? (
-        <div style={{ color: theme.subText }}>No customer selected.</div>
-      ) : (
-        <div style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <div style={styles.avatar(theme)}>
-              {String(customer.customerName || "U")
-                .slice(0, 1)
-                .toUpperCase()}
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, color: theme.text }}>
-                {customer.customerName || "—"}
-              </div>
-              <div style={{ color: theme.subText }}>
-                {customer.primaryMobile || "—"} • {customer.city || "—"}
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.kvGrid}>
-            <KV label="PAN" value={customer.panNumber || "—"} theme={theme} />
-            <KV
-              label="KYC Status"
-              value={customer.kycStatus || "—"}
-              theme={theme}
-            />
-            <KV
-              label="Type"
-              value={customer.customerType || "—"}
-              theme={theme}
-            />
-            <KV
-              label="Occupation"
-              value={customer.occupationType || "—"}
-              theme={theme}
-            />
-            <KV
-              label="Company"
-              value={customer.companyName || "—"}
-              theme={theme}
-            />
-            <KV label="Bank" value={customer.bankName || "—"} theme={theme} />
-            <KV
-              label="Account Type"
-              value={customer.accountType || "—"}
-              theme={theme}
-            />
-            <KV
-              label="Created"
-              value={formatDate(customer.createdOn)}
-              theme={theme}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button
-              onClick={() => onEdit(customer)}
-              style={styles.btnPlain(theme)}
-            >
-              Edit
-            </button>
-            <button onClick={() => onDelete(customer)} style={styles.btnDanger}>
-              Delete
-            </button>
-          </div>
-        </div>
-      )}
-    </Modal>
-  );
-}
-
-function KV({ label, value, theme }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ fontSize: 12, color: theme.subText }}>{label}</div>
-      <div style={{ color: theme.text }}>{value}</div>
-    </div>
-  );
-}
-
-/* ----------------- Main Dashboard ----------------- */
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
 
-  // theme
-  const [mode, setMode] = useState(
-    () => localStorage.getItem("snow-mode") || "light",
-  );
-  const theme = THEMES[mode] || THEMES.light;
-
-  // data
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
 
-  // UI
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(null);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [toDelete, setToDelete] = useState(null);
+  const [filter, setFilter] = useState("all"); // all | completed | pending | repeat
 
-  // table state
   const [page, setPage] = useState(1);
   const pageSize = 10;
-  const [sortField, setSortField] = useState("customerName");
-  const [sortDir, setSortDir] = useState("asc"); // asc | desc
 
-  // load customers
+  const [viewCustomer, setViewCustomer] = useState(null);
+  const [confirmCustomer, setConfirmCustomer] = useState(null);
+
   useEffect(() => {
     loadCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadCustomers = async () => {
+  const loadCustomers = async (pageNumber = 1) => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/customers`);
-      const text = await res.text();
-      let data = [];
-      try {
-        const parsed = JSON.parse(text);
-        data = Array.isArray(parsed?.data) ? parsed.data : parsed;
-      } catch (e) {
-        // fallback: try to parse as line separated JSON or empty
-        console.error("Could not parse /api/customers response as JSON:", e);
-      }
-      setCustomers(Array.isArray(data) ? data : []);
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/customers?page=${pageNumber}&limit=${pageSize}`,
+      );
+
+      const parsed = await res.json();
+
+      setCustomers(parsed.data || []);
+      setTotal(parsed.total || 0);
+      setPage(pageNumber);
     } catch (err) {
       console.error("Load customers error", err);
       alert("Failed to load customers");
@@ -260,84 +70,42 @@ export default function CustomerDashboard() {
     }
   };
 
-  // derived: filtered + sorted
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let list = customers.slice();
-
-    if (q) {
-      list = list.filter((c) =>
-        [c.customerName, c.primaryMobile, c.city, c.panNumber, c.companyName]
-          .join(" ")
-          .toLowerCase()
-          .includes(q),
-      );
-    }
-
-    // sort
-    list.sort((a, b) => {
-      const A = String(a[sortField] || "").toLowerCase();
-      const B = String(b[sortField] || "").toLowerCase();
-      if (A < B) return sortDir === "asc" ? -1 : 1;
-      if (A > B) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return list;
-  }, [customers, search, sortField, sortDir]);
-
-  // pagination
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const pageData = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  // stats
   const stats = useMemo(() => {
+    const completed = customers.filter(
+      (c) => c.kycStatus === "Completed",
+    ).length;
+    const pending = customers.filter(
+      (c) => c.kycStatus && c.kycStatus.toLowerCase().includes("pending"),
+    ).length;
+    const repeat = customers.filter(
+      (c) => String(c.customerType || "").toLowerCase() === "repeat",
+    ).length;
+
     return {
-      total: customers.length,
-      completed: customers.filter((c) => c.kycStatus === "Completed").length,
-      pending: customers.filter((c) => c.kycStatus === "Pending Docs").length,
-      repeat: customers.filter(
-        (c) => String(c.customerType).toLowerCase() === "repeat",
-      ).length,
+      total: total,
+      completed,
+      pending,
+      repeat,
     };
   }, [customers]);
 
-  const openView = (c) => {
-    setSelected(c);
-    setViewOpen(true);
-  };
+  const pageEnd = Math.min(safePage * pageSize, total);
 
-  const closeView = () => {
-    setSelected(null);
-    setViewOpen(false);
-  };
-
-  const confirmDelete = (c) => {
-    setToDelete(c);
-    setConfirmOpen(true);
-  };
-
-  const doDelete = async () => {
-    if (!toDelete) return;
+  const handleDelete = async () => {
+    if (!confirmCustomer) return;
     try {
       setLoading(true);
-      const id = toDelete._id || toDelete.id;
+      const id = confirmCustomer._id || confirmCustomer.id;
       const res = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        throw new Error(errText || "Delete failed");
+        const msg = await res.text().catch(() => "");
+        throw new Error(msg || "Delete failed");
       }
-      // refresh
+      setConfirmCustomer(null);
+      setViewCustomer(null);
       await loadCustomers();
-      setConfirmOpen(false);
-      setToDelete(null);
-      // if modal open for same customer, close it
-      if (selected && (selected._id === id || selected.id === id)) {
-        closeView();
-      }
     } catch (err) {
       console.error("Delete error", err);
       alert("Delete failed");
@@ -346,301 +114,306 @@ export default function CustomerDashboard() {
     }
   };
 
-  const toggleMode = () => {
-    const next = mode === "light" ? "dark" : "light";
-    setMode(next);
-    localStorage.setItem("snow-mode", next);
-  };
+  const filterButtonClass = (active) =>
+    `relative flex flex-col justify-between rounded-2xl border px-4 py-3 text-left shadow-sm transition-colors ${
+      active
+        ? "border-primary/40 bg-primary text-primary-foreground"
+        : "border-border bg-card text-foreground"
+    }`;
 
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir("asc");
-    }
-  };
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
 
   return (
-    <div
-      style={{
-        background: theme.page,
-        minHeight: "100vh",
-        padding: 24,
-        transition: "background .2s linear",
-      }}
-    >
-      {/* Header card */}
-      <div style={{ marginBottom: 20 }}>
-        <div
-          style={{
-            display: "flex",
-            gap: 16,
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: theme.text }}>
-                Customers
-              </div>
-              <div style={{ fontSize: 13, color: theme.subText }}>
-                {pageData.length} shown • {stats.total} total
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              onClick={toggleMode}
-              style={styles.smallBtn(theme)}
-              aria-label="Toggle theme"
-            >
-              {mode === "light" ? "🌙" : "☀️"}
-            </button>
-            <button
-              onClick={() => loadCustomers()}
-              style={styles.smallBtn(theme)}
-            >
-              ⟳ Refresh
-            </button>
-            <button
-              onClick={() => navigate("/customers/new")}
-              style={styles.primaryBtn(theme)}
-            >
-              ＋ New Customer
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div
-        style={{
-          display: "grid",
-          gap: 12,
-          gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-          marginBottom: 20,
-        }}
-      >
-        <StatCard label="Total" value={stats.total} theme={theme} />
-        <StatCard label="KYC Completed" value={stats.completed} theme={theme} />
-        <StatCard label="Pending Docs" value={stats.pending} theme={theme} />
-        <StatCard label="Repeat Customers" value={stats.repeat} theme={theme} />
-      </div>
-
-      {/* Search & Table card */}
-      <div
-        style={{
-          background: theme.card,
-          borderRadius: 16,
-          padding: 16,
-          boxShadow: theme.shadow,
-          border: `1px solid ${theme.border}`,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            alignItems: "center",
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ flex: 1 }}>
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search by name, mobile, city, PAN..."
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${theme.border}`,
-                background: theme.cardSoft,
-                color: theme.text,
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <div
-              style={{
-                color: theme.subText,
-                fontSize: 13,
-                alignSelf: "center",
-              }}
-            >
-              Tip: Use PAN / mobile for fastest search
-            </div>
-          </div>
+    <div className="flex flex-col gap-4 md:gap-5 px-4 md:px-6 pb-6">
+      {/* Header row */}
+      <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-lg md:text-xl font-semibold text-foreground">
+            Customers
+          </h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
+            Manage customer profiles, KYC status and interactions.
+          </p>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "separate",
-              borderSpacing: 0,
-            }}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-foreground"
+            onClick={() => loadCustomers(page)}
           >
-            <thead>
+            <Icon name="RefreshCw" size={13} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-medium shadow-sm"
+            onClick={() => navigate("/customers/new")}
+          >
+            <Icon name="Plus" size={13} />
+            New Customer
+          </button>
+        </div>
+      </div>
+
+      {/* Metric cards */}
+      <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-4">
+        {/* All */}
+        <button
+          type="button"
+          className={filterButtonClass(filter === "all")}
+          onClick={() => {
+            setFilter("all");
+            setPage(1);
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide opacity-80">
+                All Customers
+              </span>
+              <span className="text-xl font-semibold">{stats.total}</span>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-background/20 text-inherit">
+              <Icon name="Users" size={16} />
+            </div>
+          </div>
+        </button>
+
+        {/* KYC Completed */}
+        <button
+          type="button"
+          className={filterButtonClass(filter === "completed")}
+          onClick={() => {
+            setFilter("completed");
+            setPage(1);
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide opacity-80">
+                KYC Completed
+              </span>
+              <span className="text-xl font-semibold">{stats.completed}</span>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+              <Icon name="CheckCircle2" size={16} />
+            </div>
+          </div>
+        </button>
+
+        {/* Pending Docs */}
+        <button
+          type="button"
+          className={filterButtonClass(filter === "pending")}
+          onClick={() => {
+            setFilter("pending");
+            setPage(1);
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide opacity-80">
+                Pending Docs
+              </span>
+              <span className="text-xl font-semibold">{stats.pending}</span>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
+              <Icon name="FileClock" size={16} />
+            </div>
+          </div>
+        </button>
+
+        {/* Repeat */}
+        <button
+          type="button"
+          className={filterButtonClass(filter === "repeat")}
+          onClick={() => {
+            setFilter("repeat");
+            setPage(1);
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-wide opacity-80">
+                Repeat
+              </span>
+              <span className="text-xl font-semibold">{stats.repeat}</span>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-500/10 text-violet-600">
+              <Icon name="Repeat" size={16} />
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Search + table card */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        {/* Search row */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3 border-b border-border bg-card">
+          <div className="flex-1">
+            <div className="relative">
+              <Icon
+                name="Search"
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search by name, mobile, city, PAN…"
+                className="w-full rounded-xl border border-border bg-muted/50 pl-9 pr-3 py-1.5 text-xs md:text-sm text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            Showing {customers.length} of {total} customers
+          </span>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur border-b border-border">
               <tr>
-                <th style={thStyle(theme, 300)}>
-                  <button
-                    onClick={() => handleSort("customerName")}
-                    style={styles.headerButton(theme)}
-                  >
-                    Customer{" "}
-                    {sortField === "customerName"
-                      ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
-                      : ""}
-                  </button>
+                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Customer ID
                 </th>
-                <th style={thStyle(theme, 150)}>
-                  <button
-                    onClick={() => handleSort("primaryMobile")}
-                    style={styles.headerButton(theme)}
-                  >
-                    Mobile{" "}
-                    {sortField === "primaryMobile"
-                      ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
-                      : ""}
-                  </button>
+                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Customer Info
                 </th>
-                <th style={thStyle(theme, 150)}>
-                  <button
-                    onClick={() => handleSort("city")}
-                    style={styles.headerButton(theme)}
-                  >
-                    City{" "}
-                    {sortField === "city"
-                      ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
-                      : ""}
-                  </button>
+                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Employment
                 </th>
-                <th style={thStyle(theme, 140)}>
-                  <button
-                    onClick={() => handleSort("kycStatus")}
-                    style={styles.headerButton(theme)}
-                  >
-                    KYC{" "}
-                    {sortField === "kycStatus"
-                      ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
-                      : ""}
-                  </button>
+                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Bank
                 </th>
-                <th style={thStyle(theme, 180)}>Actions</th>
+                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  KYC Status
+                </th>
+                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Created
+                </th>
+                <th className="px-4 py-2 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[150px]">
+                  Actions
+                </th>
               </tr>
             </thead>
-
             <tbody>
               {loading ? (
                 <tr>
                   <td
-                    colSpan="5"
-                    style={{
-                      padding: 20,
-                      textAlign: "center",
-                      color: theme.subText,
-                    }}
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-xs text-muted-foreground"
                   >
-                    Loading...
+                    Loading customers…
                   </td>
                 </tr>
-              ) : pageData.length === 0 ? (
+              ) : customers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="5"
-                    style={{
-                      padding: 20,
-                      textAlign: "center",
-                      color: theme.subText,
-                    }}
+                    colSpan={7}
+                    className="px-4 py-10 text-center text-xs text-muted-foreground"
                   >
-                    No customers found.
+                    No customers found for this view.
                   </td>
                 </tr>
               ) : (
-                pageData.map((c) => (
+                customers.map((c) => (
                   <tr
                     key={c._id || c.id}
-                    style={{ borderTop: `1px solid ${theme.border}` }}
+                    className="border-t border-border hover:bg-muted/40 transition-colors"
                   >
-                    <td style={tdStyle(theme)}>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 12,
-                          alignItems: "center",
-                        }}
-                      >
-                        <div style={avatarStyle(c, theme)}>
-                          {String(c.customerName || "U")
-                            .slice(0, 1)
-                            .toUpperCase()}
+                    {/* ID */}
+                    <td className="px-4 py-3 align-top text-xs text-muted-foreground">
+                      {c.customerCode || c.customerId || "—"}
+                    </td>
+
+                    {/* Customer info */}
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                          {(c.customerName || "U").slice(0, 1)}
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: theme.text }}>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[13px] font-semibold text-foreground">
                             {c.customerName || "—"}
-                          </div>
-                          <div style={{ fontSize: 12, color: theme.subText }}>
-                            {c.companyName || ""}
-                          </div>
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {c.primaryMobile || "Mobile not set"}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {c.city || "City not set"}
+                          </span>
                         </div>
                       </div>
                     </td>
 
-                    <td style={tdStyle(theme)}>{c.primaryMobile || "—"}</td>
-                    <td style={tdStyle(theme)}>{c.city || "—"}</td>
-                    <td style={tdStyle(theme)}>
-                      <span
-                        style={{
-                          padding: "6px 10px",
-                          borderRadius: 999,
-                          background: badgeBg(c.kycStatus, theme),
-                          color: badgeColor(c.kycStatus, theme),
-                          fontWeight: 600,
-                          fontSize: 13,
-                        }}
-                      >
-                        {c.kycStatus || "—"}
+                    {/* Employment */}
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
+                        <span className="text-[12px] text-foreground font-medium">
+                          {c.employmentType || c.occupationType || "—"}
+                        </span>
+                        <span>{c.companyName || ""}</span>
+                      </div>
+                    </td>
+
+                    {/* Bank */}
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
+                        <span className="text-[12px] text-foreground font-medium">
+                          {c.bankName || "—"}
+                        </span>
+                        <span>{c.accountType || ""}</span>
+                      </div>
+                    </td>
+
+                    {/* KYC */}
+                    <td className="px-4 py-3 align-top">
+                      <span className={getKycChipClass(c.kycStatus)}>
+                        {c.kycStatus || "Not started"}
                       </span>
                     </td>
 
-                    <td style={tdStyle(theme)}>
-                      <div style={{ display: "flex", gap: 8 }}>
+                    {/* Created */}
+                    <td className="px-4 py-3 align-top text-[11px] text-muted-foreground">
+                      {formatDate(c.createdOn)}
+                    </td>
+
+                    {/* Actions */}
+                    <td
+                      className="px-4 py-3 align-top"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          style={styles.actionBtn(theme)}
-                          onClick={() => openView(c)}
+                          type="button"
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15"
+                          onClick={() => setViewCustomer(c)}
                         >
-                          View
+                          <Icon name="Eye" size={12} />
                         </button>
                         <button
-                          style={styles.actionPrimary(theme)}
+                          type="button"
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-background"
                           onClick={() =>
                             navigate(`/customers/edit/${c._id || c.id}`)
                           }
                         >
-                          Edit
+                          <Icon name="Edit" size={12} />
                         </button>
                         <button
-                          style={styles.actionDanger}
-                          onClick={() => confirmDelete(c)}
+                          type="button"
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-error/5 text-error border border-error/20 hover:bg-error/10"
+                          onClick={() => setConfirmCustomer(c)}
                         >
-                          Delete
+                          <Icon name="Trash2" size={12} />
                         </button>
                       </div>
                     </td>
@@ -651,55 +424,44 @@ export default function CustomerDashboard() {
           </table>
         </div>
 
-        {/* pagination controls */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 12,
-          }}
-        >
-          <div style={{ color: theme.subText, fontSize: 13 }}>
-            Showing {(page - 1) * pageSize + 1} -{" "}
-            {Math.min(page * pageSize, total)} of {total}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {/* Pagination row */}
+        <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
+          <span>
+            Showing {pageStart}–{pageEnd} of {total} entries
+          </span>
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setPage(1)}
-              style={styles.smallBtn(theme)}
-              disabled={page === 1}
+              type="button"
+              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
+              disabled={safePage === 1}
+              onClick={() => loadCustomers(1)}
             >
               {"<<"}
             </button>
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              style={styles.smallBtn(theme)}
-              disabled={page === 1}
+              type="button"
+              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
+              disabled={safePage === 1}
+              onClick={() => loadCustomers(safePage - 1)}
             >
               {"<"}
             </button>
-            <div
-              style={{
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: `1px solid ${theme.border}`,
-                color: theme.text,
-              }}
-            >
-              {page} / {totalPages}
-            </div>
+            <span className="px-2 text-[11px]">
+              {safePage} / {totalPages}
+            </span>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              style={styles.smallBtn(theme)}
-              disabled={page === totalPages}
+              type="button"
+              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
+              disabled={safePage === totalPages}
+              onClick={() => loadCustomers(safePage + 1)}
             >
               {">"}
             </button>
             <button
-              onClick={() => setPage(totalPages)}
-              style={styles.smallBtn(theme)}
-              disabled={page === totalPages}
+              type="button"
+              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
+              disabled={safePage === totalPages}
+              onClick={() => loadCustomers(totalPages)}
             >
               {">>"}
             </button>
@@ -707,278 +469,107 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
-      {/* view modal */}
-      <CustomerViewModal
-        open={viewOpen}
-        onClose={closeView}
-        customer={selected}
-        onEdit={(c) => {
-          navigate(`/customers/edit/${c._id || c.id}`);
-          closeView();
-        }}
-        onDelete={(c) => {
-          confirmDelete(c);
-          closeView();
-        }}
-        theme={theme}
-      />
+      {/* Simple view drawer/modal – you can replace with your existing one */}
+      {viewCustomer && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          onClick={() => setViewCustomer(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-foreground">
+                  {viewCustomer.customerName || "Customer"}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {viewCustomer.primaryMobile || "—"} ·{" "}
+                  {viewCustomer.city || "—"}
+                </span>
+              </div>
+              <button
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-muted-foreground"
+                onClick={() => setViewCustomer(null)}
+              >
+                <Icon name="X" size={14} />
+              </button>
+            </div>
 
-      {/* confirm delete dialog */}
-      <ConfirmDeleteDialog
-        open={confirmOpen}
-        onCancel={() => {
-          setConfirmOpen(false);
-          setToDelete(null);
-        }}
-        onConfirm={doDelete}
-        message={`Are you sure you want to delete ${toDelete?.customerName || "this customer"}? This action cannot be undone.`}
-        theme={theme}
-      />
+            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <div>PAN: {viewCustomer.panNumber || "—"}</div>
+              <div>Company: {viewCustomer.companyName || "—"}</div>
+              <div>Employment: {viewCustomer.employmentType || "—"}</div>
+              <div>Bank: {viewCustomer.bankName || "—"}</div>
+              <div>KYC: {viewCustomer.kycStatus || "—"}</div>
+            </div>
+
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs"
+                onClick={() => {
+                  setViewCustomer(null);
+                  navigate(
+                    `/customers/edit/${viewCustomer._id || viewCustomer.id}`,
+                  );
+                }}
+              >
+                <Icon name="Edit" size={12} />
+                Edit
+              </button>
+              <button
+                className="inline-flex items-center gap-1 rounded-full border border-error/30 bg-error/10 px-3 py-1 text-xs text-error"
+                onClick={() => {
+                  setViewCustomer(null);
+                  setConfirmCustomer(viewCustomer);
+                }}
+              >
+                <Icon name="Trash2" size={12} />
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete */}
+      {confirmCustomer && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          onClick={() => setConfirmCustomer(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm font-semibold text-foreground mb-1">
+              Delete customer?
+            </div>
+            <div className="text-xs text-muted-foreground mb-3">
+              Are you sure you want to delete{" "}
+              <span className="font-medium">
+                {confirmCustomer.customerName || "this customer"}
+              </span>
+              ? This action cannot be undone.
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs"
+                onClick={() => setConfirmCustomer(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex items-center gap-1 rounded-full border border-error/30 bg-error px-3 py-1 text-xs text-error-foreground"
+                onClick={handleDelete}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-/* ----------------- Small presentational components ----------------- */
-
-function StatCard({ label, value, theme }) {
-  return (
-    <div
-      style={{
-        background: theme.cardSoft,
-        borderRadius: 12,
-        padding: 16,
-        border: `1px solid ${theme.border}`,
-        boxShadow: theme.shadow,
-      }}
-    >
-      <div style={{ fontSize: 12, color: theme.subText }}>{label}</div>
-      <div
-        style={{
-          fontSize: 20,
-          fontWeight: 700,
-          color: theme.text,
-          marginTop: 8,
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-/* ----------------- Helpers: styles & colors ----------------- */
-
-const thStyle = (theme, minWidth = 120) => ({
-  textAlign: "left",
-  padding: "12px 12px",
-  fontSize: 13,
-  color: theme.subText,
-  minWidth,
-  background: "transparent",
-});
-
-const tdStyle = (theme) => ({
-  padding: "12px",
-  verticalAlign: "middle",
-  color: theme.text,
-  fontSize: 14,
-});
-
-const avatarStyle = (c, theme) => ({
-  width: 40,
-  height: 40,
-  borderRadius: 10,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: avatarColor(c, theme),
-  color: "#fff",
-  fontWeight: 700,
-});
-
-const avatarColor = (c, theme) => {
-  // lightweight deterministic color
-  const seed = String(c.customerName || "").charCodeAt(0) || 80;
-  const hues = [theme.accent, "#7c3aed", "#06b6d4", "#ef4444", "#f59e0b"];
-  return hues[seed % hues.length];
-};
-
-const badgeBg = (kyc, theme) => {
-  if (!kyc) return "transparent";
-  if (kyc === "Completed")
-    return theme.name === "dark"
-      ? "rgba(16,185,129,0.12)"
-      : "rgba(245,255,236,1)";
-  if (kyc === "In Progress")
-    return theme.name === "dark"
-      ? "rgba(59,130,246,0.08)"
-      : "rgba(235,248,255,1)";
-  return theme.name === "dark"
-    ? "rgba(250,204,21,0.08)"
-    : "rgba(255,250,235,1)";
-};
-
-const badgeColor = (kyc, theme) => {
-  if (!kyc) return theme.text;
-  if (kyc === "Completed") return theme.name === "dark" ? "#34d399" : "#096a2d";
-  if (kyc === "In Progress")
-    return theme.name === "dark" ? "#60a5fa" : "#055d8c";
-  return theme.name === "dark" ? "#f59e0b" : "#a16207";
-};
-
-/* ----------------- Inline styles ----------------- */
-
-const styles = {
-  smallBtn: (theme) => ({
-    border: `1px solid ${theme.border}`,
-    background: "transparent",
-    color: theme.text,
-    padding: "8px 10px",
-    borderRadius: 8,
-    cursor: "pointer",
-  }),
-  primaryBtn: (theme) => ({
-    border: "none",
-    background: theme.accent,
-    color: "#fff",
-    padding: "8px 12px",
-    borderRadius: 10,
-    cursor: "pointer",
-    fontWeight: 600,
-  }),
-  actionBtn: (theme) => ({
-    border: `1px solid ${theme.border}`,
-    background: "transparent",
-    color: theme.text,
-    padding: "6px 8px",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 13,
-  }),
-  actionPrimary: (theme) => ({
-    background: theme.accent,
-    color: "#fff",
-    padding: "6px 8px",
-    borderRadius: 8,
-    cursor: "pointer",
-    border: "none",
-    fontSize: 13,
-  }),
-  actionDanger: {
-    background: "transparent",
-    border: "1px solid rgba(255,80,80,0.14)",
-    color: "#ef4444",
-    padding: "6px 8px",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 13,
-  },
-  btnPlain: (theme) => ({
-    background: "transparent",
-    border: `1px solid ${theme.border}`,
-    color: theme.text,
-    padding: "8px 10px",
-    borderRadius: 8,
-    cursor: "pointer",
-  }),
-  btnDanger: {
-    background: "#ff4d4f",
-    color: "#fff",
-    padding: "8px 12px",
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 600,
-  },
-  iconButton: (theme) => ({
-    background: "transparent",
-    border: "none",
-    color: theme.subText,
-    cursor: "pointer",
-    fontSize: 16,
-  }),
-  modalOverlay: {
-    position: "fixed",
-    inset: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "rgba(2,6,23,0.4)",
-    zIndex: 9999,
-    padding: 20,
-  },
-  modalCard: {
-    width: "min(920px, 96%)",
-    borderRadius: 12,
-    padding: 18,
-  },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  avatar: (theme) => ({
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: theme.accent,
-    color: "#fff",
-    fontWeight: 800,
-    fontSize: 20,
-  }),
-  kvGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-    gap: 12,
-  },
-  headerButton: (theme) => ({
-    background: "transparent",
-    border: "none",
-    padding: 0,
-    margin: 0,
-    fontSize: 13,
-    fontWeight: 600,
-    color: theme.subText,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-  }),
-};
-
-/* ----------------- Header button style helper ----------------- */
-
-styles.smallBtn = (theme) => ({
-  border: `1px solid ${theme.border}`,
-  background: "transparent",
-  color: theme.text,
-  padding: "8px 10px",
-  borderRadius: 8,
-  cursor: "pointer",
-});
-
-/* ----------------- Header button used earlier (redeclare for clarity) ----------------- */
-
-styles.btnPlain = (theme) => ({
-  background: "transparent",
-  border: `1px solid ${theme.border}`,
-  color: theme.text,
-  padding: "8px 10px",
-  borderRadius: 8,
-  cursor: "pointer",
-});
-
-styles.actionBtn = (theme) => ({
-  border: `1px solid ${theme.border}`,
-  background: "transparent",
-  color: theme.text,
-  padding: "6px 8px",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontSize: 13,
-});
-
-/* ----------------- Done ----------------- */

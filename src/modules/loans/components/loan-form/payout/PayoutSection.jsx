@@ -134,17 +134,24 @@ const PayoutSection = ({ form, readOnly = false }) => {
         autoReceivables.push({
           id: Date.now(),
           payoutId: generatePayoutId("receivable"),
-          payout_createdAt: new Date().toISOString(),
+          payout_created_date: new Date().toISOString(), // CHANGED: standardized field name
+          created_date: new Date().toISOString(), // ADDED: for dashboard compatibility
 
           payout_applicable: "Yes",
           payout_type: "Bank",
           payout_party_name: disbursedBankName,
           payout_percentage: bankPercent,
           payout_amount: payoutAmount,
+          payout_direction: "Receivable", // ADDED: for dashboard filtering
 
           tds_applicable: "Yes",
           tds_percentage: tdsPerc,
           tds_amount: tdsAmount,
+
+          payout_status: "Pending", // ADDED: initial status
+          payout_received_date: "", // ADDED: for dashboard tracking
+          payment_history: [], // ADDED: for partial payment tracking
+          activity_log: [], // ADDED: for activity timeline
 
           payout_remarks: "Auto-generated from disbursed bank",
         });
@@ -177,17 +184,25 @@ const PayoutSection = ({ form, readOnly = false }) => {
         autoPayables.push({
           id: Date.now() + 1,
           payoutId: generatePayoutId("payable"),
-          payout_createdAt: new Date().toISOString(),
+          payout_created_date: new Date().toISOString(), // CHANGED: standardized field name
+          created_date: new Date().toISOString(), // ADDED: for dashboard compatibility
 
           payout_applicable: "Yes",
           payout_type: "Source",
           payout_party_name: dealerName,
           payout_percentage: sourcePercent,
           payout_amount: payoutAmount,
+          payout_direction: "Payable", // ADDED: for dashboard filtering
 
           tds_applicable: "Yes",
           tds_percentage: tdsPerc,
           tds_amount: tdsAmount,
+
+          payout_status: "Expected", // ADDED: initial status
+          payout_expected_date: "", // ADDED: for expected date tracking
+          payout_paid_date: "", // ADDED: for dashboard tracking
+          payment_history: [], // ADDED: for partial payment tracking
+          activity_log: [], // ADDED: for activity timeline
 
           payout_remarks:
             "Auto-generated from pre-file source payout (indirect)",
@@ -199,7 +214,6 @@ const PayoutSection = ({ form, readOnly = false }) => {
   }, [
     isDisbursed,
     disbursedBankName,
-
     approvalPayoutPercentage,
     recordSource,
     payoutApplicablePrefile,
@@ -241,17 +255,24 @@ const PayoutSection = ({ form, readOnly = false }) => {
       {
         id: Date.now(),
         payoutId: generatePayoutId("receivable"),
-        payout_createdAt: new Date().toISOString(),
+        payout_created_date: new Date().toISOString(),
+        created_date: new Date().toISOString(), // ADDED
 
         payout_applicable: "Yes",
         payout_type: "",
         payout_party_name: "",
         payout_percentage: "",
         payout_amount: 0,
+        payout_direction: "Receivable", // ADDED
 
         tds_applicable: "Yes",
         tds_percentage: 5,
         tds_amount: 0,
+
+        payout_status: "Pending", // ADDED
+        payout_received_date: "", // ADDED
+        payment_history: [], // ADDED
+        activity_log: [], // ADDED
 
         payout_remarks: "",
       },
@@ -264,17 +285,25 @@ const PayoutSection = ({ form, readOnly = false }) => {
       {
         id: Date.now(),
         payoutId: generatePayoutId("payable"),
-        payout_createdAt: new Date().toISOString(),
+        payout_created_date: new Date().toISOString(),
+        created_date: new Date().toISOString(), // ADDED
 
         payout_applicable: "Yes",
         payout_type: "",
         payout_party_name: "",
         payout_percentage: "",
         payout_amount: 0,
+        payout_direction: "Payable", // ADDED
 
         tds_applicable: "Yes",
         tds_percentage: 5,
         tds_amount: 0,
+
+        payout_status: "Expected", // ADDED
+        payout_expected_date: "", // ADDED
+        payout_paid_date: "", // ADDED
+        payment_history: [], // ADDED
+        activity_log: [], // ADDED
 
         payout_remarks: "",
       },
@@ -681,11 +710,13 @@ const PayoutCard = ({
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
               value={payout.payout_type}
               onChange={(e) => onUpdate("payout_type", e.target.value)}
+              disabled={readOnly}
             >
               <option value="">Select Type</option>
               {type === "receivable" ? (
                 <>
                   <option value="Bank">Bank</option>
+                  <option value="Insurance">Insurance</option>
                 </>
               ) : (
                 <>
@@ -706,6 +737,7 @@ const PayoutCard = ({
               value={payout.payout_party_name}
               onChange={(e) => onUpdate("payout_party_name", e.target.value)}
               placeholder="Party name"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -722,6 +754,7 @@ const PayoutCard = ({
               value={payout.payout_percentage}
               onChange={(e) => onUpdate("payout_percentage", e.target.value)}
               placeholder="Enter percentage"
+              disabled={readOnly}
             />
           </div>
 
@@ -746,6 +779,7 @@ const PayoutCard = ({
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
               value={payout.tds_applicable}
               onChange={(e) => onUpdate("tds_applicable", e.target.value)}
+              disabled={readOnly}
             >
               <option value="Yes">Yes</option>
               <option value="No">No</option>
@@ -764,6 +798,7 @@ const PayoutCard = ({
                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
                   value={payout.tds_percentage}
                   onChange={(e) => onUpdate("tds_percentage", e.target.value)}
+                  disabled={readOnly}
                 />
               </div>
 
@@ -789,6 +824,7 @@ const PayoutCard = ({
             value={payout.payout_remarks}
             onChange={(e) => onUpdate("payout_remarks", e.target.value)}
             placeholder="Add any remarks..."
+            disabled={readOnly}
           />
         </div>
 

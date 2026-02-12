@@ -235,7 +235,7 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
 
   const handleBankNameChange = (bankId, newName) => {
     setBanksData((prev) =>
-      prev.map((b) => (b.id === bankId ? { ...b, bankName: newName } : b))
+      prev.map((b) => (b.id === bankId ? { ...b, bankName: newName } : b)),
     );
   };
 
@@ -247,8 +247,8 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
               ...b,
               ...patch, // e.g. { loanAmount, interestRate, tenure, processingFee }
             }
-          : b
-      )
+          : b,
+      ),
     );
   };
 
@@ -266,7 +266,7 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
         if (fieldName === "vehicleVariant") vehicle.variant = value;
         vehicle.exShowroomPrice = exShowroomPrice;
         return { ...b, vehicle };
-      })
+      }),
     );
   };
 
@@ -295,7 +295,7 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
             },
           ],
         };
-      })
+      }),
     );
   };
 
@@ -318,7 +318,7 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
       approval_status: primaryBank.status,
       approval_loanAmountApproved: cleanNumber(primaryBank.loanAmount),
       approval_loanAmountDisbursed: cleanNumber(
-        primaryBank.disbursedAmount || primaryBank.loanAmount
+        primaryBank.disbursedAmount || primaryBank.loanAmount,
       ),
       approval_roi: Number(primaryBank.interestRate) || undefined,
       approval_tenureMonths: Number(primaryBank.tenure) || undefined,
@@ -384,10 +384,10 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
     total: banksData.length,
     approved: banksData.filter((b) => b.status === "Approved").length,
     pending: banksData.filter(
-      (b) => b.status === "Pending" || b.status === "Under Review"
+      (b) => b.status === "Pending" || b.status === "Under Review",
     ).length,
     documentsRequired: banksData.filter(
-      (b) => b.status === "Documents Required"
+      (b) => b.status === "Documents Required",
     ).length,
     rejected: banksData.filter((b) => b.status === "Rejected").length,
   };
@@ -409,7 +409,7 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
         bankName: "New Bank",
         applicationId: `ACILLP-Loan-${String(prev.length + 1).padStart(
           4,
-          "0"
+          "0",
         )}`,
         status: "Pending",
         interestRate: "0",

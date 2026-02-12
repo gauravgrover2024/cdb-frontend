@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Card, message } from "antd";
+import { message } from "antd";
 import { useParams } from "react-router-dom";
 
 import PaymentGlobalHeader from "./PaymentGlobalHeader";
@@ -22,7 +22,7 @@ const norm = (s) =>
 const getShowroomCommissionDate = (rows = []) => {
   if (!Array.isArray(rows)) return null;
   const commissionRows = rows.filter(
-    (r) => r?.paymentType === "Commission" && r?.paymentDate
+    (r) => r?.paymentType === "Commission" && r?.paymentDate,
   );
   if (!commissionRows.length) return null;
   const sorted = [...commissionRows].sort((a, b) => {
@@ -107,7 +107,7 @@ const PaymentForm = () => {
   const debouncedAutocreditsTotals = useDebounce(autocreditsTotals, 800);
   const debouncedIsAutocreditsVerified = useDebounce(
     isAutocreditsVerified,
-    800
+    800,
   );
 
   // Avoid toast spam
@@ -184,7 +184,7 @@ const PaymentForm = () => {
 
         // ---- Commission replicate logic: showroom -> autocredits ----
         const showroomCommission = asInt(
-          debouncedEntryTotals?.paymentCommissionReceived || 0
+          debouncedEntryTotals?.paymentCommissionReceived || 0,
         );
 
         const commissionDate = getShowroomCommissionDate(debouncedShowroomRows);
@@ -196,7 +196,7 @@ const PaymentForm = () => {
         const hasCommissionRow = baseAutocreditsRows.some(
           (r) =>
             Array.isArray(r.receiptTypes) &&
-            r.receiptTypes.includes("Commission")
+            r.receiptTypes.includes("Commission"),
         );
 
         const autocreditsRowsToSave =
@@ -286,12 +286,12 @@ const PaymentForm = () => {
     const dealerAddress = doRec?.do_dealerAddress || "";
 
     const netOnRoadVehicleCost = asInt(
-      doRec?.do_customer_netOnRoadVehicleCost || 0
+      doRec?.do_customer_netOnRoadVehicleCost || 0,
     );
 
     const onRoadVehicleCost = asInt(doRec?.do_onRoadVehicleCost || 0);
     const discountExclVehicleValue = asInt(
-      doRec?.do_selectedDiscountExclVehicleValue || 0
+      doRec?.do_selectedDiscountExclVehicleValue || 0,
     );
 
     const make = doRec?.do_vehicleMake || loan?.vehicleMake || "—";
@@ -315,10 +315,10 @@ const PaymentForm = () => {
     const doMarginMoney = asInt(doRec?.do_marginMoneyPaid || 0);
 
     const customerNetOnRoadVehicleCost = asInt(
-      doRec?.do_customer_netOnRoadVehicleCost || 0
+      doRec?.do_customer_netOnRoadVehicleCost || 0,
     );
     const showroomNetOnRoadVehicleCost = asInt(
-      doRec?.do_netOnRoadVehicleCost || 0
+      doRec?.do_netOnRoadVehicleCost || 0,
     );
 
     const autocreditsMargin =
@@ -386,14 +386,22 @@ const PaymentForm = () => {
   }, [loan, doRec, loanId, entryTotals]);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ background: "#f5f5f7", minHeight: "100vh" }}>
       <PaymentGlobalHeader data={showroomData} />
 
-      <Card style={{ borderRadius: 14 }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px 40px" }}>
         {/* SHOWROOM */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>
-            SECTION — Payment Details (Showroom Account)
+        <div>
+          <div
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: "#1d1d1f",
+              letterSpacing: "-0.3px",
+              marginBottom: 24,
+            }}
+          >
+            Showroom Account
           </div>
 
           <div
@@ -439,7 +447,7 @@ const PaymentForm = () => {
         </div>
 
         {/* AUTOCREDITS */}
-        <div style={{ marginTop: 26 }}>
+        <div style={{ marginTop: 48 }}>
           <AutocreditsPaymentSection
             loanId={loanId}
             doLoanId={doRec?.do_loanId || loanId}
@@ -454,7 +462,7 @@ const PaymentForm = () => {
             setIsAutocreditsVerified={setIsAutocreditsVerified}
           />
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

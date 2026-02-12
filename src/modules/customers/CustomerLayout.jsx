@@ -1,66 +1,146 @@
+// src/layouts/CustomerLayout.jsx
 import React, { useMemo, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
-/* =========================================================
-   Snow UI – Design Tokens (Premium SaaS grade)
-========================================================= */
+/* ========= Light SaaS theme (orange accent) ========= */
 
-const snow = {
-  bg: "#f6f8fb",
-  sidebarGlass: "rgba(255,255,255,0.75)",
-  headerGlass: "rgba(255,255,255,0.65)",
-  contentBg: "#f6f8fb",
+const theme = {
+  bgPage: "#f5f7fb",
+  bgSidebar: "#ffffff",
+  bgSidebarStripe: "#f97316",
+  bgSidebarItemActive: "#fff7ed",
+  bgSidebarItemHover: "#f9fafb",
+  bgHeader: "#ffffff",
+  bgTag: "#f9fafb",
 
-  textPrimary: "#0f172a",
-  textSecondary: "#64748b",
-  accent: "#4f46e5",
+  borderSoft: "#e5e7eb",
 
-  border: "rgba(15,23,42,0.08)",
+  textPrimary: "#111827",
+  textSecondary: "#6b7280",
+  textMuted: "#9ca3af",
+  textBrand: "#ea580c",
 
-  shadowSoft: "0 8px 24px rgba(15,23,42,0.06)",
-  shadowStrong: "0 20px 50px rgba(15,23,42,0.12)",
+  brandGrad: "linear-gradient(135deg,#f97316,#fb923c)",
 
-  radiusLg: 20,
-  radiusMd: 14,
-  radiusSm: 10,
+  radiusLg: 18,
+  radiusMd: 12,
+  radiusSm: 8,
 
   sidebarWidth: 260,
-  sidebarCollapsed: 84,
-  headerHeight: 64,
+  sidebarCollapsed: 80,
+  headerHeight: 60,
 
   font: "Inter, system-ui, -apple-system, BlinkMacSystemFont",
 };
 
-/* =========================================================
-   Icons (inline SVG – clean & professional)
-========================================================= */
+/* ========= Minimal icon set ========= */
 
-const Icon = ({ d }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-    <path d={d} stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+const Icon = ({ d, size = 18 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    style={{ display: "block" }}
+  >
+    <path
+      d={d}
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
 const icons = {
-  dashboard: "M3 13h8V3H3v10Zm10 8h8V11h-8v10ZM3 21h8v-6H3v6Zm10-18v6h8V3h-8Z",
+  chevronLeft: "M15 18l-6-6 6-6",
   users:
     "M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
-  file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z",
+  file: "M14.5 3H8a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V9.5L14.5 3Z",
   wallet:
-    "M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5Zm-4 0h.01",
-  car: "M5 16l1.5-4.5h11L19 16M7 16v2M17 16v2",
-  chevron: "M9 18l6-6-6-6",
+    "M5 7a3 3 0 0 1 3-3h11a1 1 0 0 1 1 1v3H6a1 1 0 0 1-1-1V7Zm0 4h15v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-6Zm11 3.5a1.5 1.5 0 1 0 0-3",
+  truck:
+    "M3 7a2 2 0 0 1 2-2h9v10H5a2 2 0 0 1-2-2V7Zm11 3h4.5L21 12.5V15a2 2 0 0 1-2 2h-5V10ZM7 19.5A1.5 1.5 0 1 0 7 16a1.5 1.5 0 0 0 0 3.5Zm9 0A1.5 1.5 0 1 0 16 16a1.5 1.5 0 0 0 0 3.5Z",
+  rupee: "M7 5h10M7 9h10M12 9a4 4 0 0 1 4 4H7m5 0 3 4",
 };
 
-/* =========================================================
-   Layout Component
-========================================================= */
+/* ========= Nav config ========= */
+
+const NAV_ITEMS = [
+  { key: "customers", label: "Customers", to: "/customers", icon: icons.users },
+  { key: "loans", label: "Loans", to: "/loans", icon: icons.file },
+  {
+    key: "payouts",
+    label: "Payouts",
+    to: "/payouts/receivables",
+    icon: icons.wallet,
+  },
+  {
+    key: "delivery",
+    label: "Delivery Orders",
+    to: "/delivery-orders",
+    icon: icons.truck,
+  },
+  {
+    key: "payments",
+    label: "Payments",
+    to: "/payments",
+    icon: icons.rupee,
+  },
+];
+
+
+/* ========= Sidebar nav item ========= */
+
+const NavItem = ({ item, active, collapsed }) => (
+  <Link
+    to={item.to}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: collapsed ? 0 : 10,
+      justifyContent: collapsed ? "center" : "flex-start",
+      padding: collapsed ? "10px 0" : "8px 12px",
+      borderRadius: 999,
+      marginInline: collapsed ? 0 : 4,
+      color: active ? theme.textBrand : theme.textSecondary,
+      textDecoration: "none",
+      fontSize: 13,
+      fontWeight: active ? 600 : 500,
+      backgroundColor: active
+        ? theme.bgSidebarItemActive
+        : "transparent",
+      border: active ? `1px solid #fed7aa` : "1px solid transparent",
+      transition:
+        "background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease",
+    }}
+  >
+    <span
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: active ? "#ffedd5" : "#f3f4f6",
+        color: active ? theme.textBrand : theme.textSecondary,
+      }}
+    >
+      <Icon d={item.icon} size={17} />
+    </span>
+    {!collapsed && <span>{item.label}</span>}
+  </Link>
+);
+
+/* ========= Layout ========= */
 
 const CustomerLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
-  const active = useMemo(() => {
+  const activeKey = useMemo(() => {
     const p = location.pathname;
     if (p.startsWith("/customers")) return "customers";
     if (p.startsWith("/loans")) return "loans";
@@ -70,7 +150,7 @@ const CustomerLayout = () => {
     return "";
   }, [location.pathname]);
 
-  const title = useMemo(() => {
+  const pageTitle = useMemo(() => {
     const p = location.pathname;
     if (p.startsWith("/customers/new")) return "New Customer";
     if (p.startsWith("/customers/edit")) return "Edit Customer";
@@ -82,246 +162,285 @@ const CustomerLayout = () => {
     return "Dashboard";
   }, [location.pathname]);
 
+  const todayLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    [],
+  );
+
   return (
-    <div style={styles.app}>
-      {/* Sidebar */}
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        background: theme.bgPage,
+        fontFamily: theme.font,
+        color: theme.textPrimary,
+      }}
+    >
+      {/* ========== SIDEBAR ========== */}
       <aside
         style={{
-          ...styles.sidebar,
-          width: collapsed ? snow.sidebarCollapsed : snow.sidebarWidth,
+          width: collapsed ? theme.sidebarCollapsed : theme.sidebarWidth,
+          transition: "width 0.22s ease",
+          borderRight: `1px solid ${theme.borderSoft}`,
+          background: theme.bgSidebar,
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          boxShadow: "0 0 0 1px rgba(15,23,42,0.03)",
+          zIndex: 20,
         }}
       >
-        {/* Brand */}
-        <div style={styles.brand}>
-          <div style={styles.logo}>AC</div>
+        {/* Colored stripe on the very left */}
+        <div
+          style={{
+            position: "absolute",
+            insetY: 0,
+            left: 0,
+            width: 4,
+            background: theme.brandGrad,
+          }}
+        />
+
+        {/* Content */}
+        <div
+          style={{
+            padding: "10px 10px 12px 14px",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            boxSizing: "border-box",
+          }}
+        >
+          {/* Brand row */}
+          <div
+            style={{
+              height: theme.headerHeight,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 12,
+                background: theme.brandGrad,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 800,
+                fontSize: 14,
+                color: "#fff7ed",
+                boxShadow: "0 10px 25px rgba(249,115,22,0.4)",
+                flexShrink: 0,
+              }}
+            >
+              AC
+            </div>
+            {!collapsed && (
+              <div style={{ lineHeight: 1.15 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: theme.textPrimary,
+                  }}
+                >
+                  Autocredits India LLP
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: theme.textSecondary,
+                  }}
+                >
+                  CDrive Platform
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section label */}
           {!collapsed && (
-            <div>
-              <div style={styles.brandTitle}>Autocredits</div>
-              <div style={styles.brandSub}>CDrive Platform</div>
+            <div
+              style={{
+                fontSize: 11,
+                textTransform: "uppercase",
+                letterSpacing: 1.2,
+                color: theme.textMuted,
+                padding: "8px 4px 4px",
+              }}
+            >
+              Navigation
             </div>
           )}
-        </div>
 
-        {/* Nav */}
-        <nav style={styles.nav}>
-          <NavItem
-            to="/customers"
-            label="Customers"
-            icon={icons.users}
-            active={active === "customers"}
-            collapsed={collapsed}
-          />
-          <NavItem
-            to="/loans"
-            label="Loans"
-            icon={icons.file}
-            active={active === "loans"}
-            collapsed={collapsed}
-          />
-          <NavItem
-            to="/payouts/receivables"
-            label="Payouts"
-            icon={icons.wallet}
-            active={active === "payouts"}
-            collapsed={collapsed}
-          />
-          <NavItem
-            to="/delivery-orders"
-            label="Delivery Orders"
-            icon={icons.car}
-            active={active === "delivery"}
-            collapsed={collapsed}
-          />
-          <NavItem
-            to="/payments"
-            label="Payments"
-            icon={icons.dashboard}
-            active={active === "payments"}
-            collapsed={collapsed}
-          />
-        </nav>
+          {/* Nav list */}
+          <nav
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              marginTop: 4,
+              flex: 1,
+            }}
+          >
+            {NAV_ITEMS.map((item) => (
+              <NavItem
+                key={item.key}
+                item={item}
+                active={activeKey === item.key}
+                collapsed={collapsed}
+              />
+            ))}
+          </nav>
+
+          {/* Collapse button */}
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            style={{
+              marginTop: 12,
+              marginInline: 4,
+              width: collapsed ? 40 : "auto",
+              alignSelf: collapsed ? "center" : "stretch",
+              borderRadius: 999,
+              border: `1px solid ${theme.borderSoft}`,
+              background: "#ffffff",
+              color: theme.textSecondary,
+              fontSize: 11,
+              padding: "6px 10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                transform: collapsed ? "rotate(180deg)" : "none",
+                transition: "transform 0.18s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icon d={icons.chevronLeft} size={14} />
+            </span>
+            {!collapsed && <span>Collapse</span>}
+          </button>
+        </div>
       </aside>
 
-      {/* Main */}
-      <section style={styles.main}>
+      {/* ========== MAIN COLUMN ========== */}
+      <section
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+        }}
+      >
         {/* Header */}
-        <header style={styles.header}>
-          <div style={styles.headerLeft}>
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              style={styles.collapseBtn}
+        <header
+          style={{
+            height: theme.headerHeight,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 20px",
+            borderBottom: `1px solid ${theme.borderSoft}`,
+            background: theme.bgHeader,
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                color: theme.textPrimary,
+              }}
             >
-              <Icon d={icons.chevron} />
-            </button>
-
-            <div>
-              <div style={styles.pageTitle}>{title}</div>
-              <div style={styles.pageSub}>Autocredits • CDrive</div>
+              {pageTitle}
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: theme.textSecondary,
+              }}
+            >
+              Autocredits • CDrive
             </div>
           </div>
 
-          <div style={styles.headerRight}>
-            {new Date().toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                padding: "4px 9px",
+                borderRadius: 999,
+                border: `1px solid ${theme.borderSoft}`,
+                background: theme.bgTag,
+                color: theme.textSecondary,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {todayLabel}
+            </span>
           </div>
         </header>
 
         {/* Content */}
-        <main style={styles.content}>
-          <Outlet />
+        <main
+          style={{
+            flex: 1,
+            overflow: "auto",
+            padding: 18,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 1440,
+              margin: "0 auto",
+              height: "100%",
+            }}
+          >
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: theme.radiusLg,
+                border: `1px solid ${theme.borderSoft}`,
+                boxShadow:
+                  "0 18px 45px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.02)",
+                padding: 18,
+                minHeight: "calc(100vh - 60px - 36px)",
+              }}
+            >
+              <Outlet />
+            </div>
+          </div>
         </main>
       </section>
     </div>
   );
-};
-
-/* =========================================================
-   Nav Item
-========================================================= */
-
-const NavItem = ({ to, label, icon, active, collapsed }) => (
-  <Link
-    to={to}
-    style={{
-      ...styles.navItem,
-      ...(active ? styles.navItemActive : {}),
-    }}
-  >
-    <Icon d={icon} />
-    {!collapsed && <span>{label}</span>}
-  </Link>
-);
-
-/* =========================================================
-   Styles
-========================================================= */
-
-const styles = {
-  app: {
-    display: "flex",
-    height: "100vh",
-    background: snow.bg,
-    fontFamily: snow.font,
-    color: snow.textPrimary,
-  },
-
-  sidebar: {
-    background: snow.sidebarGlass,
-    backdropFilter: "blur(20px)",
-    borderRight: `1px solid ${snow.border}`,
-    boxShadow: snow.shadowSoft,
-    display: "flex",
-    flexDirection: "column",
-    transition: "width 0.25s ease",
-  },
-
-  brand: {
-    height: snow.headerHeight,
-    padding: "0 18px",
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    borderBottom: `1px solid ${snow.border}`,
-  },
-
-  logo: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    background: "linear-gradient(135deg,#6366f1,#4338ca)",
-    color: "#fff",
-    fontWeight: 800,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  brandTitle: { fontWeight: 800, fontSize: 15 },
-  brandSub: { fontSize: 11, color: snow.textSecondary },
-
-  nav: {
-    padding: 12,
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-
-  navItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    padding: "12px 14px",
-    borderRadius: snow.radiusMd,
-    textDecoration: "none",
-    color: snow.textPrimary,
-    fontWeight: 500,
-    transition: "all .15s ease",
-  },
-
-  navItemActive: {
-    background: "rgba(99,102,241,0.12)",
-    color: snow.accent,
-    fontWeight: 700,
-  },
-
-  main: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-  },
-
-  header: {
-    height: snow.headerHeight,
-    background: snow.headerGlass,
-    backdropFilter: "blur(16px)",
-    borderBottom: `1px solid ${snow.border}`,
-    padding: "0 20px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: 16,
-  },
-
-  headerRight: {
-    fontSize: 12,
-    color: snow.textSecondary,
-  },
-
-  collapseBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: snow.radiusSm,
-    border: `1px solid ${snow.border}`,
-    background: "#fff",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  pageTitle: {
-    fontWeight: 800,
-    fontSize: 16,
-  },
-
-  pageSub: {
-    fontSize: 11,
-    color: snow.textSecondary,
-  },
-
-  content: {
-    flex: 1,
-    background: snow.contentBg,
-    overflowY: "auto",
-  },
 };
 
 export default CustomerLayout;
