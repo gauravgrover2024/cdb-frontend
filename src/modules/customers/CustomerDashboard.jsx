@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../../components/AppIcon"; // adjust path if needed
+import CustomerViewModal from "./CustomerViewModal"; // adjust path if needed
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 
@@ -45,16 +46,25 @@ export default function CustomerDashboard() {
   const [confirmCustomer, setConfirmCustomer] = useState(null);
 
   useEffect(() => {
-    loadCustomers();
+    loadCustomers(1, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadCustomers = async (pageNumber = 1) => {
+  const loadCustomers = async (pageNumber = 1, searchTerm = "") => {
     try {
       setLoading(true);
 
+      const params = new URLSearchParams({
+        page: String(pageNumber),
+        limit: String(pageSize),
+      });
+
+      if (searchTerm.trim()) {
+        params.set("search", searchTerm.trim());
+      }
+
       const res = await fetch(
-        `${API_BASE_URL}/api/customers?page=${pageNumber}&limit=${pageSize}`,
+        `${API_BASE_URL}/api/customers?${params.toString()}`,
       );
 
       const parsed = await res.json();
@@ -70,6 +80,7 @@ export default function CustomerDashboard() {
     }
   };
 
+  // Stats (based on current list)
   const stats = useMemo(() => {
     const completed = customers.filter(
       (c) => c.kycStatus === "Completed",
@@ -82,12 +93,12 @@ export default function CustomerDashboard() {
     ).length;
 
     return {
-      total: total,
+      total,
       completed,
       pending,
       repeat,
     };
-  }, [customers]);
+  }, [customers, total]);
 
   const handleDelete = async () => {
     if (!confirmCustomer) return;
@@ -103,7 +114,7 @@ export default function CustomerDashboard() {
       }
       setConfirmCustomer(null);
       setViewCustomer(null);
-      await loadCustomers();
+      await loadCustomers(page, search);
     } catch (err) {
       console.error("Delete error", err);
       alert("Delete failed");
@@ -141,7 +152,7 @@ export default function CustomerDashboard() {
           <button
             type="button"
             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-foreground"
-            onClick={() => loadCustomers(page)}
+            onClick={() => loadCustomers(page, search)}
           >
             <Icon name="RefreshCw" size={13} />
             Refresh
@@ -166,6 +177,7 @@ export default function CustomerDashboard() {
           onClick={() => {
             setFilter("all");
             setPage(1);
+            loadCustomers(1, search);
           }}
         >
           <div className="flex items-center justify-between gap-3">
@@ -188,6 +200,7 @@ export default function CustomerDashboard() {
           onClick={() => {
             setFilter("completed");
             setPage(1);
+            loadCustomers(1, search);
           }}
         >
           <div className="flex items-center justify-between gap-3">
@@ -210,6 +223,7 @@ export default function CustomerDashboard() {
           onClick={() => {
             setFilter("pending");
             setPage(1);
+            loadCustomers(1, search);
           }}
         >
           <div className="flex items-center justify-between gap-3">
@@ -232,6 +246,7 @@ export default function CustomerDashboard() {
           onClick={() => {
             setFilter("repeat");
             setPage(1);
+            loadCustomers(1, search);
           }}
         >
           <div className="flex items-center justify-between gap-3">
@@ -262,8 +277,10 @@ export default function CustomerDashboard() {
               <input
                 value={search}
                 onChange={(e) => {
-                  setSearch(e.target.value);
+                  const value = e.target.value;
+                  setSearch(value);
                   setPage(1);
+                  loadCustomers(1, value);
                 }}
                 placeholder="Search by name, mobile, city, PAN…"
                 className="w-full rounded-xl border border-border bg-muted/50 pl-9 pr-3 py-1.5 text-xs md:text-sm text-foreground placeholder:text-muted-foreground"
@@ -382,7 +399,7 @@ export default function CustomerDashboard() {
 
                     {/* Created */}
                     <td className="px-4 py-3 align-top text-[11px] text-muted-foreground">
-                      {formatDate(c.createdOn)}
+                      {formatDate(c.createdOn || c.createdAt)}
                     </td>
 
                     {/* Actions */}
@@ -433,7 +450,7 @@ export default function CustomerDashboard() {
               type="button"
               className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
               disabled={safePage === 1}
-              onClick={() => loadCustomers(1)}
+              onClick={() => loadCustomers(1, search)}
             >
               {"<<"}
             </button>
@@ -441,7 +458,7 @@ export default function CustomerDashboard() {
               type="button"
               className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
               disabled={safePage === 1}
-              onClick={() => loadCustomers(safePage - 1)}
+              onClick={() => loadCustomers(safePage - 1, search)}
             >
               {"<"}
             </button>
@@ -452,7 +469,7 @@ export default function CustomerDashboard() {
               type="button"
               className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
               disabled={safePage === totalPages}
-              onClick={() => loadCustomers(safePage + 1)}
+              onClick={() => loadCustomers(safePage + 1, search)}
             >
               {">"}
             </button>
@@ -460,7 +477,7 @@ export default function CustomerDashboard() {
               type="button"
               className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
               disabled={safePage === totalPages}
-              onClick={() => loadCustomers(totalPages)}
+              onClick={() => loadCustomers(totalPages, search)}
             >
               {">>"}
             </button>
@@ -468,68 +485,18 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
-      {/* Simple view drawer/modal – you can replace with your existing one */}
+      {/* Rich view modal (Ant Design) */}
       {viewCustomer && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-          onClick={() => setViewCustomer(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground">
-                  {viewCustomer.customerName || "Customer"}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  {viewCustomer.primaryMobile || "—"} ·{" "}
-                  {viewCustomer.city || "—"}
-                </span>
-              </div>
-              <button
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-muted-foreground"
-                onClick={() => setViewCustomer(null)}
-              >
-                <Icon name="X" size={14} />
-              </button>
-            </div>
-
-            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-              <div>PAN: {viewCustomer.panNumber || "—"}</div>
-              <div>Company: {viewCustomer.companyName || "—"}</div>
-              <div>Employment: {viewCustomer.employmentType || "—"}</div>
-              <div>Bank: {viewCustomer.bankName || "—"}</div>
-              <div>KYC: {viewCustomer.kycStatus || "—"}</div>
-            </div>
-
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs"
-                onClick={() => {
-                  setViewCustomer(null);
-                  navigate(
-                    `/customers/edit/${viewCustomer._id || viewCustomer.id}`,
-                  );
-                }}
-              >
-                <Icon name="Edit" size={12} />
-                Edit
-              </button>
-              <button
-                className="inline-flex items-center gap-1 rounded-full border border-error/30 bg-error/10 px-3 py-1 text-xs text-error"
-                onClick={() => {
-                  setViewCustomer(null);
-                  setConfirmCustomer(viewCustomer);
-                }}
-              >
-                <Icon name="Trash2" size={12} />
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <CustomerViewModal
+          open={!!viewCustomer}
+          customer={viewCustomer}
+          onClose={() => setViewCustomer(null)}
+          onEdit={() => {
+            const id = viewCustomer._id || viewCustomer.id;
+            setViewCustomer(null);
+            navigate(`/customers/edit/${id}`);
+          }}
+        />
       )}
 
       {/* Confirm delete */}
