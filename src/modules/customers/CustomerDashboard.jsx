@@ -89,8 +89,6 @@ export default function CustomerDashboard() {
     };
   }, [customers]);
 
-  const pageEnd = Math.min(safePage * pageSize, total);
-
   const handleDelete = async () => {
     if (!confirmCustomer) return;
     try {
@@ -124,6 +122,7 @@ export default function CustomerDashboard() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
   const pageStart = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(safePage * pageSize, total);
 
   return (
     <div className="flex flex-col gap-4 md:gap-5 px-4 md:px-6 pb-6">
