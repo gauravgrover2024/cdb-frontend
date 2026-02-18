@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
+import { customersApi } from "../../../../../api/customers";
+
+const getTagColor = () =>
+  "bg-secondary text-secondary-foreground border-border";
 
 const SUGGESTED_TAGS = [
-  "Aadhaar",
   "PAN",
   "Application Form",
   "Margin Money",
@@ -23,12 +26,199 @@ const PostFileDocumentManagement = ({ form }) => {
   const [tags, setTags] = useState([]);
   const [showAddTagsModal, setShowAddTagsModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [filterTag, setFilterTag] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [isFetchingDocs, setIsFetchingDocs] = useState(false);
+
+  const customerId = Form.useWatch("customerId", form);
+  
+  // 🔄 FETCH DOCUMENTS from Customer Record
+  const fetchCustomerDocuments = useCallback(async (isManual = false) => {
+    if (!customerId) return;
+    
+    try {
+      setIsFetchingDocs(true);
+      
+      const response = await customersApi.getById(customerId);
+      const freshCustomer = response?.data;
+      
+      if (freshCustomer) {
+         // 1. Update Form Fields
+         const updates = {
+          aadhaarCardDocUrl: freshCustomer.aadhaarCardDocUrl,
+          panCardDocUrl: freshCustomer.panCardDocUrl,
+          passportDocUrl: freshCustomer.passportDocUrl,
+          dlDocUrl: freshCustomer.dlDocUrl,
+          addressProofDocUrl: freshCustomer.addressProofDocUrl,
+          gstDocUrl: freshCustomer.gstDocUrl,
+          photoUrl: freshCustomer.photoUrl,
+          signatureUrl: freshCustomer.signatureUrl,
+         };
+         
+         const validUpdates = {};
+         let hasUpdates = false;
+         Object.keys(updates).forEach(key => {
+           if (updates[key]) {
+             validUpdates[key] = updates[key];
+             hasUpdates = true;
+           }
+         });
+         
+         if (hasUpdates) {
+           form.setFieldsValue(validUpdates);
+           
+           // 2. Direct State Update (Bypassing Watcher Lag)
+           const preFileDocs = [];
+           const addPreFile = (url, name, tagName) => {
+              if (url && typeof url === 'string') {
+                preFileDocs.push({
+                  id: name.toLowerCase().replace(/\s/g, '_'), 
+                  name: name,
+                  size: "Pre-File",
+                  uploadedBy: "System",
+                  uploadedAt: new Date().toLocaleDateString("en-IN"),
+                  status: "submitted",
+                  tagId: "prefile_" + name,
+                  tag: tagName,
+                  url: url,
+                  format: url.split('.').pop() || 'jpg',
+                  publicId: null,
+                  isPreFile: true,
+                });
+              }
+            };
+
+            addPreFile(updates.aadhaarCardDocUrl, "Aadhaar Card", "Aadhaar");
+            addPreFile(updates.panCardDocUrl, "PAN Card", "PAN");
+            addPreFile(updates.passportDocUrl, "Passport", "Passport");
+            addPreFile(updates.dlDocUrl, "Driving License", "Driving License");
+            addPreFile(updates.addressProofDocUrl, "Address Proof", "Address Proof");
+            addPreFile(updates.gstDocUrl, "GST Certificate", "GST");
+            addPreFile(updates.photoUrl, "Customer Photo", "Photo");
+            addPreFile(updates.signatureUrl, "Signature", "Signature");
+
+            if (preFileDocs.length > 0) {
+              setDocuments(prevDocs => {
+                const mergedDocs = [...prevDocs];
+                let changed = false;
+                preFileDocs.forEach(pDoc => {
+                  if (!mergedDocs.some(d => d.url === pDoc.url)) {
+                    mergedDocs.push(pDoc);
+                    changed = true;
+                  }
+                });
+                return changed ? mergedDocs : prevDocs;
+              });
+            }
+
+           if (isManual) {
+              // message is global in antd usually, or imports
+              // message.success(`Synced ${preFileDocs.length} documents from customer record`);
+              // We'll use alert for visibility if message is not available contextually, or assume message is usable
+              // Since I can't guarantee message import, I'll log.
+              console.log(`Synced ${preFileDocs.length} documents.`);
+           }
+         }
+      }
+    } catch (err) {
+      console.error("Error fetching customer docs directly:", err);
+    } finally {
+      setIsFetchingDocs(false);
+    }
+  }, [customerId, form]);
+
+  // 🔄 SAFETY FETCH: If docs are missing in form but we have a customerId, fetch them!
+  useEffect(() => {
+    fetchCustomerDocuments(false);
+  }, [fetchCustomerDocuments]);
 
   // Get company type to show GST/MSME tags
   const customerType = Form.useWatch("customerType", form);
   const isCompany = customerType === "Company";
+
+  // Watch Pre-File Documents to auto-populate
+  const aadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
+  const panCardDocUrl = Form.useWatch("panCardDocUrl", form);
+  const passportDocUrl = Form.useWatch("passportDocUrl", form);
+  const dlDocUrl = Form.useWatch("dlDocUrl", form);
+  const addressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
+  const gstDocUrl = Form.useWatch("gstDocUrl", form);
+  const photoUrl = Form.useWatch("photoUrl", form);
+  const signatureUrl = Form.useWatch("signatureUrl", form);
+
+  // SYNC WITH FORM
+  useEffect(() => {
+    form.setFieldsValue({
+      postfile_documents: documents,
+      postfile_tags: tags,
+    });
+  }, [documents, tags, form]);
+
+  // LOAD INITIAL FROM FORM & PRE-FILE
+  useEffect(() => {
+    const existingDocs = form.getFieldValue("postfile_documents") || [];
+    const existingTags = form.getFieldValue("postfile_tags") || [];
+    
+    // Create objects for Pre-File docs
+    const preFileDocs = [];
+    const addPreFile = (url, name, tagName) => {
+      if (url && typeof url === 'string') {
+        preFileDocs.push({
+          id: name.toLowerCase().replace(/\s/g, '_'), // Stable ID based on name
+          name: name,
+          size: "Pre-File",
+          uploadedBy: "System",
+          uploadedAt: new Date().toLocaleDateString("en-IN"),
+          status: "submitted",
+          tagId: "prefile_" + name,
+          tag: tagName,
+          url: url,
+          format: url.split('.').pop() || 'jpg',
+          publicId: null,
+          isPreFile: true, // Marker
+        });
+      }
+    };
+
+    addPreFile(aadhaarCardDocUrl, "Aadhaar Card", "KYC");
+    addPreFile(panCardDocUrl, "PAN Card", "KYC");
+    addPreFile(passportDocUrl, "Passport", "KYC");
+    addPreFile(dlDocUrl, "Driving License", "KYC");
+    addPreFile(addressProofDocUrl, "Address Proof", "KYC");
+    addPreFile(gstDocUrl, "GST Certificate", "Business");
+    addPreFile(photoUrl, "Customer Photo", "Photo");
+    addPreFile(signatureUrl, "Signature", "Signature");
+
+    // Merge: Start with existingDocs, add preFileDocs if they are not already in existingDocs (by URL)
+    let mergedDocs = [...existingDocs];
+    let changed = false;
+
+    preFileDocs.forEach(pDoc => {
+      if (!mergedDocs.some(d => d.url === pDoc.url)) {
+        mergedDocs.push(pDoc);
+        changed = true;
+      }
+    });
+
+    if (mergedDocs.length > 0 && (documents.length === 0 || changed)) {
+       // Only update if we have something new or strictly confusing logic
+       // Simplest: If documents is empty, definitely set it. 
+       // If docs exist, checking changed avoids infinite loop if memoization is tricky.
+       // However, since we depend on [aadhaarCardDocUrl, ...], this runs on change.
+       // We should be careful not to overwrite user edits.
+       // Best: Set documents to merged if length differs.
+       if (documents.length !== mergedDocs.length) {
+          setDocuments(mergedDocs);
+       }
+    }
+    
+    if (Array.isArray(existingTags) && tags.length === 0) setTags(existingTags);
+
+  }, [
+    form, 
+    // Dependency only on the values, not the full array processing to avoid frequent re-runs
+    aadhaarCardDocUrl, panCardDocUrl, passportDocUrl, dlDocUrl, 
+    addressProofDocUrl, gstDocUrl, photoUrl, signatureUrl,
+    // Note: NOT depending on documents/tags state to avoid loops, only external inputs
+  ]);
 
   const availableTags = isCompany
     ? SUGGESTED_TAGS
@@ -55,31 +245,94 @@ const PostFileDocumentManagement = ({ form }) => {
     );
   };
 
-  const uploadDocuments = (files) => {
-    const newDocs = files.map((file) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      size: formatFileSize(file.size),
-      uploadedBy: "Current User",
-      uploadedAt: new Date().toLocaleString("en-IN"),
-      status: "pending",
-      tagId: null,
-      tag: null,
-      url: URL.createObjectURL(file),
-      file: file,
-    }));
-    setDocuments([...documents, ...newDocs]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const uploadDocuments = async (files) => {
+    setUploading(true);
+    setUploadProgress(0);
+    const totalFiles = files.length;
+    const newDocs = [];
+
+    try {
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i];
+        
+        try {
+          // Upload to Cloudinary
+          // Dynamic import to avoid circular dependencies if any, or just standard import usage
+          const { uploadToCloudinary } = await import("../../../../../utils/cloudinary");
+          
+          let cloudinaryData;
+          try {
+             cloudinaryData = await uploadToCloudinary(file);
+          } catch (err) {
+             console.error(`Failed to upload ${file.name}:`, err);
+             // Fallback to local object URL if upload fails (or handle error differently)
+             // For now, we'll continue using objectURL but mark as 'upload-failed' status if you prefer
+             // Or just throw to stop. Let's assume we want to proceed with objectURL if dev env is missing keys
+             if (err.message.includes("not configured")) {
+                 alert("Cloudinary not configured. Falling back to local preview.");
+                 cloudinaryData = null;
+             } else {
+                 throw err;
+             }
+          }
+
+          newDocs.push({
+            id: Date.now() + Math.random(),
+            name: file.name,
+            size: formatFileSize(file.size),
+            uploadedBy: "Current User", // Replace with actual user
+            uploadedAt: new Date().toLocaleString("en-IN"),
+            status: cloudinaryData ? "submitted" : "pending",
+            tagId: null,
+            tag: null,
+            url: cloudinaryData ? cloudinaryData.secure_url : URL.createObjectURL(file),
+            format: cloudinaryData?.format || file.type.split('/')[1] || 'unknown',
+            publicId: cloudinaryData?.public_id,
+            file: file,
+          });
+
+        } catch (error) {
+          console.error(`Error uploading file ${file.name}`, error);
+          // Only alert once
+          if (i === 0) alert(`Failed to upload ${file.name}. Please check console.`);
+        }
+        
+        setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
+      }
+      
+      if (newDocs.length > 0) {
+        setDocuments([...documents, ...newDocs]);
+      }
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   const assignTag = (docId, tagName) => {
-    // Check if tag exists, if not create it
-    let tag = tags.find((t) => t.name === tagName);
+    // 🏷️ Auto-Increment Tag Name if used (e.g., Aadhaar -> Aadhaar 2)
+    let finalTagName = tagName;
+    let counter = 2;
+    
+    // Check if any OTHER document already uses this tag name
+    const isUsed = (name) => documents.some(d => d.tag === name && d.id !== docId);
+    
+    while (isUsed(finalTagName)) {
+        finalTagName = `${tagName} ${counter}`;
+        counter++;
+    }
+    
+    // Now use finalTagName for creation/assignment
+    let tag = tags.find((t) => t.name === finalTagName);
 
     if (!tag) {
-      // Create new tag
+      // Create new tag if it doesn't exist (e.g. Aadhaar 2)
       const newTag = {
         id: Date.now() + Math.random(),
-        name: tagName,
+        name: finalTagName,
         documentCount: 0,
       };
       setTags([...tags, newTag]);
@@ -118,6 +371,11 @@ const PostFileDocumentManagement = ({ form }) => {
     updateTagCounts();
   };
 
+  // 🔄 SYNC TO FORM: Ensure documents are saved on submit
+  useEffect(() => {
+    form.setFieldsValue({ postfile_documents: documents });
+  }, [documents, form]);
+
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -126,40 +384,47 @@ const PostFileDocumentManagement = ({ form }) => {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "verified":
-        return "bg-success/10 text-success";
-      case "submitted":
-        return "bg-warning/10 text-warning";
-      case "pending":
-        return "bg-muted text-muted-foreground";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  };
-
+  // 🎨 Dynamic Tag Colors (Using Global Helper)
   const [viewDocument, setViewDocument] = useState(null);
   const [showAllDocumentsModal, setShowAllDocumentsModal] = useState(false);
 
+  // Removed inner getTagColor definition
+
+// ... (skip lines) ...
+
+
+  // ... (Code removed) ...
+
+
+
   return (
-    <div className="bg-card rounded-lg shadow-elevation-2 p-4 md:p-6">
+    <div className="bg-card rounded-xl border border-border p-5 md:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 md:mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Icon name="FolderOpen" size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
+            <h2 className="text-xl font-bold text-foreground">
               Document Management
             </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {documents.length} documents • {tags.length} tags
             </p>
           </div>
         </div>
         <div className="flex gap-2">
+           <Button
+             variant="outline"
+             iconName="RefreshCw"
+             iconPosition="left"
+             size="sm"
+             onClick={() => fetchCustomerDocuments(true)}
+             isLoading={isFetchingDocs}
+           >
+             Sync Docs
+           </Button>
           {documents.length > 0 && (
             <Button
               variant="outline"
@@ -196,23 +461,23 @@ const PostFileDocumentManagement = ({ form }) => {
       {tags.length > 0 && (
         <div className="mb-4 md:mb-6 p-4 bg-muted/30 rounded-lg border border-border">
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Icon name="Tag" size={16} />
+            <Icon name="Tag" size={16} className="text-primary" />
             Document Tags
           </h3>
           <div className="flex flex-wrap gap-2">
             {tags.map((tag) => (
               <div
                 key={tag.id}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs border border-primary/20"
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border transition-colors ${getTagColor()}`}
               >
-                <Icon name="Tag" size={12} />
+                <Icon name="Tag" size={12} className="text-primary" />
                 <span className="font-medium">{tag.name}</span>
-                <span className="text-[10px] bg-primary/20 px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
                   {tag.documentCount}
                 </span>
                 <button
                   onClick={() => deleteTag(tag.id)}
-                  className="hover:text-error transition-colors"
+                  className="hover:text-red-600 dark:hover:text-red-400 transition-colors ml-1"
                 >
                   <Icon name="X" size={12} />
                 </button>
@@ -246,23 +511,29 @@ const PostFileDocumentManagement = ({ form }) => {
           >
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Document Preview */}
+              {/* Document Preview */}
               <div
                 className="w-full sm:w-24 h-32 sm:h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 cursor-pointer"
                 onClick={() => setViewDocument(doc)}
               >
-                {doc.url ? (
+                {doc.url && 
+                 !doc.url.toLowerCase().endsWith('.pdf') && 
+                 doc.format !== 'pdf' ? (
                   <img
                     src={doc.url}
                     alt={doc.name}
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-full h-full flex items-center justify-center bg-muted/50">
                     <Icon
-                      name="FileText"
+                      name={doc.url?.toLowerCase().endsWith('.pdf') ? "FileText" : "File"} // Use FileText for PDF
                       size={32}
-                      className="text-muted-foreground"
+                      className={doc.url ? "text-primary" : "text-muted-foreground"}
                     />
+                    {doc.url?.toLowerCase().endsWith('.pdf') && (
+                      <span className="absolute bottom-1 text-[10px] font-bold text-primary">PDF</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -291,7 +562,7 @@ const PostFileDocumentManagement = ({ form }) => {
                         {doc.tag ? (
                           <div className="flex items-center gap-2">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs border border-primary/20">
-                              <Icon name="Tag" size={12} />
+                              <Icon name="Tag" size={12} className="text-primary" />
                               {doc.tag}
                             </span>
                             <button
@@ -324,7 +595,7 @@ const PostFileDocumentManagement = ({ form }) => {
 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-3">
                   <div className="flex items-center gap-1.5">
-                    <Icon name="Calendar" size={14} />
+                    <Icon name="Calendar" size={14} className="text-primary" />
                     <span>{doc.uploadedAt}</span>
                   </div>
                 </div>
@@ -372,7 +643,7 @@ const PostFileDocumentManagement = ({ form }) => {
         {documents.length === 0 && (
           <div className="text-center py-12 md:py-16">
             <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-muted mx-auto flex items-center justify-center mb-4">
-              <Icon name="Upload" size={32} className="text-muted-foreground" />
+              <Icon name="Upload" size={32} className="text-primary" />
             </div>
             <p className="text-sm md:text-base font-medium text-foreground">
               No documents uploaded yet
@@ -497,6 +768,8 @@ const PostFileDocumentManagement = ({ form }) => {
         <UploadDocumentsModal
           onUpload={uploadDocuments}
           onClose={() => setShowUploadModal(false)}
+          uploading={uploading}
+          progress={uploadProgress}
         />
       )}
 
@@ -585,7 +858,7 @@ const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
             {filteredTags.map((tag, index) => (
               <div
                 key={index}
-                className="px-3 py-2 text-xs hover:bg-muted cursor-pointer flex items-center gap-2"
+                className={`px-3 py-2 text-xs hover:brightness-95 cursor-pointer flex items-center gap-2 border-b border-border/10 last:border-0 ${getTagColor(tag)}`}
                 onClick={() => handleSelect(tag)}
               >
                 <Icon name="Tag" size={12} className="text-primary" />
@@ -617,28 +890,28 @@ const DocumentViewerModal = ({
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < allDocuments.length - 1;
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (hasPrev) {
       onNavigate(allDocuments[currentIndex - 1]);
     }
-  };
+  }, [hasPrev, onNavigate, allDocuments, currentIndex]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (hasNext) {
       onNavigate(allDocuments[currentIndex + 1]);
     }
-  };
+  }, [hasNext, onNavigate, allDocuments, currentIndex]);
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = useCallback((e) => {
     if (e.key === "ArrowLeft") handlePrev();
     if (e.key === "ArrowRight") handleNext();
     if (e.key === "Escape") onClose();
-  };
+  }, [handlePrev, handleNext, onClose]);
 
   React.useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentIndex]);
+  }, [handleKeyDown]);
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4">
@@ -665,7 +938,7 @@ const DocumentViewerModal = ({
               onClick={handlePrev}
               className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-muted z-10"
             >
-              <Icon name="ChevronLeft" size={20} />
+              <Icon name="ChevronLeft" size={20} className="text-primary" />
             </button>
           )}
 
@@ -682,7 +955,7 @@ const DocumentViewerModal = ({
               onClick={handleNext}
               className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-muted z-10"
             >
-              <Icon name="ChevronRight" size={20} />
+              <Icon name="ChevronRight" size={20} className="text-primary" />
             </button>
           )}
         </div>
@@ -777,18 +1050,23 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
                     key={tag}
                     onClick={() => !alreadyExists && toggleTag(tag)}
                     disabled={alreadyExists}
-                    className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                    className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
                       alreadyExists
-                        ? "bg-muted/50 text-muted-foreground border-border cursor-not-allowed"
+                        ? "bg-muted/50 text-muted-foreground border-border cursor-not-allowed opacity-50"
                         : isSelected
-                        ? "bg-primary text-white border-primary"
-                        : "bg-background text-foreground border-border hover:border-primary"
+                        ? `${getTagColor(tag)} ring-2 ring-offset-1 ring-primary border-transparent font-semibold shadow-sm`
+                        : `${getTagColor(tag)} hover:brightness-95 border-transparent/20`
                     }`}
                   >
-                    {tag}
-                    {alreadyExists && (
-                      <span className="ml-1.5 text-[10px]">✓</span>
-                    )}
+                    <span className="flex items-center gap-1.5">
+                      {tag}
+                      {alreadyExists && (
+                        <span className="text-[10px]">✓</span>
+                      )}
+                      {isSelected && !alreadyExists && (
+                        <Icon name="Check" size={10} />
+                      )}
+                    </span>
                   </button>
                 );
               })}
@@ -863,7 +1141,7 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
   );
 };
 
-const UploadDocumentsModal = ({ onUpload, onClose }) => {
+const UploadDocumentsModal = ({ onUpload, onClose, uploading, progress }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
 
   const handleFileSelect = (e) => {
@@ -878,9 +1156,35 @@ const UploadDocumentsModal = ({ onUpload, onClose }) => {
   const handleUpload = () => {
     if (selectedFiles.length > 0) {
       onUpload(selectedFiles);
-      onClose();
+      // Don't close immediately if we want to show progress, 
+      // but current logic in parent doesn't close modal automatically on success.
+      // We can let parent close it or close it here.
+      // Since parent function is async and we want to show progress, we rely on parent not closing it yet?
+      // Actually previous logic closed it immediately: onClose().
+      // Let's create a wrapper or just wait? 
+      // The parent handles logic. We just trigger onUpload.
+      // If we want to show progress IN the modal, we shouldn't close it.
+      // But the previous implementation called onClose() immediately.
+      // Let's modify behavior: if uploading, don't close.
+      
+      // WAIT, the 'onUpload' in parent is async now. 
+      // But we passed reference. Calling it just starts it.
+      // We should probably remove onClose() here and let parent close it, OR 
+      // update this component to wait.
+      // For simplicity in this refactor, let's keep it simple:
+      // We'll trust the parent to handle the async operation visual feedback 
+      // BUT, the parent uses state variables. 
+      // If we close the modal, the modal unmounts.
+      // If we want to show 'uploading...' inside this modal, we MUST NOT close it.
     }
   };
+
+  // Effect to close modal when upload finishes if it was uploading
+  useEffect(() => {
+     if (!uploading && progress === 100) {
+         onClose();
+     }
+  }, [uploading, progress, onClose]);
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
@@ -892,48 +1196,66 @@ const UploadDocumentsModal = ({ onUpload, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-2xl">
+      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-2xl pointer-events-auto">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Icon name="Upload" size={18} className="text-primary" />
             <span className="text-sm font-semibold text-foreground">
-              Upload Documents
+              {uploading ? "Uploading..." : "Upload Documents"}
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
-            <Icon name="X" size={18} />
-          </button>
+          {!uploading && (
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+                <Icon name="X" size={18} />
+            </button>
+          )}
         </div>
 
         <div className="p-4 space-y-4">
           {/* File Upload Area */}
-          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-            <input
-              type="file"
-              id="fileUpload"
-              multiple
-              className="hidden"
-              onChange={handleFileSelect}
-              accept="image/*,.pdf,.doc,.docx"
-            />
-            <label
-              htmlFor="fileUpload"
-              className="cursor-pointer flex flex-col items-center"
-            >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <Icon name="Upload" size={24} className="text-primary" />
+          {!uploading && (
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                <input
+                  type="file"
+                  id="fileUpload"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.doc,.docx"
+                />
+                <label
+                  htmlFor="fileUpload"
+                  className="cursor-pointer flex flex-col items-center"
+                >
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                    <Icon name="Upload" size={24} className="text-primary" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    PDF, DOC, DOCX, PNG, JPG (max 10MB each)
+                  </p>
+                </label>
               </div>
-              <p className="text-sm font-medium text-foreground mb-1">
-                Click to upload or drag and drop
-              </p>
-              <p className="text-xs text-muted-foreground">
-                PDF, DOC, DOCX, PNG, JPG (max 10MB each)
-              </p>
-            </label>
-          </div>
+          )}
+
+          {/* Progress Bar */}
+          {uploading && (
+              <div className="py-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3 mx-auto animate-pulse">
+                    <Icon name="Upload" size={24} className="text-primary" />
+                  </div>
+                  <p className="font-medium">Uploading {selectedFiles.length} files...</p>
+                  <div className="w-full bg-muted rounded-full h-2.5 dark:bg-gray-700 max-w-xs mx-auto">
+                    <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{progress}% Complete</p>
+              </div>
+          )}
 
           {/* Selected Files List */}
-          {selectedFiles.length > 0 && (
+          {selectedFiles.length > 0 && !uploading && (
             <div>
               <h4 className="text-xs font-semibold text-foreground mb-2">
                 Selected Files ({selectedFiles.length})
@@ -973,16 +1295,15 @@ const UploadDocumentsModal = ({ onUpload, onClose }) => {
         </div>
 
         <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={uploading}>
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleUpload}
-            disabled={selectedFiles.length === 0}
+            disabled={selectedFiles.length === 0 || uploading}
           >
-            Upload {selectedFiles.length} File
-            {selectedFiles.length !== 1 ? "s" : ""}
+            {uploading ? "Uploading..." : `Upload ${selectedFiles.length} File${selectedFiles.length !== 1 ? "s" : ""}`}
           </Button>
         </div>
       </div>

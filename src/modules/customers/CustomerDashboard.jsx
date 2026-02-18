@@ -1,541 +1,625 @@
-// src/modules/customers/CustomerDashboard.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import {
+  Space,
+  Tag,
+  message,
+  Modal,
+  Popconfirm,
+  Input,
+  Button as AntButton,
+} from "antd";
 import { useNavigate } from "react-router-dom";
-import Icon from "../../components/AppIcon"; // adjust path if needed
-import CustomerViewModal from "./CustomerViewModal"; // adjust path if needed
+import CustomerViewModal from "./CustomerViewModal";
+import { customersApi } from "../../api/customers";
+import Icon from "../../components/AppIcon";
+import DataTable from "../../components/ui/DataTable";
+import Button from "../../components/ui/Button";
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+const StatCard = ({ title, value, color, iconName, onClick, isActive }) => {
+  const theme = {
+    blue: {
+      card: "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10",
+      active: "bg-blue-600 border-blue-600 text-white shadow-lg ring-2 ring-offset-2 ring-offset-background ring-blue-500 dark:ring-blue-400",
+      text: "text-blue-600 dark:text-blue-400",
+      iconBg: "bg-blue-100 dark:bg-blue-900/30",
+    },
+    emerald: {
+      card: "border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10",
+      active: "bg-emerald-600 border-emerald-600 text-white shadow-lg ring-2 ring-offset-2 ring-offset-background ring-emerald-500 dark:ring-emerald-400",
+      text: "text-emerald-600 dark:text-emerald-400",
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
+    },
+    amber: {
+      card: "border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10",
+      active: "bg-amber-500 border-amber-500 text-white shadow-lg ring-2 ring-offset-2 ring-offset-background ring-amber-500 dark:ring-amber-400",
+      text: "text-amber-600 dark:text-amber-400",
+      iconBg: "bg-amber-100 dark:bg-amber-900/30",
+    },
+    purple: {
+      card: "border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/10",
+      active: "bg-purple-600 border-purple-600 text-white shadow-lg ring-2 ring-offset-2 ring-offset-background ring-purple-500 dark:ring-purple-400",
+      text: "text-purple-600 dark:text-purple-400",
+      iconBg: "bg-purple-100 dark:bg-purple-900/30",
+    },
+  };
+  const t = theme[color] || theme.blue;
+  const textClass = isActive ? "text-white" : t.text;
+  const iconClass = isActive ? "bg-white/20 text-white" : `${t.iconBg} ${t.text}`;
 
-// KYC chip helper
-const getKycChipClass = (status = "") => {
-  const s = status.toLowerCase();
-  if (s === "completed")
-    return "inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-0.5 text-[11px] font-medium";
-  if (s === "in progress")
-    return "inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 text-[11px] font-medium";
-  if (s.includes("pending"))
-    return "inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-0.5 text-[11px] font-medium";
-  return "inline-flex items-center rounded-full bg-muted text-muted-foreground border border-border px-2.5 py-0.5 text-[11px] font-medium";
+  return (
+    <div
+      className={`relative border rounded-xl p-4 cursor-pointer transition-all duration-300 hover:scale-[1.02] flex items-center justify-between gap-3 overflow-hidden min-h-0
+        ${isActive ? t.active : `bg-card dark:bg-card/80 border-border ${t.card}`}
+      `}
+      onClick={onClick}
+    >
+      {isActive && (
+        <div className="absolute top-1 right-1">
+          <Icon name="CheckCircle2" size={12} className="text-white opacity-50" />
+        </div>
+      )}
+      <div className="relative z-10 min-w-0">
+        <p className={`text-xs font-medium mb-0.5 ${isActive ? "text-white/80" : "text-muted-foreground"}`}>{title}</p>
+        <p className={`text-xl font-bold font-mono tracking-tight ${textClass}`}>{value}</p>
+      </div>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${iconClass}`}>
+        <Icon name={iconName} size={20} className={textClass} />
+      </div>
+    </div>
+  );
 };
 
-const formatDate = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
-
-export default function CustomerDashboard() {
+const CustomerDashboard = () => {
   const navigate = useNavigate();
 
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
+  const [deletingId, setDeletingId] = useState(null);
 
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all"); // all | completed | pending | repeat
+  const [searchText, setSearchText] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
+  // Pagination State
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 20
+  });
 
-  const [viewCustomer, setViewCustomer] = useState(null);
-  const [confirmCustomer, setConfirmCustomer] = useState(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [activeStatFilter, setActiveStatFilter] = useState("all");
+
+  // Reassign flow: when delete is blocked by linked loans
+  const [linkedLoansBlockedRecord, setLinkedLoansBlockedRecord] = useState(null);
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
+  const [reassignFrom, setReassignFrom] = useState(null);
+  const [reassignSearch, setReassignSearch] = useState("");
+  const [reassignSearchResults, setReassignSearchResults] = useState([]);
+  const [reassignTarget, setReassignTarget] = useState(null);
+  const [reassigning, setReassigning] = useState(false);
+
+  const loadCustomers = async () => {
+    try {
+      setLoading(true);
+
+      const data = await customersApi.getAll();
+
+      setCustomers(Array.isArray(data?.data) ? data.data : []);
+    } catch (err) {
+      console.error("Load Customers Error:", err);
+      message.error("Failed to load customers ❌");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    loadCustomers(1, "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadCustomers();
   }, []);
 
-  const loadCustomers = async (pageNumber = 1, searchTerm = "") => {
-    try {
-      setLoading(true);
-
-      const params = new URLSearchParams({
-        page: String(pageNumber),
-        limit: String(pageSize),
-      });
-
-      if (searchTerm.trim()) {
-        params.set("search", searchTerm.trim());
+  // Search for target customer when reassign modal is open
+  useEffect(() => {
+    if (!reassignModalOpen || !reassignFrom) return;
+    const q = (reassignSearch || "").trim();
+    if (q.length < 2) {
+      setReassignSearchResults([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await customersApi.search(q);
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setReassignSearchResults(list.filter((c) => String(c._id) !== String(reassignFrom.id)));
+      } catch {
+        setReassignSearchResults([]);
       }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [reassignModalOpen, reassignFrom, reassignSearch]);
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/customers?${params.toString()}`,
-      );
+  const handleNewCustomer = () => {
+    navigate("/customers/new");
+  };
 
-      const parsed = await res.json();
+  const handleEditCustomer = (record) => {
+    const id = record?._id || record?.id;
+    if (!id) return;
+    navigate(`/customers/edit/${id}`);
+  };
 
-      setCustomers(parsed.data || []);
-      setTotal(parsed.total || 0);
-      setPage(pageNumber);
+  const openViewModal = async (record) => {
+    if (!record) return;
+
+    setSelectedCustomer(record);
+    setIsViewModalOpen(true);
+
+    const id = record?._id || record?.id;
+    if (!id) return;
+
+    try {
+      const data = await customersApi.getById(id);
+      const fresh = data?.data || data;
+      if (fresh && (fresh._id || fresh.id)) {
+        setSelectedCustomer(fresh);
+      }
     } catch (err) {
-      console.error("Load customers error", err);
-      alert("Failed to load customers");
-    } finally {
-      setLoading(false);
+      console.error("Fetch Customer Error:", err);
     }
   };
 
-  // Stats (based on current list)
-  const stats = useMemo(() => {
-    const completed = customers.filter(
-      (c) => c.kycStatus === "Completed",
-    ).length;
-    const pending = customers.filter(
-      (c) => c.kycStatus && c.kycStatus.toLowerCase().includes("pending"),
-    ).length;
-    const repeat = customers.filter(
-      (c) => String(c.customerType || "").toLowerCase() === "repeat",
-    ).length;
+  const closeViewModal = () => {
+    setIsViewModalOpen(false);
+    setSelectedCustomer(null);
+  };
 
-    return {
-      total,
-      completed,
-      pending,
-      repeat,
-    };
-  }, [customers, total]);
+  const handleDeleteCustomer = async (record) => {
+    const id = record?._id || record?.id;
+    if (!id) return;
 
-  const handleDelete = async () => {
-    if (!confirmCustomer) return;
     try {
-      setLoading(true);
-      const id = confirmCustomer._id || confirmCustomer.id;
-      const res = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => "");
-        throw new Error(msg || "Delete failed");
-      }
-      setConfirmCustomer(null);
-      setViewCustomer(null);
-      await loadCustomers(page, search);
+      setDeletingId(id);
+
+      await customersApi.delete(id);
+
+      message.success("Customer deleted ✅");
+      await loadCustomers();
     } catch (err) {
-      console.error("Delete error", err);
-      alert("Delete failed");
+      console.error("Delete Customer Error:", err);
+      // Extract backend message (support both Error.message and JSON response)
+      let errMsg = err?.message || String(err);
+      try {
+        const parsed = typeof errMsg === "string" && errMsg.trim().startsWith("{") ? JSON.parse(errMsg) : null;
+        if (parsed?.message) errMsg = parsed.message;
+      } catch (_) {}
+
+      const isLinkedLoans = /loan\(s\) are linked|reassign the loans|linked to this customer/i.test(errMsg);
+
+      if (isLinkedLoans) {
+        setLinkedLoansBlockedRecord({ id, customerName: record?.customerName || "this customer" });
+      } else {
+        message.error(`Delete failed ❌ ${errMsg}`);
+      }
     } finally {
-      setLoading(false);
+      setDeletingId(null);
     }
   };
 
-  const filterButtonClass = (active) =>
-    `relative flex flex-col justify-between rounded-2xl border px-4 py-3 text-left shadow-sm transition-colors ${
-      active
-        ? "border-primary/40 bg-primary text-primary-foreground"
-        : "border-border bg-card text-foreground"
-    }`;
+  const openReassignModal = () => {
+    if (linkedLoansBlockedRecord) {
+      setReassignFrom(linkedLoansBlockedRecord);
+      setReassignModalOpen(true);
+      setReassignSearch("");
+      setReassignSearchResults([]);
+      setReassignTarget(null);
+      setLinkedLoansBlockedRecord(null);
+    }
+  };
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const pageStart = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const pageEnd = Math.min(safePage * pageSize, total);
+  const handleReassignAndDelete = async () => {
+    if (!reassignFrom?.id || !reassignTarget?._id) {
+      message.warning("Please select a customer to reassign the loans to.");
+      return;
+    }
+    try {
+      setReassigning(true);
+      await customersApi.reassignLoans(reassignFrom.id, reassignTarget._id);
+      await customersApi.delete(reassignFrom.id);
+      message.success(`Loans reassigned to ${reassignTarget.customerName || "customer"} and "${reassignFrom.customerName}" deleted.`);
+      setReassignModalOpen(false);
+      setReassignFrom(null);
+      setReassignTarget(null);
+      await loadCustomers();
+    } catch (err) {
+      const msg = err?.message || String(err);
+      message.error(`Failed: ${msg}`);
+    } finally {
+      setReassigning(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    let list = [...customers];
+
+    // Search Filter
+    const q = searchText.trim().toLowerCase();
+    if (q) {
+      list = list.filter((c) => {
+        const name = String(c.customerName || "").toLowerCase();
+        const mobile = String(c.primaryMobile || "");
+        const city = String(c.city || "").toLowerCase();
+        const pan = String(c.panNumber || "").toLowerCase();
+        return (
+          name.includes(q) ||
+          mobile.includes(q) ||
+          city.includes(q) ||
+          pan.includes(q)
+        );
+      });
+    }
+
+    // Stat/Status Filter
+    if (activeStatFilter === "completed") {
+      list = list.filter(c => c.kycStatus === "Completed");
+    } else if (activeStatFilter === "pending") {
+      list = list.filter(c => c.kycStatus === "Pending Docs");
+    } else if (activeStatFilter === "repeat") {
+      list = list.filter(c => c.customerType === "Repeat");
+    }
+
+    return list;
+  }, [searchText, customers, activeStatFilter]);
+
+  const total = customers.length;
+  const completedKyc = customers.filter(
+    (c) => c.kycStatus === "Completed",
+  ).length;
+  const pendingDocs = customers.filter(
+    (c) => c.kycStatus === "Pending Docs",
+  ).length;
+  const repeat = customers.filter(
+    (c) => String(c.customerType || "").toLowerCase() === "repeat",
+  ).length;
+
+  const columns = [
+    {
+      title: "Customer ID",
+      dataIndex: "customerId",
+      key: "customerId",
+      width: 120,
+      sorter: true,
+      render: (v) => <span className="font-semibold text-muted-foreground">{v || "—"}</span>,
+    },
+    {
+      title: "Customer Info",
+      key: "customer",
+      width: 250,
+      render: (_, record) => (
+        <Space direction="vertical" size={0}>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-foreground">
+              {record.customerName || "—"}
+            </span>
+            {record.customerType === "Repeat" && (
+              <Tag className="m-0 rounded-full px-1.5 py-0 border-none bg-primary/10 text-primary text-[10px] font-black uppercase">
+                R
+              </Tag>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+            <span className="font-mono bg-muted/50 px-1 rounded border border-border/50">{record.primaryMobile || "N/A"}</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span className="truncate max-w-[100px]">{record.city || "—"}</span>
+          </div>
+        </Space>
+      ),
+      sorter: (a, b) =>
+        String(a.customerName || "").localeCompare(
+          String(b.customerName || ""),
+        ),
+    },
+    {
+      title: "Employment",
+      key: "employment",
+      render: (_, record) => (
+        <Space direction="vertical" size={2} style={{ fontSize: 12 }}>
+          <span style={{ fontWeight: 500 }}>
+            {record.occupationType || "—"}
+          </span>
+          <span style={{ color: "#8c8c8c" }}>{record.companyName || "—"}</span>
+        </Space>
+      ),
+      sorter: (a, b) =>
+        String(a.occupationType || "").localeCompare(
+          String(b.occupationType || ""),
+        ),
+    },
+    {
+      title: "Bank",
+      key: "bank",
+      render: (_, record) => (
+        <Space direction="vertical" size={2} style={{ fontSize: 12 }}>
+          <span style={{ fontWeight: 500 }}>{record.bankName || "—"}</span>
+          <span style={{ color: "#8c8c8c" }}>{record.accountType || "—"}</span>
+        </Space>
+      ),
+      sorter: (a, b) =>
+        String(a.bankName || "").localeCompare(String(b.bankName || "")),
+    },
+    {
+      title: "KYC Status",
+      dataIndex: "kycStatus",
+      key: "kycStatus",
+      width: 150,
+      sorter: (a, b) => String(a.kycStatus || "").localeCompare(String(b.kycStatus || "")),
+      render: (status) => {
+        if (!status) return "—";
+        const variants = {
+          "Completed": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+          "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+          "Pending Docs": "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+          "Rejected": "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+        };
+        const cls = variants[status] || "bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400";
+        return (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${cls}`}>
+            {status}
+          </span>
+        );
+      },
+    },
+    {
+      title: "Created",
+      dataIndex: "createdOn",
+      key: "createdOn",
+      width: 120,
+      render: (v) => (
+        <span className="text-xs text-muted-foreground">{v || "—"}</span>
+      ),
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      width: 160,
+      fixed: "right",
+      className: "bg-white dark:bg-card", // Ensure background isn't transparent when fixed
+      render: (_, record) => (
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          onDoubleClick={(e) => e.stopPropagation()}
+          className="flex justify-end pr-2"
+        >
+          <Space size={4}>
+            <Button
+              size="sm"
+              variant="ghost"
+              iconName="Eye"
+              onClick={() => openViewModal(record)}
+            />
+
+            <Button
+              size="sm"
+              variant="ghost"
+              iconName="Edit3"
+              onClick={() => handleEditCustomer(record)}
+            />
+
+            <Popconfirm
+              title="Delete this customer?"
+              description="This cannot be undone."
+              okText="Delete"
+              okButtonProps={{ danger: true }}
+              cancelText="Cancel"
+              onConfirm={() => handleDeleteCustomer(record)}
+            >
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-500 hover:bg-red-50 hover:text-red-700"
+                iconName="Trash2"
+                loading={deletingId === (record?._id || record?.id)}
+              />
+            </Popconfirm>
+          </Space>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="flex flex-col gap-4 md:gap-5 px-4 md:px-6 pb-6">
-      {/* Header row */}
-      <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg md:text-xl font-semibold text-foreground">
-            Customers
-          </h1>
-          <p className="text-xs md:text-sm text-muted-foreground">
-            Manage customer profiles, KYC status and interactions.
-          </p>
-        </div>
+    <div className="h-full flex flex-col gap-6 p-4 md:p-6 bg-background dark:bg-background overflow-hidden font-sans">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-shrink-0">
+         <StatCard 
+            title="All Customers" 
+            value={total} 
+            color="blue" 
+            iconName="Users" 
+            isActive={activeStatFilter === 'all'}
+            onClick={() => setActiveStatFilter('all')}
+         />
+         <StatCard 
+            title="KYC Completed" 
+            value={completedKyc} 
+            color="emerald" 
+            iconName="CheckCircle2" 
+            isActive={activeStatFilter === 'completed'}
+            onClick={() => setActiveStatFilter('completed')}
+         />
+         <StatCard 
+            title="Pending Docs" 
+            value={pendingDocs} 
+            color="amber" 
+            iconName="FileText" 
+            isActive={activeStatFilter === 'pending'}
+            onClick={() => setActiveStatFilter('pending')}
+         />
+         <StatCard 
+            title="Repeat" 
+            value={repeat} 
+            color="purple" 
+            iconName="Repeat" 
+            isActive={activeStatFilter === 'repeat'}
+            onClick={() => setActiveStatFilter('repeat')}
+         />
+      </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-foreground"
-            onClick={() => loadCustomers(page, search)}
-          >
-            <Icon name="RefreshCw" size={13} />
-            Refresh
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3.5 py-1.5 text-xs font-medium shadow-sm"
-            onClick={() => navigate("/customers/new")}
-          >
-            <Icon name="Plus" size={13} />
-            New Customer
-          </button>
+      {/* Table Container */}
+      <div className="flex-1 min-h-0 bg-white dark:bg-card border border-border rounded-xl shadow-sm flex flex-col overflow-hidden">
+        {/* Table Toolbar */}
+        <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
+           <Button
+             variant="outline"
+             size="sm"
+             iconName="RefreshCcw"
+             onClick={loadCustomers}
+             loading={loading}
+           >
+             Refresh
+           </Button>
+           <div className="relative w-full max-w-sm min-w-[200px] flex-1">
+             <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+             <input
+               type="text"
+               value={searchText}
+               onChange={(e) => setSearchText(e.target.value)}
+               placeholder="Search by name, mobile, city or PAN..."
+               className="w-full h-9 pl-9 pr-3 py-1 text-sm border border-border rounded-lg bg-background outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+             />
+           </div>
+           <div className="text-xs font-semibold text-muted-foreground">
+             Showing {filtered.length} records
+           </div>
+        </div>
+        
+        {/* Table Content */}
+        <div className="flex-1 overflow-hidden relative">
+          <DataTable
+            columns={columns}
+            dataSource={filtered.slice((pagination.current - 1) * pagination.pageSize, pagination.current * pagination.pageSize)}
+            rowKey="_id"
+            loading={loading}
+            onRowClick={(record) => openViewModal(record)}
+            selection={{
+              selectedRowKeys,
+              onChange: setSelectedRowKeys,
+            }}
+            emptyText="No customers found"
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: filtered.length,
+              onChange: (page, size) => setPagination({ current: page, pageSize: size }),
+              showTotal: (total, range) => <span className="text-xs text-muted-foreground">{range[0]}-{range[1]} of {total}</span>,
+              size: "small" // Use small pagination from AntD inside DataTable
+            }}
+            rowClassName={() => "align-top hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer text-sm"}
+          />
         </div>
       </div>
 
-      {/* Metric cards */}
-      <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-4">
-        {/* All */}
-        <button
-          type="button"
-          className={filterButtonClass(filter === "all")}
-          onClick={() => {
-            setFilter("all");
-            setPage(1);
-            loadCustomers(1, search);
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] uppercase tracking-wide opacity-80">
-                All Customers
-              </span>
-              <span className="text-xl font-semibold">{stats.total}</span>
-            </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-background/20 text-inherit">
-              <Icon name="Users" size={16} />
-            </div>
-          </div>
-        </button>
+      {/* Cannot delete: linked loans */}
+      <Modal
+        open={!!linkedLoansBlockedRecord}
+        title="Cannot delete customer"
+        width={480}
+        onCancel={() => setLinkedLoansBlockedRecord(null)}
+        footer={[
+          <AntButton key="go" onClick={() => { setLinkedLoansBlockedRecord(null); navigate("/loans"); }}>
+            Go to Loans
+          </AntButton>,
+          <AntButton key="reassign" type="primary" onClick={openReassignModal}>
+            Reassign loans & delete customer
+          </AntButton>,
+        ]}
+      >
+        {linkedLoansBlockedRecord && (
+          <>
+            <p className="text-neutral-700 dark:text-neutral-300 mb-2">
+              1 loan (or more) is linked to this customer. Delete those loans or reassign them to another customer first.
+            </p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              Use <strong>Reassign loans & delete customer</strong> to move the loans to another customer, then remove this one.
+            </p>
+          </>
+        )}
+      </Modal>
 
-        {/* KYC Completed */}
-        <button
-          type="button"
-          className={filterButtonClass(filter === "completed")}
-          onClick={() => {
-            setFilter("completed");
-            setPage(1);
-            loadCustomers(1, search);
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] uppercase tracking-wide opacity-80">
-                KYC Completed
-              </span>
-              <span className="text-xl font-semibold">{stats.completed}</span>
-            </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
-              <Icon name="CheckCircle2" size={16} />
-            </div>
-          </div>
-        </button>
-
-        {/* Pending Docs */}
-        <button
-          type="button"
-          className={filterButtonClass(filter === "pending")}
-          onClick={() => {
-            setFilter("pending");
-            setPage(1);
-            loadCustomers(1, search);
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] uppercase tracking-wide opacity-80">
-                Pending Docs
-              </span>
-              <span className="text-xl font-semibold">{stats.pending}</span>
-            </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-600">
-              <Icon name="FileClock" size={16} />
-            </div>
-          </div>
-        </button>
-
-        {/* Repeat */}
-        <button
-          type="button"
-          className={filterButtonClass(filter === "repeat")}
-          onClick={() => {
-            setFilter("repeat");
-            setPage(1);
-            loadCustomers(1, search);
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] uppercase tracking-wide opacity-80">
-                Repeat
-              </span>
-              <span className="text-xl font-semibold">{stats.repeat}</span>
-            </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-500/10 text-violet-600">
-              <Icon name="Repeat" size={16} />
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* Search + table card */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        {/* Search row */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3 border-b border-border bg-card">
-          <div className="flex-1">
-            <div className="relative">
-              <Icon
-                name="Search"
-                size={14}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                value={search}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSearch(value);
-                  setPage(1);
-                  loadCustomers(1, value);
-                }}
-                placeholder="Search by name, mobile, city, PAN…"
-                className="w-full rounded-xl border border-border bg-muted/50 pl-9 pr-3 py-1.5 text-xs md:text-sm text-foreground placeholder:text-muted-foreground"
+      {/* Reassign loans to another customer, then delete */}
+      <Modal
+        open={reassignModalOpen}
+        title="Reassign loans & delete customer"
+        width={520}
+        onCancel={() => { setReassignModalOpen(false); setReassignFrom(null); setReassignTarget(null); }}
+        footer={[
+          <AntButton key="cancel" onClick={() => { setReassignModalOpen(false); setReassignFrom(null); setReassignTarget(null); }}>
+            Cancel
+          </AntButton>,
+          <AntButton
+            key="submit"
+            type="primary"
+            loading={reassigning}
+            disabled={!reassignTarget}
+            onClick={handleReassignAndDelete}
+          >
+            Reassign & delete
+          </AntButton>,
+        ]}
+      >
+        {reassignFrom && (
+          <div className="space-y-4">
+            <p className="text-neutral-600 dark:text-neutral-400 text-sm">
+              Move all loans from <strong>{reassignFrom.customerName}</strong> to another customer, then delete this customer.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1">Search customer to reassign to</label>
+              <Input
+                placeholder="Type name, mobile, or city..."
+                value={reassignSearch}
+                onChange={(e) => setReassignSearch(e.target.value)}
+                allowClear
+                className="rounded-lg"
               />
             </div>
-          </div>
-          <span className="text-[11px] text-muted-foreground">
-            Showing {customers.length} of {total} customers
-          </span>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur border-b border-border">
-              <tr>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Customer ID
-                </th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Customer Info
-                </th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Employment
-                </th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Bank
-                </th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  KYC Status
-                </th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Created
-                </th>
-                <th className="px-4 py-2 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[150px]">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-xs text-muted-foreground"
-                  >
-                    Loading customers…
-                  </td>
-                </tr>
-              ) : customers.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-10 text-center text-xs text-muted-foreground"
-                  >
-                    No customers found for this view.
-                  </td>
-                </tr>
-              ) : (
-                customers.map((c) => (
-                  <tr
-                    key={c._id || c.id}
-                    className="border-t border-border hover:bg-muted/40 transition-colors"
-                  >
-                    {/* ID */}
-                    <td className="px-4 py-3 align-top text-xs text-muted-foreground">
-                      {c.customerCode || c.customerId || "—"}
-                    </td>
-
-                    {/* Customer info */}
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                          {(c.customerName || "U").slice(0, 1)}
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[13px] font-semibold text-foreground">
-                            {c.customerName || "—"}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {c.primaryMobile || "Mobile not set"}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {c.city || "City not set"}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Employment */}
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
-                        <span className="text-[12px] text-foreground font-medium">
-                          {c.employmentType || c.occupationType || "—"}
-                        </span>
-                        <span>{c.companyName || ""}</span>
-                      </div>
-                    </td>
-
-                    {/* Bank */}
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
-                        <span className="text-[12px] text-foreground font-medium">
-                          {c.bankName || "—"}
-                        </span>
-                        <span>{c.accountType || ""}</span>
-                      </div>
-                    </td>
-
-                    {/* KYC */}
-                    <td className="px-4 py-3 align-top">
-                      <span className={getKycChipClass(c.kycStatus)}>
-                        {c.kycStatus || "Not started"}
-                      </span>
-                    </td>
-
-                    {/* Created */}
-                    <td className="px-4 py-3 align-top text-[11px] text-muted-foreground">
-                      {formatDate(c.createdOn || c.createdAt)}
-                    </td>
-
-                    {/* Actions */}
-                    <td
-                      className="px-4 py-3 align-top"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15"
-                          onClick={() => setViewCustomer(c)}
-                        >
-                          <Icon name="Eye" size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-background"
-                          onClick={() =>
-                            navigate(`/customers/edit/${c._id || c.id}`)
-                          }
-                        >
-                          <Icon name="Edit" size={12} />
-                        </button>
-                        <button
-                          type="button"
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-error/5 text-error border border-error/20 hover:bg-error/10"
-                          onClick={() => setConfirmCustomer(c)}
-                        >
-                          <Icon name="Trash2" size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+            <div className="max-h-48 overflow-y-auto border border-border rounded-lg divide-y divide-border">
+              {reassignSearchResults.length === 0 && (
+                <div className="p-4 text-center text-neutral-500 text-sm">
+                  {reassignSearch.trim().length < 2 ? "Type at least 2 characters to search" : "No other customers found"}
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination row */}
-        <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
-          <span>
-            Showing {pageStart}–{pageEnd} of {total} entries
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
-              disabled={safePage === 1}
-              onClick={() => loadCustomers(1, search)}
-            >
-              {"<<"}
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
-              disabled={safePage === 1}
-              onClick={() => loadCustomers(safePage - 1, search)}
-            >
-              {"<"}
-            </button>
-            <span className="px-2 text-[11px]">
-              {safePage} / {totalPages}
-            </span>
-            <button
-              type="button"
-              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
-              disabled={safePage === totalPages}
-              onClick={() => loadCustomers(safePage + 1, search)}
-            >
-              {">"}
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-7 items-center justify-center rounded-full border border-border px-2 disabled:opacity-50"
-              disabled={safePage === totalPages}
-              onClick={() => loadCustomers(totalPages, search)}
-            >
-              {">>"}
-            </button>
+              {reassignSearchResults.map((c) => (
+                <div
+                  key={c._id}
+                  onClick={() => setReassignTarget(c)}
+                  className={`p-3 cursor-pointer transition-colors ${reassignTarget?._id === c._id ? "bg-primary/10 border-l-2 border-primary" : "hover:bg-muted/50"}`}
+                >
+                  <div className="font-medium text-foreground">{c.customerName || "—"}</div>
+                  <div className="text-xs text-muted-foreground">{c.primaryMobile || ""} {c.city ? ` • ${c.city}` : ""}</div>
+                </div>
+              ))}
+            </div>
+            {reassignTarget && (
+              <p className="text-xs text-green-600 dark:text-green-400">
+                Loans will be reassigned to: <strong>{reassignTarget.customerName}</strong>
+              </p>
+            )}
           </div>
-        </div>
-      </div>
+        )}
+      </Modal>
 
-      {/* Rich view modal (Ant Design) */}
-      {viewCustomer && (
-        <CustomerViewModal
-          open={!!viewCustomer}
-          customer={viewCustomer}
-          onClose={() => setViewCustomer(null)}
-          onEdit={() => {
-            const id = viewCustomer._id || viewCustomer.id;
-            setViewCustomer(null);
-            navigate(`/customers/edit/${id}`);
-          }}
-        />
-      )}
-
-      {/* Confirm delete */}
-      {confirmCustomer && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-          onClick={() => setConfirmCustomer(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-sm font-semibold text-foreground mb-1">
-              Delete customer?
-            </div>
-            <div className="text-xs text-muted-foreground mb-3">
-              Are you sure you want to delete{" "}
-              <span className="font-medium">
-                {confirmCustomer.customerName || "this customer"}
-              </span>
-              ? This action cannot be undone.
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs"
-                onClick={() => setConfirmCustomer(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="inline-flex items-center gap-1 rounded-full border border-error/30 bg-error px-3 py-1 text-xs text-error-foreground"
-                onClick={handleDelete}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CustomerViewModal
+        open={isViewModalOpen}
+        customer={selectedCustomer}
+        onClose={() => closeViewModal()}
+        onEdit={() => {
+          if (selectedCustomer) {
+            handleEditCustomer(selectedCustomer);
+            closeViewModal();
+          }
+        }}
+      />
     </div>
   );
-}
+};
+
+export default CustomerDashboard;

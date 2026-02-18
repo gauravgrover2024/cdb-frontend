@@ -1,34 +1,82 @@
 import React, { useMemo, useEffect, useState } from "react";
-import { Form } from "antd";
+import { Form, Select, Spin, AutoComplete } from "antd";
 import Icon from "../../../../../components/AppIcon";
+import { useVehicleData } from "../../../../../hooks/useVehicleData";
+import { formatINR } from "../../../../../utils/currency";
 
+// Comprehensive list of Indian cities (100+ major cities)
 const INDIAN_CITIES = [
-  "Ahmedabad",
-  "Bangalore",
-  "Chennai",
-  "Delhi",
-  "Gurgaon",
-  "Hyderabad",
-  "Jaipur",
-  "Kolkata",
-  "Mumbai",
-  "Noida",
-  "Pune",
-  "Surat",
-  "Vadodara",
-  "Chandigarh",
-  "Indore",
-  "Kochi",
-  "Lucknow",
-  "Nagpur",
-  "Visakhapatnam",
-  "Coimbatore",
+  // Metro Cities
+  "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Pune", "Ahmedabad",
+  
+  // Tier 1 Cities
+  "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal",
+  "Visakhapatnam", "Pimpri-Chinchwad", "Patna", "Vadodara", "Ghaziabad", "Ludhiana",
+  "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Kalyan-Dombivali",
+  
+  // Tier 2 Cities
+  "Vasai-Virar", "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar",
+  "Navi Mumbai", "Allahabad", "Ranchi", "Howrah", "Coimbatore", "Jabalpur",
+  "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur", "Kota",
+  
+  // State Capitals & Important Cities
+  "Chandigarh", "Guwahati", "Thiruvananthapuram", "Solapur", "Hubli-Dharwad",
+  "Tiruchirappalli", "Tiruppur", "Moradabad", "Mysore", "Bareilly", "Gurgaon",
+  "Aligarh", "Jalandhar", "Bhubaneswar", "Salem", "Mira-Bhayandar", "Warangal",
+  "Guntur", "Bhiwandi", "Saharanpur", "Gorakhpur", "Bikaner", "Amravati",
+  "Noida", "Jamshedpur", "Bhilai", "Cuttack", "Firozabad", "Kochi",
+  
+  // Other Major Cities
+  "Dehradun", "Durgapur", "Asansol", "Nanded", "Kolhapur", "Ajmer",
+  "Akola", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri",
+  "Jhansi", "Ulhasnagar", "Jammu", "Sangli-Miraj-Kupwad", "Mangalore",
+  "Erode", "Belgaum", "Ambattur", "Tirunelveli", "Malegaon", "Gaya",
+  "Jalgaon", "Udaipur", "Maheshtala", "Davanagere", "Kozhikode", "Kurnool",
+  "Rajahmundry", "Bokaro", "South Dumdum", "Bellary", "Patiala", "Gopalpur",
+  "Agartala", "Bhagalpur", "Muzaffarnagar", "Bhatpara", "Panihati", "Latur",
+  "Dhule", "Tirupati", "Rohtak", "Korba", "Bhilwara", "Berhampur", "Muzaffarpur",
+  "Ahmednagar", "Mathura", "Kollam", "Avadi", "Kadapa", "Kamarhati",
+  "Sambalpur", "Bilaspur", "Shahjahanpur", "Satara", "Bijapur", "Rampur",
+  "Shimoga", "Chandrapur", "Junagadh", "Thrissur", "Alwar", "Bardhaman",
+  "Kulti", "Kakinada", "Nizamabad", "Parbhani", "Tumkur", "Khammam",
+  "Ozhukarai", "Bihar Sharif", "Panipat", "Darbhanga", "Bally", "Aizawl",
+  "Dewas", "Ichalkaranji", "Karnal", "Bathinda", "Jalna", "Eluru",
+  "Kirari Suleman Nagar", "Barasat", "Purnia", "Satna", "Mau", "Sonipat",
+  "Farrukhabad", "Sagar", "Rourkela", "Durg", "Imphal", "Ratlam",
+  "Hapur", "Arrah", "Karimnagar", "Anantapur", "Etawah", "Ambernath",
+  "North Dumdum", "Bharatpur", "Begusarai", "New Delhi", "Gandhidham",
+  "Baranagar", "Tiruvottiyur", "Puducherry", "Sikar", "Thoothukudi",
+  "Raigarh", "Gonder", "Habra", "Bhusawal", "Orai", "Bahraich",
+  "Vellore", "Mahesana", "Sambalpur", "Raiganj", "Sirsa", "Danapur",
+  "Serampore", "Sultan Pur Majra", "Guna", "Jaunpur", "Panvel", "Shivpuri",
+  "Surendranagar Dudhrej", "Unnao", "Hugli and Chinsurah", "Alappuzha",
+  "Kottayam", "Machilipatnam", "Shimla", "Adoni", "Udupi", "Katihar",
+  "Proddatur", "Mahbubnagar", "Saharsa", "Dibrugarh", "Jorhat", "Hazaribagh"
 ];
 
 const PostFileVehicleVerification = ({ form }) => {
+  // Use centralized vehicle data hook
+  const {
+    makes,
+    models,
+    variants,
+    loading: vehicleLoading,
+    handleMakeChange,
+    handleModelChange,
+    handleVariantChange,
+  } = useVehicleData(form, {
+    makeFieldName: "vehicleMake",
+    modelFieldName: "vehicleModel",
+    variantFieldName: "vehicleVariant",
+    autofillPricing: false,
+  });
+
   const loanType = form.getFieldValue("typeOfLoan");
   const isNewCar = loanType === "New Car";
   const registerSameAsAadhaar = form.getFieldValue("registerSameAsAadhaar");
+
+  const vehicleMake = Form.useWatch("vehicleMake", form);
+  const vehicleModel = Form.useWatch("vehicleModel", form);
 
   useEffect(() => {
     // Force component to re-render when form state changes
@@ -36,10 +84,17 @@ const PostFileVehicleVerification = ({ form }) => {
     // This ensures form updates trigger re-renders
   }, [form.getFieldsValue()]);
 
+  const watchedRegistrationCity = Form.useWatch("registrationCity", form);
+  const watchedPostfileRegdCity = Form.useWatch("postfile_regd_city", form);
+
+  // Sync Registration City from Pre-File if available
+  useEffect(() => {
+    if (watchedRegistrationCity && !watchedPostfileRegdCity) {
+      form.setFieldsValue({ postfile_regd_city: watchedRegistrationCity });
+    }
+  }, [watchedRegistrationCity, watchedPostfileRegdCity, form]);
+
   // Pre-file field values
-  const vehicleMake = form.getFieldValue("vehicleMake") || "";
-  const vehicleModel = form.getFieldValue("vehicleModel") || "";
-  const vehicleVariant = form.getFieldValue("vehicleVariant") || "";
   const boughtInYear = form.getFieldValue("boughtInYear") || "";
   const hypothecation = form.getFieldValue("hypothecation") || "";
 
@@ -82,19 +137,19 @@ const PostFileVehicleVerification = ({ form }) => {
   );
 
   return (
-    <div className="bg-card rounded-lg shadow-elevation-2 p-4 md:p-6 h-full flex flex-col">
+    <div className="bg-card rounded-xl border border-border p-5 md:p-6 h-full flex flex-col">
       {/* header */}
-      <div className="flex items-center justify-between mb-4 md:mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Icon name="Car" size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              Vehicle Details Verification
+            <h2 className="text-lg font-bold text-foreground">
+              Vehicle Verification
             </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Pre-filled from pre-file and editable
+            <p className="text-sm text-muted-foreground">
+              Verify and update vehicle details
             </p>
           </div>
         </div>
@@ -105,32 +160,112 @@ const PostFileVehicleVerification = ({ form }) => {
         {/* Vehicle Basic Info */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Icon name="Info" size={16} />
+            <Icon name="Info" size={16} className="text-primary" />
             Vehicle Information
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item label="Make" name="vehicleMake" className="mb-0">
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
+              <Select
+                placeholder="Select make"
+                allowClear
+                showSearch
+                loading={vehicleLoading}
+                onChange={handleMakeChange}
+                className="w-full"
+                filterOption={(input, option) =>
+                  (option?.children || option?.value || '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                notFoundContent={
+                  vehicleLoading ? (
+                    <div className="p-4 text-center">
+                      <Spin size="small" />
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground text-xs">
+                      No makes available
+                    </div>
+                  )
+                }
+              >
+                {makes.map((make) => (
+                  <Select.Option key={make} value={make}>
+                    {make}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
 
             <Form.Item label="Model" name="vehicleModel" className="mb-0">
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
+              <Select
+                placeholder={vehicleMake ? "Select model" : "Select make first"}
+                disabled={!vehicleMake}
+                allowClear
+                showSearch
+                loading={vehicleLoading}
+                onChange={handleModelChange}
+                className="w-full"
+                filterOption={(input, option) =>
+                  (option?.children || option?.value || '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                notFoundContent={
+                  vehicleLoading ? (
+                    <div className="p-4 text-center">
+                      <Spin size="small" />
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground text-xs">
+                      No models available
+                    </div>
+                  )
+                }
+              >
+                {models.map((model) => (
+                  <Select.Option key={model} value={model}>
+                    {model}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item label="Variant" name="vehicleVariant" className="mb-0">
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
+              <Select
+                placeholder={vehicleModel ? "Select variant" : "Select model first"}
+                disabled={!vehicleModel}
+                allowClear
+                showSearch
+                loading={vehicleLoading}
+                onChange={handleVariantChange}
+                className="w-full"
+                filterOption={(input, option) =>
+                  (option?.children || option?.value || '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                notFoundContent={
+                  vehicleLoading ? (
+                    <div className="p-4 text-center">
+                      <Spin size="small" />
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground text-xs">
+                      No variants available
+                    </div>
+                  )
+                }
+              >
+                {variants.map((variant) => (
+                  <Select.Option key={variant} value={variant}>
+                    {variant}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
 
             <Form.Item
@@ -138,14 +273,21 @@ const PostFileVehicleVerification = ({ form }) => {
               name="postfile_regd_city"
               className="mb-0"
             >
-              <select className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background">
-                <option value="">Select City</option>
-                {INDIAN_CITIES.map((city) => (
-                  <option key={city} value={city}>
-                    {city}
-                  </option>
-                ))}
-              </select>
+              <AutoComplete
+                options={INDIAN_CITIES.sort().map((city) => ({
+                  value: city,
+                  label: city,
+                }))}
+                placeholder="Search or select city"
+                filterOption={(inputValue, option) =>
+                  option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                }
+                className="w-full"
+                style={{ height: '32px' }}
+                dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
+                allowClear
+                showSearch
+              />
             </Form.Item>
           </div>
         </div>
@@ -154,7 +296,7 @@ const PostFileVehicleVerification = ({ form }) => {
         {!isNewCar && (
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Icon name="Calendar" size={16} />
+              <Icon name="Calendar" size={16} className="text-primary" />
               Vehicle History
             </h3>
 
@@ -184,7 +326,7 @@ const PostFileVehicleVerification = ({ form }) => {
           <>
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Icon name="DollarSign" size={16} />
+                <Icon name="DollarSign" size={16} className="text-primary" />
                 Vehicle Pricing
               </h3>
 
@@ -266,7 +408,7 @@ const PostFileVehicleVerification = ({ form }) => {
                       Auto-calculated
                     </span>
                     <div className="font-semibold text-primary mt-1">
-                      ₹ {onRoadCost.toLocaleString("en-IN")}
+                      {formatINR(onRoadCost)}
                     </div>
                   </div>
                 </Form.Item>
@@ -278,7 +420,7 @@ const PostFileVehicleVerification = ({ form }) => {
         {isNewCar && (
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Icon name="User" size={16} />
+              <Icon name="User" size={16} className="text-primary" />
               Dealer Information
             </h3>
 
@@ -332,7 +474,7 @@ const PostFileVehicleVerification = ({ form }) => {
         {isNewCar && (
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Icon name="MapPin" size={16} />
+              <Icon name="MapPin" size={16} className="text-primary" />
               Vehicle Registration
             </h3>
 

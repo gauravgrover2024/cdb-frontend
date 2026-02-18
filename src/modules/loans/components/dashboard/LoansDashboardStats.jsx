@@ -28,36 +28,36 @@ const LoansDashboardStats = ({ loans, loading, onStatClick }) => {
         label: "Total Loans",
         value: total,
         icon: "FileText",
-        bgGradient: "from-blue-500 to-blue-600",
-        iconBg: "bg-blue-50",
-        iconColor: "text-blue-600",
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        borderColor: "border-blue-100"
       },
       {
         id: "pending",
         label: "Pending Approvals",
         value: pending,
         icon: "Clock",
-        bgGradient: "from-amber-500 to-orange-500",
-        iconBg: "bg-amber-50",
-        iconColor: "text-amber-600",
+        color: "text-amber-600",
+        bg: "bg-amber-50",
+        borderColor: "border-amber-100"
       },
       {
         id: "today",
         label: "Approved Today",
         value: approvedToday,
         icon: "CheckCircle2",
-        bgGradient: "from-green-500 to-emerald-500",
-        iconBg: "bg-green-50",
-        iconColor: "text-green-600",
+        color: "text-green-600", // Green for approvals
+        bg: "bg-green-50",
+        borderColor: "border-green-100"
       },
       {
         id: "disbursed",
         label: "Disbursed",
         value: disbursed,
         icon: "TrendingUp",
-        bgGradient: "from-purple-500 to-purple-600",
-        iconBg: "bg-purple-50",
-        iconColor: "text-purple-600",
+        color: "text-emerald-600",
+        bg: "bg-emerald-50",
+        borderColor: "border-emerald-100"
       },
     ];
   }, [loans]);
@@ -65,44 +65,26 @@ const LoansDashboardStats = ({ loans, loading, onStatClick }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       {stats.map((s) => (
-        <button
+        <div
           key={s.id}
           onClick={() => onStatClick?.(s.id)}
-          className="group relative bg-white rounded-2xl p-5 border border-gray-100 hover:border-gray-200 hover:shadow-lg transition-all duration-200 text-left"
+          className={`bg-card border rounded-2xl p-4 cursor-pointer hover:shadow-md transition ${s.borderColor}`}
         >
-          {/* Content */}
-          <div className="relative z-10">
-            {/* Icon + Value Row */}
-            <div className="flex items-start justify-between mb-3">
-              <div
-                className={`w-12 h-12 rounded-xl ${s.iconBg} flex items-center justify-center transition-transform group-hover:scale-110 duration-200`}
-              >
-                <Icon name={s.icon} size={20} className={s.iconColor} />
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border ${s.bg} ${s.borderColor}`}>
+                <Icon name={s.icon} size={18} className={s.color} />
               </div>
-
-              <div className="text-right">
-                <div className="text-3xl font-bold text-gray-900 tracking-tight tabular-nums">
-                  {loading ? "—" : s.value.toLocaleString()}
+              <div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
+                <div className="text-xl font-semibold">
+                  {loading ? "—" : s.value}
                 </div>
               </div>
             </div>
-
-            {/* Label + Arrow Row */}
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                {s.label}
-              </div>
-              <Icon
-                name="ArrowRight"
-                size={16}
-                className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-            </div>
+            <Icon name="ChevronRight" size={16} className="text-gray-400" />
           </div>
-
-          {/* Hover gradient overlay */}
-          <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-[0.03] bg-gradient-to-br from-gray-900 to-transparent transition-opacity pointer-events-none" />
-        </button>
+        </div>
       ))}
     </div>
   );

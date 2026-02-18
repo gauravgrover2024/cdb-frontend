@@ -1,6 +1,7 @@
 import React from "react";
-import { Form, Input, Select, InputNumber, Row, Col, Space } from "antd";
-import { BankOutlined } from "@ant-design/icons";
+import { Form, Input, Select, InputNumber, Row, Col } from "antd";
+
+import Icon from "../../../components/AppIcon";
 
 const bankOptions = [
   { label: "HDFC Bank", value: "HDFC Bank" },
@@ -29,30 +30,31 @@ const BankDetails = () => {
   }
 
   return (
-    <div
-      id="section-bank"
-      style={{
-        marginBottom: 32,
-        padding: 20,
-        background: "#fff",
-        borderRadius: 12,
-        border: "1px solid #f0f0f0",
-      }}
+    <div 
+        id="section-bank" 
+        className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
+        style={{ background: "var(--card)" }}
     >
       {/* SECTION HEADER */}
-      <Space
-        style={{
-          marginBottom: 20,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
-        <BankOutlined style={{ fontSize: 18, color: "#13c2c2" }} />
-        <span style={{ fontWeight: 600 }}>Banking Details</span>
-      </Space>
+      <div className="section-header mb-6 flex justify-between items-center">
+        <div className="section-title flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+             <Icon name="Building2" size={20} />
+          </div>
+          <span className="text-lg font-bold text-foreground">Banking Details</span>
+        </div>
+      </div>
 
       {/* FORM FIELDS */}
       <Row gutter={[16, 16]}>
+
+         {/* IFSC */}
+        <Col xs={24} md={8}>
+          <Form.Item label="IFSC Code" name="ifsc">
+            <Input placeholder="IFSC Code" className="rounded-xl border-border placeholder:font-normal" />
+          </Form.Item>
+        </Col>
+
         {/* Bank Name */}
         <Col xs={24} md={8}>
           <Form.Item label="Bank Name" name="bankName">
@@ -61,30 +63,26 @@ const BankDetails = () => {
               options={bankOptions}
               showSearch
               optionFilterProp="label"
+              className="rounded-xl border-border w-full placeholder:font-normal"
             />
-          </Form.Item>
-        </Col>
-
-        {/* Account Number */}
-        <Col xs={24} md={8}>
-          <Form.Item label="Account Number" name="accountNumber">
-            <Input placeholder="Account number" />
-          </Form.Item>
-        </Col>
-
-        {/* IFSC */}
-        <Col xs={24} md={8}>
-          <Form.Item label="IFSC Code" name="ifsc">
-            <Input placeholder="IFSC code" />
           </Form.Item>
         </Col>
 
         {/* Branch */}
         <Col xs={24} md={8}>
           <Form.Item label="Branch" name="branch">
-            <Input placeholder="Branch name" />
+            <Input placeholder="Branch name" className="rounded-xl border-border placeholder:font-normal" />
           </Form.Item>
         </Col>
+        
+        {/* Account Number */}
+        <Col xs={24} md={8}>
+          <Form.Item label="Account Number" name="accountNumber">
+            <Input placeholder="Account number" className="rounded-xl border-border placeholder:font-normal" />
+          </Form.Item>
+        </Col>
+
+      
 
         {/* Account Since */}
         <Col xs={24} md={8}>
@@ -92,7 +90,7 @@ const BankDetails = () => {
             <InputNumber
               placeholder="Number of years"
               min={0}
-              style={{ width: "100%" }}
+              className="w-full rounded-xl border-border placeholder:font-normal"
             />
           </Form.Item>
         </Col>
@@ -103,6 +101,7 @@ const BankDetails = () => {
             <Select
               placeholder="Select account type"
               options={accountTypeOptions}
+              className="rounded-xl border-border w-full placeholder:font-normal"
             />
           </Form.Item>
         </Col>

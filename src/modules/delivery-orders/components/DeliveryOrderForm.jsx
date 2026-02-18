@@ -1,6 +1,6 @@
 // src/modules/delivery-orders/components/DeliveryOrderForm.jsx
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Card,
   Button,
@@ -19,8 +19,9 @@ import {
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
+import { deliveryOrdersApi } from "../../../api/deliveryOrders";
+import { loansApi } from "../../../api/loans";
 
-import DOSectionCustomerDetails from "./sections/DOSectionCustomerDetails";
 import Section2DealerDetails from "./sections/Section2DealerDetails";
 import Section3VehicleDetailsShowroom from "./sections/Section3VehicleDetailsShowroom";
 import Section4VehicleDetailsCustomer from "./sections/Section4VehicleDetailsCustomer";
@@ -84,18 +85,12 @@ const useDebounce = (value, delay = 800) => {
 
 // ---- API helpers for DOs ----
 const fetchDOByLoanId = async (loanId) => {
-  const res = await fetch(`/api/do/${loanId}`);
-  if (!res.ok) throw new Error("Failed to fetch DO");
-  return res.json(); // can be null
+  const res = await deliveryOrdersApi.getByLoanId(loanId);
+  return res.data || null;
 };
 
 const saveDOByLoanId = async (loanId, payload) => {
-  const res = await fetch(`/api/do/${loanId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to save DO");
+  await deliveryOrdersApi.update(loanId, payload);
 };
 
 // -------------------------------------
@@ -110,7 +105,7 @@ const DeliveryOrderForm = () => {
 
   const showCustomerVehicleSection = Form.useWatch(
     "do_showCustomerVehicleSection",
-    form,
+    form
   );
 
   const [hasLoadedDO, setHasLoadedDO] = useState(false);
@@ -118,30 +113,52 @@ const DeliveryOrderForm = () => {
 
   const lastSaveAtRef = useRef(0);
 
-  // Load Loan from localStorage (prefill)
-  const loanData = useMemo(() => {
-    const editingLoanRaw = localStorage.getItem("editingLoan");
-    if (editingLoanRaw) {
-      try {
-        const parsed = JSON.parse(editingLoanRaw);
-        return parsed || null;
-      } catch (e) {
-        return null;
-      }
-    }
+  const [loanData, setLoanData] = useState(null);
 
-    const savedLoansRaw = localStorage.getItem("savedLoans");
-    if (savedLoansRaw && loanId) {
-      try {
-        const saved = JSON.parse(savedLoansRaw || "[]");
-        const match = saved.find((x) => x.loanId === loanId || x.id === loanId);
-        return match || null;
-      } catch (e) {
-        return null;
-      }
-    }
+  // Load Loan from API (prefill) with localStorage fallback
+  useEffect(() => {
+    if (!loanId) return;
 
-    return null;
+    const load = async () => {
+      try {
+        const res = await loansApi.getById(loanId);
+        if (res?.data) {
+          setLoanData(res.data);
+          return;
+        }
+      } catch (e) {
+        // ignore and fall back
+      }
+
+      const editingLoanRaw = localStorage.getItem("editingLoan");
+      if (editingLoanRaw) {
+        try {
+          const parsed = JSON.parse(editingLoanRaw);
+          setLoanData(parsed || null);
+          return;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      const savedLoansRaw = localStorage.getItem("savedLoans");
+      if (savedLoansRaw && loanId) {
+        try {
+          const saved = JSON.parse(savedLoansRaw || "[]");
+          const match = saved.find(
+            (x) => x.loanId === loanId || x.id === loanId
+          );
+          setLoanData(match || null);
+          return;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      setLoanData(null);
+    };
+
+    load();
   }, [loanId]);
 
   // -------------------------------------
@@ -154,10 +171,7 @@ const DeliveryOrderForm = () => {
       try {
         const foundDO = await fetchDOByLoanId(loanId);
 
-        if (!foundDO) {
-          setHasLoadedDO(true);
-          return;
-        }
+        if (!foundDO) return;
 
         setExistingDO(foundDO);
 
@@ -227,6 +241,7 @@ const DeliveryOrderForm = () => {
 
     const autosave = async () => {
       try {
+        // if form has nothing meaningful yet, skip
         if (!debouncedValues || typeof debouncedValues !== "object") return;
 
         const values = serializeDatesToISO(debouncedValues);
@@ -352,8 +367,109 @@ const DeliveryOrderForm = () => {
       </div>
 
       <Form form={form} layout="vertical">
-        {/* NEW: Section 1 – DO + Customer (same data, moved into component) */}
-        <DOSectionCustomerDetails form={form} readOnly={false} />
+        {/* DO DETAILS BLOCK */}
+        <Card style={{ borderRadius: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
+            Delivery Order Details
+          </div>
+
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={8}>
+              <Form.Item label="DO Date" name="do_date">
+                <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="DO Ref No" name="do_refNo">
+                <Input placeholder="Auto generated" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Loan ID" name="do_loanId">
+                <Input placeholder="Loan ID" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
+
+        <div style={{ height: 16 }} />
+
+        {/* CUSTOMER DETAILS BLOCK */}
+        <Card style={{ borderRadius: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
+            Customer Details
+          </div>
+
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={12}>
+              <Form.Item label="Customer Name" name="customerName">
+                <Input placeholder="Customer name" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item label="Address" name="residenceAddress">
+                <Input placeholder="Customer address" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Pincode" name="pincode">
+                <Input placeholder="Pincode" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="City" name="city">
+                <Input placeholder="City" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Source" name="recordSource">
+                <Input placeholder="Direct / Indirect" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24}>
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 12,
+                  borderRadius: 10,
+                  background: "#fafafa",
+                  border: "1px dashed #e0e0e0",
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                  Source Details
+                </div>
+
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} md={8}>
+                    <Form.Item label="Dealer / Channel Name" name="sourceName">
+                      <Input placeholder="Dealer / Channel" />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={8}>
+                    <Form.Item label="Dealer Mobile" name="dealerMobile">
+                      <Input placeholder="Dealer mobile" />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={8}>
+                    <Form.Item label="Dealer Address" name="dealerAddress">
+                      <Input placeholder="Dealer address" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </div>
+            </Col>
+          </Row>
+        </Card>
 
         <div style={{ height: 16 }} />
 

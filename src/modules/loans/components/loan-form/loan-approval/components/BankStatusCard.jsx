@@ -1,4 +1,3 @@
-// src/modules/loans/components/loan-form/loan-approval/components/BankStatusCard.jsx
 import React, { useState, useEffect } from "react";
 import Icon from "../../../../../../components/AppIcon";
 import Button from "../../../../../../components/ui/Button";
@@ -58,6 +57,8 @@ const BankStatusCard = ({
   onBankUpdate, // NEW: parent updater
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [status, setStatus] = useState(bank.status || "Pending");
+  const [remarks, setRemarks] = useState(bank.remarks || "");
   const [showBreakup, setShowBreakup] = useState(false);
   const [breakupReadOnly, setBreakupReadOnly] = useState(false);
 
@@ -168,9 +169,6 @@ const BankStatusCard = ({
     onBankUpdate && onBankUpdate({ tenure: num });
   };
 
-  const normalizedCibil = clamp(parseInt(cibilScore || 0, 10), 300, 900);
-  const cibilPercent = ((normalizedCibil - 300) / (900 - 300)) * 100;
-
   useEffect(() => {
     setNetLoanApproved(bank.breakupNetLoanApproved ?? bank.loanAmount ?? "");
     setCreditAssuredFinance(bank.breakupCreditAssured ?? "");
@@ -185,11 +183,11 @@ const BankStatusCard = ({
   ]);
 
   return (
-    <div className="bg-card rounded-lg border border-border p-4 md:p-6 transition-all relative">
+    <div className="bg-card rounded-lg border border-border p-4 md:p-6 transition-all relative max-w-sm mx-auto w-full min-h-[350px] flex flex-col">
       {/* SUMMARY */}
       {!expanded && (
         <>
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Icon name="Building2" size={24} className="text-primary" />
@@ -214,7 +212,10 @@ const BankStatusCard = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-2 gap-4 flex-1 content-start">
+            {/* Loan Amount summary */}
+            <div>{SummaryLoanAmount}</div>
+
             <div>
               <p className="text-xs text-muted-foreground">Interest Rate</p>
               <p className="font-semibold">
@@ -222,8 +223,19 @@ const BankStatusCard = ({
               </p>
             </div>
 
-            {/* Loan Amount summary */}
-            <div>{SummaryLoanAmount}</div>
+            <div>
+              <p className="text-xs text-muted-foreground">Tenure</p>
+              <p className="font-semibold">
+                {bank.tenure ? `${bank.tenure} months` : "-"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground">EMI</p>
+              <p className="font-semibold font-mono">
+                ₹ {emi ? formatInr(emi) : "-"}
+              </p>
+            </div>
 
             <div>
               <p className="text-xs text-muted-foreground">Processing Fee</p>
@@ -231,15 +243,58 @@ const BankStatusCard = ({
                 {bank.processingFee || "0"}
               </p>
             </div>
+
             <div>
-              <p className="text-xs text-muted-foreground">Tenure</p>
-              <p className="font-semibold">
-                {bank.tenure ? `${bank.tenure} months` : "-"}
-              </p>
+              <p className="text-xs text-muted-foreground">CIBIL Score</p>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="relative w-10 h-10">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle
+                      cx="50%"
+                      cy="50%"
+                      r="45%"
+                      stroke="#E4E4E7"
+                      strokeWidth="3"
+                      fill="none"
+                    />
+                    <circle
+                      cx="50%"
+                      cy="50%"
+                      r="45%"
+                      stroke={
+                        cibilScore >= 750
+                          ? "#16a34a"
+                          : cibilScore >= 650
+                          ? "#f59e0b"
+                          : "#ef4444"
+                      }
+                      strokeWidth="3"
+                      fill="none"
+                      strokeDasharray={`${
+                        (clamp(cibilScore, 300, 900) / 900) * 63
+                      } 63`}
+                      className="transition-all duration-500"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span
+                      className={`text-xs font-bold ${
+                        cibilScore >= 750
+                          ? "text-success"
+                          : cibilScore >= 650
+                          ? "text-warning"
+                          : "text-error"
+                      }`}
+                    >
+                      {cibilScore || "-"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-2 mt-auto pt-4">
             <Button
               size="sm"
               fullWidth
@@ -272,6 +327,45 @@ const BankStatusCard = ({
       {/* EXPANDED */}
       {expanded && (
         <div className="space-y-5">
+          {/* Status Dropdown */}
+          <div>
+            <label className="text-xs text-muted-foreground">Status</label>
+            <select
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground"
+              value={status}
+              onChange={e => setStatus(e.target.value)}
+            >
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Documents Required">Documents Required</option>
+            </select>
+          </div>
+
+          {/* Remarks Textarea */}
+          <div>
+            <label className="text-xs text-muted-foreground">Remarks</label>
+            <textarea
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              placeholder="Enter remarks"
+              rows={2}
+            />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <Button
+              size="sm"
+              fullWidth
+              variant="primary"
+              onClick={() => {
+                onBankUpdate && onBankUpdate({ status, remarks });
+                setExpanded(false);
+              }}
+            >
+              Save
+            </Button>
+          </div>
           <div className="flex justify-between items-center">
             <h3 className="font-semibold text-lg">Loan Details</h3>
             <Button
@@ -287,9 +381,10 @@ const BankStatusCard = ({
           <div>
             <label className="text-xs text-muted-foreground">Bank Name</label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={bank.bankName}
               onChange={(e) => onBankNameChange(bank.id, e.target.value)}
+              placeholder="Enter bank name"
             />
           </div>
 
@@ -298,31 +393,34 @@ const BankStatusCard = ({
             <div>
               <label className="text-xs text-muted-foreground">Make</label>
               <input
-                className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                 value={vehicleMake || ""}
                 onChange={(e) =>
                   form?.setFieldsValue({ vehicleMake: e.target.value })
                 }
+                placeholder="Enter make"
               />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Model</label>
               <input
-                className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                 value={vehicleModel || ""}
                 onChange={(e) =>
                   form?.setFieldsValue({ vehicleModel: e.target.value })
                 }
+                placeholder="Enter model"
               />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Variant</label>
               <input
-                className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                 value={vehicleVariant || ""}
                 onChange={(e) =>
                   form?.setFieldsValue({ vehicleVariant: e.target.value })
                 }
+                placeholder="Enter variant"
               />
             </div>
           </div>
@@ -374,7 +472,7 @@ const BankStatusCard = ({
               />
               <input
                 type="number"
-                className="w-20 border rounded-md px-2 py-1 text-sm"
+                className="w-20 bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
                 value={tenureMonths}
                 onChange={(e) => handleTenureInputChange(e.target.value)}
                 onBlur={handleTenureInputBlur}
@@ -388,7 +486,7 @@ const BankStatusCard = ({
               Rate of Interest (% p.a.)
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={interestRate}
               onChange={(e) => {
                 const val = e.target.value;
@@ -415,7 +513,7 @@ const BankStatusCard = ({
               Processing Fee
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={processingFee}
               onChange={(e) => {
                 const val = e.target.value;
@@ -443,7 +541,7 @@ const BankStatusCard = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
-                    className="w-24 border rounded-md px-2 py-1 text-sm"
+                    className="w-24 bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
                     value={cibilScore}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -527,9 +625,10 @@ const BankStatusCard = ({
           <div>
             <label className="text-xs text-muted-foreground">DSA Code</label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={dsaCode}
               onChange={(e) => setDsaCode(e.target.value)}
+              placeholder="Enter DSA code"
             />
           </div>
 
@@ -539,7 +638,7 @@ const BankStatusCard = ({
             <input
               type="number"
               step="0.01"
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={payoutPercent}
               onChange={(e) => {
                 const val = e.target.value;
@@ -695,12 +794,16 @@ const LoanBreakupPopup = ({
               Net Loan Amount Approved
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
-              value={netLoanApproved}
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
+              value={readOnly ? formatInr(netLoanApproved) : netLoanApproved}
               readOnly={readOnly}
-              onChange={(e) =>
-                handleChangeAndUpdate("netLoanApproved", e.target.value)
-              }
+              onChange={(e) => {
+                // Remove commas for input
+                const raw = e.target.value.replace(/,/g, "");
+                handleChangeAndUpdate("netLoanApproved", raw);
+              }}
+              placeholder="Enter amount"
+              inputMode="numeric"
             />
           </div>
 
@@ -709,12 +812,15 @@ const LoanBreakupPopup = ({
               Credit Assured Finance
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
-              value={creditAssuredFinance}
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
+              value={readOnly ? formatInr(creditAssuredFinance) : creditAssuredFinance}
               readOnly={readOnly}
-              onChange={(e) =>
-                handleChangeAndUpdate("creditAssuredFinance", e.target.value)
-              }
+              onChange={(e) => {
+                const raw = e.target.value.replace(/,/g, "");
+                handleChangeAndUpdate("creditAssuredFinance", raw);
+              }}
+              placeholder="Enter amount"
+              inputMode="numeric"
             />
           </div>
 
@@ -723,12 +829,15 @@ const LoanBreakupPopup = ({
               Insurance Finance
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
-              value={insuranceFinance}
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
+              value={readOnly ? formatInr(insuranceFinance) : insuranceFinance}
               readOnly={readOnly}
-              onChange={(e) =>
-                handleChangeAndUpdate("insuranceFinance", e.target.value)
-              }
+              onChange={(e) => {
+                const raw = e.target.value.replace(/,/g, "");
+                handleChangeAndUpdate("insuranceFinance", raw);
+              }}
+              placeholder="Enter amount"
+              inputMode="numeric"
             />
           </div>
 
@@ -737,12 +846,15 @@ const LoanBreakupPopup = ({
               Extended Warranty Finance
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
-              value={extendedWarrantyFinance}
+              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
+              value={readOnly ? formatInr(extendedWarrantyFinance) : extendedWarrantyFinance}
               readOnly={readOnly}
-              onChange={(e) =>
-                handleChangeAndUpdate("extendedWarrantyFinance", e.target.value)
-              }
+              onChange={(e) => {
+                const raw = e.target.value.replace(/,/g, "");
+                handleChangeAndUpdate("extendedWarrantyFinance", raw);
+              }}
+              placeholder="Enter amount"
+              inputMode="numeric"
             />
           </div>
 

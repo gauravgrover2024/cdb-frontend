@@ -2,41 +2,91 @@ import React from "react";
 import Icon from "../../../../../../components/AppIcon";
 
 const ComparisonMatrix = ({ banks }) => {
+  const formatInr = (val) => {
+    if (!val && val !== 0) return "-";
+    const num = parseFloat(String(val).replace(/[^0-9.]/g, "")) || 0;
+    return num.toLocaleString("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    });
+  };
+
+  // Calculate EMI
+  const calculateEMI = (principal, annualRate, tenureMonths) => {
+    const P = parseFloat(principal) || 0;
+    const N = parseFloat(tenureMonths) || 0;
+    const R = (parseFloat(annualRate) || 0) / 12 / 100;
+    if (!P || !N || !R) return 0;
+    const pow = Math.pow(1 + R, N);
+    const emi = (P * R * pow) / (pow - 1);
+    return Math.round(emi);
+  };
+
+  // Calculate Total Interest
+  const calculateTotalInterest = (principal, emi, tenureMonths) => {
+    const P = parseFloat(principal) || 0;
+    const E = parseFloat(emi) || 0;
+    const N = parseFloat(tenureMonths) || 0;
+    if (!P || !E || !N) return 0;
+    return Math.round((E * N) - P);
+  };
+
+  // Enrich banks with calculated values
+  const enrichedBanks = banks?.map((bank) => {
+    const emi = calculateEMI(bank?.loanAmount, bank?.interestRate, bank?.tenure);
+    const totalInterest = calculateTotalInterest(bank?.loanAmount, emi, bank?.tenure);
+    return {
+      ...bank,
+      emi,
+      totalInterest,
+    };
+  }) || [];
+
   const comparisonMetrics = [
     {
       key: "interestRate",
       label: "Interest Rate",
-      format: (val) => `${val}% p.a.`,
+      format: (val) => `${val || "-"}% p.a.`,
     },
-    { key: "processingFee", label: "Processing Fee", format: (val) => val },
-    { key: "loanAmount", label: "Loan Amount", format: (val) => val },
-    { key: "tenure", label: "Tenure", format: (val) => `${val} months` },
-    { key: "emi", label: "Monthly EMI", format: (val) => val },
-    { key: "totalInterest", label: "Total Interest", format: (val) => val },
+    { key: "processingFee", label: "Processing Fee", format: formatInr },
+    { key: "loanAmount", label: "Loan Amount", format: formatInr },
+    { key: "tenure", label: "Tenure", format: (val) => val ? `${val} months` : "-" },
+    { key: "emi", label: "Monthly EMI", format: formatInr },
+    { key: "totalInterest", label: "Total Interest", format: formatInr },
   ];
 
+  const cleanValue = (val) => {
+    if (typeof val === "number") return val;
+    return parseFloat(String(val || "0").replace(/[^0-9.]/g, "")) || 0;
+  };
+
   const getBestValue = (key) => {
+    if (!enrichedBanks || enrichedBanks.length === 0) return null;
+    
+    // metrics where lower is better
     if (
       key === "interestRate" ||
       key === "processingFee" ||
-      key === "totalInterest"
+      key === "totalInterest" || 
+      key === "emi"
     ) {
-      return Math.min(
-        ...banks?.map((b) => parseFloat(b?.[key]?.replace(/[^0-9.]/g, "") || 0))
-      );
+      const values = enrichedBanks.map((b) => cleanValue(b?.[key]));
+      return Math.min(...values);
     }
-    if (key === "loanAmount") {
-      return Math.max(
-        ...banks?.map((b) => parseFloat(b?.[key]?.replace(/[^0-9.]/g, "") || 0))
-      );
+    // metrics where higher is better
+    if (key === "loanAmount" || key === "tenure") {
+      const values = enrichedBanks.map((b) => cleanValue(b?.[key]));
+      return Math.max(...values);
     }
     return null;
   };
 
   const isBestValue = (bank, key) => {
+    if (!bank) return false;
     const bestValue = getBestValue(key);
     if (bestValue === null) return false;
-    const currentValue = parseFloat(bank?.[key]?.replace(/[^0-9.]/g, "") || 0);
+    const currentValue = cleanValue(bank?.[key]);
     return currentValue === bestValue;
   };
 
@@ -64,7 +114,7 @@ const ComparisonMatrix = ({ banks }) => {
               <th className="text-left p-3 md:p-4 text-xs md:text-sm font-semibold text-foreground min-w-[140px] sticky left-0 bg-muted/20 z-10">
                 Metric
               </th>
-              {banks?.map((bank, index) => (
+              {enrichedBanks?.map((bank, index) => (
                 <th
                   key={index}
                   className="text-center p-3 md:p-4 min-w-[140px]"
@@ -90,7 +140,7 @@ const ComparisonMatrix = ({ banks }) => {
                 <td className="p-3 md:p-4 text-xs md:text-sm font-medium text-foreground sticky left-0 bg-card z-10">
                   {metric?.label}
                 </td>
-                {banks?.map((bank, bankIndex) => (
+                {enrichedBanks?.map((bank, bankIndex) => (
                   <td key={bankIndex} className="p-3 md:p-4 text-center">
                     <div
                       className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md ${

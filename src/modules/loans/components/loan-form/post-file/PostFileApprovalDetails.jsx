@@ -1,15 +1,27 @@
 import React, { useMemo, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import { Form } from "antd";
+import { Form, Radio, Input } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
+import { formatINR } from "../../../../../utils/currency";
 
-const calculateEmi = (principal, annualRate, tenureMonths) => {
+const calculateEmi = (principal, annualRate, tenureMonths, type = "Reducing") => {
   const P = Number(String(principal).replace(/[^0-9.]/g, "")) || 0;
   const N = Number(tenureMonths) || 0;
-  const R = (Number(annualRate) || 0) / 12 / 100;
+  
+  if (!P || !N) return 0;
 
-  if (!P || !N || !R) return 0;
+  if (type === "Flat") {
+    // Flat Rate Formula
+    const yearlyRate = (Number(annualRate) || 0) / 100;
+    const years = N / 12;
+    const totalInterest = P * yearlyRate * years;
+    const totalAmount = P + totalInterest;
+    return Math.round(totalAmount / N);
+  }
+
+  const R = (Number(annualRate) || 0) / 12 / 100;
+  if (!R) return Math.round(P / N);
 
   const pow = Math.pow(1 + R, N);
   return Math.round((P * R * pow) / (pow - 1));
@@ -18,7 +30,9 @@ const calculateEmi = (principal, annualRate, tenureMonths) => {
 const PostFileApprovalDetails = ({ form }) => {
   const [showBreakupPopup, setShowBreakupPopup] = useState(false);
   const [showDisbursalPopup, setShowDisbursalPopup] = useState(false);
-  const [isSameAsApproved, setIsSameAsApproved] = useState(false);
+  
+  // Watch checkbox state from form to ensure persistence
+  const isSameAsApproved = Form.useWatch("postfile_sameAsApproved", form);
 
   // -----------------------------
   // WATCH APPROVAL VALUES (SOURCE)
@@ -38,12 +52,13 @@ const PostFileApprovalDetails = ({ form }) => {
   const approvalDisbursedDate = Form.useWatch("approval_disbursedDate", form);
   const approvalStatus = Form.useWatch("approval_status", form);
 
-  const isDisbursed = approvalStatus === "Disbursed";
+
 
   // -----------------------------
   // WATCH POSTFILE VALUES (TARGET)
   // -----------------------------
   const postfileRoi = Form.useWatch("postfile_roi", form);
+  const postfileRoiType = Form.useWatch("postfile_roiType", form);
   const postfileTenure = Form.useWatch("postfile_tenureMonths", form);
 
   // lock sync after vehicle verification (you will set this later)
@@ -66,12 +81,12 @@ const PostFileApprovalDetails = ({ form }) => {
   const disbursalTotal =
     disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw;
 
-  const approvalBreakup = {
+  const approvalBreakup = useMemo(() => ({
     net: form.getFieldValue("approval_breakup_netLoanApproved") || 0,
     credit: form.getFieldValue("approval_breakup_creditAssured") || 0,
     insurance: form.getFieldValue("approval_breakup_insuranceFinance") || 0,
     ew: form.getFieldValue("approval_breakup_ewFinance") || 0,
-  };
+  }), [form]);
 
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return "";
@@ -92,7 +107,11 @@ const PostFileApprovalDetails = ({ form }) => {
    * until postfile is locked (vehicle verification complete).
    */
   useEffect(() => {
-    if (!isDisbursed) return;
+    const isApprovedOrDisbursed = ["approved", "disbursed"].includes(
+      (approvalStatus || "").toLowerCase()
+    );
+
+    if (!isApprovedOrDisbursed) return;
     if (postfileLocked) return;
 
     const hasApprovalData =
@@ -109,6 +128,7 @@ const PostFileApprovalDetails = ({ form }) => {
       postfile_approvalDate: formatDateForInput(
         form.getFieldValue("approval_approvalDate")
       ),
+      postfile_loanAmountApproved: approvalLoanApproved || "",
       postfile_loanAmountDisbursed: approvalLoanDisbursed || "",
       postfile_roi: approvalRoi || "",
       postfile_tenureMonths: approvalTenureMonths || "",
@@ -118,7 +138,7 @@ const PostFileApprovalDetails = ({ form }) => {
 
     form.setFieldsValue(patch);
   }, [
-    isDisbursed,
+    approvalStatus,
     postfileLocked,
     approvalBankName,
     approvalLoanApproved,
@@ -130,66 +150,101 @@ const PostFileApprovalDetails = ({ form }) => {
   ]);
 
   // Auto-fill disbursal from approved if checkbox is checked and calculate EMI
+  // Auto-fill disbursal from approved if checkbox is checked and calculate EMI
   useEffect(() => {
-    if (!isSameAsApproved) return;
+    if (isSameAsApproved !== "Yes") return;
 
-    const patch = {
-      postfile_disbursedLoan: approvalBreakup.net,
-      postfile_disbursedCreditAssured: approvalBreakup.credit,
-      postfile_disbursedInsurance: approvalBreakup.insurance,
-      postfile_disbursedEw: approvalBreakup.ew,
+    // Helper to safely parse numbers (handles strings with commas)
+    const toNum = (val) => {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      const str = String(val).replace(/[^0-9.-]+/g, "");
+      return Number(str) || 0;
     };
+
+    // Get approval breakup values directly
+    const appNet = toNum(form.getFieldValue("approval_breakup_netLoanApproved"));
+    const appCredit = toNum(form.getFieldValue("approval_breakup_creditAssured"));
+    const appInsurance = toNum(form.getFieldValue("approval_breakup_insuranceFinance"));
+    const appEw = toNum(form.getFieldValue("approval_breakup_ewFinance"));
+
+    const breakupTotal = appNet + appCredit + appInsurance + appEw;
+    // Use approvalLoanApproved from useWatch (source of truth for the display that is working)
+    const approvedTotal = toNum(approvalLoanApproved);
+
+    let patch = {};
+
+    // Logic: If breakup sums to something significant, use it. 
+    // Otherwise fallback to the total approved amount.
+    // Use a small epsilon for float comparison safety, though simple > 0 is likely fine.
+    if (breakupTotal > 0) {
+      patch = {
+        postfile_disbursedLoan: appNet,
+        postfile_disbursedCreditAssured: appCredit,
+        postfile_disbursedInsurance: appInsurance,
+        postfile_disbursedEw: appEw,
+      };
+    } else {
+      patch = {
+        postfile_disbursedLoan: approvedTotal,
+        postfile_disbursedCreditAssured: 0,
+        postfile_disbursedInsurance: 0,
+        postfile_disbursedEw: 0,
+      };
+    }
 
     form.setFieldsValue(patch);
 
     const totalDisbursed =
-      Number(approvalBreakup.net || 0) +
-      Number(approvalBreakup.credit || 0) +
-      Number(approvalBreakup.insurance || 0) +
-      Number(approvalBreakup.ew || 0);
+      toNum(patch.postfile_disbursedLoan) +
+      toNum(patch.postfile_disbursedCreditAssured) +
+      toNum(patch.postfile_disbursedInsurance) +
+      toNum(patch.postfile_disbursedEw);
 
     const calculatedEmi = calculateEmi(
       totalDisbursed,
       postfileRoi || 0,
-      postfileTenure || 0
+      postfileTenure || 0,
+      postfileRoiType
     );
 
     form.setFieldsValue({
       postfile_emiAmount: calculatedEmi,
+      postfile_disbursedLoanTotal: totalDisbursed,
+      postfile_loanAmountDisbursed: totalDisbursed, // Keep main DB field in sync
     });
-  }, [isSameAsApproved, approvalBreakup, postfileRoi, postfileTenure, form]);
+  }, [isSameAsApproved, approvalLoanApproved, postfileRoi, postfileTenure, postfileRoiType, form]);
 
   const netLoanForDisbursal =
     disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw;
 
   const emiAmount = useMemo(
     () =>
-      calculateEmi(netLoanForDisbursal, postfileRoi || 0, postfileTenure || 0),
-    [netLoanForDisbursal, postfileRoi, postfileTenure]
+      calculateEmi(netLoanForDisbursal, postfileRoi || 0, postfileTenure || 0, postfileRoiType),
+    [netLoanForDisbursal, postfileRoi, postfileTenure, postfileRoiType]
   );
 
   return (
-    <div className="bg-card rounded-lg shadow-elevation-2 p-4 md:p-6 h-full flex flex-col">
+    <div className="bg-card rounded-xl border border-border p-5 md:p-6 h-full flex flex-col">
       {/* header */}
-      <div className="flex items-center justify-between mb-4 md:mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Icon name="Stamp" size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
+            <h2 className="text-lg font-bold text-foreground">
               Approval Details
             </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Pre-filled from disbursed bank and editable till vehicle
-              verification
+            <p className="text-sm text-muted-foreground">
+              Disbursement verification and approval
             </p>
           </div>
         </div>
         {approvalDisbursedDate && (
-          <div className="text-right">
-            <p className="text-[11px] text-muted-foreground">Disbursed on</p>
-            <p className="text-xs font-medium text-foreground">
+          <div className="text-right bg-muted/30 px-3 py-2 rounded-lg border border-border">
+            <p className="text-[11px] font-medium text-muted-foreground">Disbursed on</p>
+            <p className="text-xs font-semibold text-foreground">
               {new Date(approvalDisbursedDate).toLocaleDateString("en-IN")}
             </p>
           </div>
@@ -201,7 +256,7 @@ const PostFileApprovalDetails = ({ form }) => {
         {/* Basic approval info */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Icon name="FileText" size={16} />
+            <Icon name="FileText" size={16} className="text-primary" />
             Core Approval Info
           </h3>
 
@@ -211,10 +266,17 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_approvalDate"
               className="mb-0"
             >
-              <input
-                type="date"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
+                <div className="relative">
+                  <Icon
+                    name="Calendar"
+                    size={16}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                  />
+                  <input
+                    type="date"
+                    className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
+                  />
+                </div>
             </Form.Item>
 
             <Form.Item
@@ -236,12 +298,13 @@ const PostFileApprovalDetails = ({ form }) => {
               className="mb-0"
             >
               <div
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/40 cursor-pointer flex items-center justify-between"
+                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/30 cursor-pointer flex items-center justify-between hover:bg-muted/50 transition-colors"
                 onClick={() => setShowBreakupPopup(true)}
               >
-                <span className="font-semibold font-mono text-foreground">
-                  ₹ {Number(approvalLoanApproved || 0).toLocaleString("en-IN")}
+                <span className="font-semibold font-mono text-primary">
+                  {formatINR(approvalLoanApproved)}
                 </span>
+                <Icon name="Info" size={14} className="text-primary" />
               </div>
             </Form.Item>
 
@@ -249,40 +312,58 @@ const PostFileApprovalDetails = ({ form }) => {
               label="Net Loan Amount for Disbursal"
               name="postfile_disbursedLoanTotal"
               className="mb-0"
+              tooltip={isSameAsApproved === "Yes" ? "Set to 'No' to edit this amount" : "Click to edit breakdown"}
             >
               <div
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/40 cursor-pointer flex items-center justify-between"
-                onClick={() => setShowDisbursalPopup(true)}
+                className={`w-full border border-border rounded-md px-3 py-2 text-sm flex items-center justify-between transition-all ${
+                  isSameAsApproved === "Yes"
+                    ? "bg-muted/50 cursor-not-allowed opacity-80"
+                    : "bg-muted/30 cursor-pointer hover:bg-muted/50"
+                }`}
+                onClick={() => isSameAsApproved !== "Yes" && setShowDisbursalPopup(true)}
               >
-                <span className="font-semibold font-mono text-foreground">
-                  ₹ {disbursalTotal.toLocaleString("en-IN")}
+                <span className={`font-semibold font-mono ${isSameAsApproved === "Yes" ? "text-muted-foreground" : "text-primary"}`}>
+                  {formatINR(disbursalTotal)}
                 </span>
+                {isSameAsApproved !== "Yes" && <Icon name="PenSquare" size={14} className="text-primary" />}
+                {isSameAsApproved === "Yes" && <Icon name="Lock" size={14} className="text-muted-foreground" />}
               </div>
             </Form.Item>
           </div>
 
           {/* Checkbox: Same as Approved */}
-          <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-md border border-primary/20">
-            <input
-              type="checkbox"
-              id="sameAsApproved"
-              checked={isSameAsApproved}
-              onChange={(e) => setIsSameAsApproved(e.target.checked)}
-              className="w-4 h-4 cursor-pointer"
-            />
-            <label
-              htmlFor="sameAsApproved"
-              className="text-sm text-foreground cursor-pointer"
-            >
-              Use same disbursement as approved loan amount
-            </label>
-          </div>
+            {/* Is Disbursement Same as Approved Check - Radio Option */}
+            <div className="p-4 bg-muted/30 rounded-lg border border-border">
+              <span className="text-sm font-semibold text-foreground block mb-3">
+                Is disbursement amount same as approved amount?
+              </span>
+              <Form.Item name="postfile_sameAsApproved" className="mb-0">
+                <Radio.Group 
+                  optionType="button" 
+                  buttonStyle="solid"
+                  className="w-full grid grid-cols-2 gap-4"
+                >
+                  <Radio.Button 
+                    value="Yes" 
+                    className="text-center font-bold h-10 flex items-center justify-center !rounded-lg"
+                  >
+                    Yes
+                  </Radio.Button>
+                  <Radio.Button 
+                    value="No" 
+                    className="text-center font-bold h-10 flex items-center justify-center !rounded-lg"
+                  >
+                    No
+                  </Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+            </div>
         </div>
 
         {/* Loan breakup + finance components */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Icon name="Calculator" size={16} />
+            <Icon name="Calculator" size={16} className="text-primary" />
             Loan Components
           </h3>
 
@@ -292,9 +373,9 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_processingFees"
               className="mb-0"
             >
-              <input
+              <Input
                 type="number"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                placeholder="0"
               />
             </Form.Item>
           </div>
@@ -303,11 +384,11 @@ const PostFileApprovalDetails = ({ form }) => {
         {/* Rate & EMI information */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Icon name="Percent" size={16} />
+            <Icon name="Percent" size={16} className="text-primary" />
             Rate & EMI
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item
               label="Rate of Interest Type"
               name="postfile_roiType"
@@ -317,6 +398,7 @@ const PostFileApprovalDetails = ({ form }) => {
                 <option value="">Select</option>
                 <option value="Fixed">Fixed</option>
                 <option value="Floating">Floating</option>
+                <option value="Flat">Flat Rate</option>
               </select>
             </Form.Item>
 
@@ -331,7 +413,9 @@ const PostFileApprovalDetails = ({ form }) => {
                 className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
               />
             </Form.Item>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item
               label="EMI Mode"
               name="postfile_emiMode"
@@ -343,9 +427,7 @@ const PostFileApprovalDetails = ({ form }) => {
                 <option value="Advance">Advance</option>
               </select>
             </Form.Item>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Form.Item
               label="EMI Plan"
               name="postfile_emiPlan"
@@ -357,7 +439,9 @@ const PostFileApprovalDetails = ({ form }) => {
                 <option value="1+1">1+1</option>
               </select>
             </Form.Item>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item
               label="Tenure (Months)"
               name="postfile_tenureMonths"
@@ -374,10 +458,17 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_firstEmiDate"
               className="mb-0"
             >
-              <input
-                type="date"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
+                <div className="relative">
+                  <Icon
+                    name="Calendar"
+                    size={16}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                  />
+                  <input
+                    type="date"
+                    className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
+                  />
+                </div>
             </Form.Item>
           </div>
 
@@ -385,7 +476,7 @@ const PostFileApprovalDetails = ({ form }) => {
             <Form.Item
               label={`EMI Amount ${
                 emiAmount
-                  ? `(Calculated: ₹${emiAmount.toLocaleString("en-IN")})`
+                  ? `(Calculated: ${formatINR(emiAmount)})`
                   : ""
               }`}
               name="postfile_emiAmount"
@@ -393,22 +484,26 @@ const PostFileApprovalDetails = ({ form }) => {
             >
               <input
                 type="number"
-                placeholder={`Calculated: ₹${emiAmount || 0}`}
+                placeholder={`Calculated: ${formatINR(emiAmount)}`}
                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
               />
             </Form.Item>
           </div>
 
-          <div className="p-3 bg-info/10 rounded-md border border-info/20">
-            <p className="text-xs text-info">
-              <strong>EMI Calculation:</strong> Net Loan Amount for Disbursal (₹
-              {netLoanForDisbursal.toLocaleString("en-IN")}) with Rate (
-              {postfileRoi || 0}%) and Tenure ({postfileTenure || 0} months) = ₹
-              {emiAmount ? emiAmount.toLocaleString("en-IN") : 0}
+          <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
+            <p className="text-xs text-foreground">
+              <strong className="text-primary">EMI Calculation:</strong> Net Loan Amount for Disbursal ({formatINR(netLoanForDisbursal)}) with Rate (
+              {postfileRoi || 0}%) and Tenure ({postfileTenure || 0} months) = {formatINR(emiAmount)}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Hidden fields to ensure useWatch works and syncs correctly */}
+      <Form.Item name="postfile_disbursedLoan" hidden><input /></Form.Item>
+      <Form.Item name="postfile_disbursedCreditAssured" hidden><input /></Form.Item>
+      <Form.Item name="postfile_disbursedInsurance" hidden><input /></Form.Item>
+      <Form.Item name="postfile_disbursedEw" hidden><input /></Form.Item>
 
       {/* Render popups using Portal */}
       {showBreakupPopup &&
@@ -477,7 +572,7 @@ const LoanBreakupPopup = ({
               Total Loan Amount
             </span>
             <span className="text-sm font-semibold font-mono">
-              ₹ {total.toLocaleString("en-IN")}
+              {formatINR(total)}
             </span>
           </div>
         </div>
@@ -490,7 +585,7 @@ const Row = ({ label, value }) => (
   <div>
     <label className="text-xs text-muted-foreground">{label}</label>
     <div className="w-full mt-1 border rounded-md px-3 py-2 text-sm bg-muted/40">
-      ₹ {Number(value || 0).toLocaleString("en-IN")}
+      {formatINR(value)}
     </div>
   </div>
 );
@@ -518,6 +613,7 @@ const DisbursalBreakupPopup = ({ form, onClose }) => {
       postfile_disbursedCreditAssured: toNum(credit),
       postfile_disbursedInsurance: toNum(insurance),
       postfile_disbursedEw: toNum(ew),
+      postfile_loanAmountDisbursed: total, // Sync total
     });
     onClose();
   };
@@ -526,65 +622,76 @@ const DisbursalBreakupPopup = ({ form, onClose }) => {
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-md">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <span className="text-sm font-semibold">
-            Net Loan Disbursal Breakup
-          </span>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
-            <Icon name="X" size={18} />
+          <div className="flex items-center gap-2">
+            <Icon name="Calculator" size={18} className="text-primary" />
+            <span className="text-sm font-semibold text-foreground">
+              Net Loan Disbursal Breakup
+            </span>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <Icon name="X" size={18} className="text-muted-foreground" />
           </button>
         </div>
 
         <div className="p-4 space-y-3">
           <div>
-            <label className="text-xs text-muted-foreground">
+            <label className="text-xs text-muted-foreground font-medium">
               Loan Amount (Disbursed)
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              type="number"
+              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               value={net}
               onChange={(e) => setNet(e.target.value)}
+              placeholder="0"
             />
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground">
+            <label className="text-xs text-muted-foreground font-medium">
               Credit Assured Finance
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              type="number"
+              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               value={credit}
               onChange={(e) => setCredit(e.target.value)}
+              placeholder="0"
             />
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground">
+            <label className="text-xs text-muted-foreground font-medium">
               Insurance Finance
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              type="number"
+              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               value={insurance}
               onChange={(e) => setInsurance(e.target.value)}
+              placeholder="0"
             />
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground">
+            <label className="text-xs text-muted-foreground font-medium">
               Extended Warranty Finance
             </label>
             <input
-              className="w-full mt-1 border rounded-md px-3 py-2 text-sm"
+              type="number"
+              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               value={ew}
               onChange={(e) => setEw(e.target.value)}
+              placeholder="0"
             />
           </div>
 
-          <div className="flex justify-between pt-2 border-t border-border">
-            <span className="text-xs text-muted-foreground">
+          <div className="flex justify-between items-center pt-3 mt-1 border-t border-border bg-muted/30 px-3 py-2 rounded-md">
+            <span className="text-xs text-muted-foreground font-semibold">
               Total Loan Amount
             </span>
-            <span className="text-sm font-semibold font-mono">
-              ₹ {total.toLocaleString("en-IN")}
+            <span className="text-base font-bold font-mono text-primary">
+              {formatINR(total)}
             </span>
           </div>
         </div>

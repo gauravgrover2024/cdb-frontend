@@ -1,11 +1,7 @@
-import React from "react";
-import { Form, Input, Select, Row, Col, Space } from "antd";
-import {
-  SolutionOutlined,
-  HomeOutlined,
-  PhoneOutlined,
-  BankOutlined,
-} from "@ant-design/icons";
+import React, { useEffect, useState } from "react";
+import { Form, Input, Select, AutoComplete, Row, Col, Tag, Spin } from "antd";
+import Icon from "../../../components/AppIcon";
+import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } from "../../../constants/employmentOptions";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -13,13 +9,45 @@ const { Option } = Select;
 const EmploymentDetails = () => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
+  const occupation = Form.useWatch("occupationType", form);
+  const employmentPincode = Form.useWatch("employmentPincode", form);
+  const companyTypeValue = Form.useWatch("companyType", form);
+  const businessNatureValue = Form.useWatch("businessNature", form);
+  const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, companyTypeValue);
+  const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, businessNatureValue);
 
-  // Show in customer module & financed loans
+  const [fetchingPincode, setFetchingPincode] = useState(false);
+
+  // 1. Pincode logic for Office Address
+  useEffect(() => {
+    if (employmentPincode && employmentPincode.length === 6) {
+      const fetchCity = async () => {
+        try {
+          setFetchingPincode(true);
+          const response = await fetch(`https://api.postalpincode.in/pincode/${employmentPincode}`);
+          const data = await response.json();
+
+          if (data && data[0]?.Status === "Success") {
+             const postOffices = data[0].PostOffice;
+             if (postOffices && postOffices.length > 0) {
+                 const city = postOffices[0].District; 
+                 form.setFieldsValue({ employmentCity: city });
+             }
+          }
+        } catch (error) {
+           console.error("Office Pincode fetch failed", error);
+        } finally {
+           setFetchingPincode(false);
+        }
+      };
+
+      const timer = setTimeout(fetchCity, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [employmentPincode, form]);
+
   const showEmployment = isFinanced !== "No";
-
-  if (!showEmployment) {
-    return null;
-  }
+  if (!showEmployment) return null;
 
   const occupationOptions = [
     "Salaried",
@@ -28,188 +56,135 @@ const EmploymentDetails = () => {
     "Other",
   ];
 
-  const companyTypeOptions = [
-    "Pvt Ltd",
-    "Partnership",
-    "Proprietorship",
-    "Public Ltd",
-    "Retailers",
-    "PSU",
-    "Govt",
-    "MNC",
-    "Other (detail)",
-  ];
-
-  const businessNatureOptions = [
-    "Automobiles",
-    "Agriculture Based",
-    "Banking",
-    "BPO",
-    "Capital Goods",
-    "Telecom",
-    "IT",
-    "Retail",
-    "Real Estate",
-    "Consumer Durables",
-    "FMCG",
-    "NBFC",
-    "Marketing",
-    "Advertisement",
-    "Pharma",
-    "Media",
-    "Other (detail)",
-  ];
+  const isSelfEmployed = occupation?.includes("Self Employed");
 
   return (
-    <div
-      id="section-employment"
-      style={{
-        marginBottom: 32,
-        padding: 20,
-        background: "#fff",
-        borderRadius: 12,
-        border: "1px solid #f0f0f0",
-      }}
+    <div 
+        id="section-employment" 
+        className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
+        style={{ background: "var(--card)" }}
     >
-      {/* SECTION HEADER */}
-      <Space
-        style={{
-          marginBottom: 20,
-          display: "flex",
-          justifyContent: "space-between",
-        }}
-      >
-        <Space>
-          <SolutionOutlined style={{ color: "#1890ff" }} />
-          <span style={{ fontWeight: 600 }}>Employment / Business Details</span>
-        </Space>
-        <BankOutlined style={{ color: "#b37feb" }} />
-      </Space>
+      <div className="section-header mb-6 flex justify-between items-center">
+        <div className="section-title flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+             <Icon name="Briefcase" size={20} />
+          </div>
+          <span className="text-lg font-bold text-foreground">Employment / Business Details</span>
+        </div>
+        <Tag className="m-0 border-none bg-purple-500/10 text-purple-600 dark:text-purple-400 uppercase text-[10px] font-black tracking-widest px-2 py-0.5 rounded-full">
+          Professional
+        </Tag>
+      </div>
 
-      {/* FORM FIELDS */}
-      <Form.Item shouldUpdate noStyle>
-        {({ getFieldValue }) => {
-          const occupation = getFieldValue("occupationType");
+      <Row gutter={[16, 0]}>
+        {/* --- GROUP 1: Professional Setup --- */}
+        <Col xs={24} md={8}>
+          <Form.Item label="Occupation Type" name="occupationType">
+            <Select placeholder="Select occupation" allowClear>
+              {occupationOptions.map((opt) => (
+                <Option key={opt} value={opt}>{opt}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
 
-          return (
-            <Row gutter={[16, 16]}>
-              {/* Occupation Type */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Occupation Type" name="occupationType">
-                  <Select placeholder="Select occupation" allowClear>
-                    {occupationOptions.map((opt) => (
-                      <Option key={opt} value={opt}>
-                        {opt}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+        <Col xs={24} md={8}>
+          <Form.Item 
+            label={isSelfEmployed ? "Business Name" : "Company Name"} 
+            name="companyName"
+          >
+            <Input placeholder={isSelfEmployed ? "Trading name" : "Employer name"} />
+          </Form.Item>
+        </Col>
 
-              {/* Company / Business Name */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Company / Business Name" name="companyName">
-                  <Input placeholder="Company or business name" />
-                </Form.Item>
-              </Col>
+        <Col xs={24} md={8}>
+          <Form.Item label="Designation / Role" name="designation">
+            <Input placeholder="Enter Position" />
+          </Form.Item>
+        </Col>
 
-              {/* Company Type */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Company Type" name="companyType">
-                  <Select placeholder="Select company type" allowClear>
-                    {companyTypeOptions.map((opt) => (
-                      <Option key={opt} value={opt}>
-                        {opt}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+        {/* --- GROUP 2: Business Specifics --- */}
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item label="Constitution / Type" name="companyType">
+            <AutoComplete
+              placeholder="Select or type your own"
+              allowClear
+              options={companyTypeOptions}
+              filterOption={(input, option) =>
+                (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
+              }
+            />
+          </Form.Item>
+        </Col>
 
-              {/* Nature of Business */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Nature of Business" name="businessNature">
-                  <Select
-                    placeholder="Select nature of business"
-                    allowClear
-                    mode="multiple"
-                  >
-                    {businessNatureOptions.map((opt) => (
-                      <Option key={opt} value={opt}>
-                        {opt}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item label="Nature of Business" name="businessNature">
+            <AutoComplete
+              placeholder="Select or type your own"
+              allowClear
+              options={businessNatureOptions}
+              filterOption={(input, option) =>
+                (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
+              }
+            />
+          </Form.Item>
+        </Col>
 
-              {/* Salary – Salaried only */}
-              {occupation === "Salaried" && (
-                <Col xs={24} md={8}>
-                  <Form.Item label="Monthly Salary" name="salaryMonthly">
-                    <Input placeholder="Monthly salary amount" />
-                  </Form.Item>
-                </Col>
-              )}
+        {occupation === "Salaried" && (
+          <Col xs={24} md={8} className="mt-4">
+            <Form.Item label="Monthly Net Salary" name="salaryMonthly">
+              <Input 
+                placeholder="Take-home amount" 
+                prefix={<Icon name="IndianRupee" size={14} className="text-muted-foreground" />} 
+              />
+            </Form.Item>
+          </Col>
+        )}
 
-              {/* Incorporation Year – Self Employed */}
-              {(occupation === "Self Employed" ||
-                occupation === "Self Employed Professional") && (
-                <Col xs={24} md={8}>
-                  <Form.Item
-                    label="Incorporation Year"
-                    name="incorporationYear"
-                  >
-                    <Input placeholder="YYYY" maxLength={4} />
-                  </Form.Item>
-                </Col>
-              )}
+        {isSelfEmployed && (
+          <Col xs={24} md={8} className="mt-4">
+            <Form.Item label="Business Since (Year)" name="incorporationYear">
+              <Input placeholder="Ex: 2012" maxLength={4} />
+            </Form.Item>
+          </Col>
+        )}
 
-              {/* Designation */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Designation" name="designation">
-                  <Input placeholder="Designation / Role" />
-                </Form.Item>
-              </Col>
+        {/* --- GROUP 3: Contact Details --- */}
+        <Col xs={24} md={24}>
+           <div className="section-divider" />
+           <span className="text-[13px] font-black text-foreground uppercase tracking-widest block mb-4">Workplace Address</span>
+        </Col>
 
-              {/* Office Address */}
-              <Col xs={24}>
-                <Form.Item label="Office Address" name="employmentAddress">
-                  <TextArea
-                    rows={3}
-                    placeholder="Office / business address"
-                    prefix={<HomeOutlined />}
-                  />
-                </Form.Item>
-              </Col>
+        <Col xs={24}>
+          <Form.Item label="Office Address" name="employmentAddress">
+            <TextArea rows={2} placeholder="Building, Street, Area" />
+          </Form.Item>
+        </Col>
 
-              {/* Pincode */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Pincode" name="employmentPincode">
-                  <Input placeholder="6-digit pincode" maxLength={6} />
-                </Form.Item>
-              </Col>
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item label="Pincode" name="employmentPincode">
+            <Input placeholder="6-Digit Pincode" maxLength={6} />
+          </Form.Item>
+        </Col>
 
-              {/* City */}
-              <Col xs={24} md={8}>
-                <Form.Item label="City" name="employmentCity">
-                  <Input placeholder="City" />
-                </Form.Item>
-              </Col>
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item label="City" name="employmentCity">
+            <Input 
+              placeholder="Auto-filled" 
+              suffix={fetchingPincode ? <Spin size="small" /> : null} 
+            />
+          </Form.Item>
+        </Col>
 
-              {/* Office Phone */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Office Phone" name="employmentPhone">
-                  <Input
-                    placeholder="Office contact number"
-                    prefix={<PhoneOutlined />}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-          );
-        }}
-      </Form.Item>
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item label="Office Phone" name="employmentPhone">
+            <Input
+              placeholder="Work contact"
+              prefix={<Icon name="Phone" size={14} className="text-muted-foreground mr-1" />}
+            />
+          </Form.Item>
+        </Col>
+      </Row>
     </div>
   );
 };

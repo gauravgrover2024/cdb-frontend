@@ -5,6 +5,52 @@ import Button from "../../../../../../components/ui/Button";
 import Input from "../../../../../../components/ui/Input";
 import Select from "../../../../../../components/ui/Select";
 
+/**
+ * STATUS UPDATE MODAL COMPONENT
+ * 
+ * PURPOSE:
+ * Updates bank application status during loan approval process
+ * 
+ * BACKEND INTEGRATION:
+ * - Updates: approval_banksData array in Loan model
+ * - Fields Updated for each bank:
+ *   • status: Application status ("Pending", "Approved", "Rejected")
+ *   • statusNote: Remarks/notes for status change
+ *   • approvalDate: Date when approved (if status = "Approved")
+ *   • rejectionDate: Date when rejected (if status = "Rejected")
+ *   • statusHistory: Array of status changes with timestamps
+ *     - status: New status value
+ *     - changedAt: Timestamp of change
+ *     - note: Remarks provided by user
+ * 
+ * IMPORTANT CHANGE:
+ * - "Disbursed" status REMOVED from dropdown
+ * - Reason: Disbursement is now a separate action (not just a status)
+ * - Disbursement MUST be done via footer "Disburse" button with mandatory remarks
+ * - This ensures:
+ *   ✓ Proper workflow separation (Approval → Disbursement)
+ *   ✓ Mandatory remarks for disbursement (audit trail)
+ *   ✓ Better data integrity and tracking
+ * 
+ * AVAILABLE STATUS OPTIONS:
+ * - "Pending": Initial state / Under review
+ * - "Approved": Application approved by bank
+ * - "Rejected": Application rejected by bank
+ * 
+ * WORKFLOW:
+ * 1. User clicks "Update Status" button on bank card
+ * 2. Modal opens with current bank details
+ * 3. User selects new status from dropdown
+ * 4. User enters remarks (recommended)
+ * 5. If "Approved": Approval date can be set
+ * 6. If "Rejected": Rejection date can be set
+ * 7. Status history timeline shows all previous changes
+ * 8. On submit:
+ *    - updateBankStatus() called in parent
+ *    - Backend updates approval_banksData array
+ *    - Status history entry added
+ */
+
 const getStatusColor = (status) => {
   const s = (status || "").toLowerCase();
   if (s === "approved") return "text-success";
@@ -36,7 +82,7 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
     { value: "Pending", label: "Pending" },
     { value: "Approved", label: "Approved" },
     { value: "Rejected", label: "Rejected" },
-    { value: "Disbursed", label: "Disbursed" },
+    // Disbursed status is now handled only via footer disburse action
   ];
 
   const handleInputChange = (field, value) => {

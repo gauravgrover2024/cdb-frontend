@@ -1,445 +1,222 @@
-// src/layouts/CustomerLayout.jsx
 import React, { useMemo, useState } from "react";
+import { Layout, Button, Avatar, Dropdown, Space } from "antd";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from "../../components/ui/navigation-menu";
 
-/* ========= Light SaaS theme (orange accent) ========= */
-
-const theme = {
-  bgPage: "#f5f7fb",
-  bgSidebar: "#ffffff",
-  bgSidebarStripe: "#f97316",
-  bgSidebarItemActive: "#fff7ed",
-  bgSidebarItemHover: "#f9fafb",
-  bgHeader: "#ffffff",
-  bgTag: "#f9fafb",
-
-  borderSoft: "#e5e7eb",
-
-  textPrimary: "#111827",
-  textSecondary: "#6b7280",
-  textMuted: "#9ca3af",
-  textBrand: "#ea580c",
-
-  brandGrad: "linear-gradient(135deg,#f97316,#fb923c)",
-
-  radiusLg: 18,
-  radiusMd: 12,
-  radiusSm: 8,
-
-  sidebarWidth: 260,
-  sidebarCollapsed: 80,
-  headerHeight: 60,
-
-  font: "Inter, system-ui, -apple-system, BlinkMacSystemFont",
-};
-
-/* ========= Minimal icon set ========= */
-
-const Icon = ({ d, size = 18 }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    style={{ display: "block" }}
-  >
-    <path
-      d={d}
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const icons = {
-  chevronLeft: "M15 18l-6-6 6-6",
-  users:
-    "M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
-  file: "M14.5 3H8a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V9.5L14.5 3Z",
-  wallet:
-    "M5 7a3 3 0 0 1 3-3h11a1 1 0 0 1 1 1v3H6a1 1 0 0 1-1-1V7Zm0 4h15v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-6Zm11 3.5a1.5 1.5 0 1 0 0-3",
-  truck:
-    "M3 7a2 2 0 0 1 2-2h9v10H5a2 2 0 0 1-2-2V7Zm11 3h4.5L21 12.5V15a2 2 0 0 1-2 2h-5V10ZM7 19.5A1.5 1.5 0 1 0 7 16a1.5 1.5 0 0 0 0 3.5Zm9 0A1.5 1.5 0 1 0 16 16a1.5 1.5 0 0 0 0 3.5Z",
-  rupee: "M7 5h10M7 9h10M12 9a4 4 0 0 1 4 4H7m5 0 3 4",
-};
-
-/* ========= Nav config ========= */
-
-const NAV_ITEMS = [
-  { key: "customers", label: "Customers", to: "/customers", icon: icons.users },
-  { key: "loans", label: "Loans", to: "/loans", icon: icons.file },
-  {
-    key: "payouts",
-    label: "Payouts",
-    to: "/payouts/receivables",
-    icon: icons.wallet,
-  },
-  {
-    key: "delivery",
-    label: "Delivery Orders",
-    to: "/delivery-orders",
-    icon: icons.truck,
-  },
-  {
-    key: "payments",
-    label: "Payments",
-    to: "/payments",
-    icon: icons.rupee,
-  },
-];
-
-
-/* ========= Sidebar nav item ========= */
-
-const NavItem = ({ item, active, collapsed }) => (
-  <Link
-    to={item.to}
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: collapsed ? 0 : 10,
-      justifyContent: collapsed ? "center" : "flex-start",
-      padding: collapsed ? "10px 0" : "8px 12px",
-      borderRadius: 999,
-      marginInline: collapsed ? 0 : 4,
-      color: active ? theme.textBrand : theme.textSecondary,
-      textDecoration: "none",
-      fontSize: 13,
-      fontWeight: active ? 600 : 500,
-      backgroundColor: active
-        ? theme.bgSidebarItemActive
-        : "transparent",
-      border: active ? `1px solid #fed7aa` : "1px solid transparent",
-      transition:
-        "background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease",
-    }}
-  >
-    <span
-      style={{
-        width: 30,
-        height: 30,
-        borderRadius: 999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: active ? "#ffedd5" : "#f3f4f6",
-        color: active ? theme.textBrand : theme.textSecondary,
-      }}
-    >
-      <Icon d={item.icon} size={17} />
-    </span>
-    {!collapsed && <span>{item.label}</span>}
-  </Link>
-);
-
-/* ========= Layout ========= */
+const { Header, Content } = Layout;
 
 const CustomerLayout = () => {
-  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { isDarkMode, toggleTheme } = useTheme();
 
-  const activeKey = useMemo(() => {
-    const p = location.pathname;
-    if (p.startsWith("/customers")) return "customers";
-    if (p.startsWith("/loans")) return "loans";
-    if (p.startsWith("/payouts")) return "payouts";
-    if (p.startsWith("/delivery-orders")) return "delivery";
-    if (p.startsWith("/payments")) return "payments";
-    return "";
-  }, [location.pathname]);
+  const isActive = (path) => location.pathname === path;
 
-  const pageTitle = useMemo(() => {
-    const p = location.pathname;
-    if (p.startsWith("/customers/new")) return "New Customer";
-    if (p.startsWith("/customers/edit")) return "Edit Customer";
-    if (p.startsWith("/customers")) return "Customers";
-    if (p.startsWith("/loans")) return "Loans";
-    if (p.startsWith("/payouts")) return "Payouts";
-    if (p.startsWith("/delivery-orders")) return "Delivery Orders";
-    if (p.startsWith("/payments")) return "Payments";
+  const pageTitle = (() => {
+    const path = location.pathname;
+    if (path.startsWith("/analytics") || path === "/") return "Analytics Dashboard";
+    if (path.startsWith("/customers/new")) return "New Customer";
+    if (path.startsWith("/customers/edit")) return "Edit Customer";
+    if (path.startsWith("/customers")) return "Customer Dashboard";
+    if (path.startsWith("/loans/new")) return "New Loan";
+    if (path.startsWith("/loans/edit")) return "Edit Loan";
+    if (path.startsWith("/loans")) return "Loan Dashboard";
+    if (path.startsWith("/payouts")) return "Payout Management";
+    if (path.startsWith("/delivery-orders")) return "Delivery Orders";
+    if (path.startsWith("/payments")) return "Payments";
     return "Dashboard";
-  }, [location.pathname]);
+  })();
 
-  const todayLabel = useMemo(
-    () =>
-      new Date().toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-    [],
+  const navigationGroups = [
+    {
+      label: "Analytics",
+      path: "/analytics",
+    },
+    {
+      label: "Customers",
+      children: [
+        { label: "Dashboard", path: "/customers" },
+        { label: "New Customer", path: "/customers/new" },
+      ],
+    },
+    {
+      label: "Loans",
+      children: [
+        { label: "Dashboard", path: "/loans" },
+        { label: "New Loan", path: "/loans/new" },
+      ],
+    },
+    {
+      label: "Finance",
+      children: [
+        { label: "Receivables", path: "/payouts/receivables" },
+        { label: "Delivery Orders", path: "/delivery-orders" },
+        { label: "Payments", path: "/payments" },
+      ],
+    },
+  ];
+
+  const userMenuItems = [
+    {
+      key: 'profile',
+      label: (
+        <div style={{ padding: '4px 0' }}>
+          <div style={{ fontWeight: 600 }}>Admin User</div>
+          <div style={{ fontSize: 11, color: '#8c8c8c' }}>admin@acillp.com</div>
+        </div>
+      ),
+    },
+    { type: 'divider' },
+    {
+      key: 'settings',
+      label: 'Settings',
+    },
+    {
+      key: 'logout',
+      label: 'Logout',
+      danger: true,
+    },
+  ];
+
+  const workSansStyle = {
+    fontFamily: '"Work Sans", sans-serif',
+    fontOpticalSizing: 'auto',
+    fontWeight: 700,
+    fontStyle: 'normal',
+  };
+
+  const BrandLogo = () => (
+    <div
+      style={{
+        height: 64,
+        display: "flex",
+        alignItems: "center",
+        padding: "0 16px 0 0",
+        gap: 12,
+        background: "transparent",
+      }}
+    >
+      <img
+        src={process.env.PUBLIC_URL + "/ACILLP.svg"}
+        alt="Logo"
+        style={{
+          height: 56,
+          width: "auto",
+          objectFit: "contain",
+          display: "block",
+        }}
+      />
+
+    </div>
   );
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        background: theme.bgPage,
-        fontFamily: theme.font,
-        color: theme.textPrimary,
-      }}
-    >
-      {/* ========== SIDEBAR ========== */}
-      <aside
-        style={{
-          width: collapsed ? theme.sidebarCollapsed : theme.sidebarWidth,
-          transition: "width 0.22s ease",
-          borderRight: `1px solid ${theme.borderSoft}`,
-          background: theme.bgSidebar,
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          boxShadow: "0 0 0 1px rgba(15,23,42,0.03)",
-          zIndex: 20,
-        }}
-      >
-        {/* Colored stripe on the very left */}
-        <div
+    <Layout style={{ minHeight: "100vh" }}>
+      <Layout>
+        <Header
           style={{
-            position: "absolute",
-            insetY: 0,
-            left: 0,
-            width: 4,
-            background: theme.brandGrad,
-          }}
-        />
-
-        {/* Content */}
-        <div
-          style={{
-            padding: "10px 10px 12px 14px",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            boxSizing: "border-box",
-          }}
-        >
-          {/* Brand row */}
-          <div
-            style={{
-              height: theme.headerHeight,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: collapsed ? "center" : "flex-start",
-              gap: 10,
-            }}
-          >
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 12,
-                background: theme.brandGrad,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 800,
-                fontSize: 14,
-                color: "#fff7ed",
-                boxShadow: "0 10px 25px rgba(249,115,22,0.4)",
-                flexShrink: 0,
-              }}
-            >
-              AC
-            </div>
-            {!collapsed && (
-              <div style={{ lineHeight: 1.15 }}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: theme.textPrimary,
-                  }}
-                >
-                  Autocredits India LLP
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: theme.textSecondary,
-                  }}
-                >
-                  CDrive Platform
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Section label */}
-          {!collapsed && (
-            <div
-              style={{
-                fontSize: 11,
-                textTransform: "uppercase",
-                letterSpacing: 1.2,
-                color: theme.textMuted,
-                padding: "8px 4px 4px",
-              }}
-            >
-              Navigation
-            </div>
-          )}
-
-          {/* Nav list */}
-          <nav
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              marginTop: 4,
-              flex: 1,
-            }}
-          >
-            {NAV_ITEMS.map((item) => (
-              <NavItem
-                key={item.key}
-                item={item}
-                active={activeKey === item.key}
-                collapsed={collapsed}
-              />
-            ))}
-          </nav>
-
-          {/* Collapse button */}
-          <button
-            type="button"
-            onClick={() => setCollapsed((v) => !v)}
-            style={{
-              marginTop: 12,
-              marginInline: 4,
-              width: collapsed ? 40 : "auto",
-              alignSelf: collapsed ? "center" : "stretch",
-              borderRadius: 999,
-              border: `1px solid ${theme.borderSoft}`,
-              background: "#ffffff",
-              color: theme.textSecondary,
-              fontSize: 11,
-              padding: "6px 10px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              cursor: "pointer",
-            }}
-          >
-            <span
-              style={{
-                transform: collapsed ? "rotate(180deg)" : "none",
-                transition: "transform 0.18s ease",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon d={icons.chevronLeft} size={14} />
-            </span>
-            {!collapsed && <span>Collapse</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* ========== MAIN COLUMN ========== */}
-      <section
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
-        }}
-      >
-        {/* Header */}
-        <header
-          style={{
-            height: theme.headerHeight,
+            ...workSansStyle,
+            padding: "0 16px",
+            background: isDarkMode ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.85)",
+            backdropFilter: "blur(12px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "0 20px",
-            borderBottom: `1px solid ${theme.borderSoft}`,
-            background: theme.bgHeader,
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
+            borderBottom: `1px solid var(--border)`,
+            zIndex: 9,
+            height: 64,
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 600,
-                color: theme.textPrimary,
-              }}
-            >
-              {pageTitle}
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: theme.textSecondary,
-              }}
-            >
-              Autocredits • CDrive
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+            <BrandLogo />
+            <NavigationMenu>
+              <NavigationMenuList>
+                {navigationGroups.map((group) => (
+                  group.children ? (
+                    <NavigationMenuItem key={group.label}>
+                      <NavigationMenuTrigger className={navigationMenuTriggerStyle()}>
+                        {group.label}
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <div style={{ padding: "12px 16px", fontSize: 13, color: "#666", minWidth: 260 }}>
+                          {group.description}
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          {group.children.map((child) => (
+                            <NavigationMenuLink
+                              asChild
+                              key={child.path}
+                              className={navigationMenuTriggerStyle() + (isActive(child.path) ? " active" : "")}
+                              style={{ minWidth: 260 }}
+                            >
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <Link to={child.path}>{child.label}</Link>
+                                <span style={{ fontSize: 11, color: "#888", marginLeft: 2 }}>{child.description}</span>
+                              </div>
+                            </NavigationMenuLink>
+                          ))}
+                        </div>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  ) : (
+                    <NavigationMenuItem key={group.path}>
+                      <NavigationMenuLink
+                        asChild
+                        className={navigationMenuTriggerStyle() + (isActive(group.path) ? " active" : "")}
+                      >
+                        <Link to={group.path}>{group.label}</Link>
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  )
+                ))}
+              </NavigationMenuList>
+            </NavigationMenu>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11,
-                padding: "4px 9px",
-                borderRadius: 999,
-                border: `1px solid ${theme.borderSoft}`,
-                background: theme.bgTag,
-                color: theme.textSecondary,
-                whiteSpace: "nowrap",
-              }}
-            >
-              {todayLabel}
-            </span>
+          {/* Header Right */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Button
+                shape="circle"
+                icon={isDarkMode ? "🌞" : "🌙"}
+                onClick={toggleTheme}
+                type="text"
+                style={{ fontSize: 18 }}
+            />
+            <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
+              <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 999 }} className="hover:bg-foreground/5 transition-colors">
+                <Avatar style={{ backgroundColor: "var(--primary)", verticalAlign: 'middle' }} size="medium" />
+                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, textAlign: 'left' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'inherit' }}>Admin User</span>
+                  <span style={{ fontSize: 10, color: "var(--muted-foreground)" }}>Admin</span>
+                </div>
+              </Space>
+            </Dropdown>
           </div>
-        </header>
+        </Header>
 
-        {/* Content */}
-        <main
+        <Content
+          id="app-scroll-container"
           style={{
-            flex: 1,
-            overflow: "auto",
-            padding: 18,
+            margin: "0",
+            padding: "0px",
+            minHeight: 280,
+            overflowY: "auto",
+            height: "calc(100vh - 64px)",
+            backgroundColor: "var(--background)",
           }}
         >
-          <div
-            style={{
-              maxWidth: 1440,
-              margin: "0 auto",
-              height: "100%",
-            }}
-          >
-            <div
-              style={{
-                background: "#ffffff",
-                borderRadius: theme.radiusLg,
-                border: `1px solid ${theme.borderSoft}`,
-                boxShadow:
-                  "0 18px 45px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.02)",
-                padding: 18,
-                minHeight: "calc(100vh - 60px - 36px)",
-              }}
-            >
-              <Outlet />
-            </div>
-          </div>
-        </main>
-      </section>
-    </div>
+          <Outlet />
+        </Content>
+      </Layout>
+    </Layout>
   );
 };
 

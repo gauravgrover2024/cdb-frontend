@@ -11,10 +11,64 @@ import {
   Divider,
   Radio,
   InputNumber,
+  Tag,
+  Spin,
+  AutoComplete,
 } from "antd";
 import { CarOutlined } from "@ant-design/icons";
+import { useVehicleData } from "../../../../../hooks/useVehicleData";
 
 const { Option } = Select;
+
+// Comprehensive list of Indian cities (100+ major cities)
+const INDIAN_CITIES = [
+  // Metro Cities
+  "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Pune", "Ahmedabad",
+  
+  // Tier 1 Cities
+  "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal",
+  "Visakhapatnam", "Pimpri-Chinchwad", "Patna", "Vadodara", "Ghaziabad", "Ludhiana",
+  "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Kalyan-Dombivali",
+  
+  // Tier 2 Cities
+  "Vasai-Virar", "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar",
+  "Navi Mumbai", "Allahabad", "Ranchi", "Howrah", "Coimbatore", "Jabalpur",
+  "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur", "Kota",
+  
+  // State Capitals & Important Cities
+  "Chandigarh", "Guwahati", "Thiruvananthapuram", "Solapur", "Hubli-Dharwad",
+  "Tiruchirappalli", "Tiruppur", "Moradabad", "Mysore", "Bareilly", "Gurgaon",
+  "Aligarh", "Jalandhar", "Bhubaneswar", "Salem", "Mira-Bhayandar", "Warangal",
+  "Guntur", "Bhiwandi", "Saharanpur", "Gorakhpur", "Bikaner", "Amravati",
+  "Noida", "Jamshedpur", "Bhilai", "Cuttack", "Firozabad", "Kochi",
+  
+  // Other Major Cities
+  "Dehradun", "Durgapur", "Asansol", "Nanded", "Kolhapur", "Ajmer",
+  "Akola", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri",
+  "Jhansi", "Ulhasnagar", "Jammu", "Sangli-Miraj-Kupwad", "Mangalore",
+  "Erode", "Belgaum", "Ambattur", "Tirunelveli", "Malegaon", "Gaya",
+  "Jalgaon", "Udaipur", "Maheshtala", "Davanagere", "Kozhikode", "Kurnool",
+  "Rajahmundry", "Bokaro", "South Dumdum", "Bellary", "Patiala", "Gopalpur",
+  "Agartala", "Bhagalpur", "Muzaffarnagar", "Bhatpara", "Panihati", "Latur",
+  "Dhule", "Tirupati", "Rohtak", "Korba", "Bhilwara", "Berhampur", "Muzaffarpur",
+  "Ahmednagar", "Mathura", "Kollam", "Avadi", "Kadapa", "Kamarhati",
+  "Sambalpur", "Bilaspur", "Shahjahanpur", "Satara", "Bijapur", "Rampur",
+  "Shimoga", "Chandrapur", "Junagadh", "Thrissur", "Alwar", "Bardhaman",
+  "Kulti", "Kakinada", "Nizamabad", "Parbhani", "Tumkur", "Khammam",
+  "Ozhukarai", "Bihar Sharif", "Panipat", "Darbhanga", "Bally", "Aizawl",
+  "Dewas", "Ichalkaranji", "Karnal", "Bathinda", "Jalna", "Eluru",
+  "Kirari Suleman Nagar", "Barasat", "Purnia", "Satna", "Mau", "Sonipat",
+  "Farrukhabad", "Sagar", "Rourkela", "Durg", "Imphal", "Ratlam",
+  "Hapur", "Arrah", "Karimnagar", "Anantapur", "Etawah", "Ambernath",
+  "North Dumdum", "Bharatpur", "Begusarai", "New Delhi", "Gandhidham",
+  "Baranagar", "Tiruvottiyur", "Puducherry", "Sikar", "Thoothukudi",
+  "Raigarh", "Gonder", "Habra", "Bhusawal", "Orai", "Bahraich",
+  "Vellore", "Mahesana", "Sambalpur", "Raiganj", "Sirsa", "Danapur",
+  "Serampore", "Sultan Pur Majra", "Guna", "Jaunpur", "Panvel", "Shivpuri",
+  "Surendranagar Dudhrej", "Unnao", "Hugli and Chinsurah", "Alappuzha",
+  "Kottayam", "Machilipatnam", "Shimla", "Adoni", "Udupi", "Katihar",
+  "Proddatur", "Mahbubnagar", "Saharsa", "Dibrugarh", "Jorhat", "Hazaribagh"
+];
 
 /**
  * Section4VehiclePricing
@@ -29,6 +83,45 @@ const { Option } = Select;
 
 const Section4VehiclePricing = () => {
   const form = Form.useFormInstance();
+
+  // Use centralized vehicle data hook
+  const {
+    makes,
+    models,
+    variants,
+    loading: vehicleLoading,
+    handleMakeChange,
+    handleModelChange,
+    handleVariantChange,
+  } = useVehicleData(form, {
+    makeFieldName: "vehicleMake",
+    modelFieldName: "vehicleModel",
+    variantFieldName: "vehicleVariant",
+    autofillPricing: true,
+    onVehicleSelect: (vehicleData) => {
+      console.log("Vehicle selected from master data:", vehicleData);
+      // Auto-populate pricing if needed
+      if (vehicleData && loanType === "New Car") {
+        const currentValues = form.getFieldsValue();
+        const fieldsToUpdate = {};
+
+        if (!currentValues.exShowroomPrice && vehicleData.exShowroom) {
+          fieldsToUpdate.exShowroomPrice = vehicleData.exShowroom;
+        }
+        if (!currentValues.insuranceCost && vehicleData.insurance) {
+          fieldsToUpdate.insuranceCost = vehicleData.insurance;
+        }
+        if (!currentValues.roadTax && vehicleData.rto) {
+          fieldsToUpdate.roadTax = vehicleData.rto;
+        }
+
+        if (Object.keys(fieldsToUpdate).length > 0) {
+          form.setFieldsValue(fieldsToUpdate);
+        }
+      }
+    },
+  });
+
   useEffect(() => {
     const make = form.getFieldValue("vehicleMake");
     const model = form.getFieldValue("vehicleModel");
@@ -44,6 +137,9 @@ const Section4VehiclePricing = () => {
   const loanType = Form.useWatch("typeOfLoan", form);
   const hypothecation = Form.useWatch("hypothecation", form);
   const aadhaarSame = Form.useWatch("registerSameAsAadhaar", form);
+
+  const vehicleMake = Form.useWatch("vehicleMake", form);
+  const vehicleModel = Form.useWatch("vehicleModel", form);
 
   const v = Form.useWatch([], form) || {};
 
@@ -85,113 +181,194 @@ const Section4VehiclePricing = () => {
   const SummaryCard = () =>
     isNewCar && (
       <Card
+        variant="borderless"
         style={{
           position: "sticky",
-          top: 16,
-          borderRadius: 12,
-          background: "#fafafa",
+          top: 80,
+          borderRadius: 16,
+          background: "var(--muted)",
+          border: "1px solid var(--border)",
         }}
+        styles={{ body: { padding: 20 } }}
       >
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
-          {v.vehicleMake || "-"} {v.vehicleModel || ""} {v.vehicleVariant || ""}
+        <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>
+          {v.vehicleMake || "Unknown Make"} {v.vehicleModel || ""} {v.vehicleVariant || ""}
         </div>
-        <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
-          {loanType || "New Car"}
-        </div>
+        <Tag className="mb-4 border-none bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 font-bold uppercase text-[10px] tracking-wider px-2 rounded-full">
+           {loanType || "New Car"}
+        </Tag>
 
-        <Divider style={{ margin: "8px 0" }} />
-
-        <div style={{ fontSize: 13, marginBottom: 6 }}>
-          <strong>Dealer</strong>
+        <div className="bg-background rounded-xl p-3 border border-border/50 mb-4">
+            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">Dealer Info</div>
+            <div className="text-sm text-foreground">{v.dealerName || "Not Selected"}</div>
+            {(v.dealerContactPerson || v.dealerContactNumber) && (
+                 <div className="text-xs text-muted-foreground mt-1">
+                    {v.dealerContactPerson} {v.dealerContactPerson && v.dealerContactNumber ? "•" : ""} {v.dealerContactNumber}
+                 </div>
+            )}
+            {v.dealerAddress && <div className="text-xs text-muted-foreground mt-1 opacity-80">{v.dealerAddress}</div>}
         </div>
-        <div style={{ fontSize: 12, color: "#333" }}>
-          <div>{v.dealerName || "-"}</div>
-          <div style={{ color: "#666", marginTop: 4 }}>
-            {v.dealerContactPerson ? `${v.dealerContactPerson} • ` : ""}
-            {v.dealerContactNumber || "-"}
-          </div>
-          <div style={{ marginTop: 6 }}>{v.dealerAddress || "-"}</div>
-        </div>
-
-        <Divider style={{ margin: "12px 0" }} />
 
         <SummaryRow label="Ex-Showroom Price" value={exShowroom} />
         <SummaryRow label="Insurance" value={insurance} />
         <SummaryRow label="Road Tax" value={roadTax} />
         <SummaryRow label="Accessories" value={accessories} />
-        <SummaryRow label="Dealer Discount" value={-dealerDiscount} />
+        <SummaryRow label="Dealer Discount" value={-dealerDiscount} isDeduction />
         <SummaryRow
           label="Manufacturer Discount"
           value={-manufacturerDiscount}
+          isDeduction
         />
 
-        <Divider style={{ margin: "10px 0" }} />
+        <Divider className="my-3 border-border" />
 
         <SummaryRow label="On-Road Price" value={onRoad} highlight />
 
-        <SummaryRow label="Margin Money" value={-marginMoney} />
-        <SummaryRow label="Advance EMI" value={-advanceEmi} />
-        <SummaryRow label="Trade-In Value" value={-tradeInValue} />
+        <SummaryRow label="Margin Money" value={-marginMoney} isDeduction />
+        <SummaryRow label="Advance EMI" value={-advanceEmi} isDeduction />
+        <SummaryRow label="Trade-In Value" value={-tradeInValue} isDeduction />
 
-        <Divider style={{ margin: "10px 0" }} />
+        <Divider className="my-3 border-border" />
 
         <SummaryRow label="Gross Loan" value={grossLoan} highlight />
-        <SummaryRow label="Other Discounts" value={-otherDiscounts} />
+        <SummaryRow label="Other Discounts" value={-otherDiscounts} isDeduction />
 
-        <Divider style={{ margin: "10px 0" }} />
-        <SummaryRow label="Net Loan Amount" value={netLoan} final />
+        <div className="mt-4 p-4 rounded-lg bg-muted/40 border">
+            <div className="flex justify-between items-end">
+                <span className="text-xs text-muted-foreground">Net Loan Amount</span>
+                <span className="text-xl">₹ {netLoan.toLocaleString("en-IN")}</span>
+            </div>
+        </div>
       </Card>
     );
 
   return (
-    // <-- ADDED: top-level section wrapper & header only (no other changes)
     <div
-      style={{
-        marginBottom: 32,
-        padding: 20,
-        background: "#fff",
-        borderRadius: 12,
-        border: "1px solid #f0f0f0",
-      }}
+        id="section-vehicle"
+        className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
+        style={{ background: "var(--card)" }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          fontWeight: 600,
-          marginBottom: 16,
-        }}
-      >
-        <CarOutlined style={{ color: "#1418faff" }} />
-        <span>Vehicle Pricing & Loan Details</span>
+      <div className="section-header mb-6 flex justify-between items-center">
+        <div className="section-title flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+             <CarOutlined style={{ fontSize: 20 }} />
+          </div>
+          <span className="text-lg font-medium">Vehicle Pricing & Loan Details</span>
+        </div>
+        <Tag className="m-0 border bg-muted text-muted-foreground uppercase text-[10px] px-2 py-0.5 rounded">
+           Asset
+        </Tag>
       </div>
 
-      <Row gutter={16}>
+      <Row gutter={24}>
         <Col span={isNewCar ? 15 : 24}>
-          <Card style={{ borderRadius: 12 }}>
             <Row gutter={[16, 12]}>
               {/* Make / Model / Variant — COMMON to all types */}
               <Col xs={24} md={8}>
                 <Form.Item label="Make" name="vehicleMake">
-                  <Input placeholder="e.g., Toyota" />
+                  <Select 
+                    placeholder="Select Make" 
+                    allowClear 
+                    showSearch
+                    loading={vehicleLoading}
+                    onChange={handleMakeChange}
+                    filterOption={(input, option) =>
+                      (option?.children || option?.value || '')
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    notFoundContent={
+                      vehicleLoading ? (
+                        <div className="p-4 text-center">
+                          <Spin size="small" />
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-muted-foreground text-xs">
+                          No makes available
+                        </div>
+                      )
+                    }
+                  >
+                    {makes.map((make) => (
+                      <Select.Option key={make} value={make}>
+                        {make}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
                 <Form.Item label="Model" name="vehicleModel">
-                  <Input placeholder="e.g., Corolla" />
+                  <Select
+                    placeholder={vehicleMake ? "Select Model" : "Select Make First"}
+                    disabled={!vehicleMake}
+                    allowClear
+                    showSearch
+                    loading={vehicleLoading}
+                    onChange={handleModelChange}
+                    filterOption={(input, option) =>
+                      (option?.children || option?.value || '')
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    notFoundContent={
+                      vehicleLoading ? (
+                        <div className="p-4 text-center">
+                          <Spin size="small" />
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-muted-foreground text-xs">
+                          No models available
+                        </div>
+                      )
+                    }
+                  >
+                    {models.map((model) => (
+                      <Select.Option key={model} value={model}>
+                        {model}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
                 <Form.Item label="Variant" name="vehicleVariant">
-                  <Input placeholder="e.g., 1.8 E CVT" />
+                  <Select
+                    placeholder={vehicleModel ? "Select Variant" : "Select Model First"}
+                    disabled={!vehicleModel}
+                    allowClear
+                    showSearch
+                    loading={vehicleLoading}
+                    onChange={handleVariantChange}
+                    filterOption={(input, option) =>
+                      (option?.children || option?.value || '')
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    notFoundContent={
+                      vehicleLoading ? (
+                        <div className="p-4 text-center">
+                          <Spin size="small" />
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-muted-foreground text-xs">
+                          No variants available
+                        </div>
+                      )
+                    }
+                  >
+                    {variants.map((variant) => (
+                      <Select.Option key={variant} value={variant}>
+                        {variant}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </Form.Item>
-              </Col>
-
+              </Col>  
               {/* Type of Loan */}
               <Col xs={24} md={8}>
                 <Form.Item label="Type of Loan" name="typeOfLoan">
-                  <Select placeholder="Select loan type">
+                  <Select placeholder="Select Type of Loan">
                     <Option value="New Car">New Car</Option>
                     <Option value="Used Car">Used Car</Option>
                     <Option value="Car Cash-in">Car Cash-in</Option>
@@ -206,22 +383,45 @@ const Section4VehiclePricing = () => {
                   name="usage"
                   rules={[{ required: true, message: "Select usage" }]}
                 >
-                  <Select placeholder="Select usage">
+                  <Select placeholder="Select Vehicle Usage">
                     <Select.Option value="Private">Private</Select.Option>
                     <Select.Option value="Commercial">Commercial</Select.Option>
                   </Select>
                 </Form.Item>
               </Col>
 
+              {/* Registration City - Only for New Car */}
+              {isNewCar && (
+                <Col xs={24} md={8}>
+                  <Form.Item
+                    label="Registration City"
+                    name="registrationCity"
+                    rules={[{ required: true, message: "Select registration city" }]}
+                  >
+                    <AutoComplete
+                      options={INDIAN_CITIES.sort().map((city) => ({
+                        value: city,
+                        label: city,
+                      }))}
+                      placeholder="Search or Select City"
+                      filterOption={(inputValue, option) =>
+                        option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                      }
+                      allowClear
+                      showSearch
+                    />
+                  </Form.Item>
+                </Col>
+              )}
+              
               {/* USED / CASH-IN / REFINANCE — minimal fields */}
               {(isUsedCar || isCashIn || isRefinance) && (
                 <>
                   <Col xs={24} md={8}>
                     <Form.Item label="Bought In (Year)" name="boughtInYear">
-                      <Input placeholder="YYYY" />
+                      <Input placeholder="Enter Year (e.g., 2020)" />
                     </Form.Item>
                   </Col>
-
                   <Col xs={24} md={8}>
                     <Form.Item label="Hypothecation" name="hypothecation">
                       <Radio.Group>
@@ -230,7 +430,6 @@ const Section4VehiclePricing = () => {
                       </Radio.Group>
                     </Form.Item>
                   </Col>
-
                   {hypothecation === "Yes" && (
                     <Col xs={24} md={8}>
                       <Form.Item
@@ -252,7 +451,7 @@ const Section4VehiclePricing = () => {
                           name="purposeOfLoan"
                           rules={[{ required: true }]}
                         >
-                          <Select placeholder="Select purpose">
+                          <Select placeholder="Select Purpose of Loan">
                             <Option value="Home Renovation">
                               Home Renovation
                             </Option>
@@ -273,76 +472,153 @@ const Section4VehiclePricing = () => {
               {/* NEW CAR — full pricing */}
               {isNewCar && (
                 <>
+                  {/* Pricing Section Header */}
+                  <Col xs={24}>
+                    <div className="mt-6 mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-muted-foreground">Vehicle Pricing</span>
+                      </div>
+                      <div className="h-px bg-border"></div>
+                    </div>
+                  </Col>
+
                   <Col xs={24} md={8}>
                     <Form.Item label="Ex-Showroom Price" name="exShowroomPrice">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Ex-Showroom Price"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Insurance Cost" name="insuranceCost">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Insurance Cost"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Road Tax" name="roadTax">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Road Tax"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Accessories Amount"
-                      name="accessoriesAmount"
-                    >
-                      <InputNumber style={{ width: "100%" }} />
+                    <Form.Item label="Accessories Amount" name="accessoriesAmount">
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Accessories Amount"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
+                  </Col>
+
+                  {/* Discounts Section Header */}
+                  <Col xs={24}>
+                    <div className="mt-2 mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-muted-foreground">Discounts & Deductions</span>
+                      </div>
+                      <div className="h-px bg-border"></div>
+                    </div>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Dealer Discount" name="dealerDiscount">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Dealer Discount"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Manufacturer Discount"
-                      name="manufacturerDiscount"
-                    >
-                      <InputNumber style={{ width: "100%" }} />
+                    <Form.Item label="Manufacturer Discount" name="manufacturerDiscount">
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Manufacturer Discount"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
+                  </Col>
+
+                  {/* Loan Components Section Header */}
+                  <Col xs={24}>
+                    <div className="mt-2 mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs text-muted-foreground">Loan Components</span>
+                      </div>
+                      <div className="h-px bg-border"></div>
+                    </div>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Margin Money" name="marginMoney">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Margin Money"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Advance EMI" name="advanceEmi">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber 
+                        style={{ width: "100%" }} 
+                        className="rounded-lg"
+                        placeholder="Enter Advance EMI"
+                        formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
+                        parser={value => value.replace(/₹\s?|(,*)/g, '')} 
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Trade-in Value" name="tradeInValue">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber style={{ width: "100%" }} formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/₹\s?|(,*)/g, '')} />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Other Discounts" name="otherDiscounts">
-                      <InputNumber style={{ width: "100%" }} />
+                      <InputNumber style={{ width: "100%" }} formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/₹\s?|(,*)/g, '')} />
                     </Form.Item>
                   </Col>
 
                   {/* Dealer fields */}
+                  <Col xs={24}>
+                     <div className="h-px bg-border my-4" />
+                     <span className="text-xs text-muted-foreground block mb-4">Dealer Details</span>
+                  </Col>
+
                   <Col xs={24} md={8}>
                     <Form.Item label="Dealer Name" name="dealerName">
-                      <Input />
+                      <Input placeholder="Enter Dealer Name" />
                     </Form.Item>
                   </Col>
 
@@ -351,7 +627,7 @@ const Section4VehiclePricing = () => {
                       label="Contact Person"
                       name="dealerContactPerson"
                     >
-                      <Input />
+                      <Input placeholder="Enter Contact Person" />
                     </Form.Item>
                   </Col>
 
@@ -360,14 +636,19 @@ const Section4VehiclePricing = () => {
                       label="Contact Number"
                       name="dealerContactNumber"
                     >
-                      <Input />
+                      <Input placeholder="Enter Contact Number" />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24}>
                     <Form.Item label="Dealer Address" name="dealerAddress">
-                      <Input.TextArea rows={2} />
+                      <Input.TextArea rows={2} placeholder="Enter Dealer Address" />
                     </Form.Item>
+                  </Col>
+
+                  <Col xs={24}>
+                     <div className="h-px bg-border my-4" />
+                     <span className="text-xs text-muted-foreground block mb-4">Registration Details</span>
                   </Col>
 
                   <Col xs={24}>
@@ -389,14 +670,13 @@ const Section4VehiclePricing = () => {
                         name="registrationAddress"
                         rules={[{ required: true }]}
                       >
-                        <Input.TextArea rows={2} />
+                        <Input.TextArea rows={2} placeholder="Enter Registration Address" />
                       </Form.Item>
                     </Col>
                   )}
                 </>
               )}
             </Row>
-          </Card>
         </Col>
 
         {/* Summary on right for New Car */}
@@ -411,23 +691,19 @@ const Section4VehiclePricing = () => {
 };
 
 /* Small SummaryRow component */
-const SummaryRow = ({ label, value = 0, highlight, final }) => {
+const SummaryRow = ({ label, value = 0, highlight, isDeduction }) => {
   const display = Number.isFinite(Number(value))
-    ? Math.trunc(Number(value))
+    ? Math.abs(Math.trunc(Number(value)))
     : 0;
+
   return (
     <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 13,
-        fontWeight: highlight || final ? 700 : 500,
-        color: final ? "#1d39c4" : highlight ? "#237804" : "#111",
-        marginBottom: 6,
-      }}
+      className={`flex justify-between text-sm mb-1.5 ${highlight ? 'font-bold' : 'font-medium'}`}
     >
-      <span>{label}</span>
-      <span>₹ {display.toLocaleString("en-IN")}</span>
+      <span className={highlight ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+      <span className={`${isDeduction ? 'text-error' : highlight ? 'text-foreground' : 'text-foreground'}`}>
+        {isDeduction ? "- " : ""}₹ {display.toLocaleString("en-IN")}
+      </span>
     </div>
   );
 };

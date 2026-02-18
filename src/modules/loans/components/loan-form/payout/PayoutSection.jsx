@@ -4,33 +4,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
-import { useParams } from "react-router-dom";
-import { useRef } from "react";
-
-const useDebouncedEffect = (effect, deps, delay) => {
-  const timeoutRef = useRef();
-
-  useEffect(() => {
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(effect, delay);
-    return () => clearTimeout(timeoutRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, delay]);
-};
+import { Card, CardContent } from "../../../../../components/ui/Card";
+import { formatINR } from "../../../../../utils/currency";
 
 const PayoutSection = ({ form, readOnly = false }) => {
   const [receivables, setReceivables] = useState([]);
   const [payables, setPayables] = useState([]);
 
-  const { loanId, id } = useParams();
-  const activeLoanId = loanId || id;
-
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
-
   // =========================
   // WATCH REQUIRED FIELDS (ALWAYS TOP LEVEL)
   // =========================
   const approvalStatus = Form.useWatch("approval_status", form);
+  const disbursementStatus = Form.useWatch("disbursement_status", form);
   const disbursedBankName = Form.useWatch("approval_bankName", form);
   const disbursedAmount = Form.useWatch("approval_loanAmountDisbursed", form);
 
@@ -55,6 +40,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
 
   // derived flags
   const isDisbursed =
+    (disbursementStatus || "").toLowerCase().trim() === "disbursed" ||
     (approvalStatus || "").toLowerCase().trim() === "disbursed";
 
   // Dealer/Channel name comes from Record Details (sourceName)
@@ -134,24 +120,17 @@ const PayoutSection = ({ form, readOnly = false }) => {
         autoReceivables.push({
           id: Date.now(),
           payoutId: generatePayoutId("receivable"),
-          payout_created_date: new Date().toISOString(), // CHANGED: standardized field name
-          created_date: new Date().toISOString(), // ADDED: for dashboard compatibility
+          payout_createdAt: new Date().toISOString(),
 
           payout_applicable: "Yes",
           payout_type: "Bank",
           payout_party_name: disbursedBankName,
           payout_percentage: bankPercent,
           payout_amount: payoutAmount,
-          payout_direction: "Receivable", // ADDED: for dashboard filtering
 
           tds_applicable: "Yes",
           tds_percentage: tdsPerc,
           tds_amount: tdsAmount,
-
-          payout_status: "Pending", // ADDED: initial status
-          payout_received_date: "", // ADDED: for dashboard tracking
-          payment_history: [], // ADDED: for partial payment tracking
-          activity_log: [], // ADDED: for activity timeline
 
           payout_remarks: "Auto-generated from disbursed bank",
         });
@@ -184,25 +163,17 @@ const PayoutSection = ({ form, readOnly = false }) => {
         autoPayables.push({
           id: Date.now() + 1,
           payoutId: generatePayoutId("payable"),
-          payout_created_date: new Date().toISOString(), // CHANGED: standardized field name
-          created_date: new Date().toISOString(), // ADDED: for dashboard compatibility
+          payout_createdAt: new Date().toISOString(),
 
           payout_applicable: "Yes",
           payout_type: "Source",
           payout_party_name: dealerName,
           payout_percentage: sourcePercent,
           payout_amount: payoutAmount,
-          payout_direction: "Payable", // ADDED: for dashboard filtering
 
           tds_applicable: "Yes",
           tds_percentage: tdsPerc,
           tds_amount: tdsAmount,
-
-          payout_status: "Expected", // ADDED: initial status
-          payout_expected_date: "", // ADDED: for expected date tracking
-          payout_paid_date: "", // ADDED: for dashboard tracking
-          payment_history: [], // ADDED: for partial payment tracking
-          activity_log: [], // ADDED: for activity timeline
 
           payout_remarks:
             "Auto-generated from pre-file source payout (indirect)",
@@ -214,6 +185,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
   }, [
     isDisbursed,
     disbursedBankName,
+
     approvalPayoutPercentage,
     recordSource,
     payoutApplicablePrefile,
@@ -225,28 +197,6 @@ const PayoutSection = ({ form, readOnly = false }) => {
   ]);
 
   // =========================
-  // API AUTOSAVE (800ms)
-  // =========================
-  useDebouncedEffect(
-    () => {
-      if (!activeLoanId) return;
-
-      fetch(`${API_BASE_URL}/api/loans/${activeLoanId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          loan_receivables: receivables,
-          loan_payables: payables,
-        }),
-      }).catch((err) => {
-        console.error("Payout autosave failed:", err);
-      });
-    },
-    [receivables, payables],
-    800,
-  );
-
-  // =========================
   // ADD payout rows
   // =========================
   const addReceivable = () => {
@@ -255,24 +205,17 @@ const PayoutSection = ({ form, readOnly = false }) => {
       {
         id: Date.now(),
         payoutId: generatePayoutId("receivable"),
-        payout_created_date: new Date().toISOString(),
-        created_date: new Date().toISOString(), // ADDED
+        payout_createdAt: new Date().toISOString(),
 
         payout_applicable: "Yes",
         payout_type: "",
         payout_party_name: "",
         payout_percentage: "",
         payout_amount: 0,
-        payout_direction: "Receivable", // ADDED
 
         tds_applicable: "Yes",
         tds_percentage: 5,
         tds_amount: 0,
-
-        payout_status: "Pending", // ADDED
-        payout_received_date: "", // ADDED
-        payment_history: [], // ADDED
-        activity_log: [], // ADDED
 
         payout_remarks: "",
       },
@@ -285,25 +228,17 @@ const PayoutSection = ({ form, readOnly = false }) => {
       {
         id: Date.now(),
         payoutId: generatePayoutId("payable"),
-        payout_created_date: new Date().toISOString(),
-        created_date: new Date().toISOString(), // ADDED
+        payout_createdAt: new Date().toISOString(),
 
         payout_applicable: "Yes",
         payout_type: "",
         payout_party_name: "",
         payout_percentage: "",
         payout_amount: 0,
-        payout_direction: "Payable", // ADDED
 
         tds_applicable: "Yes",
         tds_percentage: 5,
         tds_amount: 0,
-
-        payout_status: "Expected", // ADDED
-        payout_expected_date: "", // ADDED
-        payout_paid_date: "", // ADDED
-        payment_history: [], // ADDED
-        activity_log: [], // ADDED
 
         payout_remarks: "",
       },
@@ -421,106 +356,115 @@ const PayoutSection = ({ form, readOnly = false }) => {
   // =========================
   if (!isDisbursed) {
     return (
-      <div className="bg-card rounded-lg shadow-elevation-2 p-8 text-center">
-        <Icon
-          name="Lock"
-          size={48}
-          className="text-muted-foreground mx-auto mb-4"
-        />
-        <p className="text-base font-medium text-foreground">
-          Payout section is only available after loan disbursement
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Current status: {approvalStatus || "Not disbursed"}
-        </p>
-      </div>
+      <Card className="shadow-elevation-2">
+        <CardContent className="p-8 text-center pt-8">
+          <Icon
+            name="Lock"
+            size={48}
+            className="text-muted-foreground mx-auto mb-4"
+          />
+          <p className="text-base font-medium text-foreground">
+            Payout section is only available after loan disbursement
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Current status: {approvalStatus || "Not disbursed"}
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header Summary */}
-      <div className="bg-card rounded-lg shadow-elevation-2 p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-success/10 flex items-center justify-center">
-            <Icon name="Wallet" size={20} className="text-success" />
-          </div>
-          <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              Payout Receipt (Case Level)
-            </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Only recording payout structure here. Tracking will happen in
-              dashboards.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-primary/5 rounded-lg p-4 border border-primary/20">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Disbursed Bank</p>
-            <p className="text-sm font-semibold text-foreground">
-              {disbursedBankName || "-"}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">
-              Total Disbursed Amount
-            </p>
-            <p className="text-sm font-semibold text-foreground">
-              ₹{Number(disbursedAmount || 0).toLocaleString("en-IN")}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">
-              Net Loan (Payout Base)
-            </p>
-            <p className="text-sm font-semibold text-primary">
-              ₹{Number(netLoanApproved || 0).toLocaleString("en-IN")}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              {recordSource
-                ? recordSource === "Indirect"
-                  ? `Indirect (${sourceName || "-"})`
-                  : "Direct"
-                : "-"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* RECEIVABLES */}
-      <div className="bg-card rounded-lg shadow-elevation-2 p-4 md:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-              <Icon name="TrendingUp" size={20} className="text-success" />
+      <Card className="shadow-elevation-2">
+        <CardContent className="p-4 md:p-6 pt-4 md:pt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-success/10 flex items-center justify-center">
+              <Icon name="Wallet" size={20} className="text-success" />
             </div>
             <div>
-              <h3 className="text-base md:text-lg font-semibold text-foreground">
-                Receivables
-              </h3>
-              <p className="text-xs text-muted-foreground">Bank / Insurance</p>
+              <h2 className="text-lg md:text-xl font-semibold text-foreground">
+                Payout Receipt (Case Level)
+              </h2>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Record payout structure here. Tracking happens in dashboards.
+              </p>
             </div>
           </div>
 
-          {!readOnly && (
-            <Button
-              variant="default"
-              iconName="Plus"
-              iconPosition="left"
-              size="sm"
-              onClick={addReceivable}
-            >
-              Add Receivable
-            </Button>
-          )}
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-primary/5 rounded-xl p-4 border border-primary/20">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">
+                Disbursed Bank
+              </p>
+              <p className="text-sm font-semibold text-foreground">
+                {disbursedBankName || "-"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">
+                Total Disbursed Amount
+              </p>
+              <p className="text-sm font-semibold text-foreground font-mono">
+                {formatINR(disbursedAmount)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">
+                Net Loan (Payout Base)
+              </p>
+              <p className="text-sm font-semibold text-primary font-mono">
+                {formatINR(netLoanApproved)}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Source</p>
+              <p className="text-sm font-semibold text-foreground">
+                {recordSource
+                  ? recordSource === "Indirect"
+                    ? `Indirect (${sourceName || "-"})`
+                    : "Direct"
+                  : "-"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* RECEIVABLES */}
+      <Card className="shadow-elevation-2">
+        <CardContent className="p-4 md:p-6 pt-4 md:pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                <Icon name="TrendingUp" size={20} className="text-success" />
+              </div>
+              <div>
+                <h3 className="text-base md:text-lg font-semibold text-foreground">
+                  Receivables
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Bank / Insurance
+                </p>
+              </div>
+            </div>
+
+            {!readOnly && (
+              <Button
+                variant="default"
+                iconName="Plus"
+                iconPosition="left"
+                size="sm"
+                onClick={addReceivable}
+              >
+                Add Receivable
+              </Button>
+            )}
+          </div>
 
         {receivables.length === 0 ? (
           <div className="p-8 text-center border-2 border-dashed border-border rounded-lg">
@@ -550,35 +494,37 @@ const PayoutSection = ({ form, readOnly = false }) => {
             ))}
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
 
       {/* PAYABLES */}
-      <div className="bg-card rounded-lg shadow-elevation-2 p-4 md:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center">
-              <Icon name="TrendingDown" size={20} className="text-error" />
+      <Card className="shadow-elevation-2">
+        <CardContent className="p-4 md:p-6 pt-4 md:pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center">
+                <Icon name="TrendingDown" size={20} className="text-error" />
+              </div>
+              <div>
+                <h3 className="text-base md:text-lg font-semibold text-foreground">
+                  Payables
+                </h3>
+                <p className="text-xs text-muted-foreground">Dealer / Source</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base md:text-lg font-semibold text-foreground">
-                Payables
-              </h3>
-              <p className="text-xs text-muted-foreground">Dealer / Source</p>
-            </div>
-          </div>
 
-          {!readOnly && (
-            <Button
-              variant="outline"
-              iconName="Plus"
-              iconPosition="left"
-              size="sm"
-              onClick={addPayable}
-            >
-              Add Payable
-            </Button>
-          )}
-        </div>
+            {!readOnly && (
+              <Button
+                variant="outline"
+                iconName="Plus"
+                iconPosition="left"
+                size="sm"
+                onClick={addPayable}
+              >
+                Add Payable
+              </Button>
+            )}
+          </div>
 
         {payables.length === 0 ? (
           <div className="p-8 text-center border-2 border-dashed border-border rounded-lg">
@@ -606,46 +552,48 @@ const PayoutSection = ({ form, readOnly = false }) => {
             ))}
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
 
       {/* NET SUMMARY */}
       {(receivables.length > 0 || payables.length > 0) && (
-        <div className="bg-white rounded-lg p-6 border border-border shadow-elevation-2">
-          <h3 className="text-sm font-semibold text-foreground mb-4">
-            Net Summary
-          </h3>
+        <Card className="shadow-elevation-2">
+          <CardContent className="p-6 pt-6">
+            <h3 className="text-sm font-semibold text-foreground mb-4">
+              Net Summary
+            </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-success/10 rounded-lg p-4">
-              <p className="text-xs text-muted-foreground mb-1">
-                Net Receivable
-              </p>
-              <p className="text-lg font-semibold text-success">
-                ₹{netReceivables.toLocaleString("en-IN")}
-              </p>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-success/10 rounded-xl p-4 border border-success/15">
+                <p className="text-xs text-muted-foreground mb-1">
+                  Net Receivable
+                </p>
+                <p className="text-lg font-semibold text-success font-mono">
+                  {formatINR(netReceivables)}
+                </p>
+              </div>
 
-            <div className="bg-error/10 rounded-lg p-4">
-              <p className="text-xs text-muted-foreground mb-1">Net Payable</p>
-              <p className="text-lg font-semibold text-error">
-                ₹{netPayables.toLocaleString("en-IN")}
-              </p>
-            </div>
+              <div className="bg-error/10 rounded-xl p-4 border border-error/15">
+                <p className="text-xs text-muted-foreground mb-1">Net Payable</p>
+                <p className="text-lg font-semibold text-error font-mono">
+                  {formatINR(netPayables)}
+                </p>
+              </div>
 
-            <div className="bg-primary/10 rounded-lg p-4">
-              <p className="text-xs text-muted-foreground mb-1">Net Position</p>
-              <p className="text-lg font-semibold text-primary">
-                ₹
-                {Math.abs(netReceivables - netPayables).toLocaleString("en-IN")}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {netReceivables - netPayables >= 0
-                  ? "Net Receivable"
-                  : "Net Payable"}
-              </p>
+              <div className="bg-primary/10 rounded-xl p-4 border border-primary/15">
+                <p className="text-xs text-muted-foreground mb-1">Net Position</p>
+                <p className="text-lg font-semibold text-primary font-mono">
+                  {formatINR(Math.abs(netReceivables - netPayables))}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {netReceivables - netPayables >= 0
+                    ? "Net Receivable"
+                    : "Net Payable"}
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -663,7 +611,7 @@ const PayoutCard = ({
     parseFloat(payout.payout_amount || 0) - parseFloat(payout.tds_amount || 0);
 
   return (
-    <div className="bg-muted/30 rounded-lg p-4 border border-border">
+    <div className="bg-muted/30 rounded-xl p-4 border border-border">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div
@@ -707,7 +655,7 @@ const PayoutCard = ({
               Payout Type *
             </label>
             <select
-              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+              className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               value={payout.payout_type}
               onChange={(e) => onUpdate("payout_type", e.target.value)}
               disabled={readOnly}
@@ -733,7 +681,7 @@ const PayoutCard = ({
             </label>
             <input
               type="text"
-              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+              className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               value={payout.payout_party_name}
               onChange={(e) => onUpdate("payout_party_name", e.target.value)}
               placeholder="Party name"
@@ -750,7 +698,7 @@ const PayoutCard = ({
             <input
               type="number"
               step="0.01"
-              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+              className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               value={payout.payout_percentage}
               onChange={(e) => onUpdate("payout_percentage", e.target.value)}
               placeholder="Enter percentage"
@@ -764,7 +712,7 @@ const PayoutCard = ({
             </label>
             <div className="w-full border border-dashed border-primary/40 rounded-md px-3 py-2 text-sm bg-primary/5 flex items-center justify-between">
               <span className="font-semibold text-primary">
-                ₹{Number(payout.payout_amount || 0).toLocaleString("en-IN")}
+                {formatINR(payout.payout_amount)}
               </span>
             </div>
           </div>
@@ -776,7 +724,7 @@ const PayoutCard = ({
               TDS Applicable
             </label>
             <select
-              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+              className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               value={payout.tds_applicable}
               onChange={(e) => onUpdate("tds_applicable", e.target.value)}
               disabled={readOnly}
@@ -795,7 +743,7 @@ const PayoutCard = ({
                 <input
                   type="number"
                   step="0.01"
-                  className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+                  className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   value={payout.tds_percentage}
                   onChange={(e) => onUpdate("tds_percentage", e.target.value)}
                   disabled={readOnly}
@@ -807,7 +755,7 @@ const PayoutCard = ({
                   TDS Amount (Auto)
                 </label>
                 <div className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/40">
-                  ₹{Number(payout.tds_amount || 0).toLocaleString("en-IN")}
+                  <span className="font-mono">{formatINR(payout.tds_amount)}</span>
                 </div>
               </div>
             </>
@@ -819,7 +767,7 @@ const PayoutCard = ({
             Remarks
           </label>
           <textarea
-            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+            className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             rows={2}
             value={payout.payout_remarks}
             onChange={(e) => onUpdate("payout_remarks", e.target.value)}
@@ -846,7 +794,7 @@ const PayoutCard = ({
                   type === "receivable" ? "text-success" : "text-error"
                 }`}
               >
-                ₹{netAfterTds.toLocaleString("en-IN")}
+                {formatINR(netAfterTds)}
               </p>
             </div>
             <Icon

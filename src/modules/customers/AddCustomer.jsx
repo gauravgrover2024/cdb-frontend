@@ -1,19 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Form, Button, Space, message, Divider } from "antd";
-import {
-  IdcardOutlined,
-  SolutionOutlined,
-  ProfileOutlined,
-  FileProtectOutlined,
-  BankOutlined,
-  TeamOutlined,
-  PhoneOutlined,
-  HomeOutlined,
-  SaveOutlined,
-  LogoutOutlined,
-} from "@ant-design/icons";
+import { Form, message } from "antd";
 import { useNavigate } from "react-router-dom";
+import { customersApi } from "../../api/customers";
 import dayjs from "dayjs";
+
 
 import PersonalDetails from "./customer-form/PersonalDetails";
 import EmploymentDetails from "./customer-form/EmploymentDetails";
@@ -21,43 +11,45 @@ import IncomeDetails from "./customer-form/IncomeDetails";
 import KycDetails from "./customer-form/KycDetails";
 import BankDetails from "./customer-form/BankDetails";
 import ReferenceDetails from "./customer-form/ReferenceDetails";
+// import CustomerStepperSidebar from "./CustomerStepperSidebar";
+import CustomerStickyHeader from "./components/CustomerStickyHeader";
 
 const sectionsConfig = [
   {
     key: "personal",
     label: "Personal",
     targetId: "section-personal",
-    icon: <IdcardOutlined />,
+    icon: "User",
   },
   {
     key: "employment",
     label: "Employment",
     targetId: "section-employment",
-    icon: <SolutionOutlined />,
+    icon: "Briefcase",
   },
   {
     key: "income",
     label: "Income",
     targetId: "section-income",
-    icon: <ProfileOutlined />,
+    icon: "Wallet",
   },
   {
     key: "bank",
     label: "Bank",
     targetId: "section-bank",
-    icon: <BankOutlined />,
-  },
+    icon: "Building2",
+    },
   {
     key: "references",
     label: "References",
     targetId: "section-other",
-    icon: <TeamOutlined />,
+    icon: "Users",
   },
   {
     key: "kyc",
     label: "KYC",
     targetId: "section-kyc",
-    icon: <FileProtectOutlined />,
+    icon: "ShieldCheck",
   },
 ];
 
@@ -82,13 +74,23 @@ const AddCustomer = () => {
   });
 
   const [customerId, setCustomerId] = useState(null);
+  const [displayId, setDisplayId] = useState(null);
 
   const creatingRef = useRef(false);
-  const autosaveTimer = useRef(null);
+  const autoSaveTimerRef = useRef(null);
 
   // Header height (used to ensure form starts below sticky header)
   const headerRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(180);
+  const [saving, setSaving] = useState(false);
+
+  const clearCustomerDraftCache = () => {
+    try {
+      localStorage.removeItem("customer_form_draft");
+    } catch (e) {
+      // ignore
+    }
+  };
 
   // -----------------------------
   // Measure header height (so form starts below it)
@@ -97,7 +99,7 @@ const AddCustomer = () => {
     const measure = () => {
       if (!headerRef.current) return;
       const h = headerRef.current.getBoundingClientRect().height;
-      if (h && h > 100) setHeaderHeight(h);
+      if (h && h > 50) setHeaderHeight(h);
     };
 
     measure();
@@ -167,58 +169,69 @@ const AddCustomer = () => {
   // -----------------------------
   useEffect(() => {
     return () => {
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
     };
   }, []);
 
   // -----------------------------
   // Create customer ONLY when required
   // -----------------------------
-  const createCustomerIfNeeded = async () => {
+  const createCustomerIfNeeded = async (initialData = {}, options = {}) => {
+    const { silent = false } = options;
     if (customerId) return customerId;
     if (creatingRef.current) return null;
+
+    // Validate minimal requirements for creation
+    if (!initialData.customerName || !initialData.primaryMobile) {
+       return null;
+    }
 
     creatingRef.current = true;
 
     try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/customers`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customerType: "New",
-            kycStatus: "In Progress",
-            createdOn: new Date().toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
-          }),
-        },
-      );
+      // ✅ Properly format the payload for initial creation too
+      const payload = {
+        ...initialData,
+        dob: formatDateForApi(initialData?.dob),
+        nomineeDob: formatDateForApi(initialData?.nomineeDob),
+        // Convert array fields to strings for backend compatibility
+        companyType: Array.isArray(initialData?.companyType) 
+          ? initialData.companyType[0] || "" 
+          : initialData?.companyType || "",
+        businessNature: Array.isArray(initialData?.businessNature)
+          ? initialData.businessNature[0] || ""
+          : (initialData?.businessNature || ""),
+        customerType: "New",
+        kycStatus: initialData.kycStatus || "In Progress",
+        createdOn: new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+      };
 
-      const text = await res.text();
-      let data = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        throw new Error("Customer create API did not return JSON");
-      }
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to create customer");
-      }
+      const data = await customersApi.create(payload);
 
       const id = data?._id || data?.customer?._id || data?.data?._id;
+      const hId = data?.data?.customerId || data?.customer?.customerId || data?.customerId;
 
       if (!id) throw new Error("Customer id missing from response");
-
+      
       setCustomerId(id);
+      if (hId) setDisplayId(hId);
+
+      // 🚀 Redirect to edit page immediately so refresh doesn't lose data
+      // BUT we return the ID first so the caller can finish if needed
+      navigate(`/customers/edit/${id}`, { replace: true });
+
       return id;
     } catch (err) {
       console.error("Create Customer Error:", err);
-      message.error(`Failed to create customer ❌ (${err.message})`);
+      if (!silent && initialData.customerName && initialData.primaryMobile) {
+        message.error(`Failed to create customer ❌ (${err.message})`);
+      }
       return null;
     } finally {
       creatingRef.current = false;
@@ -228,9 +241,16 @@ const AddCustomer = () => {
   // -----------------------------
   // Save to mongo (PUT)
   // -----------------------------
-  const saveToMongo = async (values) => {
-    const id = await createCustomerIfNeeded();
-    if (!id) throw new Error("Customer ID not available");
+  const saveToMongo = async (values, options = {}) => {
+    const { silent = false } = options;
+    // Force validation for mandatory fields before creating record
+    if (!values.customerName || !values.primaryMobile) {
+      if (silent) return null;
+      throw new Error("Customer Name & Primary Mobile are required to create a profile.");
+    }
+
+    const id = await createCustomerIfNeeded(values, { silent });
+    if (!id) return; // createCustomerIfNeeded already handles its own errors or navigation
 
     const payload = {
       ...values,
@@ -238,6 +258,14 @@ const AddCustomer = () => {
       // ✅ convert dayjs values safely
       dob: formatDateForApi(values?.dob),
       nomineeDob: formatDateForApi(values?.nomineeDob),
+
+      // Convert array fields to strings for backend compatibility
+      companyType: Array.isArray(values?.companyType) 
+        ? values.companyType[0] || "" 
+        : values?.companyType || "",
+      businessNature: Array.isArray(values?.businessNature)
+        ? values.businessNature[0] || ""
+        : (values?.businessNature || ""),
 
       customerType: "New",
       kycStatus: values?.kycStatus || "In Progress",
@@ -250,26 +278,7 @@ const AddCustomer = () => {
         }),
     };
 
-    const res = await fetch(
-      `${process.env.REACT_APP_API_BASE_URL}/api/customers/${id}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-
-    const text = await res.text();
-    let data = {};
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = {};
-    }
-
-    if (!res.ok) {
-      throw new Error(data?.error || "Failed to save customer");
-    }
+    await customersApi.update(id, payload);
 
     return true;
   };
@@ -279,16 +288,15 @@ const AddCustomer = () => {
   // -----------------------------
   const hasMeaningfulData = (values) => {
     return (
-      (values?.customerName && values.customerName.trim()) ||
-      (values?.primaryMobile && values.primaryMobile.trim()) ||
-      (values?.panNumber && values.panNumber.trim())
+      (values?.customerName && values.customerName.trim()) &&
+      (values?.primaryMobile && values.primaryMobile.trim())
     );
   };
 
   // -----------------------------
   // Header live update + autosave debounce
   // -----------------------------
-  const onValuesChange = (_, allValues) => {
+  const handleValuesChange = (_, allValues) => {
     setHeaderInfo({
       name: allValues.customerName || "",
       mobile: allValues.primaryMobile || "",
@@ -296,15 +304,15 @@ const AddCustomer = () => {
       pan: allValues.panNumber || "",
     });
 
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
 
-    autosaveTimer.current = setTimeout(() => {
+    // Debounced autosave to backend for persistence
+    autoSaveTimerRef.current = setTimeout(() => {
       if (!hasMeaningfulData(allValues)) return;
-
-      saveToMongo(allValues).catch((err) => {
-        console.error("Customer Autosave Error:", err);
+      saveToMongo(allValues, { silent: true }).catch(() => {
+        // Silent autosave failure: no UI spam
       });
-    }, 700);
+    }, 1200);
   };
 
   // -----------------------------
@@ -312,214 +320,104 @@ const AddCustomer = () => {
   // -----------------------------
   const handleSaveOnly = async () => {
     try {
+      setSaving(true);
       const values = form.getFieldsValue(true);
 
       if (!hasMeaningfulData(values)) {
         message.warning("Please enter Name / Mobile / PAN before saving");
+        setSaving(false);
         return;
       }
 
       await saveToMongo(values);
+      clearCustomerDraftCache();
       message.success("Saved ✅");
     } catch (err) {
       console.error("Save Error:", err);
       message.error(`Save failed ❌ (${err.message})`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleSaveAndExit = async () => {
     try {
+      setSaving(true);
       const values = form.getFieldsValue(true);
 
       if (!hasMeaningfulData(values)) {
         message.warning("Please enter Name / Mobile / PAN before saving");
+        setSaving(false);
         return;
       }
 
       await saveToMongo(values);
+      clearCustomerDraftCache();
       message.success("Customer saved ✅");
       navigate("/customers");
     } catch (err) {
       console.error("Save & Exit Error:", err);
       message.error(`Save failed ❌ (${err.message})`);
+    } finally {
+      setSaving(false);
     }
   };
 
-  // -----------------------------
-  // UI helper chip
-  // -----------------------------
-  const InfoChip = ({ icon, value, placeholder }) => (
-    <Space
-      size={6}
-      style={{
-        padding: "4px 10px",
-        borderRadius: 999,
-        background: "#ffffff",
-        border: "1px solid #f0f0f0",
-        fontSize: 12,
-      }}
-    >
-      {icon}
-      <span style={{ color: value ? "#262626" : "#8c8c8c" }}>
-        {value || placeholder}
-      </span>
-    </Space>
-  );
 
   return (
-    <div style={{ padding: 16 }}>
-      {/* Same width wrapper for header + form */}
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        {/* ✅ Sticky Header */}
-        <div
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 50,
-            background: "transparent",
-          }}
-        >
-          <div
-            ref={headerRef}
-            style={{
-              background: "#ffffff",
-              border: "1px solid #f0f0f0",
-              borderRadius: 14,
-              padding: "12px 14px",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.04)",
-            }}
-          >
-            {/* Top row */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>
-                  Customer Master
-                </div>
-                <div style={{ fontSize: 12, color: "#8c8c8c" }}>
-                  Add New Customer
-                </div>
-              </div>
+    <div className="min-h-screen bg-background pb-10">
+      <CustomerStickyHeader
+        headerInfo={headerInfo}
+        mode="Add"
+        displayId={displayId}
+        customerId={customerId}
+        onSave={handleSaveOnly}
+        onSaveAndExit={handleSaveAndExit}
+        activeSection={activeSection}
+        sectionsConfig={sectionsConfig}
+        onSectionClick={(targetId) => scrollToSection(targetId)}
+        innerRef={headerRef}
+        saving={saving}
+      />
 
-              <Space wrap>
-                <Button
-                  icon={<LogoutOutlined />}
-                  size="small"
-                  onClick={handleSaveAndExit}
-                >
-                  Save & Exit
-                </Button>
-
-                <Button
-                  type="primary"
-                  icon={<SaveOutlined />}
-                  size="small"
-                  onClick={handleSaveOnly}
-                >
-                  Save
-                </Button>
-              </Space>
-            </div>
-
-            <Divider style={{ margin: "10px 0" }} />
-
-            {/* Info row */}
-            <Space wrap>
-              <InfoChip
-                icon={<IdcardOutlined style={{ color: "#8c8c8c" }} />}
-                value={headerInfo.name}
-                placeholder="Name"
-              />
-              <InfoChip
-                icon={<PhoneOutlined style={{ color: "#8c8c8c" }} />}
-                value={headerInfo.mobile}
-                placeholder="Mobile"
-              />
-              <InfoChip
-                icon={<HomeOutlined style={{ color: "#8c8c8c" }} />}
-                value={headerInfo.city}
-                placeholder="City"
-              />
-              <InfoChip
-                icon={<ProfileOutlined style={{ color: "#8c8c8c" }} />}
-                value={headerInfo.pan}
-                placeholder="PAN"
-              />
-
-              <div style={{ fontSize: 12, color: "#8c8c8c", marginLeft: 8 }}>
-                ID: <b>{customerId || "Not created yet"}</b>
-              </div>
-            </Space>
-
-            {/* Section pills */}
-            <div style={{ marginTop: 10 }}>
-              <Space size={8} wrap>
-                {sectionsConfig.map((s) => {
-                  const active = activeSection === s.key;
-
-                  return (
-                    <div
-                      key={s.key}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => scrollToSection(s.targetId)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") scrollToSection(s.targetId);
-                      }}
-                      style={{
-                        cursor: "pointer",
-                        userSelect: "none",
-                        padding: "6px 12px",
-                        borderRadius: 999,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: active ? "#f0f5ff" : "#fafafa",
-                        border: active
-                          ? "1px solid #adc6ff"
-                          : "1px solid #f0f0f0",
-                        color: active ? "#1d39c4" : "#595959",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      {React.cloneElement(s.icon, {
-                        style: {
-                          fontSize: 14,
-                          color: active ? "#1d39c4" : "#8c8c8c",
-                        },
-                      })}
-                      {s.label}
-                    </div>
-                  );
-                })}
-              </Space>
-            </div>
-          </div>
-        </div>
-
-        {/* Form starts BELOW sticky header */}
-        <div style={{ paddingTop: 14 }}>
+      <div className="w-full px-4 md:px-8 py-6">
+        {/* Form Content */}
+        <div className="w-full">
           <Form
-            id="customer-form"
             form={form}
             layout="vertical"
-            onValuesChange={onValuesChange}
+            onValuesChange={handleValuesChange}
+            initialValues={{
+              kycStatus: "In Progress",
+              customerType: "New",
+              extraMobiles: [],
+              businessNature: "",
+              companyType: "",
+            }}
           >
-            <PersonalDetails />
-            <EmploymentDetails />
-            <IncomeDetails />
-            <BankDetails />
-            <ReferenceDetails />
-            <KycDetails />
+            <div id="section-personal" className="mb-12 scroll-mt-[180px]">
+              <PersonalDetails />
+            </div>
+
+            <div id="section-employment" className="mb-12 scroll-mt-[180px]">
+              <EmploymentDetails />
+            </div>
+
+            <div id="section-income" className="mb-12 scroll-mt-[180px]">
+              <IncomeDetails />
+            </div>
+
+            <div id="section-bank" className="mb-12 scroll-mt-[180px]">
+              <BankDetails />
+            </div>
+
+            <div id="section-other" className="mb-12 scroll-mt-[180px]">
+              <ReferenceDetails />
+            </div>
+
+            <div id="section-kyc" className="mb-12 scroll-mt-[180px]">
+              <KycDetails />
+            </div>
           </Form>
         </div>
       </div>

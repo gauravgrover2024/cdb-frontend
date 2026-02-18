@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Button } from "antd";
+import { Card, Button } from "antd";
 
 const asInt = (val) => {
   const n = Number(val);
@@ -8,6 +8,23 @@ const asInt = (val) => {
 };
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
+
+const AmountRow = ({ label, value, highlight }) => (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 12,
+      padding: "6px 0",
+      fontWeight: highlight ? 900 : 650,
+      color: highlight ? "#1d39c4" : "#111",
+      borderTop: "1px dashed #eee",
+    }}
+  >
+    <div style={{ fontSize: 12 }}>{label}</div>
+    <div style={{ fontSize: 12 }}>{money(value)}</div>
+  </div>
+);
 
 const AutocreditsPaymentHeader = ({
   data = {},
@@ -21,18 +38,24 @@ const AutocreditsPaymentHeader = ({
     const showroomNet = asInt(data?.showroomNetOnRoadVehicleCost || 0);
     const customerNet = asInt(data?.customerNetOnRoadVehicleCost || 0);
 
+    // margin strictly from DO nets (but prefer precomputed if present)
     const autocreditsMargin = Number.isFinite(Number(data?.autocreditsMargin))
       ? asInt(data.autocreditsMargin)
       : customerNet - showroomNet;
 
     const showroomAutoPaid = asInt(
-      showroomTotals?.paymentAmountAutocredits || 0,
+      showroomTotals?.paymentAmountAutocredits || 0
+    );
+
+    // exchange reduces receivable
+    const exchangeReceivable = asInt(data?.autocreditsExchangeReceivable || 0);
+
+    // insurance adds to receivable
+    const insuranceReceivable = asInt(
+      data?.autocreditsInsuranceReceivable || 0
     );
 
     const exchangeAdjustment = asInt(data?.autocreditsExchangeDeduction || 0);
-    const insuranceReceivable = asInt(
-      data?.autocreditsInsuranceReceivable || 0,
-    );
 
     const netReceivable =
       autocreditsMargin +
@@ -41,13 +64,14 @@ const AutocreditsPaymentHeader = ({
       exchangeAdjustment;
 
     const receiptTotal = asInt(autocreditsTotals?.receiptAmountTotal || 0);
+
     const balancePayment = netReceivable - receiptTotal;
 
     return {
       autocreditsMargin,
       showroomAutoPaid,
       insuranceReceivable,
-      exchangeAdjustment,
+      exchangeReceivable: exchangeAdjustment, // rename for clarity
       netReceivable,
       receiptTotal,
       balancePayment,
@@ -57,264 +81,103 @@ const AutocreditsPaymentHeader = ({
   }, [data, showroomTotals, autocreditsTotals]);
 
   return (
-    <div
-      style={{
-        background: "#f5f5f7",
-        border: "1px solid rgba(0, 0, 0, 0.06)",
-        borderRadius: 20,
-        padding: 24,
-      }}
-    >
-      {/* Header */}
+    <Card style={{ borderRadius: 14, border: "1px solid #f0f0f0" }}>
       <div
         style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: "#1d1d1f",
-          marginBottom: 20,
-          letterSpacing: "-0.2px",
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          alignItems: "center",
+          marginBottom: 10,
         }}
       >
-        Autocredits Account Summary
+        <div style={{ fontWeight: 900, fontSize: 14 }}>
+          Autocredits Account — Totals
+        </div>
+
+        <Button
+          type={isVerified ? "default" : "primary"}
+          onClick={onToggleVerified}
+          disabled={!canVerify && !isVerified}
+        >
+          {isVerified ? "Verified ✅ (Unlock)" : "Mark as Verified"}
+        </Button>
       </div>
 
-      {/* Net Receivable - Hero */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 16,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-            color: "#86868b",
-            marginBottom: 6,
-          }}
-        >
-          Net Receivable (Autocredits)
-        </div>
-        <div
-          style={{
-            fontSize: 28,
-            fontWeight: 700,
-            color: "#1d1d1f",
-            letterSpacing: "-0.5px",
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {money(summary.netReceivable)}
-        </div>
+      <AmountRow
+        label="Net Receivable (Autocredits)"
+        value={summary.netReceivable}
+        highlight
+      />
 
-        {/* Breakdown */}
-        <div
-          style={{
-            marginTop: 12,
-            paddingTop: 12,
-            borderTop: "1px solid rgba(0, 0, 0, 0.06)",
-          }}
-        >
-          <MiniRow label="Margin" value={summary.autocreditsMargin} />
-          <MiniRow label="Showroom Payments" value={summary.showroomAutoPaid} />
-          <MiniRow
-            label="Insurance Receivable"
-            value={summary.insuranceReceivable}
-          />
-          {summary.exchangeAdjustment > 0 && (
-            <MiniRow
-              label="Less: Exchange"
-              value={summary.exchangeAdjustment}
-              negative
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Receipts from Customer */}
-      <div
-        style={{
-          marginBottom: 16,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-            color: "#86868b",
-            marginBottom: 10,
-          }}
-        >
-          Receipts from Customer
-        </div>
-        <SummaryRow
-          label="Total Received"
-          value={summary.receiptTotal}
-          emphasized
+      <div style={{ marginTop: 8 }}>
+        <AmountRow
+          label="Autocredits Margin"
+          value={summary.autocreditsMargin}
+        />
+        <AmountRow
+          label="Payments Made by Autocredits (Showroom)"
+          value={summary.showroomAutoPaid}
+        />
+        <AmountRow
+          label="Insurance Receivable (Autocredits)"
+          value={summary.insuranceReceivable}
+        />
+        <AmountRow
+          label="Less: Exchange Adjustment"
+          value={summary.exchangeReceivable}
         />
       </div>
 
-      {/* Receipt Breakup */}
-      {summary.receiptTotal > 0 && (
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: 12,
-            padding: 12,
-            marginBottom: 16,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              color: "#86868b",
-              marginBottom: 8,
-            }}
-          >
-            Receipt Breakup
-          </div>
-          <MiniRow label="Insurance" value={summary.breakup?.Insurance || 0} />
-          <MiniRow
-            label="Margin Money"
-            value={summary.breakup?.["Margin Money"] || 0}
-          />
-          <MiniRow
-            label="Commission"
-            value={summary.breakup?.Commission || 0}
-          />
-        </div>
-      )}
+      <div style={{ marginTop: 10 }}>
+        <AmountRow
+          label="Receipt Amount (Customer)"
+          value={summary.receiptTotal}
+          highlight
+        />
+      </div>
 
-      {/* Closing Balance */}
-      <div
-        style={{
-          background: summary.closingBalance === 0 ? "#d1f4e0" : "#fff3cd",
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 16,
-        }}
-      >
-        <SummaryRow
+      {/* internal breakup */}
+      <div style={{ marginTop: 10 }}>
+        <div style={{ fontWeight: 900, fontSize: 12, marginBottom: 6 }}>
+          Receipt Breakup (Internal)
+        </div>
+        <AmountRow
+          label="Insurance"
+          value={asInt(summary.breakup?.Insurance || 0)}
+        />
+        <AmountRow
+          label="Margin Money"
+          value={asInt(summary.breakup?.["Margin Money"] || 0)}
+        />
+
+        <AmountRow
+          label="Commission"
+          value={asInt(summary.breakup?.Commission || 0)}
+        />
+      </div>
+
+      <div style={{ marginTop: 10 }}>
+        <AmountRow
           label="Closing Balance"
           value={summary.closingBalance}
-          hero
+          highlight
         />
       </div>
 
-      {/* Verify Button */}
-      <Button
-        type={isVerified ? "default" : "primary"}
-        block
-        size="large"
-        onClick={onToggleVerified}
-        disabled={!canVerify && !isVerified}
-        style={{
-          height: 44,
-          borderRadius: 12,
-          fontWeight: 600,
-          fontSize: 15,
-          background: isVerified
-            ? "#86868b"
-            : canVerify
-              ? "#007aff"
-              : "#d1d1d6",
-          borderColor: "transparent",
-          color: "#ffffff",
-        }}
-      >
-        {isVerified
-          ? "✓ Verified (Click to Unlock)"
-          : canVerify
-            ? "Verify Account"
-            : "Balance Must Be ₹0"}
-      </Button>
-
       {!isVerified && !canVerify && (
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 11,
-            color: "#86868b",
-            textAlign: "center",
-          }}
-        >
-          Closing balance must be ₹0 to verify
+        <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
+          ⚠️ You can verify only when <b>Closing Balance = 0</b>.
         </div>
       )}
 
       {isVerified && (
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 11,
-            color: "#007aff",
-            textAlign: "center",
-            fontWeight: 600,
-          }}
-        >
-          🔒 Account locked · Read-only mode
+        <div style={{ marginTop: 10, fontSize: 12, color: "#1677ff" }}>
+          🔒 Verified • Autocredits section is now read-only.
         </div>
       )}
-    </div>
+    </Card>
   );
 };
-
-const SummaryRow = ({ label, value, emphasized, hero }) => (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: hero || emphasized ? 0 : 8,
-    }}
-  >
-    <div
-      style={{
-        fontSize: hero ? 13 : emphasized ? 13 : 12,
-        fontWeight: hero ? 700 : emphasized ? 600 : 500,
-        color: "#1d1d1f",
-      }}
-    >
-      {label}
-    </div>
-    <div
-      style={{
-        fontSize: hero ? 20 : emphasized ? 15 : 13,
-        fontWeight: hero ? 700 : emphasized ? 600 : 600,
-        color: "#1d1d1f",
-        fontVariantNumeric: "tabular-nums",
-      }}
-    >
-      {money(value)}
-    </div>
-  </div>
-);
-
-const MiniRow = ({ label, value, negative }) => (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      fontSize: 11,
-      marginBottom: 4,
-      color: "#424245",
-    }}
-  >
-    <span>{label}</span>
-    <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-      {negative && "−"}
-      {money(value)}
-    </span>
-  </div>
-);
 
 export default AutocreditsPaymentHeader;

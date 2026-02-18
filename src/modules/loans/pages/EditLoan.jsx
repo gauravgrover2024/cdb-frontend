@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import LoanFormWithSteps from "../components/LoanFormWithSteps";
 import Button from "../../../components/ui/Button";
+import { loansApi } from "../../../api/loans";
 
 const EditLoan = () => {
   const navigate = useNavigate();
@@ -17,11 +18,8 @@ const EditLoan = () => {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`/api/loans/${loanId}`);
-      if (!res.ok) throw new Error("Failed to load loan");
-
-      const data = await res.json();
-      setLoan(data || null);
+      const data = await loansApi.getById(loanId);
+      setLoan(data?.data || null);
     } catch (e) {
       console.error("EditLoan fetch error:", e);
       setError(e.message || "Failed to load loan");
@@ -79,18 +77,18 @@ const EditLoan = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="p-4 md:p-6 lg:p-8 space-y-4">
-        <div className="flex items-center justify-between gap-3">
+      <div className="w-full">
+        <div className="flex items-center justify-between gap-3 px-4 md:px-8 py-4 border-b border-border bg-card">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">
+            <h1 className="text-xl font-semibold text-foreground">
               Edit Loan
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Loan ID: <span className="font-medium">{loanId}</span>
+            <p className="text-xs text-muted-foreground mt-1">
+              Loan ID: <span className="font-mono">{loanId}</span>
             </p>
           </div>
 
-          <Button variant="outline" onClick={() => navigate("/loans")}>
+          <Button variant="outline" size="sm" onClick={() => navigate("/loans")}>
             Back
           </Button>
         </div>

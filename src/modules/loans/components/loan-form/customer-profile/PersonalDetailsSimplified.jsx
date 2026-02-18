@@ -182,7 +182,13 @@ const PersonalDetailsSimplified = ({ excludeFields = false }) => {
 
         <Row gutter={[16, 0]}>
           <Col xs={24} md={8}>
-            <Form.Item label="Customer Name" name="customerName">
+            <Form.Item 
+              label="Customer Name" 
+              name="customerName"
+              rules={[
+                { required: true, message: 'Customer name is required' }
+              ]}
+            >
               <Input placeholder="Enter full name" prefix={<UserOutlined />} />
             </Form.Item>
           </Col>
@@ -194,8 +200,15 @@ const PersonalDetailsSimplified = ({ excludeFields = false }) => {
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Primary Mobile" name="primaryMobile">
-              <Input placeholder="Enter mobile number" />
+            <Form.Item 
+              label="Primary Mobile" 
+              name="primaryMobile"
+              rules={[
+                { required: true, message: 'Mobile number is required' },
+                { pattern: /^[0-9]{10}$/, message: 'Must be 10 digits' }
+              ]}
+            >
+              <Input placeholder="Enter mobile number" maxLength={10} />
             </Form.Item>
           </Col>
 

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { message } from "antd";
+import { Card, message } from "antd";
 import { useParams } from "react-router-dom";
+import { paymentsApi } from "../../../api/payments";
+import { loansApi } from "../../../api/loans";
+import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 
 import PaymentGlobalHeader from "./PaymentGlobalHeader";
 import ShowroomPaymentHeader from "./showroom/ShowroomPaymentHeader";
@@ -22,7 +25,7 @@ const norm = (s) =>
 const getShowroomCommissionDate = (rows = []) => {
   if (!Array.isArray(rows)) return null;
   const commissionRows = rows.filter(
-    (r) => r?.paymentType === "Commission" && r?.paymentDate,
+    (r) => r?.paymentType === "Commission" && r?.paymentDate
   );
   if (!commissionRows.length) return null;
   const sorted = [...commissionRows].sort((a, b) => {
@@ -35,18 +38,12 @@ const getShowroomCommissionDate = (rows = []) => {
 
 // ---- API helpers (Mongo via Vercel API) ----
 const fetchPaymentByLoanId = async (loanId) => {
-  const res = await fetch(`/api/payments/${loanId}`);
-  if (!res.ok) throw new Error("Failed to fetch payment");
-  return res.json(); // can be null
+  const res = await paymentsApi.getByLoanId(loanId);
+  return res.data || null;
 };
 
 const savePaymentByLoanId = async (loanId, payload) => {
-  const res = await fetch(`/api/payments/${loanId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to save payment");
+  await paymentsApi.update(loanId, payload);
 };
 
 const useDebounce = (value, delay = 800) => {
@@ -107,25 +104,41 @@ const PaymentForm = () => {
   const debouncedAutocreditsTotals = useDebounce(autocreditsTotals, 800);
   const debouncedIsAutocreditsVerified = useDebounce(
     isAutocreditsVerified,
-    800,
+    800
   );
 
   // Avoid toast spam
   const lastSaveAtRef = useRef(0);
 
-  // Load Loan + DO (still from localStorage for now)
+  // Load Loan + DO from API (fallback to localStorage if needed)
   useEffect(() => {
-    const savedLoans = JSON.parse(localStorage.getItem("savedLoans") || "[]");
-    const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
+    if (!loanId) return;
 
-    const foundLoan = (savedLoans || []).find((l) => l?.loanId === loanId);
-    setLoan(foundLoan || null);
+    const load = async () => {
+      try {
+        const loanRes = await loansApi.getById(loanId);
+        setLoan(loanRes?.data || null);
+      } catch (err) {
+        const savedLoans = JSON.parse(
+          localStorage.getItem("savedLoans") || "[]"
+        );
+        const foundLoan = (savedLoans || []).find((l) => l?.loanId === loanId);
+        setLoan(foundLoan || null);
+      }
 
-    const foundDO =
-      (savedDOs || []).find((d) => d?.loanId === loanId) ||
-      (savedDOs || []).find((d) => d?.do_loanId === loanId);
+      try {
+        const doRes = await deliveryOrdersApi.getByLoanId(loanId);
+        setDoRec(doRes?.data || null);
+      } catch (err) {
+        const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
+        const foundDO =
+          (savedDOs || []).find((d) => d?.loanId === loanId) ||
+          (savedDOs || []).find((d) => d?.do_loanId === loanId);
+        setDoRec(foundDO || null);
+      }
+    };
 
-    setDoRec(foundDO || null);
+    load();
   }, [loanId]);
 
   // Load savedPayments (FULL DOC) from API
@@ -184,7 +197,7 @@ const PaymentForm = () => {
 
         // ---- Commission replicate logic: showroom -> autocredits ----
         const showroomCommission = asInt(
-          debouncedEntryTotals?.paymentCommissionReceived || 0,
+          debouncedEntryTotals?.paymentCommissionReceived || 0
         );
 
         const commissionDate = getShowroomCommissionDate(debouncedShowroomRows);
@@ -196,7 +209,7 @@ const PaymentForm = () => {
         const hasCommissionRow = baseAutocreditsRows.some(
           (r) =>
             Array.isArray(r.receiptTypes) &&
-            r.receiptTypes.includes("Commission"),
+            r.receiptTypes.includes("Commission")
         );
 
         const autocreditsRowsToSave =
@@ -286,12 +299,12 @@ const PaymentForm = () => {
     const dealerAddress = doRec?.do_dealerAddress || "";
 
     const netOnRoadVehicleCost = asInt(
-      doRec?.do_customer_netOnRoadVehicleCost || 0,
+      doRec?.do_customer_netOnRoadVehicleCost || 0
     );
 
     const onRoadVehicleCost = asInt(doRec?.do_onRoadVehicleCost || 0);
     const discountExclVehicleValue = asInt(
-      doRec?.do_selectedDiscountExclVehicleValue || 0,
+      doRec?.do_selectedDiscountExclVehicleValue || 0
     );
 
     const make = doRec?.do_vehicleMake || loan?.vehicleMake || "—";
@@ -315,10 +328,10 @@ const PaymentForm = () => {
     const doMarginMoney = asInt(doRec?.do_marginMoneyPaid || 0);
 
     const customerNetOnRoadVehicleCost = asInt(
-      doRec?.do_customer_netOnRoadVehicleCost || 0,
+      doRec?.do_customer_netOnRoadVehicleCost || 0
     );
     const showroomNetOnRoadVehicleCost = asInt(
-      doRec?.do_netOnRoadVehicleCost || 0,
+      doRec?.do_netOnRoadVehicleCost || 0
     );
 
     const autocreditsMargin =
@@ -386,22 +399,14 @@ const PaymentForm = () => {
   }, [loan, doRec, loanId, entryTotals]);
 
   return (
-    <div style={{ background: "#f5f5f7", minHeight: "100vh" }}>
+    <div style={{ padding: 20 }}>
       <PaymentGlobalHeader data={showroomData} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px 40px" }}>
+      <Card style={{ borderRadius: 14 }}>
         {/* SHOWROOM */}
-        <div>
-          <div
-            style={{
-              fontSize: 20,
-              fontWeight: 700,
-              color: "#1d1d1f",
-              letterSpacing: "-0.3px",
-              marginBottom: 24,
-            }}
-          >
-            Showroom Account
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>
+            SECTION — Payment Details (Showroom Account)
           </div>
 
           <div
@@ -447,7 +452,7 @@ const PaymentForm = () => {
         </div>
 
         {/* AUTOCREDITS */}
-        <div style={{ marginTop: 48 }}>
+        <div style={{ marginTop: 26 }}>
           <AutocreditsPaymentSection
             loanId={loanId}
             doLoanId={doRec?.do_loanId || loanId}
@@ -462,7 +467,7 @@ const PaymentForm = () => {
             setIsAutocreditsVerified={setIsAutocreditsVerified}
           />
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

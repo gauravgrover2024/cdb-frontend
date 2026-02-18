@@ -1,5 +1,5 @@
 // src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Form } from "antd";
 
 import Button from "../../../../../components/ui/Button";
@@ -14,6 +14,35 @@ import ComparisonMatrix from "./components/ComparisonMatrix";
 import BankDetailsModal from "./components/BankDetailsModal";
 import StatusUpdateModal from "./components/StatusUpdateModal";
 import FilterPanel from "./components/FilterPanel";
+
+// API function to fetch banks data
+const fetchBanksDataFromAPI = async (loanId) => {
+  try {
+    const response = await fetch(`/api/loans/${loanId}/banks`);
+    if (!response.ok) throw new Error("Failed to fetch banks");
+    const data = await response.json();
+    return data.banks || [];
+  } catch (error) {
+    console.error("Error fetching banks:", error);
+    return null;
+  }
+};
+
+// API function to save banks data
+const saveBanksDataToAPI = async (loanId, banksData) => {
+  try {
+    const response = await fetch(`/api/loans/${loanId}/banks`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ banks: banksData }),
+    });
+    if (!response.ok) throw new Error("Failed to save banks");
+    return await response.json();
+  } catch (error) {
+    console.error("Error saving banks:", error);
+    return null;
+  }
+};
 
 const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
   if (!value) return null;
@@ -37,7 +66,7 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
   } = value;
 
   return (
-    <div className="relative bg-card rounded-lg border border-border p-4 md:p-6">
+    <div className="relative bg-card rounded-lg border border-border p-4 md:p-6 w-full">
       <div className="absolute right-4 top-3 z-10 px-3 py-1 rounded-full bg-card border border-border text-xs font-medium text-muted-foreground">
         {bankName}
       </div>
@@ -53,34 +82,52 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
         {/* Receiving Date */}
-        <div>
+        <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Receiving Date</p>
-          <input
-            type="date"
-            className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
-            value={
-              receivingDate ? dayjs(receivingDate).format("YYYY-MM-DD") : ""
-            }
-            onChange={(e) => handleFieldChange("receivingDate", e.target.value)}
-          />
+          <div className="relative">
+            <Icon
+              name="Calendar"
+              size={16}
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+            />
+            <input
+              type="date"
+              className="w-full bg-background border border-border rounded-md pl-9 pr-2 py-1 text-sm text-foreground"
+              value={
+                receivingDate ? dayjs(receivingDate).format("YYYY-MM-DD") : ""
+              }
+              onChange={(e) =>
+                handleFieldChange("receivingDate", e.target.value)
+              }
+            />
+          </div>
         </div>
 
         {/* Receiving Time */}
-        <div>
+        <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Receiving Time</p>
-          <input
-            type="time"
-            className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
-            value={receivingTime ? dayjs(receivingTime).format("HH:mm") : ""}
-            onChange={(e) => handleFieldChange("receivingTime", e.target.value)}
-          />
+          <div className="relative">
+            <Icon
+              name="Clock"
+              size={16}
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+            />
+            <input
+              type="time"
+              className="w-full bg-background border border-border rounded-md pl-9 pr-2 py-1 text-sm text-foreground"
+              value={receivingTime ? dayjs(receivingTime).format("HH:mm") : ""}
+              onChange={(e) =>
+                handleFieldChange("receivingTime", e.target.value)
+              }
+            />
+          </div>
         </div>
 
         {/* Source */}
-        <div>
+        <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Source</p>
           <select
-            className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+            className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
             value={recordSource || ""}
             onChange={(e) => handleFieldChange("recordSource", e.target.value)}
           >
@@ -91,12 +138,12 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
         </div>
 
         {/* Source Name */}
-        <div>
+        <div className="space-y-1">
           <p className="text-xs text-muted-foreground">
             {recordSource === "Indirect" ? "Dealer / Channel" : "Source Name"}
           </p>
           <input
-            className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+            className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
             value={sourceName || ""}
             onChange={(e) => handleFieldChange("sourceName", e.target.value)}
           />
@@ -105,10 +152,10 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
         {/* Indirect fields */}
         {recordSource === "Indirect" && (
           <>
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">Dealer Mobile</p>
               <input
-                className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+                className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
                 value={dealerMobile || ""}
                 onChange={(e) =>
                   handleFieldChange("dealerMobile", e.target.value)
@@ -116,11 +163,11 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
               />
             </div>
 
-            <div className="md:col-span-2 lg:col-span-2">
+            <div className="md:col-span-2 lg:col-span-2 space-y-1">
               <p className="text-xs text-muted-foreground">Dealer Address</p>
               <textarea
                 rows={2}
-                className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+                className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
                 value={dealerAddress || ""}
                 onChange={(e) =>
                   handleFieldChange("dealerAddress", e.target.value)
@@ -128,11 +175,11 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
               />
             </div>
 
-            <div>
+            <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
                 Is Payout Applicable
               </p>
-              <div className="mt-1 flex gap-3 text-xs">
+              <div className="flex gap-3 text-xs">
                 <label className="flex items-center gap-1">
                   <input
                     type="radio"
@@ -161,10 +208,10 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
             </div>
 
             {payoutApplicable === "Yes" && (
-              <div>
+              <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Payout %</p>
                 <input
-                  className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+                  className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
                   value={payoutPercentage || ""}
                   onChange={(e) =>
                     handleFieldChange("payoutPercentage", e.target.value)
@@ -176,12 +223,12 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
         )}
 
         {/* Reference */}
-        <div>
+        <div className="space-y-1">
           <p className="text-xs text-muted-foreground">
             Reference Name &amp; Number
           </p>
           <input
-            className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+            className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
             value={referenceDetails || ""}
             onChange={(e) =>
               handleFieldChange("referenceDetails", e.target.value)
@@ -190,20 +237,20 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
         </div>
 
         {/* Dealt By */}
-        <div>
+        <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Dealt By</p>
           <input
-            className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+            className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
             value={dealtBy || ""}
             onChange={(e) => handleFieldChange("dealtBy", e.target.value)}
           />
         </div>
 
         {/* Docs Prepared By */}
-        <div>
+        <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Docs Prepared By</p>
           <input
-            className="mt-1 w-full border rounded-md px-2 py-1 text-sm"
+            className="w-full bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
             value={docsPreparedBy || ""}
             onChange={(e) =>
               handleFieldChange("docsPreparedBy", e.target.value)
@@ -215,11 +262,53 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
   );
 };
 
-const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
+const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => {
   const [activeView, setActiveView] = useState("cards");
   const [selectedBank, setSelectedBank] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const saveTimeoutRef = useRef(null);
+  const initialFetchRef = useRef(false);
+
+  // Fetch banks data on component mount
+  useEffect(() => {
+    if (!loanId || initialFetchRef.current) return;
+    initialFetchRef.current = true;
+
+    const fetchData = async () => {
+      setIsLoading(true);
+      const fetchedBanks = await fetchBanksDataFromAPI(loanId);
+      if (fetchedBanks) {
+        setBanksData(fetchedBanks);
+      }
+      setIsLoading(false);
+    };
+
+    fetchData();
+  }, [loanId, setBanksData]);
+
+  // Auto-save with debounce
+  useEffect(() => {
+    if (!loanId || isLoading) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      setIsSaving(true);
+      await saveBanksDataToAPI(loanId, banksData);
+      setIsSaving(false);
+    }, 1500); // Save 1.5 seconds after last change
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [banksData, loanId, isLoading]);
 
   const primaryBank =
     banksData.find((b) => b.status === "Disbursed") ||
@@ -380,6 +469,21 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
 
   const [recordDetailsByBank, setRecordDetailsByBank] = useState({});
 
+  // Wire new banks' record details to prefile form values if not already set
+  useEffect(() => {
+    if (!banksData || !Array.isArray(banksData)) return;
+    setRecordDetailsByBank((prev) => {
+      const updated = { ...prev };
+      banksData.forEach((bank, idx) => {
+        if (!updated[bank.id]) {
+          updated[bank.id] = { ...prefileRecordDetails };
+        }
+      });
+      return updated;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [banksData, JSON.stringify(prefileRecordDetails)]);
+
   const statusSummary = {
     total: banksData.length,
     approved: banksData.filter((b) => b.status === "Approved").length,
@@ -440,30 +544,21 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
 
   return (
     <div className="relative -mx-6 lg:-mx-8">
-      <div className="px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground">
-              Loan Approval
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Track and manage bank-wise loan approvals
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              iconName="Plus"
-              onClick={handleAddBank}
-            >
-              Add Bank
-            </Button>
-            <QuickActionToolbar />
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-50 rounded-lg">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+            <p className="text-sm text-muted-foreground">Loading banks...</p>
           </div>
         </div>
-
+      )}
+      {isSaving && (
+        <div className="fixed bottom-4 right-4 bg-card border border-border rounded-lg px-4 py-2 text-xs text-muted-foreground flex items-center gap-2 z-40">
+          <div className="inline-block animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+          Saving...
+        </div>
+      )}
+      <div className="px-6 lg:px-8 space-y-6">
         <WorkflowProgress
           currentStage="Multi-Bank Approval"
           stages={workflowStages}
@@ -561,26 +656,6 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
 
         {activeView === "cards" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredBanks.length === 0 && (
-              <button
-                type="button"
-                onClick={handleAddBank}
-                className="border border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-center hover:border-primary hover:bg-primary/5 transition-colors"
-              >
-                <Icon
-                  name="PlusCircle"
-                  size={32}
-                  className="text-primary mb-2"
-                />
-                <span className="text-sm font-medium text-foreground">
-                  Add first bank
-                </span>
-                <span className="text-xs text-muted-foreground mt-1">
-                  Start by adding the first lending partner
-                </span>
-              </button>
-            )}
-
             {filteredBanks.map((bank) => (
               <BankStatusCard
                 key={bank.id}
@@ -598,6 +673,23 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext }) => {
                 }
               />
             ))}
+            {!hasDisbursed && (
+              <button
+                type="button"
+                onClick={handleAddBank}
+                className="bg-card rounded-lg border border-border p-4 md:p-6 transition-all hover:shadow-md active:scale-95 cursor-pointer relative group max-w-sm mx-auto w-full min-h-[350px]"
+              >
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Icon name="Plus" size={24} className="text-primary" />
+                  </div>
+                  <div className="flex-1 text-center">
+                    <h3 className="font-semibold text-foreground mb-1 ">Add Bank</h3>
+                    <p className="text-xs text-muted-foreground">Click to add another bank for approval</p>
+                  </div>
+                </div>
+              </button>
+            )}
           </div>
         ) : (
           <ComparisonMatrix banks={filteredBanks.map(bankWithLiveVehicle)} />

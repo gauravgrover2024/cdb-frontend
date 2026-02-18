@@ -2,55 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: 248 250 252;
-  --foreground: 15 23 42;
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --foreground: 15 20 25;
 
-  --card: 255 255 255;
-  --card-foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 20 25;
 
-  --border: 226 232 240;
-  --muted: 241 245 249;
-  --muted-foreground: 100 116 139;
+    --popover: 255 255 255;
+    --popover-foreground: 15 20 25;
 
-  --primary: 37 99 235;
-  --primary-foreground: 255 255 255;
+    --primary: 29 155 240;
+    --primary-foreground: 255 255 255;
 
-  --success: 22 163 74;
-  --warning: 234 179 8;
-  --error: 220 38 38;
+    --secondary: 247 249 249;
+    --secondary-foreground: 15 20 25;
+
+    --muted: 247 249 249;
+    --muted-foreground: 83 100 113;
+
+    --accent: 247 249 249;
+    --accent-foreground: 15 20 25;
+
+    --destructive: 244 33 46;
+    --destructive-foreground: 255 255 255;
+
+    --success: 34 197 94;
+    --success-foreground: 255 255 255;
+
+    --warning: 245 158 11;
+    --warning-foreground: 255 255 255;
+
+    --border: 239 243 244;
+    --input: 239 243 244;
+    --ring: 29 155 240;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0 0;
+    --foreground: 255 255 255;
+
+    --card: 0 0 0;
+    --card-foreground: 255 255 255;
+
+    --popover: 0 0 0;
+    --popover-foreground: 255 255 255;
+
+    --primary: 29 155 240;
+    --primary-foreground: 255 255 255;
+
+    --secondary: 22 24 28;
+    --secondary-foreground: 255 255 255;
+
+    --muted: 22 24 28;
+    --muted-foreground: 113 118 123;
+
+    --accent: 22 24 28;
+    --accent-foreground: 255 255 255;
+
+    --destructive: 244 33 46;
+    --destructive-foreground: 255 255 255;
+
+    --success: 34 197 94;
+    --success-foreground: 255 255 255;
+
+    --warning: 245 158 11;
+    --warning-foreground: 255 255 255;
+
+    --border: 47 51 54;
+    --input: 47 51 54;
+    --ring: 29 155 240;
+  }
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background-color: #f5f5f5;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Focus styles for inputs/buttons */
+/* Focus styles */
 .ant-input:focus,
 .ant-input-focused,
 .ant-btn:focus,
 .ant-btn-focused {
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.3);
-  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(var(--primary), 0.2);
+  border-color: rgb(var(--primary));
 }
 
-/* ===== Card flip helpers (Loan Approval only) ===== */
-
-.perspective-1000 {
-  perspective: 1000px;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-.transform-style-preserve-3d {
-  transform-style: preserve-3d;
-}
-
-.backface-hidden {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-.rotate-y-180 {
-  transform: rotateY(180deg);
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

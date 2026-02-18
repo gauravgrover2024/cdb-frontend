@@ -1,145 +1,134 @@
-import React from "react";
 import {
+  PhoneOutlined,
+  SafetyCertificateOutlined,
+  SolutionOutlined
+} from "@ant-design/icons";
+import {
+  Col,
+  DatePicker,
   Form,
   Input,
-  Select,
-  DatePicker,
   Row,
-  Col,
-  Card,
-  AutoComplete,
-  Divider,
-  Space,
-  Button,
+  Select,
 } from "antd";
-import { UserOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
-import dayjs from "dayjs";
-import demoCustomers from "../../../../customers/demoCustomers";
+import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
+import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 const AuthorisedSignatorySection = () => {
   const form = Form.useFormInstance();
 
   const applicantType = Form.useWatch("applicantType", form);
 
+  const handleCustomerSelect = (customer) => {
+    const mappedFields = mapCustomerToPersonFields(customer, "signatory");
+    form.setFieldsValue(mappedFields);
+  };
+
   // Render ONLY for company applicant
   if (applicantType !== "Company") return null;
 
-  /* ------------------------------
-     AUTOFILL FROM DEMO CUSTOMERS
-  ------------------------------ */
-  const handleSelect = (_, option) => {
-    const c = option.customer;
-
-    form.setFieldsValue({
-      signatory_name: c.customerName || "",
-      signatory_dob: c.dob ? dayjs(c.dob) : null,
-      signatory_gender: c.gender || "",
-      signatory_address: c.residenceAddress || "",
-      signatory_pincode: c.pincode || "",
-      signatory_city: c.city || "",
-      signatory_pan: c.panNumber || "",
-      signatory_aadhaar: c.aadhaarNumber || "",
-      signatory_primaryMobile: c.primaryMobile || "",
-    });
-  };
-
-  const options = demoCustomers.map((c) => ({
-    value: `${c.customerName} - ${c.primaryMobile}`,
-    label: `${c.customerName} (${c.primaryMobile})`,
-    customer: c,
-  }));
-
   return (
-    <Card
-      style={{ borderRadius: 12, marginBottom: 24 }}
-      title={
-        <Space>
-          <SafetyCertificateOutlined />
-          <span>Authorised Signatory Details</span>
-        </Space>
-      }
-    >
-      {/* SEARCH */}
-      <Form.Item label="Search Authorised Signatory">
-        <AutoComplete
-          options={options}
-          onSelect={handleSelect}
-          placeholder="Search by name or mobile"
-          allowClear
-        />
-      </Form.Item>
+    <div className="bg-card p-6 rounded-2xl border border-border/60 shadow-sm mb-6">
+      <div className="flex items-center gap-2 mb-6">
+        <div className="p-2 bg-purple-500/10 rounded-lg">
+          <SafetyCertificateOutlined className="text-purple-600" />
+        </div>
+        <span className="text-base text-foreground">Authorised Signatory Details</span>
+      </div>
 
-      <Divider orientation="left">Personal Details</Divider>
+      {/* ================= PERSONAL DETAILS ================= */}
+      <div className="flex items-center gap-2 mb-4 mt-6 opacity-80">
+        <SolutionOutlined className="text-primary text-xs" />
+        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Personal Details</span>
+      </div>
 
-      <Row gutter={16}>
-        <Col md={8}>
-          <Form.Item label="Applicant Name" name="signatory_name">
-            <Input prefix={<UserOutlined />} />
+      <Row gutter={[24, 0]}>
+        <Col xs={24} md={8}>
+          <Form.Item label="Customer ID" name="signatory_id">
+            <Input disabled placeholder="Auto-filled" className="h-10 rounded-lg bg-muted/30" />
           </Form.Item>
         </Col>
 
-        {/* MOBILE NUMBERS */}
-        <Col md={8}>
-          <Form.Item label="Primary Mobile" name="signatory_primaryMobile">
-            <Input />
+        <Col xs={24} md={8}>
+          <Form.Item label="Applicant Name" name="signatory_customerName">
+            <CustomerQuickSearch
+              onSelect={handleCustomerSelect}
+              placeholder="Search or Enter Name"
+              className="h-10 rounded-lg"
+            />
           </Form.Item>
         </Col>
 
-        <Col span={24}>
+        <Col xs={24} md={8}>
+          <Form.Item
+            label="Primary Mobile"
+            name="signatory_primaryMobile"
+            rules={[{ pattern: /^[0-9]{10}$/, message: '10 digits required' }]}
+          >
+            <Input maxLength={10} className="h-10 rounded-lg" prefix={<PhoneOutlined className="text-muted-foreground mr-1" />} placeholder="10-digit number" />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={16}>
           <Form.Item label="Present / Current Address" name="signatory_address">
-            <TextArea rows={2} />
+            <Input className="h-10 rounded-lg" placeholder="House no, Street, Area" />
           </Form.Item>
         </Col>
 
-        <Col md={6}>
+        <Col xs={24} md={8}>
           <Form.Item label="Pincode" name="signatory_pincode">
-            <Input />
+            <Input className="h-10 rounded-lg" maxLength={6} placeholder="6-digit PIN" />
           </Form.Item>
         </Col>
 
-        <Col md={6}>
+        <Col xs={24} md={8}>
           <Form.Item label="City" name="signatory_city">
-            <Input />
+            <Input className="h-10 rounded-lg" />
           </Form.Item>
         </Col>
 
-        <Col md={6}>
+        <Col xs={24} md={8}>
           <Form.Item label="Date of Birth" name="signatory_dob">
-            <DatePicker style={{ width: "100%" }} />
+            <DatePicker style={{ width: "100%" }} className="h-10 rounded-lg" />
           </Form.Item>
         </Col>
 
-        <Col md={6}>
+        <Col xs={24} md={8}>
           <Form.Item label="Gender" name="signatory_gender">
-            <Select>
+            <Select
+              className="h-10 rounded-lg"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            >
               <Option value="Male">Male</Option>
               <Option value="Female">Female</Option>
             </Select>
           </Form.Item>
         </Col>
 
-        <Col md={8}>
+        <Col xs={24} md={8}>
           <Form.Item label="Designation" name="designation">
-            <Input />
+            <Input className="h-10 rounded-lg" placeholder="e.g. Director" />
           </Form.Item>
         </Col>
 
-        <Col md={8}>
+        <Col xs={24} md={8}>
           <Form.Item label="PAN Number" name="signatory_pan">
-            <Input />
+            <Input className="h-10 rounded-lg" placeholder="ABCDE1234F" />
           </Form.Item>
         </Col>
 
-        <Col md={8}>
+        <Col xs={24} md={8}>
           <Form.Item label="Aadhaar Number" name="signatory_aadhaar">
-            <Input />
+            <Input className="h-10 rounded-lg" placeholder="1234 5678 9012" />
           </Form.Item>
         </Col>
       </Row>
-    </Card>
+    </div>
   );
 };
 

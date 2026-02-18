@@ -6,10 +6,15 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import LoanLayout from "../LoanLayout";
 import LoanDashboard from "../components/LoanDashboard";
 import LoanFormWithSteps from "../components/LoanFormWithSteps";
+import EMICalculatorPage from "../pages/EMICalculatorPage";
 
 const LoanRoutes = () => {
   return (
     <Routes>
+      {/* EMI Calculator - Standalone without sidebar */}
+      <Route path="emi-calculator" element={<EMICalculatorPage />} />
+      
+      {/* Other routes with LoanLayout */}
       <Route path="/" element={<LoanLayout />}>
         {/* /loans */}
         <Route index element={<LoanDashboard />} />

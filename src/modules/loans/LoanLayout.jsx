@@ -1,15 +1,15 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Layout, Menu } from "antd";
-import { DashboardOutlined, FileAddOutlined } from "@ant-design/icons";
+import { DashboardOutlined, FileAddOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 const { Header, Sider, Content } = Layout;
 
 const LoanLayout = () => {
-  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
   const selectedKey = useMemo(() => {
+    if (location.pathname.startsWith("/loans/pendency")) return "pendency";
     if (location.pathname.startsWith("/loans/new")) return "newLoan";
     return "dashboard";
   }, [location.pathname]);
@@ -18,11 +18,6 @@ const LoanLayout = () => {
     <Layout style={{ minHeight: "100vh", background: "#f7f8fb" }}>
       {/* SIDEBAR */}
       <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        breakpoint="lg"
-        collapsedWidth={72}
         theme="light"
         width={250}
         style={{
@@ -38,10 +33,10 @@ const LoanLayout = () => {
         <div
           style={{
             height: 60,
-            padding: collapsed ? "0 10px" : "0 16px",
+            padding: "0 16px",
             display: "flex",
             alignItems: "center",
-            justifyContent: collapsed ? "center" : "flex-start",
+            justifyContent: "flex-start",
             gap: 10,
             borderBottom: "1px solid #f3f4f6",
           }}
@@ -64,14 +59,12 @@ const LoanLayout = () => {
             AC
           </div>
 
-          {!collapsed && (
-            <div style={{ lineHeight: 1.1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>
-                Autocredits India LLP
-              </div>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>Loans Module</div>
+          <div style={{ lineHeight: 1.1 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#111827" }}>
+              Autocredits India LLP
             </div>
-          )}
+            <div style={{ fontSize: 11, color: "#6b7280" }}>Loans Module</div>
+          </div>
         </div>
 
         {/* Menu */}
@@ -93,6 +86,11 @@ const LoanLayout = () => {
                 key: "newLoan",
                 icon: <FileAddOutlined />,
                 label: <Link to="/loans/new">New Loan</Link>,
+              {
+                key: "pendency",
+                icon: <ClockCircleOutlined />,
+                label: <Link to="/loans/pendency">Pendency Tracker</Link>,
+              },
               },
             ]}
           />
@@ -106,7 +104,7 @@ const LoanLayout = () => {
           style={{
             position: "sticky",
             top: 0,
-            zIndex: 50,
+            zIndex: 12020,
             background: "#fff",
             padding: "0 18px",
             borderBottom: "1px solid #f0f0f0",
@@ -147,8 +145,7 @@ const LoanLayout = () => {
         <Content style={{ padding: 18 }}>
           <div
             style={{
-              maxWidth: 1500,
-              margin: "0 auto",
+              width: "100%",
             }}
           >
             <div

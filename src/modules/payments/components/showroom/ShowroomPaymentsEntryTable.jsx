@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Input, DatePicker, Select } from "antd";
+import { Card, Button, Input, DatePicker, Select, Space } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 
@@ -40,6 +40,23 @@ const isBlankPlaceholderRow = (r) => {
 const removeAutoRowsByType = (prev, type) =>
   prev.filter((r) => !(r._auto === true && r.paymentType === type));
 
+const FieldLabel = ({ children }) => (
+  <div style={{ fontSize: 11, color: "#666", marginBottom: 4 }}>{children}</div>
+);
+
+const FieldBox = ({ children }) => (
+  <div
+    style={{
+      border: "1px solid #f0f0f0",
+      borderRadius: 12,
+      padding: 10,
+      background: "#fff",
+    }}
+  >
+    {children}
+  </div>
+);
+
 const ShowroomPaymentsEntryTable = ({
   isFinanced = false,
   loanPaymentPrefill = 0,
@@ -53,25 +70,31 @@ const ShowroomPaymentsEntryTable = ({
   onTotalsChange,
   onRowsChange,
   initialRows = [],
-  isVerified = false,
+  isVerified = false, // ✅ NEW
 }) => {
   const [rows, setRows] = useState([]);
 
   const exVal = asInt(exchangeValue);
   const insAmt = asInt(insuranceAmount);
 
+  // hydrate from storage only once
   const didHydrateFromStorage = useRef(false);
 
-  // Hydrate from storage
+  // -----------------------------------
+  // HYDRATE FROM STORAGE FIRST
+  // -----------------------------------
   useEffect(() => {
     if (didHydrateFromStorage.current) return;
+
     if (Array.isArray(initialRows) && initialRows.length > 0) {
       setRows(initialRows);
       didHydrateFromStorage.current = true;
     }
   }, [initialRows]);
 
-  // Init rows
+  // -----------------------------------
+  // Init rows only if NOT hydrated
+  // -----------------------------------
   useEffect(() => {
     if (isVerified) return;
     if (didHydrateFromStorage.current) return;
@@ -79,6 +102,7 @@ const ShowroomPaymentsEntryTable = ({
     setRows((prev) => {
       if (prev.length > 0) return prev;
 
+      // financed -> auto loan row
       if (isFinanced && asInt(loanPaymentPrefill) > 0) {
         return [
           {
@@ -97,10 +121,12 @@ const ShowroomPaymentsEntryTable = ({
         ];
       }
 
+      // if exchange exists, don't add placeholder
       if (asInt(exchangeValue) > 0) {
         return [];
       }
 
+      // cash -> placeholder
       return [emptyRow()];
     });
   }, [
@@ -112,7 +138,9 @@ const ShowroomPaymentsEntryTable = ({
     exchangeValue,
   ]);
 
-  // Auto add missing Loan row
+  // -----------------------------------
+  // Auto add missing Loan row (refresh safe)
+  // -----------------------------------
   useEffect(() => {
     if (isVerified) return;
     if (!isFinanced) return;
@@ -120,7 +148,7 @@ const ShowroomPaymentsEntryTable = ({
 
     setRows((prev) => {
       const hasLoanAuto = prev.some(
-        (r) => r._auto === true && r.paymentType === "Loan",
+        (r) => r._auto === true && r.paymentType === "Loan"
       );
       if (hasLoanAuto) return prev;
 
@@ -151,7 +179,12 @@ const ShowroomPaymentsEntryTable = ({
     hypothecationBank,
   ]);
 
-  // Exchange auto row
+  // -----------------------------------
+  // EXCHANGE AUTO ROW (SYNC WITH DO)
+  // Rule:
+  // - purchasedBy Showroom => Adjustment row
+  // - purchasedBy Autocredits => NO ROW AT ALL
+  // -----------------------------------
   useEffect(() => {
     if (isVerified) return;
 
@@ -162,12 +195,14 @@ const ShowroomPaymentsEntryTable = ({
 
       const purchasedBy = String(exchangePurchasedBy || "").toLowerCase();
 
+      // Autocredits purchase => NO exchange row
       if (purchasedBy === "autocredits") {
         return next;
       }
 
       next = next.filter((r) => !isBlankPlaceholderRow(r));
 
+      // showroom purchased => adjustment row
       if (purchasedBy === "showroom") {
         return [
           ...next,
@@ -186,6 +221,7 @@ const ShowroomPaymentsEntryTable = ({
         ];
       }
 
+      // fallback => treat as showroom adjustment
       return [
         ...next,
         {
@@ -202,7 +238,12 @@ const ShowroomPaymentsEntryTable = ({
     });
   }, [isVerified, exVal, purchaseDate, exchangePurchasedBy]);
 
-  // Insurance auto row
+  // -----------------------------------
+  // INSURANCE AUTO ROW (SYNC WITH DO)
+  // Rule:
+  // - If insuranceBy is Showroom => NO ROW
+  // - If insuranceBy is Autocredits / Customer / Broker => Adjustment row
+  // -----------------------------------
   useEffect(() => {
     if (isVerified) return;
 
@@ -235,13 +276,18 @@ const ShowroomPaymentsEntryTable = ({
     });
   }, [isVerified, insuranceAmount, insuranceBy]);
 
-  // Push rows upward
+  // -----------------------------------
+  // Push rows upward (for saving)
+  // -----------------------------------
   useEffect(() => {
     if (typeof onRowsChange === "function") {
       onRowsChange(rows);
     }
   }, [rows, onRowsChange]);
 
+  // -----------------------------------
+  // Actions
+  // -----------------------------------
   const handleAddRow = () => {
     if (isVerified) return;
     setRows((prev) => [...prev, emptyRow()]);
@@ -260,7 +306,7 @@ const ShowroomPaymentsEntryTable = ({
     if (isVerified) return;
 
     setRows((prev) =>
-      prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
+      prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r))
     );
   };
 
@@ -344,7 +390,9 @@ const ShowroomPaymentsEntryTable = ({
     updateRow(rowId, { paymentType: val });
   };
 
+  // -----------------------------------
   // Totals calculation
+  // -----------------------------------
   const totals = useMemo(() => {
     let paymentAmountLoan = 0;
     let paymentAmountAutocredits = 0;
@@ -410,316 +458,233 @@ const ShowroomPaymentsEntryTable = ({
   }, [rows]);
 
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        border: "1px solid rgba(0, 0, 0, 0.06)",
-        borderRadius: 16,
-        padding: 24,
-      }}
-    >
-      {/* Header */}
+    <Card style={{ borderRadius: 14, border: "1px solid #f0f0f0" }}>
       <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 20,
-        }}
+        style={{ display: "flex", justifyContent: "space-between", gap: 12 }}
       >
         <div>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "#1d1d1f",
-              marginBottom: 4,
-            }}
-          >
-            Payment Entries
+          <div style={{ fontWeight: 800, fontSize: 14 }}>
+            Payments Entry (Showroom Account)
           </div>
-          <div style={{ fontSize: 12, color: "#86868b" }}>
-            {isVerified
-              ? "Account verified — read-only mode"
-              : `${rows.length} ${rows.length === 1 ? "entry" : "entries"}`}
+
+          <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>
+            {isVerified ? (
+              <>File Verified ✅ Read-only mode enabled.</>
+            ) : (
+              <>
+                Click <b>Add Payment Entry</b> to add rows.
+              </>
+            )}
           </div>
         </div>
 
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleAddRow}
-          disabled={isVerified}
-          style={{
-            height: 36,
-            borderRadius: 10,
-            fontWeight: 600,
-            background: "#007aff",
-            borderColor: "transparent",
-          }}
-        >
-          Add Entry
-        </Button>
+        <Space>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleAddRow}
+            disabled={isVerified}
+          >
+            Add Payment Entry
+          </Button>
+        </Space>
       </div>
 
-      {/* Rows */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div
+        style={{
+          marginTop: 14,
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+        }}
+      >
         {rows.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 40,
-              color: "#86868b",
-              fontSize: 13,
-            }}
-          >
-            No payment entries yet. Click "Add Entry" to begin.
+          <div style={{ fontSize: 12, color: "#666" }}>
+            No payment rows yet. Click <b>Add Payment Entry</b>.
           </div>
         ) : (
           rows.map((row, idx) => (
-            <EntryCard
+            <div
               key={row.id}
-              row={row}
-              index={idx}
-              isVerified={isVerified}
-              onDelete={() => handleDeleteRow(row.id)}
-              onUpdate={(patch) => updateRow(row.id, patch)}
-              onPaymentTypeChange={(val) => onPaymentTypeChange(row.id, val)}
-            />
+              style={{
+                border: "1px solid #f0f0f0",
+                borderRadius: 14,
+                padding: 14,
+                background: "#fafafa",
+                opacity: isVerified ? 0.92 : 1,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 10,
+                  gap: 12,
+                }}
+              >
+                <div style={{ fontWeight: 800, fontSize: 13 }}>
+                  Payment Entry #{idx + 1} {row._auto ? "(Auto)" : ""}
+                </div>
+
+                <Button
+                  danger
+                  type="text"
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleDeleteRow(row.id)}
+                  disabled={isVerified}
+                >
+                  Delete
+                </Button>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 12,
+                }}
+              >
+                <FieldBox>
+                  <FieldLabel>Payment Type</FieldLabel>
+                  <Select
+                    disabled={isVerified}
+                    value={row.paymentType || undefined}
+                    placeholder="Select"
+                    style={{ width: "100%" }}
+                    onChange={(val) => onPaymentTypeChange(row.id, val)}
+                    options={[
+                      { value: "Margin Money", label: "Margin Money" },
+                      { value: "Loan", label: "Loan" },
+                      { value: "Exchange Vehicle", label: "Exchange Vehicle" },
+                      { value: "Insurance", label: "Insurance" },
+                      { value: "Commission", label: "Commission" },
+                    ]}
+                  />
+                </FieldBox>
+
+                <FieldBox>
+                  <FieldLabel>Payment Made By</FieldLabel>
+                  <Select
+                    disabled={isVerified}
+                    value={row.paymentMadeBy || undefined}
+                    placeholder="Select"
+                    style={{ width: "100%" }}
+                    onChange={(val) =>
+                      updateRow(row.id, { paymentMadeBy: val })
+                    }
+                    options={[
+                      { value: "Customer", label: "Customer" },
+                      { value: "Autocredits", label: "Autocredits" },
+                      { value: "Bank", label: "Bank" },
+                    ]}
+                  />
+                </FieldBox>
+
+                <FieldBox>
+                  <FieldLabel>Payment Mode</FieldLabel>
+                  <Select
+                    disabled={isVerified}
+                    value={row.paymentMode || undefined}
+                    placeholder="Select"
+                    style={{ width: "100%" }}
+                    onChange={(val) => updateRow(row.id, { paymentMode: val })}
+                    options={[
+                      {
+                        value: "Online Transfer/UPI",
+                        label: "Online Transfer/UPI",
+                      },
+                      { value: "Cash", label: "Cash" },
+                      { value: "Cheque", label: "Cheque" },
+                      { value: "DD", label: "DD" },
+                      { value: "Credit Card", label: "Credit Card" },
+                      { value: "Adjustment", label: "Adjustment" },
+                    ]}
+                  />
+                </FieldBox>
+
+                <FieldBox>
+                  <FieldLabel>Payment Amount</FieldLabel>
+                  <Input
+                    disabled={isVerified}
+                    value={row.paymentAmount}
+                    placeholder="Amount"
+                    onChange={(e) =>
+                      updateRow(row.id, { paymentAmount: e.target.value })
+                    }
+                  />
+                </FieldBox>
+
+                <FieldBox>
+                  <FieldLabel>Payment Date</FieldLabel>
+                  <DatePicker
+                    disabled={isVerified}
+                    value={row.paymentDate ? dayjs(row.paymentDate) : null}
+                    style={{ width: "100%" }}
+                    onChange={(d) =>
+                      updateRow(row.id, {
+                        paymentDate: d ? d.toISOString() : null,
+                      })
+                    }
+                  />
+                </FieldBox>
+
+                <FieldBox>
+                  <FieldLabel>Transaction Details</FieldLabel>
+                  <Input
+                    disabled={isVerified}
+                    value={row.transactionDetails}
+                    placeholder="Txn / UTR / Ref"
+                    onChange={(e) =>
+                      updateRow(row.id, { transactionDetails: e.target.value })
+                    }
+                  />
+                </FieldBox>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                }}
+              >
+                <FieldBox>
+                  <FieldLabel>Bank Name</FieldLabel>
+                  <Input
+                    disabled={isVerified}
+                    value={row.bankName}
+                    placeholder="Bank"
+                    onChange={(e) =>
+                      updateRow(row.id, { bankName: e.target.value })
+                    }
+                  />
+                </FieldBox>
+
+                <FieldBox>
+                  <FieldLabel>Remarks</FieldLabel>
+                  <Input
+                    disabled={isVerified}
+                    value={row.remarks}
+                    placeholder="Remarks"
+                    onChange={(e) =>
+                      updateRow(row.id, { remarks: e.target.value })
+                    }
+                  />
+                </FieldBox>
+              </div>
+            </div>
           ))
         )}
       </div>
 
-      {/* Footer Total */}
-      {rows.length > 0 && (
-        <div
-          style={{
-            marginTop: 20,
-            paddingTop: 16,
-            borderTop: "1px solid rgba(0, 0, 0, 0.06)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#1d1d1f" }}>
-            Total Entered
-          </div>
-          <div
-            style={{
-              fontSize: 17,
-              fontWeight: 700,
-              color: "#1d1d1f",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            ₹ {totalEntered.toLocaleString("en-IN")}
-          </div>
-        </div>
-      )}
-    </div>
+      <div style={{ marginTop: 12, fontSize: 12, color: "#666" }}>
+        Total Entered Amount:{" "}
+        <b>₹ {asInt(totalEntered).toLocaleString("en-IN")}</b>
+      </div>
+    </Card>
   );
 };
-
-const EntryCard = ({
-  row,
-  index,
-  isVerified,
-  onDelete,
-  onUpdate,
-  onPaymentTypeChange,
-}) => {
-  return (
-    <div
-      style={{
-        background: "#f5f5f7",
-        borderRadius: 12,
-        padding: 20,
-        position: "relative",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              background: "#007aff",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 700,
-            }}
-          >
-            {index + 1}
-          </div>
-          {row._auto && (
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                color: "#ff9500",
-                letterSpacing: "0.5px",
-              }}
-            >
-              Auto-Generated
-            </div>
-          )}
-        </div>
-
-        <Button
-          danger
-          type="text"
-          size="small"
-          icon={<DeleteOutlined />}
-          onClick={onDelete}
-          disabled={isVerified}
-          style={{ borderRadius: 8 }}
-        >
-          Remove
-        </Button>
-      </div>
-
-      {/* Fields Grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 12,
-        }}
-      >
-        <FieldInput label="Payment Type">
-          <Select
-            value={row.paymentType || undefined}
-            placeholder="Select type"
-            onChange={onPaymentTypeChange}
-            disabled={isVerified}
-            style={{ width: "100%" }}
-            options={[
-              { value: "Margin Money", label: "Margin Money" },
-              { value: "Loan", label: "Loan" },
-              { value: "Exchange Vehicle", label: "Exchange Vehicle" },
-              { value: "Insurance", label: "Insurance" },
-              { value: "Commission", label: "Commission" },
-            ]}
-          />
-        </FieldInput>
-
-        <FieldInput label="Made By">
-          <Select
-            value={row.paymentMadeBy || undefined}
-            placeholder="Select"
-            onChange={(val) => onUpdate({ paymentMadeBy: val })}
-            disabled={isVerified}
-            style={{ width: "100%" }}
-            options={[
-              { value: "Customer", label: "Customer" },
-              { value: "Autocredits", label: "Autocredits" },
-              { value: "Bank", label: "Bank" },
-            ]}
-          />
-        </FieldInput>
-
-        <FieldInput label="Mode">
-          <Select
-            value={row.paymentMode || undefined}
-            placeholder="Select"
-            onChange={(val) => onUpdate({ paymentMode: val })}
-            disabled={isVerified}
-            style={{ width: "100%" }}
-            options={[
-              { value: "Online Transfer/UPI", label: "Online Transfer/UPI" },
-              { value: "Cash", label: "Cash" },
-              { value: "Cheque", label: "Cheque" },
-              { value: "DD", label: "DD" },
-              { value: "Credit Card", label: "Credit Card" },
-              { value: "Adjustment", label: "Adjustment" },
-            ]}
-          />
-        </FieldInput>
-
-        <FieldInput label="Amount">
-          <Input
-            value={row.paymentAmount}
-            placeholder="0"
-            onChange={(e) => onUpdate({ paymentAmount: e.target.value })}
-            disabled={isVerified}
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          />
-        </FieldInput>
-
-        <FieldInput label="Date">
-          <DatePicker
-            value={row.paymentDate ? dayjs(row.paymentDate) : null}
-            onChange={(d) =>
-              onUpdate({
-                paymentDate: d ? d.toISOString() : null,
-              })
-            }
-            disabled={isVerified}
-            style={{ width: "100%" }}
-          />
-        </FieldInput>
-
-        <FieldInput label="Transaction Ref">
-          <Input
-            value={row.transactionDetails}
-            placeholder="UTR / Ref"
-            onChange={(e) => onUpdate({ transactionDetails: e.target.value })}
-            disabled={isVerified}
-          />
-        </FieldInput>
-
-        <FieldInput label="Bank Name">
-          <Input
-            value={row.bankName}
-            placeholder="Bank"
-            onChange={(e) => onUpdate({ bankName: e.target.value })}
-            disabled={isVerified}
-          />
-        </FieldInput>
-
-        <FieldInput label="Remarks" fullWidth>
-          <Input
-            value={row.remarks}
-            placeholder="Notes"
-            onChange={(e) => onUpdate({ remarks: e.target.value })}
-            disabled={isVerified}
-          />
-        </FieldInput>
-      </div>
-    </div>
-  );
-};
-
-const FieldInput = ({ label, children, fullWidth }) => (
-  <div style={{ gridColumn: fullWidth ? "1 / -1" : "auto" }}>
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.5px",
-        color: "#86868b",
-        marginBottom: 6,
-      }}
-    >
-      {label}
-    </div>
-    {children}
-  </div>
-);
 
 export default ShowroomPaymentsEntryTable;

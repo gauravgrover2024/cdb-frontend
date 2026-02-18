@@ -1,0 +1,87 @@
+/* Bill Printing Styles */
+@media print {
+  /* Hide everything except the bill details */
+  body * {
+    visibility: hidden;
+  }
+  
+  .bill-print-area,
+  .bill-print-area * {
+    visibility: visible;
+  }
+  
+  .bill-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+  }
+  
+  /* Hide navigation, footers, and UI elements */
+  nav,
+  footer,
+  .ant-layout-header,
+  .ant-layout-sider,
+  button,
+  .ant-btn,
+  input[type="date"],
+  select,
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Print-friendly styles */
+  .bill-header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 15px;
+  }
+  
+  .bill-header h1 {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+  }
+  
+  .bill-header p {
+    font-size: 14px;
+    margin: 5px 0;
+  }
+  
+  .bill-details {
+    margin: 20px 0;
+  }
+  
+  .bill-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+  }
+  
+  .bill-table th,
+  .bill-table td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: left;
+  }
+  
+  .bill-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+  }
+  
+  .bill-footer {
+    margin-top: 50px;
+    text-align: right;
+  }
+  
+  .bill-signature {
+    margin-top: 80px;
+    border-top: 1px solid #000;
+    display: inline-block;
+    padding-top: 10px;
+    min-width: 200px;
+  }
+}

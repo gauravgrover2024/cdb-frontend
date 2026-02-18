@@ -1,95 +1,65 @@
 import React from "react";
+import { Card } from "antd";
+
+const InfoRow = ({ label, value }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+    <div style={{ fontSize: 12, color: "#666" }}>{label}</div>
+    <div style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>
+      {value || "—"}
+    </div>
+  </div>
+);
 
 const PaymentGlobalHeader = ({ data = {} }) => {
-  const dealerInfo = [
+  const dealerLines = [
     data?.dealerName,
-    data?.dealerContactPerson,
-    data?.dealerContactNumber,
-    data?.dealerAddress, // ✅ Added back
+    data?.dealerContactPerson
+      ? `${data?.dealerContactPerson}${
+          data?.dealerContactNumber ? ` • ${data?.dealerContactNumber}` : ""
+        }`
+      : data?.dealerContactNumber || "",
+    data?.dealerAddress,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" | ");
 
   return (
     <div
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 100,
-        background: "rgba(255, 255, 255, 0.8)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
-        padding: "20px 0",
-        marginBottom: 32,
+        zIndex: 50,
+        background: "#f5f7fa",
+        paddingBottom: 12,
+        marginBottom: 12,
       }}
     >
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
-        {/* Title */}
-        <div
-          style={{
-            fontSize: 28,
-            fontWeight: 700,
-            letterSpacing: "-0.5px",
-            color: "#1d1d1f",
-            marginBottom: 16,
-          }}
-        >
-          Payment Details
+      <Card
+        style={{
+          borderRadius: 14,
+          border: "1px solid #f0f0f0",
+          background: "#ffffff",
+        }}
+      >
+        <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 10 }}>
+          Payment Module
         </div>
 
-        {/* Meta Grid */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 20,
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
           }}
         >
-          <MetaItem label="Customer" value={data?.customerName} />
-          <MetaItem label="DO Reference" value={data?.doRefNo} />
-          <MetaItem label="Loan Reference" value={data?.loanRefNo} />
-          <MetaItem label="Dealer" value={dealerInfo} multiline />
+          <InfoRow label="Customer Name" value={data?.customerName} />
+          <InfoRow label="DO Ref No" value={data?.doRefNo} />
+          <InfoRow label="Loan Ref No" value={data?.loanRefNo} />
+          <InfoRow label="Dealer" value={dealerLines || "—"} />
         </div>
-      </div>
+      </Card>
     </div>
   );
 };
-
-const MetaItem = ({ label, value, multiline }) => (
-  <div>
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.5px",
-        color: "#86868b",
-        marginBottom: 4,
-      }}
-    >
-      {label}
-    </div>
-    <div
-      style={{
-        fontSize: 15,
-        fontWeight: 500,
-        color: "#1d1d1f",
-        ...(multiline
-          ? {
-              lineHeight: "1.4",
-              wordBreak: "break-word",
-            }
-          : {
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }),
-      }}
-    >
-      {value || "—"}
-    </div>
-  </div>
-);
 
 export default PaymentGlobalHeader;

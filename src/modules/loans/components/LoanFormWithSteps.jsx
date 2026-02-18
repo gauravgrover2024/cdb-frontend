@@ -1,9 +1,9 @@
 // src/modules/loans/components/LoanFormWithSteps.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Form } from "antd";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { Form, message } from "antd";
+import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
+import { useFormAutoSave, AutoSaveIndicator } from "../../../utils/formDataProtection";
 
 import LeadDetails from "./loan-form/customer-profile/LeadDetails";
 import VehicleDetailsForm from "./loan-form/customer-profile/VehicleDetailsForm";
@@ -24,6 +24,7 @@ import Section7RecordDetails from "./loan-form/pre-file/Section7RecordDetails";
 import CoApplicantSection from "./loan-form/pre-file/CoApplicantSection";
 import GuarantorSection from "./loan-form/pre-file/GuarantorSection";
 import AuthorisedSignatorySection from "./loan-form/pre-file/AuthorisedSignatorySection";
+import BulkLoanCreationSection from "./loan-form/pre-file/BulkLoanCreationSection";
 
 import LoanApprovalStep from "./loan-form/loan-approval/LoanApprovalStep";
 import PostFileStep from "./loan-form/post-file/PostFileStep";
@@ -32,12 +33,14 @@ import PayoutSection from "./loan-form/payout/PayoutSection";
 
 import LoanStickyHeader from "./LoanStickyHeader";
 import StageFooter from "./StageFooter";
+import LoanStepperSidebar from "./LoanStepperSidebar";
+import Icon from "../../../components/AppIcon";
+import { loansApi } from "../../../api/loans";
+import { customersApi } from "../../../api/customers";
 
-dayjs.extend(customParseFormat);
+// ... (existing imports/code) ...
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
 
-// ----------------------------
 // Date helpers (safe for AntD)
 // ----------------------------
 const toDayjs = (val) => {
@@ -87,6 +90,62 @@ const convertAnyDateToDayjsDeep = (value) => {
   return value;
 };
 
+// Clean empty and undefined values from object (used for cache etc.)
+const cleanEmptyValues = (obj, omitFields = []) => {
+  if (!obj || typeof obj !== "object") return obj;
+
+  if (Array.isArray(obj)) {
+    return obj
+      .map((item) => cleanEmptyValues(item, omitFields))
+      .filter((item) => item !== null && item !== undefined && item !== "");
+  }
+
+  const cleaned = {};
+  for (const key in obj) {
+    if (omitFields.includes(key)) continue;
+    
+    const value = obj[key];
+    
+    // Skip nulls, undefined, empty strings
+    if (value === null || value === undefined || value === "") continue;
+    
+    // Recursively clean nested objects
+    if (typeof value === "object" && !dayjs.isDayjs(value) && !(value instanceof Date)) {
+      const nested = cleanEmptyValues(value, omitFields);
+      if (Object.keys(nested).length > 0) {
+        cleaned[key] = nested;
+      }
+    } else {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+};
+
+// For loan submit: keep empty strings and false so every section's user input is stored as-is
+const cleanPayloadForSubmit = (obj, omitFields = []) => {
+  if (!obj || typeof obj !== "object") return obj;
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => cleanPayloadForSubmit(item, omitFields));
+  }
+
+  const cleaned = {};
+  for (const key in obj) {
+    if (omitFields.includes(key)) continue;
+    const value = obj[key];
+    // Only skip undefined (keep "", null, 0, false so DB reflects user feed)
+    if (value === undefined) continue;
+    if (typeof value === "object" && value !== null && !dayjs.isDayjs(value) && !(value instanceof Date)) {
+      const nested = cleanPayloadForSubmit(value, omitFields);
+      cleaned[key] = nested;
+    } else {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+};
+
 const convertDatesToStringsDeep = (obj) => {
   if (!obj) return obj;
 
@@ -104,279 +163,152 @@ const convertDatesToStringsDeep = (obj) => {
   return obj;
 };
 
-const STEPS = [
-  { key: "profile", label: "Customer Profile" },
-  { key: "prefile", label: "Pre-File" },
-  { key: "approval", label: "Loan Approval" },
-  { key: "postfile", label: "Post-File" },
-  { key: "delivery", label: "Vehicle Delivery" },
-  { key: "payout", label: "Payout" },
-];
-const primaryProfileSteps = [
-  "profile:lead",
-  "profile:vehicle",
-  "profile:finance",
-  "profile:personal",
-  "profile:employment",
-  "profile:income",
-  "profile:bank",
-  "profile:reference",
-  "profile:kyc",
-];
-
-const profileStepLabels = {
-  "profile:lead": "Lead Details",
-  "profile:vehicle": "Vehicle Details",
-  "profile:finance": "Finance Details",
-  "profile:personal": "Personal Details",
-  "profile:employment": "Employment Details",
-  "profile:income": "Income Details",
-  "profile:bank": "Bank Details",
-  "profile:reference": "Reference Details",
-  "profile:kyc": "KYC Details",
-};
-
-const stageGroups = [
-  { key: "prefile", label: "Pre-File" },
-  { key: "approval", label: "Loan Approval" },
-  { key: "postfile", label: "Post-File" },
-  { key: "delivery", label: "Vehicle Delivery" },
-  { key: "payout", label: "Payout" },
-];
-
-function LoanStageSidebar({ activeStage, onStageChange }) {
-  return (
-    <aside
-      style={{
-        width: 260,
-        borderRight: "1px solid #f3f4f6",
-        background: "#f9fafb",
-        borderRadius: 12,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Top pill */}
-      <div
-        style={{
-          padding: 12,
-          borderBottom: "1px solid #e5e7eb",
-          background: "#ffffff",
-        }}
-      >
-        <button
-          type="button"
-          style={{
-            width: "100%",
-            borderRadius: 999,
-            padding: "8px 10px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "#2563eb",
-            color: "#fff",
-            border: "none",
-            boxShadow: "0 12px 28px rgba(37,99,235,0.25)",
-            fontSize: 13,
-            fontWeight: 600,
-          }}
-        >
-          <span>Customer Profile</span>
-          <span
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: 999,
-              background: "rgba(15,23,42,0.18)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 13,
-            }}
-          >
-            ⌄
-          </span>
-        </button>
-        <div
-          style={{
-            marginTop: 6,
-            fontSize: 11,
-            color: "#6b7280",
-          }}
-        >
-          Loan workflow stages
-        </div>
-      </div>
-
-      {/* Scrollable body */}
-      <div
-        style={{
-          padding: 10,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          overflowY: "auto",
-          maxHeight: "calc(100vh - 60px - 40px)",
-        }}
-      >
-        {/* Customer Profile steps (visual only for now) */}
-        <div
-          style={{
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            background: "#ffffff",
-            padding: 8,
-          }}
-        >
-          <div
-            style={{
-              padding: "4px 8px",
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: 0.4,
-              color: "#9ca3af",
-            }}
-          >
-            Customer Profile
-          </div>
-
-          <div
-            style={{
-              marginTop: 4,
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-            }}
-          >
-            {primaryProfileSteps.map((key) => {
-              const label = profileStepLabels[key];
-              const isActive = activeStage === "profile";
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  style={{
-                    borderRadius: 999,
-                    padding: "4px 8px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    border: "none",
-                    background: isActive
-                      ? "rgba(37,99,235,0.06)"
-                      : "transparent",
-                    cursor: "default",
-                    fontSize: 12,
-                    color: isActive ? "#111827" : "#6b7280",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: isActive ? 9 : 7,
-                        height: isActive ? 9 : 7,
-                        borderRadius: 999,
-                        background: isActive
-                          ? "#2563eb"
-                          : "rgba(148,163,184,0.6)",
-                      }}
-                    />
-                    {label}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: "#9ca3af",
-                    }}
-                  >
-                    Pending
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Other high-level stages */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-          }}
-        >
-          {stageGroups.map((s) => {
-            const isActive = activeStage === s.key;
-            return (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => onStageChange && onStageChange(s.key)}
-                style={{
-                  borderRadius: 999,
-                  padding: "7px 10px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  border: "1px solid #e5e7eb",
-                  background: isActive ? "#eff6ff" : "#ffffff",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  color: isActive ? "#1d4ed8" : "#4b5563",
-                }}
-              >
-                <span>{s.label}</span>
-                <span
-                  style={{
-                    padding: "1px 7px",
-                    borderRadius: 999,
-                    background: "#f3f4f6",
-                    fontSize: 10,
-                    color: "#6b7280",
-                  }}
-                >
-                  0
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-const LoanFormWithSteps = () => {
+const LoanFormWithSteps = ({ mode, initialData }) => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const params = useParams();
-  const location = useLocation();
 
   const loanIdFromRoute = params?.loanId || params?.id;
 
   const isEditMode = useMemo(() => {
-    return Boolean(loanIdFromRoute);
-  }, [loanIdFromRoute]);
+    return Boolean(mode === "edit" || loanIdFromRoute);
+  }, [mode, loanIdFromRoute]);
 
-  const [activeStep, setActiveStep] = useState("profile");
+  // ============================================
+  // ⚡ AUTO-SAVE FORM DATA PROTECTION
+  // ============================================
+  const {
+    autoSaveStatus,
+    saveToLocalStorage,
+    clearSavedFormData,
+    restoreSavedFormData,
+    handleFormValuesChange,
+  } = useFormAutoSave('LOAN_FORM_DATA', form, isEditMode);
+
+  // Watch finance flag early
+  const watchedIsFinanced = Form.useWatch("isFinanced", form);
+  const [activeStep, setActiveStep] = useState(() => {
+    if (watchedIsFinanced === "No") return "delivery";
+    return "profile";
+  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+
+  // If financing is set to No, always force delivery step
+  React.useEffect(() => {
+    if (watchedIsFinanced === "No" && activeStep !== "delivery") {
+      setActiveStep("delivery");
+    }
+  }, [watchedIsFinanced]);
+
+  // Notes Modal Component
+  const NotesModal = ({ open, onClose }) => {
+    const [notes, setNotes] = useState(() => form?.getFieldValue("loan_notes") || "");
+
+    if (!open) return null;
+
+    const handleSave = () => {
+      form.setFieldsValue({ loan_notes: notes });
+      message.success("Notes saved");
+      onClose?.();
+    };
+
+    return (
+      <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Icon name="MessageSquare" size={18} className="text-primary" />
+              <div className="text-sm font-semibold text-foreground">Loan Notes</div>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted">
+              <Icon name="X" size={18} />
+            </button>
+          </div>
+          <div className="p-4">
+            <textarea
+              className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background min-h-[220px] focus:outline-none"
+              placeholder="Add internal notes for this loan..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 px-4 py-3 border-t border-border bg-muted/20">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-border rounded-xl text-sm hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm hover:bg-primary/90"
+            >
+              Save Notes
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Documents Modal Component
+  const DocumentsModal = ({ open, onClose }) => {
+    if (!open) return null;
+
+    return (
+      <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+        <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Icon name="FileText" size={18} className="text-primary" />
+              <div className="text-sm font-semibold text-foreground">Loan Documents</div>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted">
+              <Icon name="X" size={18} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                { title: "Customer KYC", icon: "UserCheck", count: 5, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+                { title: "Bank Documents", icon: "Building", count: 3, color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+                { title: "Vehicle Documents", icon: "Car", count: 4, color: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+                { title: "Approval Letters", icon: "FileCheck", count: 2, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
+                { title: "Disbursement Docs", icon: "CreditCard", count: 3, color: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" },
+                { title: "Post-File Records", icon: "FileText", count: 6, color: "bg-rose-500/10 text-rose-600 border-rose-500/20" },
+              ].map((category, idx) => (
+                <div key={idx} className={`p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${category.color}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <Icon name={category.icon} size={20} />
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-background/50">{category.count}</span>
+                  </div>
+                  <h3 className="text-sm font-semibold mb-1">{category.title}</h3>
+                  <p className="text-xs opacity-70">Click to view all</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-between items-center gap-2 px-4 py-3 border-t border-border bg-muted/20">
+            <span className="text-xs text-muted-foreground">All documents are stored securely</span>
+            <button onClick={onClose} className="px-4 py-2 border border-border rounded-xl text-sm hover:bg-muted">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // banksData must persist across steps
   const [banksData, setBanksData] = useState([]);
 
-  // finance flag
-  const watchedIsFinanced = Form.useWatch("isFinanced", form);
-  const isFinancedValue = watchedIsFinanced === "No" ? "No" : "Yes";
-  const isCashCase = isFinancedValue === "No";
+  // Default to null/undefined if not set. Only strictly "Yes" enables finance sections.
+  const isFinancedValue = watchedIsFinanced; 
+  const isCashCase = watchedIsFinanced === "No";
 
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // ----------------------------
@@ -384,43 +316,18 @@ const LoanFormWithSteps = () => {
   // ----------------------------
   const fetchLoanById = useCallback(async (loanId) => {
     if (!loanId) return null;
-
-    const res = await fetch(`${API_BASE_URL}/api/loans/${loanId}`);
-    if (!res.ok) throw new Error("Failed to load loan");
-
-    const json = await res.json();
+    const json = await loansApi.getById(loanId);
     return json?.data || null;
   }, []);
 
   const createLoan = useCallback(async (payload) => {
-    const res = await fetch(`${API_BASE_URL}/api/loans`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      throw new Error(json?.error || "Failed to create loan");
-    }
-
-    return json;
+    const json = await loansApi.create(payload);
+    // Return full response so we can show customerLinked (e.g. "created from loan")
+    return json || null;
   }, []);
 
   const updateLoan = useCallback(async (loanId, payload) => {
-    const res = await fetch(`${API_BASE_URL}/api/loans/${loanId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      throw new Error(json?.error || "Failed to update loan");
-    }
-
+    const json = await loansApi.update(loanId, payload);
     return json?.data || null;
   }, []);
 
@@ -431,19 +338,42 @@ const LoanFormWithSteps = () => {
     let mounted = true;
 
     const load = async () => {
-      if (!isEditMode || !loanIdFromRoute) return;
+      if (!isEditMode) return;
 
       try {
         setLoading(true);
 
-        const loan = await fetchLoanById(loanIdFromRoute);
+        // If initialData is provided (from EditLoan), use it directly
+        let loan = initialData;
+        
+        // Otherwise fetch from API if we have loanIdFromRoute
+        if (!loan && loanIdFromRoute) {
+          loan = await fetchLoanById(loanIdFromRoute);
+        }
+
         if (!mounted) return;
 
         const fixed = convertAnyDateToDayjsDeep(loan || {});
         form.setFieldsValue(fixed);
 
+
+        // Hydrate each bank in approval_banksData with vehicle/prefile fields if missing
         if (Array.isArray(loan?.approval_banksData)) {
-          setBanksData(loan.approval_banksData);
+          const vehicleFields = [
+            'vehicleMake', 'vehicleModel', 'vehicleVariant', 'exShowroomPrice',
+            'typeOfLoan', 'onRoadPrice', 'downPayment', 'financeExpectation',
+            'customerName', 'primaryMobile', 'customerEmail', 'customerPan', 'customerAadhar', 'customerAddress', 'city'
+          ];
+          const hydratedBanks = loan.approval_banksData.map(bank => {
+            const hydrated = { ...bank };
+            vehicleFields.forEach(field => {
+              if (hydrated[field] === undefined && loan[field] !== undefined) {
+                hydrated[field] = loan[field];
+              }
+            });
+            return hydrated;
+          });
+          setBanksData(hydratedBanks);
         }
 
         if (loan?.currentStage) {
@@ -462,22 +392,7 @@ const LoanFormWithSteps = () => {
     return () => {
       mounted = false;
     };
-  }, [isEditMode, loanIdFromRoute, fetchLoanById, form]);
-
-  // default isFinanced
-  useEffect(() => {
-    if (!form.getFieldValue("isFinanced")) {
-      form.setFieldsValue({ isFinanced: "Yes" });
-    }
-  }, [form]);
-
-  // Cash default type
-  useEffect(() => {
-    if (isFinancedValue === "No") {
-      const currentType = form.getFieldValue("typeOfLoan");
-      if (!currentType) form.setFieldsValue({ typeOfLoan: "New Car" });
-    }
-  }, [isFinancedValue, form]);
+  }, [isEditMode, loanIdFromRoute, fetchLoanById, form, initialData]);
 
   // keep banksData mirrored in form for persistence
   useEffect(() => {
@@ -536,6 +451,8 @@ const LoanFormWithSteps = () => {
   // ----------------------------
   // Save logic (API only)
   // ----------------------------
+  // Builds full payload from every section: profile, prefile, approval, postfile, delivery, payout.
+  // form.getFieldsValue(true) returns all Form.Item values from the entire form.
   const buildLoanPayload = useCallback(
     (extra = {}) => {
       syncPrimaryApprovalToForm();
@@ -545,16 +462,65 @@ const LoanFormWithSteps = () => {
         ...extra,
       };
 
+      // \ud83d\udd27 FIX: Flatten nested reference objects to match backend schema
+      // Backend expects: reference1_name, reference1_mobile, etc.
+      // Form has: reference1: { name, mobile, ... }
+      if (raw.reference1 && typeof raw.reference1 === 'object') {
+        raw.reference1_name = raw.reference1.name;
+        raw.reference1_mobile = raw.reference1.mobile;
+        raw.reference1_address = raw.reference1.address;
+        raw.reference1_pincode = raw.reference1.pincode;
+        raw.reference1_city = raw.reference1.city;
+        raw.reference1_relation = raw.reference1.relation;
+        delete raw.reference1; // Remove nested object
+      }
+      
+      if (raw.reference2 && typeof raw.reference2 === 'object') {
+        raw.reference2_name = raw.reference2.name;
+        raw.reference2_mobile = raw.reference2.mobile;
+        raw.reference2_address = raw.reference2.address;
+        raw.reference2_pincode = raw.reference2.pincode;
+        raw.reference2_city = raw.reference2.city;
+        raw.reference2_relation = raw.reference2.relation;
+        delete raw.reference2; // Remove nested object
+      }
+
+      // 🧹 For submit: keep "" and false so every section's data is stored according to user feed
+      const cleaned = cleanPayloadForSubmit(raw, ['_id', '__v']);
+
       // 🚫 DO NOT reconvert values already strings
-      const sanitized = convertDatesToStringsDeep(raw);
+      const sanitized = convertDatesToStringsDeep(cleaned);
+      
+      // Cleanup internal fields
       delete sanitized._id;
+      delete sanitized.__v;
+      delete sanitized.createdAt;
+      delete sanitized.updatedAt;
+
+      // Convert array fields to strings for backend compatibility
+      if (Array.isArray(sanitized.companyType)) {
+        sanitized.companyType = sanitized.companyType[0] || "";
+      }
+      if (Array.isArray(sanitized.co_companyType)) {
+        sanitized.co_companyType = sanitized.co_companyType[0] || "";
+      }
+      if (Array.isArray(sanitized.gu_companyType)) {
+        sanitized.gu_companyType = sanitized.gu_companyType[0] || "";
+      }
 
       const payload = {
         ...sanitized,
         currentStage: activeStep,
         isFinanced: sanitized?.isFinanced === "No" ? "No" : "Yes",
+        // Ensure Yes/No and Switch choices are always stored (including "No" and false)
+        hasCoApplicant: Boolean(sanitized?.hasCoApplicant),
+        hasGuarantor: Boolean(sanitized?.hasGuarantor),
+        recordSource: sanitized?.recordSource ?? undefined,
+        source: sanitized?.source ?? undefined,
+        sourceName: sanitized?.sourceName ?? undefined,
+        payoutApplicable: sanitized?.payoutApplicable ?? undefined,
+        prefile_sourcePayoutPercentage: sanitized?.prefile_sourcePayoutPercentage ?? undefined,
         approval_banksData: banksData,
-        updatedAt: new Date().toISOString(),
       };
 
       // if new create, backend should set createdAt
@@ -563,50 +529,280 @@ const LoanFormWithSteps = () => {
     [activeStep, banksData, form, syncPrimaryApprovalToForm],
   );
 
-  const handleSaveLoan = useCallback(
-    async (shouldExit = false, extraData = {}) => {
-      try {
-        setSaving(true);
 
+  // ----------------------------
+  // Helper: Sync Customer Data
+  // ----------------------------
+  /* =========================================================
+     SYNC HELPERS (Map Loan Form -> Customer Schema)
+     ========================================================= */
+  const syncCustomerData = useCallback(async (silent) => {
+    try {
+      const formValues = form.getFieldsValue(true);
+      const name = formValues.customerName;
+      const mobile = formValues.primaryMobile;
+      
+      const currentCustomerId = formValues.customerId;
+      // If a customer is already linked, return it even if fields are incomplete
+      if (currentCustomerId && (!name || !mobile || mobile.length < 10)) {
+        return currentCustomerId;
+      }
+
+      // Only sync if we have minimum valid ID data for new customer creation
+      if (!name || !mobile || mobile.length < 10) return null;
+      
+      // 1. Base Personal Details
+      const customerDataRaw = {
+          customerName: name,
+          primaryMobile: mobile,
+          email: formValues.email,
+          emailAddress: formValues.email, // Alias
+          whatsappNumber: formValues.whatsappNumber,
+          sdwOf: formValues.sdwOf,
+          fatherName: formValues.fatherName,
+          gender: formValues.gender,
+          dob: formValues.dob,
+          motherName: formValues.motherName,
+          
+          residenceAddress: formValues.residenceAddress,
+          pincode: formValues.pincode,
+          city: formValues.city,
+          state: formValues.state,
+          yearsInCurrentHouse: formValues.yearsInCurrentHouse,
+          yearsInCurrentCity: formValues.yearsInCurrentCity,
+          houseType: formValues.houseType,
+          
+          permanentAddress: formValues.permanentAddress,
+          permanentPincode: formValues.permanentPincode,
+          permanentCity: formValues.permanentCity,
+          currentAddress: formValues.currentAddress,
+
+          education: formValues.education,
+          educationOther: formValues.educationOther,
+          maritalStatus: formValues.maritalStatus,
+          dependents: formValues.dependents,
+          extraMobiles: formValues.extraMobiles, // Array
+          
+          nomineeName: formValues.nomineeName,
+          nomineeDob: formValues.nomineeDob,
+          nomineeRelation: formValues.nomineeRelation,
+          
+          // 2. Employment / Professional - COMPLETE MAPPING
+          occupationType: formValues.occupationType,
+          employmentType: formValues.employmentType,
+          professionalType: formValues.professionalType,
+          companyName: formValues.companyName,
+          designation: formValues.designation,
+          companyType: formValues.companyType,
+          businessNature: formValues.businessNature,
+          currentExp: formValues.currentExp, // Years - CRITICAL
+          totalExp: formValues.totalExp, // Years - CRITICAL
+          incorporationYear: formValues.incorporationYear,
+          
+          // Map Loan Form "Employment" fields -> Customer "Company" fields (Both variants)
+          employmentAddress: formValues.employmentAddress,
+          employmentPincode: formValues.employmentPincode,
+          employmentCity: formValues.employmentCity,
+          employmentPhone: formValues.employmentPhone,
+          companyAddress: formValues.employmentAddress || formValues.companyAddress,
+          companyPincode: formValues.employmentPincode || formValues.companyPincode,
+          companyCity: formValues.employmentCity || formValues.companyCity,
+          companyPhone: formValues.employmentPhone || formValues.companyPhone,
+          officialEmail: formValues.officialEmail,
+          officeAddress: formValues.officeAddress,
+          
+          // 3. Income - COMPLETE ALL VARIANTS
+          monthlyIncome: formValues.monthlyIncome, 
+          salaryMonthly: formValues.salaryMonthly,
+          monthlySalary: formValues.monthlySalary,
+          annualIncome: formValues.annualIncome,
+          totalIncomeITR: formValues.totalIncomeITR,
+          annualTurnover: formValues.annualTurnover,
+          netProfit: formValues.netProfit,
+          otherIncome: formValues.otherIncome,
+          otherIncomeSource: formValues.otherIncomeSource,
+          
+          // Loan Finance Details
+          typeOfLoan: formValues.typeOfLoan,
+          financeExpectation: formValues.financeExpectation,
+          loanTenureMonths: formValues.loanTenureMonths,
+
+          // 4. KYC Documents (Map both spelling variants)
+          aadhaarNumber: formValues.aadhaarNumber, 
+          aadharNumber: formValues.aadhaarNumber || formValues.aadharNumber, // Legacy alias
+          panNumber: formValues.panNumber,
+          passportNumber: formValues.passportNumber,
+          dlNumber: formValues.dlNumber,
+          gstNumber: formValues.gstNumber,
+          voterId: formValues.voterId,
+          
+          aadhaarCardDocUrl: formValues.aadhaarCardDocUrl,
+          panCardDocUrl: formValues.panCardDocUrl,
+          passportDocUrl: formValues.passportDocUrl,
+          dlDocUrl: formValues.dlDocUrl,
+          gstDocUrl: formValues.gstDocUrl,
+          addressProofDocUrl: formValues.addressProofDocUrl,
+          
+          // 5. Banking (Primary Account)
+          bankName: formValues.bankName,
+          accountNumber: formValues.accountNumber,
+          ifscCode: formValues.ifscCode,
+          ifsc: formValues.ifscCode || formValues.ifsc, // Alias
+          branch: formValues.branch,
+          accountType: formValues.accountType,
+          accountSinceYears: formValues.accountSinceYears,
+          openedIn: formValues.openedIn,
+          
+          // 6. References - COMPLETE (Pull from nested or flat fields)
+          reference1_name: formValues.reference1_name || formValues.reference1?.name,
+          reference1_mobile: formValues.reference1_mobile || formValues.reference1?.mobile,
+          reference1_address: formValues.reference1_address || formValues.reference1?.address,
+          reference1_pincode: formValues.reference1_pincode || formValues.reference1?.pincode,
+          reference1_city: formValues.reference1_city || formValues.reference1?.city,
+          reference1_relation: formValues.reference1_relation || formValues.reference1?.relation,
+          reference2_name: formValues.reference2_name || formValues.reference2?.name,
+          reference2_mobile: formValues.reference2_mobile || formValues.reference2?.mobile,
+          reference2_address: formValues.reference2_address || formValues.reference2?.address,
+          reference2_pincode: formValues.reference2_pincode || formValues.reference2?.pincode,
+          reference2_city: formValues.reference2_city || formValues.reference2?.city,
+          reference2_relation: formValues.reference2_relation || formValues.reference2?.relation,
+
+          // 7. Generic Proofs (from Personal Details PreFile)
+          identityProofType: formValues.identityProofType,
+          identityProofNumber: formValues.identityProofNumber,
+          addressProofType: formValues.addressProofType,
+          addressProofNumber: formValues.addressProofNumber,
+          identityProofExpiry: formValues.identityProofExpiry,
+          addressType: formValues.addressType,
+          
+          // 8. Customer Type & Notes
+          customerType: formValues.customerType,
+          loan_notes: formValues.loan_notes,
+          kycStatus: formValues.kycStatus,
+      };
+      
+      // Clean dates & empty values before sending
+      const cleanData = convertDatesToStringsDeep(cleanEmptyValues(customerDataRaw));
+
+      // Convert array fields to strings for backend compatibility
+      if (Array.isArray(cleanData.companyType)) {
+        cleanData.companyType = cleanData.companyType[0] || "";
+      }
+      if (Array.isArray(cleanData.businessNature)) {
+        // Keep as array for backend - it accepts arrays
+        // cleanData.businessNature stays as array
+      }
+
+      if (currentCustomerId) {
+          // Update existing Customer
+          // We use PUT/PATCH semantics via our API wrapper
+          // Note: ensure your backend 'update' does merges, not full replacements
+          await customersApi.update(currentCustomerId, cleanData);
+          return currentCustomerId;
+      } else {
+          // Create new Customer
+          const res = await customersApi.create(cleanData);
+          const newId = res?.data?._id || res?.data?.id || res?._id || res?.id;
+          if (newId) {
+               form.setFieldsValue({ customerId: newId });
+               return newId;
+          }
+      }
+    } catch (e) {
+      console.error("Failed to sync customer profile:", e);
+      // Non-blocking error
+    }
+    return null;
+  }, [form]);
+
+  const handleSaveLoan = useCallback(
+    async (shouldExit = false, extraData = {}, silent = false) => {
+      try {
+        if (!silent) setSaving(true);
+
+        // 1. Sync Customer (Create/Update) - OPTIONAL, backend will auto-create if needed
+        const syncedCustomerId = await syncCustomerData(silent);
+        const effectiveCustomerId = form.getFieldValue("customerId") || syncedCustomerId;
+        
+        // Set customerId if we have one from sync
+        if (effectiveCustomerId && !form.getFieldValue("customerId")) {
+          form.setFieldsValue({ customerId: effectiveCustomerId });
+        }
+
+        // 2. Build Loan Payload (includes customerName and primaryMobile for backend auto-create)
         const payload = buildLoanPayload(extraData);
 
-        // CREATE
+        // CREATE (Fallback if accessed directly via /loans/new)
         if (!isEditMode) {
-          const created = await createLoan(payload);
+          const numberOfCars = Number(payload.numberOfCars) || 1;
+          const result = await createLoan(payload);
 
-          const newLoanId = created?.loanId;
+          // BULK SUCCESS CASE
+          if (numberOfCars > 1) {
+             if (!silent) {
+                 alert(result?.message || `Successfully created ${numberOfCars} loan applications.`);
+                 navigate("/loans");
+             }
+             return true;
+          }
 
+          // SINGLE SUCCESS CASE (result = full API response: { loanId, data, customerLinked, message, ... })
+          const loanData = result?.data || result;
+          let newLoanId = result?.loanId || loanData?.loanId;
           if (!newLoanId) {
-            throw new Error("Loan created but loanId not returned");
+            if (result?.id || loanData?.id) newLoanId = result?.id || loanData?.id;
+            else throw new Error("Loan created but loanId not returned");
           }
 
           form.setFieldsValue({
             loanId: newLoanId,
-            createdAt: created?.createdAt || new Date().toISOString(),
+            createdAt: (loanData?.createdAt || result?.createdAt) || new Date().toISOString(),
           });
 
-          if (shouldExit) {
-            navigate("/loans");
-          } else {
-            // move to edit route after create (so future saves are PUT)
-            navigate(`/loans/edit/${newLoanId}`, { replace: true });
+          // Clear cached draft after successful save
+          clearSavedFormData();
+
+          // 🔗 Clear customer-related caches so synced data shows everywhere
+          localStorage.removeItem('customer_form_draft');
+          localStorage.removeItem('customers_list_cache');
+
+          if (!silent && result?.customerLinked?.createdNew) {
+            message.success(
+              `Loan created. Customer "${result.customerLinked.customerName || 'New'}" was created from this form and will appear in the Customer dashboard.`,
+              5
+            );
           }
 
-          return;
+          if (shouldExit) {
+            if (!silent) navigate("/loans");
+          } else {
+             navigate(`/loans/edit/${newLoanId}`, { replace: true });
+          }
+
+          return true;
         }
 
-        // UPDATE
+        // UPDATE (Existing Loan)
         const loanId = loanIdFromRoute || form.getFieldValue("loanId");
         if (!loanId) throw new Error("loanId missing for update");
 
         await updateLoan(loanId, payload);
 
-        if (shouldExit) navigate("/loans");
+        // Clear cached draft after successful update
+        clearSavedFormData();
+
+        // 🔗 Clear customer-related caches so synced data shows everywhere
+        localStorage.removeItem('customer_form_draft');
+        localStorage.removeItem('customers_list_cache');
+
+        if (shouldExit && !silent) navigate("/loans");
+        return true;
       } catch (e) {
         console.error("Save failed:", e);
-        alert(`Save failed ❌\n${e.message}`);
+        if (!silent) alert(`Save failed ❌\n${e.message}`);
+        return false;
       } finally {
-        setSaving(false);
+        if (!silent) setSaving(false);
       }
     },
     [
@@ -617,6 +813,7 @@ const LoanFormWithSteps = () => {
       isEditMode,
       loanIdFromRoute,
       navigate,
+      syncCustomerData,
     ],
   );
 
@@ -635,82 +832,139 @@ const LoanFormWithSteps = () => {
     }
   };
 
-  const handleProcessLoan = () => {
-    // no field logic change
-    handleSaveLoan(false);
+  const handleProcessLoan = async () => {
+    const success = await handleSaveLoan(false);
+    if (!success) return;
+    
     if (isCashCase) setActiveStep("delivery");
     else setActiveStep("prefile");
   };
 
-  const handleMoveToApproval = () => {
-    handleSaveLoan(false);
+  const handleMoveToApproval = async () => {
+    const success = await handleSaveLoan(false);
+    if (!success) return;
+    
     if (isCashCase) setActiveStep("delivery");
     else setActiveStep("approval");
   };
 
-  const handleDisburseLoan = (bankId, disbursementDate) => {
-    const bankToDisburse = banksData.find((b) => b.id === bankId);
+  const handleDisburseLoan = async (bankId, disbursementDate, remarks = "") => {
+    try {
+      const bankToDisburse = banksData.find((b) => b.id === bankId);
 
-    if (!bankToDisburse) {
-      alert("Bank not found");
-      return;
-    }
-
-    const updatedBanks = banksData.map((bank) => {
-      if (bank.id === bankId) {
-        return {
-          ...bank,
-          status: "Disbursed",
-          disbursedDate: disbursementDate,
-          statusHistory: [
-            ...(bank.statusHistory || []),
-            {
-              status: "Disbursed",
-              changedAt: new Date(disbursementDate).toISOString(),
-              note: "Loan disbursed",
-            },
-          ],
-        };
+      if (!bankToDisburse) {
+        alert("❌ Bank not found");
+        return;
       }
-      return bank;
-    });
 
-    setBanksData(updatedBanks);
+      // Get loanId (either from form or route)
+      const loanId = loanIdFromRoute || form.getFieldValue("loanId");
+      if (!loanId) {
+        alert("❌ Loan ID not found. Please save the loan first.");
+        return;
+      }
 
-    const cleanNumber = (val) =>
-      Number(String(val || "").replace(/[^0-9.]/g, "")) || 0;
+      const cleanNumber = (val) =>
+        Number(String(val || "").replace(/[^0-9.]/g, "")) || 0;
 
-    // ONLY set non-date fields
-    form.setFieldsValue({
-      approval_bankId: bankToDisburse.id,
-      approval_bankName: bankToDisburse.bankName || "",
-      approval_status: "Disbursed",
-      approval_loanAmountApproved: cleanNumber(bankToDisburse.loanAmount),
-      approval_loanAmountDisbursed: cleanNumber(bankToDisburse.loanAmount),
-      approval_roi: Number(bankToDisburse.interestRate) || undefined,
-      approval_tenureMonths: Number(bankToDisburse.tenure) || undefined,
-      approval_processingFees: cleanNumber(bankToDisburse.processingFee),
-      approval_breakup_netLoanApproved:
-        bankToDisburse.breakupNetLoanApproved || 0,
-      approval_breakup_creditAssured: bankToDisburse.breakupCreditAssured || 0,
-      approval_breakup_insuranceFinance:
-        bankToDisburse.breakupInsuranceFinance || 0,
-      approval_breakup_ewFinance: bankToDisburse.breakupEwFinance || 0,
-      payoutPercentage: bankToDisburse.payoutPercent || "",
-      __postfileSeeded: true,
-      postfile_bankName: bankToDisburse.bankName || "",
-      postfile_loanAmountDisbursed: cleanNumber(bankToDisburse.loanAmount),
-      postfile_roi: Number(bankToDisburse.interestRate) || undefined,
-      postfile_tenureMonths: Number(bankToDisburse.tenure) || undefined,
-      postfile_processingFees: cleanNumber(bankToDisburse.processingFee),
-    });
+      // ✅ Calculate EMI for post-file auto-fill
+      const calculateEMI = (principal, annualRate, tenureMonths) => {
+        const P = Number(principal) || 0;
+        const N = Number(tenureMonths) || 0;
+        const R = (Number(annualRate) || 0) / 12 / 100;
+        if (!P || !N || !R) return 0;
+        const pow = Math.pow(1 + R, N);
+        return Math.round((P * R * pow) / (pow - 1));
+      };
 
-    setActiveStep("postfile");
+      const loanAmount = cleanNumber(bankToDisburse.loanAmount);
+      const roi = Number(bankToDisburse.interestRate) || 0;
+      const tenure = Number(bankToDisburse.tenure) || 0;
+      const emiAmount = calculateEMI(loanAmount, roi, tenure);
+
+      // ✅ Call backend disbursement API
+      // This will trigger calculatePayoutsOnDisbursement() on backend
+      await loansApi.disburse(loanId, {
+        disburseAmount: loanAmount,
+        disbursedBankName: bankToDisburse.bankName || "",
+        payoutPercentage: bankToDisburse.payoutPercent || 0,
+        disbursedDate: new Date(disbursementDate).toISOString(),
+        remarks: remarks || "",
+      });
+
+      console.log("✅ Disbursement API call successful");
+
+      // Now update local state AFTER successful API call
+      const updatedBanks = banksData.map((bank) => {
+        if (bank.id === bankId) {
+          return {
+            ...bank,
+            status: "Disbursed",
+            disbursedDate: disbursementDate,
+            disbursementRemarks: remarks,
+            statusHistory: [
+              ...(bank.statusHistory || []),
+              {
+                status: "Disbursed",
+                changedAt: new Date(disbursementDate).toISOString(),
+                note: remarks || "Loan disbursed",
+              },
+            ],
+          };
+        }
+        return bank;
+      });
+
+      setBanksData(updatedBanks);
+
+      // ONLY set non-date fields
+      form.setFieldsValue({
+        approval_bankId: bankToDisburse.id,
+        approval_bankName: bankToDisburse.bankName || "",
+        approval_status: "Disbursed",
+        approval_loanAmountApproved: loanAmount,
+        approval_loanAmountDisbursed: loanAmount,
+        approval_roi: roi || undefined,
+        approval_tenureMonths: tenure || undefined,
+        approval_processingFees: cleanNumber(bankToDisburse.processingFee),
+        approval_breakup_netLoanApproved:
+          bankToDisburse.breakupNetLoanApproved || 0,
+        approval_breakup_creditAssured: bankToDisburse.breakupCreditAssured || 0,
+        approval_breakup_insuranceFinance:
+          bankToDisburse.breakupInsuranceFinance || 0,
+        approval_breakup_ewFinance: bankToDisburse.breakupEwFinance || 0,
+        payoutPercentage: bankToDisburse.payoutPercent || "",
+        disburse_status: "Disbursed",
+        disburse_bankName: bankToDisburse.bankName || "",
+        disburse_remarks: remarks,
+        __postfileSeeded: true,
+        postfile_bankName: bankToDisburse.bankName || "",
+        postfile_loanAmountApproved: loanAmount,
+        postfile_loanAmountDisbursed: loanAmount,
+        postfile_roi: roi || undefined,
+        postfile_tenureMonths: tenure || undefined,
+        postfile_processingFees: cleanNumber(bankToDisburse.processingFee),
+        postfile_emiAmount: emiAmount,
+        postfile_firstEmiDate: bankToDisburse.firstEmiDate || undefined,
+      });
+
+      // ✅ Save loan with disbursement details
+      const success = await handleSaveLoan(false, {}, true);
+      if (!success) {
+        alert("⚠️ Disbursement succeeded but saving failed. Please refresh to verify.");
+      }
+
+      alert("✅ Loan disbursed successfully! Receivables have been created and saved.");
+      setActiveStep("postfile");
+    } catch (e) {
+      console.error("❌ Disbursement failed:", e);
+      alert(`❌ Disbursement failed: ${e.message}`);
+    }
   };
 
-  const handleMoveToDelivery = () => {
-    handleSaveLoan(false);
-    setActiveStep("delivery");
+  const handleMoveToDelivery = async () => {
+    const success = await handleSaveLoan(false);
+    if (success) setActiveStep("delivery");
   };
 
   const handleCloseLead = () => {
@@ -730,41 +984,42 @@ const LoanFormWithSteps = () => {
   // Render step
   // ----------------------------
   const renderStep = () => {
+    // If not financed, only show delivery step
+    if (watchedIsFinanced === "No") {
+      return <VehicleDeliveryStep form={form} />;
+    }
     switch (activeStep) {
       case "profile":
         return (
           <>
-            <LeadDetails />
-            <VehicleDetailsForm />
-            <FinanceDetailsForm />
-            <PersonalDetailsWithSearch
+            <div id="lead"><LeadDetails /></div>
+            <div id="vehicle"><VehicleDetailsForm /></div>
+            <div id="finance"><FinanceDetailsForm /></div>
+            <div id="personal"><PersonalDetailsWithSearch
               excludeFields={isFinancedValue !== "Yes"}
-            />
-            {isFinancedValue === "Yes" && (
-              <>
-                <EmploymentDetails />
-                <IncomeDetails />
-                <BankDetails />
-                <ReferenceDetails />
-                <KycDetails />
-              </>
-            )}
+            /></div>
+            <div id="employment"><EmploymentDetails /></div>
+            <div id="income"><IncomeDetails /></div>
+            <div id="bank"><BankDetails /></div>
+            <div id="references"><ReferenceDetails /></div>
+            <div id="kyc"><KycDetails /></div>
           </>
         );
 
       case "prefile":
         return (
           <>
-            <PersonalDetailsPreFile />
-            <OccupationalDetailsPreFile />
-            <IncomeBankingDetailsPreFile />
-            <VehiclePricingLoanDetails />
-            <ReferenceDetails />
-            <KycDetails />
-            <Section7RecordDetails />
-            <CoApplicantSection />
-            <GuarantorSection />
-            <AuthorisedSignatorySection />
+            <div id="personal_pre"><PersonalDetailsPreFile /></div>
+            <div id="occupational"><OccupationalDetailsPreFile /></div>
+            <div id="income_banking"><IncomeBankingDetailsPreFile /></div>
+            <div id="vehicle_loan"><VehiclePricingLoanDetails /></div>
+            <div id="references"><ReferenceDetails /></div>
+            <div id="kyc"><KycDetails /></div>
+            <div id="section7"><Section7RecordDetails /></div>
+            <div id="co_applicant"><CoApplicantSection /></div>
+            <div id="guarantor"><GuarantorSection /></div>
+            <div id="auth_signatory"><AuthorisedSignatorySection /></div>
+            <div id="bulk_loan"><BulkLoanCreationSection form={form} /></div>
           </>
         );
 
@@ -774,7 +1029,8 @@ const LoanFormWithSteps = () => {
             form={form}
             banksData={banksData}
             setBanksData={setBanksData}
-            onNext={handleApprovalNext}
+            onNext={() => setActiveStep("postfile")}
+            loanId={loanIdFromRoute}
           />
         );
 
@@ -798,6 +1054,9 @@ const LoanFormWithSteps = () => {
   const HiddenFields = () => (
     <>
       <Form.Item name="loanId" hidden />
+      <Form.Item name="customerId" hidden />
+      <Form.Item name="customerName" hidden />
+      <Form.Item name="primaryMobile" hidden />
       <Form.Item name="createdAt" hidden />
       <Form.Item name="updatedAt" hidden />
       <Form.Item name="currentStage" hidden />
@@ -827,6 +1086,7 @@ const LoanFormWithSteps = () => {
       <Form.Item name="postfile_documents" hidden />
 
       <Form.Item name="postfile_bankName" hidden />
+      <Form.Item name="postfile_loanAmountApproved" hidden />
       <Form.Item name="postfile_loanAmountDisbursed" hidden />
       <Form.Item name="postfile_roi" hidden />
       <Form.Item name="postfile_tenureMonths" hidden />
@@ -852,65 +1112,279 @@ const LoanFormWithSteps = () => {
     return [name, vehicle, type].filter(Boolean).join(" • ");
   }, [form]);
 
+  // ----------------------------
+  // Sidebar & Navigation
+  // ----------------------------
+  // Watch key form fields to trigger completion calculation
+  const customerName = Form.useWatch("customerName", form);
+  const mobileNo = Form.useWatch("mobileNo", form);
+  const vehicleMake = Form.useWatch("vehicleMake", form);
+  const vehicleModel = Form.useWatch("vehicleModel", form);
+  const loanAmount = Form.useWatch("loanAmount", form);
+  const bankName = Form.useWatch("bankName", form);
+  const tenure = Form.useWatch("tenure", form);
+  const approvalStatus = Form.useWatch("approval_status", form);
+  const postFileStatus = Form.useWatch("postFileStatus", form);
+  const deliveryStatus = Form.useWatch("deliveryStatus", form);
+  const payoutStatus = Form.useWatch("payoutStatus", form);
+
+  // Calculate completed steps based on form values
+  const completedSteps = useMemo(() => {
+    const completed = [];
+    
+    // Profile stage - check if basic customer info is filled
+    if (customerName && mobileNo && vehicleMake && vehicleModel) {
+      completed.push('profile');
+    }
+    
+    // Pre-file stage - check if loan details are filled
+    if (loanAmount && bankName && tenure) {
+      completed.push('prefile');
+    }
+    
+    // Approval stage - check if approval status is set
+    if (approvalStatus && approvalStatus !== 'Pending') {
+      completed.push('approval');
+    }
+    
+    // Post-file stage - check if post-file is marked
+    if (postFileStatus === 'Completed') {
+      completed.push('postfile');
+    }
+    
+    // Delivery stage - check if delivery is completed
+    if (deliveryStatus === 'Completed') {
+      completed.push('delivery');
+    }
+    
+    // Payout stage - check if payout is done
+    if (payoutStatus === 'Completed') {
+      completed.push('payout');
+    }
+    
+    return completed;
+  }, [customerName, mobileNo, vehicleMake, vehicleModel, loanAmount, bankName, tenure, approvalStatus, postFileStatus, deliveryStatus, payoutStatus]);
+
+  const handleStageClick = (stageKey) => {
+    setActiveStep(stageKey);
+    // Optional: add smooth scroll to top when switching stages
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSectionClick = (section) => {
+    const key = section.key;
+    const patterns = [
+      key,
+      `section-${key}`,
+      `section-${key}-details`,
+      `section-customer-${key}`,
+      key === 'references' ? 'section-other' : null,
+    ].filter(Boolean);
+    
+    let element = null;
+    for (const id of patterns) {
+      element = document.getElementById(id);
+      if (element) break;
+    }
+
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   return (
     <Form
       form={form}
       layout="vertical"
       preserve
       style={{ margin: 0, padding: 0 }}
+      onValuesChange={handleFormValuesChange}
     >
       <HiddenFields />
 
-      {/* ✅ MAIN WRAPPER: keeps header, form, footer same width */}
+      {/* Two-column layout: Sidebar + Main Content */}
       <div
-        style={{
-          maxWidth: 1400,
-          margin: "0 auto",
-          padding: "0 16px",
-        }}
+        className="flex flex-col md:flex-row gap-0 bg-muted/20 min-h-screen"
+        style={{ maxWidth: 3000, margin: "0 auto", paddingTop: "4px" }}
       >
-        <LoanStickyHeader
-          title={headerTitle}
-          activeStep={activeStep}
-          onStepChange={setActiveStep}
-          isFinanced={isFinancedValue}
-          form={form}
-          isDisbursed={form?.getFieldValue("approval_status") === "Disbursed"}
-          onSave={() => handleSaveLoan(false)}
-          onExit={() => handleSaveLoan(true)}
-        />
+        {/* Sidebar Stepper - COMMENTED OUT
+        <div 
+          className={`hidden md:flex shrink-0 p-4 overflow-y-auto no-scrollbar transition-all duration-300 z-[90] ${
+            isSidebarCollapsed ? "w-20" : "w-60"
+          }`}
+          style={{ position: "sticky", top: "130px", height: "calc(100vh - 130px)" }}
+        >
+          <LoanStepperSidebar
+            currentStep={activeStep}
+            completedSteps={completedSteps}
+            sectionStatus={form.getFieldsValue(true)}
+            onStageClick={handleStageClick}
+            onSectionClick={handleSectionClick}
+            isCollapsed={isSidebarCollapsed}
+            onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            isFinanced={isFinancedValue}
+            loanType={Form.useWatch("typeOfLoan", form)}
+          />
+        </div>
+        */}
 
-        {/* Form Body */}
-        <div style={{ padding: "0 0 24px 0" }}>{renderStep()}</div>
+        {/* Main Form Content */}
+        <div className="flex-1 min-w-0 bg-background md:mb-4 md:mr-4 md:rounded-3xl border-x md:border border-border shadow-sm flex flex-col min-h-screen transition-all duration-300">
+          <LoanStickyHeader
+            title={headerTitle}
+            activeStep={activeStep}
+            onStepChange={handleStageClick}
+            isFinanced={isFinancedValue}
+            form={form}
+            isDisbursed={form?.getFieldValue("approval_status") === "Disbursed"}
+            onSave={() => handleSaveLoan(false)}
+            onExit={() => handleSaveLoan(true)}
+            saving={saving}
+            isCollapsed={isSidebarCollapsed}
+            onCollapseToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            autoSaveStatus={autoSaveStatus}
+          />
 
-        <StageFooter
-          currentStage={activeStep}
-          isFinanced={isFinancedValue}
-          onSave={() => handleSaveLoan(false)}
-          onSaveAndExit={() => {
-            syncPrimaryApprovalToForm();
-            handleSaveLoan(true);
-          }}
-          onDiscard={handleDiscard}
-          onPrint={handlePrint}
-          onProcessLoan={isCashCase ? handleMoveToDelivery : handleProcessLoan}
-          onMoveToApproval={handleMoveToApproval}
-          onDisburseLoan={handleDisburseLoan}
-          onMoveToPostFile={() => setActiveStep("postfile")}
-          onMoveToDelivery={handleMoveToDelivery}
-          onMoveToPayout={() => setActiveStep("payout")}
-          onCloseLead={handleCloseLead}
-          approvedBanks={banksData.filter((b) => b.status === "Approved")}
-          form={form}
-        />
+          {/* Form Body - Scrollable Content */}
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            <div className="px-4 md:px-8 py-14">
+              <div className="w-full space-y-1 transition-all duration-300">
+                {renderStep()}
+              </div>
+            </div>
+          </div>
+
+          <StageFooter
+            currentStage={activeStep}
+            isFinanced={isFinancedValue}
+            onSave={() => handleSaveLoan(false)}
+            onSaveAndExit={() => {
+              syncPrimaryApprovalToForm();
+              handleSaveLoan(true);
+            }}
+            onDiscard={handleDiscard}
+            onPrint={handlePrint}
+            onProcessLoan={isCashCase ? handleMoveToDelivery : handleProcessLoan}
+            onMoveToApproval={handleMoveToApproval}
+            onDisburseLoan={handleDisburseLoan}
+            onMoveToPostFile={() => setActiveStep("postfile")}
+            onMoveToDelivery={handleMoveToDelivery}
+            onMoveToPayout={() => setActiveStep("payout")}
+            onCloseLead={handleCloseLead}
+            approvedBanks={banksData.filter((b) => b.status === "Approved")}
+            form={form}
+          />
+        </div>
       </div>
-
-      {/* Optional small saving indicator (doesn't affect UI) */}
       {saving && (
         <div className="fixed bottom-20 right-4 z-[950] bg-card border border-border rounded-xl px-3 py-2 shadow-elevation-2 text-xs text-muted-foreground">
           Saving...
         </div>
       )}
+
+      {/* Quick Actions Floating Toolbar - All Steps */}
+      <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-2 p-3 bg-card border border-border rounded-2xl shadow-elevation-4 backdrop-blur-sm">
+        {["profile", "prefile", "approval", "postfile", "delivery", "payout"].map((step, index) => {
+        // Accurate display names for steps
+        const stepDisplayNames = {
+          profile: "Profile",
+          prefile: "Pre-File",
+          approval: "Approval",
+          postfile: "Post-File",
+          delivery: "Delivery",
+          payout: "Payout",
+        };
+
+        // Accurate section names for each step
+        const stepSections = {
+          profile: [
+            { id: "lead", label: "Lead Details" },
+            { id: "vehicle", label: "Vehicle Details" },
+            { id: "finance", label: "Finance Details" },
+            { id: "personal", label: "Personal Details" },
+            { id: "employment", label: "Employment Details" },
+            { id: "income", label: "Income Details" },
+            { id: "bank", label: "Bank Details" },
+            { id: "references", label: "References" },
+            { id: "kyc", label: "KYC Details" },
+          ],
+          prefile: [
+            { id: "personal_pre", label: "Personal Details" },
+            { id: "occupational", label: "Occupational Details" },
+            { id: "income_banking", label: "Income & Banking" },
+            { id: "vehicle_loan", label: "Vehicle & Loan" },
+            { id: "references", label: "References" },
+            { id: "kyc", label: "KYC Details" },
+            { id: "section7", label: "Record Details" },
+            { id: "co_applicant", label: "Co-Applicant" },
+            { id: "guarantor", label: "Guarantor" },
+            { id: "auth_signatory", label: "Authorised Signatory" },
+            { id: "bulk_loan", label: "Bulk Loan Creation" },
+          ],
+          approval: [
+            { id: "approval-top", label: "Bank Status" },
+            { id: "approval-matrix", label: "Comparison Matrix" },
+            { id: "approval-records", label: "Record Details" },
+          ],
+          postfile: [
+            { id: "postfile-top", label: "Post-File Details" },
+          ],
+          delivery: [
+            { id: "delivery-top", label: "Delivery Details" },
+          ],
+          payout: [
+            { id: "payout-top", label: "Payout Details" },
+          ],
+        };
+
+        const sections = stepSections[step] || [];
+        return (
+          <React.Fragment key={step}>
+            {index > 0 && <div className="w-px h-6 bg-border/30" />}
+            <div className="relative group/stepnav">
+              <button
+                type="button"
+                onClick={() => setActiveStep(step)}
+                className={`text-xs font-medium px-2 py-1 rounded-lg transition-all ${
+                  activeStep === step
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+              >
+                {stepDisplayNames[step] || step.charAt(0).toUpperCase() + step.slice(1)}
+              </button>
+              {/* Dropdown menu on hover - now stays open on dropdown hover */}
+              {sections.length > 0 && (
+                <div
+                  className="step-dropdown absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/stepnav:opacity-100 group-hover/stepnav:visible group-focus-within/stepnav:opacity-100 group-focus-within/stepnav:visible transition-all duration-200"
+                >
+                  <div className="bg-card border border-border rounded-xl shadow-elevation-3 p-2 min-w-[180px] max-h-[400px] overflow-y-auto">
+                    {sections.map((section) => (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveStep(step);
+                          setTimeout(() => {
+                            const element = document.getElementById(section.id);
+                            if (element) {
+                              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          }, 100);
+                        }}
+                        className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted/50 text-foreground hover:text-primary transition-colors"
+                      >
+                        {section.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </React.Fragment>
+        );
+      })}
+      </div>
     </Form>
   );
 };

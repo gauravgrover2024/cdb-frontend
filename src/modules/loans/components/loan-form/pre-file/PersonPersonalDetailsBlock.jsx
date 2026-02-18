@@ -162,8 +162,12 @@ const PersonPersonalDetailsBlock = ({ prefix }) => (
       </Col>
 
       <Col md={8}>
-        <Form.Item label="Aadhaar Number" name={`${prefix}Aadhaar`}>
-          <Input />
+        <Form.Item 
+          label="Aadhaar Number" 
+          name={`${prefix}Aadhaar`}
+          rules={[{ pattern: /^[0-9]{12}$/, message: '12 digits required' }]}
+        >
+          <Input maxLength={12} />
         </Form.Item>
       </Col>
     </Row>

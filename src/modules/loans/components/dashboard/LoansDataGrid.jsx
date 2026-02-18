@@ -1,7 +1,11 @@
 import React, { useMemo, useState } from "react";
+import { Tooltip } from "antd";
+import PendencyTracker from "../pendency/PendencyTracker";
+import LoanDocumentsModal from "./LoanDocumentsModal";
 import Icon from "../../../../components/AppIcon";
 import Button from "../../../../components/ui/Button";
 import { Checkbox } from "../../../../components/ui/Checkbox";
+import { formatINR } from "../../../../utils/currency";
 
 const STAGES = [
   { key: "customerProfile", label: "Customer Profile" },
@@ -17,23 +21,19 @@ const STAGES = [
   { key: "rc", label: "RC" },
 ];
 
-// Map your real fields to the stages
+// Map your real fields to the stages (support multiple possible field names from API)
 const buildRawTimeline = (loan) => ({
-  customerProfile: loan?.receivingDate || null,
-  prefileCompletion: loan?.__postfileSeeded
-    ? loan?.postfile_approvalDate || null
-    : null,
+  customerProfile: loan?.receivingDate || loan?.createdAt || null,
+  prefileCompletion: loan?.__postfileSeeded ? loan?.postfile_approvalDate || null : null,
   loginToBank: loan?.approval_approvalDate || null,
   approval: loan?.approval_approvalDate || null,
-  postfileCompletion: loan?.__deliveryInitialized
-    ? loan?.postfile_approvalDate || null
-    : null,
+  postfileCompletion: loan?.__deliveryInitialized ? loan?.postfile_approvalDate || null : null,
   disbursement: loan?.disbursement_date || loan?.approval_disbursedDate || null,
   documentsCollected: loan?.docs_collected_at || null,
   insurance: loan?.insurance_done_at || null,
-  invoice: loan?.invoice_done_at || null,
+  invoice: loan?.invoice_done_at || loan?.invoice_received_date || null,
   vehicleDelivery: loan?.delivery_done_at || null,
-  rc: loan?.rc_received_at || null,
+  rc: loan?.rc_received_at || loan?.rc_received_date || null,
 });
 
 const buildTimeline = (loan) => {
@@ -62,18 +62,17 @@ const findCurrentStageIndex = (loan) => {
   return byStage !== -1 ? byStage : 0;
 };
 
-// Only previous, current, next
+// Only previous, current (center), next
 const getMiniWindow = (loan) => {
   const steps = buildTimeline(loan);
   const current = findCurrentStageIndex(loan);
-  const prevIndex = Math.max(0, current - 1);
-  const nextIndex = Math.min(steps.length - 1, current + 1);
-  const windowIndexes = [prevIndex, current, nextIndex].filter(
-    (v, i, arr) => arr.indexOf(v) === i,
-  );
+  const prev = current - 1 >= 0 ? steps[current - 1] : null;
+  const curr = steps[current] || null;
+  const next = current + 1 < steps.length ? steps[current + 1] : null;
+
   return {
-    steps: windowIndexes.map((i) => steps[i]),
-    currentKey: steps[current].key,
+    steps: [prev, curr, next],
+    currentKey: curr?.key,
   };
 };
 
@@ -89,40 +88,23 @@ const LoansDataGrid = ({
   loading,
   onUploadDocuments,
   onUpdateStatus,
+  onShareLoan,
   onPendencyClick,
   onShowOtherBanks,
+  onRefreshLoans,
+  onNotesClick,
 }) => {
   const [sortConfig, setSortConfig] = useState({
-    key: "aging",
-    direction: "desc",
+    key: null,
+    direction: "asc",
   });
   const [timelineLoan, setTimelineLoan] = useState(null);
+  const [pendencyLoan, setPendencyLoan] = useState(null);
+  const [documentsLoan, setDocumentsLoan] = useState(null);
 
-  const getStatusColor = (status) => {
-    switch ((status || "").toLowerCase()) {
-      case "approved":
-      case "disbursed":
-      case "completed":
-        return "bg-success/10 text-success border-success/20";
-      case "in progress":
-        return "bg-primary/10 text-primary border-primary/20";
-      case "pending":
-        return "bg-warning/10 text-warning border-warning/20";
-      case "rejected":
-        return "bg-error/10 text-error border-error/20";
-      case "on hold":
-        return "bg-muted text-muted-foreground border-border";
-      default:
-        return "bg-muted text-muted-foreground border-border";
-    }
-  };
 
-  const getAgingColor = (days) => {
-    if (days <= 7) return "text-success";
-    if (days <= 15) return "text-primary";
-    if (days <= 30) return "text-warning";
-    return "text-error";
-  };
+
+
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
@@ -132,35 +114,107 @@ const LoansDataGrid = ({
     }));
   };
 
+  const getSortableValue = (loan, key) => {
+    switch (key) {
+      case "loanId":
+        return loan?.loanId || loan?.loan_number || "";
+      case "customer":
+        return loan?.customerName || "";
+      case "mobile":
+        return loan?.primaryMobile || "";
+      case "email":
+        return loan?.email || "";
+      case "city":
+        return loan?.city || loan?.permanentCity || "";
+      case "vehicle":
+        return `${loan?.vehicleMake || ""} ${loan?.vehicleModel || ""}`;
+      case "vehicleVariant":
+        return loan?.vehicleVariant || "";
+      case "typeOfLoan":
+        return loan?.typeOfLoan || loan?.loanType || "";
+      case "loanAmount":
+        const banks = loan?.approval_banksData || [];
+        const primary =
+          banks.find((b) => b.status === "Disbursed") ||
+          banks.find((b) => b.status === "Approved") ||
+          banks[0];
+        return (
+          primary?.loanAmount ||
+          loan?.approval_loanAmountDisbursed ||
+          loan?.approval_loanAmountApproved ||
+          loan?.financeExpectation ||
+          0
+        );
+      case "bank":
+        const banksList = loan?.approval_banksData || [];
+        const primaryBank =
+          banksList.find((b) => b.status === "Disbursed") ||
+          banksList.find((b) => b.status === "Approved") ||
+          banksList[0];
+        return primaryBank?.bankName || loan?.approval_bankName || "";
+      case "interest":
+        const banksInterest = loan?.approval_banksData || [];
+        const primaryInt =
+          banksInterest.find((b) => b.status === "Disbursed") ||
+          banksInterest.find((b) => b.status === "Approved") ||
+          banksInterest[0];
+        return primaryInt?.interestRate ?? loan?.approval_roi ?? 0;
+      case "tenure":
+        const banksTenure = loan?.approval_banksData || [];
+        const primaryTen =
+          banksTenure.find((b) => b.status === "Disbursed") ||
+          banksTenure.find((b) => b.status === "Approved") ||
+          banksTenure[0];
+        return (
+          primaryTen?.tenure ||
+          loan?.approval_tenureMonths ||
+          loan?.loanTenureMonths ||
+          0
+        );
+      case "reference":
+        return loan?.reference1?.name || "";
+      case "source":
+        return loan?.source || loan?.recordSource || "";
+      case "sourceName":
+        return loan?.sourceName || "";
+      case "dealer":
+        return loan?.dealerName || "";
+      case "aging":
+        return loan?.aging ?? 0;
+      case "createdAt":
+        return loan?.createdAt ? new Date(loan.createdAt).getTime() : 0;
+      default:
+        return "";
+    }
+  };
+
   const sortedLoans = useMemo(() => {
-    return [...(loans || [])].sort((a, b) => {
-      if (sortConfig?.key === "aging") {
-        return sortConfig?.direction === "asc"
-          ? (a?.aging || 0) - (b?.aging || 0)
-          : (b?.aging || 0) - (a?.aging || 0);
+    if (!sortConfig.key) return loans || [];
+
+    const sorted = [...(loans || [])].sort((a, b) => {
+      const aValue = getSortableValue(a, sortConfig.key);
+      const bValue = getSortableValue(b, sortConfig.key);
+
+      // Handle different types
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue;
       }
-      if (sortConfig?.key === "loanAmount") {
-        const aAmount =
-          a?.approval_loanAmountDisbursed ||
-          a?.approval_loanAmountApproved ||
-          a?.financeExpectation ||
-          0;
-        const bAmount =
-          b?.approval_loanAmountDisbursed ||
-          b?.approval_loanAmountApproved ||
-          b?.financeExpectation ||
-          0;
-        return sortConfig?.direction === "asc"
-          ? aAmount - bAmount
-          : bAmount - aAmount;
-      }
+
+      // String comparison
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+
+      if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
+
+    return sorted;
   }, [loans, sortConfig]);
 
   const formatCurrency = (amount) => {
     if (!amount || amount === 0) return "Cash Sale";
-    return `₹${Number(amount).toLocaleString("en-IN")}`;
+    return formatINR(amount);
   };
 
   const formatLoanId = (id) => {
@@ -176,37 +230,35 @@ const LoansDataGrid = ({
   const someChecked =
     selectedLoans?.length > 0 && selectedLoans?.length < loans?.length;
 
+  // Calculate pendencyCount and pending step names for each loan
+  const getPendingSteps = (loan) => {
+    const steps = [
+      { label: "Profile Created", completed: !!(loan.createdAt || loan.receivingDate) },
+      { label: "Disbursement", completed: !!(loan.approval_disbursedDate || loan.disbursement_date) },
+      { label: "RC Received", completed: !!loan.rc_received_date },
+      { label: "Invoice Received", completed: !!loan.invoice_received_date },
+      { label: "Loan Number Assigned", completed: !!loan.loan_number },
+    ];
+    return steps.filter(s => !s.completed).map(s => s.label);
+  };
+
+  // Add pendencyCount and pendingSteps to each loan
+  const loansWithPendency = useMemo(() => {
+    return (loans || []).map(loan => {
+      const pendingSteps = getPendingSteps(loan);
+      return {
+        ...loan,
+        pendencyCount: pendingSteps.length,
+        pendingSteps,
+      };
+    });
+  }, [loans]);
+
   return (
     <div className="h-full flex flex-col bg-card rounded-2xl border border-border overflow-hidden">
       {/* Top bar */}
-      <div className="px-4 py-3 md:px-5 md:py-4 border-b border-border bg-card">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center border border-border">
-              <Icon name="Table2" size={16} className="text-foreground" />
-            </div>
-
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm md:text-base font-semibold text-foreground">
-                  Cases
-                </h2>
-                <span className="text-[11px] px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
-                  {loans?.length || 0}
-                </span>
-              </div>
-              {selectedLoans?.length > 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  {selectedLoans.length} selected
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  Click any row to preview
-                </span>
-              )}
-            </div>
-          </div>
-
+      <div className="">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
           {selectedLoans?.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -253,35 +305,87 @@ const LoansDataGrid = ({
                 />
               </th>
               <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Loan No.
+                <button
+                  onClick={() => handleSort("loanId")}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Loan No.
+                  {sortConfig?.key === "loanId" && (
+                    <Icon
+                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      size={14}
+                    />
+                  )}
+                </button>
               </th>
               <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Customer
+                <button
+                  onClick={() => handleSort("customer")}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Customer
+                  {sortConfig?.key === "customer" && (
+                    <Icon
+                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      size={14}
+                    />
+                  )}
+                </button>
               </th>
               <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Vehicle
+                <button
+                  onClick={() => handleSort("vehicle")}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Vehicle
+                  {sortConfig?.key === "vehicle" && (
+                    <Icon
+                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      size={14}
+                    />
+                  )}
+                </button>
               </th>
               <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Loan Details
+                <button
+                  onClick={() => handleSort("loanAmount")}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Loan Details
+                  {sortConfig?.key === "loanAmount" && (
+                    <Icon
+                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      size={14}
+                    />
+                  )}
+                </button>
               </th>
               <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Reference &amp; Source
+                <button
+                  onClick={() => handleSort("source")}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                >
+                  Reference &amp; Source
+                  {sortConfig?.key === "source" && (
+                    <Icon
+                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      size={14}
+                    />
+                  )}
+                </button>
               </th>
               <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                 <button
                   onClick={() => handleSort("aging")}
                   className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
                 >
-                  Aging
-                  <Icon
-                    name={
-                      sortConfig?.key === "aging" &&
-                      sortConfig?.direction === "asc"
-                        ? "ChevronUp"
-                        : "ChevronDown"
-                    }
-                    size={14}
-                  />
+                  Timeline
+                  {sortConfig?.key === "aging" && (
+                    <Icon
+                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      size={14}
+                    />
+                  )}
                 </button>
               </th>
               <th className="p-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[220px]">
@@ -292,6 +396,10 @@ const LoansDataGrid = ({
 
           <tbody>
             {sortedLoans?.map((loan) => {
+              // Use loansWithPendency to get pendencyCount and pendingSteps
+              const loanWithPendency = loansWithPendency.find(l => l.loanId === loan.loanId || l._id === loan._id);
+              const pendencyCount = loanWithPendency?.pendencyCount || 0;
+              const pendingSteps = loanWithPendency?.pendingSteps || [];
               const loanKey = loan?.loanId || loan?._id;
 
               // customer
@@ -373,13 +481,14 @@ const LoansDataGrid = ({
               const contactPerson =
                 loan?.dealerContactPerson || "Contact person not set";
 
-              const { steps, currentKey } = getMiniWindow(loan);
+              // FIX: Get mini window data without causing re-renders
+              const miniWindowData = getMiniWindow(loan);
 
               return (
                 <tr
                   key={loanKey}
                   className="border-b border-border hover:bg-muted/40 transition-colors cursor-pointer align-top"
-                  onClick={() => onLoanClick(loan)}
+                  onClick={() => setDocumentsLoan(loan)}
                 >
                   {/* checkbox */}
                   <td className="p-3" onClick={(e) => e.stopPropagation()}>
@@ -506,71 +615,56 @@ const LoansDataGrid = ({
                       </span>
                     </div>
                   </td>
+
                   {/* Mini vertical timeline (prev / current / next) */}
                   <td className="p-3 align-top">
                     <button
                       type="button"
-                      className="flex items-stretch gap-3 cursor-pointer"
+                      className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-muted/50 hover:border-primary/30 transition-colors p-2.5 group"
                       onClick={(e) => {
                         e.stopPropagation();
                         setTimelineLoan(loan);
                       }}
+                      title="View full timeline"
                     >
-                      {(() => {
-                        const { steps, currentKey } = getMiniWindow(loan);
-                        const prev = steps[0];
-                        const current = steps[1] || steps[0];
-                        const next = steps[2] || steps[steps.length - 1];
-                        const miniSteps = [prev, current, next].filter(Boolean);
-
-                        return (
-                          <>
-                            {/* Spine: tall line, dots will sit centered along it */}
-                            <div className="relative flex items-stretch">
-                              <div className="w-[2px] h-[80px] bg-border rounded-full" />
-                              {/* dots wrapper, distributed vertically */}
-                              <div className="absolute inset-0 flex flex-col items-center justify-between py-1.5">
-                                {miniSteps.map((step, idx) => {
-                                  const isCurrent = step.key === currentKey;
-                                  return (
-                                    <div
-                                      key={step.key}
-                                      className="flex items-center justify-center"
-                                    >
-                                      <div
-                                        className={
-                                          isCurrent
-                                            ? "w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_0_4px_rgba(37,99,235,0.25)] animate-pulse"
-                                            : "w-2 h-2 rounded-full bg-muted-foreground/40"
-                                        }
-                                      />
-                                    </div>
-                                  );
-                                })}
+                      <div className="relative flex flex-col gap-1.5 pl-3 min-h-[52px]">
+                        <div className="absolute left-[5px] top-2 bottom-2 w-px bg-border group-hover:bg-primary/30 transition-colors" />
+                        {miniWindowData.steps.map((step, idx) => {
+                          if (!step) {
+                            return (
+                              <div key={`empty-${idx}`} className="flex items-center gap-2 min-h-[14px]">
+                                <span className="w-2 h-2 rounded-full bg-muted-foreground/20 flex-shrink-0" />
+                                <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">—</span>
                               </div>
+                            );
+                          }
+                          const isCurrent = step.key === miniWindowData.currentKey;
+                          return (
+                            <div
+                              key={step.key || `placeholder-${idx}`}
+                              className={`flex items-center gap-2 min-h-[14px] ${isCurrent ? "" : "opacity-75"}`}
+                            >
+                              <span
+                                className={`relative z-10 flex-shrink-0 rounded-full border-2 ${
+                                  isCurrent
+                                    ? "w-2.5 h-2.5 bg-primary border-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.25)]"
+                                    : step.date
+                                      ? "w-2 h-2 bg-primary/60 border-primary/40"
+                                      : "w-2 h-2 bg-muted border-border"
+                                }`}
+                              />
+                              <span
+                                className={`text-[11px] truncate max-w-[100px] ${
+                                  isCurrent ? "font-semibold text-foreground" : step.date ? "text-muted-foreground" : "text-muted-foreground/70"
+                                }`}
+                                title={step.label + (step.date ? ` · ${new Date(step.date).toLocaleDateString("en-IN")}` : "")}
+                              >
+                                {step.label || "—"}
+                              </span>
                             </div>
-
-                            {/* Labels with normal table font size */}
-                            <div className="flex flex-col justify-between py-1.5">
-                              {miniSteps.map((step) => {
-                                const isCurrent = step.key === currentKey;
-                                return (
-                                  <div
-                                    key={step.key}
-                                    className={`text-xs text-right max-w-[130px] truncate ${
-                                      isCurrent
-                                        ? "font-semibold text-foreground"
-                                        : "text-muted-foreground"
-                                    }`}
-                                  >
-                                    {step.label}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </>
-                        );
-                      })()}
+                          );
+                        })}
+                      </div>
                     </button>
                   </td>
 
@@ -584,10 +678,19 @@ const LoansDataGrid = ({
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
+                          title="View loan details"
                           className="w-7 h-7 flex items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15"
-                          onClick={() => onLoanClick(loan)}
+                          onClick={(e) => { e.stopPropagation(); onLoanClick(loan, "view"); }}
                         >
                           <Icon name="Eye" size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Documents – present & pending"
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setDocumentsLoan(loan); }}
+                        >
+                          <Icon name="FolderOpen" size={12} />
                         </button>
 
                         <button
@@ -597,15 +700,16 @@ const LoansDataGrid = ({
                         >
                           <Icon name="Edit" size={12} />
                         </button>
-
                         <button
                           type="button"
+                          title="Share loan link"
                           className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-background"
-                          onClick={() =>
-                            onUploadDocuments && onUploadDocuments(loan)
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onShareLoan?.(loan);
+                          }}
                         >
-                          <Icon name="Upload" size={12} />
+                          <Icon name="Share2" size={12} />
                         </button>
 
                         {userRole === "admin" && (
@@ -617,27 +721,85 @@ const LoansDataGrid = ({
                             <Icon name="Trash2" size={12} />
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          title="Internal Notes"
+                          className={`w-7 h-7 flex items-center justify-center rounded-full border transition-all ${
+                            loan.loan_notes 
+                              ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200" 
+                              : "bg-muted text-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNotesClick?.(loan);
+                          }}
+                        >
+                          <Icon name="StickyNote" size={12} />
+                        </button>
                       </div>
 
                       {/* Row 2 – Update Status */}
                       <button
                         type="button"
+                        title="Update approval status"
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted text-foreground border border-border hover:bg-background"
-                        onClick={() => onUpdateStatus && onUpdateStatus(loan)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateStatus?.(loan);
+                        }}
                       >
                         <Icon name="Flag" size={11} />
                         Update status
                       </button>
 
                       {/* Row 3 – Pendency */}
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted text-foreground border border-border hover:bg-background"
-                        onClick={() => onPendencyClick && onPendencyClick(loan)}
+                      <Tooltip
+                        title={
+                          pendencyCount > 0
+                            ? `Pending: ${pendingSteps.join(", ")}`
+                            : "No pendency"
+                        }
+                        placement="top"
                       >
-                        <Icon name="AlertTriangle" size={11} />
-                        Pendency
-                      </button>
+                        <button
+                          type="button"
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border border-border hover:bg-background relative ${
+                            pendencyCount > 0
+                              ? "bg-warning/10 text-warning border-warning/20"
+                              : "bg-muted text-foreground"
+                          }`}
+                          onClick={() => setPendencyLoan(loan)}
+                        >
+                          <Icon name="AlertTriangle" size={11} />
+                          Pendency
+                          {pendencyCount > 0 && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-warning text-white text-[10px] font-bold animate-pulse">
+                              {pendencyCount}
+                            </span>
+                          )}
+                        </button>
+                      </Tooltip>
+                          {/* Pendency Modal */}
+                          {pendencyLoan && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setPendencyLoan(null)}>
+                              <div className="w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border p-6 relative animate-fadeIn" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-4">
+                                  <div className="flex flex-col">
+                                    <span className="text-base font-bold text-foreground tracking-tight">Loan Pendency</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {pendencyLoan.customerName || "Customer"} · {formatLoanId(pendencyLoan.loanId || pendencyLoan.loan_number)}
+                                    </span>
+                                  </div>
+                                  <button className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition" onClick={() => setPendencyLoan(null)} title="Close">
+                                    <Icon name="X" size={16} />
+                                  </button>
+                                </div>
+                                <PendencyTracker singleLoan={pendencyLoan} />
+                              </div>
+                            </div>
+                          )}
+
                     </div>
                   </td>
                 </tr>
@@ -645,6 +807,14 @@ const LoansDataGrid = ({
             })}
           </tbody>
         </table>
+
+        {/* Loan Documents modal - single instance outside row map */}
+        <LoanDocumentsModal
+          loan={documentsLoan}
+          open={!!documentsLoan}
+          onClose={() => setDocumentsLoan(null)}
+          onUploadComplete={() => { onRefreshLoans?.(); }}
+        />
 
         {loading && (
           <div className="text-center py-12 text-sm text-muted-foreground">
@@ -672,88 +842,91 @@ const LoansDataGrid = ({
       {/* Timeline popup */}
       {timelineLoan && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setTimelineLoan(null)}
         >
           <div
-            className="w-full max-w-lg bg-card rounded-2xl shadow-xl border border-border p-4"
+            className="w-full max-w-md bg-card rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* header */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground">
-                  Loan timeline
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-base font-bold text-foreground tracking-tight">
+                  Loan Timeline
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {timelineLoan.customerName || "Customer"} ·{" "}
-                  {formatLoanId(
-                    timelineLoan.loanId || timelineLoan.loan_number,
-                  )}
+                  {timelineLoan.customerName || "Customer"} · {formatLoanId(timelineLoan.loanId || timelineLoan.loan_number)}
                 </span>
               </div>
               <button
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-muted-foreground"
+                type="button"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 onClick={() => setTimelineLoan(null)}
+                title="Close"
               >
-                <Icon name="X" size={14} />
+                <Icon name="X" size={18} />
               </button>
             </div>
-
             {/* body */}
-            <div className="mt-1 max-h-80 overflow-auto pr-2">
-              <div className="relative flex">
+            <div className="flex-1 overflow-y-auto p-5 min-h-0">
+              <div className="relative pl-6">
                 {/* vertical spine */}
-                <div className="absolute left-3 top-0 bottom-0 w-[2px] bg-border" />
-
-                <div className="flex-1 space-y-3 ml-6">
-                  {buildTimeline(timelineLoan).map((step, idx) => {
+                <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-border rounded-full" />
+                <div className="space-y-3">
+                  {buildTimeline(timelineLoan).map((step, stepIndex) => {
                     const currentIndex = findCurrentStageIndex(timelineLoan);
-                    const isCurrent = STAGES[currentIndex]?.key === step.key;
+                    const currentStageKey = STAGES[currentIndex]?.key;
+                    const isCurrent = currentStageKey === step.key;
+                    const isDone = step.date != null;
 
                     return (
-                      <div key={step.key} className="relative flex gap-3">
-                        {/* node dot */}
-                        <div className="absolute -left-6 top-2 flex items-center justify-center">
+                      <div key={step.key} className="relative flex gap-4">
+                        {/* node dot - aligned to card center */}
+                        <div className="relative z-10 flex-shrink-0 flex items-center justify-center w-6 h-8">
                           <div
-                            className={`w-3 h-3 rounded-full border-2 ${
+                            className={`w-3 h-3 rounded-full border-2 transition-all ${
                               isCurrent
-                                ? "border-primary bg-primary shadow-[0_0_0_4px_rgba(37,99,235,0.25)]"
-                                : step.date
-                                  ? "border-primary bg-white"
+                                ? "border-primary bg-primary ring-4 ring-primary/20"
+                                : isDone
+                                  ? "border-primary bg-primary/80"
                                   : "border-border bg-muted"
                             }`}
                           />
                         </div>
-
                         {/* card */}
-                        <div className="flex-1 rounded-xl border border-border bg-background px-3 py-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-foreground">
+                        <div
+                          className={`flex-1 min-w-0 rounded-xl border px-4 py-3 transition-all ${
+                            isCurrent
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : isDone
+                                ? "border-border bg-background"
+                                : "border-dashed border-border bg-muted/20"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span
+                              className={`text-sm font-medium ${
+                                isCurrent ? "text-primary" : isDone ? "text-foreground" : "text-muted-foreground"
+                              }`}
+                            >
                               {step.label}
                               {isCurrent && (
-                                <span className="ml-1 text-[10px] text-primary">
-                                  (Current)
-                                </span>
+                                <span className="ml-1.5 text-xs font-semibold text-primary opacity-90">(Current)</span>
                               )}
                             </span>
-                            {step.date && (
-                              <span className="text-[10px] text-muted-foreground">
-                                {step.date.toLocaleDateString("en-IN", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
+                            {step.date ? (
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {step.date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                {step.date.toLocaleTimeString && (
+                                  <span className="ml-1 opacity-80">
+                                    {step.date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                )}
                               </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/80">Pending</span>
                             )}
-                          </div>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">
-                            {step.date
-                              ? step.date.toLocaleTimeString("en-IN", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : "Pending"}
                           </div>
                         </div>
                       </div>
@@ -774,11 +947,24 @@ const LoansDataGrid = ({
             loan(s)
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" iconName="ChevronLeft" disabled>
+            <Button
+              variant="outline"
+              size="sm"
+              iconName="ChevronLeft"
+              disabled
+            >
               Previous
             </Button>
             <Button variant="default" size="sm">
               1
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              iconName="ChevronRight"
+              disabled
+            >
+              Next
             </Button>
           </div>
         </div>
@@ -787,4 +973,4 @@ const LoansDataGrid = ({
   );
 };
 
-export default LoansDataGrid;
+export default LoansDataGrid

@@ -1,27 +1,53 @@
-import React from "react";
-import { Form, Input, Select, Row, Col, Space } from "antd";
-import { SolutionOutlined } from "@ant-design/icons";
+import React, { useEffect, useState } from "react";
+import { Form, Input, Select, AutoComplete, Row, Col } from "antd";
+import { SolutionOutlined, MailOutlined, PhoneOutlined } from "@ant-design/icons";
+import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 const OccupationalDetailsPreFile = () => {
+  const form = Form.useFormInstance();
+  const employmentPincode = Form.useWatch("employmentPincode", form);
+  const companyTypeValue = Form.useWatch("companyType", form);
+  const businessNatureValue = Form.useWatch("businessNature", form);
+  const [fetchingEmploymentPincode, setFetchingEmploymentPincode] = useState(false);
+  const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, companyTypeValue);
+  const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, businessNatureValue);
+
+  // Employment Pincode to City Auto-fill
+  useEffect(() => {
+    if (employmentPincode && employmentPincode.length === 6) {
+      const fetchCity = async () => {
+        try {
+          setFetchingEmploymentPincode(true);
+          const response = await fetch(`https://api.postalpincode.in/pincode/${employmentPincode}`);
+          const data = await response.json();
+          if (data && data[0]?.Status === "Success") {
+            const postOffices = data[0].PostOffice;
+            if (postOffices && postOffices.length > 0) {
+              form.setFieldsValue({ employmentCity: postOffices[0].District });
+            }
+          }
+        } catch (error) {
+          console.error("Employment pincode fetch failed", error);
+        } finally {
+          setFetchingEmploymentPincode(false);
+        }
+      };
+      const timer = setTimeout(fetchCity, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [employmentPincode, form]);
+
   return (
-    <div
-      id="prefile-occupation"
-      style={{
-        marginBottom: 32,
-        padding: 20,
-        background: "#fff",
-        borderRadius: 12,
-        border: "1px solid #f0f0f0",
-      }}
-    >
+    <div id="prefile-occupation" className="bg-card p-6 rounded-2xl border border-border/60 shadow-sm mb-6">
       {/* HEADER */}
-      <Space style={{ marginBottom: 20 }}>
-        <SolutionOutlined style={{ color: "#1890ff" }} />
-        <span style={{ fontWeight: 600 }}>Occupational Details </span>
-      </Space>
+      <div className="flex items-center gap-2 mb-6">
+        <div className="p-2 bg-blue-500/10 rounded-lg">
+          <SolutionOutlined className="text-blue-600" />
+        </div>
+        <span className="text-base text-foreground">Occupational Details</span>
+      </div>
 
       <Form.Item shouldUpdate noStyle>
         {({ getFieldValue }) => {
@@ -29,11 +55,15 @@ const OccupationalDetailsPreFile = () => {
           const occupation = getFieldValue("occupationType");
 
           return (
-            <Row gutter={[16, 16]}>
+            <Row gutter={[24, 0]}>
               {/* Applicant Type */}
               <Col xs={24} md={8}>
                 <Form.Item label="Applicant Type" name="applicantType">
-                  <Select disabled>
+                  <Select 
+                    disabled 
+                    className="h-10 rounded-lg"
+                    placeholder="Select Applicant Type"
+                  >
                     <Option value="Individual">Individual</Option>
                     <Option value="Company">Company</Option>
                   </Select>
@@ -44,7 +74,10 @@ const OccupationalDetailsPreFile = () => {
               {applicantType === "Company" && (
                 <Col xs={24} md={8}>
                   <Form.Item label="Whether MSME" name="isMSME">
-                    <Select>
+                    <Select 
+                      className="h-10 rounded-lg"
+                      placeholder="Select MSME Status"
+                    >
                       <Option value="Yes">Yes</Option>
                       <Option value="No">No</Option>
                     </Select>
@@ -55,7 +88,10 @@ const OccupationalDetailsPreFile = () => {
               {/* Occupation */}
               <Col xs={24} md={8}>
                 <Form.Item label="Occupation" name="occupationType">
-                  <Select>
+                  <Select 
+                    className="h-10 rounded-lg"
+                    placeholder="Select Occupation"
+                  >
                     <Option value="Salaried">Salaried</Option>
                     <Option value="Self Employed">Self Employed</Option>
                     <Option value="Self Employed Professional">
@@ -70,7 +106,10 @@ const OccupationalDetailsPreFile = () => {
               {occupation === "Self Employed Professional" && (
                 <Col xs={24} md={8}>
                   <Form.Item label="Professional Type" name="professionalType">
-                    <Select>
+                    <Select 
+                      className="h-10 rounded-lg"
+                      placeholder="Select Professional Type"
+                    >
                       <Option value="Doctor">Doctor</Option>
                       <Option value="CA">CA</Option>
                       <Option value="CS">CS</Option>
@@ -89,29 +128,29 @@ const OccupationalDetailsPreFile = () => {
                 <>
                   <Col xs={24} md={8}>
                     <Form.Item label="Type of Company" name="companyType">
-                      <Select>
-                        <Option value="Pvt Ltd">Pvt Ltd</Option>
-                        <Option value="Partnership">Partnership</Option>
-                        <Option value="Proprietorship">Proprietorship</Option>
-                        <Option value="Public Ltd">Public Ltd</Option>
-                        <Option value="Other">Other</Option>
-                      </Select>
+                      <AutoComplete
+                        className="h-10 w-full"
+                        placeholder="Select or type"
+                        allowClear
+                        options={companyTypeOptions}
+                        filterOption={(input, option) =>
+                          (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
+                        }
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Nature of Business" name="businessNature">
-                      <Select mode="multiple">
-                        <Option value="Manufacturer">Manufacturer</Option>
-                        <Option value="Agriculturist">Agriculturist</Option>
-                        <Option value="Service Provider">
-                          Service Provider
-                        </Option>
-                        <Option value="Trader">Trader</Option>
-                        <Option value="Distributor">Distributor</Option>
-                        <Option value="Retailer">Retailer</Option>
-                        <Option value="Other">Other</Option>
-                      </Select>
+                      <AutoComplete
+                        className="h-10 w-full"
+                        placeholder="Select or type"
+                        allowClear
+                        options={businessNatureOptions}
+                        filterOption={(input, option) =>
+                          (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
+                        }
+                      />
                     </Form.Item>
                   </Col>
                 </>
@@ -122,31 +161,29 @@ const OccupationalDetailsPreFile = () => {
                 <>
                   <Col xs={24} md={8}>
                     <Form.Item label="Company Type" name="companyType">
-                      <Select>
-                        <Option value="Pvt Ltd">Pvt Ltd</Option>
-                        <Option value="Partnership">Partnership</Option>
-                        <Option value="Proprietorship">Proprietorship</Option>
-                        <Option value="Public Ltd">Public Ltd</Option>
-                        <Option value="PSU">PSU</Option>
-                        <Option value="Govt">Govt</Option>
-                        <Option value="MNC">MNC</Option>
-                        <Option value="Other">Other</Option>
-                      </Select>
+                      <AutoComplete
+                        className="h-10 w-full"
+                        placeholder="Select or type"
+                        allowClear
+                        options={companyTypeOptions}
+                        filterOption={(input, option) =>
+                          (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
+                        }
+                      />
                     </Form.Item>
                   </Col>
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Nature of Business" name="businessNature">
-                      <Select mode="multiple">
-                        <Option value="Automobiles">Automobiles</Option>
-                        <Option value="IT">IT</Option>
-                        <Option value="Banking">Banking</Option>
-                        <Option value="BPO">BPO</Option>
-                        <Option value="Retail">Retail</Option>
-                        <Option value="Real Estate">Real Estate</Option>
-                        <Option value="NBFC">NBFC</Option>
-                        <Option value="Other">Other</Option>
-                      </Select>
+                      <AutoComplete
+                        className="h-10 w-full"
+                        placeholder="Select or type"
+                        allowClear
+                        options={businessNatureOptions}
+                        filterOption={(input, option) =>
+                          (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
+                        }
+                      />
                     </Form.Item>
                   </Col>
                 </>
@@ -155,61 +192,69 @@ const OccupationalDetailsPreFile = () => {
               {/* COMMON EMPLOYER DETAILS */}
               <Col xs={24} md={8}>
                 <Form.Item label="Designation" name="designation">
-                  <Input />
+                  <Input className="h-10 rounded-lg" placeholder="Enter Designation" />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
                 <Form.Item
-                  label="Experience in Current Job / Business (Years)"
+                  label="Current Exp (Years)"
                   name="experienceCurrent"
                 >
-                  <Input />
+                  <Input className="h-10 rounded-lg" placeholder="Years" />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
                 <Form.Item
-                  label="Total Experience (Years)"
+                  label="Total Exp (Years)"
                   name="totalExperience"
                 >
-                  <Input />
+                  <Input className="h-10 rounded-lg" placeholder="Years" />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
                 <Form.Item label="Company Name" name="companyName">
-                  <Input />
+                  <Input className="h-10 rounded-lg" placeholder="Enter Company Name" />
                 </Form.Item>
               </Col>
 
-              <Col xs={24}>
+              <Col xs={24} md={16}>
                 <Form.Item label="Company Address" name="employmentAddress">
-                  <TextArea rows={2} />
+                  <Input className="h-10 rounded-lg" placeholder="Full Business Address" />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
                 <Form.Item label="Pincode" name="employmentPincode">
-                  <Input maxLength={6} />
+                  <Input className="h-10 rounded-lg" maxLength={6} placeholder="6-digit PIN" />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
                 <Form.Item label="City" name="employmentCity">
-                  <Input />
+                  <Input 
+                    className="h-10 rounded-lg" 
+                    placeholder="Auto-filled" 
+                    suffix={fetchingEmploymentPincode ? <span className="text-[10px] text-muted-foreground animate-pulse">Fetching...</span> : null} 
+                  />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
                 <Form.Item label="Phone Number" name="employmentPhone">
-                  <Input />
+                  <Input className="h-10 rounded-lg" prefix={<PhoneOutlined className="text-muted-foreground mr-1" />} placeholder="Mobile/Landline" />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Official Email ID" name="officialEmail">
-                  <Input />
+                <Form.Item 
+                  label="Official Email ID" 
+                  name="officialEmail"
+                  rules={[{ type: 'email', message: 'Invalid email format' }]}
+                >
+                  <Input className="h-10 rounded-lg" prefix={<MailOutlined className="text-muted-foreground mr-1" />} placeholder="email@company.com" />
                 </Form.Item>
               </Col>
             </Row>

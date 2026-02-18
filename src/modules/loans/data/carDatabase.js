@@ -1,5 +1,3 @@
-// src/modules/loans/data/carDatabase.js
-
 export const carDatabase = [
   {
     make: "Toyota",
@@ -8,8 +6,9 @@ export const carDatabase = [
         name: "Fortuner",
         variants: ["2.8 4x2 AT", "2.8 4x4 AT", "2.4 4x2 MT"],
       },
-      { name: "Innova", variants: ["2.4 MT", "2.4 AT"] },
-      { name: "Creta", variants: ["1.6 MT", "1.6 AT"] },
+      { name: "Innova Crysta", variants: ["2.4 GX MT", "2.4 GX AT", "2.8 ZX AT"] },
+      { name: "Glanza", variants: ["G MT", "V AT"] },
+      { name: "Urban Cruiser", variants: ["Mid MT", "High AT"] },
     ],
   },
   {

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Tabs, Form } from "antd";
-import Input from "../../../../components/ui/Input";
+import { Modal, Tabs, Form, Spin } from "antd";
 import dayjs from "dayjs";
+import Icon from "../../../../components/AppIcon";
+import { loansApi } from "../../../../api/loans";
 
 // import your existing step components (REAL PATHS)
 import LeadDetails from "../loan-form/customer-profile/LeadDetails";
@@ -63,23 +64,52 @@ const convertDatesToDayjsDeep = (obj) => {
   return obj;
 };
 
-const LoanViewModal = ({ open, loan, onClose }) => {
+const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
   const [form] = Form.useForm();
   const [activeTab, setActiveTab] = useState("profile");
   const [searchQuery, setSearchQuery] = useState("");
+  const [fullLoan, setFullLoan] = useState(null);
+  const [loadingLoan, setLoadingLoan] = useState(false);
 
-  const matches = (text) => {
+  const loanId = loan?._id || loan?.loanId;
+  const displayLoan = fullLoan || loan;
+
+  // When modal opens, fetch full loan by ID so we have latest data (including documents)
+  useEffect(() => {
+    if (!open || !loanId) {
+      if (!open) setFullLoan(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingLoan(true);
+    loansApi
+      .getById(loanId)
+      .then((res) => {
+        if (cancelled) return;
+        const body = res?.data ?? res;
+        const loanData = body?.data ?? body;
+        if (loanData) setFullLoan(convertDatesToDayjsDeep(loanData));
+      })
+      .catch(() => {
+        if (!cancelled) setFullLoan(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLoan(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, loanId]);
+
+  const matches = React.useCallback((text) => {
     if (!searchQuery) return true;
     return (text || "")
       .toString()
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
-  };
+  }, [searchQuery]);
 
-  // Searchable full loan text
   const searchableText = useMemo(() => {
-    return JSON.stringify(loan || {}).toLowerCase();
-  }, [loan]);
+    return JSON.stringify(displayLoan || {}).toLowerCase();
+  }, [displayLoan]);
 
   const hasSearchResults = useMemo(() => {
     if (!searchQuery) return true;
@@ -87,17 +117,16 @@ const LoanViewModal = ({ open, loan, onClose }) => {
   }, [searchQuery, searchableText]);
 
   useEffect(() => {
-    if (!loan) return;
+    if (!displayLoan) return;
 
-    const fixedLoan = convertDatesToDayjsDeep(loan);
+    const fixedLoan = convertDatesToDayjsDeep(displayLoan);
     form.setFieldsValue(fixedLoan);
 
-    setActiveTab(loan.currentStage || "profile");
-  }, [loan, form]);
+    setActiveTab(initialTab || displayLoan.currentStage || "profile");
+  }, [displayLoan, form, initialTab]);
 
-  // Tabs definition (we keep searchText internally but DO NOT show it in UI)
   const tabItems = useMemo(() => {
-    if (!loan) return [];
+    if (!displayLoan) return [];
 
     const tabs = [
       {
@@ -111,15 +140,14 @@ const LoanViewModal = ({ open, loan, onClose }) => {
             <FinanceDetailsForm readOnly />
             <PersonalDetailsWithSearch readOnly />
 
-            {loan?.isFinanced === "Yes" && (
-              <>
-                <EmploymentDetails readOnly />
-                <IncomeDetails readOnly />
-                <BankDetails readOnly />
-                <ReferenceDetails readOnly />
-                <KycDetails readOnly />
-              </>
-            )}
+            {/* Show extended details if they belong to the customer profile */}
+            <>
+              <EmploymentDetails readOnly />
+              <IncomeDetails readOnly />
+              <BankDetails readOnly />
+              <ReferenceDetails readOnly />
+              <KycDetails readOnly />
+            </>
           </>
         ),
       },
@@ -127,11 +155,11 @@ const LoanViewModal = ({ open, loan, onClose }) => {
         key: "prefile",
         label: "Pre-File",
         searchText: JSON.stringify({
-          recordSource: loan.recordSource,
-          sourceName: loan.sourceName,
-          dealerMobile: loan.dealerMobile,
-          payoutApplicable: loan.payoutApplicable,
-          prefile_sourcePayoutPercentage: loan.prefile_sourcePayoutPercentage,
+          recordSource: displayLoan.recordSource,
+          sourceName: displayLoan.sourceName,
+          dealerMobile: displayLoan.dealerMobile,
+          payoutApplicable: displayLoan.payoutApplicable,
+          prefile_sourcePayoutPercentage: displayLoan.prefile_sourcePayoutPercentage,
         }),
         children: (
           <>
@@ -150,18 +178,19 @@ const LoanViewModal = ({ open, loan, onClose }) => {
         key: "approval",
         label: "Loan Approval",
         searchText: JSON.stringify({
-          approval_bankName: loan.approval_bankName,
-          approval_status: loan.approval_status,
-          payoutPercentage: loan.payoutPercentage,
-          approval_banksData: loan.approval_banksData,
+          approval_bankName: displayLoan.approval_bankName,
+          approval_status: displayLoan.approval_status,
+          payoutPercentage: displayLoan.payoutPercentage,
+          approval_banksData: displayLoan.approval_banksData,
         }),
         children: (
           <LoanApprovalStep
             form={form}
-            banksData={loan?.approval_banksData || []}
+            banksData={displayLoan?.approval_banksData || []}
             setBanksData={() => {}}
             onNext={() => {}}
             readOnly
+            loanId={displayLoan?._id}
           />
         ),
       },
@@ -169,10 +198,10 @@ const LoanViewModal = ({ open, loan, onClose }) => {
         key: "postfile",
         label: "Post-File",
         searchText: JSON.stringify({
-          postfile_bankName: loan.postfile_bankName,
-          postfile_roi: loan.postfile_roi,
-          postfile_emiAmount: loan.postfile_emiAmount,
-          instrumentType: loan.instrumentType,
+          postfile_bankName: displayLoan.postfile_bankName,
+          postfile_roi: displayLoan.postfile_roi,
+          postfile_emiAmount: displayLoan.postfile_emiAmount,
+          instrumentType: displayLoan.instrumentType,
         }),
         children: <PostFileStep form={form} readOnly />,
       },
@@ -180,10 +209,10 @@ const LoanViewModal = ({ open, loan, onClose }) => {
         key: "delivery",
         label: "Vehicle Delivery",
         searchText: JSON.stringify({
-          delivery_date: loan.delivery_date,
-          invoice_number: loan.invoice_number,
-          rc_redg_no: loan.rc_redg_no,
-          insurance_company_name: loan.insurance_company_name,
+          delivery_date: displayLoan.delivery_date,
+          invoice_number: displayLoan.invoice_number,
+          rc_redg_no: displayLoan.rc_redg_no,
+          insurance_company_name: displayLoan.insurance_company_name,
         }),
         children: <VehicleDeliveryStep form={form} readOnly />,
       },
@@ -191,9 +220,9 @@ const LoanViewModal = ({ open, loan, onClose }) => {
         key: "payout",
         label: "Payout",
         searchText: JSON.stringify({
-          approval_status: loan.approval_status,
-          loan_receivables: loan.loan_receivables,
-          loan_payables: loan.loan_payables,
+          approval_status: displayLoan.approval_status,
+          loan_receivables: displayLoan.loan_receivables,
+          loan_payables: displayLoan.loan_payables,
         }),
         children: <PayoutSection form={form} readOnly />,
       },
@@ -201,7 +230,7 @@ const LoanViewModal = ({ open, loan, onClose }) => {
 
     // Filter tabs based on search
     return tabs.filter((t) => matches(t.label) || matches(t.searchText));
-  }, [loan, searchQuery]);
+  }, [displayLoan, form, matches, searchableText]);
 
   // Auto switch to first available tab after filtering
   useEffect(() => {
@@ -219,107 +248,156 @@ const LoanViewModal = ({ open, loan, onClose }) => {
       open={open}
       onCancel={onClose}
       footer={null}
-      width={1300}
+      closable={false}
+      width={1000}
       centered
-      bodyStyle={{ padding: 0 }}
-      destroyOnClose
+      className="theme-modal-clean"
+      styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: 20 } }}
+      destroyOnHidden
     >
-      {/* HEADER */}
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid #f0f0f0" }}>
-        <div style={{ fontWeight: 700, fontSize: 16 }}>
-          Loan Case View (Read Only) — {loan?.loanId || ""}
-        </div>
-        <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-          All steps are visible exactly like the loan form, but locked.
-        </div>
-      </div>
-
-      {/* GLOBAL SEARCH */}
-      <div style={{ padding: "10px 18px", borderBottom: "1px solid #f0f0f0" }}>
-        <Input
-          type="search"
-          placeholder="Search anywhere in this loan..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-
-        {!hasSearchResults && (
-          <div style={{ marginTop: 8, fontSize: 12, color: "#ff4d4f" }}>
-            No matching results found.
-          </div>
-        )}
-
-        {searchQuery && tabItems.length > 0 && (
-          <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>
-            Showing {tabItems.length} matching section(s)
-          </div>
-        )}
-      </div>
-
-      {/* CONTENT */}
-      <div
-        style={{
-          padding: 16,
-          background: "#fafafa",
-          maxHeight: "75vh",
-          overflowY: "auto",
-        }}
-      >
-        <Form form={form} layout="vertical" disabled>
-          {tabItems.length === 0 ? (
-            <div
-              style={{
-                background: "#fff",
-                border: "1px solid #f0f0f0",
-                borderRadius: 10,
-                padding: 20,
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>
-                No sections matched your search
+      <div className="flex flex-col h-[85vh] bg-background">
+        {/* HEADER */}
+        <div className="flex-none px-6 py-4 border-b border-border bg-background flex items-center justify-between z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+              {loadingLoan ? <Spin size="small" /> : <Icon name="FileText" size={24} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold">Loan Details</h2>
+                <div className="px-2 py-0.5 rounded bg-muted text-[10px] text-muted-foreground">
+                  Read Only
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: "#888" }}>
-                Try searching by bank name, customer name, mobile number,
-                payout, dealer, etc.
+              <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="font-medium">{displayLoan?.loanId || displayLoan?.loan_number || "New Case"}</span>
+                <span className="w-1 h-1 rounded-full bg-border" />
+                <span>{displayLoan?.customerName || "Unknown Customer"}</span>
+                {(displayLoan?.caseType || displayLoan?.typeOfLoan || displayLoan?.loanType) && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-border" />
+                    <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
+                      {displayLoan?.caseType || displayLoan?.typeOfLoan || displayLoan?.loanType}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
-          ) : (
-            <Tabs
-              activeKey={activeTab}
-              onChange={setActiveTab}
-              items={tabItems}
-            />
-          )}
-        </Form>
-      </div>
+          </div>
 
-      {/* FOOTER */}
-      <div
-        style={{
-          padding: "10px 18px",
-          borderTop: "1px solid #f0f0f0",
-          textAlign: "right",
-        }}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            border: "1px solid #d9d9d9",
-            borderRadius: 6,
-            padding: "6px 16px",
-            fontSize: 13,
-            background: "#fff",
-            cursor: "pointer",
-            fontWeight: 500,
-          }}
-        >
-          Close
-        </button>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
+          >
+            <Icon name="X" size={20} />
+          </button>
+        </div>
+
+        {/* SEARCH BAR */}
+        <div className="flex-none px-6 py-3 border-b border-border bg-muted/30">
+          <div className="relative max-w-md">
+             <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+             <input 
+                type="text"
+                placeholder="Search inside this loan (e.g. 'HDFC', 'Pan', 'Approved')..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground"
+             />
+          </div>
+          {searchQuery && (
+             <div className="mt-2 text-xs pl-1">
+                {hasSearchResults ? (
+                    <span className="text-foreground">{tabItems.length} section(s) found</span>
+                ) : (
+                    <span className="text-muted-foreground">No results found in any section</span>
+                )}
+             </div>
+          )}
+        </div>
+
+        {/* SCROLLABLE CONTENT */}
+        <div className="flex-1 overflow-y-auto bg-muted/10 p-6 custom-scrollbar">
+            <Form form={form} layout="vertical" disabled className="h-full">
+              {tabItems.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                    <Icon name="SearchX" size={48} className="text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold">No matches found</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-2">
+                        We couldn't find any section containing "{searchQuery}". Try a different keyword.
+                    </p>
+                </div>
+              ) : (
+                <div className="max-w-5xl mx-auto">
+                    <Tabs
+                      activeKey={activeTab}
+                      onChange={setActiveTab}
+                      items={tabItems}
+                      type="card"
+                      className="custom-tabs"
+                    />
+                </div>
+              )}
+            </Form>
+        </div>
       </div>
+      <style>{styles}</style>
     </Modal>
   );
-};
+}; 
+  
+
+// Add some CSS for the custom tabs to look transparent/pill like
+const styles = `
+  .custom-tabs .ant-tabs-nav::before {
+     border-bottom: none !important;
+  }
+  .custom-tabs .ant-tabs-tab {
+     background: transparent !important;
+     border: none !important;
+     font-weight: 500;
+  }
+  
+  .custom-tabs .ant-tabs-tab:hover {
+    opacity: 0.8;
+  }
+
+  .custom-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+     font-weight: 600 !important;
+  }
+  
+  /* Hide the card background of ant tabs */
+  .custom-tabs .ant-tabs-content {
+     margin-top: 16px;
+  }
+  
+  /* Ensure disabled inputs are readable */
+  .ant-input-disabled,
+  .ant-input-number-disabled .ant-input-number-input,
+  .ant-select-disabled .ant-select-selector,
+  .ant-picker-disabled {
+    color: hsl(var(--foreground)) !important;
+    background-color: hsl(var(--muted) / 0.3) !important;
+    border-color: hsl(var(--border)) !important;
+    cursor: default !important;
+  }
+  
+  .ant-input-disabled::placeholder,
+  .ant-input-number-disabled .ant-input-number-input::placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+  
+  /* Custom scrollbar for modal content */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent; 
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border)); 
+    border-radius: 20px;
+  }
+`;
 
 export default LoanViewModal;

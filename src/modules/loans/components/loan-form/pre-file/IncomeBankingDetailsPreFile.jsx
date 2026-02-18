@@ -1,21 +1,48 @@
-import React, { useEffect } from "react";
-import { Form, Input, InputNumber, Select, Row, Col, Space } from "antd";
+import React, { useEffect, useState } from "react";
+import {
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Row,
+  Col,
+  Space,
+  AutoComplete,
+} from "antd";
 import { BankOutlined, DollarOutlined } from "@ant-design/icons";
-import demoCustomers from "../../../../customers/demoCustomers";
+import { banksApi } from "../../../../../api/banks";
 
 const { Option } = Select;
 
 const IncomeBankingDetailsPreFile = () => {
-  const occupationType = Form.useWatch("occupationType");
   const accountSinceYears = Form.useWatch("accountSinceYears");
-  const customerName = Form.useWatch("customerName");
-  const primaryMobile = Form.useWatch("primaryMobile");
   const form = Form.useFormInstance();
 
-  const isSalaried = occupationType === "Salaried";
-  const isSelfEmployed =
-    occupationType === "Self Employed" ||
-    occupationType === "Self Employed Professional";
+  const [bankOptions, setBankOptions] = useState([]);
+
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const response = await banksApi.getAll();
+        const data = Array.isArray(response) ? response : response?.data || [];
+        setBankOptions(
+          data.map((b) => ({ value: b.name, label: b.name, ...b })),
+        );
+      } catch (error) {
+        console.error("Error fetching banks:", error);
+      }
+    };
+    fetchBanks();
+  }, []);
+
+  const handleBankSelect = (value, option) => {
+    if (option) {
+      form.setFieldsValue({
+        ifscCode: option.ifsc || "",
+        branch: option.address || "",
+      });
+    }
+  };
 
   /* ------------------------------
      AUTO CALCULATE "OPENED IN"
@@ -31,120 +58,41 @@ const IncomeBankingDetailsPreFile = () => {
     }
   }, [accountSinceYears, form]);
 
-  /* ----------------------------------------------------------
-     AUTOFILL income + banking from demoCustomers
-     ---------------------------------------------------------- */
-  useEffect(() => {
-    if (!customerName && !primaryMobile) return;
-
-    const match = demoCustomers.find((c) => {
-      if (primaryMobile && c.primaryMobile === primaryMobile) return true;
-      if (customerName && c.customerName === customerName) return true;
-      return false;
-    });
-
-    if (!match) return;
-
-    const setIfEmpty = (field, value) => {
-      const cur = form.getFieldValue(field);
-      if (cur === undefined || cur === null || cur === "") {
-        form.setFieldsValue({ [field]: value });
-      }
-    };
-
-    /* =====================
-       INCOME (CORRECT MAP)
-    ===================== */
-
-    // Salaried
-    setIfEmpty(
-      "monthlySalary",
-      match.salaryMonthly ??
-        match.monthlyIncome ??
-        match.grossMonthlyIncome ??
-        ""
-    );
-
-    // Self Employed
-    setIfEmpty("annualTurnover", match.annualIncome ?? "");
-    setIfEmpty("netProfit", match.netMonthlyIncome ?? "");
-
-    // Other income
-    setIfEmpty("otherIncome", match.otherIncomeAmount ?? "");
-    setIfEmpty("otherIncomeSource", match.otherIncomeSource ?? "");
-
-    /* =====================
-       BANKING
-    ===================== */
-
-    setIfEmpty("accountNumber", match.accountNumber ?? "");
-    setIfEmpty("bankName", match.bankName ?? "");
-    setIfEmpty("branch", match.branch ?? "");
-
-    if (typeof match.accountSinceYears === "number") {
-      setIfEmpty("accountSinceYears", match.accountSinceYears);
-    }
-
-    setIfEmpty("accountType", match.accountType ?? "");
-  }, [customerName, primaryMobile, form]);
-
   return (
     <div
+      className="bg-card border-2 border-border dark:border-border/60 rounded-xl p-5 mb-6 shadow-sm"
       style={{
         marginBottom: 32,
         padding: 20,
-        background: "#fff",
+        background: "var(--card)",
         borderRadius: 12,
-        border: "1px solid #f0f0f0",
+        border: "2px solid var(--border)",
       }}
     >
       {/* HEADER */}
       <Space style={{ marginBottom: 20, display: "flex", gap: 8 }}>
         <DollarOutlined style={{ color: "#13c2c2" }} />
-        <span style={{ fontWeight: 600 }}>Income and Banking Details</span>
+        <span style={{ fontWeight: 600 }}>Banking Details</span>
       </Space>
 
       {/* =====================
           INCOME DETAILS
       ====================== */}
       <Row gutter={[16, 16]}>
-        {isSalaried && (
-          <Col xs={24} md={8}>
-            <Form.Item label="Monthly Salary" name="monthlySalary">
-              <InputNumber style={{ width: "100%" }} min={0} />
-            </Form.Item>
-          </Col>
-        )}
-
-        {isSelfEmployed && (
-          <Col xs={24} md={8}>
-            <Form.Item label="Annual Turnover" name="annualTurnover">
-              <InputNumber style={{ width: "100%" }} min={0} />
-            </Form.Item>
-          </Col>
-        )}
-
-        {isSelfEmployed && (
-          <Col xs={24} md={8}>
-            <Form.Item label="Net Profit" name="netProfit">
-              <InputNumber style={{ width: "100%" }} min={0} />
-            </Form.Item>
-          </Col>
-        )}
-
         <Col xs={24} md={8}>
-          <Form.Item label="Other Income" name="otherIncome">
-            <InputNumber style={{ width: "100%" }} min={0} />
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={8}>
-          <Form.Item label="Other Income Source" name="otherIncomeSource">
-            <Select allowClear>
-              <Option value="Rental">Rental</Option>
-              <Option value="Agriculture">Agriculture</Option>
-              <Option value="Other">Other</Option>
-            </Select>
+          <Form.Item label="Total Income (as per ITR)" name="totalIncomeITR">
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              placeholder="Enter Total Income (as per ITR)"
+              className="rounded-xl border-border"
+              formatter={(value) => {
+                if (!value) return "";
+                const numValue = Number(value);
+                return `₹ ${numValue.toLocaleString("en-IN")}`;
+              }}
+              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+            />
           </Form.Item>
         </Col>
       </Row>
@@ -158,39 +106,85 @@ const IncomeBankingDetailsPreFile = () => {
       </Space>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}>
-          <Form.Item label="Applicant Account Number" name="accountNumber">
-            <Input />
+        <Col xs={24} md={6}>
+          <Form.Item label="IFSC Code" name="ifsc">
+            <Input
+              placeholder="IFSC Code"
+              className="rounded-xl border-border"
+            />
           </Form.Item>
         </Col>
 
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
           <Form.Item label="Bank Name" name="bankName">
-            <Input />
+            <AutoComplete
+              placeholder="Select or enter Bank Name"
+              options={bankOptions}
+              onSelect={handleBankSelect}
+              className="rounded-xl border-border w-full"
+              filterOption={(inputValue, option) =>
+                (option?.value ?? "")
+                  .toUpperCase()
+                  .indexOf(inputValue.toUpperCase()) !== -1
+              }
+            />
           </Form.Item>
         </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="Branch" name="branch">
-            <Input />
+        <Col xs={24} md={6}>
+          <Form.Item label="Branch / Address" name="branch">
+            <Input
+              placeholder="Enter Branch / Address"
+              className="rounded-xl border-border"
+            />
           </Form.Item>
         </Col>
 
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
+          <Form.Item label="Applicant Account Number" name="accountNumber">
+            <Input
+              placeholder="Enter Account Number"
+              className="rounded-xl border-border"
+            />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={6}>
+          <Form.Item label="Customer ID" name="customerId">
+            <Input
+              placeholder="Customer ID"
+              className="rounded-xl border-border"
+            />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={6}>
           <Form.Item label="Account Since (Years)" name="accountSinceYears">
-            <InputNumber style={{ width: "100%" }} min={0} />
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              placeholder="Years"
+              className="rounded-xl border-border"
+            />
           </Form.Item>
         </Col>
 
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
           <Form.Item label="Opened In" name="openedIn">
-            <Input disabled />
+            <Input
+              disabled
+              placeholder="Auto-filled Year"
+              className="rounded-xl border-border"
+            />
           </Form.Item>
         </Col>
 
-        <Col xs={24} md={8}>
+        <Col xs={24} md={6}>
           <Form.Item label="Account Type" name="accountType">
-            <Select>
+            <Select
+              placeholder="Select Type"
+              className="rounded-xl border-border"
+            >
               <Option value="Savings">Savings</Option>
               <Option value="Current">Current</Option>
             </Select>

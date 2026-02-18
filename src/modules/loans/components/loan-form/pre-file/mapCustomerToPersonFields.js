@@ -31,8 +31,13 @@ export const mapCustomerToPersonFields = (customer, prefix) => {
     // Occupational
     [`${prefix}_occupation`]: customer.occupationType || "",
     [`${prefix}_professionalType`]: customer.professionalType || "",
-    [`${prefix}_companyType`]: customer.companyType || "",
-    [`${prefix}_businessNature`]: customer.businessNature || "",
+    // companyType is single select, businessNature is multi-select
+    [`${prefix}_companyType`]: Array.isArray(customer.companyType) 
+      ? customer.companyType[0] || ""
+      : (customer.companyType || ""),
+    [`${prefix}_businessNature`]: typeof customer.businessNature === 'string'
+      ? customer.businessNature.split(',').map(s => s.trim()).filter(Boolean)
+      : (Array.isArray(customer.businessNature) ? customer.businessNature : []),
 
     [`${prefix}_employerDetail`]: customer.employerDetail || "",
     [`${prefix}_designation`]: customer.designation || "",
@@ -44,5 +49,9 @@ export const mapCustomerToPersonFields = (customer, prefix) => {
     [`${prefix}_companyPincode`]: customer.employmentPincode || "",
     [`${prefix}_companyCity`]: customer.employmentCity || "",
     [`${prefix}_companyPhone`]: customer.employmentPhone || "",
+    
+    // Customer ID
+    [`${prefix}_id`]: customer._id || customer.id || "",
+    customerId: prefix === "" ? (customer._id || customer.id || "") : undefined, // Top level for main applicant
   };
 };
