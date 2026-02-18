@@ -99,7 +99,12 @@ const buildSchedule = (principal, monthlyRate, emi, months) => {
   return rows;
 };
 
-const EMICalculator = ({ onResetCustomer, customer }) => {
+const EMICalculator = ({
+  onResetCustomer,
+  customer,
+  initialQuotation,
+  initialShareView,
+}) => {
   const [vehicles, setVehicles] = useState([]);
 
   // City + mapping
@@ -158,6 +163,62 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!initialQuotation || !vehicles.length) return;
+
+    const q = initialQuotation;
+
+    // Find vehicle by id from quotation
+    const v = vehicles.find(
+      (x) => String(x._id) === String(q.vehicle?.vehicleId),
+    );
+    if (!v) return;
+
+    // Set Make and Model
+    setSelectedMake(v.make || "");
+    setSelectedModel(v.model || "");
+
+    // Variant
+    setSelectedVariantId(v._id);
+
+    // City/color into pricingState & inputs
+    setCityInput(q.cityTyped || "");
+
+    setPricingState((prev) => ({
+      ...(prev || {}),
+      ...(q.pricing || {}),
+      city: q.cityTyped || "",
+      color: q.pricing?.color || "",
+    }));
+  }, [initialQuotation, vehicles]);
+
+  useEffect(() => {
+    if (!initialQuotation) return;
+    const q = initialQuotation;
+
+    if (q.scenarios?.A) {
+      setLoanAmountA(q.scenarios.A.loanAmount || 0);
+      setInterestA(q.scenarios.A.interest || 0);
+      setTenureA(q.scenarios.A.tenure || 0);
+      setTenureTypeA(q.scenarios.A.tenureType || "years");
+      setEmiAInput(q.scenarios.A.emi || "");
+    }
+
+    if (q.scenarios?.B) {
+      setLoanAmountB(q.scenarios.B.loanAmount || 0);
+      setInterestB(q.scenarios.B.interest || 0);
+      setTenureB(q.scenarios.B.tenure || 0);
+      setTenureTypeB(q.scenarios.B.tenureType || "years");
+      setEmiBInput(q.scenarios.B.emi || "");
+    }
+  }, [initialQuotation]);
+
+  useEffect(() => {
+    if (initialShareView && initialQuotation) {
+      setShareMode(true);
+    }
+  }, [initialShareView, initialQuotation]);
 
   // Derived backend city used for filtering vehicles
   const backendCityKey = useMemo(() => {
@@ -262,7 +323,7 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
       return null;
     }
 
-    return {
+    const base = {
       customer: customer || null,
       cityTyped: pricingState?.city || cityInput || "",
       vehicleCity: selectedVehicle.city || "",
@@ -294,6 +355,7 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
         onRoadBeforeDiscount: pricingState?.onRoadBeforeDiscount || onRoadPrice,
         totalDiscount: pricingState?.totalDiscount || 0,
         netOnRoad: pricingState?.netOnRoad || onRoadPrice,
+        color,
       },
       scenarios: {
         A: {
@@ -320,16 +382,27 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
         },
       },
     };
+
+    // When editing an existing quotation, send its id so backend updates instead of creating new
+    if (initialQuotation?._id) {
+      return { ...base, _id: initialQuotation._id };
+    }
+
+    return base;
   };
+
+  const [savedQuotationId, setSavedQuotationId] = useState(null);
 
   const handleSaveQuotation = async () => {
     const payload = buildQuotationPayload();
     if (!payload) return;
 
+    console.log("FULL payload.pricing:", payload.pricing); // ← add
+
     try {
-      console.log("Saving quotation payload:", payload);
       const res = await quotationsApi.create(payload);
-      console.log("Save response:", res.data);
+      const saved = res.data;
+      setSavedQuotationId(saved._id);
       message.success("Quotation saved.");
     } catch (err) {
       console.error("Save quotation error:", err.response || err);
@@ -338,25 +411,50 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
   };
 
   const handleShareLink = async () => {
-    const payload = buildQuotationPayload();
-    if (!payload) return;
-    // TODO: POST, get quotationId from backend
-    const fakeId = "QUOTE123"; // replace with real id
-    const url = `${window.location.origin}/loans/emi?quote=${fakeId}`;
+    if (!savedQuotationId) {
+      message.warning("Please save the quotation first.");
+      return;
+    }
 
-    if (navigator.share) {
-      await navigator.share({ title: "EMI quotation", url });
-    } else {
+    const url = `${window.location.origin}/loans/emi-calculator?quote=${savedQuotationId}&mode=view`;
+
+    try {
       await navigator.clipboard.writeText(url);
       message.success("Sharable link copied to clipboard.");
+      // optional navigator.share as before
+    } catch (err) {
+      console.error("Share link error:", err);
+      message.error("Could not copy link to clipboard.");
     }
   };
 
-  const handleSharePdf = () => {
-    const payload = buildQuotationPayload();
-    if (!payload) return;
-    // TODO: after saving, open /api/quotations/:id/pdf
-    message.info("PDF download wiring pending (backend).");
+  const handleSharePdf = async () => {
+    if (!savedQuotationId) {
+      message.warning("Please save the quotation first.");
+      return;
+    }
+
+    try {
+      const res = await quotationsApi.pdf(savedQuotationId);
+
+      const contentType = res.headers["content-type"] || "";
+
+      if (contentType.includes("application/pdf")) {
+        // real PDF blob
+        const blob = new Blob([res.data], { type: "application/pdf" });
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, "_blank");
+      } else {
+        // stub JSON: just notify for now
+        message.info(
+          "PDF endpoint is stubbed; server is not generating PDFs yet.",
+        );
+        console.log("PDF stub response:", res.data);
+      }
+    } catch (err) {
+      console.error("PDF error:", err);
+      message.error("Failed to generate PDF.");
+    }
   };
 
   // Generic solver
@@ -632,6 +730,8 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
     setShowSchedule(false);
     setShowPricingModal(false);
     setShareMode(false);
+    setSavedQuotationId(null);
+
     //customer
 
     if (typeof onResetCustomer === "function") {
@@ -710,6 +810,7 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
   });
 
   const disableAll = shareMode;
+  const scenarioAInputsDisabled = false; // we want Scenario A editable even in share mode
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#171717] px-4 py-6 md:px-8 md:py-8">
@@ -742,13 +843,7 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
               <Icon name="file" className="mr-1 h-3 w-3" />
               PDF
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShareMode((s) => !s)}
-            >
-              {shareMode ? "Exit share view" : "Share view"}
-            </Button>
+
             <Button size="sm" variant="outline" onClick={resetAll}>
               <Icon name="refresh" className="mr-1 h-3 w-3" />
               Reset
@@ -1048,12 +1143,14 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
                           : formatNumber(loanAmountA)
                       }
                       onChange={(e) => {
-                        if (disableAll) return;
+                        if (scenarioAInputsDisabled) return;
                         if (solveForA === "amount") return;
                         const n = parseNumber(e.target.value);
                         setLoanAmountA(n);
                       }}
-                      readOnly={solveForA === "amount" || disableAll}
+                      readOnly={
+                        solveForA === "amount" || scenarioAInputsDisabled
+                      }
                       className={
                         solveForA === "amount" ? "pr-16 border-emerald-500" : ""
                       }
@@ -1317,31 +1414,43 @@ const EMICalculator = ({ onResetCustomer, customer }) => {
               </div>
 
               {/* Mini cards */}
+              {/* Mini cards */}
               <div className="space-y-3">
-                <div
-                  className="bg-white dark:bg-[#1f1f1f] rounded-2xl border border-slate-200 dark:border-[#262626] px-4 py-3 cursor-pointer"
-                  onClick={() => !disableAll && setShowSchedule((s) => !s)}
+                {/* Monthly EMI – clickable even in read-only */}
+                <button
+                  type="button"
+                  onClick={() => setShowSchedule(!showSchedule)}
+                  className="bg-white dark:bg-[#1f1f1f] rounded-2xl border border-slate-200 dark:border-[#262626] px-4 py-3 cursor-pointer w-full text-left"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400">
                         Monthly EMI
                       </div>
-                      <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                        <AnimatedNumber value={resultA.emi} />
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Click to {showSchedule ? "hide" : "view"} schedule
                       </div>
                     </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Click to {showSchedule ? "hide" : "view"} schedule
+                    <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                      <AnimatedNumber value={resultA.emi} />
                     </div>
                   </div>
-                </div>
+                </button>
+
+                {/* Total interest – unchanged, just display */}
                 <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl border border-slate-200 dark:border-[#262626] px-4 py-3">
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Total interest
-                  </div>
-                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    {formatINR(resultA.interest)}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Total interest
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Over full tenure
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {formatINR(resultA.interest)}
+                    </div>
                   </div>
                 </div>
               </div>

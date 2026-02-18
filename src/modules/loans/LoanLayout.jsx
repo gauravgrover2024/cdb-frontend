@@ -1,6 +1,11 @@
 import React, { useMemo } from "react";
 import { Layout, Menu } from "antd";
-import { DashboardOutlined, FileAddOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import {
+  DashboardOutlined,
+  FileAddOutlined,
+  ClockCircleOutlined,
+  FileTextOutlined, // ← new icon
+} from "@ant-design/icons";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 const { Header, Sider, Content } = Layout;
@@ -10,6 +15,7 @@ const LoanLayout = () => {
 
   const selectedKey = useMemo(() => {
     if (location.pathname.startsWith("/loans/pendency")) return "pendency";
+    if (location.pathname.startsWith("/loans/quotations")) return "quotations"; // ← new
     if (location.pathname.startsWith("/loans/new")) return "newLoan";
     return "dashboard";
   }, [location.pathname]);
@@ -86,11 +92,16 @@ const LoanLayout = () => {
                 key: "newLoan",
                 icon: <FileAddOutlined />,
                 label: <Link to="/loans/new">New Loan</Link>,
+              },
               {
                 key: "pendency",
                 icon: <ClockCircleOutlined />,
                 label: <Link to="/loans/pendency">Pendency Tracker</Link>,
               },
+              {
+                key: "quotations", // ← new menu item
+                icon: <FileTextOutlined />,
+                label: <Link to="/loans/quotations">Quotation manager</Link>,
               },
             ]}
           />

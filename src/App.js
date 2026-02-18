@@ -22,6 +22,7 @@ import Signup from "./modules/auth/Signup";
 import SuperAdminHub from "./modules/superadmin/SuperAdminHub";
 import { ThemeProvider } from "./context/ThemeContext";
 import "./App.css";
+import QuotationManagerPage from "./modules/loans/pages/QuotationManagerPage";
 
 // Wrapper to use custom Header and provide main content area
 function HeaderWrapper() {
@@ -57,11 +58,21 @@ function App() {
           <Route path="loans/emi-calculator" element={<EMICalculatorPage />} />
           <Route path="loans/edit/:id" element={<LoanFormWithSteps />} />
           <Route path="loans/pendency" element={<PendencyTracker />} />
-          <Route path="payouts/receivables" element={<PayoutReceivablesDashboard />} />
-          <Route path="payouts/payables" element={<PayoutPayablesDashboard />} />
+          <Route path="loans/quotations" element={<QuotationManagerPage />} />
+          <Route
+            path="payouts/receivables"
+            element={<PayoutReceivablesDashboard />}
+          />
+          <Route
+            path="payouts/payables"
+            element={<PayoutPayablesDashboard />}
+          />
           <Route path="delivery-orders" element={<DeliveryOrderDashboard />} />
           <Route path="delivery-orders/new" element={<DeliveryOrderForm />} />
-          <Route path="delivery-orders/:loanId" element={<DeliveryOrderForm />} />
+          <Route
+            path="delivery-orders/:loanId"
+            element={<DeliveryOrderForm />}
+          />
           <Route path="payments" element={<PaymentsDashboard />} />
           <Route path="payments/:loanId" element={<PaymentForm />} />
           <Route path="vehicles" element={<VehicleMaster />} />
