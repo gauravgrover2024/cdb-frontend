@@ -1,7 +1,7 @@
 // NEW (Vercel production backend)
 
-const API_BASE_URL =
-  import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:5050";
+const API_BASE_URL = "https://cdb-api.vercel.app";
+
 
 console.log("API_BASE_URL at runtime:", API_BASE_URL);
 
