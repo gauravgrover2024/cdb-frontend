@@ -3,6 +3,8 @@
 const API_BASE_URL =
   import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:5050";
 
+console.log("API_BASE_URL at runtime:", API_BASE_URL);
+
 const getHeaders = (options) => {
   const base = { "Content-Type": "application/json" };
   if (options && options.Authorization) {
