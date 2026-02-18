@@ -24,10 +24,14 @@ const STAGES = [
 // Map your real fields to the stages (support multiple possible field names from API)
 const buildRawTimeline = (loan) => ({
   customerProfile: loan?.receivingDate || loan?.createdAt || null,
-  prefileCompletion: loan?.__postfileSeeded ? loan?.postfile_approvalDate || null : null,
+  prefileCompletion: loan?.__postfileSeeded
+    ? loan?.postfile_approvalDate || null
+    : null,
   loginToBank: loan?.approval_approvalDate || null,
   approval: loan?.approval_approvalDate || null,
-  postfileCompletion: loan?.__deliveryInitialized ? loan?.postfile_approvalDate || null : null,
+  postfileCompletion: loan?.__deliveryInitialized
+    ? loan?.postfile_approvalDate || null
+    : null,
   disbursement: loan?.disbursement_date || loan?.approval_disbursedDate || null,
   documentsCollected: loan?.docs_collected_at || null,
   insurance: loan?.insurance_done_at || null,
@@ -102,10 +106,6 @@ const LoansDataGrid = ({
   const [pendencyLoan, setPendencyLoan] = useState(null);
   const [documentsLoan, setDocumentsLoan] = useState(null);
 
-
-
-
-
   const handleSort = (key) => {
     setSortConfig((prev) => ({
       key,
@@ -132,7 +132,7 @@ const LoansDataGrid = ({
         return loan?.vehicleVariant || "";
       case "typeOfLoan":
         return loan?.typeOfLoan || loan?.loanType || "";
-      case "loanAmount":
+      case "loanAmount": {
         const banks = loan?.approval_banksData || [];
         const primary =
           banks.find((b) => b.status === "Disbursed") ||
@@ -145,21 +145,24 @@ const LoansDataGrid = ({
           loan?.financeExpectation ||
           0
         );
-      case "bank":
+      }
+      case "bank": {
         const banksList = loan?.approval_banksData || [];
         const primaryBank =
           banksList.find((b) => b.status === "Disbursed") ||
           banksList.find((b) => b.status === "Approved") ||
           banksList[0];
         return primaryBank?.bankName || loan?.approval_bankName || "";
-      case "interest":
+      }
+      case "interest": {
         const banksInterest = loan?.approval_banksData || [];
         const primaryInt =
           banksInterest.find((b) => b.status === "Disbursed") ||
           banksInterest.find((b) => b.status === "Approved") ||
           banksInterest[0];
         return primaryInt?.interestRate ?? loan?.approval_roi ?? 0;
-      case "tenure":
+      }
+      case "tenure": {
         const banksTenure = loan?.approval_banksData || [];
         const primaryTen =
           banksTenure.find((b) => b.status === "Disbursed") ||
@@ -171,6 +174,7 @@ const LoansDataGrid = ({
           loan?.loanTenureMonths ||
           0
         );
+      }
       case "reference":
         return loan?.reference1?.name || "";
       case "source":
@@ -197,7 +201,9 @@ const LoansDataGrid = ({
 
       // Handle different types
       if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortConfig.direction === "asc" ? aValue - bValue : bValue - aValue;
+        return sortConfig.direction === "asc"
+          ? aValue - bValue
+          : bValue - aValue;
       }
 
       // String comparison
@@ -233,18 +239,24 @@ const LoansDataGrid = ({
   // Calculate pendencyCount and pending step names for each loan
   const getPendingSteps = (loan) => {
     const steps = [
-      { label: "Profile Created", completed: !!(loan.createdAt || loan.receivingDate) },
-      { label: "Disbursement", completed: !!(loan.approval_disbursedDate || loan.disbursement_date) },
+      {
+        label: "Profile Created",
+        completed: !!(loan.createdAt || loan.receivingDate),
+      },
+      {
+        label: "Disbursement",
+        completed: !!(loan.approval_disbursedDate || loan.disbursement_date),
+      },
       { label: "RC Received", completed: !!loan.rc_received_date },
       { label: "Invoice Received", completed: !!loan.invoice_received_date },
       { label: "Loan Number Assigned", completed: !!loan.loan_number },
     ];
-    return steps.filter(s => !s.completed).map(s => s.label);
+    return steps.filter((s) => !s.completed).map((s) => s.label);
   };
 
   // Add pendencyCount and pendingSteps to each loan
   const loansWithPendency = useMemo(() => {
-    return (loans || []).map(loan => {
+    return (loans || []).map((loan) => {
       const pendingSteps = getPendingSteps(loan);
       return {
         ...loan,
@@ -312,7 +324,11 @@ const LoansDataGrid = ({
                   Loan No.
                   {sortConfig?.key === "loanId" && (
                     <Icon
-                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      name={
+                        sortConfig?.direction === "asc"
+                          ? "ChevronUp"
+                          : "ChevronDown"
+                      }
                       size={14}
                     />
                   )}
@@ -326,7 +342,11 @@ const LoansDataGrid = ({
                   Customer
                   {sortConfig?.key === "customer" && (
                     <Icon
-                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      name={
+                        sortConfig?.direction === "asc"
+                          ? "ChevronUp"
+                          : "ChevronDown"
+                      }
                       size={14}
                     />
                   )}
@@ -340,7 +360,11 @@ const LoansDataGrid = ({
                   Vehicle
                   {sortConfig?.key === "vehicle" && (
                     <Icon
-                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      name={
+                        sortConfig?.direction === "asc"
+                          ? "ChevronUp"
+                          : "ChevronDown"
+                      }
                       size={14}
                     />
                   )}
@@ -354,7 +378,11 @@ const LoansDataGrid = ({
                   Loan Details
                   {sortConfig?.key === "loanAmount" && (
                     <Icon
-                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      name={
+                        sortConfig?.direction === "asc"
+                          ? "ChevronUp"
+                          : "ChevronDown"
+                      }
                       size={14}
                     />
                   )}
@@ -368,7 +396,11 @@ const LoansDataGrid = ({
                   Reference &amp; Source
                   {sortConfig?.key === "source" && (
                     <Icon
-                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      name={
+                        sortConfig?.direction === "asc"
+                          ? "ChevronUp"
+                          : "ChevronDown"
+                      }
                       size={14}
                     />
                   )}
@@ -382,7 +414,11 @@ const LoansDataGrid = ({
                   Timeline
                   {sortConfig?.key === "aging" && (
                     <Icon
-                      name={sortConfig?.direction === "asc" ? "ChevronUp" : "ChevronDown"}
+                      name={
+                        sortConfig?.direction === "asc"
+                          ? "ChevronUp"
+                          : "ChevronDown"
+                      }
                       size={14}
                     />
                   )}
@@ -395,12 +431,20 @@ const LoansDataGrid = ({
           </thead>
 
           <tbody>
-            {sortedLoans?.map((loan) => {
+            {sortedLoans?.slice(0, 50).map((loan, index) => {
               // Use loansWithPendency to get pendencyCount and pendingSteps
-              const loanWithPendency = loansWithPendency.find(l => l.loanId === loan.loanId || l._id === loan._id);
+              const loanWithPendency = loansWithPendency.find(
+                (l) => l.loanId === loan.loanId || l._id === loan._id,
+              );
               const pendencyCount = loanWithPendency?.pendencyCount || 0;
               const pendingSteps = loanWithPendency?.pendingSteps || [];
-              const loanKey = loan?.loanId || loan?._id;
+
+              // Unique key: prefer stable id, fallback to index
+              const loanKey =
+                loan?._id ||
+                loan?.loanId ||
+                loan?.loan_number ||
+                `loan-${index}`;
 
               // customer
               const customerName =
@@ -632,13 +676,19 @@ const LoansDataGrid = ({
                         {miniWindowData.steps.map((step, idx) => {
                           if (!step) {
                             return (
-                              <div key={`empty-${idx}`} className="flex items-center gap-2 min-h-[14px]">
+                              <div
+                                key={`empty-${idx}`}
+                                className="flex items-center gap-2 min-h-[14px]"
+                              >
                                 <span className="w-2 h-2 rounded-full bg-muted-foreground/20 flex-shrink-0" />
-                                <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">—</span>
+                                <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">
+                                  —
+                                </span>
                               </div>
                             );
                           }
-                          const isCurrent = step.key === miniWindowData.currentKey;
+                          const isCurrent =
+                            step.key === miniWindowData.currentKey;
                           return (
                             <div
                               key={step.key || `placeholder-${idx}`}
@@ -655,9 +705,20 @@ const LoansDataGrid = ({
                               />
                               <span
                                 className={`text-[11px] truncate max-w-[100px] ${
-                                  isCurrent ? "font-semibold text-foreground" : step.date ? "text-muted-foreground" : "text-muted-foreground/70"
+                                  isCurrent
+                                    ? "font-semibold text-foreground"
+                                    : step.date
+                                      ? "text-muted-foreground"
+                                      : "text-muted-foreground/70"
                                 }`}
-                                title={step.label + (step.date ? ` · ${new Date(step.date).toLocaleDateString("en-IN")}` : "")}
+                                title={
+                                  step.label +
+                                  (step.date
+                                    ? ` · ${new Date(
+                                        step.date,
+                                      ).toLocaleDateString("en-IN")}`
+                                    : "")
+                                }
                               >
                                 {step.label || "—"}
                               </span>
@@ -680,7 +741,10 @@ const LoansDataGrid = ({
                           type="button"
                           title="View loan details"
                           className="w-7 h-7 flex items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15"
-                          onClick={(e) => { e.stopPropagation(); onLoanClick(loan, "view"); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onLoanClick(loan, "view");
+                          }}
                         >
                           <Icon name="Eye" size={12} />
                         </button>
@@ -688,7 +752,10 @@ const LoansDataGrid = ({
                           type="button"
                           title="Documents – present & pending"
                           className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-colors"
-                          onClick={(e) => { e.stopPropagation(); setDocumentsLoan(loan); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDocumentsLoan(loan);
+                          }}
                         >
                           <Icon name="FolderOpen" size={12} />
                         </button>
@@ -726,8 +793,8 @@ const LoansDataGrid = ({
                           type="button"
                           title="Internal Notes"
                           className={`w-7 h-7 flex items-center justify-center rounded-full border transition-all ${
-                            loan.loan_notes 
-                              ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200" 
+                            loan.loan_notes
+                              ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200"
                               : "bg-muted text-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/30"
                           }`}
                           onClick={(e) => {
@@ -780,26 +847,41 @@ const LoansDataGrid = ({
                           )}
                         </button>
                       </Tooltip>
-                          {/* Pendency Modal */}
-                          {pendencyLoan && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setPendencyLoan(null)}>
-                              <div className="w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border p-6 relative animate-fadeIn" onClick={e => e.stopPropagation()}>
-                                <div className="flex items-center justify-between mb-4">
-                                  <div className="flex flex-col">
-                                    <span className="text-base font-bold text-foreground tracking-tight">Loan Pendency</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {pendencyLoan.customerName || "Customer"} · {formatLoanId(pendencyLoan.loanId || pendencyLoan.loan_number)}
-                                    </span>
-                                  </div>
-                                  <button className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition" onClick={() => setPendencyLoan(null)} title="Close">
-                                    <Icon name="X" size={16} />
-                                  </button>
-                                </div>
-                                <PendencyTracker singleLoan={pendencyLoan} />
+                      {/* Pendency Modal */}
+                      {pendencyLoan && (
+                        <div
+                          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                          onClick={() => setPendencyLoan(null)}
+                        >
+                          <div
+                            className="w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border p-6 relative animate-fadeIn"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex flex-col">
+                                <span className="text-base font-bold text-foreground tracking-tight">
+                                  Loan Pendency
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {pendencyLoan.customerName || "Customer"} ·{" "}
+                                  {formatLoanId(
+                                    pendencyLoan.loanId ||
+                                      pendencyLoan.loan_number,
+                                  )}
+                                </span>
                               </div>
+                              <button
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition"
+                                onClick={() => setPendencyLoan(null)}
+                                title="Close"
+                              >
+                                <Icon name="X" size={16} />
+                              </button>
                             </div>
-                          )}
-
+                            <PendencyTracker singleLoan={pendencyLoan} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -813,7 +895,9 @@ const LoansDataGrid = ({
           loan={documentsLoan}
           open={!!documentsLoan}
           onClose={() => setDocumentsLoan(null)}
-          onUploadComplete={() => { onRefreshLoans?.(); }}
+          onUploadComplete={() => {
+            onRefreshLoans?.();
+          }}
         />
 
         {loading && (
@@ -856,7 +940,10 @@ const LoansDataGrid = ({
                   Loan Timeline
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {timelineLoan.customerName || "Customer"} · {formatLoanId(timelineLoan.loanId || timelineLoan.loan_number)}
+                  {timelineLoan.customerName || "Customer"} ·{" "}
+                  {formatLoanId(
+                    timelineLoan.loanId || timelineLoan.loan_number,
+                  )}
                 </span>
               </div>
               <button
@@ -874,7 +961,7 @@ const LoansDataGrid = ({
                 {/* vertical spine */}
                 <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-border rounded-full" />
                 <div className="space-y-3">
-                  {buildTimeline(timelineLoan).map((step, stepIndex) => {
+                  {buildTimeline(timelineLoan).map((step) => {
                     const currentIndex = findCurrentStageIndex(timelineLoan);
                     const currentStageKey = STAGES[currentIndex]?.key;
                     const isCurrent = currentStageKey === step.key;
@@ -907,25 +994,38 @@ const LoansDataGrid = ({
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <span
                               className={`text-sm font-medium ${
-                                isCurrent ? "text-primary" : isDone ? "text-foreground" : "text-muted-foreground"
+                                isCurrent
+                                  ? "text-primary"
+                                  : isDone
+                                    ? "text-foreground"
+                                    : "text-muted-foreground"
                               }`}
                             >
                               {step.label}
                               {isCurrent && (
-                                <span className="ml-1.5 text-xs font-semibold text-primary opacity-90">(Current)</span>
+                                <span className="ml-1.5 text-xs font-semibold text-primary opacity-90">
+                                  (Current)
+                                </span>
                               )}
                             </span>
                             {step.date ? (
                               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {step.date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                                {step.date.toLocaleTimeString && (
-                                  <span className="ml-1 opacity-80">
-                                    {step.date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                                  </span>
-                                )}
+                                {step.date.toLocaleDateString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                                <span className="ml-1 opacity-80">
+                                  {step.date.toLocaleTimeString("en-IN", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground/80">Pending</span>
+                              <span className="text-xs text-muted-foreground/80">
+                                Pending
+                              </span>
                             )}
                           </div>
                         </div>
@@ -943,16 +1043,15 @@ const LoansDataGrid = ({
       <div className="px-4 py-3 border-t border-border bg-card">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div>
-            Showing <span className="font-semibold">{sortedLoans?.length}</span>{" "}
+            Showing{" "}
+            <span className="font-semibold">
+              {Math.min(50, sortedLoans?.length || 0)}
+            </span>{" "}
+            of <span className="font-semibold">{sortedLoans?.length || 0}</span>{" "}
             loan(s)
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              iconName="ChevronLeft"
-              disabled
-            >
+            <Button variant="outline" size="sm" iconName="ChevronLeft" disabled>
               Previous
             </Button>
             <Button variant="default" size="sm">
@@ -973,4 +1072,4 @@ const LoansDataGrid = ({
   );
 };
 
-export default LoansDataGrid
+export default LoansDataGrid;
