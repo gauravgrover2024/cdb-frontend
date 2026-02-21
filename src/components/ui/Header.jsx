@@ -86,6 +86,11 @@ const Header = () => {
           path: "/loans/quotations",
           desc: "Saved loan quotations",
         }, // ← add this line
+        {
+          label: "Variant Features", // ← new
+          path: "/loans/features", // ← points to FeaturesPage
+          desc: "Compare variant features", // short description
+        },
       ],
     },
     {

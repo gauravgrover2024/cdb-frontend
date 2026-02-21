@@ -23,6 +23,7 @@ import SuperAdminHub from "./modules/superadmin/SuperAdminHub";
 import { ThemeProvider } from "./context/ThemeContext";
 import "./App.css";
 import QuotationManagerPage from "./modules/loans/pages/QuotationManagerPage";
+import FeaturesPage from "./modules/loans/pages/FeaturesPage";
 
 // Wrapper to use custom Header and provide main content area
 function HeaderWrapper() {
@@ -59,6 +60,8 @@ function App() {
           <Route path="loans/edit/:id" element={<LoanFormWithSteps />} />
           <Route path="loans/pendency" element={<PendencyTracker />} />
           <Route path="loans/quotations" element={<QuotationManagerPage />} />
+          <Route path="loans/features" element={<FeaturesPage />} />{" "}
+          {/* ← new */}
           <Route
             path="payouts/receivables"
             element={<PayoutReceivablesDashboard />}

@@ -28,91 +28,115 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
   useEffect(() => {
     if (!selectedVehicle) return;
 
+    // base defaults from vehicle
     const base = {
       exShowroom: selectedVehicle.exShowroom || 0,
       insurance: selectedVehicle.insurance || 0,
       tcs: selectedVehicle.tcs ?? selectedVehicle.otherCharges ?? 0,
-      roadTax: selectedVehicle.rto || 0,
-      epc: 0,
-      accessories: 0,
-      fastag: 0,
-      extendedWarranty: 0,
-      additionsOthers: [],
-      dealerDiscount: 0,
-      schemeDiscount: 0,
-      insuranceCashback: 0,
-      exchange: 0,
-      loyalty: 0,
-      corporate: 0,
-      discountsOthers: [],
+      roadTax: selectedVehicle.rto || selectedVehicle.roadTax || 0,
+      epc: selectedVehicle.epc || 0,
+      accessories: selectedVehicle.accessories || 0,
+      fastag: selectedVehicle.fastag || 0,
+      extendedWarranty: selectedVehicle.extendedWarranty || 0,
+      additionsOthers: Array.isArray(selectedVehicle.additionsOthers)
+        ? selectedVehicle.additionsOthers
+        : [],
+      dealerDiscount: selectedVehicle.dealerDiscount || 0,
+      schemeDiscount: selectedVehicle.schemeDiscount || 0,
+      insuranceCashback: selectedVehicle.insuranceCashback || 0,
+      exchange: selectedVehicle.exchange || 0,
+      loyalty: selectedVehicle.loyalty || 0,
+      corporate: selectedVehicle.corporate || 0,
+      discountsOthers: Array.isArray(selectedVehicle.discountsOthers)
+        ? selectedVehicle.discountsOthers
+        : [],
+      tcsPropName: selectedVehicle.tcs
+        ? "tcs"
+        : selectedVehicle.otherCharges
+          ? "otherCharges"
+          : null,
     };
 
     const existing = value || {};
 
-    form.setFieldsValue({
+    // Set form values prefilling with existing (value) overriding vehicle defaults
+    const fields = {
       ...base,
       ...existing,
+      // unify roadTax -> roadTax field used in UI
       roadTax: existing.rto ?? existing.roadTax ?? base.roadTax,
-      tcs: existing.tcs ?? base.tcs,
+      tcs: existing.tcs ?? existing.tcs ?? base.tcs,
+    };
+
+    // Ensure all numeric fields are numbers
+    const normalized = { ...fields };
+    [
+      "exShowroom",
+      "insurance",
+      "tcs",
+      "roadTax",
+      "epc",
+      "accessories",
+      "fastag",
+      "extendedWarranty",
+      "dealerDiscount",
+      "schemeDiscount",
+      "insuranceCashback",
+      "exchange",
+      "loyalty",
+      "corporate",
+    ].forEach((k) => {
+      normalized[k] = Number(normalized[k] || 0);
     });
 
-    // compute initial totals from these values
-    const v = form.getFieldsValue(true);
+    // Set form fields
+    form.setFieldsValue(normalized);
 
-    const exShowroom = Number(v.exShowroom) || 0;
-    const insurance = Number(v.insurance) || 0;
-    const tcs = Number(v.tcs) || 0;
-    const roadTax = Number(v.roadTax) || 0;
-    const epc = Number(v.epc) || 0;
-    const accessories = Number(v.accessories) || 0;
-    const fastag = Number(v.fastag) || 0;
-    const extendedWarranty = Number(v.extendedWarranty) || 0;
+    // Decide active additions/discounts from non-zero values or presence
+    const newActiveAdditions = [];
+    additionPills.forEach((p) => {
+      // map ui key 'roadTax' -> form field 'roadTax'; exShowroom etc use same name
+      const key = p.key === "roadTax" ? "roadTax" : p.key;
+      const val = normalized[key];
+      if (
+        Array.isArray(normalized.additionsOthers) &&
+        normalized.additionsOthers.length
+      ) {
+        // additionsOthers will be shown if present
+      }
+      if (val && Number(val) > 0) newActiveAdditions.push(p.key);
+    });
+    // ensure exShowroom and roadTax / insurance / tcs are active by default even if zero?
+    // We'll activate exShowroom, roadTax, insurance, tcs if the vehicle provided a value (even zero it should show)
+    ["exShowroom", "roadTax", "insurance", "tcs"].forEach((k) => {
+      if (!newActiveAdditions.includes(k) && k in normalized)
+        newActiveAdditions.push(k);
+    });
 
-    const additionsOthers = Array.isArray(v.additionsOthers)
-      ? v.additionsOthers
-      : [];
-    const additionsOthersTotal = additionsOthers.reduce(
-      (sum, x) => sum + (Number(x?.amount) || 0),
-      0,
-    );
+    const newActiveDiscounts = [];
+    discountPills.forEach((p) => {
+      const val = normalized[p.key];
+      if (val && Number(val) > 0) newActiveDiscounts.push(p.key);
+    });
 
-    const dealerDiscount = Number(v.dealerDiscount) || 0;
-    const schemeDiscount = Number(v.schemeDiscount) || 0;
-    const insuranceCashback = Number(v.insuranceCashback) || 0;
-    const exchange = Number(v.exchange) || 0;
-    const loyalty = Number(v.loyalty) || 0;
-    const corporate = Number(v.corporate) || 0;
-    const discountsOthers = Array.isArray(v.discountsOthers)
-      ? v.discountsOthers
-      : [];
-    const discountsOthersTotal = discountsOthers.reduce(
-      (sum, x) => sum + (Number(x?.amount) || 0),
-      0,
-    );
+    // additionsOthers present
+    if (
+      Array.isArray(normalized.additionsOthers) &&
+      normalized.additionsOthers.length
+    ) {
+      // keep additionsOthers pill behavior is separate; we won't add a pill but the list will show items
+    }
+    // discountsOthers present -> nothing special
 
-    const onRoadBeforeDiscount =
-      exShowroom +
-      insurance +
-      tcs +
-      roadTax +
-      epc +
-      accessories +
-      fastag +
-      extendedWarranty +
-      additionsOthersTotal;
+    setActiveAdditions(newActiveAdditions);
+    setActiveDiscounts(newActiveDiscounts);
 
-    const totalDiscount =
-      dealerDiscount +
-      schemeDiscount +
-      insuranceCashback +
-      exchange +
-      loyalty +
-      corporate +
-      discountsOthersTotal;
-
-    const netOnRoad = onRoadBeforeDiscount - totalDiscount;
-
-    setTotals({ onRoadBeforeDiscount, totalDiscount, netOnRoad });
+    // Compute totals and notify parent immediately so parent left-panel updates on refresh
+    // Use the recomputeTotals function (it uses form.getFieldsValue currently)
+    // call it next tick to ensure form.setFieldsValue took effect
+    setTimeout(() => {
+      recomputeTotals();
+    }, 0);
   }, [selectedVehicle, value, form]);
 
   const recomputeTotals = () => {
@@ -212,15 +236,33 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
   const [activeDiscounts, setActiveDiscounts] = useState([]);
 
   const toggleAddition = (key) => {
-    setActiveAdditions((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
+    setActiveAdditions((prev) => {
+      const next = prev.includes(key)
+        ? prev.filter((k) => k !== key)
+        : [...prev, key];
+
+      // if removing, write zero to the form field and recompute
+      if (!next.includes(key)) {
+        // map 'roadTax' -> form name 'roadTax'
+        const formKey = key === "roadTax" ? "roadTax" : key;
+        form.setFieldsValue({ [formKey]: 0 });
+        recomputeTotals();
+      }
+      return next;
+    });
   };
 
   const toggleDiscount = (key) => {
-    setActiveDiscounts((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
+    setActiveDiscounts((prev) => {
+      const next = prev.includes(key)
+        ? prev.filter((k) => k !== key)
+        : [...prev, key];
+      if (!next.includes(key)) {
+        form.setFieldsValue({ [key]: 0 });
+        recomputeTotals();
+      }
+      return next;
+    });
   };
 
   const additionPills = [

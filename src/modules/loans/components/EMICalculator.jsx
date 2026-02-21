@@ -6,6 +6,8 @@ import Button from "../../../components/ui/Button";
 import { vehiclesApi } from "../../../api/vehicles";
 import { motion, useSpring } from "framer-motion";
 import { quotationsApi } from "../../../api/quotations";
+import { useLocation } from "react-router-dom";
+import { featuresApi } from "../../../api/features";
 
 const { Option } = Select;
 
@@ -46,6 +48,15 @@ const solveEMI = (P, rMonthly, nMonths) => {
   return (P * rMonthly * x) / (x - 1);
 };
 
+const cleanName = (str = "") => str.replace(/^Toyota\s+/i, "").trim();
+const cleanVariant = (variant = "") => {
+  // 1) Remove leading "Toyota "
+  let v = variant.replace(/^Toyota\s+/i, "").trim();
+  // 2) If it now starts with "Hyryder ", drop that too
+  v = v.replace(/^Hyryder\s+/i, "").trim();
+  return v;
+};
+
 const solvePrincipal = (emi, rMonthly, nMonths) => {
   if (emi <= 0 || rMonthly <= 0 || nMonths <= 0) return 0;
   const x = Math.pow(1 + rMonthly, nMonths);
@@ -70,6 +81,15 @@ const solveRate = (emi, P, nMonths) => {
     else low = mid;
   }
   return (low + high) / 2;
+};
+
+const normalizeValueLabel = (raw) => {
+  if (raw == null) return "Not Available";
+  const v = String(raw).trim().toLowerCase();
+  if (["yes", "y", "available", "present"].includes(v)) return "Yes";
+  if (["no", "n", "not available", "na", "n/a"].includes(v))
+    return "Not Available";
+  return raw;
 };
 
 const formatINR = (num) =>
@@ -106,11 +126,14 @@ const EMICalculator = ({
   initialShareView,
 }) => {
   const [vehicles, setVehicles] = useState([]);
+  const location = useLocation();
+  const fromVariant = location.state?.fromVariant;
+  const [featureSearch, setFeatureSearch] = useState("");
 
   // City + mapping
   const stateOptions = ["Delhi", "UP", "Haryana"];
   const cityFallbackMap = {
-    Delhi: "New Delhi",
+    Delhi: "New-Delhi",
     UP: "Noida", // adjust to actual UP city used in DB
     Haryana: "Gurgaon",
   };
@@ -123,7 +146,56 @@ const EMICalculator = ({
   // Make / model / variant
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
-  const [selectedVariantId, setSelectedVariantId] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+
+  const selectedVehicle = useMemo(
+    () =>
+      vehicles.find(
+        (v) => String(v._id || v.id) === String(selectedVariant?.value ?? ""),
+      ),
+    [vehicles, selectedVariant],
+  );
+
+  const [selectedFeatures, setSelectedFeatures] = useState([]);
+
+  // Grouped features for the selected variant (same structure as FeaturesPage)
+  const selectedFeatureGroups = useMemo(() => {
+    if (!Array.isArray(selectedFeatures) || !selectedFeatures.length) return [];
+
+    const byCategory = new Map();
+
+    selectedFeatures.forEach((f) => {
+      const category = f.category || "Others";
+      if (!byCategory.has(category)) byCategory.set(category, []);
+      byCategory.get(category).push({
+        name: f.name,
+        value: normalizeValueLabel(f.value),
+      });
+    });
+
+    const groups = Array.from(byCategory.entries()).map(([category, rows]) => ({
+      category,
+      rows: rows.sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+
+    groups.sort((a, b) => a.category.localeCompare(b.category));
+    return groups;
+  }, [selectedFeatures]);
+
+  const filteredFeatureGroups = useMemo(() => {
+    if (!featureSearch.trim()) return selectedFeatureGroups;
+
+    const q = featureSearch.toLowerCase();
+
+    return selectedFeatureGroups
+      .map((group) => {
+        const rows = group.rows.filter((row) =>
+          `${row.name} ${row.value}`.toLowerCase().includes(q),
+        );
+        return { ...group, rows };
+      })
+      .filter((group) => group.rows.length > 0);
+  }, [selectedFeatureGroups, featureSearch]);
 
   // Downpayment + loan (Scenario A)
   const [downPct, setDownPct] = useState(10); // default 10%
@@ -155,8 +227,29 @@ const EMICalculator = ({
   useEffect(() => {
     (async () => {
       try {
-        const res = await vehiclesApi.getAll();
-        setVehicles(Array.isArray(res?.data) ? res.data : []);
+        const res = await featuresApi.getVariantsWithPrice();
+        const items = Array.isArray(res?.data)
+          ? res.data
+          : res.data?.data || [];
+
+        console.log("EMI variants sample:", items.slice(0, 3));
+
+        const mapped = items.map((v) => ({
+          _id: v.vehicleId || v.id, // backend sends both
+          id: v.vehicleId || v.id,
+          make: v.make,
+          model: v.model,
+          variant: v.variant,
+          exShowroom: v.exShowroom,
+          onRoadPrice: v.onRoadPrice,
+          insurance: v.insurance ?? null,
+          rto: v.rto ?? null,
+          tcs: v.tcs ?? v.otherCharges ?? null,
+          city: v.city,
+          ...v,
+        }));
+
+        setVehicles(mapped);
       } catch (e) {
         console.error(e);
         message.error("Failed to load vehicle list for EMI.");
@@ -165,6 +258,7 @@ const EMICalculator = ({
   }, []);
 
   useEffect(() => {
+    if (fromVariant) return;
     if (!initialQuotation || !vehicles.length) return;
 
     const q = initialQuotation;
@@ -180,7 +274,10 @@ const EMICalculator = ({
     setSelectedModel(v.model || "");
 
     // Variant
-    setSelectedVariantId(v._id);
+    setSelectedVariant({
+      value: v._id,
+      label: `${v.variant} — ${formatINR(v.onRoadPrice)}`,
+    });
 
     // City/color into pricingState & inputs
     setCityInput(q.cityTyped || "");
@@ -192,6 +289,148 @@ const EMICalculator = ({
       color: q.pricing?.color || "",
     }));
   }, [initialQuotation, vehicles]);
+
+  // Populate pricingState from selectedVehicle when vehicle is selected (so left panel shows popup values immediately)
+  // Populate/merge pricingState from selectedVehicle when vehicle is selected
+  useEffect(() => {
+    if (!selectedVehicle) return;
+
+    console.log("Rebuilding pricing from vehicle", selectedVehicle);
+
+    const additionsOthers = Array.isArray(selectedVehicle.additionsOthers)
+      ? selectedVehicle.additionsOthers
+      : [];
+
+    const discountsOthers = Array.isArray(selectedVehicle.discountsOthers)
+      ? selectedVehicle.discountsOthers
+      : [];
+
+    const additionsTotal = additionsOthers.reduce(
+      (s, x) => s + (Number(x?.amount) || 0),
+      0,
+    );
+
+    const discountsTotal = discountsOthers.reduce(
+      (s, x) => s + (Number(x?.amount) || 0),
+      0,
+    );
+
+    const exShowroom = Number(selectedVehicle.exShowroom) || 0;
+    const insurance = Number(selectedVehicle.insurance) || 0;
+    const tcs =
+      Number(selectedVehicle.tcs ?? selectedVehicle.otherCharges) || 0;
+    const rto = Number(selectedVehicle.rto ?? selectedVehicle.roadTax) || 0;
+
+    const epc = Number(selectedVehicle.epc) || 0;
+    const accessories = Number(selectedVehicle.accessories) || 0;
+    const fastag = Number(selectedVehicle.fastag) || 0;
+    const extendedWarranty = Number(selectedVehicle.extendedWarranty) || 0;
+
+    const dealerDiscount = Number(selectedVehicle.dealerDiscount) || 0;
+    const schemeDiscount = Number(selectedVehicle.schemeDiscount) || 0;
+    const insuranceCashback = Number(selectedVehicle.insuranceCashback) || 0;
+    const exchange = Number(selectedVehicle.exchange) || 0;
+    const loyalty = Number(selectedVehicle.loyalty) || 0;
+    const corporate = Number(selectedVehicle.corporate) || 0;
+
+    const onRoadBeforeDiscount =
+      exShowroom +
+      insurance +
+      tcs +
+      rto +
+      epc +
+      accessories +
+      fastag +
+      extendedWarranty +
+      additionsTotal;
+
+    const totalDiscount =
+      dealerDiscount +
+      schemeDiscount +
+      insuranceCashback +
+      exchange +
+      loyalty +
+      corporate +
+      discountsTotal;
+
+    const netOnRoad = onRoadBeforeDiscount - totalDiscount;
+
+    if (
+      pricingState?.netOnRoad &&
+      pricingState?.vehicleId === selectedVehicle._id
+    ) {
+      return;
+    }
+
+    setPricingState({
+      vehicleId: selectedVehicle._id,
+    });
+  }, [selectedVehicle]);
+
+  // When pricingState (netOnRoad or onRoadBeforeDiscount) changes, update loan amounts and derived EMI
+  useEffect(() => {
+    // If onRoadPrice changes (via pricingState), recompute derived loan and EMIs
+    const newOnRoad =
+      pricingState?.netOnRoad ?? selectedVehicle?.onRoadPrice ?? 0;
+    if (!newOnRoad) return;
+
+    const dpAmt = (newOnRoad * downPct) / 100;
+    const loan = newOnRoad - dpAmt;
+
+    setLoanAmountA(loan);
+    if (!comparisonTouched) setLoanAmountB(loan);
+
+    // If solveForA === 'emi' we rely on computeScenario useMemo which uses loanAmountA,
+    // so updating loanAmountA will update resultA automatically.
+  }, [pricingState, selectedVehicle, downPct]);
+
+  useEffect(() => {
+    console.log("fromVariant:", fromVariant);
+    console.log(
+      "vehicles sample:",
+      vehicles.slice(0, 3).map((x) => ({
+        make: x.make,
+        model: x.model,
+        variant: x.variant,
+        _id: x._id,
+      })),
+    );
+  }, [fromVariant, vehicles]);
+
+  useEffect(() => {
+    if (!fromVariant || !vehicles.length) return;
+
+    const v = vehicles.find(
+      (x) =>
+        String(x._id || x.id) === String(fromVariant.vehicleId) ||
+        (x.make === fromVariant.make &&
+          x.model === fromVariant.model &&
+          x.variant === fromVariant.variant),
+    );
+
+    if (!v) return;
+
+    setSelectedMake(v.make);
+    setSelectedModel(v.model);
+
+    setSelectedVariant({
+      value: v._id,
+      label: v.variant,
+    });
+
+    const price = fromVariant.price || v.onRoadPrice || 0;
+    const loan = price * 0.9;
+
+    setLoanAmountA(loan);
+    setLoanAmountB(loan);
+    setDownPct(10);
+
+    setCityInput("Delhi");
+    setPricingState((prev) => ({
+      ...(prev || {}),
+      city: "Delhi",
+    }));
+  }, [fromVariant, vehicles]);
 
   useEffect(() => {
     if (!initialQuotation) return;
@@ -215,6 +454,36 @@ const EMICalculator = ({
   }, [initialQuotation]);
 
   useEffect(() => {
+    const loadFeatures = async () => {
+      if (!fromVariant) {
+        setSelectedFeatures([]);
+        return;
+      }
+
+      try {
+        const res = await featuresApi.getVariantsWithPrice();
+
+        const variants = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || [];
+
+        const match = variants.find(
+          (v) => String(v.vehicleId) === String(fromVariant.vehicleId),
+        );
+
+        console.log("Feature match by vehicleId:", match);
+
+        setSelectedFeatures(match?.features || []);
+      } catch (e) {
+        console.error("load features error", e);
+        setSelectedFeatures([]);
+      }
+    };
+
+    loadFeatures();
+  }, [fromVariant]);
+
+  useEffect(() => {
     if (initialShareView && initialQuotation) {
       setShareMode(true);
     }
@@ -231,13 +500,16 @@ const EMICalculator = ({
   }, [cityInput]);
 
   // Filter vehicles by backend city key
-  const filteredVehicles = useMemo(
-    () =>
-      backendCityKey
-        ? vehicles.filter((v) => v.city === backendCityKey)
-        : vehicles,
-    [vehicles, backendCityKey],
-  );
+  const filteredVehicles = useMemo(() => {
+    if (!backendCityKey) return vehicles;
+    const anyMatch = vehicles.some(
+      (v) => String(v.city).toLowerCase() === backendCityKey.toLowerCase(),
+    );
+    if (!anyMatch) return vehicles; // do not filter out everything
+    return vehicles.filter(
+      (v) => String(v.city).toLowerCase() === backendCityKey.toLowerCase(),
+    );
+  }, [vehicles, backendCityKey]);
 
   const uniqueMakes = useMemo(
     () => [...new Set(filteredVehicles.map((v) => v.make))].sort(),
@@ -262,13 +534,8 @@ const EMICalculator = ({
     [filteredVehicles, selectedMake, selectedModel],
   );
 
-  const selectedVehicle = useMemo(
-    () => variantsForModel.find((v) => v._id === selectedVariantId),
-    [variantsForModel, selectedVariantId],
-  );
-
   const onRoadPrice =
-    pricingState?.netOnRoad || selectedVehicle?.onRoadPrice || 0;
+    pricingState?.netOnRoad ?? selectedVehicle?.onRoadPrice ?? 0;
 
   const exShowroom = selectedVehicle?.exShowroom || 0;
   const rto = selectedVehicle?.rto || 0;
@@ -318,7 +585,7 @@ const EMICalculator = ({
   };
 
   const buildQuotationPayload = () => {
-    if (!selectedVehicle || !onRoadPrice) {
+    if (!selectedVehicle?.vehicleId) {
       message.warning("Select city, vehicle and pricing before saving.");
       return null;
     }
@@ -587,6 +854,61 @@ const EMICalculator = ({
     };
   };
 
+  const computePricing = (p = {}, v = {}) => {
+    const exShowroom = Number(p.exShowroom ?? v.exShowroom ?? 0);
+    const insurance = Number(p.insurance ?? v.insurance ?? 0);
+    const tcs = Number(p.tcs ?? v.tcs ?? v.otherCharges ?? 0);
+    const roadTax = Number(p.rto ?? v.rto ?? 0);
+
+    const epc = Number(p.epc ?? 0);
+    const accessories = Number(p.accessories ?? 0);
+    const fastag = Number(p.fastag ?? 0);
+    const extendedWarranty = Number(p.extendedWarranty ?? 0);
+
+    const additionsOthers = (p.additionsOthers || []).reduce(
+      (s, x) => s + (Number(x.amount) || 0),
+      0,
+    );
+
+    const dealerDiscount = Number(p.dealerDiscount ?? 0);
+    const schemeDiscount = Number(p.schemeDiscount ?? 0);
+    const insuranceCashback = Number(p.insuranceCashback ?? 0);
+    const exchange = Number(p.exchange ?? 0);
+    const loyalty = Number(p.loyalty ?? 0);
+    const corporate = Number(p.corporate ?? 0);
+
+    const discountsOthers = (p.discountsOthers || []).reduce(
+      (s, x) => s + (Number(x.amount) || 0),
+      0,
+    );
+
+    const before =
+      exShowroom +
+      insurance +
+      tcs +
+      roadTax +
+      epc +
+      accessories +
+      fastag +
+      extendedWarranty +
+      additionsOthers;
+
+    const discount =
+      dealerDiscount +
+      schemeDiscount +
+      insuranceCashback +
+      exchange +
+      loyalty +
+      corporate +
+      discountsOthers;
+
+    return {
+      netOnRoad: before - discount,
+      before,
+      discount,
+    };
+  };
+
   // Scenario A uses latest EMI input for modes other than "emi"
   const resultA = useMemo(
     () =>
@@ -625,6 +947,16 @@ const EMICalculator = ({
     comparisonTouched,
     resultA.emi,
   ]);
+
+  useEffect(() => {
+    if (!onRoadPrice) return;
+
+    const dpAmt = (onRoadPrice * downPct) / 100;
+    const loan = onRoadPrice - dpAmt;
+
+    setLoanAmountA(loan);
+    if (!comparisonTouched) setLoanAmountB(loan);
+  }, [onRoadPrice]);
 
   const resultB = useMemo(
     () =>
@@ -708,7 +1040,7 @@ const EMICalculator = ({
     // vehicle
     setSelectedMake("");
     setSelectedModel("");
-    setSelectedVariantId(null);
+    setSelectedVariant(null);
 
     // downpayment & scenarios
     setDownPct(10);
@@ -752,7 +1084,20 @@ const EMICalculator = ({
 
   const additionLines = additionFieldMap
     .map(({ key, label }) => {
-      const value = pricingState?.[key] ?? selectedVehicle?.[key] ?? 0;
+      const value =
+        pricingState && Object.prototype.hasOwnProperty.call(pricingState, key)
+          ? pricingState[key]
+          : (() => {
+              // some vehicles store TCS as otherCharges; prefer that for tcs
+              if (key === "tcs")
+                return (
+                  selectedVehicle?.otherCharges ?? selectedVehicle?.tcs ?? 0
+                );
+              // rto in pricing popup is 'rto' but vehicle might use 'rto' or 'roadTax'; attempt both
+              if (key === "rto")
+                return selectedVehicle?.rto ?? selectedVehicle?.roadTax ?? 0;
+              return selectedVehicle?.[key] ?? 0;
+            })();
 
       if (!value) return null;
 
@@ -892,7 +1237,8 @@ const EMICalculator = ({
                     onChange={(val) => {
                       setSelectedMake(val);
                       setSelectedModel("");
-                      setSelectedVariantId(null);
+                      setSelectedVariant(null);
+
                       setLoanAmountA(0);
                     }}
                     className="w-full"
@@ -906,7 +1252,7 @@ const EMICalculator = ({
                   >
                     {uniqueMakes.map((m) => (
                       <Option key={m} value={m}>
-                        {m}
+                        {cleanName(m)}
                       </Option>
                     ))}
                   </Select>
@@ -917,7 +1263,8 @@ const EMICalculator = ({
                     value={selectedModel || undefined}
                     onChange={(val) => {
                       setSelectedModel(val);
-                      setSelectedVariantId(null);
+                      setSelectedVariant(null);
+
                       setLoanAmountA(0);
                     }}
                     disabled={!selectedMake || disableAll}
@@ -931,7 +1278,7 @@ const EMICalculator = ({
                   >
                     {uniqueModels.map((m) => (
                       <Option key={m} value={m}>
-                        {m}
+                        {cleanName(m)}
                       </Option>
                     ))}
                   </Select>
@@ -939,13 +1286,22 @@ const EMICalculator = ({
                 <div>
                   <Label>Variant</Label>
                   <Select
-                    value={selectedVariantId || undefined}
-                    onChange={(val) => {
-                      setSelectedVariantId(val);
+                    labelInValue
+                    value={selectedVariant || undefined}
+                    onChange={(val, option) => {
+                      setSelectedVariant({
+                        value: val.value,
+                        label: option.label,
+                      });
+
                       setComparisonTouched(false);
-                      const v = variantsForModel.find((x) => x._id === val);
+
+                      const v = variantsForModel.find(
+                        (x) => x._id === val.value,
+                      );
                       const price = v?.onRoadPrice || 0;
-                      const initialLoan = price * 0.9; // 90% loan, 10% down
+
+                      const initialLoan = price * 0.9;
                       setLoanAmountA(initialLoan);
                       setLoanAmountB(initialLoan);
                       setDownPct(10);
@@ -953,15 +1309,14 @@ const EMICalculator = ({
                     disabled={!selectedMake || !selectedModel || disableAll}
                     className="w-full"
                     showSearch
-                    filterOption={(input, option) =>
-                      String(option?.children ?? "")
-                        .toLowerCase()
-                        .includes(input.toLowerCase())
-                    }
                   >
                     {variantsForModel.map((v) => (
-                      <Option key={v._id} value={v._id}>
-                        {v.variant} — {formatINR(v.onRoadPrice)}
+                      <Option
+                        key={v._id || v.id}
+                        value={v._id || v.id}
+                        label={`${cleanVariant(v.variant)} — ${formatINR(v.onRoadPrice)}`}
+                      >
+                        {cleanVariant(v.variant)} — {formatINR(v.onRoadPrice)}
                       </Option>
                     ))}
                   </Select>
@@ -1455,6 +1810,59 @@ const EMICalculator = ({
                 </div>
               </div>
             </div>
+
+            {selectedVehicle && selectedFeatureGroups.length > 0 && (
+              <details className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-5 md:py-4 space-y-3">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Variant features
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 text-right">
+                    {selectedVehicle.make} {selectedVehicle.model}{" "}
+                    {selectedVehicle.variant}
+                  </div>
+                </summary>
+
+                {/* Search */}
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#262626] rounded-xl px-2 py-1.5 mt-3">
+                  <Input
+                    placeholder="Search features"
+                    value={featureSearch}
+                    onChange={(e) => setFeatureSearch(e.target.value)}
+                    allowClear
+                  />
+                </div>
+
+                {/* Features list */}
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1 mt-2">
+                  {filteredFeatureGroups.map((group) => (
+                    <div key={group.category} className="space-y-1.5">
+                      <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                        {group.category}
+                      </div>
+
+                      <div className="space-y-0.5 text-[11px]">
+                        {group.rows.map((row) => (
+                          <div
+                            key={row.name}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span className="text-slate-500 dark:text-slate-400">
+                              {row.name}
+                            </span>
+                            <span className="font-medium text-slate-900 dark:text-slate-100 text-right">
+                              {row.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
             {/* Comparison accordion */}
             <details className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-6 md:py-5">
               <summary className="flex items-center justify-between cursor-pointer list-none">

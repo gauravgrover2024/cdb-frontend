@@ -1,10 +1,11 @@
+// src/modules/loans/LoanLayout.jsx
 import React, { useMemo } from "react";
 import { Layout, Menu } from "antd";
 import {
   DashboardOutlined,
   FileAddOutlined,
   ClockCircleOutlined,
-  FileTextOutlined, // ← new icon
+  FileTextOutlined,
 } from "@ant-design/icons";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
@@ -15,7 +16,8 @@ const LoanLayout = () => {
 
   const selectedKey = useMemo(() => {
     if (location.pathname.startsWith("/loans/pendency")) return "pendency";
-    if (location.pathname.startsWith("/loans/quotations")) return "quotations"; // ← new
+    if (location.pathname.startsWith("/loans/quotations")) return "quotations";
+    if (location.pathname.startsWith("/loans/features")) return "features"; // ← new
     if (location.pathname.startsWith("/loans/new")) return "newLoan";
     return "dashboard";
   }, [location.pathname]);
@@ -99,9 +101,14 @@ const LoanLayout = () => {
                 label: <Link to="/loans/pendency">Pendency Tracker</Link>,
               },
               {
-                key: "quotations", // ← new menu item
+                key: "quotations",
                 icon: <FileTextOutlined />,
                 label: <Link to="/loans/quotations">Quotation manager</Link>,
+              },
+              {
+                key: "features", // ← new
+                icon: <FileTextOutlined />,
+                label: <Link to="/loans/features">Features</Link>,
               },
             ]}
           />
@@ -148,17 +155,15 @@ const LoanLayout = () => {
           >
             {location.pathname.startsWith("/loans/new")
               ? "Creating New Loan"
-              : "Viewing Dashboard"}
+              : location.pathname.startsWith("/loans/features")
+                ? "Variant Features"
+                : "Viewing Dashboard"}
           </div>
         </Header>
 
         {/* PAGE CONTENT */}
         <Content style={{ padding: 18 }}>
-          <div
-            style={{
-              width: "100%",
-            }}
-          >
+          <div style={{ width: "100%" }}>
             <div
               style={{
                 background: "#fff",

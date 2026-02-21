@@ -7,6 +7,7 @@ import LoanDashboard from "../components/LoanDashboard";
 import LoanFormWithSteps from "../components/LoanFormWithSteps";
 import EMICalculatorPage from "../pages/EMICalculatorPage";
 import QuotationManagerPage from "../pages/QuotationManagerPage"; // ← add this
+import FeaturesPage from "../pages/FeaturesPage"; // ← add this
 
 const LoanRoutes = () => {
   return (
@@ -25,6 +26,7 @@ const LoanRoutes = () => {
         {/* /loans/quotations */}
         <Route path="quotations" element={<QuotationManagerPage />} />{" "}
         {/* ← new */}
+        <Route path="features" element={<FeaturesPage />} />
         {/* fallback */}
         <Route path="*" element={<Navigate to="/loans" replace />} />
       </Route>
