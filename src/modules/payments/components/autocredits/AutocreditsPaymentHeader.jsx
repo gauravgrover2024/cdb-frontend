@@ -44,7 +44,7 @@ const AutocreditsPaymentHeader = ({
       : customerNet - showroomNet;
 
     const showroomAutoPaid = asInt(
-      showroomTotals?.paymentAmountAutocredits || 0
+      showroomTotals?.paymentAmountAutocredits || 0,
     );
 
     // exchange reduces receivable
@@ -52,7 +52,7 @@ const AutocreditsPaymentHeader = ({
 
     // insurance adds to receivable
     const insuranceReceivable = asInt(
-      data?.autocreditsInsuranceReceivable || 0
+      data?.autocreditsInsuranceReceivable || 0,
     );
 
     const exchangeAdjustment = asInt(data?.autocreditsExchangeDeduction || 0);
@@ -81,18 +81,39 @@ const AutocreditsPaymentHeader = ({
   }, [data, showroomTotals, autocreditsTotals]);
 
   return (
-    <Card style={{ borderRadius: 14, border: "1px solid #f0f0f0" }}>
+    <Card
+      style={{
+        borderRadius: 16,
+        border: "1px solid #e5e7eb",
+        background: "#f9fafb",
+      }}
+      bodyStyle={{ padding: 12 }}
+    >
+      {/* Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           gap: 12,
           alignItems: "center",
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
-        <div style={{ fontWeight: 900, fontSize: 14 }}>
-          Autocredits Account — Totals
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: 0.14,
+              color: "#6b7280",
+              marginBottom: 2,
+            }}
+          >
+            Autocredits account
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>
+            Receipts & closing
+          </div>
         </div>
 
         <Button
@@ -100,79 +121,113 @@ const AutocreditsPaymentHeader = ({
           onClick={onToggleVerified}
           disabled={!canVerify && !isVerified}
         >
-          {isVerified ? "Verified ✅ (Unlock)" : "Mark as Verified"}
+          {isVerified ? "Verified ✅ (unlock)" : "Mark as verified"}
         </Button>
       </div>
 
-      <AmountRow
-        label="Net Receivable (Autocredits)"
-        value={summary.netReceivable}
-        highlight
-      />
+      {/* Net receivable and components */}
+      <div
+        style={{
+          marginTop: 6,
+          padding: 10,
+          borderRadius: 12,
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <AmountRow
+          label="Net receivable (Autocredits)"
+          value={summary.netReceivable}
+          highlight
+        />
 
-      <div style={{ marginTop: 8 }}>
-        <AmountRow
-          label="Autocredits Margin"
-          value={summary.autocreditsMargin}
-        />
-        <AmountRow
-          label="Payments Made by Autocredits (Showroom)"
-          value={summary.showroomAutoPaid}
-        />
-        <AmountRow
-          label="Insurance Receivable (Autocredits)"
-          value={summary.insuranceReceivable}
-        />
-        <AmountRow
-          label="Less: Exchange Adjustment"
-          value={summary.exchangeReceivable}
-        />
+        <div style={{ marginTop: 4 }}>
+          <AmountRow
+            label="Autocredits margin"
+            value={summary.autocreditsMargin}
+          />
+          <AmountRow
+            label="Paid by Autocredits to showroom"
+            value={summary.showroomAutoPaid}
+          />
+          <AmountRow
+            label="Insurance receivable"
+            value={summary.insuranceReceivable}
+          />
+          <AmountRow
+            label="Less: exchange adjustment"
+            value={summary.exchangeReceivable}
+          />
+        </div>
       </div>
 
-      <div style={{ marginTop: 10 }}>
+      {/* Receipts from customer */}
+      <div
+        style={{
+          marginTop: 10,
+          padding: 10,
+          borderRadius: 12,
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+        }}
+      >
         <AmountRow
-          label="Receipt Amount (Customer)"
+          label="Receipts from customer"
           value={summary.receiptTotal}
           highlight
         />
-      </div>
 
-      {/* internal breakup */}
-      <div style={{ marginTop: 10 }}>
-        <div style={{ fontWeight: 900, fontSize: 12, marginBottom: 6 }}>
-          Receipt Breakup (Internal)
+        <div style={{ marginTop: 6 }}>
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 12,
+              marginBottom: 4,
+              color: "#111827",
+            }}
+          >
+            Receipt breakup
+          </div>
+          <AmountRow
+            label="Insurance"
+            value={asInt(summary.breakup?.Insurance || 0)}
+          />
+          <AmountRow
+            label="Margin money"
+            value={asInt(summary.breakup?.["Margin Money"] || 0)}
+          />
+          <AmountRow
+            label="Commission"
+            value={asInt(summary.breakup?.Commission || 0)}
+          />
         </div>
-        <AmountRow
-          label="Insurance"
-          value={asInt(summary.breakup?.Insurance || 0)}
-        />
-        <AmountRow
-          label="Margin Money"
-          value={asInt(summary.breakup?.["Margin Money"] || 0)}
-        />
-
-        <AmountRow
-          label="Commission"
-          value={asInt(summary.breakup?.Commission || 0)}
-        />
       </div>
 
-      <div style={{ marginTop: 10 }}>
+      {/* Closing balance */}
+      <div
+        style={{
+          marginTop: 10,
+          padding: 10,
+          borderRadius: 12,
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+        }}
+      >
         <AmountRow
-          label="Closing Balance"
+          label="Closing balance"
           value={summary.closingBalance}
           highlight
         />
       </div>
 
       {!isVerified && !canVerify && (
-        <div style={{ marginTop: 10, fontSize: 12, color: "#666" }}>
-          ⚠️ You can verify only when <b>Closing Balance = 0</b>.
+        <div style={{ marginTop: 8, fontSize: 11, color: "#6b7280" }}>
+          You can verify only when <b>Closing balance = 0</b>.
         </div>
       )}
 
       {isVerified && (
-        <div style={{ marginTop: 10, fontSize: 12, color: "#1677ff" }}>
+        <div style={{ marginTop: 8, fontSize: 11, color: "#1677ff" }}>
           🔒 Verified • Autocredits section is now read-only.
         </div>
       )}

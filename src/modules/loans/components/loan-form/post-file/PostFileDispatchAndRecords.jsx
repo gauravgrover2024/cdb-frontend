@@ -3,11 +3,37 @@ import { Form, message } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { getEmployees } from "../../../../../api/employees";
 import { banksApi } from "../../../../../api/banks";
+import dayjs from "dayjs";
 
 const PostFileDispatchAndRecords = ({ form }) => {
   const loanId = Form.useWatch("loanId", form);
+  const loanNumber = Form.useWatch("loan_number", form);
+  const dispatchDate = Form.useWatch("dispatch_date", form);
+  const dispatchTime = Form.useWatch("dispatch_time", form);
+  const disbursementDate = Form.useWatch("disbursement_date", form);
+  const disbursementTime = Form.useWatch("disbursement_time", form);
   const [employees, setEmployees] = useState([]);
   const [banks, setBanks] = useState([]);
+
+  const formatDateForInput = (value) => {
+    if (!value) return "";
+    if (dayjs.isDayjs(value)) return value.format("YYYY-MM-DD");
+    if (typeof value === "string") {
+      const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) return match[1];
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 10);
+  };
+
+  const formatTimeForInput = (value) => {
+    if (!value) return "";
+    if (dayjs.isDayjs(value)) return value.format("HH:mm");
+    const text = String(value);
+    const match = text.match(/(\d{2}:\d{2})/);
+    return match ? match[1] : "";
+  };
 
   // Initialize data and defaults
   useEffect(() => {
@@ -33,7 +59,12 @@ const PostFileDispatchAndRecords = ({ form }) => {
 
     // Default dates logic
     const alreadyInitialized = form.getFieldValue("__dispatchInitialized");
-    if (!alreadyInitialized) {
+    const hasImportedDates =
+      Boolean(form.getFieldValue("dispatch_date")) ||
+      Boolean(form.getFieldValue("disbursement_date")) ||
+      Boolean(loanId);
+
+    if (!alreadyInitialized && !hasImportedDates) {
       const now = new Date();
       form.setFieldsValue({
         disbursement_date: now.toISOString().split("T")[0],
@@ -41,7 +72,7 @@ const PostFileDispatchAndRecords = ({ form }) => {
         __dispatchInitialized: true,
       });
     }
-  }, [form]);
+  }, [form, loanId]);
 
   // Handle adding a new bank to database
   const handleCreateBank = async (bankData) => {
@@ -60,6 +91,11 @@ const PostFileDispatchAndRecords = ({ form }) => {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      <Form.Item name="dispatch_date" hidden><input /></Form.Item>
+      <Form.Item name="dispatch_time" hidden><input /></Form.Item>
+      <Form.Item name="disbursement_date" hidden><input /></Form.Item>
+      <Form.Item name="disbursement_time" hidden><input /></Form.Item>
+
       {/* Dispatch Details Section */}
       <div className="bg-card rounded-lg border border-border p-4 md:p-6">
         <div className="flex items-center gap-3 mb-4 md:mb-6">
@@ -79,11 +115,21 @@ const PostFileDispatchAndRecords = ({ form }) => {
         <div className="space-y-6">
           {/* Dispatch Info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Form.Item label="Dispatch Date" name="dispatch_date" className="mb-0">
-               <input type="date" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
+            <Form.Item label="Dispatch Date" className="mb-0">
+               <input
+                 type="date"
+                 value={formatDateForInput(dispatchDate)}
+                 onChange={(e) => form.setFieldsValue({ dispatch_date: e.target.value })}
+                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+               />
             </Form.Item>
-            <Form.Item label="Dispatch Time" name="dispatch_time" className="mb-0">
-               <input type="time" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
+            <Form.Item label="Dispatch Time" className="mb-0">
+               <input
+                 type="time"
+                 value={formatTimeForInput(dispatchTime)}
+                 onChange={(e) => form.setFieldsValue({ dispatch_time: e.target.value })}
+                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+               />
             </Form.Item>
             <Form.Item label="Dispatch Through" name="dispatch_through" className="mb-0">
               <input type="text" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" placeholder="e.g., Courier" />
@@ -99,24 +145,34 @@ const PostFileDispatchAndRecords = ({ form }) => {
               Disbursement Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-               <Form.Item label="Disbursement Date" name="disbursement_date" className="mb-0">
-                 <input type="date" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
+               <Form.Item label="Disbursement Date" className="mb-0">
+                 <input
+                   type="date"
+                   value={formatDateForInput(disbursementDate)}
+                   onChange={(e) => form.setFieldsValue({ disbursement_date: e.target.value })}
+                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+                 />
                </Form.Item>
-               <Form.Item label="Disbursement Time" name="disbursement_time" className="mb-0">
-                 <input type="time" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" />
+               <Form.Item label="Disbursement Time" className="mb-0">
+                 <input
+                   type="time"
+                   value={formatTimeForInput(disbursementTime)}
+                   onChange={(e) => form.setFieldsValue({ disbursement_time: e.target.value })}
+                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+                 />
                </Form.Item>
                
-                <Form.Item label="Loan Number" name="loanId" className="mb-0">
+                <Form.Item label="Loan Number" name="loan_number" className="mb-0">
                   <div className="relative">
                     <input
                       type="text"
                       className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground font-medium"
-                      placeholder="Enter Loan ID..."
-                      value={loanId || ""}
-                      onChange={(e) => form.setFieldsValue({ loanId: e.target.value })}
+                      placeholder="Enter Loan Number..."
+                      value={loanNumber || ""}
+                      onChange={(e) => form.setFieldsValue({ loan_number: e.target.value })}
                     />
-                    <div className={`absolute right-2 top-1/2 -translate-y-1/2 ${loanId ? "text-primary" : "text-muted-foreground"}`}>
-                      <Icon name={loanId ? "CheckCircle" : "AlertCircle"} size={14} />
+                    <div className={`absolute right-2 top-1/2 -translate-y-1/2 ${loanNumber ? "text-primary" : "text-muted-foreground"}`}>
+                      <Icon name={loanNumber ? "CheckCircle" : "AlertCircle"} size={14} />
                     </div>
                   </div>
                 </Form.Item>

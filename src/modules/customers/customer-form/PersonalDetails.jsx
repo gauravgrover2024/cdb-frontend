@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Form, Input, DatePicker, Select, Row, Col, Tag, Spin } from "antd";
+import { Form, Input, DatePicker, Select, Row, Col, Tag, Spin, Switch, Radio } from "antd";
 import Icon from "../../../components/AppIcon";
 import { customersApi } from "../../../api/customers";
 import dayjs from "dayjs";
@@ -14,14 +14,28 @@ const toDayjsSafe = (val) => {
   return d.isValid() ? d : undefined;
 };
 
-const PersonalDetails = ({ excludeFields = false, searchable = false, prefillMode = "all" }) => {
+const PersonalDetails = ({
+  excludeFields = false,
+  searchable = false,
+  prefillMode = "all",
+  showApplicantType = true,
+}) => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
+  const applicantType = Form.useWatch("applicantType", form);
   
   // Watch fields for logic
   const pincode = Form.useWatch("pincode", form);
+  const permanentPincode = Form.useWatch("permanentPincode", form);
   const education = Form.useWatch("education", form);
   const yearsInCurrentHouse = Form.useWatch("yearsInCurrentHouse", form);
+  const sameAsCurrentAddress = Form.useWatch("sameAsCurrentAddress", form);
+  const employmentAddress = Form.useWatch("employmentAddress", form);
+  const employmentPincode = Form.useWatch("employmentPincode", form);
+  const employmentCity = Form.useWatch("employmentCity", form);
+  const employmentPhone = Form.useWatch("employmentPhone", form);
+  const officialEmail = Form.useWatch("officialEmail", form);
+  const isCompany = applicantType === "Company";
 
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,6 +76,57 @@ const PersonalDetails = ({ excludeFields = false, searchable = false, prefillMod
       return () => clearTimeout(timer);
     }
   }, [pincode, form]);
+
+  useEffect(() => {
+    if (permanentPincode && permanentPincode.length === 6) {
+      const fetchCity = async () => {
+        try {
+          const response = await fetch(`https://api.postalpincode.in/pincode/${permanentPincode}`);
+          const data = await response.json();
+
+          if (data && data[0]?.Status === "Success") {
+            const postOffices = data[0].PostOffice;
+            if (postOffices && postOffices.length > 0) {
+              form.setFieldsValue({ permanentCity: postOffices[0].District });
+            }
+          }
+        } catch (error) {
+          console.error("Permanent pincode fetch failed", error);
+        }
+      };
+
+      const timer = setTimeout(fetchCity, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [permanentPincode, form]);
+
+  useEffect(() => {
+    if (!isCompany) return;
+
+    const current = form.getFieldsValue([
+      "residenceAddress",
+      "pincode",
+      "city",
+      "primaryMobile",
+      "email",
+    ]);
+
+    form.setFieldsValue({
+      residenceAddress: current.residenceAddress || employmentAddress || "",
+      pincode: current.pincode || employmentPincode || "",
+      city: current.city || employmentCity || "",
+      primaryMobile: current.primaryMobile || employmentPhone || "",
+      email: current.email || officialEmail || "",
+    });
+  }, [
+    isCompany,
+    form,
+    employmentAddress,
+    employmentPincode,
+    employmentCity,
+    employmentPhone,
+    officialEmail,
+  ]);
 
   /* Customer Search Logic with race condition handling */
   const fetchCustomers = useCallback(async (q) => {
@@ -234,17 +299,40 @@ const PersonalDetails = ({ excludeFields = false, searchable = false, prefillMod
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
              <Icon name="User" size={20} />
           </div>
-          <span className="text-lg font-bold text-foreground">Personal Details</span>
+          <span className="text-lg font-bold text-foreground">
+            {isCompany ? "Company Details" : "Personal Details"}
+          </span>
         </div>
         <Tag className="m-0 border-none bg-blue-500/10 text-blue-600 dark:text-blue-400 uppercase text-[10px] font-black tracking-widest px-2 py-0.5 rounded-full">Core</Tag>
       </div>
 
       <Row gutter={[16, 0]}>
+        {showApplicantType && (
+          <Col xs={24} md={8}>
+            <Form.Item label="Applicant Type" name="applicantType">
+              <Radio.Group buttonStyle="solid" className="w-full flex">
+                <Radio.Button
+                  value="Individual"
+                  className="flex-1 text-center h-10 flex items-center justify-center"
+                >
+                  Individual
+                </Radio.Button>
+                <Radio.Button
+                  value="Company"
+                  className="flex-1 text-center h-10 flex items-center justify-center"
+                >
+                  Company
+                </Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+          </Col>
+        )}
+
         {/* Basic identity */}
         <Col xs={24} md={8}>
           <div className="relative" ref={dropdownRef}>
             <Form.Item 
-                label="Customer Name" 
+                label={isCompany ? "Company Name" : "Customer Name"} 
                 name="customerName" 
                 normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}
             >
@@ -320,34 +408,40 @@ const PersonalDetails = ({ excludeFields = false, searchable = false, prefillMod
           </div>
         </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="S/D/W of" name="sdwOf" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
-            <Input placeholder="Father / Spouse Name" />
-          </Form.Item>
-        </Col>
+        {!isCompany && (
+          <Col xs={24} md={8}>
+            <Form.Item label="S/D/W of" name="sdwOf" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+              <Input placeholder="Father / Spouse Name" />
+            </Form.Item>
+          </Col>
+        )}
+
+        {!isCompany && (
+          <Col xs={24} md={8}>
+            <Form.Item label="Gender" name="gender">
+              <Select placeholder="Select Gender" showSearch filterOption={(input, option) =>
+                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+              } allowClear>
+                <Option value="Male">Male</Option>
+                <Option value="Female">Female</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        )}
 
         <Col xs={24} md={8}>
-          <Form.Item label="Gender" name="gender">
-            <Select placeholder="Select Gender" showSearch filterOption={(input, option) =>
-              (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-            } allowClear>
-              <Option value="Male">Male</Option>
-              <Option value="Female">Female</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={8}>
-          <Form.Item label="Date of Birth" name="dob">
+          <Form.Item label={isCompany ? "Date of Incorporation" : "Date of Birth"} name="dob">
             <DatePicker className="w-full" format="DD-MM-YYYY" />
           </Form.Item>
         </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="Mother's Name" name="motherName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
-            <Input placeholder="Mother's Name" />
-          </Form.Item>
-        </Col>
+        {!isCompany && (
+          <Col xs={24} md={8}>
+            <Form.Item label="Mother's Name" name="motherName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+              <Input placeholder="Mother's Name" />
+            </Form.Item>
+          </Col>
+        )}
 
         {/* Email ID (Moved from bottom) */}
         <Col xs={24} md={8}>
@@ -356,26 +450,50 @@ const PersonalDetails = ({ excludeFields = false, searchable = false, prefillMod
           </Form.Item>
         </Col>
 
+        {isCompany && (
+          <Col xs={24} md={8}>
+            <Form.Item label="Contact Person Name" name="contactPersonName">
+              <Input placeholder="Contact Person Name" />
+            </Form.Item>
+          </Col>
+        )}
+
+        {isCompany && (
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Contact Person Mobile"
+              name="contactPersonMobile"
+              rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits" }]}
+            >
+              <Input placeholder="Contact Person Mobile" maxLength={10} />
+            </Form.Item>
+          </Col>
+        )}
+
         <Col xs={24} md={24}>
-          <Form.Item label="Residence Address" name="residenceAddress" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
-            <TextArea rows={2} placeholder="House No, Street, Area" />
+          <Form.Item
+            label={isCompany ? "Present Address" : "Residence Address"}
+            name="residenceAddress"
+            normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}
+          >
+            <TextArea rows={2} placeholder={isCompany ? "Office Address" : "House No, Street, Area"} />
           </Form.Item>
         </Col>
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label="Pincode" name="pincode">
+          <Form.Item label={isCompany ? "Present Pincode" : "Pincode"} name="pincode">
             <Input placeholder="6-Digit Pincode" maxLength={6} />
           </Form.Item>
         </Col>
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label="City" name="city">
+          <Form.Item label={isCompany ? "Present City" : "City"} name="city">
             <Input placeholder="City (Auto-Filled)" suffix={fetchingPincode ? <span className="text-[10px] text-muted-foreground">Loading...</span> : null} />
           </Form.Item>
         </Col>
 
         {/* ===== CREDIT-RELEVANT FIELDS ===== */}
-        {showCreditFields && (
+        {showCreditFields && !isCompany && (
           <>
             <Col xs={24} md={8} className="mt-4">
               <Form.Item label="Staying since (Year)">
@@ -482,7 +600,8 @@ const PersonalDetails = ({ excludeFields = false, searchable = false, prefillMod
               </Col>
 
               {/* Additional Mobiles */}
-              {fields.map((field, index) => (
+              {!isCompany &&
+                fields.map((field, index) => (
                 <Col key={field.key} xs={24} md={8} className="mt-4">
                   <Form.Item
                     {...field}
@@ -520,30 +639,114 @@ const PersonalDetails = ({ excludeFields = false, searchable = false, prefillMod
             </>
           )}
         </Form.List>
-        
-        {/* Nominee */}
-        <Col xs={24} md={24}>
-           <div className="section-divider" />
-           <span className="text-[13px] font-black text-foreground uppercase tracking-widest block mb-4">Nominee Details</span>
-        </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="Nominee Name" name="nomineeName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
-            <Input placeholder="Nominee Name" />
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item
+            label="Permanent Address is same as current?"
+            name="sameAsCurrentAddress"
+            valuePropName="checked"
+          >
+            <Switch />
           </Form.Item>
         </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="Nominee DOB" name="nomineeDob">
-            <DatePicker className="w-full" format="DD-MM-YYYY" />
-          </Form.Item>
-        </Col>
+        {!sameAsCurrentAddress && (
+          <>
+            <Col xs={24} md={24}>
+              <Form.Item
+                label="Permanent Address"
+                name="permanentAddress"
+                normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}
+              >
+                <TextArea rows={2} placeholder="Permanent Address" />
+              </Form.Item>
+            </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="Nominee Relation" name="nomineeRelation" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
-            <Input placeholder="Relation" />
-          </Form.Item>
-        </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Permanent Pincode" name="permanentPincode">
+                <Input placeholder="6-Digit Pincode" maxLength={6} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Permanent City" name="permanentCity">
+                <Input placeholder="City (Auto-Filled)" />
+              </Form.Item>
+            </Col>
+          </>
+        )}
+
+        {isCompany && (
+          <>
+            <Col xs={24} md={24}>
+              <div className="section-divider" />
+              <span className="text-[13px] font-black text-foreground uppercase tracking-widest block mb-4">
+                Co-Applicant Snapshot
+              </span>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Co-Applicant Name" name="co_customerName">
+                <Input placeholder="Co-Applicant Name" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Co-Applicant Mobile"
+                name="co_primaryMobile"
+                rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits" }]}
+              >
+                <Input placeholder="Co-Applicant Mobile" maxLength={10} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Co-Applicant PAN" name="co_pan">
+                <Input placeholder="ABCDE1234F" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Co-Applicant DOB" name="co_dob">
+                <DatePicker className="w-full" format="DD-MM-YYYY" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={16}>
+              <Form.Item label="Co-Applicant Address" name="co_address">
+                <Input placeholder="Co-Applicant Address" />
+              </Form.Item>
+            </Col>
+          </>
+        )}
+
+        {!isCompany && (
+          <>
+            <Col xs={24} md={24}>
+              <div className="section-divider" />
+              <span className="text-[13px] font-black text-foreground uppercase tracking-widest block mb-4">Nominee Details</span>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Nominee Name" name="nomineeName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+                <Input placeholder="Nominee Name" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Nominee DOB" name="nomineeDob">
+                <DatePicker className="w-full" format="DD-MM-YYYY" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Nominee Relation" name="nomineeRelation" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+                <Input placeholder="Relation" />
+              </Form.Item>
+            </Col>
+          </>
+        )}
       </Row>
     </div>
   );

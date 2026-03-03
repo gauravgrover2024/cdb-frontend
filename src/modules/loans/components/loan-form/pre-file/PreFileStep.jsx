@@ -1,9 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Form, Empty, message, Space, Button, Spin } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
 import { customersApi } from "../../../../../api/customers";
 import PreFilePersonalDetails from "./PreFilePersonalDetails.jsx";
+
+const toDayjsSafe = (value) => {
+  if (!value) return null;
+  if (dayjs.isDayjs(value)) return value;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
+};
 
 const PreFileStep = () => {
   const form = Form.useFormInstance();
@@ -35,7 +43,7 @@ const PreFileStep = () => {
           email: freshCustomer.email || form.getFieldValue("email"),
           sdwOf: freshCustomer.sdwOf || form.getFieldValue("sdwOf"),
           gender: freshCustomer.gender || form.getFieldValue("gender"),
-          dob: freshCustomer.dob ? freshCustomer.dob : form.getFieldValue("dob"),
+          dob: freshCustomer.dob ? toDayjsSafe(freshCustomer.dob) : form.getFieldValue("dob"),
           motherName: freshCustomer.motherName || form.getFieldValue("motherName"),
           residenceAddress: freshCustomer.residenceAddress || form.getFieldValue("residenceAddress"),
           pincode: freshCustomer.pincode || form.getFieldValue("pincode"),
@@ -51,9 +59,21 @@ const PreFileStep = () => {
           dependents: freshCustomer.dependents || form.getFieldValue("dependents"),
           panNumber: freshCustomer.panNumber || form.getFieldValue("panNumber"),
           aadhaarNumber: freshCustomer.aadhaarNumber || form.getFieldValue("aadhaarNumber"),
+          gstNumber: freshCustomer.gstNumber || form.getFieldValue("gstNumber"),
+          contactPersonName: freshCustomer.contactPersonName || form.getFieldValue("contactPersonName"),
+          contactPersonMobile: freshCustomer.contactPersonMobile || form.getFieldValue("contactPersonMobile"),
+          sameAsCurrentAddress: freshCustomer.sameAsCurrentAddress ?? form.getFieldValue("sameAsCurrentAddress"),
           occupationType: freshCustomer.occupationType || form.getFieldValue("occupationType"),
+          professionalType: freshCustomer.professionalType || form.getFieldValue("professionalType"),
+          companyType: freshCustomer.companyType || form.getFieldValue("companyType"),
+          businessNature:
+            freshCustomer.businessNature ??
+            form.getFieldValue("businessNature"),
           companyName: freshCustomer.companyName || form.getFieldValue("companyName"),
           designation: freshCustomer.designation || form.getFieldValue("designation"),
+          experienceCurrent: freshCustomer.experienceCurrent || form.getFieldValue("experienceCurrent"),
+          totalExperience: freshCustomer.totalExperience || form.getFieldValue("totalExperience"),
+          isMSME: freshCustomer.isMSME || form.getFieldValue("isMSME"),
           monthlyIncome: freshCustomer.monthlyIncome || form.getFieldValue("monthlyIncome"),
           salaryMonthly: freshCustomer.salaryMonthly || form.getFieldValue("salaryMonthly"),
           bankName: freshCustomer.bankName || form.getFieldValue("bankName"),
@@ -69,6 +89,22 @@ const PreFileStep = () => {
           gstDocUrl: freshCustomer.gstDocUrl || form.getFieldValue("gstDocUrl"),
           photoUrl: freshCustomer.photoUrl || form.getFieldValue("photoUrl"),
           signatureUrl: freshCustomer.signatureUrl || form.getFieldValue("signatureUrl"),
+          reference1: freshCustomer.reference1 || {
+            name: freshCustomer.reference1_name || form.getFieldValue(["reference1", "name"]) || "",
+            mobile: freshCustomer.reference1_mobile || form.getFieldValue(["reference1", "mobile"]) || "",
+            address: freshCustomer.reference1_address || form.getFieldValue(["reference1", "address"]) || "",
+            pincode: freshCustomer.reference1_pincode || form.getFieldValue(["reference1", "pincode"]) || "",
+            city: freshCustomer.reference1_city || form.getFieldValue(["reference1", "city"]) || "",
+            relation: freshCustomer.reference1_relation || form.getFieldValue(["reference1", "relation"]) || "",
+          },
+          reference2: freshCustomer.reference2 || {
+            name: freshCustomer.reference2_name || form.getFieldValue(["reference2", "name"]) || "",
+            mobile: freshCustomer.reference2_mobile || form.getFieldValue(["reference2", "mobile"]) || "",
+            address: freshCustomer.reference2_address || form.getFieldValue(["reference2", "address"]) || "",
+            pincode: freshCustomer.reference2_pincode || form.getFieldValue(["reference2", "pincode"]) || "",
+            city: freshCustomer.reference2_city || form.getFieldValue(["reference2", "city"]) || "",
+            relation: freshCustomer.reference2_relation || form.getFieldValue(["reference2", "relation"]) || "",
+          },
         };
 
         form.setFieldsValue(updates);
@@ -111,7 +147,7 @@ const PreFileStep = () => {
         email: freshCustomer.email,
         sdwOf: freshCustomer.sdwOf,
         gender: freshCustomer.gender,
-        dob: freshCustomer.dob,
+        dob: toDayjsSafe(freshCustomer.dob),
         motherName: freshCustomer.motherName,
         residenceAddress: freshCustomer.residenceAddress,
         pincode: freshCustomer.pincode,
@@ -127,9 +163,19 @@ const PreFileStep = () => {
         dependents: freshCustomer.dependents,
         panNumber: freshCustomer.panNumber,
         aadhaarNumber: freshCustomer.aadhaarNumber,
+        gstNumber: freshCustomer.gstNumber,
+        contactPersonName: freshCustomer.contactPersonName,
+        contactPersonMobile: freshCustomer.contactPersonMobile,
+        sameAsCurrentAddress: freshCustomer.sameAsCurrentAddress,
         occupationType: freshCustomer.occupationType,
+        professionalType: freshCustomer.professionalType,
+        companyType: freshCustomer.companyType,
+        businessNature: freshCustomer.businessNature,
         companyName: freshCustomer.companyName,
         designation: freshCustomer.designation,
+        experienceCurrent: freshCustomer.experienceCurrent,
+        totalExperience: freshCustomer.totalExperience,
+        isMSME: freshCustomer.isMSME,
         monthlyIncome: freshCustomer.monthlyIncome,
         salaryMonthly: freshCustomer.salaryMonthly,
         bankName: freshCustomer.bankName,
@@ -145,6 +191,22 @@ const PreFileStep = () => {
         gstDocUrl: freshCustomer.gstDocUrl,
         photoUrl: freshCustomer.photoUrl,
         signatureUrl: freshCustomer.signatureUrl,
+        reference1: freshCustomer.reference1 || {
+          name: freshCustomer.reference1_name || "",
+          mobile: freshCustomer.reference1_mobile || "",
+          address: freshCustomer.reference1_address || "",
+          pincode: freshCustomer.reference1_pincode || "",
+          city: freshCustomer.reference1_city || "",
+          relation: freshCustomer.reference1_relation || "",
+        },
+        reference2: freshCustomer.reference2 || {
+          name: freshCustomer.reference2_name || "",
+          mobile: freshCustomer.reference2_mobile || "",
+          address: freshCustomer.reference2_address || "",
+          pincode: freshCustomer.reference2_pincode || "",
+          city: freshCustomer.reference2_city || "",
+          relation: freshCustomer.reference2_relation || "",
+        },
       };
 
       form.setFieldsValue(updates);

@@ -11,6 +11,8 @@ import {
   Input,
   message,
   Checkbox,
+  Tag,
+  Switch,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -22,6 +24,7 @@ import dayjs from "dayjs";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { loansApi } from "../../../api/loans";
 
+import DOSectionCustomerDetails from "./sections/DOSectionCustomerDetails";
 import Section2DealerDetails from "./sections/Section2DealerDetails";
 import Section3VehicleDetailsShowroom from "./sections/Section3VehicleDetailsShowroom";
 import Section4VehicleDetailsCustomer from "./sections/Section4VehicleDetailsCustomer";
@@ -45,7 +48,6 @@ const patchDateFieldsToDayjs = (obj = {}) => {
 
   Object.keys(patched).forEach((key) => {
     const val = patched[key];
-
     if (!val) return;
 
     if (key.toLowerCase().includes("date")) {
@@ -105,14 +107,12 @@ const DeliveryOrderForm = () => {
 
   const showCustomerVehicleSection = Form.useWatch(
     "do_showCustomerVehicleSection",
-    form
+    form,
   );
 
   const [hasLoadedDO, setHasLoadedDO] = useState(false);
   const [existingDO, setExistingDO] = useState(null);
-
   const lastSaveAtRef = useRef(0);
-
   const [loanData, setLoanData] = useState(null);
 
   // Load Loan from API (prefill) with localStorage fallback
@@ -146,7 +146,7 @@ const DeliveryOrderForm = () => {
         try {
           const saved = JSON.parse(savedLoansRaw || "[]");
           const match = saved.find(
-            (x) => x.loanId === loanId || x.id === loanId
+            (x) => x.loanId === loanId || x.id === loanId,
           );
           setLoanData(match || null);
           return;
@@ -161,20 +161,16 @@ const DeliveryOrderForm = () => {
     load();
   }, [loanId]);
 
-  // -------------------------------------
-  // ✅ Load Saved DO from API
-  // -------------------------------------
+  // Load existing DO
   useEffect(() => {
     if (!loanId) return;
 
     const load = async () => {
       try {
         const foundDO = await fetchDOByLoanId(loanId);
-
         if (!foundDO) return;
 
         setExistingDO(foundDO);
-
         const patched = patchDateFieldsToDayjs(foundDO);
 
         form.setFieldsValue({
@@ -192,9 +188,7 @@ const DeliveryOrderForm = () => {
     load();
   }, [loanId, form]);
 
-  // -------------------------------------
-  // ✅ Prefill defaults ONLY when empty
-  // -------------------------------------
+  // Prefill defaults ONLY when empty
   useEffect(() => {
     if (!loanId) return;
 
@@ -229,9 +223,7 @@ const DeliveryOrderForm = () => {
     });
   }, [form, loanData, loanId]);
 
-  // -------------------------------------
-  // ✅ Autosave DO (Debounced)
-  // -------------------------------------
+  // Autosave DO (Debounced)
   const allValues = Form.useWatch([], form);
   const debouncedValues = useDebounce(allValues, 800);
 
@@ -241,7 +233,6 @@ const DeliveryOrderForm = () => {
 
     const autosave = async () => {
       try {
-        // if form has nothing meaningful yet, skip
         if (!debouncedValues || typeof debouncedValues !== "object") return;
 
         const values = serializeDatesToISO(debouncedValues);
@@ -262,13 +253,11 @@ const DeliveryOrderForm = () => {
         };
 
         await saveDOByLoanId(finalLoanId, payload);
-
         setExistingDO(payload);
 
         const now = Date.now();
         if (now - lastSaveAtRef.current > 5000) {
           lastSaveAtRef.current = now;
-          // message.success("Auto-saved DO ✅"); // optional
         }
       } catch (err) {
         console.error("Autosave DO Error:", err);
@@ -278,9 +267,7 @@ const DeliveryOrderForm = () => {
     autosave();
   }, [loanId, hasLoadedDO, debouncedValues, existingDO, loanData]);
 
-  // -------------------------------------
   // Actions
-  // -------------------------------------
   const handleDiscardAndExit = () => {
     form.resetFields();
     navigate("/delivery-orders");
@@ -309,7 +296,6 @@ const DeliveryOrderForm = () => {
       };
 
       await saveDOByLoanId(finalLoanId, payload);
-
       setExistingDO(payload);
 
       message.success("Delivery Order saved successfully ✅");
@@ -324,204 +310,192 @@ const DeliveryOrderForm = () => {
     window.print();
   };
 
-  // -------------------------------------
   // UI
-  // -------------------------------------
   return (
-    <div style={{ padding: 20 }}>
-      {/* TOP ACTION BAR */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 16,
-        }}
-      >
-        <Button
-          type="text"
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate("/delivery-orders")}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f3f4f6",
+        padding: "16px 16px 32px",
+      }}
+    >
+      {/* full width, no maxWidth container */}
+      <div>
+        {/* TOP ACTION BAR */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+            gap: 12,
+          }}
         >
-          Back
-        </Button>
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <Button icon={<PrinterOutlined />} onClick={handlePrint}>
-            Print DO
-          </Button>
-
           <Button
-            type="primary"
-            icon={<SaveOutlined />}
-            loading={loading}
-            onClick={handleSave}
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate("/delivery-orders")}
           >
-            Save
+            Back
           </Button>
 
-          <Button danger onClick={handleDiscardAndExit}>
-            Discard & Exit DO
-          </Button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Button icon={<PrinterOutlined />} onClick={handlePrint}>
+              Print DO
+            </Button>
+
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={loading}
+              onClick={handleSave}
+            >
+              Save
+            </Button>
+
+            <Button danger onClick={handleDiscardAndExit}>
+              Discard & Exit DO
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <Form form={form} layout="vertical">
-        {/* DO DETAILS BLOCK */}
-        <Card style={{ borderRadius: 12 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
-            Delivery Order Details
-          </div>
-
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={8}>
-              <Form.Item label="DO Date" name="do_date">
-                <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Form.Item label="DO Ref No" name="do_refNo">
-                <Input placeholder="Auto generated" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Form.Item label="Loan ID" name="do_loanId">
-                <Input placeholder="Loan ID" />
-              </Form.Item>
-            </Col>
-          </Row>
-        </Card>
-
-        <div style={{ height: 16 }} />
-
-        {/* CUSTOMER DETAILS BLOCK */}
-        <Card style={{ borderRadius: 12 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
-            Customer Details
-          </div>
-
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Form.Item label="Customer Name" name="customerName">
-                <Input placeholder="Customer name" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Form.Item label="Address" name="residenceAddress">
-                <Input placeholder="Customer address" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Form.Item label="Pincode" name="pincode">
-                <Input placeholder="Pincode" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Form.Item label="City" name="city">
-                <Input placeholder="City" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Form.Item label="Source" name="recordSource">
-                <Input placeholder="Direct / Indirect" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24}>
-              <div
-                style={{
-                  marginTop: 8,
-                  padding: 12,
-                  borderRadius: 10,
-                  background: "#fafafa",
-                  border: "1px dashed #e0e0e0",
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                  Source Details
+        <Form form={form} layout="vertical">
+          {/* HEADER BANNER */}
+          <Card
+            style={{
+              borderRadius: 16,
+              marginBottom: 16,
+              border: "1px solid #e5e7eb",
+            }}
+            bodyStyle={{ padding: 16 }}
+          >
+            <Row align="middle" justify="space-between">
+              <Col>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.4,
+                    textTransform: "uppercase",
+                    color: "#6b7280",
+                  }}
+                >
+                  Delivery order
                 </div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 18,
+                    marginTop: 2,
+                    color: "#111827",
+                  }}
+                >
+                  Delivery Order for Loan #{loanId}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#6b7280",
+                    marginTop: 4,
+                  }}
+                >
+                  Review dealer, vehicle and delivery details before handing
+                  over the vehicle.
+                </div>
+              </Col>
 
-                <Row gutter={[16, 16]}>
-                  <Col xs={24} md={8}>
-                    <Form.Item label="Dealer / Channel Name" name="sourceName">
-                      <Input placeholder="Dealer / Channel" />
-                    </Form.Item>
-                  </Col>
+              <Col>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Tag color="blue">Loan ID: {loanId}</Tag>
+                  {existingDO && <Tag color="green">Existing DO</Tag>}
+                </div>
+              </Col>
+            </Row>
+          </Card>
+          {/* SECTION 1 — Customer & DO Header */}
+          <DOSectionCustomerDetails form={form} readOnly={false} />
+          {/* SECTION 2 */}
+          <Section2DealerDetails form={form} loan={loanData} />
+          {/* SECTION 3 — Showroom Vehicle Details */}
+          <Section3VehicleDetailsShowroom loan={loanData} />
+          {/* SECTION 4 — Customer account vehicle section toggle */}
+          <Card
+            style={{ borderRadius: 16, marginTop: 16 }}
+            bodyStyle={{ padding: 16 }}
+          >
+            <Row align="middle" justify="space-between" gutter={[16, 8]}>
+              <Col xs={24} md={18}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.4,
+                    textTransform: "uppercase",
+                    color: "#6b7280",
+                    marginBottom: 4,
+                  }}
+                >
+                  Customer account
+                </div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 16,
+                    color: "#111827",
+                  }}
+                >
+                  Enable customer account vehicle details
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#6b7280",
+                    marginTop: 4,
+                    maxWidth: 520,
+                  }}
+                >
+                  Turn this on only when Delivery Order calculations should be
+                  based on customer account pricing instead of showroom pricing.
+                </div>
+              </Col>
 
-                  <Col xs={24} md={8}>
-                    <Form.Item label="Dealer Mobile" name="dealerMobile">
-                      <Input placeholder="Dealer mobile" />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Form.Item label="Dealer Address" name="dealerAddress">
-                      <Input placeholder="Dealer address" />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </div>
-            </Col>
-          </Row>
-        </Card>
-
-        <div style={{ height: 16 }} />
-
-        {/* SECTION 2 */}
-        <Section2DealerDetails form={form} loan={loanData} />
-
-        <div style={{ height: 16 }} />
-
-        {/* SECTION 3 — Showroom Vehicle Details */}
-        <Section3VehicleDetailsShowroom loan={loanData} />
-
-        <div style={{ height: 16 }} />
-
-        {/* SECTION 4 — Customer Vehicle Details */}
-        <Card style={{ borderRadius: 12 }}>
-          <Row align="middle" justify="space-between">
-            <Col>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>
-                Vehicle Details (Customer Account)
-              </div>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>
-                Enable this only if you want DO calculation based on customer
-                account pricing.
-              </div>
-            </Col>
-
-            <Col>
-              <Form.Item
-                name="do_showCustomerVehicleSection"
-                valuePropName="checked"
-                style={{ marginBottom: 0 }}
+              <Col
+                xs={24}
+                md={6}
+                style={{ display: "flex", justifyContent: "flex-end" }}
               >
-                <Checkbox>Enable</Checkbox>
-              </Form.Item>
-            </Col>
-          </Row>
-        </Card>
+                <Form.Item
+                  name="do_showCustomerVehicleSection"
+                  valuePropName="checked"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Checkbox>Enable customer account section</Checkbox>
+                </Form.Item>
+              </Col>
+            </Row>
+          </Card>
+          {showCustomerVehicleSection && (
+            <>
+              <div style={{ height: 16 }} />
+              <Section4VehicleDetailsCustomer loan={loanData} />
+            </>
+          )}
 
-        {showCustomerVehicleSection && (
-          <>
-            <div style={{ height: 16 }} />
-            <Section4VehicleDetailsCustomer loan={loanData} />
-          </>
-        )}
+          <div style={{ height: 32 }} />
 
-        <div style={{ height: 16 }} />
-
-        {/* SECTION 5 — DO DETAILS */}
-        <Section5DODetails loan={loanData} />
-
-        <div style={{ height: 20 }} />
-      </Form>
+          {/* SECTION 5 — DO DETAILS */}
+          <Section5DODetails loan={loanData} />
+          <div style={{ height: 24 }} />
+        </Form>
+      </div>
     </div>
   );
 };

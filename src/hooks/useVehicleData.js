@@ -1,20 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { message } from "antd";
 import { vehiclesApi } from "../api/vehicles";
+import { featuresApi } from "../api/features";
+
 
 /**
  * useVehicleData Hook
- * 
+ *
  * Centralized hook for managing Vehicle Master Data across all modules.
  * Provides cascading dropdowns for Make → Model → Variant.
- * 
+ *
  * Features:
  * - Fetches data from Vehicle Price List master data
  * - Cascading dropdowns (Make affects Models, Model affects Variants)
  * - Caching to minimize API calls
  * - Auto-population of vehicle pricing when all three are selected
  * - Support for custom vehicle creation
- * 
+ *
  * @param {Object} form - Ant Design form instance
  * @param {Object} options - Configuration options
  * @param {string} options.makeFieldName - Form field name for Make (default: "vehicleMake")
@@ -22,7 +24,7 @@ import { vehiclesApi } from "../api/vehicles";
  * @param {string} options.variantFieldName - Form field name for Variant (default: "vehicleVariant")
  * @param {boolean} options.autofillPricing - Auto-populate pricing fields when vehicle is selected (default: false)
  * @param {Function} options.onVehicleSelect - Callback when a complete vehicle is selected
- * 
+ *
  * @returns {Object} Vehicle data and handlers
  */
 export const useVehicleData = (form, options = {}) => {
@@ -57,90 +59,122 @@ export const useVehicleData = (form, options = {}) => {
      FETCH UNIQUE MAKES
   ========================= */
   const fetchMakes = useCallback(async () => {
-    // Return cached data if available
-    if (cacheRef.current.makes) {
-      setMakes(cacheRef.current.makes);
-      return;
-    }
+  // Return cached data if available
+  if (cacheRef.current.makes) {
+    setMakes(cacheRef.current.makes);
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const response = await vehiclesApi.getUniqueMakes();
-      const makesList = response.data || [];
-      
-      cacheRef.current.makes = makesList;
-      setMakes(makesList);
-    } catch (error) {
-      console.error("Failed to load makes:", error);
-      message.error("Failed to load vehicle makes");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  try {
+    setLoading(true);
+
+    // Use same variants master as EMI calculator
+    const res = await featuresApi.getVariantsWithPrice();
+    const items = Array.isArray(res?.data) ? res.data : res.data?.data || [];
+
+    const makesList = [
+      ...new Set(items.map((v: any) => v?.make).filter(Boolean)),
+    ].sort();
+
+    cacheRef.current.makes = makesList;
+    setMakes(makesList);
+  } catch (error) {
+    console.error("Failed to load makes:", error);
+    message.error("Failed to load vehicle makes");
+    setMakes([]);
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
 
   /* =========================
      FETCH MODELS BY MAKE
   ========================= */
   const fetchModels = useCallback(async (selectedMake) => {
-    if (!selectedMake) {
-      setModels([]);
-      return;
-    }
+  if (!selectedMake) {
+    setModels([]);
+    return;
+  }
 
-    // Return cached data if available
-    const cacheKey = selectedMake;
-    if (cacheRef.current.modelsByMake[cacheKey]) {
-      setModels(cacheRef.current.modelsByMake[cacheKey]);
-      return;
-    }
+  const cacheKey = selectedMake;
+  if (cacheRef.current.modelsByMake[cacheKey]) {
+    setModels(cacheRef.current.modelsByMake[cacheKey]);
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const response = await vehiclesApi.getUniqueModels(selectedMake);
-      const modelsList = response.data || [];
-      
-      cacheRef.current.modelsByMake[cacheKey] = modelsList;
-      setModels(modelsList);
-    } catch (error) {
-      console.error("Failed to load models:", error);
-      message.error("Failed to load vehicle models");
-      setModels([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  try {
+    setLoading(true);
+
+    const res = await featuresApi.getVariantsWithPrice();
+    const items = Array.isArray(res?.data) ? res.data : res.data?.data || [];
+
+    const modelsList = [
+      ...new Set(
+        items
+          .filter((v: any) => v?.make === selectedMake)
+          .map((v: any) => v?.model)
+          .filter(Boolean),
+      ),
+    ].sort();
+
+    cacheRef.current.modelsByMake[cacheKey] = modelsList;
+    setModels(modelsList);
+  } catch (error) {
+    console.error("Failed to load models:", error);
+    message.error("Failed to load vehicle models");
+    setModels([]);
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
 
   /* =========================
      FETCH VARIANTS BY MAKE + MODEL
   ========================= */
   const fetchVariants = useCallback(async (selectedMake, selectedModel) => {
-    if (!selectedMake || !selectedModel) {
-      setVariants([]);
-      return;
-    }
+  if (!selectedMake || !selectedModel) {
+    setVariants([]);
+    return;
+  }
 
-    // Return cached data if available
-    const cacheKey = `${selectedMake}|${selectedModel}`;
-    if (cacheRef.current.variantsByMakeModel[cacheKey]) {
-      setVariants(cacheRef.current.variantsByMakeModel[cacheKey]);
-      return;
-    }
+  const cacheKey = `${selectedMake}|${selectedModel}`;
+  if (cacheRef.current.variantsByMakeModel[cacheKey]) {
+    setVariants(cacheRef.current.variantsByMakeModel[cacheKey]);
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const response = await vehiclesApi.getUniqueVariants(selectedMake, selectedModel);
-      const variantsList = response.data || [];
-      
-      cacheRef.current.variantsByMakeModel[cacheKey] = variantsList;
-      setVariants(variantsList);
-    } catch (error) {
-      console.error("Failed to load variants:", error);
-      message.error("Failed to load vehicle variants");
-      setVariants([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  try {
+    setLoading(true);
+
+    const res = await featuresApi.getVariantsWithPrice();
+    const items = Array.isArray(res?.data) ? res.data : res.data?.data || [];
+
+    const variantsList = [
+      ...new Set(
+        items
+          .filter(
+            (v: any) =>
+              v?.make === selectedMake && v?.model === selectedModel,
+          )
+          .map((v: any) => v?.variant)
+          .filter(Boolean),
+      ),
+    ].sort();
+
+    cacheRef.current.variantsByMakeModel[cacheKey] = variantsList;
+    setVariants(variantsList);
+  } catch (error) {
+    console.error("Failed to load variants:", error);
+    message.error("Failed to load vehicle variants");
+    setVariants([]);
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+
 
   /* =========================
      FETCH VEHICLE DETAILS AND AUTO-POPULATE
@@ -154,7 +188,11 @@ export const useVehicleData = (form, options = {}) => {
       }
 
       try {
-        const response = await vehiclesApi.getByDetails(selectedMake, selectedModel, selectedVariant);
+        const response = await vehiclesApi.getByDetails(
+          selectedMake,
+          selectedModel,
+          selectedVariant,
+        );
         if (response.success && response.data) {
           const vehicleData = response.data;
           setSelectedVehicle(vehicleData);
@@ -191,106 +229,118 @@ export const useVehicleData = (form, options = {}) => {
       }
     },
     // Only depend on autofillPricing and onVehicleSelect, not form
-    [autofillPricing, onVehicleSelect]
+    [autofillPricing, onVehicleSelect],
   );
 
   /* =========================
      HANDLE CUSTOM VEHICLE CREATION
   ========================= */
-  const createCustomVehicle = useCallback(async (field, value) => {
-    if (!value || value.trim() === "") return false;
+  const createCustomVehicle = useCallback(
+    async (field, value) => {
+      if (!value || value.trim() === "") return false;
 
-    try {
-      const newVehicleData = {
-        make: field === 'make' ? value : make,
-        model: field === 'model' ? value : (model || 'Other'),
-        variant: field === 'variant' ? value : 'Standard',
-        createdFrom: 'LOAN_FORM',
-      };
+      try {
+        const newVehicleData = {
+          make: field === "make" ? value : make,
+          model: field === "model" ? value : model || "Other",
+          variant: field === "variant" ? value : "Standard",
+          createdFrom: "LOAN_FORM",
+        };
 
-      const response = await vehiclesApi.create(newVehicleData);
-      
-      if (response.success) {
-        message.success(`"${value}" added to vehicle master data`);
-        
-        // Invalidate cache for relevant data
-        if (field === 'make') {
-          cacheRef.current.makes = null;
-          await fetchMakes();
-        } else if (field === 'model' && make) {
-          delete cacheRef.current.modelsByMake[make];
-          await fetchModels(make);
-        } else if (field === 'variant' && make && model) {
-          delete cacheRef.current.variantsByMakeModel[`${make}|${model}`];
-          await fetchVariants(make, model);
+        const response = await vehiclesApi.create(newVehicleData);
+
+        if (response.success) {
+          message.success(`"${value}" added to vehicle master data`);
+
+          // Invalidate cache for relevant data
+          if (field === "make") {
+            cacheRef.current.makes = null;
+            await fetchMakes();
+          } else if (field === "model" && make) {
+            delete cacheRef.current.modelsByMake[make];
+            await fetchModels(make);
+          } else if (field === "variant" && make && model) {
+            delete cacheRef.current.variantsByMakeModel[`${make}|${model}`];
+            await fetchVariants(make, model);
+          }
+
+          return true;
         }
-        
-        return true;
+        return false;
+      } catch (error) {
+        console.error("Failed to create custom vehicle:", error);
+        // Don't show error to user - they can still use the custom value
+        return false;
       }
-      return false;
-    } catch (error) {
-      console.error("Failed to create custom vehicle:", error);
-      // Don't show error to user - they can still use the custom value
-      return false;
-    }
-  }, [make, model, fetchMakes, fetchModels, fetchVariants]);
+    },
+    [make, model, fetchMakes, fetchModels, fetchVariants],
+  );
 
   /* =========================
      HANDLE MAKE CHANGE
   ========================= */
-  const handleMakeChange = useCallback((value) => {
-    if (!form) return;
+  const handleMakeChange = useCallback(
+    (value) => {
+      if (!form) return;
 
-    // Clear dependent fields
-    form.setFieldsValue({
-      [modelFieldName]: undefined,
-      [variantFieldName]: undefined,
-    });
+      // Clear dependent fields
+      form.setFieldsValue({
+        [modelFieldName]: undefined,
+        [variantFieldName]: undefined,
+      });
 
-    setModels([]);
-    setVariants([]);
-    setSelectedVehicle(null);
+      setModels([]);
+      setVariants([]);
+      setSelectedVehicle(null);
 
-    if (value) {
-      fetchModels(value);
-    }
-  }, [form, modelFieldName, variantFieldName, fetchModels]);
+      if (value) {
+        fetchModels(value);
+      }
+    },
+    [form, modelFieldName, variantFieldName, fetchModels],
+  );
 
   /* =========================
      HANDLE MODEL CHANGE
   ========================= */
-  const handleModelChange = useCallback((value) => {
-    if (!form) return;
+  const handleModelChange = useCallback(
+    (value) => {
+      if (!form) return;
 
-    // Clear dependent fields
-    form.setFieldsValue({
-      [variantFieldName]: undefined,
-    });
+      // Clear dependent fields
+      form.setFieldsValue({
+        [variantFieldName]: undefined,
+      });
 
-    setVariants([]);
-    setSelectedVehicle(null);
+      setVariants([]);
+      setSelectedVehicle(null);
 
-    const currentMake = form.getFieldValue(makeFieldName);
-    if (currentMake && value) {
-      fetchVariants(currentMake, value);
-    }
-  }, [form, makeFieldName, variantFieldName, fetchVariants]);
+      const currentMake = form.getFieldValue(makeFieldName);
+      if (currentMake && value) {
+        fetchVariants(currentMake, value);
+      }
+    },
+    [form, makeFieldName, variantFieldName, fetchVariants],
+  );
 
   /* =========================
      HANDLE VARIANT CHANGE
   ========================= */
-  const handleVariantChange = useCallback((value) => {
-    if (!form) return;
+  const handleVariantChange = useCallback(
+    (value) => {
+      if (!form) return;
 
-    const currentMake = form.getFieldValue(makeFieldName);
-    const currentModel = form.getFieldValue(modelFieldName);
+      const currentMake = form.getFieldValue(makeFieldName);
+      const currentModel = form.getFieldValue(modelFieldName);
 
-    if (currentMake && currentModel && value) {
-      fetchVehicleDetails(currentMake, currentModel, value);
-    } else {
-      setSelectedVehicle(null);
-    }
-  }, [form, makeFieldName, modelFieldName, fetchVehicleDetails]);
+      if (currentMake && currentModel && value) {
+        fetchVehicleDetails(currentMake, currentModel, value);
+      } else {
+        setSelectedVehicle(null);
+      }
+    },
+    [form, makeFieldName, modelFieldName, fetchVehicleDetails],
+  );
 
   /* =========================
      INITIALIZE DATA

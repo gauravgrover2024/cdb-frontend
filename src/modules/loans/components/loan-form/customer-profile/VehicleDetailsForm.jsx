@@ -6,6 +6,8 @@ import { useVehicleData } from "../../../../../hooks/useVehicleData";
 const VehicleDetailsForm = () => {
   const form = Form.useFormInstance();
 
+  // add this helper inside VehicleDetailsForm
+
   // Use centralized vehicle data hook
   const {
     makes,
@@ -26,8 +28,42 @@ const VehicleDetailsForm = () => {
     },
   });
 
-  const vehicleMake = Form.useWatch("vehicleMake", form);
-  const vehicleModel = Form.useWatch("vehicleModel", form);
+  console.log(
+    "VehicleDetailsForm data:",
+    JSON.stringify({ makes, models, variants, loading }, null, 2),
+  );
+
+  const vehicleMake = form?.getFieldValue("vehicleMake");
+  const vehicleModel = form?.getFieldValue("vehicleModel");
+
+  const cleanModelLabel = (model) => {
+    if (!model) return "";
+    let v = String(model);
+
+    // Remove make prefix if present
+    if (vehicleMake) {
+      v = v.replace(new RegExp(`^${vehicleMake}\\s+`, "i"), "");
+    }
+
+    return v.replace(/\s+/g, " ").trim();
+  };
+
+  const cleanVariantLabel = (variant) => {
+    if (!variant) return "";
+    let v = String(variant);
+
+    // Remove make prefix if present
+    if (vehicleMake) {
+      v = v.replace(new RegExp(`^${vehicleMake}\\s+`, "i"), "");
+    }
+
+    // Remove model prefix if present (even if it still includes make)
+    if (vehicleModel) {
+      v = v.replace(new RegExp(`^${vehicleModel}\\s+`, "i"), "");
+    }
+
+    return v.replace(/\s+/g, " ").trim();
+  };
 
   return (
     <div id="section-vehicle-details" className="form-section">
@@ -37,7 +73,9 @@ const VehicleDetailsForm = () => {
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
             <Icon name="Car" size={20} />
           </div>
-          <span className="text-lg font-medium text-foreground">Vehicle Details</span>
+          <span className="text-lg font-medium text-foreground">
+            Vehicle Details
+          </span>
           {loading && <Spin size="small" />}
         </div>
       </div>
@@ -45,27 +83,31 @@ const VehicleDetailsForm = () => {
       {/* VEHICLE SELECTION */}
       <div className="p-6 rounded-2xl bg-card border border-border shadow-sm mb-6">
         <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
-           <Icon name="Search" size={12} className="text-primary" />
-           Asset Configuration
+          <Icon name="Search" size={12} className="text-primary" />
+          Asset Configuration
         </div>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <Form.Item label="Make" name="vehicleMake" className="mb-0">
-              <Select 
-                placeholder="Select make" 
-                allowClear 
-                className="h-10 rounded-xl" 
+              <Select
+                placeholder="Select make"
+                allowClear
+                className="h-10 rounded-xl"
                 showSearch
                 loading={loading}
                 onChange={handleMakeChange}
                 onSearch={(value) => {
                   // Allow custom input
                   if (value && !makes.includes(value)) {
-                    createCustomVehicle('make', value);
+                    createCustomVehicle("make", value);
                   }
                 }}
                 filterOption={(input, option) =>
-                  (option?.children?.props?.children?.[1] || option?.value || '')
+                  (
+                    option?.children?.props?.children?.[1] ||
+                    option?.value ||
+                    ""
+                  )
                     .toLowerCase()
                     .includes(input.toLowerCase())
                 }
@@ -109,11 +151,11 @@ const VehicleDetailsForm = () => {
                 onSearch={(value) => {
                   // Allow custom input
                   if (value && vehicleMake && !models.includes(value)) {
-                    createCustomVehicle('model', value);
+                    createCustomVehicle("model", value);
                   }
                 }}
                 filterOption={(input, option) =>
-                  (option?.children || option?.value || '')
+                  (option?.children || option?.value || "")
                     .toLowerCase()
                     .includes(input.toLowerCase())
                 }
@@ -132,7 +174,7 @@ const VehicleDetailsForm = () => {
               >
                 {models.map((model) => (
                   <Select.Option key={model} value={model}>
-                    {model}
+                    {cleanModelLabel(model)}
                   </Select.Option>
                 ))}
               </Select>
@@ -153,12 +195,17 @@ const VehicleDetailsForm = () => {
                 onChange={handleVariantChange}
                 onSearch={(value) => {
                   // Allow custom input
-                  if (value && vehicleMake && vehicleModel && !variants.includes(value)) {
-                    createCustomVehicle('variant', value);
+                  if (
+                    value &&
+                    vehicleMake &&
+                    vehicleModel &&
+                    !variants.includes(value)
+                  ) {
+                    createCustomVehicle("variant", value);
                   }
                 }}
                 filterOption={(input, option) =>
-                  (option?.children || option?.value || '')
+                  (option?.children || option?.value || "")
                     .toLowerCase()
                     .includes(input.toLowerCase())
                 }
@@ -177,7 +224,7 @@ const VehicleDetailsForm = () => {
               >
                 {variants.map((variant) => (
                   <Select.Option key={variant} value={variant}>
-                    {variant}
+                    {cleanVariantLabel(variant)}
                   </Select.Option>
                 ))}
               </Select>
@@ -193,18 +240,22 @@ const VehicleDetailsForm = () => {
             <Icon name="HandCoins" size={20} />
           </div>
           <div>
-            <div className="text-sm font-medium text-foreground">Loan Financing Requirement</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Is the customer requesting credit for this vehicle?</div>
+            <div className="text-sm font-medium text-foreground">
+              Loan Financing Requirement
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Is the customer requesting credit for this vehicle?
+            </div>
           </div>
         </div>
-        
+
         <div className="w-full md:w-48 shrink-0">
           <Form.Item name="isFinanced" className="mb-0">
             <Segmented
               block
               options={[
-                { label: 'Yes', value: 'Yes' },
-                { label: 'No', value: 'No' },
+                { label: "Yes", value: "Yes" },
+                { label: "No", value: "No" },
               ]}
               className="rounded-xl p-1 bg-background shadow-sm"
             />

@@ -18,6 +18,12 @@ import dayjs from "dayjs";
 import { getEmployees, formatEmployeesForAutocomplete } from "../../../../../api/employees";
 
 const { Option } = Select;
+const asDayjs = (value) => {
+  if (!value) return null;
+  if (dayjs.isDayjs(value)) return value;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
+};
 
 const Section7RecordDetails = () => {
   const form = Form.useFormInstance();
@@ -117,7 +123,7 @@ const Section7RecordDetails = () => {
             name="receivingDate"
             rules={[{ required: true, message: 'Select date' }]}
           >
-            <DatePicker style={{ width: "100%" }} className="h-10 rounded-lg" />
+            <DatePicker style={{ width: "100%" }} className="h-10 rounded-lg" getValueProps={(value) => ({ value: asDayjs(value) })} />
           </Form.Item>
         </Col>
 
@@ -127,7 +133,7 @@ const Section7RecordDetails = () => {
             name="receivingTime"
             rules={[{ required: true, message: 'Select time' }]}
           >
-            <TimePicker style={{ width: "100%" }} className="h-10 rounded-lg" format="HH:mm" />
+            <TimePicker style={{ width: "100%" }} className="h-10 rounded-lg" format="HH:mm" getValueProps={(value) => ({ value: asDayjs(value) })} />
           </Form.Item>
         </Col>
 
@@ -285,4 +291,3 @@ const Section7RecordDetails = () => {
 };
 
 export default Section7RecordDetails;
-

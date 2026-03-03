@@ -1,0 +1,147 @@
+[
+  {
+    "caseId": "3000004231",
+    "name": "GOURAV LUMINARIES PVT LTD 2",
+    "applicantType": "Company",
+    "mobile": "9811542232",
+    "typeOfLoan": "New Car",
+    "isFinanced": "Yes",
+    "currentStage": "delivery",
+    "approvalStatus": "Disbursed",
+    "vehicle": "Maruti | S Presso | LXI CNG",
+    "coApplicant": "GAURAV KHANNA",
+    "signatory": "GAURAV KHANNA",
+    "dealerName": "T R SAWHNEY MOTORS PVT LTD",
+    "loanNumber": "158898336",
+    "conflictFlags": []
+  },
+  {
+    "caseId": "3000004277",
+    "name": "JYOTI ARORA (HT CARS)",
+    "applicantType": "Individual",
+    "mobile": "9811119930",
+    "typeOfLoan": "New Car",
+    "isFinanced": "Yes",
+    "currentStage": "delivery",
+    "approvalStatus": "Disbursed",
+    "vehicle": "Tata | Nexon | Creative Plus S CNG",
+    "coApplicant": null,
+    "signatory": null,
+    "dealerName": "GO AUTO PRIVATE LIMITED",
+    "loanNumber": "LADEL 00050961154",
+    "conflictFlags": [
+      "vehicle_conflict",
+      "multiple_cpv_rows"
+    ]
+  },
+  {
+    "caseId": "3000004033",
+    "name": "AGARHAN ENGINEERS PVT LTD",
+    "applicantType": "Company",
+    "mobile": "9810499067",
+    "typeOfLoan": "New Car",
+    "isFinanced": "No",
+    "currentStage": "delivery",
+    "approvalStatus": null,
+    "vehicle": "Maruti | Baleno | Zeta AGS",
+    "coApplicant": "RAJEEV TIWARI",
+    "signatory": "RAJEEV TIWARI",
+    "dealerName": null,
+    "loanNumber": "CASH SALE",
+    "conflictFlags": []
+  },
+  {
+    "caseId": "3000004065",
+    "name": "DILIP KUMAR KHUMBAT",
+    "applicantType": "Individual",
+    "mobile": "9899994433",
+    "typeOfLoan": "New Car",
+    "isFinanced": "No",
+    "currentStage": "delivery",
+    "approvalStatus": null,
+    "vehicle": "Kia | Seltos | GTX TGDi DCT",
+    "coApplicant": null,
+    "signatory": null,
+    "dealerName": null,
+    "loanNumber": "CASH SALE",
+    "conflictFlags": [
+      "vehicle_conflict",
+      "multiple_cpv_rows",
+      "multiple_rc_rows"
+    ]
+  },
+  {
+    "caseId": "3000004250",
+    "name": "SHEIKH MANZOOR AHMED (CAR DEKHO)",
+    "applicantType": "Individual",
+    "mobile": "7006434266",
+    "typeOfLoan": "Used Car",
+    "isFinanced": "Yes",
+    "currentStage": "postfile",
+    "approvalStatus": "Disbursed",
+    "vehicle": "Mercedes Benz | E Class | E 220d",
+    "coApplicant": null,
+    "signatory": null,
+    "dealerName": "Autocredits India LLP",
+    "loanNumber": null,
+    "conflictFlags": [
+      "vehicle_conflict"
+    ]
+  },
+  {
+    "caseId": "3000003718",
+    "name": "MORA SALES INDIA PVT LTD",
+    "applicantType": "Company",
+    "mobile": "9911334422",
+    "typeOfLoan": "Used Car",
+    "isFinanced": "Yes",
+    "currentStage": "postfile",
+    "approvalStatus": "Disbursed",
+    "vehicle": "Mini | Cooper Convertible | S",
+    "coApplicant": "NITESH GUPTA",
+    "signatory": "NITESH GUPTA",
+    "dealerName": null,
+    "loanNumber": "140047786",
+    "conflictFlags": [
+      "vehicle_conflict"
+    ]
+  },
+  {
+    "caseId": "3000004237",
+    "name": "SANJAY SUKHIJA",
+    "applicantType": "Individual",
+    "mobile": "9268543728",
+    "typeOfLoan": "Car Cash-in",
+    "isFinanced": "Yes",
+    "currentStage": "payout",
+    "approvalStatus": "Disbursed",
+    "vehicle": "Mahindra | TUV300 Plus | P8 2018",
+    "coApplicant": null,
+    "signatory": null,
+    "dealerName": null,
+    "loanNumber": "158944451",
+    "conflictFlags": [
+      "vehicle_conflict",
+      "multiple_cpv_rows"
+    ]
+  },
+  {
+    "caseId": "3000003417",
+    "name": "UKAR HEALTHCARE PVT LTD",
+    "applicantType": "Company",
+    "mobile": "9971448428",
+    "typeOfLoan": "Car Cash-in",
+    "isFinanced": "Yes",
+    "currentStage": "payout",
+    "approvalStatus": "Disbursed",
+    "vehicle": "Toyota | Innova Crysta | 2.8 Z 2018",
+    "coApplicant": "RAHUL SARIN",
+    "signatory": "RAHUL SARIN",
+    "dealerName": null,
+    "loanNumber": null,
+    "conflictFlags": [
+      "vehicle_conflict",
+      "multiple_cpv_rows"
+    ]
+  }
+]

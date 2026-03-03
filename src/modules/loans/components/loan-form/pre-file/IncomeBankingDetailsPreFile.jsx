@@ -95,6 +95,15 @@ const IncomeBankingDetailsPreFile = () => {
             />
           </Form.Item>
         </Col>
+
+        <Col xs={24} md={8}>
+          <Form.Item label="PAN Number" name="panNumber">
+            <Input
+              placeholder="Enter PAN Number"
+              className="rounded-xl border-border"
+            />
+          </Form.Item>
+        </Col>
       </Row>
 
       {/* =====================
@@ -150,7 +159,7 @@ const IncomeBankingDetailsPreFile = () => {
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Customer ID" name="customerId">
+          <Form.Item label="Customer ID" name="customerIdDisplay">
             <Input
               placeholder="Customer ID"
               className="rounded-xl border-border"

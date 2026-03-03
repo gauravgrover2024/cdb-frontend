@@ -4,6 +4,7 @@ import { Form, Radio, Input } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { formatINR } from "../../../../../utils/currency";
+import dayjs from "dayjs";
 
 const calculateEmi = (principal, annualRate, tenureMonths, type = "Reducing") => {
   const P = Number(String(principal).replace(/[^0-9.]/g, "")) || 0;
@@ -90,6 +91,7 @@ const PostFileApprovalDetails = ({ form }) => {
 
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return "";
+    if (dayjs.isDayjs(dateStr)) return dateStr.format("YYYY-MM-DD");
     try {
       const date = new Date(dateStr);
       const year = date.getFullYear();
@@ -99,6 +101,16 @@ const PostFileApprovalDetails = ({ form }) => {
     } catch {
       return "";
     }
+  };
+  const getDateInputValue = (name) => {
+    if (name === "postfile_approvalDate") {
+      return formatDateForInput(
+        form.getFieldValue("postfile_approvalDate") ||
+        form.getFieldValue("approval_approvalDate") ||
+        form.getFieldValue("approval_disbursedDate")
+      );
+    }
+    return formatDateForInput(form.getFieldValue(name));
   };
 
   /**
@@ -266,17 +278,19 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_approvalDate"
               className="mb-0"
             >
-                <div className="relative">
-                  <Icon
-                    name="Calendar"
-                    size={16}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                  />
-                  <input
-                    type="date"
-                    className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
-                  />
-                </div>
+              <div className="relative">
+                <Icon
+                  name="Calendar"
+                  size={16}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
+                <input
+                  type="date"
+                  value={getDateInputValue("postfile_approvalDate")}
+                  onChange={(e) => form.setFieldsValue({ postfile_approvalDate: e.target.value })}
+                  className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
+                />
+              </div>
             </Form.Item>
 
             <Form.Item
@@ -458,17 +472,19 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_firstEmiDate"
               className="mb-0"
             >
-                <div className="relative">
-                  <Icon
-                    name="Calendar"
-                    size={16}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                  />
-                  <input
-                    type="date"
-                    className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
-                  />
-                </div>
+              <div className="relative">
+                <Icon
+                  name="Calendar"
+                  size={16}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                />
+                <input
+                  type="date"
+                  value={getDateInputValue("postfile_firstEmiDate")}
+                  onChange={(e) => form.setFieldsValue({ postfile_firstEmiDate: e.target.value })}
+                  className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
+                />
+              </div>
             </Form.Item>
           </div>
 

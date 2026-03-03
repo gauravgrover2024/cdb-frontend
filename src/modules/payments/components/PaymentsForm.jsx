@@ -1,3 +1,4 @@
+// src/modules/payments/components/PaymentForm.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, message } from "antd";
 import { useParams } from "react-router-dom";
@@ -5,7 +6,6 @@ import { paymentsApi } from "../../../api/payments";
 import { loansApi } from "../../../api/loans";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 
-import PaymentGlobalHeader from "./PaymentGlobalHeader";
 import ShowroomPaymentHeader from "./showroom/ShowroomPaymentHeader";
 import ShowroomVehicleDetailsSection from "./showroom/ShowroomVehicleDetailsSection";
 import ShowroomPaymentsEntryTable from "./showroom/ShowroomPaymentsEntryTable";
@@ -25,7 +25,7 @@ const norm = (s) =>
 const getShowroomCommissionDate = (rows = []) => {
   if (!Array.isArray(rows)) return null;
   const commissionRows = rows.filter(
-    (r) => r?.paymentType === "Commission" && r?.paymentDate
+    (r) => r?.paymentType === "Commission" && r?.paymentDate,
   );
   if (!commissionRows.length) return null;
   const sorted = [...commissionRows].sort((a, b) => {
@@ -77,6 +77,24 @@ const PaymentForm = () => {
   const [showroomRows, setShowroomRows] = useState([]);
   const [isVerified, setIsVerified] = useState(false);
 
+  // Cross adjustment derived state
+  const crossAdjustmentRows = useMemo(
+    () =>
+      (showroomRows || []).filter((r) => r.paymentType === "Cross Adjustment"),
+    [showroomRows],
+  );
+
+  const crossAdjustmentNet = useMemo(
+    () =>
+      crossAdjustmentRows.reduce((sum, r) => {
+        const amt = asInt(r.paymentAmount);
+        if (!amt) return sum;
+        // incoming = this case receives (positive), outgoing = gives (negative)
+        return sum + (r.adjustmentDirection === "incoming" ? amt : -amt);
+      }, 0),
+    [crossAdjustmentRows],
+  );
+
   // Autocredits section states (NOW FROM SAME MONGO DOC)
   const [autocreditsRows, setAutocreditsRows] = useState([]);
   const [autocreditsTotals, setAutocreditsTotals] = useState({
@@ -104,7 +122,7 @@ const PaymentForm = () => {
   const debouncedAutocreditsTotals = useDebounce(autocreditsTotals, 800);
   const debouncedIsAutocreditsVerified = useDebounce(
     isAutocreditsVerified,
-    800
+    800,
   );
 
   // Avoid toast spam
@@ -120,7 +138,7 @@ const PaymentForm = () => {
         setLoan(loanRes?.data || null);
       } catch (err) {
         const savedLoans = JSON.parse(
-          localStorage.getItem("savedLoans") || "[]"
+          localStorage.getItem("savedLoans") || "[]",
         );
         const foundLoan = (savedLoans || []).find((l) => l?.loanId === loanId);
         setLoan(foundLoan || null);
@@ -197,7 +215,7 @@ const PaymentForm = () => {
 
         // ---- Commission replicate logic: showroom -> autocredits ----
         const showroomCommission = asInt(
-          debouncedEntryTotals?.paymentCommissionReceived || 0
+          debouncedEntryTotals?.paymentCommissionReceived || 0,
         );
 
         const commissionDate = getShowroomCommissionDate(debouncedShowroomRows);
@@ -209,7 +227,7 @@ const PaymentForm = () => {
         const hasCommissionRow = baseAutocreditsRows.some(
           (r) =>
             Array.isArray(r.receiptTypes) &&
-            r.receiptTypes.includes("Commission")
+            r.receiptTypes.includes("Commission"),
         );
 
         const autocreditsRowsToSave =
@@ -270,11 +288,9 @@ const PaymentForm = () => {
     hasLoadedPayments,
     doRec,
     existingPayment,
-
     debouncedShowroomRows,
     debouncedEntryTotals,
     debouncedIsVerified,
-
     debouncedAutocreditsRows,
     debouncedAutocreditsTotals,
     debouncedIsAutocreditsVerified,
@@ -299,12 +315,14 @@ const PaymentForm = () => {
     const dealerAddress = doRec?.do_dealerAddress || "";
 
     const netOnRoadVehicleCost = asInt(
-      doRec?.do_customer_netOnRoadVehicleCost || 0
+      doRec?.do_customer_netOnRoadVehicleCost || 0,
     );
 
     const onRoadVehicleCost = asInt(doRec?.do_onRoadVehicleCost || 0);
     const discountExclVehicleValue = asInt(
-      doRec?.do_selectedDiscountExclVehicleValue || 0
+      doRec?.do_selectedDiscountExclVehicleValue ||
+        doRec?.do_totalDiscount ||
+        0,
     );
 
     const make = doRec?.do_vehicleMake || loan?.vehicleMake || "—";
@@ -328,10 +346,10 @@ const PaymentForm = () => {
     const doMarginMoney = asInt(doRec?.do_marginMoneyPaid || 0);
 
     const customerNetOnRoadVehicleCost = asInt(
-      doRec?.do_customer_netOnRoadVehicleCost || 0
+      doRec?.do_customer_netOnRoadVehicleCost || 0,
     );
     const showroomNetOnRoadVehicleCost = asInt(
-      doRec?.do_netOnRoadVehicleCost || 0
+      doRec?.do_netOnRoadVehicleCost || 0,
     );
 
     const autocreditsMargin =
@@ -347,6 +365,26 @@ const PaymentForm = () => {
     const autocreditsInsuranceReceivable = isAutocreditsInsurance
       ? insuranceAmount
       : 0;
+
+    // Detailed DO breakup fields (for payment side summary)
+    const exShowroomPrice = asInt(doRec?.do_exShowroomPrice || 0);
+    const tcs = asInt(doRec?.do_tcs || 0);
+    const epc = asInt(doRec?.do_epc || 0);
+    const roadTax = asInt(doRec?.do_roadTax || 0);
+    const accessoriesAmount = asInt(doRec?.do_accessoriesAmount || 0);
+    const fastag = asInt(doRec?.do_fastag || 0);
+    const extendedWarranty = asInt(doRec?.do_extendedWarranty || 0);
+
+    const dealerDiscount = asInt(doRec?.do_dealerDiscount || 0);
+    const schemeDiscount = asInt(doRec?.do_schemeDiscount || 0);
+    const insuranceCashback = asInt(doRec?.do_insuranceCashback || 0);
+    const exchange = asInt(doRec?.do_exchange || 0);
+    const loyalty = asInt(doRec?.do_loyalty || 0);
+    const corporate = asInt(doRec?.do_corporate || 0);
+
+    // If you later store totals for others, wire them here; for now 0
+    const additionsOthersTotal = asInt(doRec?.do_additions_othersTotal || 0);
+    const discountsOthersTotal = asInt(doRec?.do_discounts_othersTotal || 0);
 
     return {
       customerName,
@@ -395,13 +433,36 @@ const PaymentForm = () => {
       autocreditsInsuranceReceivable,
 
       autocreditsMargin,
+
+      // Detailed DO breakup fields
+      do_onRoadVehicleCost: onRoadVehicleCost,
+      do_totalDiscount: discountExclVehicleValue,
+      do_netOnRoadVehicleCost: showroomNetOnRoadVehicleCost,
+
+      do_exShowroomPrice: exShowroomPrice,
+      do_tcs: tcs,
+      do_epc: epc,
+      do_insuranceCost: insuranceAmount,
+      do_roadTax: roadTax,
+      do_accessoriesAmount: accessoriesAmount,
+      do_fastag: fastag,
+      do_extendedWarranty: extendedWarranty,
+      do_marginMoneyPaid: doMarginMoney,
+
+      do_dealerDiscount: dealerDiscount,
+      do_schemeDiscount: schemeDiscount,
+      do_insuranceCashback: insuranceCashback,
+      do_exchange: exchange,
+      do_exchangeVehiclePrice: exchangeValue,
+      do_loyalty: loyalty,
+      do_corporate: corporate,
+      do_additions_othersTotal: additionsOthersTotal,
+      do_discounts_othersTotal: discountsOthersTotal,
     };
   }, [loan, doRec, loanId, entryTotals]);
 
   return (
     <div style={{ padding: 20 }}>
-      <PaymentGlobalHeader data={showroomData} />
-
       <Card style={{ borderRadius: 14 }}>
         {/* SHOWROOM */}
         <div style={{ marginBottom: 20 }}>
@@ -442,6 +503,8 @@ const PaymentForm = () => {
                 data={showroomData}
                 entryTotals={entryTotals}
                 isVerified={isVerified}
+                crossAdjustmentNet={crossAdjustmentNet}
+                crossAdjustmentRows={crossAdjustmentRows}
                 onVerify={() => {
                   setIsVerified(true);
                   message.success("Verified ✅ File is now Read-only");

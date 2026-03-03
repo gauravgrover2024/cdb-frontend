@@ -1,5 +1,7 @@
+// src/App.jsx
 import React from "react";
 import { Routes, Route, Outlet } from "react-router-dom";
+
 import Header from "./components/ui/Header";
 import CustomerDashboard from "./modules/customers/CustomerDashboard";
 import AddCustomer from "./modules/customers/AddCustomer";
@@ -24,6 +26,11 @@ import { ThemeProvider } from "./context/ThemeContext";
 import "./App.css";
 import QuotationManagerPage from "./modules/loans/pages/QuotationManagerPage";
 import FeaturesPage from "./modules/loans/pages/FeaturesPage";
+import FieldMappingPage from "./modules/loans/pages/FieldMappingPage";
+
+// NEW: booking pages
+import NewBookingPage from "./modules/payments/pages/NewBookingPage";
+import BookingDetailPage from "./modules/payments/pages/BookingDetailPage";
 
 // Wrapper to use custom Header and provide main content area
 function HeaderWrapper() {
@@ -48,20 +55,27 @@ function App() {
         {/* Main App Routes */}
         <Route path="/" element={<HeaderWrapper />}>
           <Route path="superadmin/users" element={<SuperAdminHub />} />
+
           {/* Default */}
           <Route index element={<AnalyticsDashboard />} />
           <Route path="analytics" element={<AnalyticsDashboard />} />
+
+          {/* Customers */}
           <Route path="customers" element={<CustomerDashboard />} />
           <Route path="customers/new" element={<AddCustomer />} />
           <Route path="customers/edit/:id" element={<EditCustomer />} />
+
+          {/* Loans */}
           <Route path="loans" element={<LoanDashboard />} />
           <Route path="loans/new" element={<LoanFormWithSteps />} />
           <Route path="loans/emi-calculator" element={<EMICalculatorPage />} />
           <Route path="loans/edit/:id" element={<LoanFormWithSteps />} />
           <Route path="loans/pendency" element={<PendencyTracker />} />
           <Route path="loans/quotations" element={<QuotationManagerPage />} />
-          <Route path="loans/features" element={<FeaturesPage />} />{" "}
-          {/* ← new */}
+          <Route path="loans/features" element={<FeaturesPage />} />
+          <Route path="loans/field-mapping" element={<FieldMappingPage />} />
+
+          {/* Payouts */}
           <Route
             path="payouts/receivables"
             element={<PayoutReceivablesDashboard />}
@@ -70,14 +84,29 @@ function App() {
             path="payouts/payables"
             element={<PayoutPayablesDashboard />}
           />
+
+          {/* Delivery Orders */}
           <Route path="delivery-orders" element={<DeliveryOrderDashboard />} />
           <Route path="delivery-orders/new" element={<DeliveryOrderForm />} />
           <Route
             path="delivery-orders/:loanId"
             element={<DeliveryOrderForm />}
           />
+
+          {/* Payments + Bookings */}
           <Route path="payments" element={<PaymentsDashboard />} />
           <Route path="payments/:loanId" element={<PaymentForm />} />
+          <Route path="payments/bookings/new" element={<NewBookingPage />} />
+          <Route
+            path="payments/bookings/:bookingId"
+            element={<BookingDetailPage />}
+          />
+          <Route
+            path="payments/bookings/edit/:bookingId"
+            element={<NewBookingPage />}
+          />
+
+          {/* Vehicles */}
           <Route path="vehicles" element={<VehicleMaster />} />
           <Route path="vehicles/price-list" element={<VehiclePriceList />} />
         </Route>

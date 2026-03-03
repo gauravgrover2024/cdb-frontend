@@ -94,7 +94,7 @@ const BankStatusCard = ({
 
   const [processingFee, setProcessingFee] = useState(bank.processingFee || "");
   const [cibilScore, setCibilScore] = useState(750);
-  const [dsaCode, setDsaCode] = useState("");
+  const [dsaCode, setDsaCode] = useState(bank?.dsaCode || form?.getFieldValue("dsaCode") || "");
   const [payoutPercent, setPayoutPercent] = useState(bank.payoutPercent || "");
 
   const breakupTotal =
@@ -181,6 +181,14 @@ const BankStatusCard = ({
     bank.breakupEwFinance,
     bank.loanAmount,
   ]);
+
+  useEffect(() => {
+    if (!form) return;
+    const existing = bank?.dsaCode || form.getFieldValue("dsaCode");
+    if (existing !== undefined && existing !== dsaCode) {
+      setDsaCode(existing || "");
+    }
+  }, [bank?.dsaCode, form, dsaCode]);
 
   return (
     <div className="bg-card rounded-lg border border-border p-4 md:p-6 transition-all relative max-w-sm mx-auto w-full min-h-[350px] flex flex-col">
@@ -627,7 +635,12 @@ const BankStatusCard = ({
             <input
               className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={dsaCode}
-              onChange={(e) => setDsaCode(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setDsaCode(value);
+                form?.setFieldsValue({ dsaCode: value });
+                onBankUpdate && onBankUpdate({ dsaCode: value });
+              }}
               placeholder="Enter DSA code"
             />
           </div>

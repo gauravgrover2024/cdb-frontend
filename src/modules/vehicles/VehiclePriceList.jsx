@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Input, Select, message, Tag } from "antd";
 import { vehiclesApi } from "../../api/vehicles";
+import { featuresApi } from "../../api/features";
 import Icon from "../../components/AppIcon";
 import Button from "../../components/ui/Button";
 
@@ -8,6 +9,25 @@ const { Search } = Input;
 const { Option } = Select;
 
 const FUEL_ORDER = ["All", "Petrol", "Diesel", "CNG", "Electric"];
+
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const getVehicleMake = (vehicle) => vehicle?.make || vehicle?.brand || "";
+const getVehicleModel = (vehicle) => vehicle?.model || "";
+const getVehicleVariant = (vehicle) => vehicle?.variant || "";
+const getVehicleImage = (vehicle) => vehicle?.image_url || vehicle?.imageUrl || "";
+const getVehicleColor = (vehicle) =>
+  vehicle?.color_name || vehicle?.colorName || vehicle?.colour_name || vehicle?.colourName || "";
+const getVehicleHex = (vehicle) => vehicle?.hex || vehicle?.color_hex || vehicle?.colour_hex || "";
+
+const buildMediaKey = (vehicle) =>
+  [
+    normalizeText(getVehicleMake(vehicle)),
+    normalizeText(getVehicleModel(vehicle)),
+    normalizeText(getVehicleVariant(vehicle)),
+    normalizeText(getVehicleColor(vehicle)),
+    getVehicleImage(vehicle),
+  ].join("|");
 
 const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const [vehicles, setVehicles] = useState([]);
@@ -24,12 +44,40 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [priceSort, setPriceSort] = useState("asc");
+  const [galleryVehicleId, setGalleryVehicleId] = useState(null);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
 
   const loadVehicles = async () => {
     try {
       setLoading(true);
       const res = await vehiclesApi.getAll();
-      setVehicles(Array.isArray(res?.data) ? res.data : []);
+      const list = Array.isArray(res?.data) ? res.data : [];
+
+      if (list.length > 0) {
+        setVehicles(list);
+        return;
+      }
+
+      // Fallback: use variants-with-price source when vehicle master data is empty.
+      const variantsRes = await featuresApi.getVariantsWithPrice();
+      const variants = Array.isArray(variantsRes?.data) ? variantsRes.data : [];
+      const mapped = variants.map((v) => ({
+        _id: v.vehicleId || v.id || v._id,
+        make: v.make || "N/A",
+        model: v.model || "N/A",
+        variant: v.variant || "N/A",
+        fuel: v.fuel || "N/A",
+        city: v.city || "N/A",
+        exShowroom: Number(v.exShowroom || 0),
+        rto: Number(v.rto || 0),
+        insurance: Number(v.insurance || 0),
+        otherCharges: Number(v.otherCharges || v.tcs || 0),
+        onRoadPrice: Number(v.onRoadPrice || 0),
+        status: "Active",
+        isDiscontinued: false,
+      }));
+
+      setVehicles(mapped);
     } catch (err) {
       console.error("Load Vehicles Error:", err);
       message.error("Failed to load vehicle price list ❌");
@@ -221,6 +269,94 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     const makes = new Set(filteredVehicles.map((v) => v.make)).size;
     return { total, active, discontinued, makes };
   }, [filteredVehicles]);
+
+  const activeGalleryVehicle = useMemo(() => {
+    const fromFiltered = filteredVehicles.find((v) => v._id === galleryVehicleId);
+    return fromFiltered || filteredVehicles[0] || null;
+  }, [filteredVehicles, galleryVehicleId]);
+
+  const galleryMedia = useMemo(() => {
+    if (!activeGalleryVehicle) return [];
+
+    const makeKey = normalizeText(getVehicleMake(activeGalleryVehicle));
+    const modelKey = normalizeText(getVehicleModel(activeGalleryVehicle));
+    const variantKey = normalizeText(getVehicleVariant(activeGalleryVehicle));
+
+    const variantScoped = vehicles.filter((vehicle) => {
+      const image = getVehicleImage(vehicle);
+      if (!image) return false;
+      return (
+        normalizeText(getVehicleMake(vehicle)) === makeKey &&
+        normalizeText(getVehicleModel(vehicle)) === modelKey &&
+        normalizeText(getVehicleVariant(vehicle)) === variantKey
+      );
+    });
+
+    const modelScoped = vehicles.filter((vehicle) => {
+      const image = getVehicleImage(vehicle);
+      if (!image) return false;
+      return (
+        normalizeText(getVehicleMake(vehicle)) === makeKey &&
+        normalizeText(getVehicleModel(vehicle)) === modelKey
+      );
+    });
+
+    const source = variantScoped.length ? variantScoped : modelScoped;
+    const unique = [];
+    const seen = new Set();
+
+    source.forEach((vehicle) => {
+      const key = buildMediaKey(vehicle);
+      if (seen.has(key)) return;
+      seen.add(key);
+      unique.push({
+        image: getVehicleImage(vehicle),
+        color: getVehicleColor(vehicle) || "Default",
+        hex: getVehicleHex(vehicle),
+        make: getVehicleMake(vehicle),
+        model: getVehicleModel(vehicle),
+        variant: getVehicleVariant(vehicle),
+      });
+    });
+
+    return unique;
+  }, [activeGalleryVehicle, vehicles]);
+
+  useEffect(() => {
+    setActiveMediaIndex(0);
+  }, [galleryVehicleId]);
+
+  useEffect(() => {
+    if (!activeGalleryVehicle && filteredVehicles.length) {
+      setGalleryVehicleId(filteredVehicles[0]._id);
+    }
+  }, [activeGalleryVehicle, filteredVehicles]);
+
+  useEffect(() => {
+    if (!galleryMedia.length) {
+      setActiveMediaIndex(0);
+      return;
+    }
+    if (activeMediaIndex > galleryMedia.length - 1) {
+      setActiveMediaIndex(0);
+    }
+  }, [galleryMedia, activeMediaIndex]);
+
+  const activeMedia = galleryMedia[activeMediaIndex] || null;
+
+  const goToPreviousMedia = () => {
+    if (!galleryMedia.length) return;
+    setActiveMediaIndex((current) =>
+      current === 0 ? galleryMedia.length - 1 : current - 1,
+    );
+  };
+
+  const goToNextMedia = () => {
+    if (!galleryMedia.length) return;
+    setActiveMediaIndex((current) =>
+      current === galleryMedia.length - 1 ? 0 : current + 1,
+    );
+  };
 
   const vehiclesByFuel = useMemo(() => {
     const map = {};
@@ -494,6 +630,107 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
           {/* Right: variants & pricing */}
           <div className="flex flex-col gap-3">
             <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow border border-gray-200 dark:border-[#262626] overflow-hidden">
+              <div className="px-6 py-5 md:px-8 border-b border-gray-100 dark:border-[#262626]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                      Color Gallery
+                    </div>
+                    <h2 className="mt-1 text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      {activeGalleryVehicle
+                        ? `${getVehicleMake(activeGalleryVehicle)} ${getVehicleModel(activeGalleryVehicle)}`
+                        : "Select a vehicle"}
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {activeGalleryVehicle
+                        ? `${getVehicleVariant(activeGalleryVehicle)} • ${galleryMedia.length} color view${galleryMedia.length === 1 ? "" : "s"}`
+                        : "Open a variant to preview available car photos and colors."}
+                    </p>
+                  </div>
+                  {activeMedia && (
+                    <div className="rounded-full border border-slate-200 dark:border-[#383838] px-3 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                      {activeMedia.color}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {!activeGalleryVehicle ? (
+                <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
+                  No vehicle selected for preview.
+                </div>
+              ) : !galleryMedia.length ? (
+                <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
+                  No car photos are available in the database for this make/model yet.
+                </div>
+              ) : (
+                <div className="p-4 md:p-6 space-y-4 bg-slate-50 dark:bg-[#171717]">
+                  <div className="relative overflow-hidden rounded-[24px] border border-slate-200 dark:border-[#2d2d2d] bg-white dark:bg-[#111]">
+                    <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between p-3">
+                      <button
+                        type="button"
+                        onClick={goToPreviousMedia}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/80 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+                      >
+                        <Icon name="ChevronLeft" size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={goToNextMedia}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/80 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+                      >
+                        <Icon name="ChevronRight" size={18} />
+                      </button>
+                    </div>
+
+                    <div className="aspect-[16/9] w-full overflow-hidden">
+                      <img
+                        src={activeMedia.image}
+                        alt={`${activeMedia.make} ${activeMedia.model} ${activeMedia.variant} ${activeMedia.color}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {galleryMedia.map((media, index) => {
+                      const isActive = index === activeMediaIndex;
+                      return (
+                        <button
+                          key={`${media.image}-${media.color}-${index}`}
+                          type="button"
+                          onClick={() => setActiveMediaIndex(index)}
+                          className={`min-w-[112px] rounded-2xl border p-2 text-left transition ${
+                            isActive
+                              ? "border-emerald-500 bg-white shadow-sm dark:border-emerald-400 dark:bg-[#1f1f1f]"
+                              : "border-slate-200 bg-white/70 hover:border-slate-300 dark:border-[#303030] dark:bg-[#1b1b1b]"
+                          }`}
+                        >
+                          <div className="mb-2 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 dark:bg-[#111]">
+                            <img
+                              src={media.image}
+                              alt={media.color}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-3.5 w-3.5 rounded-full border border-black/10"
+                              style={{ backgroundColor: media.hex || "#d1d5db" }}
+                            />
+                            <span className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">
+                              {media.color}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow border border-gray-200 dark:border-[#262626] overflow-hidden">
               <div className="px-6 py-4 md:px-8 md:py-4 border-b border-gray-100 dark:border-[#262626] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -576,7 +813,10 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
                     return (
                       <details key={v._id} className="group">
-                        <summary className="flex items-center justify-between gap-3 px-6 md:px-8 py-3 cursor-pointer bg-white dark:bg-[#1f1f1f] hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors">
+                        <summary
+                          className="flex items-center justify-between gap-3 px-6 md:px-8 py-3 cursor-pointer bg-white dark:bg-[#1f1f1f] hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                          onClick={() => setGalleryVehicleId(v._id)}
+                        >
                           <div className="flex flex-col min-w-0">
                             <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                               {v.model} ({v.variant})

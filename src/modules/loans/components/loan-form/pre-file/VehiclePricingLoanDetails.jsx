@@ -1,5 +1,5 @@
 // src/modules/loans/components/loan-form/prefile/Section4VehiclePricing.jsx
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   Form,
@@ -83,6 +83,8 @@ const INDIAN_CITIES = [
 
 const Section4VehiclePricing = () => {
   const form = Form.useFormInstance();
+  const [fetchingRegistrationPincode, setFetchingRegistrationPincode] =
+    useState(false);
 
   // Use centralized vehicle data hook
   const {
@@ -137,6 +139,12 @@ const Section4VehiclePricing = () => {
   const loanType = Form.useWatch("typeOfLoan", form);
   const hypothecation = Form.useWatch("hypothecation", form);
   const aadhaarSame = Form.useWatch("registerSameAsAadhaar", form);
+  const registerSameAsPermanent = Form.useWatch(
+    "registerSameAsPermanent",
+    form,
+  );
+  const applicantType = Form.useWatch("applicantType", form);
+  const registrationPincode = Form.useWatch("registrationPincode", form);
 
   const vehicleMake = Form.useWatch("vehicleMake", form);
   const vehicleModel = Form.useWatch("vehicleModel", form);
@@ -176,6 +184,59 @@ const Section4VehiclePricing = () => {
   const isUsedCar = loanType === "Used Car";
   const isCashIn = loanType === "Car Cash-in";
   const isRefinance = loanType === "Refinance";
+  const isCompany = applicantType === "Company";
+
+  useEffect(() => {
+    if (!registrationPincode || registrationPincode.length !== 6) return;
+
+    const fetchCity = async () => {
+      try {
+        setFetchingRegistrationPincode(true);
+        const res = await fetch(
+          `https://api.postalpincode.in/pincode/${registrationPincode}`,
+        );
+        const data = await res.json();
+        if (data?.[0]?.Status === "Success") {
+          form.setFieldsValue({
+            registrationCity: data[0].PostOffice[0].District,
+          });
+        }
+      } finally {
+        setFetchingRegistrationPincode(false);
+      }
+    };
+
+    const timer = setTimeout(fetchCity, 500);
+    return () => clearTimeout(timer);
+  }, [registrationPincode, form]);
+
+  useEffect(() => {
+    if (!isNewCar) return;
+
+    if (aadhaarSame === "Yes") {
+      form.setFieldsValue({
+        registerSameAsPermanent: undefined,
+        registrationAddress:
+          form.getFieldValue("residenceAddress") || "",
+        registrationPincode: form.getFieldValue("pincode") || "",
+        registrationCity:
+          form.getFieldValue("registrationCity") || form.getFieldValue("city") || "",
+      });
+      return;
+    }
+
+    if (aadhaarSame === "No" && registerSameAsPermanent === "Yes") {
+      form.setFieldsValue({
+        registrationAddress:
+          form.getFieldValue("permanentAddress") || "",
+        registrationPincode: form.getFieldValue("permanentPincode") || "",
+        registrationCity:
+          form.getFieldValue("registrationCity") ||
+          form.getFieldValue("permanentCity") ||
+          "",
+      });
+    }
+  }, [aadhaarSame, registerSameAsPermanent, isNewCar, form]);
 
   /* Summary card (only for New Car) */
   const SummaryCard = () =>
@@ -391,7 +452,8 @@ const Section4VehiclePricing = () => {
               </Col>
 
               {/* Registration City - Only for New Car */}
-              {isNewCar && (
+              {isNewCar &&
+                !(aadhaarSame === "No" && registerSameAsPermanent === "No") && (
                 <Col xs={24} md={8}>
                   <Form.Item
                     label="Registration City"
@@ -653,7 +715,11 @@ const Section4VehiclePricing = () => {
 
                   <Col xs={24}>
                     <Form.Item
-                      label="Is vehicle registered at Aadhaar address?"
+                      label={
+                        isCompany
+                          ? "Is vehicle registered at GST/office address?"
+                          : "Is vehicle registered at Aadhaar address?"
+                      }
                       name="registerSameAsAadhaar"
                     >
                       <Radio.Group>
@@ -664,15 +730,59 @@ const Section4VehiclePricing = () => {
                   </Col>
 
                   {aadhaarSame === "No" && (
-                    <Col xs={24}>
-                      <Form.Item
-                        label="Registration Address"
-                        name="registrationAddress"
-                        rules={[{ required: true }]}
-                      >
-                        <Input.TextArea rows={2} placeholder="Enter Registration Address" />
-                      </Form.Item>
-                    </Col>
+                    <>
+                      <Col xs={24}>
+                        <Form.Item
+                          label="Is vehicle registered at permanent address?"
+                          name="registerSameAsPermanent"
+                        >
+                          <Radio.Group>
+                            <Radio value="Yes">Yes</Radio>
+                            <Radio value="No">No</Radio>
+                          </Radio.Group>
+                        </Form.Item>
+                      </Col>
+
+                      {registerSameAsPermanent === "No" && (
+                        <>
+                          <Col xs={24}>
+                            <Form.Item
+                              label="Registration Address"
+                              name="registrationAddress"
+                              rules={[{ required: true, message: "Enter registration address" }]}
+                            >
+                              <Input.TextArea
+                                rows={2}
+                                placeholder="Enter Registration Address"
+                              />
+                            </Form.Item>
+                          </Col>
+
+                          <Col xs={24} md={8}>
+                            <Form.Item
+                              label="Registration Pincode"
+                              name="registrationPincode"
+                              rules={[{ required: true, message: "Enter registration pincode" }]}
+                            >
+                              <Input maxLength={6} placeholder="Enter Pincode" />
+                            </Form.Item>
+                          </Col>
+
+                          <Col xs={24} md={8}>
+                            <Form.Item
+                              label="Registration City"
+                              name="registrationCity"
+                              rules={[{ required: true, message: "Enter registration city" }]}
+                            >
+                              <Input
+                                placeholder="Auto-filled City"
+                                suffix={fetchingRegistrationPincode ? "..." : null}
+                              />
+                            </Form.Item>
+                          </Col>
+                        </>
+                      )}
+                    </>
                   )}
                 </>
               )}

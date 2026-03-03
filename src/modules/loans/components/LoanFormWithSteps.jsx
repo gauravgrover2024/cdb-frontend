@@ -90,6 +90,47 @@ const convertAnyDateToDayjsDeep = (value) => {
   return value;
 };
 
+const DATE_FIELD_NAMES = new Set([
+  "dob",
+  "nomineeDob",
+  "co_dob",
+  "gu_dob",
+  "signatory_dob",
+  "identityProofExpiry",
+  "receivingDate",
+  "receivingTime",
+  "approval_approvalDate",
+  "approval_disbursedDate",
+  "postfile_firstEmiDate",
+  "delivery_date",
+  "invoice_date",
+  "invoice_received_date",
+  "rc_redg_date",
+  "rc_received_date",
+  "dispatch_date",
+  "disbursement_date",
+]);
+
+const normalizeKnownDateFields = (value, key = "") => {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeKnownDateFields(item));
+  }
+
+  if (value && typeof value === "object" && !dayjs.isDayjs(value) && !(value instanceof Date)) {
+    const out = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      out[childKey] = normalizeKnownDateFields(childValue, childKey);
+    }
+    return out;
+  }
+
+  if (DATE_FIELD_NAMES.has(key)) {
+    return toDayjs(value);
+  }
+
+  return value;
+};
+
 // Clean empty and undefined values from object (used for cache etc.)
 const cleanEmptyValues = (obj, omitFields = []) => {
   if (!obj || typeof obj !== "object") return obj;
@@ -163,6 +204,14 @@ const convertDatesToStringsDeep = (obj) => {
   return obj;
 };
 
+const normalizeIdentityValue = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const normalizePhoneValue = (value) => String(value || "").replace(/\D/g, "");
+
 const LoanFormWithSteps = ({ mode, initialData }) => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
@@ -187,20 +236,20 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   // Watch finance flag early
   const watchedIsFinanced = Form.useWatch("isFinanced", form);
-  const [activeStep, setActiveStep] = useState(() => {
-    if (watchedIsFinanced === "No") return "delivery";
-    return "profile";
-  });
+  const [activeStep, setActiveStep] = useState("profile");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
 
   // If financing is set to No, always force delivery step
   React.useEffect(() => {
-    if (watchedIsFinanced === "No" && activeStep !== "delivery") {
-      setActiveStep("delivery");
+    if (
+      watchedIsFinanced === "No" &&
+      ["prefile", "approval", "postfile", "payout"].includes(activeStep)
+    ) {
+      setActiveStep("profile");
     }
-  }, [watchedIsFinanced]);
+  }, [watchedIsFinanced, activeStep]);
 
   // Notes Modal Component
   const NotesModal = ({ open, onClose }) => {
@@ -307,6 +356,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   // Default to null/undefined if not set. Only strictly "Yes" enables finance sections.
   const isFinancedValue = watchedIsFinanced; 
   const isCashCase = watchedIsFinanced === "No";
+  const visibleSteps = useMemo(() => {
+    if (isCashCase) return ["profile", "delivery"];
+    return ["profile", "prefile", "approval", "postfile", "delivery", "payout"];
+  }, [isCashCase]);
 
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -353,7 +406,56 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
         if (!mounted) return;
 
-        const fixed = convertAnyDateToDayjsDeep(loan || {});
+        const hydratedLoan = {
+          ...(loan || {}),
+          dispatch_date:
+            loan?.dispatch_date || loan?.dispatchDate || "",
+          disbursement_date:
+            loan?.disbursement_date || loan?.approval_disbursedDate || "",
+          instrumentType:
+            loan?.instrumentType ||
+            (loan?.si_accountNumber ? "SI" : "") ||
+            (loan?.ecs_accountNumber || loan?.ecs_bankName ? "ECS" : "") ||
+            (loan?.cheque_1_number || loan?.cheque_1_bankName || loan?.cheque_1_accountNumber ? "Cheque" : ""),
+          signatorySameAsCoApplicant:
+            typeof loan?.signatorySameAsCoApplicant === "boolean"
+              ? loan.signatorySameAsCoApplicant
+              : (loan?.applicantType === "Company" && Boolean(
+                  loan?.co_customerName || loan?.co_name || loan?.co_primaryMobile || loan?.co_mobile
+                )),
+          primaryMobile:
+            loan?.primaryMobile || loan?.mobileNo || loan?.customerMobile || "",
+          co_customerName:
+            loan?.co_customerName || loan?.co_name || loan?.coApplicant_name || "",
+          co_primaryMobile:
+            loan?.co_primaryMobile || loan?.co_mobile || loan?.coApplicant_mobile || "",
+          co_houseType:
+            loan?.co_houseType || loan?.houseType || "",
+          reference1:
+            loan?.reference1 && typeof loan.reference1 === "object"
+              ? loan.reference1
+              : {
+                  name: loan?.reference1_name || "",
+                  mobile: loan?.reference1_mobile || "",
+                  address: loan?.reference1_address || "",
+                  pincode: loan?.reference1_pincode || "",
+                  city: loan?.reference1_city || "",
+                  relation: loan?.reference1_relation || "",
+                },
+          reference2:
+            loan?.reference2 && typeof loan.reference2 === "object"
+              ? loan.reference2
+              : {
+                  name: loan?.reference2_name || "",
+                  mobile: loan?.reference2_mobile || "",
+                  address: loan?.reference2_address || "",
+                  pincode: loan?.reference2_pincode || "",
+                  city: loan?.reference2_city || "",
+                  relation: loan?.reference2_relation || "",
+                },
+        };
+
+        const fixed = normalizeKnownDateFields(convertAnyDateToDayjsDeep(hydratedLoan));
         form.setFieldsValue(fixed);
 
 
@@ -539,175 +641,312 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const syncCustomerData = useCallback(async (silent) => {
     try {
       const formValues = form.getFieldsValue(true);
-      const name = formValues.customerName;
-      const mobile = formValues.primaryMobile;
-      
-      const currentCustomerId = formValues.customerId;
-      // If a customer is already linked, return it even if fields are incomplete
-      if (currentCustomerId && (!name || !mobile || mobile.length < 10)) {
-        return currentCustomerId;
-      }
+      const findExistingCustomerId = async ({ name, mobile, panNumber, existingId }) => {
+        if (existingId) return existingId;
 
-      // Only sync if we have minimum valid ID data for new customer creation
-      if (!name || !mobile || mobile.length < 10) return null;
-      
-      // 1. Base Personal Details
-      const customerDataRaw = {
-          customerName: name,
-          primaryMobile: mobile,
-          email: formValues.email,
-          emailAddress: formValues.email, // Alias
-          whatsappNumber: formValues.whatsappNumber,
-          sdwOf: formValues.sdwOf,
-          fatherName: formValues.fatherName,
-          gender: formValues.gender,
-          dob: formValues.dob,
-          motherName: formValues.motherName,
-          
-          residenceAddress: formValues.residenceAddress,
-          pincode: formValues.pincode,
-          city: formValues.city,
-          state: formValues.state,
-          yearsInCurrentHouse: formValues.yearsInCurrentHouse,
-          yearsInCurrentCity: formValues.yearsInCurrentCity,
-          houseType: formValues.houseType,
-          
-          permanentAddress: formValues.permanentAddress,
-          permanentPincode: formValues.permanentPincode,
-          permanentCity: formValues.permanentCity,
-          currentAddress: formValues.currentAddress,
+        const normalizedName = normalizeIdentityValue(name);
+        const normalizedMobile = normalizePhoneValue(mobile);
+        const normalizedPan = normalizeIdentityValue(panNumber).toUpperCase();
 
-          education: formValues.education,
-          educationOther: formValues.educationOther,
-          maritalStatus: formValues.maritalStatus,
-          dependents: formValues.dependents,
-          extraMobiles: formValues.extraMobiles, // Array
-          
-          nomineeName: formValues.nomineeName,
-          nomineeDob: formValues.nomineeDob,
-          nomineeRelation: formValues.nomineeRelation,
-          
-          // 2. Employment / Professional - COMPLETE MAPPING
-          occupationType: formValues.occupationType,
-          employmentType: formValues.employmentType,
-          professionalType: formValues.professionalType,
-          companyName: formValues.companyName,
-          designation: formValues.designation,
-          companyType: formValues.companyType,
-          businessNature: formValues.businessNature,
-          currentExp: formValues.currentExp, // Years - CRITICAL
-          totalExp: formValues.totalExp, // Years - CRITICAL
-          incorporationYear: formValues.incorporationYear,
-          
-          // Map Loan Form "Employment" fields -> Customer "Company" fields (Both variants)
-          employmentAddress: formValues.employmentAddress,
-          employmentPincode: formValues.employmentPincode,
-          employmentCity: formValues.employmentCity,
-          employmentPhone: formValues.employmentPhone,
-          companyAddress: formValues.employmentAddress || formValues.companyAddress,
-          companyPincode: formValues.employmentPincode || formValues.companyPincode,
-          companyCity: formValues.employmentCity || formValues.companyCity,
-          companyPhone: formValues.employmentPhone || formValues.companyPhone,
-          officialEmail: formValues.officialEmail,
-          officeAddress: formValues.officeAddress,
-          
-          // 3. Income - COMPLETE ALL VARIANTS
-          monthlyIncome: formValues.monthlyIncome, 
-          salaryMonthly: formValues.salaryMonthly,
-          monthlySalary: formValues.monthlySalary,
-          annualIncome: formValues.annualIncome,
-          totalIncomeITR: formValues.totalIncomeITR,
-          annualTurnover: formValues.annualTurnover,
-          netProfit: formValues.netProfit,
-          otherIncome: formValues.otherIncome,
-          otherIncomeSource: formValues.otherIncomeSource,
-          
-          // Loan Finance Details
-          typeOfLoan: formValues.typeOfLoan,
-          financeExpectation: formValues.financeExpectation,
-          loanTenureMonths: formValues.loanTenureMonths,
+        const queries = [];
+        if (normalizedMobile.length >= 10) queries.push(normalizedMobile);
+        if (normalizedPan) queries.push(normalizedPan);
+        if (normalizedName.length >= 2) queries.push(name);
 
-          // 4. KYC Documents (Map both spelling variants)
-          aadhaarNumber: formValues.aadhaarNumber, 
-          aadharNumber: formValues.aadhaarNumber || formValues.aadharNumber, // Legacy alias
-          panNumber: formValues.panNumber,
-          passportNumber: formValues.passportNumber,
-          dlNumber: formValues.dlNumber,
-          gstNumber: formValues.gstNumber,
-          voterId: formValues.voterId,
-          
-          aadhaarCardDocUrl: formValues.aadhaarCardDocUrl,
-          panCardDocUrl: formValues.panCardDocUrl,
-          passportDocUrl: formValues.passportDocUrl,
-          dlDocUrl: formValues.dlDocUrl,
-          gstDocUrl: formValues.gstDocUrl,
-          addressProofDocUrl: formValues.addressProofDocUrl,
-          
-          // 5. Banking (Primary Account)
-          bankName: formValues.bankName,
-          accountNumber: formValues.accountNumber,
-          ifscCode: formValues.ifscCode,
-          ifsc: formValues.ifscCode || formValues.ifsc, // Alias
-          branch: formValues.branch,
-          accountType: formValues.accountType,
-          accountSinceYears: formValues.accountSinceYears,
-          openedIn: formValues.openedIn,
-          
-          // 6. References - COMPLETE (Pull from nested or flat fields)
-          reference1_name: formValues.reference1_name || formValues.reference1?.name,
-          reference1_mobile: formValues.reference1_mobile || formValues.reference1?.mobile,
-          reference1_address: formValues.reference1_address || formValues.reference1?.address,
-          reference1_pincode: formValues.reference1_pincode || formValues.reference1?.pincode,
-          reference1_city: formValues.reference1_city || formValues.reference1?.city,
-          reference1_relation: formValues.reference1_relation || formValues.reference1?.relation,
-          reference2_name: formValues.reference2_name || formValues.reference2?.name,
-          reference2_mobile: formValues.reference2_mobile || formValues.reference2?.mobile,
-          reference2_address: formValues.reference2_address || formValues.reference2?.address,
-          reference2_pincode: formValues.reference2_pincode || formValues.reference2?.pincode,
-          reference2_city: formValues.reference2_city || formValues.reference2?.city,
-          reference2_relation: formValues.reference2_relation || formValues.reference2?.relation,
+        for (const query of queries) {
+          try {
+            const res = await customersApi.search(query);
+            const matches = Array.isArray(res?.data) ? res.data : [];
+            const matched = matches.find((customer) => {
+              const customerMobile = normalizePhoneValue(customer.primaryMobile);
+              const customerPan = normalizeIdentityValue(customer.panNumber).toUpperCase();
+              const customerName = normalizeIdentityValue(customer.customerName);
 
-          // 7. Generic Proofs (from Personal Details PreFile)
-          identityProofType: formValues.identityProofType,
-          identityProofNumber: formValues.identityProofNumber,
-          addressProofType: formValues.addressProofType,
-          addressProofNumber: formValues.addressProofNumber,
-          identityProofExpiry: formValues.identityProofExpiry,
-          addressType: formValues.addressType,
-          
-          // 8. Customer Type & Notes
-          customerType: formValues.customerType,
-          loan_notes: formValues.loan_notes,
-          kycStatus: formValues.kycStatus,
-      };
-      
-      // Clean dates & empty values before sending
-      const cleanData = convertDatesToStringsDeep(cleanEmptyValues(customerDataRaw));
+              if (normalizedMobile && customerMobile && customerMobile === normalizedMobile) {
+                return true;
+              }
+              if (normalizedPan && customerPan && customerPan === normalizedPan) {
+                return true;
+              }
+              return normalizedName && customerName === normalizedName;
+            });
 
-      // Convert array fields to strings for backend compatibility
-      if (Array.isArray(cleanData.companyType)) {
-        cleanData.companyType = cleanData.companyType[0] || "";
-      }
-      if (Array.isArray(cleanData.businessNature)) {
-        // Keep as array for backend - it accepts arrays
-        // cleanData.businessNature stays as array
-      }
-
-      if (currentCustomerId) {
-          // Update existing Customer
-          // We use PUT/PATCH semantics via our API wrapper
-          // Note: ensure your backend 'update' does merges, not full replacements
-          await customersApi.update(currentCustomerId, cleanData);
-          return currentCustomerId;
-      } else {
-          // Create new Customer
-          const res = await customersApi.create(cleanData);
-          const newId = res?.data?._id || res?.data?.id || res?._id || res?.id;
-          if (newId) {
-               form.setFieldsValue({ customerId: newId });
-               return newId;
+            if (matched?._id || matched?.id) {
+              return matched._id || matched.id;
+            }
+          } catch (searchError) {
+            console.error("Customer search failed during sync:", searchError);
           }
-      }
+        }
+
+        return null;
+      };
+
+      const upsertCustomerRecord = async ({
+        payload,
+        name,
+        mobile,
+        panNumber,
+        idFieldName,
+        createOnlyWithMobile = true,
+      }) => {
+        const currentId = form.getFieldValue(idFieldName);
+        const normalizedMobile = normalizePhoneValue(mobile);
+
+        if (!name) return currentId || null;
+        if (createOnlyWithMobile && normalizedMobile.length < 10 && !currentId) return null;
+
+        const cleanData = convertDatesToStringsDeep(cleanEmptyValues(payload));
+
+        if (Array.isArray(cleanData.companyType)) {
+          cleanData.companyType = cleanData.companyType[0] || "";
+        }
+
+        let matchedId = await findExistingCustomerId({
+          name,
+          mobile,
+          panNumber,
+          existingId: currentId,
+        });
+
+        if (matchedId) {
+          await customersApi.update(matchedId, cleanData);
+          if (matchedId !== currentId) {
+            form.setFieldsValue({ [idFieldName]: matchedId });
+          }
+          return matchedId;
+        }
+
+        const res = await customersApi.create(cleanData);
+        const newId = res?.data?._id || res?.data?.id || res?._id || res?.id;
+        if (newId) {
+          form.setFieldsValue({ [idFieldName]: newId });
+          return newId;
+        }
+
+        return null;
+      };
+
+      const primaryPayload = {
+        applicantType: formValues.applicantType || "Individual",
+        customerName: formValues.customerName,
+        primaryMobile: formValues.primaryMobile,
+        email: formValues.email,
+        emailAddress: formValues.email,
+        whatsappNumber: formValues.whatsappNumber,
+        sdwOf: formValues.sdwOf,
+        fatherName: formValues.fatherName,
+        gender: formValues.gender,
+        dob: formValues.dob,
+        motherName: formValues.motherName,
+        contactPersonName: formValues.contactPersonName,
+        contactPersonMobile: formValues.contactPersonMobile,
+        sameAsCurrentAddress: formValues.sameAsCurrentAddress,
+
+        residenceAddress: formValues.residenceAddress,
+        pincode: formValues.pincode,
+        city: formValues.city,
+        state: formValues.state,
+        yearsInCurrentHouse: formValues.yearsInCurrentHouse,
+        yearsInCurrentCity: formValues.yearsInCurrentCity,
+        houseType: formValues.houseType,
+        permanentAddress: formValues.permanentAddress,
+        permanentPincode: formValues.permanentPincode,
+        permanentCity: formValues.permanentCity,
+        currentAddress: formValues.currentAddress,
+
+        education: formValues.education,
+        educationOther: formValues.educationOther,
+        maritalStatus: formValues.maritalStatus,
+        dependents: formValues.dependents,
+        extraMobiles: formValues.extraMobiles,
+
+        nomineeName: formValues.nomineeName,
+        nomineeDob: formValues.nomineeDob,
+        nomineeRelation: formValues.nomineeRelation,
+
+        occupationType: formValues.occupationType,
+        employmentType: formValues.employmentType,
+        professionalType: formValues.professionalType,
+        companyName: formValues.companyName,
+        designation: formValues.designation,
+        companyPartners: formValues.companyPartners,
+        companyType: formValues.companyType,
+        businessNature: formValues.businessNature,
+        currentExp: formValues.currentExp || formValues.experienceCurrent,
+        totalExp: formValues.totalExp || formValues.totalExperience,
+        experienceCurrent: formValues.experienceCurrent || formValues.currentExp,
+        totalExperience: formValues.totalExperience || formValues.totalExp,
+        incorporationYear: formValues.incorporationYear,
+        isMSME: formValues.isMSME,
+
+        employmentAddress: formValues.employmentAddress,
+        employmentPincode: formValues.employmentPincode,
+        employmentCity: formValues.employmentCity,
+        employmentPhone: formValues.employmentPhone,
+        companyAddress: formValues.employmentAddress || formValues.companyAddress,
+        companyPincode: formValues.employmentPincode || formValues.companyPincode,
+        companyCity: formValues.employmentCity || formValues.companyCity,
+        companyPhone: formValues.employmentPhone || formValues.companyPhone,
+        officialEmail: formValues.officialEmail,
+        officeAddress: formValues.officeAddress,
+
+        monthlyIncome: formValues.monthlyIncome,
+        salaryMonthly: formValues.salaryMonthly,
+        monthlySalary: formValues.monthlySalary,
+        annualIncome: formValues.annualIncome,
+        totalIncomeITR: formValues.totalIncomeITR,
+        annualTurnover: formValues.annualTurnover,
+        netProfit: formValues.netProfit,
+        otherIncome: formValues.otherIncome,
+        otherIncomeSource: formValues.otherIncomeSource,
+
+        typeOfLoan: formValues.typeOfLoan,
+        financeExpectation: formValues.financeExpectation,
+        loanTenureMonths: formValues.loanTenureMonths,
+
+        aadhaarNumber: formValues.aadhaarNumber,
+        aadharNumber: formValues.aadhaarNumber || formValues.aadharNumber,
+        panNumber: formValues.panNumber,
+        passportNumber: formValues.passportNumber,
+        dlNumber: formValues.dlNumber,
+        gstNumber: formValues.gstNumber,
+        voterId: formValues.voterId,
+
+        aadhaarCardDocUrl: formValues.aadhaarCardDocUrl,
+        panCardDocUrl: formValues.panCardDocUrl,
+        passportDocUrl: formValues.passportDocUrl,
+        dlDocUrl: formValues.dlDocUrl,
+        gstDocUrl: formValues.gstDocUrl,
+        addressProofDocUrl: formValues.addressProofDocUrl,
+
+        bankName: formValues.bankName,
+        accountNumber: formValues.accountNumber,
+        ifscCode: formValues.ifscCode,
+        ifsc: formValues.ifscCode || formValues.ifsc,
+        branch: formValues.branch,
+        accountType: formValues.accountType,
+        accountSinceYears: formValues.accountSinceYears,
+        openedIn: formValues.openedIn,
+
+        reference1_name: formValues.reference1_name || formValues.reference1?.name,
+        reference1_mobile: formValues.reference1_mobile || formValues.reference1?.mobile,
+        reference1_address: formValues.reference1_address || formValues.reference1?.address,
+        reference1_pincode: formValues.reference1_pincode || formValues.reference1?.pincode,
+        reference1_city: formValues.reference1_city || formValues.reference1?.city,
+        reference1_relation: formValues.reference1_relation || formValues.reference1?.relation,
+        reference2_name: formValues.reference2_name || formValues.reference2?.name,
+        reference2_mobile: formValues.reference2_mobile || formValues.reference2?.mobile,
+        reference2_address: formValues.reference2_address || formValues.reference2?.address,
+        reference2_pincode: formValues.reference2_pincode || formValues.reference2?.pincode,
+        reference2_city: formValues.reference2_city || formValues.reference2?.city,
+        reference2_relation: formValues.reference2_relation || formValues.reference2?.relation,
+
+        identityProofType: formValues.identityProofType,
+        identityProofNumber: formValues.identityProofNumber,
+        addressProofType: formValues.addressProofType,
+        addressProofNumber: formValues.addressProofNumber,
+        identityProofExpiry: formValues.identityProofExpiry,
+        addressType: formValues.addressType,
+
+        customerType: formValues.customerType,
+        loan_notes: formValues.loan_notes,
+        kycStatus: formValues.kycStatus,
+      };
+
+      const primaryCustomerId = await upsertCustomerRecord({
+        payload: primaryPayload,
+        name: formValues.customerName,
+        mobile: formValues.primaryMobile,
+        panNumber: formValues.panNumber,
+        idFieldName: "customerId",
+      });
+
+      const coApplicantPayload = {
+        applicantType: "Individual",
+        customerName: formValues.co_customerName,
+        primaryMobile: formValues.co_primaryMobile,
+        motherName: formValues.co_motherName,
+        sdwOf: formValues.co_fatherName,
+        gender: formValues.co_gender,
+        dob: formValues.co_dob,
+        maritalStatus: formValues.co_maritalStatus,
+        dependents: formValues.co_dependents,
+        education: formValues.co_education,
+        houseType: formValues.co_houseType,
+        residenceAddress: formValues.co_address,
+        pincode: formValues.co_pincode,
+        city: formValues.co_city,
+        panNumber: formValues.co_pan,
+        aadhaarNumber: formValues.co_aadhaar,
+        occupationType: formValues.co_occupation,
+        professionalType: formValues.co_professionalType,
+        companyType: formValues.co_companyType,
+        businessNature: formValues.co_businessNature,
+        designation: formValues.co_designation,
+        currentExp: formValues.co_currentExperience,
+        experienceCurrent: formValues.co_currentExperience,
+        totalExp: formValues.co_totalExperience,
+        totalExperience: formValues.co_totalExperience,
+        companyName: formValues.co_companyName,
+        employmentAddress: formValues.co_companyAddress,
+        employmentPincode: formValues.co_companyPincode,
+        employmentCity: formValues.co_companyCity,
+        employmentPhone: formValues.co_companyPhone,
+        isMSME: formValues.co_isMSME,
+      };
+
+      await upsertCustomerRecord({
+        payload: coApplicantPayload,
+        name: formValues.co_customerName,
+        mobile: formValues.co_primaryMobile,
+        panNumber: formValues.co_pan,
+        idFieldName: "co_id",
+      });
+
+      const guarantorPayload = {
+        applicantType: "Individual",
+        customerName: formValues.gu_customerName,
+        primaryMobile: formValues.gu_primaryMobile,
+        motherName: formValues.gu_motherName,
+        sdwOf: formValues.gu_fatherName,
+        gender: formValues.gu_gender,
+        dob: formValues.gu_dob,
+        maritalStatus: formValues.gu_maritalStatus,
+        dependents: formValues.gu_dependents,
+        education: formValues.gu_education,
+        houseType: formValues.gu_houseType,
+        residenceAddress: formValues.gu_address,
+        pincode: formValues.gu_pincode,
+        city: formValues.gu_city,
+        panNumber: formValues.gu_pan,
+        aadhaarNumber: formValues.gu_aadhaar,
+        occupationType: formValues.gu_occupation,
+        professionalType: formValues.gu_professionalType,
+        companyType: formValues.gu_companyType,
+        businessNature: formValues.gu_businessNature,
+        designation: formValues.gu_designation,
+        currentExp: formValues.gu_currentExperience,
+        experienceCurrent: formValues.gu_currentExperience,
+        totalExp: formValues.gu_totalExperience,
+        totalExperience: formValues.gu_totalExperience,
+        companyName: formValues.gu_companyName,
+        employmentAddress: formValues.gu_companyAddress,
+        employmentPincode: formValues.gu_companyPincode,
+        employmentCity: formValues.gu_companyCity,
+        employmentPhone: formValues.gu_companyPhone,
+        isMSME: formValues.gu_isMSME,
+      };
+
+      await upsertCustomerRecord({
+        payload: guarantorPayload,
+        name: formValues.gu_customerName,
+        mobile: formValues.gu_primaryMobile,
+        panNumber: formValues.gu_pan,
+        idFieldName: "gu_id",
+      });
+
+      return primaryCustomerId;
     } catch (e) {
       console.error("Failed to sync customer profile:", e);
       // Non-blocking error
@@ -984,10 +1223,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   // Render step
   // ----------------------------
   const renderStep = () => {
-    // If not financed, only show delivery step
-    if (watchedIsFinanced === "No") {
-      return <VehicleDeliveryStep form={form} />;
-    }
     switch (activeStep) {
       case "profile":
         return (
@@ -995,14 +1230,18 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             <div id="lead"><LeadDetails /></div>
             <div id="vehicle"><VehicleDetailsForm /></div>
             <div id="finance"><FinanceDetailsForm /></div>
-            <div id="personal"><PersonalDetailsWithSearch
-              excludeFields={isFinancedValue !== "Yes"}
-            /></div>
-            <div id="employment"><EmploymentDetails /></div>
-            <div id="income"><IncomeDetails /></div>
-            <div id="bank"><BankDetails /></div>
-            <div id="references"><ReferenceDetails /></div>
-            <div id="kyc"><KycDetails /></div>
+            {!isCashCase && (
+              <>
+                <div id="personal"><PersonalDetailsWithSearch
+                  excludeFields={isFinancedValue !== "Yes"}
+                /></div>
+                <div id="employment"><EmploymentDetails /></div>
+                <div id="income"><IncomeDetails /></div>
+                <div id="bank"><BankDetails /></div>
+                <div id="references"><ReferenceDetails /></div>
+                <div id="kyc"><KycDetails /></div>
+              </>
+            )}
           </>
         );
 
@@ -1055,6 +1294,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     <>
       <Form.Item name="loanId" hidden />
       <Form.Item name="customerId" hidden />
+      <Form.Item name="dsaCode" hidden />
+      <Form.Item name="co_id" hidden />
+      <Form.Item name="gu_id" hidden />
       <Form.Item name="customerName" hidden />
       <Form.Item name="primaryMobile" hidden />
       <Form.Item name="createdAt" hidden />
@@ -1158,14 +1400,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     }
     
     // Payout stage - check if payout is done
-    if (payoutStatus === 'Completed') {
+    if (!isCashCase && payoutStatus === 'Completed') {
       completed.push('payout');
     }
     
     return completed;
-  }, [customerName, mobileNo, vehicleMake, vehicleModel, loanAmount, bankName, tenure, approvalStatus, postFileStatus, deliveryStatus, payoutStatus]);
+  }, [customerName, mobileNo, vehicleMake, vehicleModel, loanAmount, bankName, tenure, approvalStatus, postFileStatus, deliveryStatus, payoutStatus, isCashCase]);
 
   const handleStageClick = (stageKey) => {
+    if (!visibleSteps.includes(stageKey)) return;
     setActiveStep(stageKey);
     // Optional: add smooth scroll to top when switching stages
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1284,7 +1527,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       {/* Quick Actions Floating Toolbar - All Steps */}
       <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-2 p-3 bg-card border border-border rounded-2xl shadow-elevation-4 backdrop-blur-sm">
-        {["profile", "prefile", "approval", "postfile", "delivery", "payout"].map((step, index) => {
+        {visibleSteps.map((step, index) => {
         // Accurate display names for steps
         const stepDisplayNames = {
           profile: "Profile",
@@ -1337,7 +1580,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           ],
         };
 
-        const sections = stepSections[step] || [];
+        const sections = (() => {
+          if (step === "profile" && isCashCase) {
+            return [
+              { id: "lead", label: "Lead Details" },
+              { id: "vehicle", label: "Vehicle Details" },
+              { id: "finance", label: "Finance Details" },
+            ];
+          }
+          return stepSections[step] || [];
+        })();
         return (
           <React.Fragment key={step}>
             {index > 0 && <div className="w-px h-6 bg-border/30" />}

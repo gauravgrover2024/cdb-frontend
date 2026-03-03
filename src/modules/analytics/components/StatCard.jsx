@@ -1,37 +1,64 @@
 import React from "react";
 import Icon from "../../../components/AppIcon";
 
-const StatCard = ({ title, value, color, iconName }) => {
-  const colorMap = {
-    blue: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800",
-    emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800",
-    amber: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800",
-    purple: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800",
-    rose: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800",
-  };
+const palette = {
+  blue: {
+    icon: "text-sky-700",
+    ring: "ring-sky-200",
+    chip: "bg-sky-50 text-sky-700",
+    glow: "from-sky-500/20 to-cyan-400/10",
+  },
+  emerald: {
+    icon: "text-emerald-700",
+    ring: "ring-emerald-200",
+    chip: "bg-emerald-50 text-emerald-700",
+    glow: "from-emerald-500/20 to-lime-400/10",
+  },
+  amber: {
+    icon: "text-amber-700",
+    ring: "ring-amber-200",
+    chip: "bg-amber-50 text-amber-700",
+    glow: "from-amber-500/20 to-orange-400/10",
+  },
+  rose: {
+    icon: "text-rose-700",
+    ring: "ring-rose-200",
+    chip: "bg-rose-50 text-rose-700",
+    glow: "from-rose-500/20 to-red-400/10",
+  },
+};
 
-  const iconColorMap = {
-    blue: "text-blue-600 dark:text-blue-400",
-    emerald: "text-emerald-600 dark:text-emerald-400",
-    amber: "text-amber-600 dark:text-amber-400",
-    purple: "text-purple-600 dark:text-purple-400",
-    rose: "text-rose-600 dark:text-rose-400",
-  };
+const StatCard = ({ title, value, iconName, color = "blue", subtitle }) => {
+  const token = palette[color] || palette.blue;
 
   return (
-    <div 
-      className={`bg-white dark:bg-card border border-border shadow-sm rounded-xl p-5 flex items-center justify-between group h-full`}
-    >
-      <div>
-        <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-        <p className={`text-2xl font-bold font-mono tracking-tight ${iconColorMap[color]}`}>
-          {value}
-        </p>
+    <article className="relative overflow-hidden rounded-2xl border border-border/70 bg-white p-5 shadow-sm transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-md">
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${token.glow}`} />
+      <div className="relative flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+            {title}
+          </p>
+          <p className="mt-2 text-2xl font-black tracking-tight text-zinc-900">{value}</p>
+          {subtitle ? (
+            <p className="mt-1 text-xs font-medium text-muted-foreground">{subtitle}</p>
+          ) : null}
+        </div>
+
+        <div
+          className={`inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white/90 ring-1 ${token.ring}`}
+          aria-hidden="true"
+        >
+          <Icon name={iconName} size={21} className={token.icon} />
+        </div>
       </div>
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${colorMap[color]}`}>
-        <Icon name={iconName} size={24} className={iconColorMap[color]} />
+
+      <div className="relative mt-4">
+        <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${token.chip}`}>
+          Live snapshot
+        </span>
       </div>
-    </div>
+    </article>
   );
 };
 

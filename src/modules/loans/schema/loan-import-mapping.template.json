@@ -1,0 +1,1621 @@
+{
+  "version": 1,
+  "schemaId": "https://cdb-frontend.local/schema/loan-module.import.schema.json",
+  "mappings": [
+    {
+      "targetField": "NEW",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "aadhaarCardDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "aadhaarNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "accessoriesAmount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "accountNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "accountSinceYears",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "accountType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "addressProofDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "addressProofNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "addressProofType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "addressType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "advanceEmi",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "applicantType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_approvalDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_bankId",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_bankName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_banksData",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_breakup_creditAssured",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_breakup_ewFinance",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_breakup_insuranceFinance",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_breakup_netLoanApproved",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_disbursedDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_loanAmountApproved",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_loanAmountDisbursed",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_processingFees",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_roi",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_status",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_statusHistory",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "approval_tenureMonths",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "bankName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "billDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "billNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "boughtInYear",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "branch",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "bulk_next_action",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "bulk_priority",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "bulk_remarks",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "businessNature",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "caseType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "city",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "coApplicant_name",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_aadhaar",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_aadhaarCardDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_address",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_addressProofDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_businessNature",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_city",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_companyAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_companyCity",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_companyName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_companyPhone",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_companyPincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_companyType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_currentExperience",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_customerName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_dependents",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_designation",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_dlDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_dob",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_education",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_fatherName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_gender",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_houseType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_id",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_maritalStatus",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_motherName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_name",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_occupation",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_pan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_panCardDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_passportDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_pincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_primaryMobile",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_professionalType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "co_totalExperience",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "collection_last_followup",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "collection_next_action",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "collection_remarks",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "companyName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "companyType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "completedDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "createdAt",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "currentStage",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "customerAadhar",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "customerAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "customerEmail",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "customerId",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "customerName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "customerPan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "customerType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dealerAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dealerContactNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dealerContactPerson",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dealerDiscount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dealerMobile",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dealerName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dealtBy",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "deliveryStatus",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_by",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_dealerAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_dealerContactNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_dealerContactPerson",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_dealerName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_invoiceFile",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "delivery_rcFile",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dependents",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "designation",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disburseAmount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disburse_bankName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disburse_remarks",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disburse_status",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disbursedDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disbursementDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disbursementStatus",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disbursement_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disbursement_status",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "disbursement_time",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dispatch_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dispatch_through",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dispatch_time",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dlDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "dob",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "docsPreparedBy",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "downPayment",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_accountNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_amount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_bankName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_favouring",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_image",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_micrCode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_signedBy",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ecs_tag",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "education",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "email",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "employmentAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "employmentCity",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "employmentPhone",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "employmentPincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "exShowroomPrice",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "experienceCurrent",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "financeExpectation",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gender",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gstDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_aadhaar",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_aadhaarCardDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_address",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_addressProofDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_businessNature",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_city",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_companyAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_companyCity",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_companyName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_companyPhone",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_companyPincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_companyType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_currentExperience",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_customerName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_dependents",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_designation",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_dlDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_dob",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_education",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_fatherName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_gender",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_houseType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_id",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_maritalStatus",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_motherName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_name",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_occupation",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_pan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_panCardDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_passportDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_pincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_primaryMobile",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_professionalType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "gu_totalExperience",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "guarantor_name",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "hasCoApplicant",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "hasGuarantor",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "houseType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "hypothecation",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "hypothecationBank",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "hypothecationDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "identityProofExpiry",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "identityProofNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "identityProofType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ifsc",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "ifscCode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "instrumentType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "insuranceCost",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "insurancePolicyUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "insurance_by",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "insurance_company_name",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "insurance_policy_number",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "invoice_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "invoice_number",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "invoice_received_as",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "invoice_received_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "invoice_received_from",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "isFinanced",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "isMSME",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "isMultipleCars",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "isSameVehicle",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "leadDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "leadTime",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "loanAmount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "loanId",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "loanTenureMonths",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "loanType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "loan_notes",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "loan_payables",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "loan_receivables",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "manufacturerDiscount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "marginMoney",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "maritalStatus",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "mobileNo",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "motherName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "numberOfCars",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "occupationType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "officialEmail",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "onRoadPrice",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "openedIn",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "otherDiscounts",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "panCardDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "panNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "passportDocUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "payment_amount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "payment_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "payment_remarks",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "payoutApplicable",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "payoutPercentage",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "payoutStatus",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "permanentAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "permanentCity",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "permanentPincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "photoUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "pincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postFileStatus",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_approvalDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_bankName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_disbursedCreditAssured",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_disbursedEw",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_disbursedInsurance",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_disbursedLoan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_disbursedLoanTotal",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_documents",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_emiAmount",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_emiMode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_emiPlan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_firstEmiDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_loanAmountApproved",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_loanAmountDisbursed",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_processingFees",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_regd_city",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_roi",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_roiType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_sameAsApproved",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_tags",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "postfile_tenureMonths",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "prefile_sourcePayoutPercentage",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "primaryMobile",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "professionalType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "purposeOfLoan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "rc_chassis_no",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "rc_engine_no",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "rc_received_as",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "rc_received_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "rc_received_from",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "rc_redg_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "rc_redg_no",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "received_date",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "receivingDate",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "receivingTime",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "recordSource",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "referenceName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "referenceNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "registerSameAsAadhaar",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "registrationAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "registrationCity",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "remarks",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "residenceAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "roadTax",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "sameAsCurrentAddress",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "sdwOf",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "si_accountNumber",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "si_image",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "si_signedBy",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_aadhaar",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_address",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_city",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_customerName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_dob",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_gender",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_id",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_pan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_pincode",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatory_primaryMobile",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "signatureUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "source",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "sourceDetails",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "sourceName",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "status",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "tenure",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "totalExperience",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "totalIncomeITR",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "total_amount_received",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "tradeInValue",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "typeOfLoan",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "updatedAt",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "usage",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehicleChassisNo",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehicleEngineNo",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehicleMake",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehicleModel",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehiclePhotoUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehicleRCUrl",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehicleRegNo",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "vehicleVariant",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "yearsInCurrentCity",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
+      "targetField": "yearsInCurrentHouse",
+      "sourcePath": "",
+      "transform": "identity"
+    }
+  ]
+}

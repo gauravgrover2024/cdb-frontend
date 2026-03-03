@@ -2,7 +2,6 @@
 
 const API_BASE_URL = "https://cdb-api.vercel.app";
 
-
 console.log("API_BASE_URL at runtime:", API_BASE_URL);
 
 const getHeaders = (options) => {
@@ -24,15 +23,27 @@ const handleResponse = async (res) => {
     return data;
   } catch (e) {
     if (!res.ok) throw new Error(text || "API Request Failed");
-    // If it's valid JSON but success is false (depending on backend standard), handle here
-    // Our backend returns { success: true/false }
-    return {}; // Return empty object if parse failed
+    return {};
   }
 };
 
+// Helper to build query string from params
+const buildQuery = (params = {}) => {
+  const entries = Object.entries(params).filter(
+    ([, v]) => v !== undefined && v !== null && v !== "",
+  );
+  if (!entries.length) return "";
+  const qs = new URLSearchParams();
+  entries.forEach(([k, v]) => qs.append(k, String(v)));
+  return `?${qs.toString()}`;
+};
+
 export const apiClient = {
-  get: async (endpoint, options) => {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+  get: async (endpoint, options = {}) => {
+    const query = buildQuery(options.params || {});
+    const url = `${API_BASE_URL}${endpoint}${query}`;
+
+    const res = await fetch(url, {
       method: "GET",
       headers: getHeaders(options),
     });
@@ -46,10 +57,10 @@ export const apiClient = {
     console.log("  Body Size:", JSON.stringify(body).length, "bytes");
     console.log("  Field Count:", Object.keys(body || {}).length);
     console.log("  Sample Fields:", {
-      customerName: body.customerName,
-      primaryMobile: body.primaryMobile,
-      vehicleModel: body.vehicleModel,
-      isFinanced: body.isFinanced,
+      customerName: body?.customerName,
+      primaryMobile: body?.primaryMobile,
+      vehicleModel: body?.vehicleModel,
+      isFinanced: body?.isFinanced,
     });
 
     const startTime = Date.now();
@@ -67,7 +78,6 @@ export const apiClient = {
   },
 
   put: async (endpoint, body, options) => {
-    // 🌐 LOG NETWORK REQUEST
     console.log(`\n🌐 API PUT REQUEST: ${endpoint}`);
     console.log("  URL:", `${API_BASE_URL}${endpoint}`);
     console.log("  Body Size:", JSON.stringify(body).length, "bytes");

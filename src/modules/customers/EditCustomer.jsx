@@ -174,9 +174,11 @@ const EditCustomer = () => {
         }
 
         setCustomer(found);
+        const applicantType = found.applicantType || "Individual";
 
         // Patch dates into dayjs
         form.setFieldsValue({
+          applicantType,
           customerName: found.customerName || "",
           sdwOf: found.sdwOf || "",
           gender: found.gender || "",
@@ -185,6 +187,12 @@ const EditCustomer = () => {
           residenceAddress: found.residenceAddress || "",
           pincode: found.pincode || "",
           city: found.city || "",
+          contactPersonName: found.contactPersonName || "",
+          contactPersonMobile: found.contactPersonMobile || "",
+          sameAsCurrentAddress: found.sameAsCurrentAddress ?? false,
+          permanentAddress: found.permanentAddress || "",
+          permanentPincode: found.permanentPincode || "",
+          permanentCity: found.permanentCity || "",
           yearsInCurrentHouse: found.yearsInCurrentHouse || "",
           houseType: found.houseType || "",
           education: found.education || "",
@@ -199,8 +207,13 @@ const EditCustomer = () => {
 
           occupationType: found.occupationType || "",
           companyName: found.companyName || "",
+          isMSME: found.isMSME || "",
           companyType: Array.isArray(found.companyType) ? found.companyType[0] : (found.companyType || ""),
-          businessNature: Array.isArray(found.businessNature) ? found.businessNature[0] : (typeof found.businessNature === "string" ? found.businessNature : (found.businessNature || "")),
+          businessNature: Array.isArray(found.businessNature)
+            ? found.businessNature
+            : (typeof found.businessNature === "string"
+              ? found.businessNature.split(",").map((v) => v.trim()).filter(Boolean)
+              : []),
           employmentAddress: found.employmentAddress || "",
           employmentPincode: found.employmentPincode || "",
           employmentCity: found.employmentCity || "",
@@ -208,6 +221,8 @@ const EditCustomer = () => {
           salaryMonthly: found.salaryMonthly || "",
           designation: found.designation || "",
           incorporationYear: found.incorporationYear || "",
+          experienceCurrent: found.experienceCurrent || "",
+          totalExperience: found.totalExperience || "",
 
           panNumber: found.panNumber || "",
           panCardDocUrl: found.panCardDocUrl || "",
@@ -383,13 +398,13 @@ const EditCustomer = () => {
         nomineeDob: flat?.nomineeDob
           ? (dayjs.isDayjs(flat.nomineeDob) ? flat.nomineeDob.format("YYYY-MM-DD") : flat.nomineeDob)
           : "",
-        // Convert array fields to strings for backend compatibility
+        // companyType is single-select in UI; businessNature stays multi-select
         companyType: Array.isArray(flat?.companyType) 
           ? flat.companyType[0] || "" 
           : flat?.companyType || "",
         businessNature: Array.isArray(flat?.businessNature)
-          ? flat.businessNature.join(", ")
-          : flat?.businessNature || "",
+          ? flat.businessNature
+          : (flat?.businessNature ? [flat.businessNature] : []),
         updatedAt: new Date().toISOString(),
       };
 

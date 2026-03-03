@@ -4,6 +4,25 @@ import { Input, Button, Row, Col, Divider, Form, Tag } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 
 const parseNumber = (str) => Number(String(str).replace(/[^0-9]/g, "")) || 0;
+const BLOCKED_OTHER_LABELS = [
+  "total accessories",
+  "total accessories in rs",
+  "total other charges",
+  "orp without accessories",
+  "on road price",
+  "on-road price",
+  "net on-road",
+];
+
+const sanitizeOtherItems = (items) =>
+  (Array.isArray(items) ? items : []).filter((item) => {
+    const label = String(item?.label || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!label) return false;
+    return !BLOCKED_OTHER_LABELS.some((blocked) => label.includes(blocked));
+  });
 
 const formatINR = (num) =>
   isNaN(num) ? "₹0" : `₹${Math.round(num).toLocaleString("en-IN")}`;
@@ -38,18 +57,14 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
       accessories: selectedVehicle.accessories || 0,
       fastag: selectedVehicle.fastag || 0,
       extendedWarranty: selectedVehicle.extendedWarranty || 0,
-      additionsOthers: Array.isArray(selectedVehicle.additionsOthers)
-        ? selectedVehicle.additionsOthers
-        : [],
+      additionsOthers: sanitizeOtherItems(selectedVehicle.additionsOthers),
       dealerDiscount: selectedVehicle.dealerDiscount || 0,
       schemeDiscount: selectedVehicle.schemeDiscount || 0,
       insuranceCashback: selectedVehicle.insuranceCashback || 0,
       exchange: selectedVehicle.exchange || 0,
       loyalty: selectedVehicle.loyalty || 0,
       corporate: selectedVehicle.corporate || 0,
-      discountsOthers: Array.isArray(selectedVehicle.discountsOthers)
-        ? selectedVehicle.discountsOthers
-        : [],
+      discountsOthers: sanitizeOtherItems(selectedVehicle.discountsOthers),
       tcsPropName: selectedVehicle.tcs
         ? "tcs"
         : selectedVehicle.otherCharges
@@ -135,11 +150,11 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
     // Use the recomputeTotals function (it uses form.getFieldsValue currently)
     // call it next tick to ensure form.setFieldsValue took effect
     setTimeout(() => {
-      recomputeTotals();
+      recomputeTotals({ notifyParent: false });
     }, 0);
-  }, [selectedVehicle, value, form]);
+  }, [selectedVehicle?._id, form]);
 
-  const recomputeTotals = () => {
+  const recomputeTotals = ({ notifyParent = true } = {}) => {
     const v = form.getFieldsValue(true);
 
     const exShowroom = Number(v.exShowroom) || 0;
@@ -151,9 +166,7 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
     const fastag = Number(v.fastag) || 0;
     const extendedWarranty = Number(v.extendedWarranty) || 0;
 
-    const additionsOthers = Array.isArray(v.additionsOthers)
-      ? v.additionsOthers
-      : [];
+    const additionsOthers = sanitizeOtherItems(v.additionsOthers);
     const additionsOthersTotal = additionsOthers.reduce(
       (sum, x) => sum + (Number(x?.amount) || 0),
       0,
@@ -166,9 +179,7 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
 
     const loyalty = Number(v.loyalty) || 0;
     const corporate = Number(v.corporate) || 0;
-    const discountsOthers = Array.isArray(v.discountsOthers)
-      ? v.discountsOthers
-      : [];
+    const discountsOthers = sanitizeOtherItems(v.discountsOthers);
     const discountsOthersTotal = discountsOthers.reduce(
       (sum, x) => sum + (Number(x?.amount) || 0),
       0,
@@ -199,28 +210,29 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
     const newTotals = { onRoadBeforeDiscount, totalDiscount, netOnRoad };
     setTotals(newTotals);
 
-    onChange?.({
-      netOnRoad,
-      onRoadBeforeDiscount,
-      totalDiscount,
-      exShowroom,
-      insurance,
-      tcs,
-      rto: roadTax,
-      epc,
-      accessories,
-      fastag,
-      extendedWarranty,
-      additionsOthers,
-      dealerDiscount,
-      schemeDiscount,
-      insuranceCashback,
-      exchange,
-
-      loyalty,
-      corporate,
-      discountsOthers,
-    });
+    if (notifyParent) {
+      onChange?.({
+        netOnRoad,
+        onRoadBeforeDiscount,
+        totalDiscount,
+        exShowroom,
+        insurance,
+        tcs,
+        rto: roadTax,
+        epc,
+        accessories,
+        fastag,
+        extendedWarranty,
+        additionsOthers,
+        dealerDiscount,
+        schemeDiscount,
+        insuranceCashback,
+        exchange,
+        loyalty,
+        corporate,
+        discountsOthers,
+      });
+    }
   };
 
   const handleValuesChange = () => {

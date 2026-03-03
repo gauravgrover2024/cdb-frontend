@@ -299,9 +299,13 @@ const StageFooter = ({
               variant="default" 
               size="sm" 
               onClick={onProcessLoan}
-              className="bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
+              className={
+                isCashCar
+                  ? "bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-600/30"
+                  : "bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
+              }
             >
-              {isCashCar ? "Go to Delivery" : "Process Loan"}
+              {isCashCar ? "Delivery" : "Process Loan"}
               <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
             </Button>
           </>

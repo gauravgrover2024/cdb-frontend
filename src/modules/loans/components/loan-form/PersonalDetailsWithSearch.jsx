@@ -7,6 +7,7 @@ const PersonalDetailsWithSearch = ({ excludeFields = false, prefillMode = "all" 
       excludeFields={excludeFields} 
       searchable={true}
       prefillMode={prefillMode}
+      showApplicantType={false}
     />
   );
 };

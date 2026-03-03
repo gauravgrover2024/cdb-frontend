@@ -192,17 +192,18 @@ const AddCustomer = () => {
 
     try {
       // ✅ Properly format the payload for initial creation too
-      const payload = {
-        ...initialData,
-        dob: formatDateForApi(initialData?.dob),
-        nomineeDob: formatDateForApi(initialData?.nomineeDob),
-        // Convert array fields to strings for backend compatibility
-        companyType: Array.isArray(initialData?.companyType) 
-          ? initialData.companyType[0] || "" 
-          : initialData?.companyType || "",
-        businessNature: Array.isArray(initialData?.businessNature)
-          ? initialData.businessNature[0] || ""
-          : (initialData?.businessNature || ""),
+    const payload = {
+      ...initialData,
+      applicantType: initialData?.applicantType || "Individual",
+      dob: formatDateForApi(initialData?.dob),
+      nomineeDob: formatDateForApi(initialData?.nomineeDob),
+      // companyType is single-select in UI; businessNature stays multi-select
+      companyType: Array.isArray(initialData?.companyType) 
+        ? initialData.companyType[0] || "" 
+        : initialData?.companyType || "",
+      businessNature: Array.isArray(initialData?.businessNature)
+        ? initialData.businessNature
+        : (initialData?.businessNature ? [initialData.businessNature] : []),
         customerType: "New",
         kycStatus: initialData.kycStatus || "In Progress",
         createdOn: new Date().toLocaleDateString("en-GB", {
@@ -259,13 +260,13 @@ const AddCustomer = () => {
       dob: formatDateForApi(values?.dob),
       nomineeDob: formatDateForApi(values?.nomineeDob),
 
-      // Convert array fields to strings for backend compatibility
+      // companyType is single-select in UI; businessNature stays multi-select
       companyType: Array.isArray(values?.companyType) 
         ? values.companyType[0] || "" 
         : values?.companyType || "",
       businessNature: Array.isArray(values?.businessNature)
-        ? values.businessNature[0] || ""
-        : (values?.businessNature || ""),
+        ? values.businessNature
+        : (values?.businessNature ? [values.businessNature] : []),
 
       customerType: "New",
       kycStatus: values?.kycStatus || "In Progress",
@@ -388,10 +389,11 @@ const AddCustomer = () => {
             layout="vertical"
             onValuesChange={handleValuesChange}
             initialValues={{
+              applicantType: "Individual",
               kycStatus: "In Progress",
               customerType: "New",
               extraMobiles: [],
-              businessNature: "",
+              businessNature: [],
               companyType: "",
             }}
           >

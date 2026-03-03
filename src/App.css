@@ -31,3 +31,4 @@ img.logo-theme-aware {
 .dark img.logo-theme-aware {
   filter: grayscale(1) brightness(0) invert(1) !important;
 }
+

@@ -32,6 +32,8 @@ const KycItem = ({ label, icon, nameInput, nameDoc, placeholder, maxLength, styl
 const KycDetails = () => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
+  const applicantType = Form.useWatch("applicantType", form);
+  const isCompany = applicantType === "Company";
 
   // Show in customer module & financed loans
   const showKyc = isFinanced !== "No";
@@ -58,24 +60,28 @@ const KycDetails = () => {
 
       {/* FORM FIELDS */}
       <Row gutter={[16, 16]}>
-        <KycItem
-          label="Aadhaar Card"
-          icon="IdCard"
-          nameInput="aadhaarNumber"
-          nameDoc="aadhaarCardDocUrl"
-          placeholder="12-Digit Aadhaar No"
-          maxLength={12}
-        />
+        {!isCompany && (
+          <KycItem
+            label="Aadhaar Card"
+            icon="IdCard"
+            nameInput="aadhaarNumber"
+            nameDoc="aadhaarCardDocUrl"
+            placeholder="12-Digit Aadhaar No"
+            maxLength={12}
+          />
+        )}
 
-        <KycItem
-          label="Passport"
-          icon="Globe"
-          nameInput="passportNumber"
-          nameDoc="passportDocUrl"
-          placeholder="Passport Number"
-          maxLength={20}
-          styleInput={{ textTransform: '' }}
-        />
+        {!isCompany && (
+          <KycItem
+            label="Passport"
+            icon="Globe"
+            nameInput="passportNumber"
+            nameDoc="passportDocUrl"
+            placeholder="Passport Number"
+            maxLength={20}
+            styleInput={{ textTransform: "" }}
+          />
+        )}
 
         <KycItem
           label="GST Certificate"
@@ -84,18 +90,20 @@ const KycDetails = () => {
           nameDoc="gstDocUrl"
           placeholder="GST Number"
           maxLength={15}
-          styleInput={{ textTransform: '' }}
+          styleInput={{ textTransform: "" }}
         />
 
-        <KycItem
-          label="Driving License"
-          icon="Car"
-          nameInput="dlNumber"
-          nameDoc="dlDocUrl"
-          placeholder="DL Number"
-          maxLength={20}
-          styleInput={{ textTransform: '' }}
-        />
+        {!isCompany && (
+          <KycItem
+            label="Driving License"
+            icon="Car"
+            nameInput="dlNumber"
+            nameDoc="dlDocUrl"
+            placeholder="DL Number"
+            maxLength={20}
+            styleInput={{ textTransform: "" }}
+          />
+        )}
       </Row>
     </div>
   );

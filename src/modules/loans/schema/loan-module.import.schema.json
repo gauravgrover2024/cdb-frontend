@@ -1,0 +1,3762 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cdb-frontend.local/schema/loan-module.import.schema.json",
+  "title": "Loan Module Import Schema (Form Fields)",
+  "description": "Filtered import schema for loan form mapping.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "aadhaarCardDocUrl": {
+      "type": "string",
+      "title": "aadhaarCardDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "aadhaarNumber": {
+      "type": "string",
+      "title": "aadhaarNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "accessoriesAmount": {
+      "type": "number",
+      "title": "accessoriesAmount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "accountNumber": {
+      "type": "number",
+      "title": "accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx",
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "accountSinceYears": {
+      "type": "number",
+      "title": "accountSinceYears",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "accountType": {
+      "type": "string",
+      "title": "accountType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum"
+      ]
+    },
+    "addressProofDocUrl": {
+      "type": "string",
+      "title": "addressProofDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "addressProofNumber": {
+      "type": "boolean",
+      "title": "addressProofNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "string",
+        "text"
+      ]
+    },
+    "addressProofType": {
+      "type": "boolean",
+      "title": "addressProofType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "enum",
+        "string",
+        "text"
+      ]
+    },
+    "addressType": {
+      "type": "number",
+      "title": "addressType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string",
+        "text"
+      ]
+    },
+    "advanceEmi": {
+      "type": "number",
+      "title": "advanceEmi",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "applicantType": {
+      "type": "string",
+      "title": "applicantType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "unknown"
+      ]
+    },
+    "approval_approvalDate": {
+      "type": "string",
+      "title": "approval_approvalDate",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_bankId": {
+      "type": "string",
+      "title": "approval_bankId",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_bankName": {
+      "type": "string",
+      "title": "approval_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_banksData": {
+      "type": "string",
+      "title": "approval_banksData",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_breakup_creditAssured": {
+      "type": "string",
+      "title": "approval_breakup_creditAssured",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_breakup_ewFinance": {
+      "type": "string",
+      "title": "approval_breakup_ewFinance",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_breakup_insuranceFinance": {
+      "type": "string",
+      "title": "approval_breakup_insuranceFinance",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_breakup_netLoanApproved": {
+      "type": "string",
+      "title": "approval_breakup_netLoanApproved",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_disbursedDate": {
+      "type": "string",
+      "title": "approval_disbursedDate",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_loanAmountApproved": {
+      "type": "string",
+      "title": "approval_loanAmountApproved",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_loanAmountDisbursed": {
+      "type": "string",
+      "title": "approval_loanAmountDisbursed",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_processingFees": {
+      "type": "string",
+      "title": "approval_processingFees",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_roi": {
+      "type": "string",
+      "title": "approval_roi",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_status": {
+      "type": "string",
+      "title": "approval_status",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_statusHistory": {
+      "type": "string",
+      "title": "approval_statusHistory",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "approval_tenureMonths": {
+      "type": "string",
+      "title": "approval_tenureMonths",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "bankName": {
+      "type": "string",
+      "title": "bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx",
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "billDate": {
+      "type": "string",
+      "title": "billDate",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/BillPrintingModal.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "unknown"
+      ]
+    },
+    "billNumber": {
+      "type": "string",
+      "title": "billNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/BillPrintingModal.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "boughtInYear": {
+      "type": "number",
+      "title": "boughtInYear",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "branch": {
+      "type": "number",
+      "title": "branch",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx",
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "bulk_next_action": {
+      "type": "string",
+      "title": "bulk_next_action",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "text"
+      ]
+    },
+    "bulk_priority": {
+      "type": "string",
+      "title": "bulk_priority",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "text"
+      ]
+    },
+    "bulk_remarks": {
+      "type": "string",
+      "title": "bulk_remarks",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "text"
+      ]
+    },
+    "businessNature": {
+      "type": "string",
+      "title": "businessNature",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "caseType": {
+      "type": "string",
+      "title": "caseType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "city": {
+      "type": "number",
+      "title": "city",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "co_aadhaar": {
+      "type": "string",
+      "title": "co_aadhaar",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "co_aadhaarCardDocUrl": {
+      "type": "string",
+      "title": "co_aadhaarCardDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "co_address": {
+      "type": "string",
+      "title": "co_address",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_addressProofDocUrl": {
+      "type": "string",
+      "title": "co_addressProofDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "co_businessNature": {
+      "type": "string",
+      "title": "co_businessNature",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "co_city": {
+      "type": "string",
+      "title": "co_city",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "co_companyAddress": {
+      "type": "string",
+      "title": "co_companyAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_companyCity": {
+      "type": "string",
+      "title": "co_companyCity",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_companyName": {
+      "type": "string",
+      "title": "co_companyName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_companyPhone": {
+      "type": "string",
+      "title": "co_companyPhone",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_companyPincode": {
+      "type": "string",
+      "title": "co_companyPincode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_companyType": {
+      "type": "string",
+      "title": "co_companyType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "co_currentExperience": {
+      "type": "string",
+      "title": "co_currentExperience",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_customerName": {
+      "type": "string",
+      "title": "co_customerName",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "co_dependents": {
+      "type": "number",
+      "title": "co_dependents",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "co_designation": {
+      "type": "string",
+      "title": "co_designation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_dlDocUrl": {
+      "type": "string",
+      "title": "co_dlDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "co_dob": {
+      "type": "number",
+      "title": "co_dob",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "co_education": {
+      "type": "string",
+      "title": "co_education",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "co_fatherName": {
+      "type": "string",
+      "title": "co_fatherName",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "co_gender": {
+      "type": "number",
+      "title": "co_gender",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "co_houseType": {
+      "type": "string",
+      "title": "co_houseType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "co_id": {
+      "type": "string",
+      "title": "co_id",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "co_maritalStatus": {
+      "type": "number",
+      "title": "co_maritalStatus",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "co_motherName": {
+      "type": "string",
+      "title": "co_motherName",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "co_name": {
+      "type": "string",
+      "title": "co_name",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "co_occupation": {
+      "type": "string",
+      "title": "co_occupation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "unknown"
+      ]
+    },
+    "co_pan": {
+      "type": "string",
+      "title": "co_pan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "co_panCardDocUrl": {
+      "type": "string",
+      "title": "co_panCardDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "co_passportDocUrl": {
+      "type": "string",
+      "title": "co_passportDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "co_pincode": {
+      "type": "string",
+      "title": "co_pincode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "co_primaryMobile": {
+      "type": "string",
+      "title": "co_primaryMobile",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "co_professionalType": {
+      "type": "string",
+      "title": "co_professionalType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "co_totalExperience": {
+      "type": "string",
+      "title": "co_totalExperience",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "coApplicant_name": {
+      "type": "string",
+      "title": "coApplicant_name",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "collection_last_followup": {
+      "type": "string",
+      "title": "collection_last_followup",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "text",
+        "unknown"
+      ]
+    },
+    "collection_next_action": {
+      "type": "string",
+      "title": "collection_next_action",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "text",
+        "unknown"
+      ]
+    },
+    "collection_remarks": {
+      "type": "string",
+      "title": "collection_remarks",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "text",
+        "unknown"
+      ]
+    },
+    "companyName": {
+      "type": "string",
+      "title": "companyName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "companyType": {
+      "type": "string",
+      "title": "companyType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "completedDate": {
+      "type": "string",
+      "title": "completedDate",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "title": "createdAt",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "currentStage": {
+      "type": "string",
+      "title": "currentStage",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "customerAadhar": {
+      "type": "string",
+      "title": "customerAadhar",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "customerAddress": {
+      "type": "string",
+      "title": "customerAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "customerEmail": {
+      "type": "string",
+      "title": "customerEmail",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "customerId": {
+      "type": "number",
+      "title": "customerId",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx",
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PreFileStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "customerName": {
+      "type": "number",
+      "title": "customerName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/EMICustomerDetails.jsx",
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "customerPan": {
+      "type": "string",
+      "title": "customerPan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "customerType": {
+      "type": "string",
+      "title": "customerType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "dealerAddress": {
+      "type": "string",
+      "title": "dealerAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "dealerContactNumber": {
+      "type": "string",
+      "title": "dealerContactNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "text"
+      ]
+    },
+    "dealerContactPerson": {
+      "type": "string",
+      "title": "dealerContactPerson",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "text"
+      ]
+    },
+    "dealerDiscount": {
+      "type": "number",
+      "title": "dealerDiscount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/VehiclePricingPopup.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "dealerMobile": {
+      "type": "string",
+      "title": "dealerMobile",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "dealerName": {
+      "type": "string",
+      "title": "dealerName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "dealtBy": {
+      "type": "string",
+      "title": "dealtBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "delivery_by": {
+      "type": "string",
+      "title": "delivery_by",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "delivery_date": {
+      "type": "string",
+      "title": "delivery_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "delivery_dealerAddress": {
+      "type": "string",
+      "title": "delivery_dealerAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "delivery_dealerContactNumber": {
+      "type": "string",
+      "title": "delivery_dealerContactNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "delivery_dealerContactPerson": {
+      "type": "string",
+      "title": "delivery_dealerContactPerson",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "delivery_dealerName": {
+      "type": "string",
+      "title": "delivery_dealerName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "delivery_invoiceFile": {
+      "type": "string",
+      "title": "delivery_invoiceFile",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "delivery_rcFile": {
+      "type": "string",
+      "title": "delivery_rcFile",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "deliveryStatus": {
+      "type": "string",
+      "title": "deliveryStatus",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "dependents": {
+      "type": "number",
+      "title": "dependents",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "designation": {
+      "type": "string",
+      "title": "designation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "disburse_bankName": {
+      "type": "string",
+      "title": "disburse_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "disburse_remarks": {
+      "type": "string",
+      "title": "disburse_remarks",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "disburse_status": {
+      "type": "string",
+      "title": "disburse_status",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "disburseAmount": {
+      "type": "number",
+      "title": "disburseAmount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/disbursement/DisbursementStep.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number"
+      ]
+    },
+    "disbursedDate": {
+      "type": "string",
+      "title": "disbursedDate",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/disbursement/DisbursementStep.jsx"
+      ],
+      "x-typeHints": [
+        "date"
+      ]
+    },
+    "disbursement_date": {
+      "type": "string",
+      "title": "disbursement_date",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx",
+        "src/modules/loans/components/loan-form/post-file/PrincipalOutstanding.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "unknown"
+      ]
+    },
+    "disbursement_status": {
+      "type": "string",
+      "title": "disbursement_status",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "disbursement_time": {
+      "type": "string",
+      "title": "disbursement_time",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "disbursementDate": {
+      "type": "string",
+      "title": "disbursementDate",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/disbursement/DisbursementStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "disbursementStatus": {
+      "type": "string",
+      "title": "disbursementStatus",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/disbursement/DisbursementStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "dispatch_date": {
+      "type": "string",
+      "title": "dispatch_date",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx"
+      ],
+      "x-typeHints": [
+        "date"
+      ]
+    },
+    "dispatch_through": {
+      "type": "string",
+      "title": "dispatch_through",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx"
+      ],
+      "x-typeHints": [
+        "date"
+      ]
+    },
+    "dispatch_time": {
+      "type": "string",
+      "title": "dispatch_time",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx"
+      ],
+      "x-typeHints": [
+        "date"
+      ]
+    },
+    "dlDocUrl": {
+      "type": "string",
+      "title": "dlDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "dob": {
+      "type": "number",
+      "title": "dob",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "docsPreparedBy": {
+      "type": "string",
+      "title": "docsPreparedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "downPayment": {
+      "type": "string",
+      "title": "downPayment",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "ecs_accountNumber": {
+      "type": "number",
+      "title": "ecs_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "string"
+      ]
+    },
+    "ecs_amount": {
+      "type": "number",
+      "title": "ecs_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "ecs_bankName": {
+      "type": "number",
+      "title": "ecs_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "string"
+      ]
+    },
+    "ecs_date": {
+      "type": "number",
+      "title": "ecs_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "ecs_favouring": {
+      "type": "string",
+      "title": "ecs_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "ecs_image": {
+      "type": "string",
+      "title": "ecs_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "ecs_micrCode": {
+      "type": "number",
+      "title": "ecs_micrCode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "string"
+      ]
+    },
+    "ecs_signedBy": {
+      "type": "string",
+      "title": "ecs_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum"
+      ]
+    },
+    "ecs_tag": {
+      "type": "string",
+      "title": "ecs_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "education": {
+      "type": "string",
+      "title": "education",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string",
+        "text"
+      ]
+    },
+    "email": {
+      "type": "boolean",
+      "title": "email",
+      "x-sourceFiles": [
+        "src/modules/loans/components/EMICustomerDetails.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "enum",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "employmentAddress": {
+      "type": "string",
+      "title": "employmentAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "employmentCity": {
+      "type": "string",
+      "title": "employmentCity",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "employmentPhone": {
+      "type": "string",
+      "title": "employmentPhone",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "employmentPincode": {
+      "type": "string",
+      "title": "employmentPincode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "experienceCurrent": {
+      "type": "string",
+      "title": "experienceCurrent",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "exShowroomPrice": {
+      "type": "number",
+      "title": "exShowroomPrice",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "financeExpectation": {
+      "type": "number",
+      "title": "financeExpectation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "gender": {
+      "type": "number",
+      "title": "gender",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "gstDocUrl": {
+      "type": "string",
+      "title": "gstDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "gu_aadhaar": {
+      "type": "string",
+      "title": "gu_aadhaar",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "gu_aadhaarCardDocUrl": {
+      "type": "string",
+      "title": "gu_aadhaarCardDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "gu_address": {
+      "type": "string",
+      "title": "gu_address",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_addressProofDocUrl": {
+      "type": "string",
+      "title": "gu_addressProofDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "gu_businessNature": {
+      "type": "string",
+      "title": "gu_businessNature",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "gu_city": {
+      "type": "string",
+      "title": "gu_city",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "gu_companyAddress": {
+      "type": "string",
+      "title": "gu_companyAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_companyCity": {
+      "type": "string",
+      "title": "gu_companyCity",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_companyName": {
+      "type": "string",
+      "title": "gu_companyName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_companyPhone": {
+      "type": "string",
+      "title": "gu_companyPhone",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_companyPincode": {
+      "type": "string",
+      "title": "gu_companyPincode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_companyType": {
+      "type": "string",
+      "title": "gu_companyType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "gu_currentExperience": {
+      "type": "string",
+      "title": "gu_currentExperience",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_customerName": {
+      "type": "string",
+      "title": "gu_customerName",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "gu_dependents": {
+      "type": "number",
+      "title": "gu_dependents",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "gu_designation": {
+      "type": "string",
+      "title": "gu_designation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_dlDocUrl": {
+      "type": "string",
+      "title": "gu_dlDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "gu_dob": {
+      "type": "number",
+      "title": "gu_dob",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "gu_education": {
+      "type": "string",
+      "title": "gu_education",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "gu_fatherName": {
+      "type": "string",
+      "title": "gu_fatherName",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "gu_gender": {
+      "type": "number",
+      "title": "gu_gender",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "gu_houseType": {
+      "type": "string",
+      "title": "gu_houseType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "gu_id": {
+      "type": "string",
+      "title": "gu_id",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "gu_maritalStatus": {
+      "type": "number",
+      "title": "gu_maritalStatus",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "gu_motherName": {
+      "type": "string",
+      "title": "gu_motherName",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "gu_name": {
+      "type": "string",
+      "title": "gu_name",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "gu_occupation": {
+      "type": "string",
+      "title": "gu_occupation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "unknown"
+      ]
+    },
+    "gu_pan": {
+      "type": "string",
+      "title": "gu_pan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "gu_panCardDocUrl": {
+      "type": "string",
+      "title": "gu_panCardDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "gu_passportDocUrl": {
+      "type": "string",
+      "title": "gu_passportDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "gu_pincode": {
+      "type": "string",
+      "title": "gu_pincode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "gu_primaryMobile": {
+      "type": "string",
+      "title": "gu_primaryMobile",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "gu_professionalType": {
+      "type": "string",
+      "title": "gu_professionalType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "gu_totalExperience": {
+      "type": "string",
+      "title": "gu_totalExperience",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "guarantor_name": {
+      "type": "string",
+      "title": "guarantor_name",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "hasCoApplicant": {
+      "type": "boolean",
+      "title": "hasCoApplicant",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "unknown"
+      ]
+    },
+    "hasGuarantor": {
+      "type": "boolean",
+      "title": "hasGuarantor",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "unknown"
+      ]
+    },
+    "houseType": {
+      "type": "number",
+      "title": "houseType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string",
+        "text"
+      ]
+    },
+    "hypothecation": {
+      "type": "string",
+      "title": "hypothecation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "hypothecationBank": {
+      "type": "string",
+      "title": "hypothecationBank",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "hypothecationDocUrl": {
+      "type": "string",
+      "title": "hypothecationDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "identityProofExpiry": {
+      "type": "number",
+      "title": "identityProofExpiry",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "string",
+        "text"
+      ]
+    },
+    "identityProofNumber": {
+      "type": "number",
+      "title": "identityProofNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "identityProofType": {
+      "type": "number",
+      "title": "identityProofType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "ifsc": {
+      "type": "string",
+      "title": "ifsc",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "ifscCode": {
+      "type": "string",
+      "title": "ifscCode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx",
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "instrumentType": {
+      "type": "string",
+      "title": "instrumentType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "insurance_by": {
+      "type": "string",
+      "title": "insurance_by",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "unknown"
+      ]
+    },
+    "insurance_company_name": {
+      "type": "string",
+      "title": "insurance_company_name",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "insurance_policy_number": {
+      "type": "string",
+      "title": "insurance_policy_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "insuranceCost": {
+      "type": "number",
+      "title": "insuranceCost",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "insurancePolicyUrl": {
+      "type": "string",
+      "title": "insurancePolicyUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "invoice_date": {
+      "type": "string",
+      "title": "invoice_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "invoice_number": {
+      "type": "string",
+      "title": "invoice_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "invoice_received_as": {
+      "type": "string",
+      "title": "invoice_received_as",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "invoice_received_date": {
+      "type": "string",
+      "title": "invoice_received_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "invoice_received_from": {
+      "type": "string",
+      "title": "invoice_received_from",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "isFinanced": {
+      "type": "string",
+      "title": "isFinanced",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PreFileStep.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "isMSME": {
+      "type": "string",
+      "title": "isMSME",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum"
+      ]
+    },
+    "isMultipleCars": {
+      "type": "string",
+      "title": "isMultipleCars",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/BulkLoanCreationSection.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "isSameVehicle": {
+      "type": "string",
+      "title": "isSameVehicle",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/BulkLoanCreationSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "leadDate": {
+      "type": "string",
+      "title": "leadDate",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum"
+      ]
+    },
+    "leadTime": {
+      "type": "string",
+      "title": "leadTime",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "loan_notes": {
+      "type": "string",
+      "title": "loan_notes",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/NotesModal.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "loan_payables": {
+      "type": "string",
+      "title": "loan_payables",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "loan_receivables": {
+      "type": "string",
+      "title": "loan_receivables",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "loanAmount": {
+      "type": "string",
+      "title": "loanAmount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "loanId": {
+      "type": "string",
+      "title": "loanId",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "loanTenureMonths": {
+      "type": "number",
+      "title": "loanTenureMonths",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "loanType": {
+      "type": "string",
+      "title": "loanType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "manufacturerDiscount": {
+      "type": "number",
+      "title": "manufacturerDiscount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "marginMoney": {
+      "type": "number",
+      "title": "marginMoney",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "maritalStatus": {
+      "type": "number",
+      "title": "maritalStatus",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "mobileNo": {
+      "type": "string",
+      "title": "mobileNo",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "motherName": {
+      "type": "number",
+      "title": "motherName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "NEW": {
+      "type": "string",
+      "title": "NEW",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "numberOfCars": {
+      "type": "number",
+      "title": "numberOfCars",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/BulkLoanCreationSection.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "occupationType": {
+      "type": "string",
+      "title": "occupationType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum"
+      ]
+    },
+    "officialEmail": {
+      "type": "string",
+      "title": "officialEmail",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "onRoadPrice": {
+      "type": "string",
+      "title": "onRoadPrice",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "openedIn": {
+      "type": "string",
+      "title": "openedIn",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "otherDiscounts": {
+      "type": "number",
+      "title": "otherDiscounts",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "panCardDocUrl": {
+      "type": "string",
+      "title": "panCardDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "panNumber": {
+      "type": "string",
+      "title": "panNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "passportDocUrl": {
+      "type": "string",
+      "title": "passportDocUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "payment_amount": {
+      "type": "number",
+      "title": "payment_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "payment_date": {
+      "type": "string",
+      "title": "payment_date",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "text",
+        "unknown"
+      ]
+    },
+    "payment_remarks": {
+      "type": "string",
+      "title": "payment_remarks",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "text"
+      ]
+    },
+    "payoutApplicable": {
+      "type": "string",
+      "title": "payoutApplicable",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "payoutPercentage": {
+      "type": "number",
+      "title": "payoutPercentage",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/disbursement/DisbursementStep.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "unknown"
+      ]
+    },
+    "payoutStatus": {
+      "type": "string",
+      "title": "payoutStatus",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "permanentAddress": {
+      "type": "boolean",
+      "title": "permanentAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "permanentCity": {
+      "type": "boolean",
+      "title": "permanentCity",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "string",
+        "unknown"
+      ]
+    },
+    "permanentPincode": {
+      "type": "boolean",
+      "title": "permanentPincode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "string",
+        "unknown"
+      ]
+    },
+    "photoUrl": {
+      "type": "string",
+      "title": "photoUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "pincode": {
+      "type": "number",
+      "title": "pincode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "postfile_approvalDate": {
+      "type": "string",
+      "title": "postfile_approvalDate",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date"
+      ]
+    },
+    "postfile_bankName": {
+      "type": "string",
+      "title": "postfile_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_disbursedCreditAssured": {
+      "type": "string",
+      "title": "postfile_disbursedCreditAssured",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_disbursedEw": {
+      "type": "string",
+      "title": "postfile_disbursedEw",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_disbursedInsurance": {
+      "type": "string",
+      "title": "postfile_disbursedInsurance",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_disbursedLoan": {
+      "type": "string",
+      "title": "postfile_disbursedLoan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_disbursedLoanTotal": {
+      "type": "string",
+      "title": "postfile_disbursedLoanTotal",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_documents": {
+      "type": "string",
+      "title": "postfile_documents",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_emiAmount": {
+      "type": "number",
+      "title": "postfile_emiAmount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "unknown"
+      ]
+    },
+    "postfile_emiMode": {
+      "type": "number",
+      "title": "postfile_emiMode",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number"
+      ]
+    },
+    "postfile_emiPlan": {
+      "type": "number",
+      "title": "postfile_emiPlan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number"
+      ]
+    },
+    "postfile_firstEmiDate": {
+      "type": "number",
+      "title": "postfile_firstEmiDate",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PrincipalOutstanding.jsx",
+        "src/modules/loans/components/loan-form/post-file/RepaymentSchedule.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "unknown"
+      ]
+    },
+    "postfile_loanAmountApproved": {
+      "type": "string",
+      "title": "postfile_loanAmountApproved",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PrincipalOutstanding.jsx",
+        "src/modules/loans/components/loan-form/post-file/RepaymentSchedule.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_loanAmountDisbursed": {
+      "type": "string",
+      "title": "postfile_loanAmountDisbursed",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PrincipalOutstanding.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_processingFees": {
+      "type": "number",
+      "title": "postfile_processingFees",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "postfile_regd_city": {
+      "type": "string",
+      "title": "postfile_regd_city",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "postfile_roi": {
+      "type": "number",
+      "title": "postfile_roi",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PrincipalOutstanding.jsx",
+        "src/modules/loans/components/loan-form/post-file/RepaymentSchedule.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "unknown"
+      ]
+    },
+    "postfile_roiType": {
+      "type": "number",
+      "title": "postfile_roiType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/RepaymentSchedule.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "unknown"
+      ]
+    },
+    "postfile_sameAsApproved": {
+      "type": "number",
+      "title": "postfile_sameAsApproved",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "postfile_tags": {
+      "type": "string",
+      "title": "postfile_tags",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "postfile_tenureMonths": {
+      "type": "number",
+      "title": "postfile_tenureMonths",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/post-file/EMICalculator.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PrincipalOutstanding.jsx",
+        "src/modules/loans/components/loan-form/post-file/RepaymentSchedule.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "number",
+        "unknown"
+      ]
+    },
+    "postFileStatus": {
+      "type": "string",
+      "title": "postFileStatus",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "prefile_sourcePayoutPercentage": {
+      "type": "string",
+      "title": "prefile_sourcePayoutPercentage",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "primaryMobile": {
+      "type": "string",
+      "title": "primaryMobile",
+      "x-sourceFiles": [
+        "src/modules/loans/components/EMICustomerDetails.jsx",
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "professionalType": {
+      "type": "string",
+      "title": "professionalType",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "purposeOfLoan": {
+      "type": "string",
+      "title": "purposeOfLoan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum"
+      ]
+    },
+    "rc_chassis_no": {
+      "type": "string",
+      "title": "rc_chassis_no",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "rc_engine_no": {
+      "type": "string",
+      "title": "rc_engine_no",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "rc_received_as": {
+      "type": "string",
+      "title": "rc_received_as",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "rc_received_date": {
+      "type": "string",
+      "title": "rc_received_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "rc_received_from": {
+      "type": "string",
+      "title": "rc_received_from",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "rc_redg_date": {
+      "type": "string",
+      "title": "rc_redg_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "rc_redg_no": {
+      "type": "string",
+      "title": "rc_redg_no",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "received_date": {
+      "type": "string",
+      "title": "received_date",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "unknown"
+      ]
+    },
+    "receivingDate": {
+      "type": "string",
+      "title": "receivingDate",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "unknown"
+      ]
+    },
+    "receivingTime": {
+      "type": "string",
+      "title": "receivingTime",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "recordSource": {
+      "type": "string",
+      "title": "recordSource",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "referenceName": {
+      "type": "string",
+      "title": "referenceName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "referenceNumber": {
+      "type": "string",
+      "title": "referenceNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "registerSameAsAadhaar": {
+      "type": "string",
+      "title": "registerSameAsAadhaar",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "registrationAddress": {
+      "type": "string",
+      "title": "registrationAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "text"
+      ]
+    },
+    "registrationCity": {
+      "type": "string",
+      "title": "registrationCity",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "remarks": {
+      "type": "string",
+      "title": "remarks",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/disbursement/DisbursementStep.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "residenceAddress": {
+      "type": "number",
+      "title": "residenceAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "roadTax": {
+      "type": "number",
+      "title": "roadTax",
+      "x-sourceFiles": [
+        "src/modules/loans/components/VehiclePricingPopup.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "sameAsCurrentAddress": {
+      "type": "boolean",
+      "title": "sameAsCurrentAddress",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "boolean",
+        "string",
+        "text",
+        "unknown"
+      ]
+    },
+    "sdwOf": {
+      "type": "number",
+      "title": "sdwOf",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "si_accountNumber": {
+      "type": "string",
+      "title": "si_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "si_image": {
+      "type": "string",
+      "title": "si_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "si_signedBy": {
+      "type": "string",
+      "title": "si_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum"
+      ]
+    },
+    "signatory_aadhaar": {
+      "type": "string",
+      "title": "signatory_aadhaar",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "signatory_address": {
+      "type": "string",
+      "title": "signatory_address",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "signatory_city": {
+      "type": "string",
+      "title": "signatory_city",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "signatory_customerName": {
+      "type": "string",
+      "title": "signatory_customerName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "signatory_dob": {
+      "type": "string",
+      "title": "signatory_dob",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "signatory_gender": {
+      "type": "string",
+      "title": "signatory_gender",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "signatory_id": {
+      "type": "string",
+      "title": "signatory_id",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "signatory_pan": {
+      "type": "string",
+      "title": "signatory_pan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "signatory_pincode": {
+      "type": "string",
+      "title": "signatory_pincode",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "signatory_primaryMobile": {
+      "type": "string",
+      "title": "signatory_primaryMobile",
+      "format": "date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "enum",
+        "string"
+      ]
+    },
+    "signatureUrl": {
+      "type": "string",
+      "title": "signatureUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDocumentManagement.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "title": "source",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string",
+        "unknown"
+      ]
+    },
+    "sourceDetails": {
+      "type": "string",
+      "title": "sourceDetails",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "sourceName": {
+      "type": "string",
+      "title": "sourceName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx",
+        "src/modules/loans/components/loan-form/payout/PayoutSection.jsx",
+        "src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx"
+      ],
+      "x-typeHints": [
+        "string",
+        "unknown"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "title": "status",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "tenure": {
+      "type": "string",
+      "title": "tenure",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "total_amount_received": {
+      "type": "number",
+      "title": "total_amount_received",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "totalExperience": {
+      "type": "string",
+      "title": "totalExperience",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
+    "totalIncomeITR": {
+      "type": "number",
+      "title": "totalIncomeITR",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string"
+      ]
+    },
+    "tradeInValue": {
+      "type": "number",
+      "title": "tradeInValue",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "typeOfLoan": {
+      "type": "number",
+      "title": "typeOfLoan",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "number",
+        "string",
+        "unknown"
+      ]
+    },
+    "updatedAt": {
+      "type": "string",
+      "title": "updatedAt",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": []
+    },
+    "usage": {
+      "type": "string",
+      "title": "usage",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "vehicleChassisNo": {
+      "type": "string",
+      "title": "vehicleChassisNo",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "vehicleEngineNo": {
+      "type": "string",
+      "title": "vehicleEngineNo",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "vehicleMake": {
+      "type": "string",
+      "title": "vehicleMake",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/components/BankStatusCard.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "unknown"
+      ]
+    },
+    "vehicleModel": {
+      "type": "string",
+      "title": "vehicleModel",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/components/BankStatusCard.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "unknown"
+      ]
+    },
+    "vehiclePhotoUrl": {
+      "type": "string",
+      "title": "vehiclePhotoUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "vehicleRCUrl": {
+      "type": "string",
+      "title": "vehicleRCUrl",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "vehicleRegNo": {
+      "type": "string",
+      "title": "vehicleRegNo",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "vehicleVariant": {
+      "type": "string",
+      "title": "vehicleVariant",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx",
+        "src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx",
+        "src/modules/loans/components/loan-form/loan-approval/components/BankStatusCard.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "unknown"
+      ]
+    },
+    "yearsInCurrentCity": {
+      "type": "number",
+      "title": "yearsInCurrentCity",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
+    "yearsInCurrentHouse": {
+      "type": "number",
+      "title": "yearsInCurrentHouse",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx",
+        "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    }
+  },
+  "required": [
+    "billDate",
+    "billNumber",
+    "boughtInYear",
+    "customerName",
+    "dealerAddress",
+    "dealerMobile",
+    "dealtBy",
+    "disburseAmount",
+    "disbursedDate",
+    "docsPreparedBy",
+    "email",
+    "hypothecation",
+    "hypothecationBank",
+    "numberOfCars",
+    "payment_amount",
+    "payment_date",
+    "payoutApplicable",
+    "payoutPercentage",
+    "prefile_sourcePayoutPercentage",
+    "primaryMobile",
+    "purposeOfLoan",
+    "received_date",
+    "receivingDate",
+    "receivingTime",
+    "recordSource",
+    "referenceName",
+    "referenceNumber",
+    "registerSameAsAadhaar",
+    "registrationAddress",
+    "registrationCity",
+    "sourceName",
+    "total_amount_received",
+    "typeOfLoan",
+    "usage"
+  ],
+  "x-meta": {
+    "generatedAt": "2026-02-27T12:39:57.314Z",
+    "sourceRoot": "src/modules/loans",
+    "fieldCount": 323,
+    "requiredCount": 34,
+    "filtered": true
+  }
+}

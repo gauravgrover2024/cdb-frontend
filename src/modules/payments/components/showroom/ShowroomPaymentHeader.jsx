@@ -1,3 +1,4 @@
+// src/modules/payments/components/showroom/ShowroomPaymentHeader.jsx
 import React, { useMemo } from "react";
 import { Card, Button } from "antd";
 
@@ -48,6 +49,10 @@ const ShowroomPaymentHeader = ({
   entryTotals = {},
   isVerified = false,
   onVerify,
+  // net impact of all cross adjustments for THIS case (signed)
+  crossAdjustmentNet = 0,
+  // full list of cross adjustment rows for display
+  crossAdjustmentRows = [],
 }) => {
   const summary = useMemo(() => {
     const netOnRoad = asInt(data?.netOnRoadVehicleCost);
@@ -60,20 +65,22 @@ const ShowroomPaymentHeader = ({
     const insAdjApplied = asInt(entryTotals?.paymentAdjustmentInsuranceApplied);
 
     const commissionReceived = asInt(entryTotals?.paymentCommissionReceived);
+    const crossAdjNet = asInt(crossAdjustmentNet);
 
-    // ✅ Net payable to showroom
-    const netPayableToShowroom = Math.max(
+    // vehicle + DO-side adjustments only
+    const baseNetPayableToShowroom = Math.max(
       0,
-      netOnRoad - insAdjApplied - exAdjApplied
+      netOnRoad - insAdjApplied - exAdjApplied,
     );
 
-    // ✅ total paid to showroom (commission NOT included here)
+    // ✅ final net payable after cross adjustments on commission
+    const netPayableToShowroom = baseNetPayableToShowroom + crossAdjNet;
+
     const totalPaidToShowroom = loanPay + autoPay + custPay;
 
-    // ✅ Balance Payment (same as before)
     const balancePayment = netPayableToShowroom - totalPaidToShowroom;
 
-    // ✅ Closing Balance includes commission received
+    // closing still includes commission received
     const closingBalance = balancePayment + commissionReceived;
 
     const canVerify = closingBalance === 0;
@@ -92,6 +99,7 @@ const ShowroomPaymentHeader = ({
 
       insAdjApplied,
       exAdjApplied,
+      baseNetPayableToShowroom,
       netPayableToShowroom,
 
       autoPay,
@@ -101,6 +109,7 @@ const ShowroomPaymentHeader = ({
       balancePayment,
 
       commissionReceived,
+      crossAdjNet,
       closingBalance,
 
       canVerify,
@@ -113,123 +122,246 @@ const ShowroomPaymentHeader = ({
       marginDiff,
       marginMatched,
     };
-  }, [data, entryTotals]);
+  }, [data, entryTotals, crossAdjustmentNet]);
+
+  const hasCrossAdjustments = (crossAdjustmentRows || []).length > 0;
 
   return (
     <Card
       style={{
-        borderRadius: 14,
-        border: "1px solid #f0f0f0",
-        background: "#ffffff",
+        borderRadius: 16,
+        border: "1px solid #e5e7eb",
+        background: "#f9fafb",
       }}
+      bodyStyle={{ padding: 12 }}
     >
-      <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 10 }}>
-        Showroom Account — Totals
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: 0.14,
+              color: "#6b7280",
+              marginBottom: 2,
+            }}
+          >
+            Showroom account
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>
+            Totals & verification
+          </div>
+        </div>
       </div>
 
-      {/* 1) Net OnRoad */}
-      <AmountRow
-        label="Net OnRoad Vehicle Cost"
-        value={summary.netOnRoad}
-        highlight
-      />
-
-      {/* 2) Adjustments */}
-      <AmountRow
-        label="Payment Adjustment (Insurance)"
-        value={summary.insAdjApplied}
-      />
-      <AmountRow
-        label="Payment Adjustment (Exchange)"
-        value={summary.exAdjApplied}
-      />
-
-      {/* 3) Net payable to showroom */}
-      <div style={{ marginTop: 6 }}>
+      {/* Net on-road + adjustments (including cross adjustments now) */}
+      <div
+        style={{
+          marginTop: 6,
+          padding: 10,
+          borderRadius: 12,
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+        }}
+      >
         <AmountRow
-          label="Net Payable to Showroom"
-          value={summary.netPayableToShowroom}
+          label="Net on-road vehicle cost"
+          value={summary.netOnRoad}
           highlight
         />
-      </div>
-
-      {/* 4) Payments */}
-      <AmountRow label="Payment Amount (Autocredits)" value={summary.autoPay} />
-      <AmountRow label="Payment Amount (Customer)" value={summary.custPay} />
-      <AmountRow label="Payment Amount (Loan)" value={summary.loanPay} />
-
-      {/* 5) Balance payment */}
-      <div style={{ marginTop: 6 }}>
         <AmountRow
-          label="Balance Payment"
-          value={summary.balancePayment}
-          highlight
+          label="Adjustment – Insurance"
+          value={summary.insAdjApplied}
         />
-      </div>
+        <AmountRow label="Adjustment – Exchange" value={summary.exAdjApplied} />
 
-      {/* 6) Commission (only if entered) */}
-      {summary.commissionReceived > 0 && (
-        <div style={{ marginTop: 6 }}>
+        {summary.crossAdjNet !== 0 && (
           <AmountRow
-            label="Commission Received"
-            value={summary.commissionReceived}
+            label="Cross adjustments on commission"
+            value={summary.crossAdjNet}
           />
+        )}
+
+        <div style={{ marginTop: 4 }}>
+          <AmountRow
+            label="Net payable to showroom"
+            value={summary.netPayableToShowroom}
+            highlight
+          />
+        </div>
+      </div>
+
+      {/* Payments in + commission */}
+      <div
+        style={{
+          marginTop: 10,
+          padding: 10,
+          borderRadius: 12,
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <AmountRow label="Paid from Autocredits" value={summary.autoPay} />
+        <AmountRow label="Paid from Customer" value={summary.custPay} />
+        <AmountRow label="Paid from Loan" value={summary.loanPay} />
+
+        <div style={{ marginTop: 4 }}>
+          <AmountRow
+            label="Balance payment"
+            value={summary.balancePayment}
+            highlight
+          />
+        </div>
+
+        {summary.commissionReceived > 0 && (
+          <div style={{ marginTop: 4 }}>
+            <AmountRow
+              label="Commission received"
+              value={summary.commissionReceived}
+            />
+          </div>
+        )}
+
+        <div style={{ marginTop: 4 }}>
+          <AmountRow
+            label="Closing balance"
+            value={summary.closingBalance}
+            highlight
+          />
+        </div>
+      </div>
+
+      {/* Cross adjustment details list */}
+      {hasCrossAdjustments && (
+        <div
+          style={{
+            marginTop: 10,
+            padding: 10,
+            borderRadius: 12,
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 13,
+              marginBottom: 4,
+              color: "#111827",
+            }}
+          >
+            Cross adjustment entries
+          </div>
+
+          <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
+            Positive = this case receives commission, negative = this case gives
+            commission.
+          </div>
+
+          {(crossAdjustmentRows || []).map((row) => {
+            const amt = asInt(row.paymentAmount);
+            if (!amt) return null;
+
+            const signedAmt =
+              row.adjustmentDirection === "incoming" ? amt : -amt;
+
+            const label = row.crossCaseLabel || "Other case (no label entered)";
+
+            return (
+              <div
+                key={row.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "4px 0",
+                  borderTop: "1px dashed #eee",
+                }}
+              >
+                <div style={{ fontSize: 12, color: "#111827" }}>
+                  {row.adjustmentDirection === "incoming" ? "From" : "To"}{" "}
+                  {label}
+                  {row.remarks && (
+                    <span style={{ color: "#6b7280" }}> • {row.remarks}</span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: signedAmt >= 0 ? "#15803d" : "#b91c1c",
+                  }}
+                >
+                  {signedAmt >= 0 ? "+" : "-"} {money(Math.abs(signedAmt))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* 7) Closing Balance */}
-      <div style={{ marginTop: 6 }}>
-        <AmountRow
-          label="Closing Balance"
-          value={summary.closingBalance}
-          highlight
-        />
-      </div>
-
-      {/* ✅ VERIFY BUTTON */}
-      <div style={{ marginTop: 14 }}>
+      {/* Verify button */}
+      <div style={{ marginTop: 12 }}>
         <Button
           type="primary"
           block
           disabled={isVerified || !summary.canVerify}
           onClick={() => onVerify && onVerify()}
         >
-          {isVerified ? "Verified ✅ (Read-only)" : "Mark as Verified"}
+          {isVerified ? "Verified ✅ (read-only)" : "Mark showroom as verified"}
         </Button>
-
         {!isVerified && !summary.canVerify && (
-          <div style={{ marginTop: 8, fontSize: 11, color: "#666" }}>
-            Verification allowed only when <b>Closing Balance = ₹ 0</b>.
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              color: "#6b7280",
+              lineHeight: 1.4,
+            }}
+          >
+            Verification is enabled only when <b>Closing balance = ₹ 0</b>.
           </div>
         )}
       </div>
 
-      {/* Margin Money Tracking */}
+      {/* Margin money tracking */}
       {summary.doMarginMoney > 0 && (
         <div
           style={{
             marginTop: 14,
-            padding: 12,
+            padding: 10,
             borderRadius: 12,
-            border: "1px solid #f0f0f0",
-            background: summary.marginMatched ? "#f6ffed" : "#fff1f0",
+            border: "1px solid #e5e7eb",
+            background: summary.marginMatched ? "#f0fdf4" : "#fef2f2",
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 6 }}>
-            Margin Money Tracking
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 13,
+              marginBottom: 4,
+              color: "#111827",
+            }}
+          >
+            Margin money
           </div>
 
           <AmountRow label="As per DO" value={summary.doMarginMoney} />
           <AmountRow
-            label="Paid in Payments Module"
+            label="Captured in payments"
             value={summary.paidMarginMoney}
           />
-
-          <div style={{ marginTop: 6 }}>
+          <div style={{ marginTop: 4 }}>
             <AmountRow
-              label={
-                summary.marginMatched ? "Matched ✅" : "Pending / Mismatch ❌"
-              }
+              label={summary.marginMatched ? "Matched" : "Pending / mismatch"}
               value={summary.marginDiff}
               highlight
             />
@@ -237,26 +369,33 @@ const ShowroomPaymentHeader = ({
         </div>
       )}
 
-      {/* Exchange info section */}
+      {/* Exchange vehicle block */}
       {summary.hasExchange && (
         <div
           style={{
             marginTop: 14,
-            padding: 12,
+            padding: 10,
             borderRadius: 12,
-            border: "1px solid #f0f0f0",
-            background: "#fafafa",
+            border: "1px solid #e5e7eb",
+            background: "#f9fafb",
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 13, marginBottom: 6 }}>
-            Exchange Vehicle Details
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 13,
+              marginBottom: 4,
+              color: "#111827",
+            }}
+          >
+            Exchange vehicle
           </div>
 
           <InfoRow label="Make" value={data?.do_exchangeMake} />
           <InfoRow label="Model" value={data?.do_exchangeModel} />
           <InfoRow label="Variant" value={data?.do_exchangeVariant} />
           <InfoRow label="Year" value={data?.do_exchangeYear} />
-          <InfoRow label="Regd No" value={data?.do_exchangeRegdNumber} />
+          <InfoRow label="Reg. number" value={data?.do_exchangeRegdNumber} />
         </div>
       )}
     </Card>

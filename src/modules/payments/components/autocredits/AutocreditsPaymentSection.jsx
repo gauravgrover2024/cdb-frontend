@@ -52,7 +52,7 @@ const AutocreditsPaymentSection = ({
   const exchangeAdj = asInt(showroomData?.autocreditsExchangeDeduction || 0);
   const showroomAutoPaid = asInt(showroomTotals?.paymentAmountAutocredits || 0);
   const insuranceRecv = asInt(
-    showroomData?.autocreditsInsuranceReceivable || 0
+    showroomData?.autocreditsInsuranceReceivable || 0,
   );
 
   // Net margin receivable component = margin + showroomAutoPaid - exchangeAdj
@@ -90,8 +90,15 @@ const AutocreditsPaymentSection = ({
           {
             key: "autocredits",
             label: (
-              <div style={{ fontWeight: 900, fontSize: 15 }}>
-                SECTION — Payment Details (Autocredits Account)
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.14,
+                }}
+              >
+                Autocredits account — receipts
               </div>
             ),
             children: (
@@ -100,7 +107,7 @@ const AutocreditsPaymentSection = ({
                   display: "grid",
                   gridTemplateColumns: "1fr 350px",
                   gap: 16,
-                  alignItems: "start",
+                  alignItems: "flex-start",
                 }}
               >
                 <div
@@ -118,7 +125,11 @@ const AutocreditsPaymentSection = ({
                 </div>
 
                 <div
-                  style={{ position: "sticky", top: 130, alignSelf: "start" }}
+                  style={{
+                    position: "sticky",
+                    top: 130,
+                    alignSelf: "flex-start",
+                  }}
                 >
                   <AutocreditsPaymentHeader
                     data={showroomData}
@@ -128,7 +139,7 @@ const AutocreditsPaymentSection = ({
                     canVerify={canVerify}
                     onToggleVerified={() => {
                       if (!isAutocreditsVerified && !canVerify) {
-                        message.warning("Closing Balance must be 0 to Verify.");
+                        message.warning("Closing Balance must be 0 to verify.");
                         return;
                       }
                       setIsAutocreditsVerified((v) => !v);

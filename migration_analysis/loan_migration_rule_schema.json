@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "description": "Rule schema for legacy-loan migration into the current loans module.",
+  "identifierConfig": {
+    "primaryLegacyCaseFields": [
+      "TEMP_CUST_CODE",
+      "CDB_ACCOUNT_NO",
+      "CDB_ACCOUNT_NUMBER"
+    ],
+    "secondaryLegacyCaseFields": [
+      "CPV_ACCOUNT_NO"
+    ],
+    "treatAsEquivalent": [
+      [
+        "TEMP_CUST_CODE",
+        "CDB_ACCOUNT_NO",
+        "CDB_ACCOUNT_NUMBER"
+      ]
+    ]
+  },
+  "sourcePriority": {
+    "customerName": ["CPV_DETAIL", "RC_CUSTOMER_ACCOUNT"],
+    "primaryMobile": ["CPV_DETAIL", "RC_CUSTOMER_ACCOUNT"],
+    "email": ["CPV_DETAIL"],
+    "vehicle": ["RC_CUSTOMER_ACCOUNT", "RC_RC_INV_STATUS", "CPV_DETAIL"],
+    "banking": ["CUSTOMER_BANK", "RC_CUSTOMER_ACCOUNT"],
+    "guarantor": ["GURANTOR"],
+    "signatory": ["AUTH_SIGNATORY"],
+    "dispatch": ["RC_DOC_DESPATCH_MASTER"],
+    "instrument": ["RC_INSTRUMENT_DETAIL"],
+    "invoiceRc": ["RC_RC_INV_RECEIVING_DETAIL", "RC_RC_INV_STATUS"],
+    "workflow": ["RC_CUSTOMER_ACCOUNT", "RC_RC_INV_STATUS"]
+  },
+  "transforms": [
+    {
+      "id": "join_customer_name",
+      "type": "join_non_empty",
+      "sources": [
+        "CPV_DETAIL.CUST_NAME_FIRST",
+        "CPV_DETAIL.CUST_NAME_MIDDLE",
+        "CPV_DETAIL.CUST_NAME_LAST"
+      ],
+      "fallback": "CPV_DETAIL.CUSTOMER_NAME",
+      "target": "customerName"
+    },
+    {
+      "id": "join_father_name",
+      "type": "join_non_empty",
+      "sources": [
+        "CPV_DETAIL.FATHERS_NAME_FIRST",
+        "CPV_DETAIL.FATHERS_NAME_MIDDLE",
+        "CPV_DETAIL.FATHERS_NAME_LAST"
+      ],
+      "target": "sdwOf"
+    },
+    {
+      "id": "split_dispatch_datetime",
+      "type": "date_time_pair",
+      "sources": [
+        "RC_DOC_DESPATCH_MASTER.DATE_OF_DESP",
+        "RC_DOC_DESPATCH_MASTER.TIME_OF_DESP"
+      ],
+      "targets": [
+        "dispatch_date",
+        "dispatch_time"
+      ]
+    },
+    {
+      "id": "approval_bank_seed",
+      "type": "object_builder",
+      "sources": [
+        "RC_CUSTOMER_ACCOUNT.HP_TO",
+        "RC_CUSTOMER_ACCOUNT.LOAN_AMOUNT",
+        "RC_CUSTOMER_ACCOUNT.APPLIED_TENOR",
+        "RC_CUSTOMER_ACCOUNT.APPLIED_ROI",
+        "RC_CUSTOMER_ACCOUNT.DATE_OF_APPROVAL_STATUS_TAKEN",
+        "RC_CUSTOMER_ACCOUNT.DATE_OF_DISBURSE"
+      ],
+      "target": "approval_banksData"
+    }
+  ],
+  "normalizers": {
+    "typeOfLoan": {
+      "New Car": "New Car",
+      "Used Car": "Used Car",
+      "Cash-in": "Car Cash-in",
+      "Car Cash-in": "Car Cash-in",
+      "Re-finance": "Refinance",
+      "Refinance": "Refinance"
+    },
+    "isFinanced": {
+      "CASH SALE": "No"
+    },
+    "applicantType": {
+      "Individual": "Individual",
+      "Company": "Corporate"
+    }
+  },
+  "workflowRules": [
+    {
+      "id": "cash_new_car",
+      "when": {
+        "typeOfLoan": "New Car",
+        "isFinanced": "No"
+      },
+      "derive": {
+        "currentStage": "delivery"
+      }
+    },
+    {
+      "id": "financed_case_disbursed",
+      "when": {
+        "approval_status": "Disbursed"
+      },
+      "derive": {
+        "currentStage": "postfile"
+      }
+    },
+    {
+      "id": "cashin_or_refinance_after_postfile",
+      "when": {
+        "typeOfLoan": ["Car Cash-in", "Refinance"],
+        "postfileReady": true
+      },
+      "derive": {
+        "currentStage": "payout"
+      }
+    }
+  ],
+  "manualReviewQueues": [
+    "manual_dropdown_normalization",
+    "manual_vehicle_mapping",
+    "manual_conflict_review",
+    "missing_required_target_fields"
+  ],
+  "upsertPolicy": {
+    "matchBy": ["legacyMeta.legacyCaseId"],
+    "neverMapToMongoId": true
+  }
+}

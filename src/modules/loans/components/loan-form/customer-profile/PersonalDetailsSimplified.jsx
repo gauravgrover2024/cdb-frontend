@@ -16,9 +16,11 @@ import demoCustomers from "../../../../customers/demoCustomers";
 
 const PersonalDetailsSimplified = ({ excludeFields = false }) => {
   const form = Form.useFormInstance();
+  const applicantType = Form.useWatch("applicantType", form);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const isCompany = applicantType === "Company";
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -183,7 +185,7 @@ const PersonalDetailsSimplified = ({ excludeFields = false }) => {
         <Row gutter={[16, 0]}>
           <Col xs={24} md={8}>
             <Form.Item 
-              label="Customer Name" 
+              label={isCompany ? "Company Name" : "Customer Name"} 
               name="customerName"
               rules={[
                 { required: true, message: 'Customer name is required' }
@@ -212,7 +214,15 @@ const PersonalDetailsSimplified = ({ excludeFields = false }) => {
             </Form.Item>
           </Col>
 
-          {!excludeFields && (
+          {isCompany && (
+            <Col xs={24} md={8}>
+              <Form.Item label="GST Number" name="gstNumber">
+                <Input placeholder="Enter GST Number" />
+              </Form.Item>
+            </Col>
+          )}
+
+          {!excludeFields && !isCompany && (
             <>
               <Col xs={24} md={8}>
                 <Form.Item preserve label="Marital Status" name="maritalStatus">

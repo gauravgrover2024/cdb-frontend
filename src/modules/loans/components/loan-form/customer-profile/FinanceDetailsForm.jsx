@@ -30,8 +30,8 @@ const FinanceDetailsForm = () => {
               <Select placeholder="Select loan type" className="h-10 rounded-xl">
                 <Select.Option value="New Car">New Car</Select.Option>
                 <Select.Option value="Used Car">Used Car</Select.Option>
-                <Select.Option value="Cash-in">Cash-in</Select.Option>
-                <Select.Option value="Re-finance">Re-finance</Select.Option>
+                <Select.Option value="Car Cash-in">Car Cash-in</Select.Option>
+                <Select.Option value="Refinance">Refinance</Select.Option>
               </Select>
             </Form.Item>
           </Col>

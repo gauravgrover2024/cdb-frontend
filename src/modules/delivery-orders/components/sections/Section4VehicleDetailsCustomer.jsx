@@ -1,18 +1,27 @@
+// src/modules/delivery-orders/components/sections/Section4VehicleDetailsCustomer.jsx
+
 import React, { useEffect, useMemo } from "react";
 import {
-  Form,
-  Input,
   Row,
   Col,
-  Card,
+  Form,
+  Input,
+  Select,
   Divider,
   InputNumber,
   Button,
-  Select,
   Spin,
+  Tag,
 } from "antd";
-import { CarOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import {
+  CarOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  InfoCircleOutlined,
+} from "@ant-design/icons";
 import { useVehicleData } from "../../../../hooks/useVehicleData";
+
+const { Option } = Select;
 
 const asInt = (val) => {
   const n = Number(val);
@@ -20,13 +29,102 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
-// show only if value > 0
 const hasValue = (val) => asInt(val) > 0;
+
+// Shared UI helpers (same style as Section 5)
+const SectionChip = ({ icon, label }) => (
+  <div
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: 11,
+      fontWeight: 600,
+      letterSpacing: 0.4,
+      textTransform: "uppercase",
+      color: "#4b5563",
+    }}
+  >
+    {icon}
+    <span>{label}</span>
+  </div>
+);
+
+const HeadingLabel = ({ children }) => (
+  <div
+    style={{
+      fontSize: 11,
+      fontWeight: 600,
+      letterSpacing: 0.4,
+      textTransform: "uppercase",
+      color: "#6b7280",
+    }}
+  >
+    {children}
+  </div>
+);
+
+const InlineField = ({ label, children }) => (
+  <div style={{ marginBottom: 12 }}>
+    {label && (
+      <div
+        style={{
+          fontSize: 11,
+          color: "#6b7280",
+          marginBottom: 2,
+        }}
+      >
+        {label}
+      </div>
+    )}
+    <div
+      style={{
+        borderBottom: "1px solid #e5e7eb",
+        paddingBottom: 2,
+      }}
+    >
+      {children}
+    </div>
+  </div>
+);
+
+const SummaryRow = ({
+  label,
+  value,
+  intent = "neutral", // "addition" | "discount" | "total" | "neutral"
+  strong = false,
+}) => {
+  const display = Number.isFinite(Number(value))
+    ? Math.trunc(Number(value))
+    : 0;
+
+  let color = "#4b5563";
+  if (intent === "addition") color = "#15803d";
+  if (intent === "discount") color = "#1d4ed8";
+  if (intent === "total") color = "#0f766e";
+  if (strong && intent === "neutral") color = "#111827";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 12,
+        marginBottom: 4,
+        fontWeight: strong ? 700 : 500,
+        color,
+      }}
+    >
+      <span>{label}</span>
+      <span>₹ {display.toLocaleString("en-IN")}</span>
+    </div>
+  );
+};
 
 const Section4VehicleDetailsCustomer = () => {
   const form = Form.useFormInstance();
 
-  // Use centralized vehicle data hook
+  // Centralized vehicle data
   const {
     makes,
     models,
@@ -39,22 +137,19 @@ const Section4VehicleDetailsCustomer = () => {
     makeFieldName: "do_vehicleMake",
     modelFieldName: "do_vehicleModel",
     variantFieldName: "do_vehicleVariant",
-    autofillPricing: false, // Don't auto-populate as this is customer account
+    autofillPricing: false,
   });
 
   const do_vehicleMake = Form.useWatch("do_vehicleMake", form);
   const do_vehicleModel = Form.useWatch("do_vehicleModel", form);
 
-  // ---------------------------
-  // Watch all values for calc
-  // ---------------------------
   const v = Form.useWatch([], form) || {};
 
   const make = v.do_vehicleMake;
   const model = v.do_vehicleModel;
   const variant = v.do_vehicleVariant;
 
-  // Shared (same keys as Section 3)
+  // Pricing inputs
   const exShowroom = asInt(v.do_exShowroomPrice);
   const tcs = asInt(v.do_tcs);
   const epc = asInt(v.do_epc);
@@ -71,16 +166,16 @@ const Section4VehicleDetailsCustomer = () => {
     : [];
   const additionsOthersTotal = additionsOthers.reduce(
     (sum, x) => sum + asInt(x?.amount),
-    0
+    0,
   );
 
-  // Section 4 discount fields (NEW KEYS)
+  // Customer discount fields
   const discountsOthers = Array.isArray(v.do_customer_discounts_others)
     ? v.do_customer_discounts_others
     : [];
   const discountsOthersTotal = discountsOthers.reduce(
     (sum, x) => sum + asInt(x?.amount),
-    0
+    0,
   );
 
   const dealerDiscount = asInt(v.do_customer_dealerDiscount);
@@ -91,9 +186,7 @@ const Section4VehicleDetailsCustomer = () => {
   const loyalty = asInt(v.do_customer_loyalty);
   const corporate = asInt(v.do_customer_corporate);
 
-  // ---------------------------
-  // CALCULATIONS
-  // ---------------------------
+  // Calculations
   const onRoadVehicleCost =
     exShowroom +
     tcs +
@@ -105,7 +198,6 @@ const Section4VehicleDetailsCustomer = () => {
     extendedWarranty +
     additionsOthersTotal;
 
-  // ✅ Gross DO = OnRoad Vehicle Cost - Margin Money Paid
   const grossDO = onRoadVehicleCost - marginMoneyPaid;
 
   const totalDiscount =
@@ -120,19 +212,16 @@ const Section4VehicleDetailsCustomer = () => {
 
   const netOnRoadVehicleCost = onRoadVehicleCost - totalDiscount;
 
-  // write computed values into form (only customer totals here)
+  // Write computed values
   useEffect(() => {
     if (!form) return;
-
     form.setFieldsValue({
       do_customer_totalDiscount: totalDiscount,
       do_customer_netOnRoadVehicleCost: netOnRoadVehicleCost,
     });
   }, [form, totalDiscount, netOnRoadVehicleCost]);
 
-  // ---------------------------
-  // Summary card (sticky + show only non-zero)
-  // ---------------------------
+  // Right-side summary
   const SummaryCard = useMemo(() => {
     const additionsList = additionsOthers
       .filter((x) => (x?.label || x?.amount) && hasValue(x?.amount))
@@ -152,127 +241,136 @@ const Section4VehicleDetailsCustomer = () => {
 
     const additionsRows = [
       { label: "Ex-Showroom Price", value: exShowroom },
-      { label: "+ TCS", value: tcs },
-      { label: "+ EPC", value: epc },
-      { label: "+ Insurance Cost", value: insuranceCost },
-      { label: "+ Road Tax", value: roadTax },
-      { label: "+ Accessories Amount", value: accessoriesAmount },
-      { label: "+ Fastag", value: fastag },
-      { label: "+ Extended Warranty", value: extendedWarranty },
+      { label: "TCS", value: tcs },
+      { label: "EPC", value: epc },
+      { label: "Insurance Cost", value: insuranceCost },
+      { label: "Road Tax", value: roadTax },
+      { label: "Accessories Amount", value: accessoriesAmount },
+      { label: "Fastag", value: fastag },
+      { label: "Extended Warranty", value: extendedWarranty },
+      { label: "Others (Additions)", value: additionsOthersTotal },
     ].filter((r) => hasValue(r.value));
 
     const discountRows = [
-      { label: "- Margin Money Paid", value: marginMoneyPaid },
-      { label: "- Dealer Discount", value: dealerDiscount },
-      { label: "- Scheme Discount", value: schemeDiscount },
-      { label: "- Insurance Cashback", value: insuranceCashback },
-      { label: "- Exchange", value: exchange },
-      { label: "- Vehicle Value", value: vehicleValue },
-      { label: "- Loyalty", value: loyalty },
-      { label: "- Corporate", value: corporate },
+      { label: "Margin Money Paid", value: marginMoneyPaid },
+      { label: "Dealer Discount", value: dealerDiscount },
+      { label: "Scheme Discount", value: schemeDiscount },
+      { label: "Insurance Cashback", value: insuranceCashback },
+      { label: "Exchange", value: exchange },
+      { label: "Vehicle Value", value: vehicleValue },
+      { label: "Loyalty", value: loyalty },
+      { label: "Corporate", value: corporate },
+      { label: "Others (Discounts)", value: discountsOthersTotal },
     ].filter((r) => hasValue(r.value));
 
     return (
-      <Card
-        style={{
-          position: "sticky",
-          top: 16,
-          borderRadius: 12,
-          background: "#fafafa",
-          border: "1px solid #f0f0f0",
-        }}
-      >
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
-          {make || "-"} {model || ""} {variant || ""}
+      <>
+        <div style={{ marginBottom: 10 }}>
+          <SectionChip
+            icon={<InfoCircleOutlined style={{ color: "#7c3aed" }} />}
+            label="Customer on-road breakdown"
+          />
         </div>
 
-        <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
-          Vehicle Summary
+        <div
+          style={{
+            position: "sticky",
+            top: 16,
+            borderRadius: 16,
+            border: "1px solid #e5e7eb",
+            background: "#f9fafb",
+            padding: 14,
+          }}
+        >
+          {/* Header line like Section 5 */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: 8,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: 14,
+                  marginBottom: 4,
+                }}
+              >
+                {make || "-"} {model || ""} {variant || ""}
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280" }}>
+                Customer account
+              </div>
+            </div>
+            <Tag
+              color="blue"
+              style={{
+                borderRadius: 999,
+                fontSize: 11,
+                borderColor: "#1d4ed8",
+              }}
+            >
+              Customer
+            </Tag>
+          </div>
+
+          {/* Additions block */}
+          <div style={{ marginBottom: 10 }}>
+            <HeadingLabel>On-road build-up</HeadingLabel>
+          </div>
+          {additionsRows.map((r) => (
+            <SummaryRow
+              key={r.label}
+              label={r.label}
+              value={r.value}
+              intent="addition"
+            />
+          ))}
+
+          <Divider style={{ margin: "8px 0" }} />
+
+          {/* Discounts block */}
+          <div style={{ marginBottom: 8 }}>
+            <HeadingLabel>Discounts / deductions</HeadingLabel>
+          </div>
+          {discountRows.map((r) => (
+            <SummaryRow
+              key={r.label}
+              label={r.label}
+              value={r.value}
+              intent="discount"
+            />
+          ))}
+
+          <Divider style={{ margin: "8px 0" }} />
+
+          {/* Totals (mirroring Net DO amount area) */}
+          <div style={{ marginBottom: 4 }}>
+            <HeadingLabel>Customer on-road summary</HeadingLabel>
+          </div>
+          <SummaryRow
+            label="OnRoad Vehicle Cost"
+            value={onRoadVehicleCost}
+            intent="total"
+            strong
+          />
+          <SummaryRow
+            label="Total Discount"
+            value={totalDiscount}
+            intent="discount"
+            strong
+          />
+          <SummaryRow
+            label="Net OnRoad Vehicle Cost"
+            value={netOnRoadVehicleCost}
+            intent="total"
+            strong
+          />
         </div>
-
-        <Divider style={{ margin: "8px 0" }} />
-
-        {/* ADDITIONS */}
-        {additionsRows.length > 0 && (
-          <>
-            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-              Additions
-            </div>
-            {additionsRows.map((r) => (
-              <SummaryRow key={r.label} label={r.label} value={r.value} />
-            ))}
-
-            {additionsList.length > 0 && (
-              <>
-                <Divider style={{ margin: "10px 0" }} />
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                  Others (Additions)
-                </div>
-                {additionsList.map((x) => (
-                  <SummaryRow
-                    key={x.key}
-                    label={`+ ${x.label}`}
-                    value={x.amount}
-                    compact
-                  />
-                ))}
-              </>
-            )}
-
-            <Divider style={{ margin: "10px 0" }} />
-          </>
-        )}
-
-        {/* ALWAYS SHOW */}
-        <SummaryRow
-          label="OnRoad Vehicle Cost"
-          value={onRoadVehicleCost}
-          highlight
-        />
-
-        {/* DISCOUNTS */}
-        {(discountRows.length > 0 || discountsList.length > 0) && (
-          <>
-            <Divider style={{ margin: "12px 0" }} />
-            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-              Deductions / Discounts
-            </div>
-
-            {discountRows.map((r) => (
-              <SummaryRow key={r.label} label={r.label} value={r.value} />
-            ))}
-
-            {discountsList.length > 0 && (
-              <>
-                <Divider style={{ margin: "10px 0" }} />
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                  Others (Discounts)
-                </div>
-                {discountsList.map((x) => (
-                  <SummaryRow
-                    key={x.key}
-                    label={`- ${x.label}`}
-                    value={x.amount}
-                    compact
-                  />
-                ))}
-              </>
-            )}
-          </>
-        )}
-
-        <Divider style={{ margin: "10px 0" }} />
-        <SummaryRow label="Total Discount" value={totalDiscount} highlight />
-
-        <Divider style={{ margin: "10px 0" }} />
-        <SummaryRow label="Gross DO" value={grossDO} highlight />
-
-        <SummaryRow
-          label="Net OnRoad Vehicle Cost"
-          value={netOnRoadVehicleCost}
-          final
-        />
-      </Card>
+      </>
     );
   }, [
     make,
@@ -286,8 +384,8 @@ const Section4VehicleDetailsCustomer = () => {
     accessoriesAmount,
     fastag,
     extendedWarranty,
-    additionsOthers,
-    discountsOthers,
+    additionsOthersTotal,
+    discountsOthersTotal,
     onRoadVehicleCost,
     marginMoneyPaid,
     dealerDiscount,
@@ -298,50 +396,95 @@ const Section4VehicleDetailsCustomer = () => {
     loyalty,
     corporate,
     totalDiscount,
-    grossDO,
     netOnRoadVehicleCost,
   ]);
+
 
   return (
     <div
       style={{
         marginBottom: 32,
-        padding: 20,
-        background: "#fff",
-        borderRadius: 12,
-        border: "1px solid #f0f0f0",
+        padding: 18,
+        background: "#f9fafb",
+        borderRadius: 16,
+        border: "1px solid #e5e7eb",
       }}
     >
-      {/* Header */}
+      {/* Top strip same pattern as Section 5 */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
-          fontWeight: 600,
-          marginBottom: 16,
+          gap: 12,
+          justifyContent: "space-between",
+          marginBottom: 10,
         }}
       >
-        <CarOutlined style={{ color: "#1418faff" }} />
-        <span>Vehicle Details (Customer Account)</span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <CarOutlined style={{ color: "#111827" }} />
+          <div>
+            <HeadingLabel>Vehicle details</HeadingLabel>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#111827",
+              }}
+            >
+              Customer account pricing
+            </div>
+          </div>
+          <Tag
+            color="blue"
+            style={{ borderRadius: 999, fontSize: 11, borderColor: "#1d4ed8" }}
+          >
+            Customer account
+          </Tag>
+        </div>
       </div>
 
-      <Row gutter={16}>
-        {/* Left form */}
-        <Col xs={24} lg={15}>
-          <Card style={{ borderRadius: 12 }}>
-            <Row gutter={[16, 12]}>
-              {/* Shared fields till Gross DO (same keys as Section 3) */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Make" name="do_vehicleMake">
+      <Divider style={{ margin: "8px 0 14px" }} />
+
+      <Row gutter={[32, 12]}>
+        {/* LEFT: INPUTS */}
+        <Col
+          xs={24}
+          lg={14}
+          style={{
+            borderRight: "1px solid #e5e7eb",
+            paddingRight: 24,
+          }}
+        >
+          {/* Vehicle & pricing */}
+          <div style={{ marginBottom: 10 }}>
+            <SectionChip
+              icon={<CarOutlined style={{ color: "#1d4ed8" }} />}
+              label="Vehicle & pricing"
+            />
+          </div>
+
+          <Row gutter={[16, 8]}>
+            {/* Make / Model / Variant / Colour */}
+            <Col xs={24} md={8}>
+              <InlineField label="Make">
+                <Form.Item name="do_vehicleMake" style={{ marginBottom: 0 }}>
                   <Select
+                    bordered={false}
+                    size="small"
                     placeholder="Select make"
                     allowClear
                     showSearch
                     loading={vehicleLoading}
                     onChange={handleMakeChange}
                     filterOption={(input, option) =>
-                      (option?.children || option?.value || '')
+                      (option?.children || option?.value || "")
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
@@ -351,32 +494,38 @@ const Section4VehicleDetailsCustomer = () => {
                           <Spin size="small" />
                         </div>
                       ) : (
-                        <div className="p-4 text-center text-muted-foreground text-xs">
+                        <div className="p-4 text-center text-xs">
                           No makes available
                         </div>
                       )
                     }
                   >
-                    {makes.map((make) => (
-                      <Select.Option key={make} value={make}>
-                        {make}
-                      </Select.Option>
+                    {makes.map((m) => (
+                      <Option key={m} value={m}>
+                        {m}
+                      </Option>
                     ))}
                   </Select>
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="Model" name="do_vehicleModel">
+            <Col xs={24} md={8}>
+              <InlineField label="Model">
+                <Form.Item name="do_vehicleModel" style={{ marginBottom: 0 }}>
                   <Select
-                    placeholder={do_vehicleMake ? "Select model" : "Select make first"}
+                    bordered={false}
+                    size="small"
+                    placeholder={
+                      do_vehicleMake ? "Select model" : "Select make first"
+                    }
                     disabled={!do_vehicleMake}
                     allowClear
                     showSearch
                     loading={vehicleLoading}
                     onChange={handleModelChange}
                     filterOption={(input, option) =>
-                      (option?.children || option?.value || '')
+                      (option?.children || option?.value || "")
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
@@ -386,32 +535,38 @@ const Section4VehicleDetailsCustomer = () => {
                           <Spin size="small" />
                         </div>
                       ) : (
-                        <div className="p-4 text-center text-muted-foreground text-xs">
+                        <div className="p-4 text-center text-xs">
                           No models available
                         </div>
                       )
                     }
                   >
-                    {models.map((model) => (
-                      <Select.Option key={model} value={model}>
-                        {model}
-                      </Select.Option>
+                    {models.map((m) => (
+                      <Option key={m} value={m}>
+                        {m}
+                      </Option>
                     ))}
                   </Select>
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="Variant" name="do_vehicleVariant">
+            <Col xs={24} md={8}>
+              <InlineField label="Variant">
+                <Form.Item name="do_vehicleVariant" style={{ marginBottom: 0 }}>
                   <Select
-                    placeholder={do_vehicleModel ? "Select variant" : "Select model first"}
+                    bordered={false}
+                    size="small"
+                    placeholder={
+                      do_vehicleModel ? "Select variant" : "Select model first"
+                    }
                     disabled={!do_vehicleModel}
                     allowClear
                     showSearch
                     loading={vehicleLoading}
                     onChange={handleVariantChange}
                     filterOption={(input, option) =>
-                      (option?.children || option?.value || '')
+                      (option?.children || option?.value || "")
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
@@ -421,370 +576,534 @@ const Section4VehicleDetailsCustomer = () => {
                           <Spin size="small" />
                         </div>
                       ) : (
-                        <div className="p-4 text-center text-muted-foreground text-xs">
+                        <div className="p-4 text-center text-xs">
                           No variants available
                         </div>
                       )
                     }
                   >
-                    {variants.map((variant) => (
-                      <Select.Option key={variant} value={variant}>
-                        {variant}
-                      </Select.Option>
+                    {variants.map((vName) => (
+                      <Option key={vName} value={vName}>
+                        {vName}
+                      </Option>
                     ))}
                   </Select>
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="Colour" name="do_colour">
-                  <Input placeholder="Enter colour" />
+            <Col xs={24} md={8}>
+              <InlineField label="Colour">
+                <Form.Item name="do_colour" style={{ marginBottom: 0 }}>
+                  <Input
+                    bordered={false}
+                    size="small"
+                    placeholder="Enter colour"
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="Ex-Showroom Price" name="do_exShowroomPrice">
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={8}>
-                <Form.Item label="+ TCS" name="do_tcs">
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={8}>
-                <Form.Item label="+ EPC" name="do_epc">
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={8}>
-                <Form.Item label="+ Insurance Cost" name="do_insuranceCost">
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={8}>
-                <Form.Item label="+ Road Tax" name="do_roadTax">
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={8}>
+            {/* Pricing additions */}
+            <Col xs={24} md={8}>
+              <InlineField label="Ex-Showroom Price">
                 <Form.Item
-                  label="+ Accessories Amount"
+                  name="do_exShowroomPrice"
+                  style={{ marginBottom: 0 }}
+                >
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="TCS">
+                <Form.Item name="do_tcs" style={{ marginBottom: 0 }}>
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="EPC">
+                <Form.Item name="do_epc" style={{ marginBottom: 0 }}>
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Insurance Cost">
+                <Form.Item name="do_insuranceCost" style={{ marginBottom: 0 }}>
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Road Tax">
+                <Form.Item name="do_roadTax" style={{ marginBottom: 0 }}>
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Accessories Amount">
+                <Form.Item
                   name="do_accessoriesAmount"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="+ Fastag" name="do_fastag">
-                  <InputNumber style={{ width: "100%" }} />
+            <Col xs={24} md={8}>
+              <InlineField label="Fastag">
+                <Form.Item name="do_fastag" style={{ marginBottom: 0 }}>
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
+            <Col xs={24} md={8}>
+              <InlineField label="Extended Warranty">
                 <Form.Item
-                  label="+ Extended Warranty"
                   name="do_extendedWarranty"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              {/* Additions Others (shared) */}
-              <Col xs={24}>
-                <Divider style={{ margin: "10px 0" }} />
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                  + Others (Additions)
-                </div>
+            {/* Others (additions) */}
+            <Col xs={24}>
+              <Divider style={{ margin: "10px 0" }} />
+              <SectionChip
+                icon={<PlusOutlined style={{ fontSize: 11 }} />}
+                label="Others (additions)"
+              />
+            </Col>
 
-                <Form.List name="do_additions_others">
-                  {(fields, { add, remove }) => (
-                    <>
-                      {fields.length === 0 && (
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: "#666",
-                            marginBottom: 8,
-                          }}
-                        >
-                          No addition items added.
-                        </div>
-                      )}
-
-                      {fields.map(({ key, name }) => (
-                        <Row
-                          key={key}
-                          gutter={[12, 12]}
-                          align="middle"
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Col xs={24} md={14}>
-                            <Form.Item
-                              name={[name, "label"]}
-                              style={{ marginBottom: 0 }}
-                            >
-                              <Input placeholder="e.g., Handling Charges" />
-                            </Form.Item>
-                          </Col>
-
-                          <Col xs={24} md={8}>
-                            <Form.Item
-                              name={[name, "amount"]}
-                              style={{ marginBottom: 0 }}
-                            >
-                              <InputNumber style={{ width: "100%" }} />
-                            </Form.Item>
-                          </Col>
-
-                          <Col xs={24} md={2}>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                                height: 32,
-                              }}
-                            >
-                              <Button
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={() => remove(name)}
-                              />
-                            </div>
-                          </Col>
-                        </Row>
-                      ))}
-
-                      <Button
-                        icon={<PlusOutlined />}
-                        onClick={() => add({ label: "", amount: "" })}
+            <Col xs={24}>
+              <Form.List name="do_additions_others">
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.length === 0 && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#6b7280",
+                          marginBottom: 8,
+                        }}
                       >
-                        Add Others (Additions)
-                      </Button>
-                    </>
-                  )}
-                </Form.List>
-              </Col>
+                        No addition items added.
+                      </div>
+                    )}
 
-              {/* Shared computed */}
-              <Col xs={24} md={8}>
+                    {fields.map(({ key, name }) => (
+                      <Row
+                        key={key}
+                        gutter={[12, 12]}
+                        align="middle"
+                        style={{ marginBottom: 8 }}
+                      >
+                        <Col xs={24} md={14}>
+                          <Form.Item
+                            name={[name, "label"]}
+                            style={{ marginBottom: 0 }}
+                          >
+                            <Input
+                              bordered={false}
+                              size="small"
+                              placeholder="e.g., Handling Charges"
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={8}>
+                          <Form.Item
+                            name={[name, "amount"]}
+                            style={{ marginBottom: 0 }}
+                          >
+                            <InputNumber
+                              bordered={false}
+                              size="small"
+                              style={{ width: "100%" }}
+                              controls={false}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={2}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              height: 32,
+                            }}
+                          >
+                            <Button
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => remove(name)}
+                            />
+                          </div>
+                        </Col>
+                      </Row>
+                    ))}
+
+                    <Button
+                      icon={<PlusOutlined />}
+                      onClick={() => add({ label: "", amount: "" })}
+                    >
+                      Add Others (Additions)
+                    </Button>
+                  </>
+                )}
+              </Form.List>
+            </Col>
+
+            {/* Computed base values */}
+            <Col xs={24} md={8}>
+              <InlineField label="OnRoad Vehicle Cost">
                 <Form.Item
-                  label="= OnRoad Vehicle Cost"
                   name="do_onRoadVehicleCost"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} disabled />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                    disabled
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
+            <Col xs={24} md={8}>
+              <InlineField label="Margin Money Paid">
                 <Form.Item
-                  label="- Margin Money Paid"
                   name="do_marginMoneyPaid"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="Gross DO" name="do_grossDO">
-                  <InputNumber style={{ width: "100%" }} disabled />
+            <Col xs={24} md={8}>
+              <InlineField label="Gross DO">
+                <Form.Item name="do_grossDO" style={{ marginBottom: 0 }}>
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                    disabled
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              {/* NEW Discount section for Customer Account */}
-              <Col xs={24}>
-                <Divider style={{ margin: "10px 0" }} />
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                  Discounts / Deductions (Customer Account)
-                </div>
-              </Col>
+            {/* Discounts / Deductions */}
+            <Col xs={24}>
+              <Divider style={{ margin: "10px 0" }} />
+              <SectionChip
+                icon={<InfoCircleOutlined style={{ fontSize: 11 }} />}
+                label="Discounts / deductions (customer)"
+              />
+            </Col>
 
-              <Col xs={24} md={8}>
+            <Col xs={24} md={8}>
+              <InlineField label="Dealer Discount">
                 <Form.Item
-                  label="- Dealer Discount"
                   name="do_customer_dealerDiscount"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
+            <Col xs={24} md={8}>
+              <InlineField label="Scheme Discount">
                 <Form.Item
-                  label="- Scheme Discount"
                   name="do_customer_schemeDiscount"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
+            <Col xs={24} md={8}>
+              <InlineField label="Insurance Cashback">
                 <Form.Item
-                  label="- Insurance Cashback"
                   name="do_customer_insuranceCashback"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="- Exchange" name="do_customer_exchange">
-                  <InputNumber style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={8}>
+            <Col xs={24} md={8}>
+              <InlineField label="Exchange">
                 <Form.Item
-                  label="- Vehicle Value"
+                  name="do_customer_exchange"
+                  style={{ marginBottom: 0 }}
+                >
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Vehicle Value">
+                <Form.Item
                   name="do_customer_vehicleValue"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="- Loyalty" name="do_customer_loyalty">
-                  <InputNumber style={{ width: "100%" }} />
+            <Col xs={24} md={8}>
+              <InlineField label="Loyalty">
+                <Form.Item
+                  name="do_customer_loyalty"
+                  style={{ marginBottom: 0 }}
+                >
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item label="- Corporate" name="do_customer_corporate">
-                  <InputNumber style={{ width: "100%" }} />
+            <Col xs={24} md={8}>
+              <InlineField label="Corporate">
+                <Form.Item
+                  name="do_customer_corporate"
+                  style={{ marginBottom: 0 }}
+                >
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              {/* Customer Discounts Others */}
-              <Col xs={24}>
-                <div style={{ fontWeight: 600, marginTop: 4, marginBottom: 8 }}>
-                  - Others (Discounts)
-                </div>
-
-                <Form.List name="do_customer_discounts_others">
-                  {(fields, { add, remove }) => (
-                    <>
-                      {fields.length === 0 && (
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: "#666",
-                            marginBottom: 8,
-                          }}
-                        >
-                          No discount items added.
-                        </div>
-                      )}
-
-                      {fields.map(({ key, name }) => (
-                        <Row
-                          key={key}
-                          gutter={[12, 12]}
-                          align="middle"
-                          style={{ marginBottom: 8 }}
-                        >
-                          <Col xs={24} md={14}>
-                            <Form.Item
-                              name={[name, "label"]}
-                              style={{ marginBottom: 0 }}
-                            >
-                              <Input placeholder="e.g., Special Offer" />
-                            </Form.Item>
-                          </Col>
-
-                          <Col xs={24} md={8}>
-                            <Form.Item
-                              name={[name, "amount"]}
-                              style={{ marginBottom: 0 }}
-                            >
-                              <InputNumber style={{ width: "100%" }} />
-                            </Form.Item>
-                          </Col>
-
-                          <Col xs={24} md={2}>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "center",
-                                height: 32,
-                              }}
-                            >
-                              <Button
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={() => remove(name)}
-                              />
-                            </div>
-                          </Col>
-                        </Row>
-                      ))}
-
-                      <Button
-                        icon={<PlusOutlined />}
-                        onClick={() => add({ label: "", amount: "" })}
+            {/* Others (discounts) */}
+            <Col xs={24}>
+              <div style={{ fontWeight: 600, marginTop: 4, marginBottom: 8 }}>
+                Others (Discounts)
+              </div>
+              <Form.List name="do_customer_discounts_others">
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.length === 0 && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#6b7280",
+                          marginBottom: 8,
+                        }}
                       >
-                        Add Others (Discounts)
-                      </Button>
-                    </>
-                  )}
-                </Form.List>
-              </Col>
+                        No discount items added.
+                      </div>
+                    )}
 
-              {/* Customer computed totals */}
-              <Col xs={24} md={8}>
+                    {fields.map(({ key, name }) => (
+                      <Row
+                        key={key}
+                        gutter={[12, 12]}
+                        align="middle"
+                        style={{ marginBottom: 8 }}
+                      >
+                        <Col xs={24} md={14}>
+                          <Form.Item
+                            name={[name, "label"]}
+                            style={{ marginBottom: 0 }}
+                          >
+                            <Input
+                              bordered={false}
+                              size="small"
+                              placeholder="e.g., Special Offer"
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={8}>
+                          <Form.Item
+                            name={[name, "amount"]}
+                            style={{ marginBottom: 0 }}
+                          >
+                            <InputNumber
+                              bordered={false}
+                              size="small"
+                              style={{ width: "100%" }}
+                              controls={false}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={2}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              height: 32,
+                            }}
+                          >
+                            <Button
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => remove(name)}
+                            />
+                          </div>
+                        </Col>
+                      </Row>
+                    ))}
+
+                    <Button
+                      icon={<PlusOutlined />}
+                      onClick={() => add({ label: "", amount: "" })}
+                    >
+                      Add Others (Discounts)
+                    </Button>
+                  </>
+                )}
+              </Form.List>
+            </Col>
+
+            {/* Computed customer totals */}
+            <Col xs={24} md={8}>
+              <InlineField label="Total Discount">
                 <Form.Item
-                  label="= Total Discount"
                   name="do_customer_totalDiscount"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} disabled />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                    disabled
+                  />
                 </Form.Item>
-              </Col>
+              </InlineField>
+            </Col>
 
-              <Col xs={24} md={8}>
+            <Col xs={24} md={8}>
+              <InlineField label="Net OnRoad Vehicle Cost">
                 <Form.Item
-                  label="= Net OnRoad Vehicle Cost"
                   name="do_customer_netOnRoadVehicleCost"
+                  style={{ marginBottom: 0 }}
                 >
-                  <InputNumber style={{ width: "100%" }} disabled />
+                  <InputNumber
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                    disabled
+                  />
                 </Form.Item>
-              </Col>
-            </Row>
-          </Card>
+              </InlineField>
+            </Col>
+          </Row>
         </Col>
 
-        {/* Right sticky summary */}
-        <Col xs={24} lg={9}>
+        {/* RIGHT: SUMMARY */}
+        <Col
+          xs={24}
+          lg={10}
+          style={{
+            paddingLeft: 24,
+          }}
+        >
           {SummaryCard}
         </Col>
       </Row>
-    </div>
-  );
-};
-
-const SummaryRow = ({ label, value = 0, highlight, final, compact }) => {
-  const display = Number.isFinite(Number(value))
-    ? Math.trunc(Number(value))
-    : 0;
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: compact ? 12 : 13,
-        fontWeight: highlight || final ? 700 : 500,
-        color: final ? "#1d39c4" : highlight ? "#237804" : "#111",
-        marginBottom: compact ? 4 : 6,
-      }}
-    >
-      <span style={{ color: compact ? "#444" : undefined }}>{label}</span>
-      <span>₹ {display.toLocaleString("en-IN")}</span>
     </div>
   );
 };

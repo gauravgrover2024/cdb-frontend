@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Form, Select, Input, DatePicker, InputNumber, Radio, Tooltip, Upload, message } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { formatINR, formatINRInput, parseINRInput } from "../../../../../utils/currency";
+import dayjs from "dayjs";
 
 const { Option } = Select;
+const asDayjs = (value) => {
+  if (!value) return null;
+  if (dayjs.isDayjs(value)) return value;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
+};
 
 // Image Upload Component
 const ImageUpload = ({ value, onChange, label = "Upload Image" }) => {
@@ -127,15 +134,55 @@ const ChequeHeader = ({ id, index, isExpanded, onToggle, onDelete, onCopy, isFir
 };
 
 const PostFileInstrumentDetails = ({ form }) => {
+  const loanId = Form.useWatch("loanId", form);
   const instrumentType = Form.useWatch("instrumentType", form);
+  const siAccountNumber = Form.useWatch("si_accountNumber", form);
+  const ecsAccountNumber = Form.useWatch("ecs_accountNumber", form);
+  const ecsBankName = Form.useWatch("ecs_bankName", form);
+  const cheque1Number = Form.useWatch("cheque_1_number", form);
+  const cheque1BankName = Form.useWatch("cheque_1_bankName", form);
+  const cheque1AccountNumber = Form.useWatch("cheque_1_accountNumber", form);
   const [cheques, setCheques] = useState([{ id: 1 }]);
   const [expandedCheque, setExpandedCheque] = useState(1);
+  const resolvedInstrumentType =
+    instrumentType ||
+    (siAccountNumber ? "SI" : "") ||
+    (ecsAccountNumber || ecsBankName ? "ECS" : "") ||
+    (cheque1Number || cheque1BankName || cheque1AccountNumber ? "Cheque" : "");
 
   // Sync initialization
-  React.useEffect(() => {
+  useEffect(() => {
+    const patch = {};
+    const detectedInstrumentType =
+      form.getFieldValue("instrumentType") ||
+      (form.getFieldValue("si_accountNumber") ? "SI" : undefined) ||
+      (form.getFieldValue("ecs_accountNumber") || form.getFieldValue("ecs_bankName") ? "ECS" : undefined) ||
+      (() => {
+        for (let i = 1; i <= 20; i += 1) {
+          if (
+            form.getFieldValue(`cheque_${i}_number`) ||
+            form.getFieldValue(`cheque_${i}_bankName`) ||
+            form.getFieldValue(`cheque_${i}_accountNumber`)
+          ) {
+            return "Cheque";
+          }
+        }
+        return undefined;
+      })();
+
+    if (detectedInstrumentType && detectedInstrumentType !== form.getFieldValue("instrumentType")) {
+      patch.instrumentType = detectedInstrumentType;
+    }
+
     const existing = [];
     for (let i = 1; i <= 20; i++) {
-      if (form.getFieldValue(`cheque_${i}_number`)) {
+      if (
+        form.getFieldValue(`cheque_${i}_number`) ||
+        form.getFieldValue(`cheque_${i}_bankName`) ||
+        form.getFieldValue(`cheque_${i}_accountNumber`) ||
+        form.getFieldValue(`cheque_${i}_date`) ||
+        form.getFieldValue(`cheque_${i}_amount`)
+      ) {
         existing.push({ id: i });
       }
     }
@@ -143,16 +190,29 @@ const PostFileInstrumentDetails = ({ form }) => {
       setCheques(existing);
       setExpandedCheque(existing[0].id);
     }
-  }, [form]);
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  }, [
+    form,
+    loanId,
+    instrumentType,
+    siAccountNumber,
+    ecsAccountNumber,
+    ecsBankName,
+    cheque1Number,
+    cheque1BankName,
+    cheque1AccountNumber,
+  ]);
 
   // Calculate Total Cheque Amount
   const totalAmount = React.useMemo(() => {
-    if (instrumentType !== "Cheque") return 0;
+    if (resolvedInstrumentType !== "Cheque") return 0;
     return cheques.reduce((sum, c) => {
       const val = form.getFieldValue(`cheque_${c.id}_amount`);
       return sum + (Number(val) || 0);
     }, 0);
-  }, [cheques, instrumentType, form]);
+  }, [cheques, resolvedInstrumentType, form]);
 
   const addCheque = () => {
     const newId = Math.max(...cheques.map((c) => c.id), 0) + 1;
@@ -183,6 +243,26 @@ const PostFileInstrumentDetails = ({ form }) => {
 
   return (
     <div className="bg-card rounded-xl shadow-lg border border-border/50 p-6 h-full flex flex-col hover:shadow-xl transition-shadow duration-300">
+      <Form.Item name="instrumentType" hidden><input /></Form.Item>
+      <Form.Item name="si_accountNumber" hidden><input /></Form.Item>
+      <Form.Item name="si_signedBy" hidden><input /></Form.Item>
+      <Form.Item name="ecs_micrCode" hidden><input /></Form.Item>
+      <Form.Item name="ecs_bankName" hidden><input /></Form.Item>
+      <Form.Item name="ecs_accountNumber" hidden><input /></Form.Item>
+      <Form.Item name="ecs_date" hidden><input /></Form.Item>
+      <Form.Item name="ecs_amount" hidden><input /></Form.Item>
+      <Form.Item name="ecs_tag" hidden><input /></Form.Item>
+      <Form.Item name="ecs_favouring" hidden><input /></Form.Item>
+      <Form.Item name="ecs_signedBy" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_number" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_bankName" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_accountNumber" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_date" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_amount" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_tag" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_favouring" hidden><input /></Form.Item>
+      <Form.Item name="cheque_1_signedBy" hidden><input /></Form.Item>
+
       {/* header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
@@ -209,6 +289,7 @@ const PostFileInstrumentDetails = ({ form }) => {
           <Form.Item name="instrumentType" noStyle>
             <Radio.Group 
               className="w-full"
+              value={resolvedInstrumentType}
               onChange={(e) => form.setFieldsValue({ instrumentType: e.target.value })}
             >
               <div className="grid grid-cols-3 gap-3">
@@ -217,7 +298,7 @@ const PostFileInstrumentDetails = ({ form }) => {
                     key={type}
                     value={type}
                     className={`h-12 flex items-center justify-center rounded-xl border-border !bg-transparent text-sm font-bold transition-all hover:border-primary/50 ${
-                      instrumentType === type ? "!border-primary !text-primary !bg-primary/5" : "text-muted-foreground"
+                      resolvedInstrumentType === type ? "!border-primary !text-primary !bg-primary/5" : "text-muted-foreground"
                     }`}
                   >
                     <div className="flex flex-col items-center">
@@ -232,7 +313,7 @@ const PostFileInstrumentDetails = ({ form }) => {
         </div>
 
         {/* Cheque Section */}
-        {instrumentType === "Cheque" && (
+        {resolvedInstrumentType === "Cheque" && (
           <div className="space-y-4">
              <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-foreground">Cheque Configuration</h3>
@@ -278,7 +359,7 @@ const PostFileInstrumentDetails = ({ form }) => {
                         </Form.Item>
 
                         <Form.Item label="Cheque Date" name={`cheque_${cheque.id}_date`} className="mb-0">
-                          <DatePicker className="w-full bg-background border-border font-bold h-10" format="DD-MM-YYYY" />
+                          <DatePicker className="w-full bg-background border-border font-bold h-10" format="DD-MM-YYYY" getValueProps={(value) => ({ value: asDayjs(value) })} />
                         </Form.Item>
                       </div>
 
@@ -335,7 +416,7 @@ const PostFileInstrumentDetails = ({ form }) => {
         )}
 
         {/* ECS Section */}
-        {instrumentType === "ECS" && (
+        {resolvedInstrumentType === "ECS" && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-foreground">ECS / NACH Configuration</h3>
 
@@ -354,7 +435,7 @@ const PostFileInstrumentDetails = ({ form }) => {
                 </Form.Item>
 
                 <Form.Item label="Start Date" name="ecs_date" className="mb-0">
-                  <DatePicker className="w-full bg-background border-border font-bold h-10" format="DD-MM-YYYY" />
+                  <DatePicker className="w-full bg-background border-border font-bold h-10" format="DD-MM-YYYY" getValueProps={(value) => ({ value: asDayjs(value) })} />
                 </Form.Item>
               </div>
 
@@ -400,7 +481,7 @@ const PostFileInstrumentDetails = ({ form }) => {
         )}
 
         {/* SI Section */}
-        {instrumentType === "SI" && (
+        {resolvedInstrumentType === "SI" && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-foreground">Standing Instruction (SI) Details</h3>
 
