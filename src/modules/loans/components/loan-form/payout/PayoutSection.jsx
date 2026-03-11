@@ -1,6 +1,6 @@
 // src/modules/loans/components/loan-form/payout/PayoutSection.jsx
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
@@ -15,6 +15,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
   // WATCH REQUIRED FIELDS (ALWAYS TOP LEVEL)
   // =========================
   const approvalStatus = Form.useWatch("approval_status", form);
+  const disburseStatus = Form.useWatch("disburse_status", form);
   const disbursementStatus = Form.useWatch("disbursement_status", form);
   const disbursedBankName = Form.useWatch("approval_bankName", form);
   const disbursedAmount = Form.useWatch("approval_loanAmountDisbursed", form);
@@ -40,6 +41,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
 
   // derived flags
   const isDisbursed =
+    (disburseStatus || "").toLowerCase().trim() === "disbursed" ||
     (disbursementStatus || "").toLowerCase().trim() === "disbursed" ||
     (approvalStatus || "").toLowerCase().trim() === "disbursed";
 
@@ -58,16 +60,39 @@ const PayoutSection = ({ form, readOnly = false }) => {
     return `${prefix}-${year}-${random}`;
   };
 
-  const calculatePayoutAmount = (percentage) => {
+  const calculatePayoutAmount = useCallback((percentage) => {
     const baseAmount = parseFloat(netLoanApproved) || 0;
     const perc = parseFloat(percentage) || 0;
     return (baseAmount * perc) / 100;
-  };
+  }, [netLoanApproved]);
 
-  const calculateTdsAmount = (payoutAmount, tdsApplicable, tdsPercentage) => {
+  const calculateTdsAmount = useCallback((payoutAmount, tdsApplicable, tdsPercentage) => {
     if (tdsApplicable !== "Yes") return 0;
     const tdsPerc = parseFloat(tdsPercentage) || 0;
     return (parseFloat(payoutAmount || 0) * tdsPerc) / 100;
+  }, []);
+
+  const withPayoutDefaults = (item, direction) => {
+    const payoutAmount = Number(item?.payout_amount || 0);
+    const tdsAmount = Number(item?.tds_amount || 0);
+    const normalizedStatus = item?.payout_status === "Pending" ? "Expected" : item?.payout_status;
+
+    return {
+      ...item,
+      payout_createdAt:
+        item?.payout_createdAt ||
+        item?.payout_created_date ||
+        item?.created_date ||
+        new Date().toISOString(),
+      payout_direction: item?.payout_direction || direction,
+      payout_status: normalizedStatus || "Expected",
+      payout_expected_date: item?.payout_expected_date || null,
+      payout_paid_date: item?.payout_paid_date || item?.payout_received_date || null,
+      payout_received_date: item?.payout_received_date || null,
+      payment_history: Array.isArray(item?.payment_history) ? item.payment_history : [],
+      activity_log: Array.isArray(item?.activity_log) ? item.activity_log : [],
+      net_payout_amount: Number((payoutAmount - tdsAmount).toFixed(2)),
+    };
   };
 
   // =========================
@@ -87,8 +112,16 @@ const PayoutSection = ({ form, readOnly = false }) => {
     const existingReceivables = form.getFieldValue("loan_receivables") || [];
     const existingPayables = form.getFieldValue("loan_payables") || [];
 
-    if (existingReceivables.length > 0) setReceivables(existingReceivables);
-    if (existingPayables.length > 0) setPayables(existingPayables);
+    if (existingReceivables.length > 0) {
+      setReceivables(
+        existingReceivables.map((row) => withPayoutDefaults(row, "Receivable")),
+      );
+    }
+    if (existingPayables.length > 0) {
+      setPayables(
+        existingPayables.map((row) => withPayoutDefaults(row, "Payable")),
+      );
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -127,10 +160,16 @@ const PayoutSection = ({ form, readOnly = false }) => {
           payout_party_name: disbursedBankName,
           payout_percentage: bankPercent,
           payout_amount: payoutAmount,
+          payout_direction: "Receivable",
 
           tds_applicable: "Yes",
           tds_percentage: tdsPerc,
           tds_amount: tdsAmount,
+          net_payout_amount: Number((payoutAmount - tdsAmount).toFixed(2)),
+          payout_status: "Expected",
+          payout_received_date: null,
+          payment_history: [],
+          activity_log: [],
 
           payout_remarks: "Auto-generated from disbursed bank",
         });
@@ -170,10 +209,17 @@ const PayoutSection = ({ form, readOnly = false }) => {
           payout_party_name: dealerName,
           payout_percentage: sourcePercent,
           payout_amount: payoutAmount,
+          payout_direction: "Payable",
 
           tds_applicable: "Yes",
           tds_percentage: tdsPerc,
           tds_amount: tdsAmount,
+          net_payout_amount: Number((payoutAmount - tdsAmount).toFixed(2)),
+          payout_status: "Expected",
+          payout_expected_date: null,
+          payout_paid_date: null,
+          payment_history: [],
+          activity_log: [],
 
           payout_remarks:
             "Auto-generated from pre-file source payout (indirect)",
@@ -194,6 +240,9 @@ const PayoutSection = ({ form, readOnly = false }) => {
     netLoanApproved,
     receivables.length,
     payables.length,
+    calculatePayoutAmount,
+    calculateTdsAmount,
+    readOnly,
   ]);
 
   // =========================
@@ -212,10 +261,16 @@ const PayoutSection = ({ form, readOnly = false }) => {
         payout_party_name: "",
         payout_percentage: "",
         payout_amount: 0,
+        payout_direction: "Receivable",
 
         tds_applicable: "Yes",
         tds_percentage: 5,
         tds_amount: 0,
+        net_payout_amount: 0,
+        payout_status: "Expected",
+        payout_received_date: null,
+        payment_history: [],
+        activity_log: [],
 
         payout_remarks: "",
       },
@@ -235,10 +290,17 @@ const PayoutSection = ({ form, readOnly = false }) => {
         payout_party_name: "",
         payout_percentage: "",
         payout_amount: 0,
+        payout_direction: "Payable",
 
         tds_applicable: "Yes",
         tds_percentage: 5,
         tds_amount: 0,
+        net_payout_amount: 0,
+        payout_status: "Expected",
+        payout_expected_date: null,
+        payout_paid_date: null,
+        payment_history: [],
+        activity_log: [],
 
         payout_remarks: "",
       },
@@ -261,6 +323,9 @@ const PayoutSection = ({ form, readOnly = false }) => {
       } else {
         updated.tds_amount = 0;
       }
+      updated.net_payout_amount = Number(
+        (Number(updated.payout_amount || 0) - Number(updated.tds_amount || 0)).toFixed(2),
+      );
     }
 
     if (field === "tds_percentage" || field === "tds_applicable") {
@@ -273,6 +338,9 @@ const PayoutSection = ({ form, readOnly = false }) => {
       } else {
         updated.tds_amount = 0;
       }
+      updated.net_payout_amount = Number(
+        (Number(updated.payout_amount || 0) - Number(updated.tds_amount || 0)).toFixed(2),
+      );
     }
 
     if (field === "payout_type") {

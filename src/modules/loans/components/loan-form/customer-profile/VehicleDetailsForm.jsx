@@ -5,7 +5,6 @@ import { useVehicleData } from "../../../../../hooks/useVehicleData";
 
 const VehicleDetailsForm = () => {
   const form = Form.useFormInstance();
-
   // add this helper inside VehicleDetailsForm
 
   // Use centralized vehicle data hook
@@ -17,24 +16,19 @@ const VehicleDetailsForm = () => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
-    createCustomVehicle,
   } = useVehicleData(form, {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
     variantFieldName: "vehicleVariant",
     autofillPricing: true,
-    onVehicleSelect: (vehicleData) => {
-      console.log("Vehicle selected:", vehicleData);
-    },
+    onVehicleSelect: () => {},
   });
-
-  console.log(
-    "VehicleDetailsForm data:",
-    JSON.stringify({ makes, models, variants, loading }, null, 2),
-  );
 
   const vehicleMake = form?.getFieldValue("vehicleMake");
   const vehicleModel = form?.getFieldValue("vehicleModel");
+
+  // IMPORTANT: do not auto-force isFinanced here.
+  // Value must come from existing loan data / user choice / migration payload.
 
   const cleanModelLabel = (model) => {
     if (!model) return "";
@@ -64,6 +58,10 @@ const VehicleDetailsForm = () => {
 
     return v.replace(/\s+/g, " ").trim();
   };
+
+  const normalize = (v) => String(v || "").trim().toLowerCase();
+  const hasValue = (list, value) =>
+    Array.isArray(list) && list.some((item) => normalize(item) === normalize(value));
 
   return (
     <div id="section-vehicle-details" className="form-section">
@@ -96,12 +94,6 @@ const VehicleDetailsForm = () => {
                 showSearch
                 loading={loading}
                 onChange={handleMakeChange}
-                onSearch={(value) => {
-                  // Allow custom input
-                  if (value && !makes.includes(value)) {
-                    createCustomVehicle("make", value);
-                  }
-                }}
                 filterOption={(input, option) =>
                   (
                     option?.children?.props?.children?.[1] ||
@@ -118,12 +110,22 @@ const VehicleDetailsForm = () => {
                     </div>
                   ) : (
                     <div className="p-4 text-center text-muted-foreground text-xs">
-                      <Icon name="Plus" size={16} className="mb-2" />
-                      <div>Type to add new make</div>
+                      <Icon name="Search" size={16} className="mb-2" />
+                      <div>No make found</div>
                     </div>
                   )
                 }
               >
+                {vehicleMake && !hasValue(makes, vehicleMake) && (
+                  <Select.Option key={`legacy-make-${vehicleMake}`} value={vehicleMake}>
+                    <div className="flex items-center gap-2 py-1">
+                      <div className="w-6 h-6 rounded bg-muted/50 flex items-center justify-center font-bold text-[10px]">
+                        {String(vehicleMake).charAt(0)}
+                      </div>
+                      {vehicleMake} (Legacy)
+                    </div>
+                  </Select.Option>
+                )}
                 {makes.map((make) => (
                   <Select.Option key={make} value={make}>
                     <div className="flex items-center gap-2 py-1">
@@ -148,12 +150,6 @@ const VehicleDetailsForm = () => {
                 showSearch
                 loading={loading}
                 onChange={handleModelChange}
-                onSearch={(value) => {
-                  // Allow custom input
-                  if (value && vehicleMake && !models.includes(value)) {
-                    createCustomVehicle("model", value);
-                  }
-                }}
                 filterOption={(input, option) =>
                   (option?.children || option?.value || "")
                     .toLowerCase()
@@ -166,12 +162,17 @@ const VehicleDetailsForm = () => {
                     </div>
                   ) : (
                     <div className="p-4 text-center text-muted-foreground text-xs">
-                      <Icon name="Plus" size={16} className="mb-2" />
-                      <div>Type to add new model</div>
+                      <Icon name="Search" size={16} className="mb-2" />
+                      <div>No model found</div>
                     </div>
                   )
                 }
               >
+                {vehicleModel && !hasValue(models, vehicleModel) && (
+                  <Select.Option key={`legacy-model-${vehicleModel}`} value={vehicleModel}>
+                    {cleanModelLabel(vehicleModel)} (Legacy)
+                  </Select.Option>
+                )}
                 {models.map((model) => (
                   <Select.Option key={model} value={model}>
                     {cleanModelLabel(model)}
@@ -193,17 +194,6 @@ const VehicleDetailsForm = () => {
                 showSearch
                 loading={loading}
                 onChange={handleVariantChange}
-                onSearch={(value) => {
-                  // Allow custom input
-                  if (
-                    value &&
-                    vehicleMake &&
-                    vehicleModel &&
-                    !variants.includes(value)
-                  ) {
-                    createCustomVehicle("variant", value);
-                  }
-                }}
                 filterOption={(input, option) =>
                   (option?.children || option?.value || "")
                     .toLowerCase()
@@ -216,12 +206,21 @@ const VehicleDetailsForm = () => {
                     </div>
                   ) : (
                     <div className="p-4 text-center text-muted-foreground text-xs">
-                      <Icon name="Plus" size={16} className="mb-2" />
-                      <div>Type to add new variant</div>
+                      <Icon name="Search" size={16} className="mb-2" />
+                      <div>No variant found</div>
                     </div>
                   )
                 }
               >
+                {form?.getFieldValue("vehicleVariant") &&
+                  !hasValue(variants, form?.getFieldValue("vehicleVariant")) && (
+                    <Select.Option
+                      key={`legacy-variant-${form?.getFieldValue("vehicleVariant")}`}
+                      value={form?.getFieldValue("vehicleVariant")}
+                    >
+                      {cleanVariantLabel(form?.getFieldValue("vehicleVariant"))} (Legacy)
+                    </Select.Option>
+                  )}
                 {variants.map((variant) => (
                   <Select.Option key={variant} value={variant}>
                     {cleanVariantLabel(variant)}

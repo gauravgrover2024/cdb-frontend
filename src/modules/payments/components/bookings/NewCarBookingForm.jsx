@@ -17,6 +17,7 @@ import {
   ShopOutlined,
   SwapOutlined,
 } from "@ant-design/icons";
+import { useVehicleData } from "../../../../hooks/useVehicleData";
 
 const { Option } = Select;
 
@@ -27,6 +28,19 @@ const moneyParser = (v) => (v ? v.replace(/₹\s?|,/g, "") : "");
 
 const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
   const [form] = Form.useForm();
+  const {
+    makes,
+    models,
+    variants,
+    loading: vehicleLoading,
+    handleMakeChange,
+    handleModelChange,
+    handleVariantChange,
+  } = useVehicleData(form, {
+    makeFieldName: "vehicleMake",
+    modelFieldName: "vehicleModel",
+    variantFieldName: "vehicleVariant",
+  });
 
   const handleFinish = (values) => {
     if (onSubmit) onSubmit(values);
@@ -166,14 +180,39 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 name="vehicleMake"
                 rules={[{ required: true, message: "Please enter make" }]}
               >
-                <Input placeholder="Maruti, Hyundai, etc." />
+                <Select
+                  showSearch
+                  loading={vehicleLoading}
+                  placeholder="Select make"
+                  onChange={handleMakeChange}
+                  optionFilterProp="children"
+                >
+                  {makes.map((make) => (
+                    <Option key={make} value={make}>
+                      {make}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
               <Form.Item
                 label="Model"
                 name="vehicleModel"
                 rules={[{ required: true, message: "Please enter model" }]}
               >
-                <Input placeholder="Baleno, Creta, etc." />
+                <Select
+                  showSearch
+                  loading={vehicleLoading}
+                  placeholder={form.getFieldValue("vehicleMake") ? "Select model" : "Select make first"}
+                  disabled={!form.getFieldValue("vehicleMake")}
+                  onChange={handleModelChange}
+                  optionFilterProp="children"
+                >
+                  {models.map((model) => (
+                    <Option key={model} value={model}>
+                      {model}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </div>
 
@@ -183,7 +222,20 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 name="vehicleVariant"
                 rules={[{ required: true, message: "Please enter variant" }]}
               >
-                <Input placeholder="Zeta MT, SX(O) AT, etc." />
+                <Select
+                  showSearch
+                  loading={vehicleLoading}
+                  placeholder={form.getFieldValue("vehicleModel") ? "Select variant" : "Select model first"}
+                  disabled={!form.getFieldValue("vehicleModel")}
+                  onChange={handleVariantChange}
+                  optionFilterProp="children"
+                >
+                  {variants.map((variant) => (
+                    <Option key={variant} value={variant}>
+                      {variant}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
               <Form.Item label="Colour" name="vehicleColor">
                 <Input placeholder="White, Grey, etc." />

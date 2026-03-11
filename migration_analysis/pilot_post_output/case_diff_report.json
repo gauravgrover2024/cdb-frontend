@@ -1,0 +1,203 @@
+{
+  "total": 8,
+  "missing": 0,
+  "changed": 8,
+  "report": [
+    {
+      "caseId": "3000004231",
+      "loanId": "LN-2026-0001",
+      "diffCount": 5,
+      "diffs": [
+        {
+          "field": "dispatch_date",
+          "expected": "2025-01-02",
+          "actual": "2025-01-02T00:00:00.000Z"
+        },
+        {
+          "field": "disbursement_date",
+          "expected": "2025-01-04",
+          "actual": "2025-01-04T00:00:00.000Z"
+        },
+        {
+          "field": "co_customerName",
+          "expected": "GAURAV KHANNA",
+          "actual": null
+        },
+        {
+          "field": "co_primaryMobile",
+          "expected": "9811542232",
+          "actual": null
+        },
+        {
+          "field": "dsaCode",
+          "expected": "HDFC",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "caseId": "3000004277",
+      "loanId": "LN-2026-0002",
+      "diffCount": 3,
+      "diffs": [
+        {
+          "field": "dispatch_date",
+          "expected": "2025-03-24",
+          "actual": "2025-03-24T00:00:00.000Z"
+        },
+        {
+          "field": "disbursement_date",
+          "expected": "2025-03-24",
+          "actual": "2025-03-24T00:00:00.000Z"
+        },
+        {
+          "field": "dsaCode",
+          "expected": "ATC",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "caseId": "3000004033",
+      "loanId": "LN-2026-0003",
+      "diffCount": 3,
+      "diffs": [
+        {
+          "field": "co_customerName",
+          "expected": "RAJEEV TIWARI",
+          "actual": null
+        },
+        {
+          "field": "co_primaryMobile",
+          "expected": "9810499067",
+          "actual": null
+        },
+        {
+          "field": "dsaCode",
+          "expected": "ATC",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "caseId": "3000004065",
+      "loanId": "LN-2026-0004",
+      "diffCount": 1,
+      "diffs": [
+        {
+          "field": "dsaCode",
+          "expected": "ATC",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "caseId": "3000004250",
+      "loanId": "LN-2026-0005",
+      "diffCount": 3,
+      "diffs": [
+        {
+          "field": "dispatch_date",
+          "expected": "2025-01-30",
+          "actual": "2025-01-30T00:00:00.000Z"
+        },
+        {
+          "field": "disbursement_date",
+          "expected": "2025-01-30",
+          "actual": "2025-01-30T00:00:00.000Z"
+        },
+        {
+          "field": "dsaCode",
+          "expected": "BAJAJ",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "caseId": "3000003718",
+      "loanId": "LN-2026-0006",
+      "diffCount": 5,
+      "diffs": [
+        {
+          "field": "dispatch_date",
+          "expected": "2023-03-30",
+          "actual": "2023-03-30T00:00:00.000Z"
+        },
+        {
+          "field": "disbursement_date",
+          "expected": "2023-03-31",
+          "actual": "2023-03-31T00:00:00.000Z"
+        },
+        {
+          "field": "co_customerName",
+          "expected": "NITESH GUPTA",
+          "actual": null
+        },
+        {
+          "field": "co_primaryMobile",
+          "expected": "9911334422",
+          "actual": null
+        },
+        {
+          "field": "dsaCode",
+          "expected": "214365",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "caseId": "3000004237",
+      "loanId": "LN-2026-0007",
+      "diffCount": 3,
+      "diffs": [
+        {
+          "field": "dispatch_date",
+          "expected": "2025-01-16",
+          "actual": "2025-01-16T00:00:00.000Z"
+        },
+        {
+          "field": "disbursement_date",
+          "expected": "2025-01-17",
+          "actual": "2025-01-17T00:00:00.000Z"
+        },
+        {
+          "field": "dsaCode",
+          "expected": "HDFC",
+          "actual": null
+        }
+      ]
+    },
+    {
+      "caseId": "3000003417",
+      "loanId": "LN-2026-0008",
+      "diffCount": 5,
+      "diffs": [
+        {
+          "field": "dispatch_date",
+          "expected": "2022-03-26",
+          "actual": "2022-03-26T00:00:00.000Z"
+        },
+        {
+          "field": "disbursement_date",
+          "expected": "2022-03-29",
+          "actual": "2022-03-29T00:00:00.000Z"
+        },
+        {
+          "field": "co_customerName",
+          "expected": "RAHUL SARIN",
+          "actual": null
+        },
+        {
+          "field": "co_primaryMobile",
+          "expected": "9971448428",
+          "actual": null
+        },
+        {
+          "field": "dsaCode",
+          "expected": "YESBANK",
+          "actual": null
+        }
+      ]
+    }
+  ]
+}

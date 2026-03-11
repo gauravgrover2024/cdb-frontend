@@ -14,6 +14,11 @@ export const deliveryOrdersApi = {
   },
 
   update: async (loanId, data) => {
-    return await apiClient.post(`/api/do/${loanId}`, data);
+    try {
+      return await apiClient.put(`/api/do/${loanId}`, data);
+    } catch (err) {
+      // Backward compatibility for older deployments that only accepted POST
+      return await apiClient.post(`/api/do/${loanId}`, data);
+    }
   },
 };

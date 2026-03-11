@@ -1,21 +1,30 @@
 // src/modules/loans/components/LoanStickyHeader.jsx
-import React, { useState } from "react";
-import { Form, message } from "antd";
-import dayjs from "dayjs";
+import React, { useEffect, useMemo, useState } from "react";
+import { Form } from "antd";
 
 import Icon from "../../../components/AppIcon";
 import { AutoSaveIndicator } from "../../../utils/formDataProtection";
 import NotesModal from "./NotesModal";
-import DocumentsModal from "./DocumentsModal";
+import LoanDocumentsModal from "./dashboard/LoanDocumentsModal";
 
-/* --------------------------- Helpers --------------------------- */
-const toNumber = (v) => {
-  const n = Number(v);
+const hasValue = (v) =>
+  v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "");
+
+const pick = (...vals) => vals.find((v) => hasValue(v));
+
+const asNumber = (v) => {
+  const n = Number(String(v ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) ? n : 0;
 };
 
+const isFinanceYes = (v) => {
+  if (v === true) return true;
+  const t = String(v ?? "").trim().toLowerCase();
+  return t === "yes" || t === "y" || t === "true" || t === "1";
+};
+
 const formatMoney = (v) => {
-  const n = toNumber(v);
+  const n = asNumber(v);
   if (!n) return "";
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -30,244 +39,341 @@ const formatPercent = (v) => {
   return `${n}%`;
 };
 
-/* --------------------------- Sub-Components --------------------------- */
-const HeaderStat = ({ label, value, hide = false }) => {
-  if (hide) return null;
-  return (
-    <div className="flex flex-col border-r border-border/50 px-4 last:border-0 first:pl-0">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-        {label}
-      </span>
-      <span className="text-sm font-semibold text-foreground truncate max-w-[150px]">
-        {value === undefined || value === null || value === "" ? "" : value}
-      </span>
-    </div>
-  );
+const stagePillClass = (stage) => {
+  const s = String(stage || "").toLowerCase();
+  if (s.includes("disbursed")) {
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
+  }
+  if (s.includes("approved")) {
+    return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300";
+  }
+  if (s.includes("pending")) {
+    return "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300";
+  }
+  if (s.includes("reject")) {
+    return "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300";
+  }
+  return "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300";
 };
 
-/* --------------------------- Main Sticky Header --------------------------- */
-const LoanStickyHeader = ({
-  title,
-  onSave,
-  activeStep,
-  isFinanced,
-  form,
-  isDisbursed,
-  saving = false,
-  innerRef,
-  autoSaveStatus = null,
-}) => {
+const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoSaveStatus = null }) => {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
 
-  // Watch fields (use actual form field names so data shows; fallbacks for API-loaded names)
+  // Base watches
   const loanId = Form.useWatch("loanId", form);
+  const loanNumber = Form.useWatch("loan_number", form);
   const customerName = Form.useWatch("customerName", form);
   const primaryMobile = Form.useWatch("primaryMobile", form);
-  const customerEmailWatch = Form.useWatch("customerEmail", form);
-  const emailWatch = Form.useWatch("email", form);
-  const customerPanWatch = Form.useWatch("customerPan", form);
-  const panNumberWatch = Form.useWatch("panNumber", form);
-  const customerAadharWatch = Form.useWatch("customerAadhar", form);
-  const aadhaarNumberWatch = Form.useWatch("aadhaarNumber", form);
-  const customerAddressWatch = Form.useWatch("customerAddress", form);
-  const residenceAddressWatch = Form.useWatch("residenceAddress", form);
-  const permanentAddressWatch = Form.useWatch("permanentAddress", form);
-  const city = Form.useWatch("city", form);
-  const caseTypeWatch = Form.useWatch("caseType", form);
-  const typeOfLoanWatch = Form.useWatch("typeOfLoan", form);
-  const loanTypeWatch = Form.useWatch("loanType", form);
-  const caseType = caseTypeWatch || typeOfLoanWatch || loanTypeWatch;
-  const vehicleMake = Form.useWatch("vehicleMake", form);
-  const vehicleModel = Form.useWatch("vehicleModel", form);
-  const vehicleVariant = Form.useWatch("vehicleVariant", form);
-  const vehicleRegNoWatch = Form.useWatch("vehicleRegNo", form);
-  const rcRedgNoWatch = Form.useWatch("rc_redg_no", form);
-  const vehicleChassisNoWatch = Form.useWatch("vehicleChassisNo", form);
-  const rcChassisNoWatch = Form.useWatch("rc_chassis_no", form);
-  const vehicleEngineNoWatch = Form.useWatch("vehicleEngineNo", form);
-  const rcEngineNoWatch = Form.useWatch("rc_engine_no", form);
+  const mobileNo = Form.useWatch("mobileNo", form);
+  const customerEmail = Form.useWatch("customerEmail", form);
+  const email = Form.useWatch("email", form);
+
   const approvalStatus = Form.useWatch("approval_status", form);
   const approvalBankName = Form.useWatch("approval_bankName", form);
   const approvalLoanAmountApproved = Form.useWatch("approval_loanAmountApproved", form);
+  const approvalLoanAmountDisbursed = Form.useWatch("approval_loanAmountDisbursed", form);
+  const approvalBreakupNet = Form.useWatch("approval_breakup_netLoanApproved", form);
+  const approvalBreakupCredit = Form.useWatch("approval_breakup_creditAssured", form);
+  const approvalBreakupInsurance = Form.useWatch("approval_breakup_insuranceFinance", form);
+  const approvalBreakupEw = Form.useWatch("approval_breakup_ewFinance", form);
+  const postfileLoanAmountApproved = Form.useWatch("postfile_loanAmountApproved", form);
+  const postfileLoanAmountDisbursed = Form.useWatch("postfile_loanAmountDisbursed", form);
+  const postfileDisbursedLoan = Form.useWatch("postfile_disbursedLoan", form);
+  const postfileDisbursedCredit = Form.useWatch("postfile_disbursedCreditAssured", form);
+  const postfileDisbursedInsurance = Form.useWatch("postfile_disbursedInsurance", form);
+  const postfileDisbursedEw = Form.useWatch("postfile_disbursedEw", form);
+  const formLoanAmount = Form.useWatch("loanAmount", form);
   const financeExpectation = Form.useWatch("financeExpectation", form);
-  const postfileEmiAmount = Form.useWatch("postfile_emiAmount", form);
   const postfileRoi = Form.useWatch("postfile_roi", form);
+  const approvalRoi = Form.useWatch("approval_interestRate", form);
   const approvalTenureMonths = Form.useWatch("approval_tenureMonths", form);
-  const downPayment = Form.useWatch("downPayment", form);
+  const postfileEmiAmount = Form.useWatch("postfile_emiAmount", form);
+
+  const typeOfLoan = Form.useWatch("typeOfLoan", form);
+  const caseType = Form.useWatch("caseType", form);
+  const loanType = Form.useWatch("loanType", form);
+  const vehicleMake = Form.useWatch("vehicleMake", form);
+  const vehicleModel = Form.useWatch("vehicleModel", form);
+  const vehicleVariant = Form.useWatch("vehicleVariant", form);
   const exShowroomPrice = Form.useWatch("exShowroomPrice", form);
-  const onRoadPrice = Form.useWatch("onRoadPrice", form);
-  const coApplicantNameWatch = Form.useWatch("coApplicant_name", form);
-  const coNameWatch = Form.useWatch("co_name", form);
-  const guarantorNameWatch = Form.useWatch("guarantor_name", form);
-  const guNameWatch = Form.useWatch("gu_name", form);
-  const disbursementDate = Form.useWatch("disbursement_date", form);
-  const rcReceivedDate = Form.useWatch("rc_received_date", form);
-  const invoiceNumber = Form.useWatch("invoice_number", form);
-  const createdAt = Form.useWatch("createdAt", form);
+  const showroomDealerName = Form.useWatch("showroomDealerName", form);
+  const vehicleRegNo = Form.useWatch("vehicleRegNo", form);
+  const yearOfManufacture = Form.useWatch("yearOfManufacture", form);
 
-  const customerEmail = customerEmailWatch || emailWatch;
-  const customerPan = customerPanWatch || panNumberWatch;
-  const customerAadhar = customerAadharWatch || aadhaarNumberWatch;
-  const customerAddress = customerAddressWatch || residenceAddressWatch || permanentAddressWatch;
-  const vehicleRegNo = vehicleRegNoWatch || rcRedgNoWatch;
-  const vehicleChassisNo = vehicleChassisNoWatch || rcChassisNoWatch;
-  const vehicleEngineNo = vehicleEngineNoWatch || rcEngineNoWatch;
-  const coApplicantName = coApplicantNameWatch || coNameWatch;
-  const guarantorName = guarantorNameWatch || guNameWatch;
+  const resolvedLoanKey = String(pick(loanNumber, loanId, title, "__new__"));
+  const [snapshot, setSnapshot] = useState({});
 
-  const isBeforeOrAtApproval = ["profile", "prefile", "approval"].includes(activeStep);
-  
-  const amountLabel = approvalStatus === "Disbursed" ? "Disbursed" : 
-                      approvalStatus === "Approved" ? "Approved" : "Expected";
+  // Reset snapshot when loan changes
+  useEffect(() => {
+    setSnapshot({});
+  }, [resolvedLoanKey]);
 
-  const amountValue = isBeforeOrAtApproval ? financeExpectation : approvalLoanAmountApproved;
+  // Collect current live values with fallback probes
+  const live = useMemo(() => {
+    const finFlag = pick(isFinanced, form?.getFieldValue?.("isFinanced"));
+    return {
+      customerName: pick(customerName, form?.getFieldValue?.("customerName"), title, "New Application"),
+      mobile: pick(primaryMobile, mobileNo, form?.getFieldValue?.("primaryMobile"), form?.getFieldValue?.("mobileNo")),
+      email: pick(customerEmail, email, form?.getFieldValue?.("customerEmail"), form?.getFieldValue?.("email")),
+      loanRef: pick(loanNumber, loanId, form?.getFieldValue?.("loan_number"), form?.getFieldValue?.("loanId")),
+      stage: pick(approvalStatus, activeStep, "Pending"),
+      bank: pick(approvalBankName, form?.getFieldValue?.("approval_bankName")),
+      roi: pick(postfileRoi, approvalRoi, form?.getFieldValue?.("postfile_roi"), form?.getFieldValue?.("approval_interestRate")),
+      tenure: pick(approvalTenureMonths, form?.getFieldValue?.("approval_tenureMonths")),
+      emi: pick(postfileEmiAmount, form?.getFieldValue?.("postfile_emiAmount")),
+      caseType: pick(caseType, typeOfLoan, loanType, form?.getFieldValue?.("caseType"), form?.getFieldValue?.("typeOfLoan"), form?.getFieldValue?.("loanType")),
+      vehicleMake: pick(vehicleMake, form?.getFieldValue?.("vehicleMake")),
+      vehicleModel: pick(vehicleModel, form?.getFieldValue?.("vehicleModel")),
+      vehicleVariant: pick(vehicleVariant, form?.getFieldValue?.("vehicleVariant")),
+      exShowroom: pick(exShowroomPrice, form?.getFieldValue?.("exShowroomPrice")),
+      showroomDealerName: pick(showroomDealerName, form?.getFieldValue?.("showroomDealerName")),
+      regNo: pick(vehicleRegNo, form?.getFieldValue?.("vehicleRegNo")),
+      year: pick(yearOfManufacture, form?.getFieldValue?.("yearOfManufacture")),
+      isFinancedCase: isFinanceYes(finFlag),
+      approvalBreakupTotal:
+        asNumber(approvalBreakupNet ?? form?.getFieldValue?.("approval_breakup_netLoanApproved")) +
+        asNumber(approvalBreakupCredit ?? form?.getFieldValue?.("approval_breakup_creditAssured")) +
+        asNumber(approvalBreakupInsurance ?? form?.getFieldValue?.("approval_breakup_insuranceFinance")) +
+        asNumber(approvalBreakupEw ?? form?.getFieldValue?.("approval_breakup_ewFinance")),
+      postfileDisbursedBreakupTotal:
+        asNumber(postfileDisbursedLoan ?? form?.getFieldValue?.("postfile_disbursedLoan")) +
+        asNumber(postfileDisbursedCredit ?? form?.getFieldValue?.("postfile_disbursedCreditAssured")) +
+        asNumber(postfileDisbursedInsurance ?? form?.getFieldValue?.("postfile_disbursedInsurance")) +
+        asNumber(postfileDisbursedEw ?? form?.getFieldValue?.("postfile_disbursedEw")),
+      disbursedAmount: pick(
+        postfileLoanAmountDisbursed,
+        postfileLoanAmountApproved,
+        approvalLoanAmountDisbursed,
+        formLoanAmount,
+        form?.getFieldValue?.("postfile_loanAmountDisbursed"),
+        form?.getFieldValue?.("postfile_loanAmountApproved"),
+        form?.getFieldValue?.("approval_loanAmountDisbursed"),
+        form?.getFieldValue?.("loanAmount"),
+      ),
+      approvedAmount: pick(
+        approvalLoanAmountApproved,
+        approvalLoanAmountDisbursed,
+        postfileLoanAmountApproved,
+        formLoanAmount,
+        form?.getFieldValue?.("approval_loanAmountApproved"),
+        form?.getFieldValue?.("approval_loanAmountDisbursed"),
+        form?.getFieldValue?.("postfile_loanAmountApproved"),
+        form?.getFieldValue?.("loanAmount"),
+      ),
+      expectedAmount: pick(
+        financeExpectation,
+        form?.getFieldValue?.("financeExpectation"),
+      ),
+    };
+  }, [
+    activeStep,
+    approvalBankName,
+    approvalLoanAmountApproved,
+    approvalLoanAmountDisbursed,
+    approvalBreakupNet,
+    approvalBreakupCredit,
+    approvalBreakupInsurance,
+    approvalBreakupEw,
+    postfileDisbursedLoan,
+    postfileDisbursedCredit,
+    postfileDisbursedInsurance,
+    postfileDisbursedEw,
+    postfileLoanAmountApproved,
+    approvalRoi,
+    approvalStatus,
+    approvalTenureMonths,
+    caseType,
+    customerEmail,
+    customerName,
+    email,
+    exShowroomPrice,
+    financeExpectation,
+    form,
+    isFinanced,
+    loanId,
+    loanNumber,
+    loanType,
+    mobileNo,
+    postfileEmiAmount,
+    formLoanAmount,
+    postfileLoanAmountDisbursed,
+    postfileRoi,
+    primaryMobile,
+    title,
+    typeOfLoan,
+    vehicleMake,
+    vehicleModel,
+    showroomDealerName,
+    vehicleRegNo,
+    vehicleVariant,
+    yearOfManufacture,
+  ]);
+
+  // Persist latest known non-empty values; live values always override
+  useEffect(() => {
+    setSnapshot((prev) => {
+      const next = { ...prev };
+      Object.entries(live).forEach(([k, v]) => {
+        if (hasValue(v)) next[k] = v;
+      });
+      return next;
+    });
+  }, [live]);
+
+  const data = { ...snapshot, ...Object.fromEntries(Object.entries(live).filter(([, v]) => hasValue(v))) };
+
+  const isNewCar = data.caseType === "New Car";
+  const loanAmount = (() => {
+    const disb = asNumber(data.disbursedAmount);
+    const appr = asNumber(data.approvedAmount);
+    const apprBreakup = asNumber(data.approvalBreakupTotal);
+    const postBreakup = asNumber(data.postfileDisbursedBreakupTotal);
+    const expected = asNumber(data.expectedAmount);
+    const strongest = Math.max(disb, appr, apprBreakup, postBreakup, expected, 0);
+    return strongest || pick(data.disbursedAmount, data.approvedAmount, data.expectedAmount);
+  })();
+  const loanAmountLabel = hasValue(data.disbursedAmount) || hasValue(data.approvedAmount) ? "Loan Amount" : "Loan Expected";
+
+  const vehicleLine = [data.vehicleMake, data.vehicleModel, isNewCar ? data.vehicleVariant : null]
+    .filter((v) => hasValue(v))
+    .join(" ");
+
+  const loanForDocumentsModal = useMemo(() => {
+    const formValues = form?.getFieldsValue?.(true) || {};
+    return {
+      ...formValues,
+      _id: pick(formValues?._id, loanId),
+      loanId: pick(formValues?.loanId, loanId),
+      loan_number: pick(formValues?.loan_number, loanNumber),
+      customerName: pick(formValues?.customerName, data.customerName),
+    };
+  }, [form, loanId, loanNumber, data.customerName]);
 
   return (
     <>
-      <div 
-        ref={innerRef} 
-        className="fixed left-0 right-0 z-[100] w-full bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
+      <div
+        ref={innerRef}
+        className="fixed left-0 right-0 z-[100] w-full border-b border-border bg-background/95 shadow-sm backdrop-blur-md"
         style={{ top: 60 }}
       >
-        <div className="max-w-[1600px] mx-auto px-6 py-2">
-          <div className="flex items-center justify-between gap-6">
-            
-            {/* Left Section: Identity */}
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                <Icon name="User" size={20} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h1 className="text-base font-bold text-foreground truncate leading-tight">
-                    {customerName || title || "New Application"}
-                  </h1>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary text-secondary-foreground uppercase tracking-tight">
-                    {approvalStatus || activeStep}
+        <div className="mx-auto max-w-[1600px] px-3 py-1 md:px-5 md:py-1">
+          <div className="flex items-stretch overflow-x-auto rounded-xl border border-slate-300/70 bg-white/90 shadow-[0_14px_28px_-20px_rgba(15,23,42,0.35)] no-scrollbar dark:border-slate-700/80 dark:bg-slate-950/85">
+            <div className="min-w-[220px] px-3 py-1.5 bg-sky-50/65 dark:bg-sky-950/15">
+              <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-sky-700 dark:text-sky-300">
+                <Icon name="User" size={11} />
+                Customer
+              </p>
+              {hasValue(data.customerName) && <p className="truncate text-[12px] font-bold text-slate-900 dark:text-slate-100">{data.customerName}</p>}
+              <p className="mt-0.5 truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                {[data.mobile, data.email].filter((v) => hasValue(v)).join(" • ")}
+              </p>
+            </div>
+
+            <div className="flex items-center bg-gradient-to-r from-sky-50/65 to-emerald-50/65 px-1.5 dark:from-sky-950/15 dark:to-emerald-950/15">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-sky-200 bg-sky-100/80 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-300">
+                <Icon name="ChevronRight" size={12} />
+              </span>
+            </div>
+
+            <div className="min-w-[260px] px-3 py-1.5 bg-emerald-50/65 dark:bg-emerald-950/15">
+              <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
+                <Icon name="Landmark" size={11} />
+                Loan Core
+              </p>
+              <p className="truncate text-[12px] font-bold text-slate-900 dark:text-slate-100">
+                {data.isFinancedCase && hasValue(data.bank) ? data.bank : data.loanRef || "-"}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                {[
+                  hasValue(data.loanRef) ? `Loan#: ${data.loanRef}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" • ")}
+              </p>
+            </div>
+
+            {data.isFinancedCase && (hasValue(data.roi) || hasValue(data.tenure) || hasValue(data.emi)) && (
+              <>
+                <div className="flex items-center bg-gradient-to-r from-emerald-50/65 to-teal-50/65 px-1.5 dark:from-emerald-950/15 dark:to-teal-950/15">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100/80 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300">
+                    <Icon name="ChevronRight" size={12} />
                   </span>
-                  <AutoSaveIndicator status={autoSaveStatus} />
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
-                  {loanId && <span className="text-primary/80 font-mono">#{loanId}</span>}
-                  <span className="flex items-center gap-1">
-                    <Icon name="Phone" size={12} /> {primaryMobile || ""}
-                  </span>
-                  {city && <span>• {city}</span>}
+                <div className="min-w-[250px] px-3 py-1.5 bg-teal-50/65 dark:bg-teal-950/15">
+                  <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-teal-700 dark:text-teal-300">
+                    <Icon name="Calculator" size={11} />
+                    Loan Terms
+                  </p>
+                  <p className="truncate text-[12px] font-bold text-slate-900 dark:text-slate-100">
+                    {hasValue(loanAmount) ? `${loanAmountLabel}: ${formatMoney(loanAmount)}` : "-"}
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    {[hasValue(data.roi) ? formatPercent(data.roi) : null, hasValue(data.tenure) ? `${data.tenure}M` : null, hasValue(data.emi) ? formatMoney(data.emi) : null]
+                      .filter(Boolean)
+                      .join(" • ")}
+                  </p>
                 </div>
-                {(coApplicantName || guarantorName) && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground/75 mt-1">
-                    {coApplicantName && <span><b>Co-App:</b> {coApplicantName}</span>}
-                    {guarantorName && <span>|</span>}
-                    {guarantorName && <span><b>Guarantor:</b> {guarantorName}</span>}
-                  </div>
-                )}
+              </>
+            )}
+
+            <div className="flex items-center bg-gradient-to-r from-teal-50/65 to-violet-50/65 px-1.5 dark:from-teal-950/15 dark:to-violet-950/15">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-violet-200 bg-violet-100/80 text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/30 dark:text-violet-300">
+                <Icon name="ChevronRight" size={12} />
+              </span>
+            </div>
+
+            <div className="min-w-[280px] px-3 py-1.5 bg-violet-50/65 dark:bg-violet-950/15">
+              <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-violet-700 dark:text-violet-300">
+                <Icon name="CarFront" size={11} />
+                Vehicle
+              </p>
+              <p className="truncate text-[12px] font-bold text-slate-900 dark:text-slate-100">{vehicleLine || "-"}</p>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                {isNewCar
+                  ? [hasValue(data.showroomDealerName) ? data.showroomDealerName : null, hasValue(data.exShowroom) ? formatMoney(data.exShowroom) : null].filter(Boolean).join(" • ")
+                  : [hasValue(data.regNo) ? `Regd: ${data.regNo}` : null, hasValue(data.year) ? `Year: ${data.year}` : null].filter(Boolean).join(" • ")}
+              </p>
+            </div>
+
+            <div className="flex items-center bg-gradient-to-r from-violet-50/65 to-amber-50/65 px-1.5 dark:from-violet-950/15 dark:to-amber-950/15">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-amber-200 bg-amber-100/80 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-300">
+                <Icon name="ChevronRight" size={12} />
+              </span>
+            </div>
+
+            <div className="min-w-[185px] px-3 py-1.5 bg-amber-50/65 dark:bg-amber-950/15">
+              <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
+                <Icon name="BadgeCheck" size={11} />
+                Status
+              </p>
+              <p className="truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">{data.caseType || "-"}</p>
+              <div className="mt-0.5 flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold ${stagePillClass(data.stage)}`}>
+                  {data.stage}
+                </span>
+                <AutoSaveIndicator status={autoSaveStatus} />
               </div>
             </div>
 
-            {/* Middle Section: Quick Stats Divider */}
-            <div className="hidden lg:flex flex-1 items-center justify-center border-x border-border/60 px-4 mx-2 overflow-x-auto">
-              <HeaderStat label="Case Type" value={caseType} />
-              <HeaderStat 
-                label="Vehicle" 
-                value={vehicleMake ? `${vehicleMake} ${vehicleModel || ""} ${vehicleVariant || ""}`.trim() : null} 
-              />
-              <HeaderStat label="Vehicle Reg No" value={vehicleRegNo} hide={!vehicleRegNo} />
-              <HeaderStat label="Chassis No" value={vehicleChassisNo} hide={!vehicleChassisNo} />
-              <HeaderStat label="Engine No" value={vehicleEngineNo} hide={!vehicleEngineNo} />
-              <HeaderStat 
-                label="Ex-Showroom" 
-                value={formatMoney(exShowroomPrice)}
-                hide={!exShowroomPrice}
-              />
-              <HeaderStat 
-                label="On-Road Price" 
-                value={formatMoney(onRoadPrice)}
-                hide={!onRoadPrice}
-              />
-              <HeaderStat 
-                label="Down Payment" 
-                value={formatMoney(downPayment)}
-                hide={!downPayment}
-              />
-              <HeaderStat 
-                label={amountLabel} 
-                value={formatMoney(amountValue)} 
-                hide={isFinanced !== "Yes"} 
-              />
-              <HeaderStat 
-                label="Bank" 
-                value={approvalBankName} 
-                hide={!approvalBankName} 
-              />
-              <HeaderStat 
-                label="Tenure" 
-                value={approvalTenureMonths ? `${approvalTenureMonths}M` : null}
-                hide={!approvalTenureMonths}
-              />
-              <HeaderStat 
-                label="EMI" 
-                value={formatMoney(postfileEmiAmount)}
-                hide={!postfileEmiAmount}
-              />
-              <HeaderStat 
-                label="ROI" 
-                value={formatPercent(postfileRoi)}
-                hide={!postfileRoi}
-              />
-              <HeaderStat label="Disbursement Date" value={disbursementDate ? dayjs(disbursementDate).format("DD MMM YYYY") : ""} hide={!disbursementDate} />
-              <HeaderStat label="RC Received" value={rcReceivedDate ? dayjs(rcReceivedDate).format("DD MMM YYYY") : ""} hide={!rcReceivedDate} />
-              <HeaderStat label="Invoice No" value={invoiceNumber} hide={!invoiceNumber} />
-              <HeaderStat label="Created" value={createdAt ? dayjs(createdAt).format("DD MMM YYYY") : ""} hide={!createdAt} />
-              <HeaderStat label="Email" value={customerEmail} hide={!customerEmail} />
-              <HeaderStat label="PAN" value={customerPan} hide={!customerPan} />
-              <HeaderStat label="Aadhar" value={customerAadhar} hide={!customerAadhar} />
-              <HeaderStat label="Address" value={customerAddress} hide={!customerAddress} />
-            </div>
-
-            {/* Right Section: Actions */}
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex items-center mr-2 border-r border-border pr-4 gap-3">
-                <button 
-                  onClick={() => setShowDocumentsModal(true)}
-                  className="flex items-center gap-1.5 p-2 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-md transition-colors"
-                  title="Documents"
-                >
-                  <Icon name="Files" size={18} />
-                  <p className="text-xs font-medium">{ "Documents"}</p>
-                </button>
-                <button 
-                  onClick={() => setShowNotesModal(true)}
-                  className="flex items-center gap-1.5 p-2 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-md transition-colors"
-                  title="Notes"
-                >
-                  <Icon name="MessageSquare" size={18} />
-                  <p className="text-xs font-medium">{ "Notes"}</p>
-                </button>
-              </div>
-
-              {/* <button
-                onClick={onSave}
-                disabled={saving}
-                className={`
-                  relative flex items-center gap-2 px-5 py-2 rounded-md font-semibold text-xs transition-all
-                  ${saving 
-                    ? "bg-muted text-muted-foreground cursor-not-allowed" 
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 shadow-sm"}
-                `}
+            <div className="border-l border-slate-300/80 dark:border-slate-700/80" />
+            <div className="flex min-w-[118px] flex-col justify-center gap-0.5 px-1.5 py-1">
+              <button
+                onClick={() => setShowDocumentsModal(true)}
+                className="flex items-center justify-center gap-1 rounded-md border border-cyan-200/70 bg-cyan-50/80 px-2 py-1 text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-900/70 dark:bg-cyan-950/20 dark:text-cyan-300 dark:hover:bg-cyan-950/35"
+                title="Documents"
               >
-                {saving ? (
-                  <>
-                    <Icon name="Loader2" size={14} className="animate-spin" />
-                    Saving
-                  </>
-                ) : (
-                  <>
-                    <Icon name="Save" size={14} />
-                    Save Application
-                  </>
-                )}
-              </button> */}
+                <Icon name="Files" size={13} />
+                <p className="text-[10px] font-semibold">Documents</p>
+              </button>
+              <button
+                onClick={() => setShowNotesModal(true)}
+                className="flex items-center justify-center gap-1 rounded-md border border-violet-200/70 bg-violet-50/80 px-2 py-1 text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-900/70 dark:bg-violet-950/20 dark:text-violet-300 dark:hover:bg-violet-950/35"
+                title="Notes"
+              >
+                <Icon name="MessageSquare" size={13} />
+                <p className="text-[10px] font-semibold">Notes</p>
+              </button>
             </div>
           </div>
         </div>
@@ -276,13 +382,13 @@ const LoanStickyHeader = ({
       <NotesModal
         open={showNotesModal}
         form={form}
-        title={customerName || "Applicant"}
+        title={data.customerName || "Applicant"}
         onClose={() => setShowNotesModal(false)}
       />
 
-      <DocumentsModal
+      <LoanDocumentsModal
+        loan={loanForDocumentsModal}
         open={showDocumentsModal}
-        title={customerName || "Applicant"}
         onClose={() => setShowDocumentsModal(false)}
       />
     </>

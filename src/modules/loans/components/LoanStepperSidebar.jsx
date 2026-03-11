@@ -76,9 +76,9 @@ export default function LoanStepperSidebar({
    * Filter steps based on Finance toggle and loan type:
    * 
    * 1. CASH CASE (isFinanced === "No"):
-   *    - Shows only: profile, delivery, payout
-   *    - Skips: prefile, approval, disbursement, postfile
-   *    - Reason: No loan processing needed for cash purchases
+   *    - Shows only: profile, prefile, delivery
+   *    - Skips: approval, postfile, payout
+   *    - Reason: Keep cash workflow lightweight while retaining vehicle pre-file section
    * 
    * 2. REFINANCE / CAR CASH-IN:
    *    - Filters out: delivery step
@@ -92,8 +92,8 @@ export default function LoanStepperSidebar({
   // Filter steps based on Finance toggle and loan type
   const steps = useMemo(() => {
     if (isFinanced === "No") {
-      // Cash Case: Skip loan processing steps
-      return ALL_STEPS.filter(step => ["profile", "delivery", "payout"].includes(step.key));
+      // Cash Case: intake + minimal prefile + delivery
+      return ALL_STEPS.filter(step => ["profile", "prefile", "delivery"].includes(step.key));
     }
     // Refinance or Car Cash-in: Skip delivery step
     if (loanType === "Refinance" || loanType === "Car Cash-in") {

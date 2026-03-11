@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Tabs, Form, Spin } from "antd";
+import { Modal, Form, Spin } from "antd";
 import dayjs from "dayjs";
 import Icon from "../../../../components/AppIcon";
 import { loansApi } from "../../../../api/loans";
 
-// import your existing step components (REAL PATHS)
 import LeadDetails from "../loan-form/customer-profile/LeadDetails";
 import VehicleDetailsForm from "../loan-form/customer-profile/VehicleDetailsForm";
 import FinanceDetailsForm from "../loan-form/customer-profile/FinanceDetailsForm";
@@ -30,38 +29,238 @@ import PostFileStep from "../loan-form/post-file/PostFileStep";
 import VehicleDeliveryStep from "../loan-form/vehicle-delivery/VehicleDeliveryStep";
 import PayoutSection from "../loan-form/payout/PayoutSection";
 
-// ----------------------------
-// helpers to prevent date crash
-// ----------------------------
 const toDayjs = (val) => {
   if (!val) return null;
   if (dayjs.isDayjs(val)) return val;
-
   const d = dayjs(val);
   return d.isValid() ? d : null;
 };
 
 const convertDatesToDayjsDeep = (obj) => {
   if (!obj) return obj;
-
   if (dayjs.isDayjs(obj)) return obj;
-
   if (Array.isArray(obj)) return obj.map(convertDatesToDayjsDeep);
-
   if (typeof obj === "object") {
     const out = {};
-    for (const k in obj) {
+    Object.keys(obj).forEach((k) => {
       const key = k.toLowerCase();
       if (key.includes("date") || key.includes("time") || key.includes("dob")) {
         out[k] = toDayjs(obj[k]);
       } else {
         out[k] = convertDatesToDayjsDeep(obj[k]);
       }
-    }
+    });
     return out;
   }
-
   return obj;
+};
+
+const getPath = (obj, path) => {
+  if (!obj || !path) return undefined;
+  const parts = String(path).split(".");
+  let cur = obj;
+  for (const p of parts) {
+    if (cur == null) return undefined;
+    cur = cur[p];
+  }
+  return cur;
+};
+
+const fmtValue = (v) => {
+  if (v == null || v === "") return "Not set";
+  if (dayjs.isDayjs(v)) return v.format("DD MMM YYYY");
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "Not set";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+};
+
+const GLOBAL_SEARCH_FIELDS = [
+  { label: "Loan Number", path: "loan_number", section: "profile" },
+  { label: "Case ID", path: "loanId", section: "profile" },
+  { label: "Customer Name", path: "customerName", section: "profile" },
+  { label: "Primary Mobile", path: "primaryMobile", section: "profile" },
+  { label: "Email", path: "email", section: "profile" },
+  { label: "Aadhaar", path: "aadhaarNumber", section: "profile" },
+  { label: "Aadhar", path: "aadharNumber", section: "profile" },
+  { label: "PAN", path: "panNumber", section: "profile" },
+  { label: "Address", path: "residenceAddress", section: "profile" },
+  { label: "Permanent Address", path: "permanentAddress", section: "profile" },
+  { label: "Vehicle Make", path: "vehicleMake", section: "profile" },
+  { label: "Vehicle Model", path: "vehicleModel", section: "profile" },
+  { label: "Vehicle Variant", path: "vehicleVariant", section: "profile" },
+  { label: "Registration Number", path: "registrationNumber", section: "delivery" },
+  { label: "RC Reg Number", path: "rc_redg_no", section: "delivery" },
+  { label: "Record Source", path: "recordSource", section: "prefile" },
+  { label: "Source Name", path: "sourceName", section: "prefile" },
+  { label: "Dealer Name", path: "dealerName", section: "prefile" },
+  { label: "Dealer Mobile", path: "dealerMobile", section: "prefile" },
+  { label: "Approval Bank", path: "approval_bankName", section: "approval" },
+  { label: "Approval Status", path: "approval_status", section: "approval" },
+  { label: "Loan Amount Approved", path: "approval_loanAmountApproved", section: "approval" },
+  { label: "Loan Amount Disbursed", path: "approval_loanAmountDisbursed", section: "approval" },
+  { label: "Approval ROI", path: "approval_roi", section: "approval" },
+  { label: "Approval Tenure", path: "approval_tenureMonths", section: "approval" },
+  { label: "Post-File Bank", path: "postfile_bankName", section: "postfile" },
+  { label: "Post-File EMI", path: "postfile_emiAmount", section: "postfile" },
+  { label: "Post-File ROI", path: "postfile_roi", section: "postfile" },
+  { label: "Maturity Date", path: "postfile_maturityDate", section: "postfile" },
+  { label: "Live POS", path: "postfile_currentOutstanding", section: "postfile" },
+  { label: "Disbursement Date", path: "disbursement_date", section: "approval" },
+  { label: "Delivery Date", path: "delivery_date", section: "delivery" },
+  { label: "Invoice Number", path: "invoice_number", section: "delivery" },
+  { label: "Insurance Company", path: "insurance_company_name", section: "delivery" },
+  { label: "Payout %", path: "payout_percentage", section: "payout" },
+  { label: "Payout Amount", path: "payout_amount", section: "payout" },
+  { label: "Bill Number", path: "bill_number", section: "payout" },
+  { label: "Loan Notes", path: "loan_notes", section: "postfile" },
+];
+
+const toSearchValue = (value) => {
+  if (value == null || value === "") return "";
+  if (dayjs.isDayjs(value)) return value.format("DD MMM YYYY HH:mm");
+  if (Array.isArray(value)) {
+    if (!value.length) return "";
+    const parts = value
+      .map((entry) => {
+        if (entry == null) return "";
+        if (typeof entry === "object") return JSON.stringify(entry);
+        return String(entry);
+      })
+      .filter(Boolean);
+    return parts.join(" | ");
+  }
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
+
+const prettifyPath = (path) =>
+  String(path)
+    .split(".")
+    .filter(Boolean)
+    .map((part) =>
+      part
+        .replace(/\[(\d+)\]/g, " $1")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/_/g, " ")
+        .trim(),
+    )
+    .join(" > ");
+
+const inferSectionFromPath = (path) => {
+  const p = String(path || "").toLowerCase();
+  if (
+    p.includes("approval_") ||
+    p.includes("approvaldate") ||
+    p.includes("approvalstatus") ||
+    p.includes("approvalamount")
+  ) {
+    return "approval";
+  }
+  if (
+    p.includes("postfile_") ||
+    p.includes("instrument") ||
+    p.includes("dispatch") ||
+    p.includes("disbursement") ||
+    p.includes("maturity") ||
+    p.includes("outstanding")
+  ) {
+    return "postfile";
+  }
+  if (
+    p.includes("delivery") ||
+    p.includes("rc_") ||
+    p.includes("invoice") ||
+    p.includes("insurance_")
+  ) {
+    return "delivery";
+  }
+  if (
+    p.includes("payout") ||
+    p.includes("bill_") ||
+    p.includes("receivable") ||
+    p.includes("payable")
+  ) {
+    return "payout";
+  }
+  if (
+    p.includes("coapplicant") ||
+    p.includes("guarantor") ||
+    p.includes("authorisedsignatory") ||
+    p.includes("recordsource") ||
+    p.includes("source") ||
+    p.includes("business") ||
+    p.includes("occupation") ||
+    p.includes("prefile")
+  ) {
+    return "prefile";
+  }
+  return "profile";
+};
+
+const flattenSearchFields = (obj) => {
+  const out = [];
+  const seen = new Set();
+
+  const walk = (value, path = "") => {
+    if (value == null) return;
+
+    if (dayjs.isDayjs(value) || typeof value !== "object") {
+      const key = String(path || "").trim();
+      const val = toSearchValue(value).trim();
+      if (!key || !val) return;
+      const dedupe = `${key}::${val}`;
+      if (seen.has(dedupe)) return;
+      seen.add(dedupe);
+      out.push({
+        label: prettifyPath(key),
+        path: key,
+        section: inferSectionFromPath(key),
+        value: val,
+      });
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      if (!value.length) return;
+      const allPrimitive = value.every((entry) => entry == null || typeof entry !== "object" || dayjs.isDayjs(entry));
+      if (allPrimitive) {
+        const key = String(path || "").trim();
+        const val = toSearchValue(value).trim();
+        if (key && val) {
+          const dedupe = `${key}::${val}`;
+          if (!seen.has(dedupe)) {
+            seen.add(dedupe);
+            out.push({
+              label: prettifyPath(key),
+              path: key,
+              section: inferSectionFromPath(key),
+              value: val,
+            });
+          }
+        }
+        return;
+      }
+      value.forEach((entry, index) => walk(entry, `${path}[${index}]`));
+      return;
+    }
+
+    Object.entries(value).forEach(([k, v]) => {
+      const childPath = path ? `${path}.${k}` : k;
+      walk(v, childPath);
+    });
+  };
+
+  walk(obj);
+  return out;
+};
+
+const SECTION_META = {
+  profile: { label: "Customer Profile", icon: "UserRound" },
+  prefile: { label: "Pre-File", icon: "ClipboardCheck" },
+  approval: { label: "Loan Approval", icon: "BadgeCheck" },
+  postfile: { label: "Post-File", icon: "FileStack" },
+  delivery: { label: "Vehicle Delivery", icon: "Truck" },
+  payout: { label: "Payout", icon: "IndianRupee" },
 };
 
 const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
@@ -74,10 +273,12 @@ const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
   const loanId = loan?._id || loan?.loanId;
   const displayLoan = fullLoan || loan;
 
-  // When modal opens, fetch full loan by ID so we have latest data (including documents)
   useEffect(() => {
     if (!open || !loanId) {
-      if (!open) setFullLoan(null);
+      if (!open) {
+        setFullLoan(null);
+        setSearchQuery("");
+      }
       return;
     }
     let cancelled = false;
@@ -96,72 +297,41 @@ const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
       .finally(() => {
         if (!cancelled) setLoadingLoan(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [open, loanId]);
-
-  const matches = React.useCallback((text) => {
-    if (!searchQuery) return true;
-    return (text || "")
-      .toString()
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-  }, [searchQuery]);
-
-  const searchableText = useMemo(() => {
-    return JSON.stringify(displayLoan || {}).toLowerCase();
-  }, [displayLoan]);
-
-  const hasSearchResults = useMemo(() => {
-    if (!searchQuery) return true;
-    return searchableText.includes(searchQuery.toLowerCase());
-  }, [searchQuery, searchableText]);
 
   useEffect(() => {
     if (!displayLoan) return;
-
-    const fixedLoan = convertDatesToDayjsDeep(displayLoan);
-    form.setFieldsValue(fixedLoan);
-
+    form.setFieldsValue(convertDatesToDayjsDeep(displayLoan));
     setActiveTab(initialTab || displayLoan.currentStage || "profile");
   }, [displayLoan, form, initialTab]);
 
-  const tabItems = useMemo(() => {
+  const sections = useMemo(() => {
     if (!displayLoan) return [];
-
-    const tabs = [
+    return [
       {
         key: "profile",
-        label: "Customer Profile",
-        searchText: searchableText,
-        children: (
+        ...SECTION_META.profile,
+        content: (
           <>
             <LeadDetails readOnly />
             <VehicleDetailsForm readOnly />
             <FinanceDetailsForm readOnly />
             <PersonalDetailsWithSearch readOnly />
-
-            {/* Show extended details if they belong to the customer profile */}
-            <>
-              <EmploymentDetails readOnly />
-              <IncomeDetails readOnly />
-              <BankDetails readOnly />
-              <ReferenceDetails readOnly />
-              <KycDetails readOnly />
-            </>
+            <EmploymentDetails readOnly />
+            <IncomeDetails readOnly />
+            <BankDetails readOnly />
+            <ReferenceDetails readOnly />
+            <KycDetails readOnly />
           </>
         ),
       },
       {
         key: "prefile",
-        label: "Pre-File",
-        searchText: JSON.stringify({
-          recordSource: displayLoan.recordSource,
-          sourceName: displayLoan.sourceName,
-          dealerMobile: displayLoan.dealerMobile,
-          payoutApplicable: displayLoan.payoutApplicable,
-          prefile_sourcePayoutPercentage: displayLoan.prefile_sourcePayoutPercentage,
-        }),
-        children: (
+        ...SECTION_META.prefile,
+        content: (
           <>
             <PersonalDetailsPreFile readOnly />
             <OccupationalDetailsPreFile readOnly />
@@ -176,14 +346,8 @@ const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
       },
       {
         key: "approval",
-        label: "Loan Approval",
-        searchText: JSON.stringify({
-          approval_bankName: displayLoan.approval_bankName,
-          approval_status: displayLoan.approval_status,
-          payoutPercentage: displayLoan.payoutPercentage,
-          approval_banksData: displayLoan.approval_banksData,
-        }),
-        children: (
+        ...SECTION_META.approval,
+        content: (
           <LoanApprovalStep
             form={form}
             banksData={displayLoan?.approval_banksData || []}
@@ -196,52 +360,72 @@ const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
       },
       {
         key: "postfile",
-        label: "Post-File",
-        searchText: JSON.stringify({
-          postfile_bankName: displayLoan.postfile_bankName,
-          postfile_roi: displayLoan.postfile_roi,
-          postfile_emiAmount: displayLoan.postfile_emiAmount,
-          instrumentType: displayLoan.instrumentType,
-        }),
-        children: <PostFileStep form={form} readOnly />,
+        ...SECTION_META.postfile,
+        content: <PostFileStep form={form} readOnly />,
       },
       {
         key: "delivery",
-        label: "Vehicle Delivery",
-        searchText: JSON.stringify({
-          delivery_date: displayLoan.delivery_date,
-          invoice_number: displayLoan.invoice_number,
-          rc_redg_no: displayLoan.rc_redg_no,
-          insurance_company_name: displayLoan.insurance_company_name,
-        }),
-        children: <VehicleDeliveryStep form={form} readOnly />,
+        ...SECTION_META.delivery,
+        content: <VehicleDeliveryStep form={form} readOnly />,
       },
       {
         key: "payout",
-        label: "Payout",
-        searchText: JSON.stringify({
-          approval_status: displayLoan.approval_status,
-          loan_receivables: displayLoan.loan_receivables,
-          loan_payables: displayLoan.loan_payables,
-        }),
-        children: <PayoutSection form={form} readOnly />,
+        ...SECTION_META.payout,
+        content: <PayoutSection form={form} readOnly />,
       },
     ];
+  }, [displayLoan, form]);
 
-    // Filter tabs based on search
-    return tabs.filter((t) => matches(t.label) || matches(t.searchText));
-  }, [displayLoan, form, matches, searchableText]);
+  const query = searchQuery.trim().toLowerCase();
 
-  // Auto switch to first available tab after filtering
-  useEffect(() => {
-    if (!searchQuery) return;
-    if (!tabItems.length) return;
+  const dynamicSearchFields = useMemo(
+    () => (displayLoan ? flattenSearchFields(displayLoan) : []),
+    [displayLoan],
+  );
 
-    const stillExists = tabItems.some((t) => t.key === activeTab);
-    if (!stillExists) {
-      setActiveTab(tabItems[0].key);
-    }
-  }, [searchQuery, tabItems, activeTab]);
+  const globalMatches = useMemo(() => {
+    if (!displayLoan || !query) return [];
+
+    const curated = GLOBAL_SEARCH_FIELDS.map((f) => {
+      const value = fmtValue(getPath(displayLoan, f.path));
+      return { ...f, value };
+    });
+
+    const byPath = new Map(curated.map((f) => [f.path, f]));
+    dynamicSearchFields.forEach((f) => {
+      if (!byPath.has(f.path)) byPath.set(f.path, f);
+    });
+
+    const matches = Array.from(byPath.values()).map((f) => {
+      const corpus = `${f.label} ${f.path} ${f.value}`.toLowerCase();
+      if (!corpus.includes(query)) return null;
+      return {
+        ...f,
+        sectionLabel: SECTION_META[f.section]?.label || f.section,
+      };
+    }).filter(Boolean);
+
+    return matches;
+  }, [displayLoan, dynamicSearchFields, query]);
+
+  const groupedMatches = useMemo(() => {
+    if (!globalMatches.length) return [];
+    const map = new Map();
+    globalMatches.forEach((m) => {
+      if (!map.has(m.section)) map.set(m.section, []);
+      map.get(m.section).push(m);
+    });
+    return Array.from(map.entries()).map(([section, fields]) => ({
+      section,
+      sectionLabel: SECTION_META[section]?.label || section,
+      fields,
+    }));
+  }, [globalMatches]);
+
+  const activeSection = useMemo(
+    () => sections.find((s) => s.key === activeTab) || sections[0],
+    [sections, activeTab],
+  );
 
   return (
     <Modal
@@ -249,155 +433,154 @@ const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
       onCancel={onClose}
       footer={null}
       closable={false}
-      width={1000}
+      width="90vw"
       centered
       className="theme-modal-clean"
-      styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: 20 } }}
-      destroyOnHidden
+      styles={{ body: { padding: 0, overflow: "hidden", borderRadius: 24 } }}
+      destroyOnClose
     >
-      <div className="flex flex-col h-[85vh] bg-background">
-        {/* HEADER */}
-        <div className="flex-none px-6 py-4 border-b border-border bg-background flex items-center justify-between z-10">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-              {loadingLoan ? <Spin size="small" /> : <Icon name="FileText" size={24} />}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-semibold">Loan Details</h2>
-                <div className="px-2 py-0.5 rounded bg-muted text-[10px] text-muted-foreground">
-                  Read Only
+      <div className="h-[90vh] overflow-hidden bg-background">
+        <div className="border-b border-border bg-gradient-to-r from-sky-100/80 via-white to-emerald-100/70 px-6 py-5 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="h-12 w-12 rounded-2xl border border-border bg-card flex items-center justify-center shrink-0">
+                {loadingLoan ? <Spin size="small" /> : <Icon name="FileSearch" size={22} />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">Loan Case Explorer</p>
+                <h2 className="mt-1 text-xl font-black text-foreground truncate">
+                  {displayLoan?.loan_number || displayLoan?.loanId || "Loan Details"}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full border border-border bg-card px-2 py-0.5 text-foreground font-semibold">
+                    {displayLoan?.customerName || "Unknown Customer"}
+                  </span>
+                  <span className="rounded-full border border-border bg-card px-2 py-0.5 text-foreground">
+                    {displayLoan?.status || "New"}
+                  </span>
+                  <span className="rounded-full border border-border bg-card px-2 py-0.5 text-foreground">
+                    {displayLoan?.currentStage || "profile"}
+                  </span>
                 </div>
               </div>
-              <div className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="font-medium">{displayLoan?.loanId || displayLoan?.loan_number || "New Case"}</span>
-                <span className="w-1 h-1 rounded-full bg-border" />
-                <span>{displayLoan?.customerName || "Unknown Customer"}</span>
-                {(displayLoan?.caseType || displayLoan?.typeOfLoan || displayLoan?.loanType) && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-border" />
-                    <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
-                      {displayLoan?.caseType || displayLoan?.typeOfLoan || displayLoan?.loanType}
-                    </span>
-                  </>
-                )}
-              </div>
             </div>
+
+            <button
+              onClick={onClose}
+              className="h-9 w-9 rounded-full border border-border bg-card text-foreground hover:bg-muted flex items-center justify-center"
+            >
+              <Icon name="X" size={18} />
+            </button>
           </div>
 
-          <button 
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted"
-          >
-            <Icon name="X" size={20} />
-          </button>
-        </div>
-
-        {/* SEARCH BAR */}
-        <div className="flex-none px-6 py-3 border-b border-border bg-muted/30">
-          <div className="relative max-w-md">
-             <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-             <input 
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative w-full lg:max-w-lg">
+              <Icon
+                name="Search"
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
                 type="text"
-                placeholder="Search inside this loan (e.g. 'HDFC', 'Pan', 'Approved')..."
+                placeholder="Global search across all sections and fields"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-lg bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground"
-             />
+                className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground"
+              />
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              {query
+                ? `${globalMatches.length} matching field(s) across ${groupedMatches.length} section(s)`
+                : "Search shows direct field matches across all sections"}
+            </div>
           </div>
-          {searchQuery && (
-             <div className="mt-2 text-xs pl-1">
-                {hasSearchResults ? (
-                    <span className="text-foreground">{tabItems.length} section(s) found</span>
-                ) : (
-                    <span className="text-muted-foreground">No results found in any section</span>
-                )}
-             </div>
-          )}
         </div>
 
-        {/* SCROLLABLE CONTENT */}
-        <div className="flex-1 overflow-y-auto bg-muted/10 p-6 custom-scrollbar">
-            <Form form={form} layout="vertical" disabled className="h-full">
-              {tabItems.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                    <Icon name="SearchX" size={48} className="text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold">No matches found</h3>
-                    <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-2">
-                        We couldn't find any section containing "{searchQuery}". Try a different keyword.
-                    </p>
+        <div className="h-[calc(90vh-152px)] overflow-y-auto bg-gradient-to-b from-background via-background to-muted/20">
+          <main className="mx-auto w-full max-w-[1500px] p-4 md:p-5">
+            <div className="sticky top-0 z-20 -mx-1 mb-4 rounded-2xl border border-border/60 bg-background/90 px-2 py-2 backdrop-blur">
+              <div className="flex flex-wrap gap-2 overflow-x-auto">
+                {sections.map((section) => {
+                  const active = activeSection?.key === section.key;
+                  return (
+                    <button
+                      key={section.key}
+                      type="button"
+                      onClick={() => setActiveTab(section.key)}
+                      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? "border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-200"
+                          : "border-border bg-card text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <Icon name={section.icon} size={14} />
+                      <span>{section.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {!displayLoan || loadingLoan ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground"><Spin /></div>
+            ) : (
+              <Form form={form} layout="vertical" disabled>
+                {query ? (
+                  <div className="mb-4 rounded-2xl border border-sky-200/70 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm dark:border-sky-900/50 dark:from-sky-950/20 dark:to-slate-950">
+                    <div className="flex items-center gap-2">
+                      <Icon name="SearchCheck" size={16} />
+                      <p className="text-sm font-bold text-foreground">Global Search Results</p>
+                    </div>
+                    {groupedMatches.length === 0 ? (
+                      <div className="mt-3 text-sm text-muted-foreground">No field matched "{searchQuery}".</div>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        {groupedMatches.map((group) => (
+                          <div key={group.section} className="rounded-xl border border-border bg-background p-3">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                                {group.sectionLabel}
+                              </p>
+                              <button
+                                type="button"
+                                className="rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700 dark:border-sky-700 dark:bg-sky-950/30 dark:text-sky-300"
+                                onClick={() => setActiveTab(group.section)}
+                              >
+                                Open Section
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                              {group.fields.map((f) => (
+                                <div key={`${f.section}-${f.path}`} className="rounded-lg border border-border bg-card p-2.5">
+                                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{f.label}</p>
+                                  <p className="mt-1 text-sm font-semibold text-foreground break-words">{f.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg border border-border bg-muted/40 flex items-center justify-center">
+                      <Icon name={activeSection?.icon || "FileText"} size={15} />
+                    </div>
+                    <p className="text-base font-bold text-foreground">{activeSection?.label || "Section"}</p>
+                  </div>
+                  {activeSection?.content}
                 </div>
-              ) : (
-                <div className="max-w-5xl mx-auto">
-                    <Tabs
-                      activeKey={activeTab}
-                      onChange={setActiveTab}
-                      items={tabItems}
-                      type="card"
-                      className="custom-tabs"
-                    />
-                </div>
-              )}
-            </Form>
+              </Form>
+            )}
+          </main>
         </div>
       </div>
-      <style>{styles}</style>
     </Modal>
   );
-}; 
-  
-
-// Add some CSS for the custom tabs to look transparent/pill like
-const styles = `
-  .custom-tabs .ant-tabs-nav::before {
-     border-bottom: none !important;
-  }
-  .custom-tabs .ant-tabs-tab {
-     background: transparent !important;
-     border: none !important;
-     font-weight: 500;
-  }
-  
-  .custom-tabs .ant-tabs-tab:hover {
-    opacity: 0.8;
-  }
-
-  .custom-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
-     font-weight: 600 !important;
-  }
-  
-  /* Hide the card background of ant tabs */
-  .custom-tabs .ant-tabs-content {
-     margin-top: 16px;
-  }
-  
-  /* Ensure disabled inputs are readable */
-  .ant-input-disabled,
-  .ant-input-number-disabled .ant-input-number-input,
-  .ant-select-disabled .ant-select-selector,
-  .ant-picker-disabled {
-    color: hsl(var(--foreground)) !important;
-    background-color: hsl(var(--muted) / 0.3) !important;
-    border-color: hsl(var(--border)) !important;
-    cursor: default !important;
-  }
-  
-  .ant-input-disabled::placeholder,
-  .ant-input-number-disabled .ant-input-number-input::placeholder {
-    color: hsl(var(--muted-foreground)) !important;
-  }
-  
-  /* Custom scrollbar for modal content */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent; 
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--border)); 
-    border-radius: 20px;
-  }
-`;
+};
 
 export default LoanViewModal;

@@ -1,61 +1,114 @@
-import React, { useMemo, useEffect, useState } from "react";
-import { Form, Select, Spin, AutoComplete } from "antd";
+import React, { useEffect, useMemo, useState } from "react";
+import { Form, Input, InputNumber, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
-import { useVehicleData } from "../../../../../hooks/useVehicleData";
 import { formatINR } from "../../../../../utils/currency";
+import { useVehicleData } from "../../../../../hooks/useVehicleData";
 
-// Comprehensive list of Indian cities (100+ major cities)
-const INDIAN_CITIES = [
-  // Metro Cities
-  "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Pune", "Ahmedabad",
-  
-  // Tier 1 Cities
-  "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal",
-  "Visakhapatnam", "Pimpri-Chinchwad", "Patna", "Vadodara", "Ghaziabad", "Ludhiana",
-  "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Kalyan-Dombivali",
-  
-  // Tier 2 Cities
-  "Vasai-Virar", "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar",
-  "Navi Mumbai", "Allahabad", "Ranchi", "Howrah", "Coimbatore", "Jabalpur",
-  "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur", "Kota",
-  
-  // State Capitals & Important Cities
-  "Chandigarh", "Guwahati", "Thiruvananthapuram", "Solapur", "Hubli-Dharwad",
-  "Tiruchirappalli", "Tiruppur", "Moradabad", "Mysore", "Bareilly", "Gurgaon",
-  "Aligarh", "Jalandhar", "Bhubaneswar", "Salem", "Mira-Bhayandar", "Warangal",
-  "Guntur", "Bhiwandi", "Saharanpur", "Gorakhpur", "Bikaner", "Amravati",
-  "Noida", "Jamshedpur", "Bhilai", "Cuttack", "Firozabad", "Kochi",
-  
-  // Other Major Cities
-  "Dehradun", "Durgapur", "Asansol", "Nanded", "Kolhapur", "Ajmer",
-  "Akola", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri",
-  "Jhansi", "Ulhasnagar", "Jammu", "Sangli-Miraj-Kupwad", "Mangalore",
-  "Erode", "Belgaum", "Ambattur", "Tirunelveli", "Malegaon", "Gaya",
-  "Jalgaon", "Udaipur", "Maheshtala", "Davanagere", "Kozhikode", "Kurnool",
-  "Rajahmundry", "Bokaro", "South Dumdum", "Bellary", "Patiala", "Gopalpur",
-  "Agartala", "Bhagalpur", "Muzaffarnagar", "Bhatpara", "Panihati", "Latur",
-  "Dhule", "Tirupati", "Rohtak", "Korba", "Bhilwara", "Berhampur", "Muzaffarpur",
-  "Ahmednagar", "Mathura", "Kollam", "Avadi", "Kadapa", "Kamarhati",
-  "Sambalpur", "Bilaspur", "Shahjahanpur", "Satara", "Bijapur", "Rampur",
-  "Shimoga", "Chandrapur", "Junagadh", "Thrissur", "Alwar", "Bardhaman",
-  "Kulti", "Kakinada", "Nizamabad", "Parbhani", "Tumkur", "Khammam",
-  "Ozhukarai", "Bihar Sharif", "Panipat", "Darbhanga", "Bally", "Aizawl",
-  "Dewas", "Ichalkaranji", "Karnal", "Bathinda", "Jalna", "Eluru",
-  "Kirari Suleman Nagar", "Barasat", "Purnia", "Satna", "Mau", "Sonipat",
-  "Farrukhabad", "Sagar", "Rourkela", "Durg", "Imphal", "Ratlam",
-  "Hapur", "Arrah", "Karimnagar", "Anantapur", "Etawah", "Ambernath",
-  "North Dumdum", "Bharatpur", "Begusarai", "New Delhi", "Gandhidham",
-  "Baranagar", "Tiruvottiyur", "Puducherry", "Sikar", "Thoothukudi",
-  "Raigarh", "Gonder", "Habra", "Bhusawal", "Orai", "Bahraich",
-  "Vellore", "Mahesana", "Sambalpur", "Raiganj", "Sirsa", "Danapur",
-  "Serampore", "Sultan Pur Majra", "Guna", "Jaunpur", "Panvel", "Shivpuri",
-  "Surendranagar Dudhrej", "Unnao", "Hugli and Chinsurah", "Alappuzha",
-  "Kottayam", "Machilipatnam", "Shimla", "Adoni", "Udupi", "Katihar",
-  "Proddatur", "Mahbubnagar", "Saharsa", "Dibrugarh", "Jorhat", "Hazaribagh"
-];
+const { Option } = Select;
+
+const asAmount = (val) => {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return Number.isFinite(val) ? val : 0;
+  const cleaned = String(val).replace(/[^0-9.-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const SummaryRow = ({ label, value, isDeduction = false }) => (
+  <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+    <span className="text-xs text-muted-foreground">{label}</span>
+    <span
+      className={`text-sm font-semibold ${
+        isDeduction ? "text-rose-700 dark:text-rose-300" : "text-foreground"
+      }`}
+    >
+      {isDeduction ? "-" : ""}
+      {formatINR(Math.abs(asAmount(value)))}
+    </span>
+  </div>
+);
+
+const normalizeYesNo = (val) => {
+  const v = String(val ?? "")
+    .trim()
+    .toLowerCase();
+  if (["yes", "y", "true", "1"].includes(v)) return "Yes";
+  if (["no", "n", "false", "0"].includes(v)) return "No";
+  return "";
+};
+
+const firstFilled = (...values) =>
+  values.find(
+    (v) =>
+      v !== undefined &&
+      v !== null &&
+      !(typeof v === "string" && v.trim() === ""),
+    );
+
+const formatIndianNumber = (value) => {
+  if (value === undefined || value === null || value === "") return "";
+  const n = Number(String(value).replace(/,/g, ""));
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("en-IN");
+};
 
 const PostFileVehicleVerification = ({ form }) => {
-  // Use centralized vehicle data hook
+  const [isVehicleEdit, setIsVehicleEdit] = useState(false);
+  const [isShowroomEdit, setIsShowroomEdit] = useState(false);
+  const [isPricingEdit, setIsPricingEdit] = useState(false);
+
+  const applicantType = Form.useWatch("applicantType", form);
+  const customerType = Form.useWatch("customerType", form);
+  const companyType = Form.useWatch("companyType", form);
+  const gstNumber = Form.useWatch("gstNumber", form);
+  const cinNumber = Form.useWatch("cinNumber", form);
+  const businessName = Form.useWatch("businessName", form);
+  const applicantTypeValue = String(
+    firstFilled(applicantType, form.getFieldValue("applicantType"), ""),
+  ).trim();
+  const customerTypeValue = String(
+    firstFilled(customerType, form.getFieldValue("customerType"), ""),
+  ).trim();
+  const isCompany =
+    applicantTypeValue.toLowerCase() === "company" ||
+    customerTypeValue.toLowerCase() === "company" ||
+    /company|corporate|firm|llp|partnership|proprietor/i.test(
+      `${applicantTypeValue} ${customerTypeValue} ${String(companyType || "")}`,
+    ) ||
+    Boolean(companyType) ||
+    Boolean(gstNumber) ||
+    Boolean(cinNumber) ||
+    Boolean(businessName);
+
+  const approvalBankId = Form.useWatch("approval_bankId", form);
+  const approvalBanksDataRaw = Form.useWatch("approval_banksData", form);
+
+  const vehicleMakeRaw = Form.useWatch("vehicleMake", form);
+  const vehicleModelRaw = Form.useWatch("vehicleModel", form);
+  const vehicleVariantRaw = Form.useWatch("vehicleVariant", form);
+  const vehicleFuelTypeRaw = Form.useWatch("vehicleFuelType", form);
+
+  const registerSameAsAadhaarRaw = Form.useWatch("registerSameAsAadhaar", form);
+  const registerSameAsPermanentRaw = Form.useWatch(
+    "registerSameAsPermanent",
+    form,
+  );
+  const registrationAddress = Form.useWatch("registrationAddress", form);
+  const registrationPincode = Form.useWatch("registrationPincode", form);
+  const registrationCity = Form.useWatch("registrationCity", form);
+  const watchedPostfileRegdCity = Form.useWatch("postfile_regd_city", form);
+  const city = Form.useWatch("city", form);
+  const permanentCity = Form.useWatch("permanentCity", form);
+
+  const showroomDealerNameRaw = Form.useWatch("showroomDealerName", form);
+  const deliveryDealerName = Form.useWatch("delivery_dealerName", form);
+
+  const exShowroomPriceRaw = Form.useWatch("exShowroomPrice", form);
+  const insuranceCostRaw = Form.useWatch("insuranceCost", form);
+  const roadTaxRaw = Form.useWatch("roadTax", form);
+  const accessoriesAmountRaw = Form.useWatch("accessoriesAmount", form);
+  const dealerDiscountRaw = Form.useWatch("dealerDiscount", form);
+  const manufacturerDiscountRaw = Form.useWatch("manufacturerDiscount", form);
   const {
     makes,
     models,
@@ -68,463 +121,572 @@ const PostFileVehicleVerification = ({ form }) => {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
     variantFieldName: "vehicleVariant",
-    autofillPricing: false,
+    autofillPricing: true,
+    onVehicleSelect: () => {},
   });
 
-  const loanType = form.getFieldValue("typeOfLoan");
-  const isNewCar = loanType === "New Car";
-  const registerSameAsAadhaar = form.getFieldValue("registerSameAsAadhaar");
-
-  const vehicleMake = Form.useWatch("vehicleMake", form);
-  const vehicleModel = Form.useWatch("vehicleModel", form);
-
-  useEffect(() => {
-    // Force component to re-render when form state changes
-    const updateTrigger = () => {};
-    // This ensures form updates trigger re-renders
-  }, [form.getFieldsValue()]);
-
-  const watchedRegistrationCity = Form.useWatch("registrationCity", form);
-  const watchedPostfileRegdCity = Form.useWatch("postfile_regd_city", form);
-
-  // Sync Registration City from Pre-File if available
-  useEffect(() => {
-    if (watchedRegistrationCity && !watchedPostfileRegdCity) {
-      form.setFieldsValue({ postfile_regd_city: watchedRegistrationCity });
+  const primaryBank = useMemo(() => {
+    const approvalBanksData = Array.isArray(approvalBanksDataRaw)
+      ? approvalBanksDataRaw
+      : [];
+    if (!Array.isArray(approvalBanksData) || approvalBanksData.length === 0) {
+      return null;
     }
-  }, [watchedRegistrationCity, watchedPostfileRegdCity, form]);
+    const selected = approvalBanksData.find(
+      (b) => String(b?.id ?? "") === String(approvalBankId ?? ""),
+    );
+    if (selected) return selected;
+    return (
+      approvalBanksData.find((b) => b?.status === "Disbursed") ||
+      approvalBanksData.find((b) => b?.status === "Approved") ||
+      approvalBanksData[0]
+    );
+  }, [approvalBanksDataRaw, approvalBankId]);
 
-  // Pre-file field values
-  const boughtInYear = form.getFieldValue("boughtInYear") || "";
-  const hypothecation = form.getFieldValue("hypothecation") || "";
+  const bankVehicle = primaryBank?.vehicle || {};
 
-  // New Car pricing fields
-  const exShowroomPrice = form.getFieldValue("exShowroomPrice") || 0;
-  const insuranceCost = form.getFieldValue("insuranceCost") || 0;
-  const roadTax = form.getFieldValue("roadTax") || 0;
-  const accessoriesAmount = form.getFieldValue("accessoriesAmount") || 0;
-  const dealerDiscount = form.getFieldValue("dealerDiscount") || 0;
-  const manufacturerDiscount = form.getFieldValue("manufacturerDiscount") || 0;
-  const dealerName = form.getFieldValue("dealerName") || "";
-  const dealerContactPerson = form.getFieldValue("dealerContactPerson") || "";
-  const dealerContactNumber = form.getFieldValue("dealerContactNumber") || "";
-  const dealerAddress = form.getFieldValue("dealerAddress") || "";
-
-  // Helper to convert to integer
-  const asInt = (val) => {
-    const n = Number(val);
-    if (!Number.isFinite(n)) return 0;
-    return Math.trunc(n);
-  };
-
-  // Calculate On-Road Cost
-  const exShowroom = asInt(exShowroomPrice);
-  const insurance = asInt(insuranceCost);
-  const tax = asInt(roadTax);
-  const accessories = asInt(accessoriesAmount);
-  const dealerDisc = asInt(dealerDiscount);
-  const manufacturerDisc = asInt(manufacturerDiscount);
-
-  const onRoadCost = useMemo(
-    () =>
-      exShowroom +
-      insurance +
-      tax +
-      accessories -
-      dealerDisc -
-      manufacturerDisc,
-    [exShowroom, insurance, tax, accessories, dealerDisc, manufacturerDisc]
+  const vehicleMake = firstFilled(
+    vehicleMakeRaw,
+    primaryBank?.vehicleMake,
+    bankVehicle?.make,
+    "",
+  );
+  const vehicleModel = firstFilled(
+    vehicleModelRaw,
+    primaryBank?.vehicleModel,
+    bankVehicle?.model,
+    "",
+  );
+  const vehicleVariant = firstFilled(
+    vehicleVariantRaw,
+    primaryBank?.vehicleVariant,
+    bankVehicle?.variant,
+    "",
+  );
+  const vehicleFuelType = firstFilled(
+    vehicleFuelTypeRaw,
+    primaryBank?.vehicleFuelType,
+    bankVehicle?.fuel,
+    bankVehicle?.fuel_type,
+    "",
   );
 
+  const registerSameAsAadhaar = normalizeYesNo(
+    firstFilled(
+      registerSameAsAadhaarRaw,
+      form.getFieldValue("registerSameAsAadhaar"),
+      form.getFieldValue("registerSameAsAadhar"),
+      "",
+    ),
+  );
+  const registerSameAsPermanent = normalizeYesNo(
+    firstFilled(
+      registerSameAsPermanentRaw,
+      form.getFieldValue("registerSameAsPermanent"),
+      "",
+    ),
+  );
+
+  const showroomDealerName = firstFilled(
+    showroomDealerNameRaw,
+    deliveryDealerName,
+    "",
+  );
+
+  const exShowroomPrice = firstFilled(
+    exShowroomPriceRaw,
+    primaryBank?.exShowroomPrice,
+    bankVehicle?.exShowroomPrice,
+    bankVehicle?.exShowroom,
+    0,
+  );
+  const insuranceCost = firstFilled(
+    insuranceCostRaw,
+    primaryBank?.insuranceCost,
+    primaryBank?.insurance,
+    0,
+  );
+  const roadTax = firstFilled(
+    roadTaxRaw,
+    primaryBank?.roadTax,
+    primaryBank?.rto,
+    0,
+  );
+  const accessoriesAmount = firstFilled(
+    accessoriesAmountRaw,
+    primaryBank?.accessoriesAmount,
+    primaryBank?.accessories,
+    0,
+  );
+  const dealerDiscount = firstFilled(
+    dealerDiscountRaw,
+    primaryBank?.dealerDiscount,
+    0,
+  );
+  const manufacturerDiscount = firstFilled(
+    manufacturerDiscountRaw,
+    primaryBank?.manufacturerDiscount,
+    0,
+  );
+
+  const netVehicleQuote = useMemo(() => {
+    return (
+      asAmount(exShowroomPrice) +
+      asAmount(insuranceCost) +
+      asAmount(roadTax) +
+      asAmount(accessoriesAmount) -
+      asAmount(dealerDiscount) -
+      asAmount(manufacturerDiscount)
+    );
+  }, [
+    exShowroomPrice,
+    insuranceCost,
+    roadTax,
+    accessoriesAmount,
+    dealerDiscount,
+    manufacturerDiscount,
+  ]);
+  const loadingMakes = vehicleLoading && makes.length === 0;
+  const loadingModels = vehicleLoading && Boolean(vehicleMake) && models.length === 0;
+  const loadingVariants =
+    vehicleLoading && Boolean(vehicleModel) && variants.length === 0;
+  const registrationCityValue = firstFilled(
+    registrationCity,
+    watchedPostfileRegdCity,
+    city,
+    permanentCity,
+    form.getFieldValue("registrationCity"),
+    form.getFieldValue("postfile_regd_city"),
+    form.getFieldValue("city"),
+    form.getFieldValue("permanentCity"),
+    "-",
+  );
+
+  useEffect(() => {
+    const resolvedCity = firstFilled(
+      registrationCity,
+      watchedPostfileRegdCity,
+      city,
+      permanentCity,
+      "",
+    );
+    if (resolvedCity && !watchedPostfileRegdCity) {
+      form.setFieldsValue({ postfile_regd_city: resolvedCity });
+    }
+  }, [registrationCity, watchedPostfileRegdCity, city, permanentCity, form]);
+
+  useEffect(() => {
+    const patch = {};
+    if (!vehicleMakeRaw && vehicleMake) patch.vehicleMake = vehicleMake;
+    if (!vehicleModelRaw && vehicleModel) patch.vehicleModel = vehicleModel;
+    if (!vehicleVariantRaw && vehicleVariant) patch.vehicleVariant = vehicleVariant;
+    if (!vehicleFuelTypeRaw && vehicleFuelType) patch.vehicleFuelType = vehicleFuelType;
+    if (Object.keys(patch).length) form.setFieldsValue(patch);
+  }, [
+    form,
+    vehicleMakeRaw,
+    vehicleModelRaw,
+    vehicleVariantRaw,
+    vehicleFuelTypeRaw,
+    vehicleMake,
+    vehicleModel,
+    vehicleVariant,
+    vehicleFuelType,
+  ]);
+
   return (
-    <div className="bg-card rounded-xl border border-border p-5 md:p-6 h-full flex flex-col">
-      {/* header */}
-      <div className="flex items-center justify-between mb-5">
+    <div className="bg-card rounded-xl border border-border/70 p-5 md:p-6 h-full flex flex-col shadow-sm">
+      <div className="section-header flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Icon name="Car" size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">
-              Vehicle Verification
-            </h2>
+            <h2 className="text-lg font-bold text-foreground">Vehicle Verification</h2>
             <p className="text-sm text-muted-foreground">
-              Verify and update vehicle details
+              Post-file validation against pre-file pricing and registration details
             </p>
           </div>
         </div>
       </div>
 
-      {/* content */}
       <div className="flex-1 overflow-y-auto space-y-4 md:space-y-6 text-sm">
-        {/* Vehicle Basic Info */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Icon name="Info" size={16} className="text-primary" />
-            Vehicle Information
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item label="Make" name="vehicleMake" className="mb-0">
-              <Select
-                placeholder="Select make"
-                allowClear
-                showSearch
-                loading={vehicleLoading}
-                onChange={handleMakeChange}
-                className="w-full"
-                filterOption={(input, option) =>
-                  (option?.children || option?.value || '')
-                    .toLowerCase()
-                    .includes(input.toLowerCase())
-                }
-                notFoundContent={
-                  vehicleLoading ? (
-                    <div className="p-4 text-center">
-                      <Spin size="small" />
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-muted-foreground text-xs">
-                      No makes available
-                    </div>
-                  )
-                }
-              >
-                {makes.map((make) => (
-                  <Select.Option key={make} value={make}>
-                    {make}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            <Form.Item label="Model" name="vehicleModel" className="mb-0">
-              <Select
-                placeholder={vehicleMake ? "Select model" : "Select make first"}
-                disabled={!vehicleMake}
-                allowClear
-                showSearch
-                loading={vehicleLoading}
-                onChange={handleModelChange}
-                className="w-full"
-                filterOption={(input, option) =>
-                  (option?.children || option?.value || '')
-                    .toLowerCase()
-                    .includes(input.toLowerCase())
-                }
-                notFoundContent={
-                  vehicleLoading ? (
-                    <div className="p-4 text-center">
-                      <Spin size="small" />
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-muted-foreground text-xs">
-                      No models available
-                    </div>
-                  )
-                }
-              >
-                {models.map((model) => (
-                  <Select.Option key={model} value={model}>
-                    {model}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
+        <div className="rounded-[24px] border border-border/70 bg-background/80 p-4 shadow-sm dark:bg-slate-950/45">
+          <div className="mb-3 text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+            Quote Summary
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item label="Variant" name="vehicleVariant" className="mb-0">
-              <Select
-                placeholder={vehicleModel ? "Select variant" : "Select model first"}
-                disabled={!vehicleModel}
-                allowClear
-                showSearch
-                loading={vehicleLoading}
-                onChange={handleVariantChange}
-                className="w-full"
-                filterOption={(input, option) =>
-                  (option?.children || option?.value || '')
-                    .toLowerCase()
-                    .includes(input.toLowerCase())
-                }
-                notFoundContent={
-                  vehicleLoading ? (
-                    <div className="p-4 text-center">
-                      <Spin size="small" />
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-muted-foreground text-xs">
-                      No variants available
-                    </div>
-                  )
-                }
-              >
-                {variants.map((variant) => (
-                  <Select.Option key={variant} value={variant}>
-                    {variant}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              label="Regd-City"
-              name="postfile_regd_city"
-              className="mb-0"
-            >
-              <AutoComplete
-                options={INDIAN_CITIES.sort().map((city) => ({
-                  value: city,
-                  label: city,
-                }))}
-                placeholder="Search or select city"
-                filterOption={(inputValue, option) =>
-                  option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
-                }
-                className="w-full"
-                style={{ height: '32px' }}
-                dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
-                allowClear
-                showSearch
-              />
-            </Form.Item>
-          </div>
-        </div>
-
-        {/* For Used Car Only */}
-        {!isNewCar && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Icon name="Calendar" size={16} className="text-primary" />
-              Vehicle History
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Form.Item
-                label="Bought in Year"
-                name="boughtInYear"
-                className="mb-0"
-              >
-                <input
-                  type="text"
-                  className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                />
-              </Form.Item>
-
-              <Form.Item label="Hypothecation" className="mb-0">
-                <div className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/40">
-                  {hypothecation || "-"}
-                </div>
-              </Form.Item>
+          <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/70 px-4 py-4">
+            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              Net Vehicle Quote
+            </div>
+            <div className="mt-1 text-2xl font-semibold text-foreground">
+              {formatINR(netVehicleQuote)}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Ex-showroom + insurance + road tax + accessories - discounts
             </div>
           </div>
-        )}
 
-        {/* For New Car Only */}
-        {isNewCar && (
-          <>
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Icon name="DollarSign" size={16} className="text-primary" />
-                Vehicle Pricing
-              </h3>
+          <div className="mt-3 rounded-2xl border border-border/70 bg-background/70 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                Vehicle
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+                  Reg City: {registrationCityValue}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsVehicleEdit((v) => !v)}
+                  className="rounded-md border border-border/70 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/30"
+                >
+                  {isVehicleEdit ? "Done" : "Edit"}
+                </button>
+              </div>
+            </div>
+            {!isVehicleEdit ? (
+              <div className="text-sm font-semibold text-foreground">
+                {[vehicleMake, vehicleModel, vehicleVariant].filter(Boolean).join(" ") ||
+                  "Vehicle not tagged"}
+                {vehicleFuelType ? ` • ${vehicleFuelType}` : ""}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <Form.Item label="Make" name="vehicleMake" style={{ marginBottom: 0 }}>
+                  <Select
+                    placeholder="Select Make"
+                    showSearch
+                    optionFilterProp="children"
+                    loading={loadingMakes}
+                    onChange={(value) => {
+                      form.setFieldsValue({
+                        vehicleMake: value,
+                        vehicleModel: undefined,
+                        vehicleVariant: undefined,
+                      });
+                      handleMakeChange(value);
+                    }}
+                  >
+                    {vehicleMake && !makes.includes(vehicleMake) && (
+                      <Option value={vehicleMake}>{vehicleMake}</Option>
+                    )}
+                    {makes.map((make) => (
+                      <Option key={make} value={make}>
+                        {make}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+                <Form.Item label="Model" name="vehicleModel" style={{ marginBottom: 0 }}>
+                  <Select
+                    placeholder={vehicleMake ? "Select Model" : "Select Make First"}
+                    showSearch
+                    optionFilterProp="children"
+                    disabled={!vehicleMake}
+                    loading={loadingModels}
+                    onChange={(value) => {
+                      form.setFieldsValue({
+                        vehicleModel: value,
+                        vehicleVariant: undefined,
+                      });
+                      handleModelChange(value);
+                    }}
+                  >
+                    {vehicleModel && !models.includes(vehicleModel) && (
+                      <Option value={vehicleModel}>{vehicleModel}</Option>
+                    )}
+                    {models.map((model) => (
+                      <Option key={model} value={model}>
+                        {model}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+                <Form.Item label="Variant" name="vehicleVariant" style={{ marginBottom: 0 }}>
+                  <Select
+                    placeholder={vehicleModel ? "Select Variant" : "Select Model First"}
+                    showSearch
+                    optionFilterProp="children"
+                    disabled={!vehicleModel}
+                    loading={loadingVariants}
+                    onChange={(value) => {
+                      form.setFieldsValue({ vehicleVariant: value });
+                      handleVariantChange(value);
+                    }}
+                  >
+                    {vehicleVariant && !variants.includes(vehicleVariant) && (
+                      <Option value={vehicleVariant}>{vehicleVariant}</Option>
+                    )}
+                    {variants.map((variant) => (
+                      <Option key={variant} value={variant}>
+                        {variant}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+                <Form.Item label="Fuel Type" name="vehicleFuelType" style={{ marginBottom: 0 }}>
+                  <Select placeholder="Select Fuel Type" showSearch optionFilterProp="children">
+                    <Option value="Petrol">Petrol</Option>
+                    <Option value="Diesel">Diesel</Option>
+                    <Option value="CNG">CNG</Option>
+                    <Option value="Hybrid">Hybrid</Option>
+                    <Option value="Electric">Electric</Option>
+                  </Select>
+                </Form.Item>
+              </div>
+            )}
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-3 rounded-2xl border border-border/70 bg-background/70 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                Showroom
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsShowroomEdit((v) => !v)}
+                className="rounded-md border border-border/70 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/30"
+              >
+                {isShowroomEdit ? "Done" : "Edit"}
+              </button>
+            </div>
+            {!isShowroomEdit ? (
+              <>
+                <div className="text-sm font-semibold text-foreground">
+                  {showroomDealerName || "Not Selected"}
+                </div>
+                {firstFilled(
+                  form.getFieldValue("showroomDealerContactPerson"),
+                  "",
+                ) ||
+                firstFilled(form.getFieldValue("showroomDealerContactNumber"), "") ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {form.getFieldValue("showroomDealerContactPerson")}
+                    {form.getFieldValue("showroomDealerContactPerson") &&
+                    form.getFieldValue("showroomDealerContactNumber")
+                      ? " • "
+                      : ""}
+                    {form.getFieldValue("showroomDealerContactNumber")}
+                  </div>
+                ) : null}
+                {form.getFieldValue("showroomDealerAddress") && (
+                  <div className="mt-1 text-xs text-muted-foreground/90">
+                    {form.getFieldValue("showroomDealerAddress")}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <Form.Item
+                  label="Dealer Name"
+                  name="showroomDealerName"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input placeholder="Enter dealer name" />
+                </Form.Item>
+                <Form.Item
+                  label="Contact Person"
+                  name="showroomDealerContactPerson"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input placeholder="Enter contact person" />
+                </Form.Item>
+                <Form.Item
+                  label="Contact Number"
+                  name="showroomDealerContactNumber"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input placeholder="Enter contact number" />
+                </Form.Item>
+                <Form.Item
+                  label="Dealer Address"
+                  name="showroomDealerAddress"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input.TextArea rows={2} placeholder="Enter dealer address" />
+                </Form.Item>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+                Pricing Stack
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPricingEdit((v) => !v)}
+                className="rounded-md border border-border/70 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/30"
+              >
+                {isPricingEdit ? "Done" : "Edit"}
+              </button>
+            </div>
+            {isPricingEdit && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 mb-3">
                 <Form.Item
                   label="Ex-Showroom Price"
                   name="exShowroomPrice"
-                  className="mb-0"
+                  style={{ marginBottom: 0 }}
                 >
-                  <input
-                    type="number"
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    formatter={(value) => `₹ ${formatIndianNumber(value)}`}
+                    parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
                 </Form.Item>
-
                 <Form.Item
                   label="Insurance Cost"
                   name="insuranceCost"
-                  className="mb-0"
+                  style={{ marginBottom: 0 }}
                 >
-                  <input
-                    type="number"
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    formatter={(value) => `₹ ${formatIndianNumber(value)}`}
+                    parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
                 </Form.Item>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Form.Item label="Road Tax" name="roadTax" className="mb-0">
-                  <input
-                    type="number"
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                <Form.Item
+                  label="Road Tax"
+                  name="roadTax"
+                  style={{ marginBottom: 0 }}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    formatter={(value) => `₹ ${formatIndianNumber(value)}`}
+                    parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
                 </Form.Item>
-
                 <Form.Item
                   label="Accessories Amount"
                   name="accessoriesAmount"
-                  className="mb-0"
+                  style={{ marginBottom: 0 }}
                 >
-                  <input
-                    type="number"
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    formatter={(value) => `₹ ${formatIndianNumber(value)}`}
+                    parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
                 </Form.Item>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Form.Item
                   label="Dealer Discount"
                   name="dealerDiscount"
-                  className="mb-0"
+                  style={{ marginBottom: 0 }}
                 >
-                  <input
-                    type="number"
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    formatter={(value) => `₹ ${formatIndianNumber(value)}`}
+                    parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
                 </Form.Item>
-
                 <Form.Item
                   label="Manufacturer Discount"
                   name="manufacturerDiscount"
-                  className="mb-0"
+                  style={{ marginBottom: 0 }}
                 >
-                  <input
-                    type="number"
-                    className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    formatter={(value) => `₹ ${formatIndianNumber(value)}`}
+                    parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
                 </Form.Item>
               </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  On-Road Vehicle Cost
-                </label>
-                <Form.Item label="On-Road Vehicle Cost" className="mb-0">
-                  <div className="w-full border border-dashed border-primary/40 rounded-md px-3 py-2 text-sm bg-primary/5">
-                    <span className="text-muted-foreground">
-                      Auto-calculated
-                    </span>
-                    <div className="font-semibold text-primary mt-1">
-                      {formatINR(onRoadCost)}
-                    </div>
-                  </div>
-                </Form.Item>
-              </div>
-            </div>
-          </>
-        )}
-        {/* For New Car Only - Dealer Information */}
-        {isNewCar && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Icon name="User" size={16} className="text-primary" />
-              Dealer Information
-            </h3>
-
-            <Form.Item label="Dealer Name" name="dealerName" className="mb-0">
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+            )}
+            <div className="space-y-2">
+              <SummaryRow label="Ex-Showroom Price" value={exShowroomPrice} />
+              <SummaryRow label="Insurance" value={insuranceCost} />
+              <SummaryRow label="Road Tax" value={roadTax} />
+              <SummaryRow label="Accessories" value={accessoriesAmount} />
+              <SummaryRow
+                label="Dealer Discount"
+                value={dealerDiscount}
+                isDeduction
               />
-            </Form.Item>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Form.Item
-                label="Contact Person"
-                name="dealerContactPerson"
-                className="mb-0"
-              >
-                <input
-                  type="text"
-                  className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                />
-              </Form.Item>
-
-              <Form.Item
-                label="Contact Number"
-                name="dealerContactNumber"
-                className="mb-0"
-              >
-                <input
-                  type="text"
-                  className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                />
-              </Form.Item>
-            </div>
-
-            <div>
-              <Form.Item
-                label="Dealer Address"
-                name="dealerAddress"
-                className="mb-0"
-              >
-                <textarea
-                  className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                  rows={2}
-                />
-              </Form.Item>
+              <SummaryRow
+                label="Manufacturer Discount"
+                value={manufacturerDiscount}
+                isDeduction
+              />
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Registration Address Reminder */}
-        {isNewCar && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Icon name="MapPin" size={16} className="text-primary" />
-              Vehicle Registration
-            </h3>
-
+        <div className="rounded-[24px] border border-border/70 bg-background/80 p-4 shadow-sm dark:bg-slate-950/45">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-2">
+            <Icon name="MapPin" size={16} className="text-primary" />
+            Registration Details
+          </h3>
+          <div className="mt-3 space-y-3">
             <div
-              className={`p-3 rounded-md border ${
+              className={`rounded-xl border px-3 py-3 ${
                 registerSameAsAadhaar === "Yes"
-                  ? "bg-success/10 border-success/20"
+                  ? "border-emerald-500/35 bg-emerald-500/12"
                   : registerSameAsAadhaar === "No"
-                  ? "bg-warning/10 border-warning/20"
-                  : "bg-muted/10 border-border/20"
+                    ? "border-rose-500/35 bg-rose-500/12"
+                    : "border-border/60 bg-muted/20"
               }`}
             >
-              <div className="flex items-start gap-2">
-                <Icon
-                  name={
-                    registerSameAsAadhaar === "Yes"
-                      ? "CheckCircle"
-                      : "AlertCircle"
-                  }
-                  size={16}
-                  className={
-                    registerSameAsAadhaar === "Yes"
-                      ? "text-success"
-                      : "text-warning"
-                  }
-                />
-                <div className="text-xs">
-                  <p className="font-medium text-foreground mb-1">
-                    Is vehicle registered at Aadhaar address?
-                  </p>
-                  <p
-                    className={`${
-                      registerSameAsAadhaar === "Yes"
-                        ? "text-success"
-                        : registerSameAsAadhaar === "No"
-                        ? "text-warning"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {registerSameAsAadhaar === "Yes"
-                      ? "✓ Yes - Vehicle registered at Aadhaar address"
-                      : registerSameAsAadhaar === "No"
-                      ? "✕ No - Vehicle has different registration address (see Pre-File section)"
-                      : "- Not specified in Pre-File"}
-                  </p>
-                </div>
+              <div className="text-xs font-semibold text-foreground">
+                {isCompany
+                  ? "Is vehicle registered at GST/office address?"
+                  : "Is vehicle registered at Aadhaar address?"}
+              </div>
+              <div
+                className={`mt-1 text-xs font-semibold ${
+                  registerSameAsAadhaar === "Yes"
+                    ? "text-emerald-700 dark:text-emerald-300"
+                    : registerSameAsAadhaar === "No"
+                      ? "text-rose-700 dark:text-rose-300"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {registerSameAsAadhaar || "-"}
               </div>
             </div>
+
+            {registerSameAsAadhaar === "No" && (
+              <>
+                <div
+                  className={`rounded-xl border px-3 py-3 ${
+                    registerSameAsPermanent === "Yes"
+                      ? "border-emerald-500/35 bg-emerald-500/12"
+                      : "border-rose-500/35 bg-rose-500/12"
+                  }`}
+                >
+                  <div className="text-xs font-semibold text-foreground">
+                    Is vehicle registered at permanent address?
+                  </div>
+                  <div
+                    className={`mt-1 text-xs font-semibold ${
+                      registerSameAsPermanent === "Yes"
+                        ? "text-emerald-700 dark:text-emerald-300"
+                        : registerSameAsPermanent === "No"
+                          ? "text-rose-700 dark:text-rose-300"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {registerSameAsPermanent || "-"}
+                  </div>
+                </div>
+
+                {registerSameAsPermanent === "No" && (
+                  <div className="rounded-xl border border-rose-500/35 bg-rose-500/12 px-3 py-3">
+                    <div className="text-xs font-semibold text-foreground mb-2">
+                      Registration Address Details
+                    </div>
+                    <div className="space-y-1 text-xs text-rose-800 dark:text-rose-200">
+                      <div>Address: {registrationAddress || "-"}</div>
+                      <div>Pincode: {registrationPincode || "-"}</div>
+                      <div>City: {registrationCityValue}</div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

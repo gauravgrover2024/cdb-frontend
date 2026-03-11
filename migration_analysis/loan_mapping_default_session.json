@@ -1,0 +1,4680 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-07T10:10:05.573958+00:00",
+  "sourceWorkbook": "migration_analysis/loan_field_mapping_workbook.xlsx",
+  "summary": {
+    "mappedNewFields": 113,
+    "mappingRows": 204
+  },
+  "mappingsByNewField": [
+    {
+      "newField": "accountNumber",
+      "newPage": "Pre-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyMappings": [
+        {
+          "legacyFile": "CUSTOMER_BANK.json",
+          "legacyField": "CA_ACCOUNT_NO",
+          "sourcePath": "CUSTOMER_BANK.json.CA_ACCOUNT_NO",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CUSTOMER_BANK.json",
+          "legacyField": "SB_ACCOUNT_NO",
+          "sourcePath": "CUSTOMER_BANK.json.SB_ACCOUNT_NO",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "addressProofNumber",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "AADHAAR_NUMBER",
+          "sourcePath": "CPV_DETAIL.json.AADHAAR_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "applicantType",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "HIRE_TYPE",
+          "sourcePath": "CPV_DETAIL.json.HIRE_TYPE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "`normalizeApplicantType(...)` => `Individual`/`Company`."
+        }
+      ]
+    },
+    {
+      "newField": "approval_approvalDate",
+      "newPage": "Approval",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_DISBURSE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DISBURSE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "ISO"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "DATE_OF_DISBURSE",
+          "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DISBURSE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "ISO"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_FILE_DESPATCH",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_FILE_DESPATCH",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "ISO"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "CPV_DATE",
+          "sourcePath": "CPV_DETAIL.json.CPV_DATE",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "ISO"
+        }
+      ]
+    },
+    {
+      "newField": "approval_bankName` / `postfile_bankName",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "HP_TO",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.HP_TO",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "bank normalization"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "FINANCER",
+          "sourcePath": "CPV_DETAIL.json.FINANCER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "bank normalization"
+        }
+      ]
+    },
+    {
+      "newField": "approval_disbursedDate` / `disbursement_date",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_DISBURSE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DISBURSE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "DATE_OF_DISBURSE",
+          "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DISBURSE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "approval_loanAmountApproved` / `postfile_loanAmountApproved",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "LOAN_AMOUNT",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_AMOUNT",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "LOAN_EXPECTED",
+          "sourcePath": "CPV_DETAIL.json.LOAN_EXPECTED",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "approval_roi` / `postfile_roi",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "ROI",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ROI",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "approval_tenureMonths` / `postfile_tenureMonths",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "TENOR",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TENOR",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "TENDOR",
+          "sourcePath": "CPV_DETAIL.json.TENDOR",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "bankName",
+      "newPage": "Pre-File",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "CUSTOMER_BANK.json",
+          "legacyField": "BANK_NAME",
+          "sourcePath": "CUSTOMER_BANK.json.BANK_NAME",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized bank name"
+        }
+      ]
+    },
+    {
+      "newField": "boughtInYear",
+      "newPage": "Pre-File",
+      "newSection": "Post File Vehicle Verification",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "BOUGHT_IN_YEAR",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.BOUGHT_IN_YEAR",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "parse 4-digit/2-digit year normalization"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "VEHICLE_YEAR",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.VEHICLE_YEAR",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "parse 4-digit/2-digit year normalization"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "BOUGHT_IN_YEAR",
+          "sourcePath": "CPV_DETAIL.json.BOUGHT_IN_YEAR",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "parse 4-digit/2-digit year normalization"
+        }
+      ]
+    },
+    {
+      "newField": "branch",
+      "newPage": "Pre-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyMappings": [
+        {
+          "legacyFile": "CUSTOMER_BANK.json",
+          "legacyField": "BANK_ADDRESS",
+          "sourcePath": "CUSTOMER_BANK.json.BANK_ADDRESS",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "businessNature",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "ORGANISATION_TYPE",
+          "sourcePath": "CPV_DETAIL.json.ORGANISATION_TYPE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "multi-value combined"
+        }
+      ]
+    },
+    {
+      "newField": "city",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_CITY",
+          "sourcePath": "CPV_DETAIL.json.OFF_CITY",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_CITY",
+          "sourcePath": "CPV_DETAIL.json.RESI_CITY",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "co_aadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "AUTH_AADHAAR_NUMBER",
+          "sourcePath": "AUTH_SIGNATORY.json.AUTH_AADHAAR_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "G_AADHAAR_NUMBER",
+          "sourcePath": "GURANTOR.json.G_AADHAAR_NUMBER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "AADHAAR_NUMBER",
+          "sourcePath": "CPV_DETAIL.json.AADHAAR_NUMBER",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "co_address",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "ADD1_1",
+          "sourcePath": "AUTH_SIGNATORY.json.ADD1_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "RESI_ADD1",
+          "sourcePath": "GURANTOR.json.RESI_ADD1",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "OFF_ADD1",
+          "sourcePath": "GURANTOR.json.OFF_ADD1",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_ADD1",
+          "sourcePath": "CPV_DETAIL.json.RESI_ADD1",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "co_city",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "CITY_1",
+          "sourcePath": "AUTH_SIGNATORY.json.CITY_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "RESI_CITY",
+          "sourcePath": "GURANTOR.json.RESI_CITY",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_CITY",
+          "sourcePath": "CPV_DETAIL.json.RESI_CITY",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "co_currentExperience` / `co_totalExperience",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "YEAR_AT_PROFESSION",
+          "sourcePath": "CPV_DETAIL.json.YEAR_AT_PROFESSION",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "co_customerName",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "NAME_1",
+          "sourcePath": "AUTH_SIGNATORY.json.NAME_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "NAME",
+          "sourcePath": "AUTH_SIGNATORY.json.NAME",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "NAME",
+          "sourcePath": "GURANTOR.json.NAME",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "co_dependents",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "NO_OF_DEPENDANTS",
+          "sourcePath": "CPV_DETAIL.json.NO_OF_DEPENDANTS",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "NO_OF_DEPEND",
+          "sourcePath": "GURANTOR.json.NO_OF_DEPEND",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "co_designation",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "DESIGNATION_1",
+          "sourcePath": "AUTH_SIGNATORY.json.DESIGNATION_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "co_dob",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "DATE_OF_BIRTH_1",
+          "sourcePath": "AUTH_SIGNATORY.json.DATE_OF_BIRTH_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "ISO"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "DATE_OF_BIRTH",
+          "sourcePath": "CPV_DETAIL.json.DATE_OF_BIRTH",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "ISO"
+        }
+      ]
+    },
+    {
+      "newField": "co_houseType",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESIDENCE_TYPE",
+          "sourcePath": "CPV_DETAIL.json.RESIDENCE_TYPE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "RESIDENCE_TYPE",
+          "sourcePath": "GURANTOR.json.RESIDENCE_TYPE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "normalized"
+        }
+      ]
+    },
+    {
+      "newField": "co_pincode",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "PIN_1",
+          "sourcePath": "AUTH_SIGNATORY.json.PIN_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "RESI_PIN",
+          "sourcePath": "GURANTOR.json.RESI_PIN",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_PIN",
+          "sourcePath": "CPV_DETAIL.json.RESI_PIN",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "co_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "PHONE_1",
+          "sourcePath": "AUTH_SIGNATORY.json.PHONE_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "RESI_PHONE",
+          "sourcePath": "GURANTOR.json.RESI_PHONE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "OFF_PHONE",
+          "sourcePath": "GURANTOR.json.OFF_PHONE",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_PHONE1",
+          "sourcePath": "CPV_DETAIL.json.RESI_PHONE1",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "MOBILE",
+          "sourcePath": "CPV_DETAIL.json.MOBILE",
+          "fallbackPriority": 5,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "companyType",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "CATEGORY",
+          "sourcePath": "CPV_DETAIL.json.CATEGORY",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "ORGANISATION_TYPE",
+          "sourcePath": "CPV_DETAIL.json.ORGANISATION_TYPE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "normalized"
+        }
+      ]
+    },
+    {
+      "newField": "currentStage",
+      "newPage": "Shared",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_DISBURSE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DISBURSE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "DATE_OF_DISBURSE",
+          "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DISBURSE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_DELIVERY",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DELIVERY",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "DATE_OF_DELIVERY",
+          "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DELIVERY",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_FILE_DESPATCH",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_FILE_DESPATCH",
+          "fallbackPriority": 5,
+          "transform": "identity",
+          "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_WHEN_FILE_DESPATCH",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_WHEN_FILE_DESPATCH",
+          "fallbackPriority": 6,
+          "transform": "identity",
+          "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+        }
+      ]
+    },
+    {
+      "newField": "customerName",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "CUST_NAME",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CUST_NAME",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "`pickName(...)` uses case-aware row preference."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "CUSTOMER_NAME",
+          "sourcePath": "CPV_DETAIL.json.CUSTOMER_NAME",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "`pickName(...)` uses case-aware row preference."
+        }
+      ]
+    },
+    {
+      "newField": "dealerName",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "PAYMENT_FAVOURING_AT_DESPATCH",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PAYMENT_FAVOURING_AT_DESPATCH",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "ignored if literal `customer name`"
+        }
+      ]
+    },
+    {
+      "newField": "delivery_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_DELIVERY",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DELIVERY",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "only when `typeOfLoan=New Car` in payload currently"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "DATE_OF_DELIVERY",
+          "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DELIVERY",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "only when `typeOfLoan=New Car` in payload currently"
+        }
+      ]
+    },
+    {
+      "newField": "dependents",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "NO_OF_DEPENDANTS",
+          "sourcePath": "CPV_DETAIL.json.NO_OF_DEPENDANTS",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "designation",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "DESIGNATION_1",
+          "sourcePath": "AUTH_SIGNATORY.json.DESIGNATION_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "INDUSTRY_DETAIL",
+          "sourcePath": "CPV_DETAIL.json.INDUSTRY_DETAIL",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "dispatch_date",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+          "legacyField": "DATE_OF_DESP",
+          "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DATE_OF_DESP",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_OF_FILE_DESPATCH",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_FILE_DESPATCH",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "dispatch_through",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+          "legacyField": "DESP_THROUGH",
+          "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DESP_THROUGH",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DESPATCH_FOR_APPROVAL_THROUGH",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DESPATCH_FOR_APPROVAL_THROUGH",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "dispatch_time",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+          "legacyField": "TIME_OF_DESP",
+          "sourcePath": "RC_DOC_DESPATCH_MASTER.json.TIME_OF_DESP",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "time"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "TIME_OF_FILE_DESPATCH",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TIME_OF_FILE_DESPATCH",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "time"
+        }
+      ]
+    },
+    {
+      "newField": "dob",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "DATE_OF_BIRTH",
+          "sourcePath": "CPV_DETAIL.json.DATE_OF_BIRTH",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "ISO date"
+        }
+      ]
+    },
+    {
+      "newField": "docsPreparedBy",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+          "legacyField": "DOCS_PREPARED_BY",
+          "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DOCS_PREPARED_BY",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "PRE_DOCS_PREPARED_BY",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PRE_DOCS_PREPARED_BY",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "dsaCode",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DSA_CODE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DSA_CODE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "education",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "EDUCATION",
+          "sourcePath": "CPV_DETAIL.json.EDUCATION",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized"
+        }
+      ]
+    },
+    {
+      "newField": "email",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "E_MAIL",
+          "sourcePath": "CPV_DETAIL.json.E_MAIL",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean text"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "EMAIL_ADDRESS",
+          "sourcePath": "CPV_DETAIL.json.EMAIL_ADDRESS",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean text"
+        }
+      ]
+    },
+    {
+      "newField": "employmentAddress",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_ADD1",
+          "sourcePath": "CPV_DETAIL.json.OFF_ADD1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "employmentCity",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_CITY",
+          "sourcePath": "CPV_DETAIL.json.OFF_CITY",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "employmentPincode",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_PIN",
+          "sourcePath": "CPV_DETAIL.json.OFF_PIN",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "experienceCurrent",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "YEAR_AT_PROFESSION",
+          "sourcePath": "CPV_DETAIL.json.YEAR_AT_PROFESSION",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "exShowroomPrice",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "EX_SHOWROOM_OR_VALUATION",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EX_SHOWROOM_OR_VALUATION",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "financeExpectation",
+      "newPage": "Profile",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "LOAN_AMOUNT",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_AMOUNT",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "APPLIED_LOAN_AMOUNT",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.APPLIED_LOAN_AMOUNT",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "numeric"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "LOAN_EXPECTED",
+          "sourcePath": "CPV_DETAIL.json.LOAN_EXPECTED",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "gender",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "SEX",
+          "sourcePath": "CPV_DETAIL.json.SEX",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized"
+        }
+      ]
+    },
+    {
+      "newField": "gstNumber",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "GST_NUMBER",
+          "sourcePath": "CPV_DETAIL.json.GST_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "company flow only"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "GST_NUMBER",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.GST_NUMBER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "company flow only"
+        }
+      ]
+    },
+    {
+      "newField": "houseType",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESIDENCE_TYPE",
+          "sourcePath": "CPV_DETAIL.json.RESIDENCE_TYPE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized (e.g., your own->Owned)"
+        }
+      ]
+    },
+    {
+      "newField": "hypothecationBank",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "HP_TO",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.HP_TO",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized bank name"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "FINANCER",
+          "sourcePath": "CPV_DETAIL.json.FINANCER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "normalized bank name"
+        }
+      ]
+    },
+    {
+      "newField": "identityProofNumber",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "AADHAAR_NUMBER",
+          "sourcePath": "CPV_DETAIL.json.AADHAAR_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "instrumentType",
+      "newPage": "Post-File",
+      "newSection": "Post File Instrument Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_INSTRUMENT_DETAIL.json",
+          "legacyField": "INSTRMNT_TYPE",
+          "sourcePath": "RC_INSTRUMENT_DETAIL.json.INSTRMNT_TYPE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "Priority: `SI` > `ECS` > `Cheque`."
+        }
+      ]
+    },
+    {
+      "newField": "invoice_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "INVOICE_DATE",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INVOICE_DATE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "INVOICE_DATE",
+          "sourcePath": "RC_RC_INV_STATUS.json.INVOICE_DATE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "invoice_number",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "INVOICE_NUMBER",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INVOICE_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "invoice-row priority logic"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "INVOICE_NUMBER",
+          "sourcePath": "RC_RC_INV_STATUS.json.INVOICE_NUMBER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "invoice-row priority logic"
+        }
+      ]
+    },
+    {
+      "newField": "invoice_received_as",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "INV_RECEIVED_ON_DATE_2",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INV_RECEIVED_ON_DATE_2",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized enum"
+        }
+      ]
+    },
+    {
+      "newField": "invoice_received_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "INV_RECEIVED_ON_DATE",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INV_RECEIVED_ON_DATE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "invoice_received_from",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "INV_RECEIVED_FROM",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INV_RECEIVED_FROM",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "isFinanced",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "LOAN_AMOUNT",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_AMOUNT",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "APPLIED_LOAN_AMOUNT",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.APPLIED_LOAN_AMOUNT",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "LOAN_EXPECTED",
+          "sourcePath": "CPV_DETAIL.json.LOAN_EXPECTED",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "HP_TO",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.HP_TO",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "FINANCER",
+          "sourcePath": "CPV_DETAIL.json.FINANCER",
+          "fallbackPriority": 5,
+          "transform": "identity",
+          "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+        }
+      ]
+    },
+    {
+      "newField": "loan_number",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "LOAN_NUMBER_PREFIX",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_NUMBER_PREFIX",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "concatenated available parts"
+        }
+      ]
+    },
+    {
+      "newField": "loanTenureMonths",
+      "newPage": "Profile",
+      "newSection": "Finance Details Form",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "TENOR",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TENOR",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "APPLIED_TENOR",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.APPLIED_TENOR",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "numeric"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "TENDOR",
+          "sourcePath": "CPV_DETAIL.json.TENDOR",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "maritalStatus",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "MARITAL_STATUS",
+          "sourcePath": "CPV_DETAIL.json.MARITAL_STATUS",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized"
+        }
+      ]
+    },
+    {
+      "newField": "motherName",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "MOTHERS_MAIDEN_NAME",
+          "sourcePath": "CPV_DETAIL.json.MOTHERS_MAIDEN_NAME",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "occupationType",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "PROFESSION_TYPE",
+          "sourcePath": "CPV_DETAIL.json.PROFESSION_TYPE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized"
+        }
+      ]
+    },
+    {
+      "newField": "panNumber",
+      "newPage": "Header / Shared",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "PAN_NUMBER",
+          "sourcePath": "CPV_DETAIL.json.PAN_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean text"
+        }
+      ]
+    },
+    {
+      "newField": "payoutPercentage",
+      "newPage": "Approval",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "PAYOUT_RATE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PAYOUT_RATE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "permanentAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "PERMANENT_ADDRESS",
+          "sourcePath": "CPV_DETAIL.json.PERMANENT_ADDRESS",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "Parsed; if empty/NA then same as current."
+        }
+      ]
+    },
+    {
+      "newField": "pincode",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_PIN",
+          "sourcePath": "CPV_DETAIL.json.OFF_PIN",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_PIN",
+          "sourcePath": "CPV_DETAIL.json.RESI_PIN",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "postfile_disbursedCreditAssured",
+      "newPage": "Post-File",
+      "newSection": "Emicalculator",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "ICICI_CREDIT_ASSURED",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ICICI_CREDIT_ASSURED",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "postfile_disbursedInsurance",
+      "newPage": "Post-File",
+      "newSection": "Emicalculator",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "INSURANCE_FINANCED",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.INSURANCE_FINANCED",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "postfile_emiAmount",
+      "newPage": "Post-File",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "EMI",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "postfile_emiMode",
+      "newPage": "Post-File",
+      "newSection": "Post File Approval Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "EMI_TYPE_ARREAR_ADVANCE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI_TYPE_ARREAR_ADVANCE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "default `Arrear`"
+        }
+      ]
+    },
+    {
+      "newField": "postfile_emiPlan` + `emiPlan",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "EMI_PLAN",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI_PLAN",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized (`1+1`, etc.)"
+        }
+      ]
+    },
+    {
+      "newField": "postfile_firstEmiDate",
+      "newPage": "Post-File",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "EMI_DUE_DATE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI_DUE_DATE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "prefile_sourcePayoutPercentage",
+      "newPage": "Pre-File",
+      "newSection": "Payout Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "PAYOUT_RATE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PAYOUT_RATE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_PHONE1",
+          "sourcePath": "CPV_DETAIL.json.OFF_PHONE1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "OFF_PHONE",
+          "sourcePath": "GURANTOR.json.OFF_PHONE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "PHONE_NUMBERS_OFFICE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PHONE_NUMBERS_OFFICE",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        },
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "PHONE",
+          "sourcePath": "AUTH_SIGNATORY.json.PHONE",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_PHONE1",
+          "sourcePath": "CPV_DETAIL.json.RESI_PHONE1",
+          "fallbackPriority": 5,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "MOBILE",
+          "sourcePath": "CPV_DETAIL.json.MOBILE",
+          "fallbackPriority": 6,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "MOBILE_NUMBER",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.MOBILE_NUMBER",
+          "fallbackPriority": 7,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "PHONE_NUMBERS_RESI",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PHONE_NUMBERS_RESI",
+          "fallbackPriority": 8,
+          "transform": "identity",
+          "notes": "Clean numeric text."
+        }
+      ]
+    },
+    {
+      "newField": "primaryMobileAlt",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_PHONE2",
+          "sourcePath": "CPV_DETAIL.json.RESI_PHONE2",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "First number different from primary."
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "RESI_PHONE",
+          "sourcePath": "GURANTOR.json.RESI_PHONE",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "First number different from primary."
+        },
+        {
+          "legacyFile": "GURANTOR.json",
+          "legacyField": "OFF_PHONE",
+          "sourcePath": "GURANTOR.json.OFF_PHONE",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "First number different from primary."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_PHONE1",
+          "sourcePath": "CPV_DETAIL.json.OFF_PHONE1",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "First number different from primary."
+        }
+      ]
+    },
+    {
+      "newField": "purposeOfLoan",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "PURPOSE_OF_LOAN",
+          "sourcePath": "CPV_DETAIL.json.PURPOSE_OF_LOAN",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized with loan-type rules"
+        }
+      ]
+    },
+    {
+      "newField": "rc_chassis_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "CHASIS_NUMBER",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.CHASIS_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "CHASIS_NUMBER",
+          "sourcePath": "RC_RC_INV_STATUS.json.CHASIS_NUMBER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "rc_engine_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "ENGINE_NUMBER",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.ENGINE_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "ENGINE_NUMBER",
+          "sourcePath": "RC_RC_INV_STATUS.json.ENGINE_NUMBER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "rc_received_as",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "RC_RECEIVED_AS_1",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.RC_RECEIVED_AS_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized enum"
+        }
+      ]
+    },
+    {
+      "newField": "rc_received_date",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "RC_RECEIVED_ON_DATE",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.RC_RECEIVED_ON_DATE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "rc_received_from",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "RC_RECEIVED_FROM",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.RC_RECEIVED_FROM",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "rc_redg_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "DATE_OF_REGISTRATION",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.DATE_OF_REGISTRATION",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "DATE_OF_REGISTRATION",
+          "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_REGISTRATION",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "rc_redg_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+          "legacyField": "REGD_NUMBER",
+          "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.REGD_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "REGISTRATION_NUMBER",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.REGISTRATION_NUMBER",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "clean"
+        },
+        {
+          "legacyFile": "RC_RC_INV_STATUS.json",
+          "legacyField": "REGD_NUMBER",
+          "sourcePath": "RC_RC_INV_STATUS.json.REGD_NUMBER",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "receivingDate",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DATE_WHEN_FILE_RECEIVED",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_WHEN_FILE_RECEIVED",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "date"
+        },
+        {
+          "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+          "legacyField": "DATE_OF_DESP",
+          "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DATE_OF_DESP",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "date"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "CPV_DATE",
+          "sourcePath": "CPV_DETAIL.json.CPV_DATE",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "date"
+        }
+      ]
+    },
+    {
+      "newField": "receivingTime",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "TIME_WHEN_FILE_RECEIVED",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TIME_WHEN_FILE_RECEIVED",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "time normalize"
+        },
+        {
+          "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+          "legacyField": "TIME_OF_DESP",
+          "sourcePath": "RC_DOC_DESPATCH_MASTER.json.TIME_OF_DESP",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "time normalize"
+        }
+      ]
+    },
+    {
+      "newField": "recordSource",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "SOURCE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.SOURCE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "default `Direct`"
+        }
+      ]
+    },
+    {
+      "newField": "reference1_*",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "REF1_NAME",
+          "sourcePath": "CPV_DETAIL.json.REF1_NAME",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "`pincode` extracted from address (2-digit Delhi suffix -> `1100xx` rule in helper); city guessed."
+        }
+      ]
+    },
+    {
+      "newField": "reference2_*",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "REF2_NAME",
+          "sourcePath": "CPV_DETAIL.json.REF2_NAME",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "same as above"
+        }
+      ]
+    },
+    {
+      "newField": "referenceName` (record details)",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_SOURCE_REFERENCE.json",
+          "legacyField": "REFERENCE_BY",
+          "sourcePath": "RC_SOURCE_REFERENCE.json.REFERENCE_BY",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "pre-file record section"
+        }
+      ]
+    },
+    {
+      "newField": "referenceNumber` (record details)",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_SOURCE_REFERENCE.json",
+          "legacyField": "PHONE_NUMBER",
+          "sourcePath": "RC_SOURCE_REFERENCE.json.PHONE_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "pre-file record section"
+        }
+      ]
+    },
+    {
+      "newField": "registerSameAsAadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "IS_CAR_REGISTER_ON_SAME_ADDRES",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.IS_CAR_REGISTER_ON_SAME_ADDRES",
+          "fallbackPriority": 1,
+          "transform": "derived",
+          "notes": "normalize yes/no, else derived from address equality."
+        }
+      ]
+    },
+    {
+      "newField": "registrationAddress",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "ADDRESS_FOR_REGISTER",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ADDRESS_FOR_REGISTER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "Office/GST => current; Permanent => permanent; Resi/Aadhaar => current; else company=>current else permanent/current."
+        }
+      ]
+    },
+    {
+      "newField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "OFF_ADD1",
+          "sourcePath": "CPV_DETAIL.json.OFF_ADD1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "joined cleaned text"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_ADD1",
+          "sourcePath": "CPV_DETAIL.json.RESI_ADD1",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "joined cleaned text"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESIDENCE_ADDRESS",
+          "sourcePath": "CPV_DETAIL.json.RESIDENCE_ADDRESS",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "joined cleaned text"
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "RESI_ADDRESS",
+          "sourcePath": "CPV_DETAIL.json.RESI_ADDRESS",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "joined cleaned text"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "RESI_ADDRESS",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.RESI_ADDRESS",
+          "fallbackPriority": 5,
+          "transform": "identity",
+          "notes": "joined cleaned text"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "CUST_ADDRESS",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CUST_ADDRESS",
+          "fallbackPriority": 6,
+          "transform": "identity",
+          "notes": "joined cleaned text"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "ADDRESS",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ADDRESS",
+          "fallbackPriority": 7,
+          "transform": "identity",
+          "notes": "joined cleaned text"
+        }
+      ]
+    },
+    {
+      "newField": "sdwOf",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "FATHERS_NAME_FIRST",
+          "sourcePath": "CPV_DETAIL.json.FATHERS_NAME_FIRST",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "si_accountNumber",
+      "newPage": "Post-File",
+      "newSection": "Post File Instrument Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_INSTRUMENT_DETAIL.json",
+          "legacyField": "ACCOUNT_NUMBER",
+          "sourcePath": "RC_INSTRUMENT_DETAIL.json.ACCOUNT_NUMBER",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "si_signedBy",
+      "newPage": "Post-File",
+      "newSection": "Post File Instrument Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_INSTRUMENT_DETAIL.json",
+          "legacyField": "INSTRMNT_BY_BORWR_GRNTR",
+          "sourcePath": "RC_INSTRUMENT_DETAIL.json.INSTRMNT_BY_BORWR_GRNTR",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized party"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_aadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "AADHAAR_NUMBER_1",
+          "sourcePath": "AUTH_SIGNATORY.json.AADHAAR_NUMBER_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_address",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "ADD1_1",
+          "sourcePath": "AUTH_SIGNATORY.json.ADD1_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_city",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "CITY_1",
+          "sourcePath": "AUTH_SIGNATORY.json.CITY_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_customerName",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "NAME_1",
+          "sourcePath": "AUTH_SIGNATORY.json.NAME_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_designation",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "DESIGNATION_1",
+          "sourcePath": "AUTH_SIGNATORY.json.DESIGNATION_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_dob",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "DATE_OF_BIRTH_1",
+          "sourcePath": "AUTH_SIGNATORY.json.DATE_OF_BIRTH_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "ISO"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_pincode",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "PIN_1",
+          "sourcePath": "AUTH_SIGNATORY.json.PIN_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "signatory_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyMappings": [
+        {
+          "legacyFile": "AUTH_SIGNATORY.json",
+          "legacyField": "PHONE_1",
+          "sourcePath": "AUTH_SIGNATORY.json.PHONE_1",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "clean"
+        }
+      ]
+    },
+    {
+      "newField": "sourceName",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "SOURCE_BY",
+          "sourcePath": "CPV_DETAIL.json.SOURCE_BY",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "normalized"
+        },
+        {
+          "legacyFile": "RC_SOURCE_REFERENCE.json",
+          "legacyField": "SOURCE_NAME",
+          "sourcePath": "RC_SOURCE_REFERENCE.json.SOURCE_NAME",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "normalized"
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "CASE_ORIGIN",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CASE_ORIGIN",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "normalized"
+        }
+      ]
+    },
+    {
+      "newField": "totalExperience",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "YEAR_AT_PROFESSION",
+          "sourcePath": "CPV_DETAIL.json.YEAR_AT_PROFESSION",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "totalIncome",
+      "newPage": "",
+      "newSection": "",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "ANNUAL_INCOME",
+          "sourcePath": "CPV_DETAIL.json.ANNUAL_INCOME",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "totalIncomeITR",
+      "newPage": "Pre-File",
+      "newSection": "Income Banking Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "ANNUAL_INCOME",
+          "sourcePath": "CPV_DETAIL.json.ANNUAL_INCOME",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "CASE_TYPE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CASE_TYPE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "TYPE_OF_LOAN",
+          "sourcePath": "CPV_DETAIL.json.TYPE_OF_LOAN",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "LOAN_TYPE",
+          "sourcePath": "CPV_DETAIL.json.LOAN_TYPE",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "HIRE_PURPOSE",
+          "sourcePath": "CPV_DETAIL.json.HIRE_PURPOSE",
+          "fallbackPriority": 4,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "PURPOSE_OF_LOAN",
+          "sourcePath": "CPV_DETAIL.json.PURPOSE_OF_LOAN",
+          "fallbackPriority": 5,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "TYPE_OF_LOAN",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TYPE_OF_LOAN",
+          "fallbackPriority": 6,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "LOAN_TYPE",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_TYPE",
+          "fallbackPriority": 7,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "LOAN_FOR",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_FOR",
+          "fallbackPriority": 8,
+          "transform": "identity",
+          "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+        }
+      ]
+    },
+    {
+      "newField": "vehicleMake",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyMappings": [
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "MAKE_MODEL",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.MAKE_MODEL",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "In raw mode, prefer legacy-safe resolution with conservative fallback."
+        },
+        {
+          "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+          "legacyField": "DELIVERED_MAKE_MODEL",
+          "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DELIVERED_MAKE_MODEL",
+          "fallbackPriority": 2,
+          "transform": "identity",
+          "notes": "In raw mode, prefer legacy-safe resolution with conservative fallback."
+        },
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "CAR_MODEL",
+          "sourcePath": "CPV_DETAIL.json.CAR_MODEL",
+          "fallbackPriority": 3,
+          "transform": "identity",
+          "notes": "In raw mode, prefer legacy-safe resolution with conservative fallback."
+        }
+      ]
+    },
+    {
+      "newField": "yearsInCurrentCity",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "YEARS_AT_RESIDENCE",
+          "sourcePath": "CPV_DETAIL.json.YEARS_AT_RESIDENCE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    },
+    {
+      "newField": "yearsInCurrentHouse",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyMappings": [
+        {
+          "legacyFile": "CPV_DETAIL.json",
+          "legacyField": "YEARS_AT_RESIDENCE",
+          "sourcePath": "CPV_DETAIL.json.YEARS_AT_RESIDENCE",
+          "fallbackPriority": 1,
+          "transform": "identity",
+          "notes": "numeric"
+        }
+      ]
+    }
+  ],
+  "flatMappings": [
+    {
+      "targetField": "accountNumber",
+      "newPage": "Pre-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "CUSTOMER_BANK.json",
+      "legacyField": "CA_ACCOUNT_NO",
+      "sourcePath": "CUSTOMER_BANK.json.CA_ACCOUNT_NO",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "accountNumber",
+      "newPage": "Pre-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "CUSTOMER_BANK.json",
+      "legacyField": "SB_ACCOUNT_NO",
+      "sourcePath": "CUSTOMER_BANK.json.SB_ACCOUNT_NO",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "addressProofNumber",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "AADHAAR_NUMBER",
+      "sourcePath": "CPV_DETAIL.json.AADHAAR_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "applicantType",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "HIRE_TYPE",
+      "sourcePath": "CPV_DETAIL.json.HIRE_TYPE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "`normalizeApplicantType(...)` => `Individual`/`Company`."
+    },
+    {
+      "targetField": "approval_approvalDate",
+      "newPage": "Approval",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_DISBURSE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DISBURSE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "ISO"
+    },
+    {
+      "targetField": "approval_approvalDate",
+      "newPage": "Approval",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "DATE_OF_DISBURSE",
+      "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DISBURSE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "ISO"
+    },
+    {
+      "targetField": "approval_approvalDate",
+      "newPage": "Approval",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_FILE_DESPATCH",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_FILE_DESPATCH",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "ISO"
+    },
+    {
+      "targetField": "approval_approvalDate",
+      "newPage": "Approval",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "CPV_DATE",
+      "sourcePath": "CPV_DETAIL.json.CPV_DATE",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "ISO"
+    },
+    {
+      "targetField": "approval_bankName` / `postfile_bankName",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "HP_TO",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.HP_TO",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "bank normalization"
+    },
+    {
+      "targetField": "approval_bankName` / `postfile_bankName",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "FINANCER",
+      "sourcePath": "CPV_DETAIL.json.FINANCER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "bank normalization"
+    },
+    {
+      "targetField": "approval_disbursedDate` / `disbursement_date",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_DISBURSE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DISBURSE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "approval_disbursedDate` / `disbursement_date",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "DATE_OF_DISBURSE",
+      "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DISBURSE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "approval_loanAmountApproved` / `postfile_loanAmountApproved",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "LOAN_AMOUNT",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_AMOUNT",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "approval_loanAmountApproved` / `postfile_loanAmountApproved",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "LOAN_EXPECTED",
+      "sourcePath": "CPV_DETAIL.json.LOAN_EXPECTED",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "approval_roi` / `postfile_roi",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "ROI",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ROI",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "approval_tenureMonths` / `postfile_tenureMonths",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "TENOR",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TENOR",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "approval_tenureMonths` / `postfile_tenureMonths",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "TENDOR",
+      "sourcePath": "CPV_DETAIL.json.TENDOR",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "bankName",
+      "newPage": "Pre-File",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CUSTOMER_BANK.json",
+      "legacyField": "BANK_NAME",
+      "sourcePath": "CUSTOMER_BANK.json.BANK_NAME",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized bank name"
+    },
+    {
+      "targetField": "boughtInYear",
+      "newPage": "Pre-File",
+      "newSection": "Post File Vehicle Verification",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "BOUGHT_IN_YEAR",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.BOUGHT_IN_YEAR",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "parse 4-digit/2-digit year normalization"
+    },
+    {
+      "targetField": "boughtInYear",
+      "newPage": "Pre-File",
+      "newSection": "Post File Vehicle Verification",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "VEHICLE_YEAR",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.VEHICLE_YEAR",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "parse 4-digit/2-digit year normalization"
+    },
+    {
+      "targetField": "boughtInYear",
+      "newPage": "Pre-File",
+      "newSection": "Post File Vehicle Verification",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "BOUGHT_IN_YEAR",
+      "sourcePath": "CPV_DETAIL.json.BOUGHT_IN_YEAR",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "parse 4-digit/2-digit year normalization"
+    },
+    {
+      "targetField": "branch",
+      "newPage": "Pre-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "CUSTOMER_BANK.json",
+      "legacyField": "BANK_ADDRESS",
+      "sourcePath": "CUSTOMER_BANK.json.BANK_ADDRESS",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "businessNature",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "ORGANISATION_TYPE",
+      "sourcePath": "CPV_DETAIL.json.ORGANISATION_TYPE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "multi-value combined"
+    },
+    {
+      "targetField": "city",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_CITY",
+      "sourcePath": "CPV_DETAIL.json.OFF_CITY",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "city",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_CITY",
+      "sourcePath": "CPV_DETAIL.json.RESI_CITY",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_aadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "AUTH_AADHAAR_NUMBER",
+      "sourcePath": "AUTH_SIGNATORY.json.AUTH_AADHAAR_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_aadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "G_AADHAAR_NUMBER",
+      "sourcePath": "GURANTOR.json.G_AADHAAR_NUMBER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_aadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "AADHAAR_NUMBER",
+      "sourcePath": "CPV_DETAIL.json.AADHAAR_NUMBER",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_address",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "ADD1_1",
+      "sourcePath": "AUTH_SIGNATORY.json.ADD1_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_address",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "RESI_ADD1",
+      "sourcePath": "GURANTOR.json.RESI_ADD1",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_address",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "OFF_ADD1",
+      "sourcePath": "GURANTOR.json.OFF_ADD1",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_address",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_ADD1",
+      "sourcePath": "CPV_DETAIL.json.RESI_ADD1",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_city",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "CITY_1",
+      "sourcePath": "AUTH_SIGNATORY.json.CITY_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_city",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "RESI_CITY",
+      "sourcePath": "GURANTOR.json.RESI_CITY",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_city",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_CITY",
+      "sourcePath": "CPV_DETAIL.json.RESI_CITY",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_currentExperience` / `co_totalExperience",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "YEAR_AT_PROFESSION",
+      "sourcePath": "CPV_DETAIL.json.YEAR_AT_PROFESSION",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "co_customerName",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "NAME_1",
+      "sourcePath": "AUTH_SIGNATORY.json.NAME_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_customerName",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "NAME",
+      "sourcePath": "AUTH_SIGNATORY.json.NAME",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_customerName",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "NAME",
+      "sourcePath": "GURANTOR.json.NAME",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_dependents",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "NO_OF_DEPENDANTS",
+      "sourcePath": "CPV_DETAIL.json.NO_OF_DEPENDANTS",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "co_dependents",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "NO_OF_DEPEND",
+      "sourcePath": "GURANTOR.json.NO_OF_DEPEND",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "co_designation",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "DESIGNATION_1",
+      "sourcePath": "AUTH_SIGNATORY.json.DESIGNATION_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_dob",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "DATE_OF_BIRTH_1",
+      "sourcePath": "AUTH_SIGNATORY.json.DATE_OF_BIRTH_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "ISO"
+    },
+    {
+      "targetField": "co_dob",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "DATE_OF_BIRTH",
+      "sourcePath": "CPV_DETAIL.json.DATE_OF_BIRTH",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "ISO"
+    },
+    {
+      "targetField": "co_houseType",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESIDENCE_TYPE",
+      "sourcePath": "CPV_DETAIL.json.RESIDENCE_TYPE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "co_houseType",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "RESIDENCE_TYPE",
+      "sourcePath": "GURANTOR.json.RESIDENCE_TYPE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "co_pincode",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "PIN_1",
+      "sourcePath": "AUTH_SIGNATORY.json.PIN_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_pincode",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "RESI_PIN",
+      "sourcePath": "GURANTOR.json.RESI_PIN",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_pincode",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_PIN",
+      "sourcePath": "CPV_DETAIL.json.RESI_PIN",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "PHONE_1",
+      "sourcePath": "AUTH_SIGNATORY.json.PHONE_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "RESI_PHONE",
+      "sourcePath": "GURANTOR.json.RESI_PHONE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "OFF_PHONE",
+      "sourcePath": "GURANTOR.json.OFF_PHONE",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_PHONE1",
+      "sourcePath": "CPV_DETAIL.json.RESI_PHONE1",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "co_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Co Applicant Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "MOBILE",
+      "sourcePath": "CPV_DETAIL.json.MOBILE",
+      "fallbackPriority": 5,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "companyType",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "CATEGORY",
+      "sourcePath": "CPV_DETAIL.json.CATEGORY",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "companyType",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "ORGANISATION_TYPE",
+      "sourcePath": "CPV_DETAIL.json.ORGANISATION_TYPE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "currentStage",
+      "newPage": "Shared",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_DISBURSE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DISBURSE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+    },
+    {
+      "targetField": "currentStage",
+      "newPage": "Shared",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "DATE_OF_DISBURSE",
+      "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DISBURSE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+    },
+    {
+      "targetField": "currentStage",
+      "newPage": "Shared",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_DELIVERY",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DELIVERY",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+    },
+    {
+      "targetField": "currentStage",
+      "newPage": "Shared",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "DATE_OF_DELIVERY",
+      "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DELIVERY",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+    },
+    {
+      "targetField": "currentStage",
+      "newPage": "Shared",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_FILE_DESPATCH",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_FILE_DESPATCH",
+      "fallbackPriority": 5,
+      "transform": "identity",
+      "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+    },
+    {
+      "targetField": "currentStage",
+      "newPage": "Shared",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_WHEN_FILE_DESPATCH",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_WHEN_FILE_DESPATCH",
+      "fallbackPriority": 6,
+      "transform": "identity",
+      "notes": "If cash loan (`isFinanced=No`) => `delivery`; cash-in/refinance with disburse => `payout`; else delivery/disburse/dispatch fallback."
+    },
+    {
+      "targetField": "customerName",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "CUST_NAME",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CUST_NAME",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "`pickName(...)` uses case-aware row preference."
+    },
+    {
+      "targetField": "customerName",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "CUSTOMER_NAME",
+      "sourcePath": "CPV_DETAIL.json.CUSTOMER_NAME",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "`pickName(...)` uses case-aware row preference."
+    },
+    {
+      "targetField": "dealerName",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "PAYMENT_FAVOURING_AT_DESPATCH",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PAYMENT_FAVOURING_AT_DESPATCH",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "ignored if literal `customer name`"
+    },
+    {
+      "targetField": "delivery_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_DELIVERY",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_DELIVERY",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "only when `typeOfLoan=New Car` in payload currently"
+    },
+    {
+      "targetField": "delivery_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "DATE_OF_DELIVERY",
+      "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_DELIVERY",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "only when `typeOfLoan=New Car` in payload currently"
+    },
+    {
+      "targetField": "dependents",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "NO_OF_DEPENDANTS",
+      "sourcePath": "CPV_DETAIL.json.NO_OF_DEPENDANTS",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "designation",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "DESIGNATION_1",
+      "sourcePath": "AUTH_SIGNATORY.json.DESIGNATION_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "designation",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "INDUSTRY_DETAIL",
+      "sourcePath": "CPV_DETAIL.json.INDUSTRY_DETAIL",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "dispatch_date",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+      "legacyField": "DATE_OF_DESP",
+      "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DATE_OF_DESP",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "dispatch_date",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_OF_FILE_DESPATCH",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_OF_FILE_DESPATCH",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "dispatch_through",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+      "legacyField": "DESP_THROUGH",
+      "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DESP_THROUGH",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "dispatch_through",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DESPATCH_FOR_APPROVAL_THROUGH",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DESPATCH_FOR_APPROVAL_THROUGH",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "dispatch_time",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+      "legacyField": "TIME_OF_DESP",
+      "sourcePath": "RC_DOC_DESPATCH_MASTER.json.TIME_OF_DESP",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "time"
+    },
+    {
+      "targetField": "dispatch_time",
+      "newPage": "Post-File",
+      "newSection": "Post File Dispatch And Records",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "TIME_OF_FILE_DESPATCH",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TIME_OF_FILE_DESPATCH",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "time"
+    },
+    {
+      "targetField": "dob",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "DATE_OF_BIRTH",
+      "sourcePath": "CPV_DETAIL.json.DATE_OF_BIRTH",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "ISO date"
+    },
+    {
+      "targetField": "docsPreparedBy",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+      "legacyField": "DOCS_PREPARED_BY",
+      "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DOCS_PREPARED_BY",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "docsPreparedBy",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "PRE_DOCS_PREPARED_BY",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PRE_DOCS_PREPARED_BY",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "dsaCode",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DSA_CODE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DSA_CODE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "education",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "EDUCATION",
+      "sourcePath": "CPV_DETAIL.json.EDUCATION",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "email",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "E_MAIL",
+      "sourcePath": "CPV_DETAIL.json.E_MAIL",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean text"
+    },
+    {
+      "targetField": "email",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "EMAIL_ADDRESS",
+      "sourcePath": "CPV_DETAIL.json.EMAIL_ADDRESS",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean text"
+    },
+    {
+      "targetField": "employmentAddress",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_ADD1",
+      "sourcePath": "CPV_DETAIL.json.OFF_ADD1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "employmentCity",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_CITY",
+      "sourcePath": "CPV_DETAIL.json.OFF_CITY",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "employmentPincode",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_PIN",
+      "sourcePath": "CPV_DETAIL.json.OFF_PIN",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "experienceCurrent",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "YEAR_AT_PROFESSION",
+      "sourcePath": "CPV_DETAIL.json.YEAR_AT_PROFESSION",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "exShowroomPrice",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "EX_SHOWROOM_OR_VALUATION",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EX_SHOWROOM_OR_VALUATION",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "financeExpectation",
+      "newPage": "Profile",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "LOAN_AMOUNT",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_AMOUNT",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "financeExpectation",
+      "newPage": "Profile",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "APPLIED_LOAN_AMOUNT",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.APPLIED_LOAN_AMOUNT",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "financeExpectation",
+      "newPage": "Profile",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "LOAN_EXPECTED",
+      "sourcePath": "CPV_DETAIL.json.LOAN_EXPECTED",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "gender",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "SEX",
+      "sourcePath": "CPV_DETAIL.json.SEX",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "gstNumber",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "GST_NUMBER",
+      "sourcePath": "CPV_DETAIL.json.GST_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "company flow only"
+    },
+    {
+      "targetField": "gstNumber",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "GST_NUMBER",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.GST_NUMBER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "company flow only"
+    },
+    {
+      "targetField": "houseType",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESIDENCE_TYPE",
+      "sourcePath": "CPV_DETAIL.json.RESIDENCE_TYPE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized (e.g., your own->Owned)"
+    },
+    {
+      "targetField": "hypothecationBank",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "HP_TO",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.HP_TO",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized bank name"
+    },
+    {
+      "targetField": "hypothecationBank",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "FINANCER",
+      "sourcePath": "CPV_DETAIL.json.FINANCER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "normalized bank name"
+    },
+    {
+      "targetField": "identityProofNumber",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "AADHAAR_NUMBER",
+      "sourcePath": "CPV_DETAIL.json.AADHAAR_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "instrumentType",
+      "newPage": "Post-File",
+      "newSection": "Post File Instrument Details",
+      "legacyFile": "RC_INSTRUMENT_DETAIL.json",
+      "legacyField": "INSTRMNT_TYPE",
+      "sourcePath": "RC_INSTRUMENT_DETAIL.json.INSTRMNT_TYPE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "Priority: `SI` > `ECS` > `Cheque`."
+    },
+    {
+      "targetField": "invoice_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "INVOICE_DATE",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INVOICE_DATE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "invoice_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "INVOICE_DATE",
+      "sourcePath": "RC_RC_INV_STATUS.json.INVOICE_DATE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "invoice_number",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "INVOICE_NUMBER",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INVOICE_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "invoice-row priority logic"
+    },
+    {
+      "targetField": "invoice_number",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "INVOICE_NUMBER",
+      "sourcePath": "RC_RC_INV_STATUS.json.INVOICE_NUMBER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "invoice-row priority logic"
+    },
+    {
+      "targetField": "invoice_received_as",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "INV_RECEIVED_ON_DATE_2",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INV_RECEIVED_ON_DATE_2",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized enum"
+    },
+    {
+      "targetField": "invoice_received_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "INV_RECEIVED_ON_DATE",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INV_RECEIVED_ON_DATE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "invoice_received_from",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "INV_RECEIVED_FROM",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.INV_RECEIVED_FROM",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "isFinanced",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "LOAN_AMOUNT",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_AMOUNT",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+    },
+    {
+      "targetField": "isFinanced",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "APPLIED_LOAN_AMOUNT",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.APPLIED_LOAN_AMOUNT",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+    },
+    {
+      "targetField": "isFinanced",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "LOAN_EXPECTED",
+      "sourcePath": "CPV_DETAIL.json.LOAN_EXPECTED",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+    },
+    {
+      "targetField": "isFinanced",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "HP_TO",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.HP_TO",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+    },
+    {
+      "targetField": "isFinanced",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "FINANCER",
+      "sourcePath": "CPV_DETAIL.json.FINANCER",
+      "fallbackPriority": 5,
+      "transform": "identity",
+      "notes": "`Car Cash-in/Refinance => Yes`; else loan amount or financier present => `Yes`, else `No`."
+    },
+    {
+      "targetField": "loan_number",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "LOAN_NUMBER_PREFIX",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_NUMBER_PREFIX",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "concatenated available parts"
+    },
+    {
+      "targetField": "loanTenureMonths",
+      "newPage": "Profile",
+      "newSection": "Finance Details Form",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "TENOR",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TENOR",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "loanTenureMonths",
+      "newPage": "Profile",
+      "newSection": "Finance Details Form",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "APPLIED_TENOR",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.APPLIED_TENOR",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "loanTenureMonths",
+      "newPage": "Profile",
+      "newSection": "Finance Details Form",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "TENDOR",
+      "sourcePath": "CPV_DETAIL.json.TENDOR",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "maritalStatus",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "MARITAL_STATUS",
+      "sourcePath": "CPV_DETAIL.json.MARITAL_STATUS",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "motherName",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "MOTHERS_MAIDEN_NAME",
+      "sourcePath": "CPV_DETAIL.json.MOTHERS_MAIDEN_NAME",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "occupationType",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "PROFESSION_TYPE",
+      "sourcePath": "CPV_DETAIL.json.PROFESSION_TYPE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "panNumber",
+      "newPage": "Header / Shared",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "PAN_NUMBER",
+      "sourcePath": "CPV_DETAIL.json.PAN_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean text"
+    },
+    {
+      "targetField": "payoutPercentage",
+      "newPage": "Approval",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "PAYOUT_RATE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PAYOUT_RATE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "permanentAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "PERMANENT_ADDRESS",
+      "sourcePath": "CPV_DETAIL.json.PERMANENT_ADDRESS",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "Parsed; if empty/NA then same as current."
+    },
+    {
+      "targetField": "pincode",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_PIN",
+      "sourcePath": "CPV_DETAIL.json.OFF_PIN",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "pincode",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_PIN",
+      "sourcePath": "CPV_DETAIL.json.RESI_PIN",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "postfile_disbursedCreditAssured",
+      "newPage": "Post-File",
+      "newSection": "Emicalculator",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "ICICI_CREDIT_ASSURED",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ICICI_CREDIT_ASSURED",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "postfile_disbursedInsurance",
+      "newPage": "Post-File",
+      "newSection": "Emicalculator",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "INSURANCE_FINANCED",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.INSURANCE_FINANCED",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "postfile_emiAmount",
+      "newPage": "Post-File",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "EMI",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "postfile_emiMode",
+      "newPage": "Post-File",
+      "newSection": "Post File Approval Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "EMI_TYPE_ARREAR_ADVANCE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI_TYPE_ARREAR_ADVANCE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "default `Arrear`"
+    },
+    {
+      "targetField": "postfile_emiPlan` + `emiPlan",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "EMI_PLAN",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI_PLAN",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized (`1+1`, etc.)"
+    },
+    {
+      "targetField": "postfile_firstEmiDate",
+      "newPage": "Post-File",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "EMI_DUE_DATE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.EMI_DUE_DATE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "prefile_sourcePayoutPercentage",
+      "newPage": "Pre-File",
+      "newSection": "Payout Section",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "PAYOUT_RATE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PAYOUT_RATE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_PHONE1",
+      "sourcePath": "CPV_DETAIL.json.OFF_PHONE1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "OFF_PHONE",
+      "sourcePath": "GURANTOR.json.OFF_PHONE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "PHONE_NUMBERS_OFFICE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PHONE_NUMBERS_OFFICE",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "PHONE",
+      "sourcePath": "AUTH_SIGNATORY.json.PHONE",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_PHONE1",
+      "sourcePath": "CPV_DETAIL.json.RESI_PHONE1",
+      "fallbackPriority": 5,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "MOBILE",
+      "sourcePath": "CPV_DETAIL.json.MOBILE",
+      "fallbackPriority": 6,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "MOBILE_NUMBER",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.MOBILE_NUMBER",
+      "fallbackPriority": 7,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobile",
+      "newPage": "Profile",
+      "newSection": "Emicustomer Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "PHONE_NUMBERS_RESI",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.PHONE_NUMBERS_RESI",
+      "fallbackPriority": 8,
+      "transform": "identity",
+      "notes": "Clean numeric text."
+    },
+    {
+      "targetField": "primaryMobileAlt",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_PHONE2",
+      "sourcePath": "CPV_DETAIL.json.RESI_PHONE2",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "First number different from primary."
+    },
+    {
+      "targetField": "primaryMobileAlt",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "RESI_PHONE",
+      "sourcePath": "GURANTOR.json.RESI_PHONE",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "First number different from primary."
+    },
+    {
+      "targetField": "primaryMobileAlt",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "GURANTOR.json",
+      "legacyField": "OFF_PHONE",
+      "sourcePath": "GURANTOR.json.OFF_PHONE",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "First number different from primary."
+    },
+    {
+      "targetField": "primaryMobileAlt",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_PHONE1",
+      "sourcePath": "CPV_DETAIL.json.OFF_PHONE1",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "First number different from primary."
+    },
+    {
+      "targetField": "purposeOfLoan",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "PURPOSE_OF_LOAN",
+      "sourcePath": "CPV_DETAIL.json.PURPOSE_OF_LOAN",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized with loan-type rules"
+    },
+    {
+      "targetField": "rc_chassis_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "CHASIS_NUMBER",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.CHASIS_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "rc_chassis_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "CHASIS_NUMBER",
+      "sourcePath": "RC_RC_INV_STATUS.json.CHASIS_NUMBER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "rc_engine_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "ENGINE_NUMBER",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.ENGINE_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "rc_engine_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "ENGINE_NUMBER",
+      "sourcePath": "RC_RC_INV_STATUS.json.ENGINE_NUMBER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "rc_received_as",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "RC_RECEIVED_AS_1",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.RC_RECEIVED_AS_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized enum"
+    },
+    {
+      "targetField": "rc_received_date",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "RC_RECEIVED_ON_DATE",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.RC_RECEIVED_ON_DATE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "rc_received_from",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "RC_RECEIVED_FROM",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.RC_RECEIVED_FROM",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "rc_redg_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "DATE_OF_REGISTRATION",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.DATE_OF_REGISTRATION",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "rc_redg_date",
+      "newPage": "Delivery",
+      "newSection": "Vehicle Delivery Step",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "DATE_OF_REGISTRATION",
+      "sourcePath": "RC_RC_INV_STATUS.json.DATE_OF_REGISTRATION",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "rc_redg_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_RECEIVING_DETAIL.json",
+      "legacyField": "REGD_NUMBER",
+      "sourcePath": "RC_RC_INV_RECEIVING_DETAIL.json.REGD_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "rc_redg_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "REGISTRATION_NUMBER",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.REGISTRATION_NUMBER",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "rc_redg_no",
+      "newPage": "Delivery",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_RC_INV_STATUS.json",
+      "legacyField": "REGD_NUMBER",
+      "sourcePath": "RC_RC_INV_STATUS.json.REGD_NUMBER",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "receivingDate",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DATE_WHEN_FILE_RECEIVED",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DATE_WHEN_FILE_RECEIVED",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "receivingDate",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+      "legacyField": "DATE_OF_DESP",
+      "sourcePath": "RC_DOC_DESPATCH_MASTER.json.DATE_OF_DESP",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "receivingDate",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "CPV_DATE",
+      "sourcePath": "CPV_DETAIL.json.CPV_DATE",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "date"
+    },
+    {
+      "targetField": "receivingTime",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "TIME_WHEN_FILE_RECEIVED",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TIME_WHEN_FILE_RECEIVED",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "time normalize"
+    },
+    {
+      "targetField": "receivingTime",
+      "newPage": "Pre-File",
+      "newSection": "Section7Record Details",
+      "legacyFile": "RC_DOC_DESPATCH_MASTER.json",
+      "legacyField": "TIME_OF_DESP",
+      "sourcePath": "RC_DOC_DESPATCH_MASTER.json.TIME_OF_DESP",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "time normalize"
+    },
+    {
+      "targetField": "recordSource",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "SOURCE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.SOURCE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "default `Direct`"
+    },
+    {
+      "targetField": "reference1_*",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "REF1_NAME",
+      "sourcePath": "CPV_DETAIL.json.REF1_NAME",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "`pincode` extracted from address (2-digit Delhi suffix -> `1100xx` rule in helper); city guessed."
+    },
+    {
+      "targetField": "reference2_*",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "REF2_NAME",
+      "sourcePath": "CPV_DETAIL.json.REF2_NAME",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "same as above"
+    },
+    {
+      "targetField": "referenceName` (record details)",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_SOURCE_REFERENCE.json",
+      "legacyField": "REFERENCE_BY",
+      "sourcePath": "RC_SOURCE_REFERENCE.json.REFERENCE_BY",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "pre-file record section"
+    },
+    {
+      "targetField": "referenceNumber` (record details)",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "RC_SOURCE_REFERENCE.json",
+      "legacyField": "PHONE_NUMBER",
+      "sourcePath": "RC_SOURCE_REFERENCE.json.PHONE_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "pre-file record section"
+    },
+    {
+      "targetField": "registerSameAsAadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "IS_CAR_REGISTER_ON_SAME_ADDRES",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.IS_CAR_REGISTER_ON_SAME_ADDRES",
+      "fallbackPriority": 1,
+      "transform": "derived",
+      "notes": "normalize yes/no, else derived from address equality."
+    },
+    {
+      "targetField": "registrationAddress",
+      "newPage": "Pre-File",
+      "newSection": "Vehicle Pricing Loan Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "ADDRESS_FOR_REGISTER",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ADDRESS_FOR_REGISTER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "Office/GST => current; Permanent => permanent; Resi/Aadhaar => current; else company=>current else permanent/current."
+    },
+    {
+      "targetField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "OFF_ADD1",
+      "sourcePath": "CPV_DETAIL.json.OFF_ADD1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "joined cleaned text"
+    },
+    {
+      "targetField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_ADD1",
+      "sourcePath": "CPV_DETAIL.json.RESI_ADD1",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "joined cleaned text"
+    },
+    {
+      "targetField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESIDENCE_ADDRESS",
+      "sourcePath": "CPV_DETAIL.json.RESIDENCE_ADDRESS",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "joined cleaned text"
+    },
+    {
+      "targetField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "RESI_ADDRESS",
+      "sourcePath": "CPV_DETAIL.json.RESI_ADDRESS",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "joined cleaned text"
+    },
+    {
+      "targetField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "RESI_ADDRESS",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.RESI_ADDRESS",
+      "fallbackPriority": 5,
+      "transform": "identity",
+      "notes": "joined cleaned text"
+    },
+    {
+      "targetField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "CUST_ADDRESS",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CUST_ADDRESS",
+      "fallbackPriority": 6,
+      "transform": "identity",
+      "notes": "joined cleaned text"
+    },
+    {
+      "targetField": "residenceAddress",
+      "newPage": "Pre-File",
+      "newSection": "Loan Sticky Header",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "ADDRESS",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.ADDRESS",
+      "fallbackPriority": 7,
+      "transform": "identity",
+      "notes": "joined cleaned text"
+    },
+    {
+      "targetField": "sdwOf",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "FATHERS_NAME_FIRST",
+      "sourcePath": "CPV_DETAIL.json.FATHERS_NAME_FIRST",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "si_accountNumber",
+      "newPage": "Post-File",
+      "newSection": "Post File Instrument Details",
+      "legacyFile": "RC_INSTRUMENT_DETAIL.json",
+      "legacyField": "ACCOUNT_NUMBER",
+      "sourcePath": "RC_INSTRUMENT_DETAIL.json.ACCOUNT_NUMBER",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "si_signedBy",
+      "newPage": "Post-File",
+      "newSection": "Post File Instrument Details",
+      "legacyFile": "RC_INSTRUMENT_DETAIL.json",
+      "legacyField": "INSTRMNT_BY_BORWR_GRNTR",
+      "sourcePath": "RC_INSTRUMENT_DETAIL.json.INSTRMNT_BY_BORWR_GRNTR",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized party"
+    },
+    {
+      "targetField": "signatory_aadhaar",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "AADHAAR_NUMBER_1",
+      "sourcePath": "AUTH_SIGNATORY.json.AADHAAR_NUMBER_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "signatory_address",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "ADD1_1",
+      "sourcePath": "AUTH_SIGNATORY.json.ADD1_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "signatory_city",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "CITY_1",
+      "sourcePath": "AUTH_SIGNATORY.json.CITY_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "signatory_customerName",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "NAME_1",
+      "sourcePath": "AUTH_SIGNATORY.json.NAME_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "signatory_designation",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "DESIGNATION_1",
+      "sourcePath": "AUTH_SIGNATORY.json.DESIGNATION_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "signatory_dob",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "DATE_OF_BIRTH_1",
+      "sourcePath": "AUTH_SIGNATORY.json.DATE_OF_BIRTH_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "ISO"
+    },
+    {
+      "targetField": "signatory_pincode",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "PIN_1",
+      "sourcePath": "AUTH_SIGNATORY.json.PIN_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "signatory_primaryMobile",
+      "newPage": "Pre-File",
+      "newSection": "Authorised Signatory Section",
+      "legacyFile": "AUTH_SIGNATORY.json",
+      "legacyField": "PHONE_1",
+      "sourcePath": "AUTH_SIGNATORY.json.PHONE_1",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "clean"
+    },
+    {
+      "targetField": "sourceName",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "SOURCE_BY",
+      "sourcePath": "CPV_DETAIL.json.SOURCE_BY",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "sourceName",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyFile": "RC_SOURCE_REFERENCE.json",
+      "legacyField": "SOURCE_NAME",
+      "sourcePath": "RC_SOURCE_REFERENCE.json.SOURCE_NAME",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "sourceName",
+      "newPage": "Profile",
+      "newSection": "Lead Details",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "CASE_ORIGIN",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CASE_ORIGIN",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "normalized"
+    },
+    {
+      "targetField": "totalExperience",
+      "newPage": "Pre-File",
+      "newSection": "Occupational Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "YEAR_AT_PROFESSION",
+      "sourcePath": "CPV_DETAIL.json.YEAR_AT_PROFESSION",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "totalIncome",
+      "newPage": "",
+      "newSection": "",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "ANNUAL_INCOME",
+      "sourcePath": "CPV_DETAIL.json.ANNUAL_INCOME",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "totalIncomeITR",
+      "newPage": "Pre-File",
+      "newSection": "Income Banking Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "ANNUAL_INCOME",
+      "sourcePath": "CPV_DETAIL.json.ANNUAL_INCOME",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "CASE_TYPE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.CASE_TYPE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "TYPE_OF_LOAN",
+      "sourcePath": "CPV_DETAIL.json.TYPE_OF_LOAN",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "LOAN_TYPE",
+      "sourcePath": "CPV_DETAIL.json.LOAN_TYPE",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "HIRE_PURPOSE",
+      "sourcePath": "CPV_DETAIL.json.HIRE_PURPOSE",
+      "fallbackPriority": 4,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "PURPOSE_OF_LOAN",
+      "sourcePath": "CPV_DETAIL.json.PURPOSE_OF_LOAN",
+      "fallbackPriority": 5,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "TYPE_OF_LOAN",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.TYPE_OF_LOAN",
+      "fallbackPriority": 6,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "LOAN_TYPE",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_TYPE",
+      "fallbackPriority": 7,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "typeOfLoan",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "LOAN_FOR",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.LOAN_FOR",
+      "fallbackPriority": 8,
+      "transform": "identity",
+      "notes": "**Priority is `CASE_TYPE`**; map contains `cash-in` => `Car Cash-in`, `refinance` => `Refinance`, `used` => `Used Car`, else `New Car`."
+    },
+    {
+      "targetField": "vehicleMake",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "MAKE_MODEL",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.MAKE_MODEL",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "In raw mode, prefer legacy-safe resolution with conservative fallback."
+    },
+    {
+      "targetField": "vehicleMake",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "RC_CUSTOMER_ACCOUNT.json",
+      "legacyField": "DELIVERED_MAKE_MODEL",
+      "sourcePath": "RC_CUSTOMER_ACCOUNT.json.DELIVERED_MAKE_MODEL",
+      "fallbackPriority": 2,
+      "transform": "identity",
+      "notes": "In raw mode, prefer legacy-safe resolution with conservative fallback."
+    },
+    {
+      "targetField": "vehicleMake",
+      "newPage": "Profile",
+      "newSection": "Loan Form With Steps",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "CAR_MODEL",
+      "sourcePath": "CPV_DETAIL.json.CAR_MODEL",
+      "fallbackPriority": 3,
+      "transform": "identity",
+      "notes": "In raw mode, prefer legacy-safe resolution with conservative fallback."
+    },
+    {
+      "targetField": "yearsInCurrentCity",
+      "newPage": "Pre-File",
+      "newSection": "Personal Details Pre File",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "YEARS_AT_RESIDENCE",
+      "sourcePath": "CPV_DETAIL.json.YEARS_AT_RESIDENCE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    },
+    {
+      "targetField": "yearsInCurrentHouse",
+      "newPage": "Profile",
+      "newSection": "Personal Details Simplified",
+      "legacyFile": "CPV_DETAIL.json",
+      "legacyField": "YEARS_AT_RESIDENCE",
+      "sourcePath": "CPV_DETAIL.json.YEARS_AT_RESIDENCE",
+      "fallbackPriority": 1,
+      "transform": "identity",
+      "notes": "numeric"
+    }
+  ]
+}

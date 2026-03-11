@@ -4,6 +4,9 @@ export const loansApi = {
   getAll: async (params = {}) => {
     return await apiClient.get("/api/loans", { params });
   },
+  getDashboardStats: async () => {
+    return await apiClient.get("/api/loans/dashboard/stats");
+  },
 
   getById: async (id) => {
     return await apiClient.get(`/api/loans/${id}`);

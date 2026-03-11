@@ -1,50 +1,8 @@
 [
   {
     "action": "updated",
-    "caseId": "3000004231",
-    "customerName": "GOURAV LUMINARIES PVT LTD 2",
-    "loanId": "LN-2026-0001"
-  },
-  {
-    "action": "updated",
-    "caseId": "3000004277",
-    "customerName": "JYOTI ARORA (HT CARS)",
-    "loanId": "LN-2026-0002"
-  },
-  {
-    "action": "updated",
-    "caseId": "3000004033",
-    "customerName": "AGARHAN ENGINEERS PVT LTD",
-    "loanId": "LN-2026-0003"
-  },
-  {
-    "action": "updated",
-    "caseId": "3000004065",
-    "customerName": "DILIP KUMAR KHUMBAT",
-    "loanId": "LN-2026-0004"
-  },
-  {
-    "action": "updated",
-    "caseId": "3000004250",
-    "customerName": "SHEIKH MANZOOR AHMED (CAR DEKHO)",
-    "loanId": "LN-2026-0005"
-  },
-  {
-    "action": "updated",
-    "caseId": "3000003718",
-    "customerName": "MORA SALES INDIA PVT LTD",
-    "loanId": "LN-2026-0006"
-  },
-  {
-    "action": "updated",
-    "caseId": "3000004237",
-    "customerName": "SANJAY SUKHIJA",
-    "loanId": "LN-2026-0007"
-  },
-  {
-    "action": "updated",
-    "caseId": "3000003417",
-    "customerName": "UKAR HEALTHCARE PVT LTD",
-    "loanId": "LN-2026-0008"
+    "caseId": "3000004507",
+    "customerName": "PRATEEK KASHYAP (CAR DEKHO)",
+    "loanId": "LN-2026-4633"
   }
 ]

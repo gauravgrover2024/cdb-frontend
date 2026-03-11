@@ -4,6 +4,25 @@
  */
 import { formatINR } from './currency';
 
+const toLocalDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  if (typeof value === "string") {
+    const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      const y = Number(iso[1]);
+      const m = Number(iso[2]) - 1;
+      const d = Number(iso[3]);
+      return new Date(y, m, d);
+    }
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+};
+
+const getDaysInMonth = (year, monthIndex) => new Date(year, monthIndex + 1, 0).getDate();
+
 /**
  * Calculate EMI using the reducing balance method
  * Formula: EMI = [P × R × (1+R)^N] / [(1+R)^N – 1]
@@ -229,22 +248,48 @@ export const calculateLivePrincipalOutstanding = (principal, annualRate, tenureM
     };
   }
 
-  const today = new Date();
-  const emiDate = new Date(firstEmiDate);
-  
-  // Calculate months elapsed since first EMI
-  const monthsElapsed = Math.max(0, 
-    (today.getFullYear() - emiDate.getFullYear()) * 12 + 
-    (today.getMonth() - emiDate.getMonth())
-  );
+  const today = toLocalDate(new Date());
+  const emiDate = toLocalDate(firstEmiDate);
+  if (!today || !emiDate) {
+    return {
+      outstanding: principal,
+      monthsElapsed: 0,
+      monthsRemaining: tenureMonths,
+      progressPercentage: 0,
+      emi: calculateEMI(principal, annualRate, tenureMonths),
+      totalPaid: 0,
+    };
+  }
+
+  let monthsElapsed = 0;
+  if (today >= emiDate) {
+    monthsElapsed =
+      (today.getFullYear() - emiDate.getFullYear()) * 12 +
+      (today.getMonth() - emiDate.getMonth());
+
+    // Count this month as paid only if today's date has reached the EMI due day.
+    const dueDayThisMonth = Math.min(
+      emiDate.getDate(),
+      getDaysInMonth(today.getFullYear(), today.getMonth()),
+    );
+    if (today.getDate() >= dueDayThisMonth) {
+      monthsElapsed += 1;
+    }
+  }
 
   const monthsPaid = Math.min(monthsElapsed, tenureMonths);
   
   // Generate schedule and get outstanding
   const schedule = generateRepaymentSchedule(principal, annualRate, tenureMonths, firstEmiDate);
-  const currentMonth = schedule[monthsPaid] || schedule[schedule.length - 1];
-  
-  const outstanding = monthsPaid >= tenureMonths ? 0 : currentMonth?.outstandingBalance || principal;
+  const lastPaidMonth = monthsPaid > 0 ? schedule[monthsPaid - 1] : null;
+
+  // Outstanding should reflect balance after last paid EMI, not upcoming EMI.
+  const outstanding =
+    monthsPaid >= tenureMonths
+      ? 0
+      : monthsPaid === 0
+        ? principal
+        : lastPaidMonth?.outstandingBalance ?? principal;
   const progressPercentage = Math.round((monthsPaid / tenureMonths) * 100);
 
   return {

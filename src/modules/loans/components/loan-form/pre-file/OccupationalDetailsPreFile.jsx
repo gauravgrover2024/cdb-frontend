@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Form, Input, Select, AutoComplete, Row, Col, Button, Space } from "antd";
+import { Form, Input, Select, AutoComplete, Row, Col, Button } from "antd";
 import { SolutionOutlined, PlusCircleOutlined, DeleteOutlined } from "@ant-design/icons";
 import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
 
@@ -14,6 +14,7 @@ const OccupationalDetailsPreFile = () => {
   const customerName = Form.useWatch("customerName", form);
   const panNumber = Form.useWatch("panNumber", form);
   const occupationType = Form.useWatch("occupationType", form);
+  const incorporationDate = Form.useWatch("dob", form);
   const [fetchingEmploymentPincode, setFetchingEmploymentPincode] = useState(false);
   const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, companyTypeValue);
   const businessNatureOptions = useMemo(
@@ -86,10 +87,28 @@ const OccupationalDetailsPreFile = () => {
     }
   }, [isCompany, inferredCompanyType, form]);
 
+  useEffect(() => {
+    if (!isCompany || !incorporationDate) return;
+    const date = new Date(incorporationDate?.toISOString ? incorporationDate.toISOString() : incorporationDate);
+    if (Number.isNaN(date.getTime())) return;
+
+    const now = new Date();
+    let years = now.getFullYear() - date.getFullYear();
+    const monthDiff = now.getMonth() - date.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < date.getDate())) {
+      years -= 1;
+    }
+    const value = years >= 0 ? String(years) : "";
+    form.setFieldsValue({
+      experienceCurrent: value,
+      totalExperience: value,
+    });
+  }, [isCompany, incorporationDate, form]);
+
   return (
     <div id="prefile-occupation" className="bg-card p-6 rounded-2xl border border-border/60 shadow-sm mb-6">
       {/* HEADER */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="section-header mb-6 flex items-center gap-2">
         <div className="p-2 bg-blue-500/10 rounded-lg">
           <SolutionOutlined className="text-blue-600" />
         </div>

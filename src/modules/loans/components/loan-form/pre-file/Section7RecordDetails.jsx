@@ -97,17 +97,8 @@ const Section7RecordDetails = () => {
 
   return (
     <Card
-      title={
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-purple-500/10 rounded-lg">
-            <FileTextOutlined className="text-purple-600" />
-          </div>
-          <span className="text-base">Record Details</span>
-        </div>
-      }
       className="border border-border/60 shadow-sm hover:shadow-md transition-shadow"
       styles={{
-        header: { borderBottom: '1px solid rgba(0,0,0,0.06)', padding: '12px 24px' },
         body: { padding: '24px' }
       }}
       style={{
@@ -115,6 +106,12 @@ const Section7RecordDetails = () => {
         borderRadius: 16,
       }}
     >
+      <div className="section-header mb-6 flex items-center gap-2">
+        <div className="rounded-lg bg-purple-500/10 p-2">
+          <FileTextOutlined className="text-purple-600" />
+        </div>
+        <span className="text-base">Record Details</span>
+      </div>
       <Row gutter={[24, 0]}>
         {/* Row 1: Date, Time, Source Type */}
         <Col xs={24} md={8}>

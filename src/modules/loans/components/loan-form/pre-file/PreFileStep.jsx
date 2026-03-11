@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Form, Empty, message, Space, Button, Spin } from "antd";
+import { Form, Empty, message, Button, Spin, ConfigProvider } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
@@ -71,6 +71,7 @@ const PreFileStep = () => {
             form.getFieldValue("businessNature"),
           companyName: freshCustomer.companyName || form.getFieldValue("companyName"),
           designation: freshCustomer.designation || form.getFieldValue("designation"),
+          incorporationYear: freshCustomer.incorporationYear || form.getFieldValue("incorporationYear"),
           experienceCurrent: freshCustomer.experienceCurrent || form.getFieldValue("experienceCurrent"),
           totalExperience: freshCustomer.totalExperience || form.getFieldValue("totalExperience"),
           isMSME: freshCustomer.isMSME || form.getFieldValue("isMSME"),
@@ -109,8 +110,6 @@ const PreFileStep = () => {
 
         form.setFieldsValue(updates);
         setLastSyncTime(new Date());
-        
-        console.log("✅ Fresh customer data synced to prefile form");
       } catch (err) {
         console.error("⚠️ Error fetching fresh customer data:", err);
       } finally {
@@ -173,6 +172,7 @@ const PreFileStep = () => {
         businessNature: freshCustomer.businessNature,
         companyName: freshCustomer.companyName,
         designation: freshCustomer.designation,
+        incorporationYear: freshCustomer.incorporationYear,
         experienceCurrent: freshCustomer.experienceCurrent,
         totalExperience: freshCustomer.totalExperience,
         isMSME: freshCustomer.isMSME,
@@ -231,42 +231,74 @@ const PreFileStep = () => {
   }
 
   return (
-    <>
-      {/* 🔄 SYNC STATUS HEADER */}
-      <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Icon name="Zap" size={18} className="text-blue-600 dark:text-blue-400" />
-          <div className="flex-1">
-            <div className="text-sm font-bold text-blue-900 dark:text-blue-100">
-              Customer Data Auto-Sync
-            </div>
-            {lastSyncTime && (
-              <div className="text-xs text-blue-700 dark:text-blue-300">
-                Last synced: {lastSyncTime.toLocaleTimeString()}
+    <ConfigProvider
+      getPopupContainer={(triggerNode) => triggerNode?.parentElement || document.body}
+      theme={{
+        token: {
+          fontFamily:
+            "Manrope, Satoshi, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+          borderRadius: 14,
+          controlOutlineWidth: 0,
+        },
+        components: {
+          Select: {
+            optionFontSize: 13,
+            optionHeight: 36,
+            showArrowPaddingInlineEnd: 28,
+          },
+          Input: {
+            paddingBlock: 10,
+            paddingInline: 12,
+          },
+          InputNumber: {
+            paddingBlock: 10,
+          },
+          AutoComplete: {
+            optionHeight: 36,
+            optionFontSize: 13,
+          },
+          DatePicker: {
+            cellHeight: 28,
+          },
+        },
+      }}
+    >
+      <>
+        {/* 🔄 SYNC STATUS HEADER */}
+        <div className="mb-6 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+          <div className="flex items-center gap-3">
+            <Icon name="Zap" size={18} className="text-blue-600 dark:text-blue-400" />
+            <div className="flex-1">
+              <div className="text-sm font-bold text-blue-900 dark:text-blue-100">
+                Customer Data Auto-Sync
               </div>
-            )}
+              {lastSyncTime && (
+                <div className="text-xs text-blue-700 dark:text-blue-300">
+                  Last synced: {lastSyncTime.toLocaleTimeString()}
+                </div>
+              )}
+            </div>
           </div>
+          <Button
+            type="primary"
+            size="small"
+            icon={<ReloadOutlined />}
+            loading={syncing}
+            onClick={handleRefreshCustomerData}
+            disabled={!customerId}
+          >
+            Refresh Now
+          </Button>
         </div>
-        <Button
-          type="primary"
-          size="small"
-          icon={<ReloadOutlined />}
-          loading={syncing}
-          onClick={handleRefreshCustomerData}
-          disabled={!customerId}
-        >
-          Refresh Now
-        </Button>
-      </div>
 
-      {/* ===============================
-          PRE-FILE : SECTION 1
-         =============================== */}
-
-      <Spin spinning={syncing} tip="Syncing customer data...">
-        <PreFilePersonalDetails />
-      </Spin>
-    </>
+        {/* ===============================
+            PRE-FILE : SECTION 1
+           =============================== */}
+        <Spin spinning={syncing} tip="Syncing customer data...">
+          <PreFilePersonalDetails />
+        </Spin>
+      </>
+    </ConfigProvider>
   );
 };
 

@@ -8,6 +8,8 @@ import {
   Col,
   Space,
   AutoComplete,
+  Skeleton,
+  Spin,
 } from "antd";
 import { BankOutlined, DollarOutlined } from "@ant-design/icons";
 import { banksApi } from "../../../../../api/banks";
@@ -19,10 +21,12 @@ const IncomeBankingDetailsPreFile = () => {
   const form = Form.useFormInstance();
 
   const [bankOptions, setBankOptions] = useState([]);
+  const [loadingBanks, setLoadingBanks] = useState(false);
 
   useEffect(() => {
     const fetchBanks = async () => {
       try {
+        setLoadingBanks(true);
         const response = await banksApi.getAll();
         const data = Array.isArray(response) ? response : response?.data || [];
         setBankOptions(
@@ -30,6 +34,8 @@ const IncomeBankingDetailsPreFile = () => {
         );
       } catch (error) {
         console.error("Error fetching banks:", error);
+      } finally {
+        setLoadingBanks(false);
       }
     };
     fetchBanks();
@@ -70,10 +76,18 @@ const IncomeBankingDetailsPreFile = () => {
       }}
     >
       {/* HEADER */}
-      <Space style={{ marginBottom: 20, display: "flex", gap: 8 }}>
+      <Space className="section-header" style={{ marginBottom: 20, display: "flex", gap: 8 }}>
         <DollarOutlined style={{ color: "#13c2c2" }} />
         <span style={{ fontWeight: 600 }}>Banking Details</span>
       </Space>
+      {loadingBanks && (
+        <div className="mb-4 rounded-xl border border-border/70 bg-muted/30 p-3 dark:border-zinc-700 dark:bg-slate-900/50">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Loading bank master data
+          </div>
+          <Skeleton active paragraph={{ rows: 1 }} title={{ width: "42%" }} />
+        </div>
+      )}
 
       {/* =====================
           INCOME DETAILS
@@ -111,7 +125,7 @@ const IncomeBankingDetailsPreFile = () => {
       ====================== */}
       <Space style={{ margin: "24px 0 16px", display: "flex", gap: 8 }}>
         <BankOutlined style={{ color: "#722ed1" }} />
-        <span style={{ fontWeight: 600 }}>Banking Details</span>
+        <span style={{ fontWeight: 600 }}>Banking Inputs</span>
       </Space>
 
       <Row gutter={[16, 16]}>
@@ -130,7 +144,18 @@ const IncomeBankingDetailsPreFile = () => {
               placeholder="Select or enter Bank Name"
               options={bankOptions}
               onSelect={handleBankSelect}
-              className="rounded-xl border-border w-full"
+              className="w-full rounded-xl border-border font-medium"
+              notFoundContent={
+                loadingBanks ? (
+                  <div className="p-3 text-center">
+                    <Spin size="small" />
+                  </div>
+                ) : (
+                  <div className="p-3 text-center text-xs text-muted-foreground">
+                    No bank found
+                  </div>
+                )
+              }
               filterOption={(inputValue, option) =>
                 (option?.value ?? "")
                   .toUpperCase()

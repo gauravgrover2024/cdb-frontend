@@ -58,6 +58,7 @@ const CustomerLayout = () => {
       label: "Finance",
       children: [
         { label: "Receivables", path: "/payouts/receivables" },
+        { label: "Payables", path: "/payouts/payables" },
         { label: "Delivery Orders", path: "/delivery-orders" },
         { label: "Payments", path: "/payments" },
       ],

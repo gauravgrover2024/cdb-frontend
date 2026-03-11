@@ -1,0 +1,493 @@
+{
+  "summary": {
+    "conditions": {
+      "total": 11,
+      "filled": 5,
+      "empty": 6
+    },
+    "core_profile": {
+      "total": 22,
+      "filled": 9,
+      "empty": 13
+    },
+    "prefile_vehicle": {
+      "total": 13,
+      "filled": 7,
+      "empty": 6
+    },
+    "approval": {
+      "total": 10,
+      "filled": 10,
+      "empty": 0
+    },
+    "postfile": {
+      "total": 12,
+      "filled": 5,
+      "empty": 7
+    },
+    "delivery": {
+      "total": 13,
+      "filled": 12,
+      "empty": 1
+    }
+  },
+  "groups": {
+    "conditions": [
+      {
+        "field": "applicantType",
+        "filled": true,
+        "value": "Company"
+      },
+      {
+        "field": "typeOfLoan",
+        "filled": true,
+        "value": "New Car"
+      },
+      {
+        "field": "isFinanced",
+        "filled": true,
+        "value": "Yes"
+      },
+      {
+        "field": "hasCoApplicant",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "hasGuarantor",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "sameAsCurrentAddress",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "registerSameAsAadhaar",
+        "filled": true,
+        "value": "SAME AS OFFICE"
+      },
+      {
+        "field": "registerSameAsPermanent",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "signatorySameAsCoApplicant",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "payoutApplicable",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "hypothecation",
+        "filled": true,
+        "value": "HDFC"
+      }
+    ],
+    "core_profile": [
+      {
+        "field": "customerName",
+        "filled": true,
+        "value": "GOURAV LUMINARIES PVT LTD 2"
+      },
+      {
+        "field": "companyName",
+        "filled": true,
+        "value": "GOURAV LUMINARIES PVT LTD 2"
+      },
+      {
+        "field": "primaryMobile",
+        "filled": true,
+        "value": "9811542232"
+      },
+      {
+        "field": "email",
+        "filled": true,
+        "value": "gaurav@gouravroshni.com"
+      },
+      {
+        "field": "residenceAddress",
+        "filled": true,
+        "value": "PLOT NO-11/1,2 & 12/1 SITE-IV SAHIBABAD, INDUSTRIAL AREA, 201010"
+      },
+      {
+        "field": "pincode",
+        "filled": true,
+        "value": "201010"
+      },
+      {
+        "field": "city",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "permanentAddress",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "permanentPincode",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "permanentCity",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "panNumber",
+        "filled": true,
+        "value": "AAACG3334L"
+      },
+      {
+        "field": "gstNumber",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "co_customerName",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "co_primaryMobile",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "co_address",
+        "filled": true,
+        "value": "C-5 1504 CLEO COUNTY NOIDA SECTOR-121, 201309"
+      },
+      {
+        "field": "co_pincode",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "co_city",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "signatory_customerName",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "signatory_primaryMobile",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "signatory_address",
+        "filled": true,
+        "value": "C-5 1504 CLEO COUNTY NOIDA SECTOR-121, 201309"
+      },
+      {
+        "field": "signatory_pincode",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "signatory_city",
+        "filled": false,
+        "value": null
+      }
+    ],
+    "prefile_vehicle": [
+      {
+        "field": "vehicleMake",
+        "filled": true,
+        "value": "Maruti Suzuki"
+      },
+      {
+        "field": "vehicleModel",
+        "filled": true,
+        "value": "Spresso"
+      },
+      {
+        "field": "vehicleVariant",
+        "filled": true,
+        "value": "LXI CNG"
+      },
+      {
+        "field": "vehicleFuelType",
+        "filled": true,
+        "value": "CNG"
+      },
+      {
+        "field": "typeOfLoan",
+        "filled": true,
+        "value": "New Car"
+      },
+      {
+        "field": "usage",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "registrationNumber",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "registrationCity",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "registrationAddress",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "registrationPincode",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "registerSameAsAadhaar",
+        "filled": true,
+        "value": "SAME AS OFFICE"
+      },
+      {
+        "field": "registerSameAsPermanent",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "exShowroomPrice",
+        "filled": true,
+        "value": 591500
+      }
+    ],
+    "approval": [
+      {
+        "field": "approval_status",
+        "filled": true,
+        "value": "Disbursed"
+      },
+      {
+        "field": "approval_bankName",
+        "filled": true,
+        "value": "HDFC Bank"
+      },
+      {
+        "field": "approval_loanAmountApproved",
+        "filled": true,
+        "value": 525000
+      },
+      {
+        "field": "approval_loanAmountDisbursed",
+        "filled": true,
+        "value": 525000
+      },
+      {
+        "field": "approval_roi",
+        "filled": true,
+        "value": 9.65
+      },
+      {
+        "field": "approval_tenureMonths",
+        "filled": true,
+        "value": 39
+      },
+      {
+        "field": "approval_approvalDate",
+        "filled": true,
+        "value": "2025-01-04T00:00:00.000Z"
+      },
+      {
+        "field": "approval_disbursedDate",
+        "filled": true,
+        "value": "2025-01-04T00:00:00.000Z"
+      },
+      {
+        "field": "approval_statusHistory",
+        "filled": true,
+        "value": [
+          {
+            "status": "Approved",
+            "date": "2025-01-04T00:00:00",
+            "changedAt": "2025-01-04T14:30:00.000Z"
+          },
+          {
+            "status": "Disbursed",
+            "date": "2025-01-04T00:00:00",
+            "changedAt": "2025-01-04T14:30:00.000Z"
+          }
+        ]
+      },
+      {
+        "field": "approval_banksData",
+        "filled": true,
+        "value": [
+          {
+            "id": 1,
+            "bankName": "HDFC Bank",
+            "status": "Disbursed",
+            "loanAmount": "525000",
+            "disbursedAmount": "525000",
+            "interestRate": "9.65",
+            "tenure": "",
+            "processingFee": 0,
+            "approvalDate": "2025-01-04T00:00:00",
+            "disbursedDate": "2025-01-04T00:00:00",
+            "breakupNetLoanApproved": 0,
+            "breakupCreditAssured": "0",
+            "breakupInsuranceFinance": 0,
+            "breakupEwFinance": 0,
+            "statusHistory": [
+              {
+                "status": "Approved",
+                "date": "2025-01-04T00:00:00",
+                "changedAt": "2025-01-04T14:30:00.000Z"
+              },
+              {
+                "status": "Disbursed",
+                "date": "2025-01-04T00:00:00",
+                "changedAt": "2025-01-04T14:30:00.000Z"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "postfile": [
+      {
+        "field": "postfile_bankName",
+        "filled": true,
+        "value": "HDFC Bank"
+      },
+      {
+        "field": "postfile_loanAmountApproved",
+        "filled": true,
+        "value": 525000
+      },
+      {
+        "field": "postfile_loanAmountDisbursed",
+        "filled": true,
+        "value": 525000
+      },
+      {
+        "field": "postfile_tenureMonths",
+        "filled": true,
+        "value": 39
+      },
+      {
+        "field": "postfile_roi",
+        "filled": true,
+        "value": 9.65
+      },
+      {
+        "field": "postfile_emiStartDate",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "postfile_loanNumber",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "postfile_dispatchDate",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "postfile_dispatchTime",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "postfile_disbursementDate",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "postfile_disbursementTime",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "postfile_maturityDate",
+        "filled": false,
+        "value": null
+      }
+    ],
+    "delivery": [
+      {
+        "field": "delivery_dealerName",
+        "filled": false,
+        "value": null
+      },
+      {
+        "field": "invoice_number",
+        "filled": true,
+        "value": "16/VSL/24002904"
+      },
+      {
+        "field": "invoice_date",
+        "filled": true,
+        "value": "2025-01-06T00:00:00.000Z"
+      },
+      {
+        "field": "invoice_received_as",
+        "filled": true,
+        "value": "Photocopy"
+      },
+      {
+        "field": "invoice_received_from",
+        "filled": true,
+        "value": "CUSTOMER"
+      },
+      {
+        "field": "invoice_received_date",
+        "filled": true,
+        "value": "2025-01-06T00:00:00.000Z"
+      },
+      {
+        "field": "rc_redg_no",
+        "filled": true,
+        "value": "DL5CW7194"
+      },
+      {
+        "field": "rc_chassis_no",
+        "filled": true,
+        "value": "MA3RFL61SRH517691"
+      },
+      {
+        "field": "rc_engine_no",
+        "filled": true,
+        "value": "K10CNC639455"
+      },
+      {
+        "field": "rc_redg_date",
+        "filled": true,
+        "value": "2025-01-16T00:00:00.000Z"
+      },
+      {
+        "field": "rc_received_as",
+        "filled": true,
+        "value": "Original"
+      },
+      {
+        "field": "rc_received_from",
+        "filled": true,
+        "value": "PORTAL"
+      },
+      {
+        "field": "rc_received_date",
+        "filled": true,
+        "value": "2025-03-10T00:00:00.000Z"
+      }
+    ]
+  }
+}

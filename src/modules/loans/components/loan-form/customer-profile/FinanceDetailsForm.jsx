@@ -4,7 +4,8 @@ import Icon from "../../../../../components/AppIcon";
 
 const FinanceDetailsForm = () => {
   const form = Form.useFormInstance();
-  const isFinanced = Form.useWatch("isFinanced", form);
+  const watchedIsFinanced = Form.useWatch("isFinanced", form);
+  const isFinanced = watchedIsFinanced ?? form.getFieldValue("isFinanced") ?? "Yes";
 
   if (isFinanced !== "Yes") return null;
 

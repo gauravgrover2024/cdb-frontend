@@ -1,0 +1,258 @@
+{
+  "generatedAt": "2026-03-07T08:48:41.992Z",
+  "loanFieldCount": 359,
+  "customerFieldCount": 88,
+  "paymentFieldCount": 42,
+  "loanMissing": [
+    "HH",
+    "accessories",
+    "additionsOthers",
+    "address",
+    "businessName",
+    "cinNumber",
+    "coApplicant_name",
+    "completedDate",
+    "corporate",
+    "createdAt",
+    "customerIdDisplay",
+    "customerMobile",
+    "discountsOthers",
+    "dsaCode",
+    "epc",
+    "exShowroom",
+    "exchange",
+    "extendedWarranty",
+    "fastag",
+    "guarantor_name",
+    "insurance",
+    "insuranceCashback",
+    "loyalty",
+    "nach_accountNumber",
+    "nach_image",
+    "nach_signedBy",
+    "paid_date",
+    "payment_amount",
+    "payment_date",
+    "payment_remarks",
+    "postFileStatus",
+    "postfile_documents_ledger",
+    "postfile_maturityDate",
+    "received_date",
+    "registerSameAsAadhar",
+    "registerSameAsPermanent",
+    "registrationPincode",
+    "schemeDiscount",
+    "showroomDealerAddress",
+    "showroomDealerContactNumber",
+    "showroomDealerContactPerson",
+    "showroomDealerName",
+    "tcs",
+    "updatedAt"
+  ],
+  "customerMissing": [
+    "address",
+    "isFinanced",
+    "mobile",
+    "name",
+    "reference1",
+    "reference2",
+    "relation"
+  ],
+  "paymentVehicleFields": [
+    {
+      "field": "vehicleMake",
+      "found": true
+    },
+    {
+      "field": "vehicleModel",
+      "found": true
+    },
+    {
+      "field": "vehicleVariant",
+      "found": true
+    }
+  ],
+  "loanMissingSources": {
+    "HH": [
+      "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx"
+    ],
+    "accessories": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "additionsOthers": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "address": [
+      "src/modules/loans/components/EMICustomerDetails.jsx"
+    ],
+    "businessName": [
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx"
+    ],
+    "cinNumber": [
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx"
+    ],
+    "coApplicant_name": [
+      "src/modules/loans/components/LoanStickyHeader.jsx"
+    ],
+    "completedDate": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx"
+    ],
+    "corporate": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "createdAt": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx",
+      "src/modules/loans/components/LoanStickyHeader.jsx",
+      "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+    ],
+    "customerIdDisplay": [
+      "src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+    ],
+    "customerMobile": [
+      "src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+    ],
+    "discountsOthers": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "dsaCode": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx",
+      "src/modules/loans/components/loan-form/loan-approval/components/BankStatusCard.jsx"
+    ],
+    "epc": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "exShowroom": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "exchange": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "extendedWarranty": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "fastag": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "guarantor_name": [
+      "src/modules/loans/components/LoanStickyHeader.jsx"
+    ],
+    "insurance": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "insuranceCashback": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "loyalty": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "nach_accountNumber": [
+      "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+    ],
+    "nach_image": [
+      "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+    ],
+    "nach_signedBy": [
+      "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+    ],
+    "paid_date": [
+      "src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx"
+    ],
+    "payment_amount": [
+      "src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx",
+      "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+    ],
+    "payment_date": [
+      "src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx",
+      "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+    ],
+    "payment_remarks": [
+      "src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx",
+      "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+    ],
+    "postFileStatus": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx"
+    ],
+    "postfile_documents_ledger": [
+      "src/modules/loans/components/loan-form/post-file/DocumentsList.jsx"
+    ],
+    "postfile_maturityDate": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx",
+      "src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx"
+    ],
+    "received_date": [
+      "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+    ],
+    "registerSameAsAadhar": [
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx"
+    ],
+    "registerSameAsPermanent": [
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+      "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+    ],
+    "registrationPincode": [
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+      "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+    ],
+    "schemeDiscount": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "showroomDealerAddress": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx",
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+      "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+      "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+    ],
+    "showroomDealerContactNumber": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx",
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+      "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+    ],
+    "showroomDealerContactPerson": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx",
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+      "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+    ],
+    "showroomDealerName": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx",
+      "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+      "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+      "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+    ],
+    "tcs": [
+      "src/modules/loans/components/VehiclePricingPopup.jsx"
+    ],
+    "updatedAt": [
+      "src/modules/loans/components/LoanFormWithSteps.jsx"
+    ]
+  },
+  "customerMissingSources": {
+    "address": [
+      "src/modules/customers/EditCustomer.jsx"
+    ],
+    "isFinanced": [
+      "src/modules/customers/customer-form/BankDetails.jsx",
+      "src/modules/customers/customer-form/EmploymentDetails.jsx",
+      "src/modules/customers/customer-form/IncomeDetails.jsx",
+      "src/modules/customers/customer-form/KycDetails.jsx",
+      "src/modules/customers/customer-form/PersonalDetails.jsx",
+      "src/modules/customers/customer-form/ReferenceDetails.jsx"
+    ],
+    "mobile": [
+      "src/modules/customers/EditCustomer.jsx"
+    ],
+    "name": [
+      "src/modules/customers/EditCustomer.jsx"
+    ],
+    "reference1": [
+      "src/modules/customers/EditCustomer.jsx",
+      "src/modules/customers/customer-form/ReferenceDetails.jsx"
+    ],
+    "reference2": [
+      "src/modules/customers/EditCustomer.jsx",
+      "src/modules/customers/customer-form/ReferenceDetails.jsx"
+    ],
+    "relation": [
+      "src/modules/customers/EditCustomer.jsx"
+    ]
+  }
+}

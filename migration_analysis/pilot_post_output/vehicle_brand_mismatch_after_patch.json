@@ -1,0 +1,144 @@
+{
+  "total": 4646,
+  "checkedWithHint": 2265,
+  "mismatch": 17,
+  "unknownWithinHint": 28,
+  "sample": [
+    {
+      "id": "3000000583",
+      "legacy": "CRETA SX 1.5 PLUS AT DSL CRETA SX 1.6 A/T DSL CITY I-DTEC SV MT 1.5",
+      "expected": "Honda",
+      "got": "Hyundai",
+      "model": "Creta",
+      "variant": "CRETA SX 1.6 A/T DSL"
+    },
+    {
+      "id": "3000000825",
+      "legacy": "AMAZE 1.2 VX (O) CRETA 1.6 SX PTL AMAZE 1.2 VX (O) MT PETROL",
+      "expected": "Honda",
+      "got": "Hyundai",
+      "model": "Creta Electric",
+      "variant": "CRETA 1.6 SX PTL"
+    },
+    {
+      "id": "3000001106",
+      "legacy": "XUV 500 W8 FWD DZIRE VDI 2011 DZIRE VDI 2011",
+      "expected": "Mahindra",
+      "got": "Maruti Suzuki",
+      "model": "Maruti Dzire Tour S",
+      "variant": "DZIRE VDI"
+    },
+    {
+      "id": "3000001292",
+      "legacy": "JAZZ 1.2 V CVT I-10 GRAND ASTA (O) A/T JAZZ V CVT",
+      "expected": "Honda",
+      "got": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "I-10 GRAND ASTA (O) A/T"
+    },
+    {
+      "id": "3000001378",
+      "legacy": "SPARK 1.0 PS  WAGONR VXI A/T WAGONR VXI A/T",
+      "expected": "Chevrolet",
+      "got": "Maruti Suzuki",
+      "model": "SPARK 1.0 PS",
+      "variant": "WAGONR VXI A/T"
+    },
+    {
+      "id": "3000001452",
+      "legacy": "CITY ZX M/T PTL XUV 500 W-6 XUV 500 W-6",
+      "expected": "Honda",
+      "got": "Mahindra",
+      "model": "Xuv 3Xo Ev",
+      "variant": "XUV 500 W-6"
+    },
+    {
+      "id": "3000001489",
+      "legacy": "CITY 1.5 V MT DSL SCORPIO S 6 PLUS CITY 1.5 V MT DSL",
+      "expected": "Honda",
+      "got": "Mahindra",
+      "model": "Scorpio",
+      "variant": "SCORPIO S 6 PLUS"
+    },
+    {
+      "id": "3000001911",
+      "legacy": "S CROSE ZETA S-CROSS ZETA HYBRID DSL S-CROSS ZETA HYBRID DSL",
+      "expected": "Maruti Suzuki",
+      "got": "Honda",
+      "model": "City Hybrid",
+      "variant": "S-CROSS ZETA HYBRID DSL"
+    },
+    {
+      "id": "3000002665",
+      "legacy": "WRV VXM/T PTL CRETA 1.6 E PLUS PETROL CRETA 1.6 E PLUS PETROL",
+      "expected": "Honda",
+      "got": "Hyundai",
+      "model": "Creta Electric",
+      "variant": "CRETA 1.6 E PLUS PETROL"
+    },
+    {
+      "id": "3000002698",
+      "legacy": "CRETA 1.6 SX CRDI INNOVA CRYSTA GX 7 STR INNOVA CRYSTA GX 7 STR",
+      "expected": "Hyundai",
+      "got": "Toyota",
+      "model": "Innova Crysta",
+      "variant": "INNOVA CRYSTA GX 7 STR"
+    },
+    {
+      "id": "3000002729",
+      "legacy": "SCORPIO SLE 2013 SELTOS 1.5 HTK PLUS DSL SELTOS 1.5 HTK PLUS DSL",
+      "expected": "Mahindra",
+      "got": "Kia",
+      "model": "Seltos",
+      "variant": "SELTOS 1.5 HTK PLUS DSL"
+    },
+    {
+      "id": "3000002741",
+      "legacy": "CELERIO ZXI AGS I-10 GRAND NIOS SPORTS A/T I-10 GRAND NIOS SPORTS A/T",
+      "expected": "Maruti Suzuki",
+      "got": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "I-10 GRAND NIOS SPORTS A/T"
+    },
+    {
+      "id": "3000003292",
+      "legacy": "WAGONR LXI CNG GRAND I10 NOIS 1.2 SPORTZ MT GRAND I10 NOIS 1.2 SPORTZ MT",
+      "expected": "Maruti Suzuki",
+      "got": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "GRAND I10 NOIS 1.2 SPORTZ MT"
+    },
+    {
+      "id": "3000003675",
+      "legacy": "SWIFT LXI CRETA 1.5 MPI MT CRETA 1.5 MPI MT",
+      "expected": "Maruti Suzuki",
+      "got": "Hyundai",
+      "model": "Creta Electric",
+      "variant": "CRETA 1.5 MPI MT"
+    },
+    {
+      "id": "3000003741",
+      "legacy": "XUV 300 W-6 A/T SONET HTX IMT SONET HTX IMT",
+      "expected": "Mahindra",
+      "got": "Kia",
+      "model": "Sonet",
+      "variant": "SONET HTX IMT"
+    },
+    {
+      "id": "3000003792",
+      "legacy": "CITY ZX CVT GRAND VITARA ALPHA PLUS IEH CVT GRAND VITARA ALPHA PLUS IEH CVT",
+      "expected": "Honda",
+      "got": "Maruti Suzuki",
+      "model": "Maruti Grand Vitara",
+      "variant": "GRAND VITARA ALPHA PLUS IEH CVT"
+    },
+    {
+      "id": "3000004130",
+      "legacy": "XUV 700 AX5 5 STR SELTOS HTX IVT 1.5 PTL SELTOS HTX IVT 1.5 PTL",
+      "expected": "Mahindra",
+      "got": "Kia",
+      "model": "Seltos",
+      "variant": "SELTOS HTX IVT 1.5 PTL"
+    }
+  ]
+}

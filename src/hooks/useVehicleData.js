@@ -36,6 +36,74 @@ export const useVehicleData = (form, options = {}) => {
     onVehicleSelect,
   } = options;
 
+  const normalize = (v) => String(v || "").trim().toLowerCase();
+  const MODELS_CACHE_KEY = "vehicle_models_by_make_cache_v1";
+  const VARIANTS_CACHE_KEY = "vehicle_variants_by_make_model_cache_v1";
+  const MAKES_CACHE_KEY = "vehicle_makes_cache_v1";
+  const MASTER_ROWS_CACHE_KEY = "vehicle_master_rows_cache_v1";
+
+  const readCache = (key, fallback) => {
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return fallback;
+      return JSON.parse(raw);
+    } catch {
+      return fallback;
+    }
+  };
+
+  const writeCache = (key, value) => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // no-op
+    }
+  };
+  const toLabelList = (items, keys = []) => {
+    if (!Array.isArray(items)) return [];
+    const values = items
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (item && typeof item === "object") {
+          for (const key of keys) {
+            if (item[key]) return String(item[key]).trim();
+          }
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+  };
+  const toMasterRows = (rows) => {
+    if (!Array.isArray(rows)) return [];
+    const out = [];
+    const seen = new Set();
+    for (const row of rows) {
+      const makeValue = String(row?.make || row?.brand || "").trim();
+      const modelValue = String(row?.model || "").trim();
+      const variantValue = String(row?.variant || "").trim();
+      if (!makeValue) continue;
+      const key = `${normalize(makeValue)}|${normalize(modelValue)}|${normalize(variantValue)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        make: makeValue,
+        model: modelValue,
+        variant: variantValue,
+      });
+    }
+    return out;
+  };
+
+  const isVehicleNotFoundError = (error) => {
+    const raw = String(error?.message || "").toLowerCase();
+    return (
+      raw.includes("vehicle not found") ||
+      raw.includes("\"message\":\"vehicle not found\"") ||
+      raw.includes("404")
+    );
+  };
+
   // State management
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
@@ -48,7 +116,44 @@ export const useVehicleData = (form, options = {}) => {
     makes: null,
     modelsByMake: {},
     variantsByMakeModel: {},
+    featureRows: null,
   });
+  const inFlightRef = useRef({
+    makes: null,
+    modelsByMake: {},
+    variantsByMakeModel: {},
+    masterRows: null,
+  });
+
+  const loadMasterRows = useCallback(async () => {
+    if (Array.isArray(cacheRef.current.featureRows) && cacheRef.current.featureRows.length) {
+      return cacheRef.current.featureRows;
+    }
+    const cachedRows = readCache(MASTER_ROWS_CACHE_KEY, []);
+    if (Array.isArray(cachedRows) && cachedRows.length) {
+      cacheRef.current.featureRows = cachedRows;
+      return cachedRows;
+    }
+    if (inFlightRef.current.masterRows) {
+      return inFlightRef.current.masterRows;
+    }
+
+    inFlightRef.current.masterRows = (async () => {
+      try {
+        const featuresRes = await featuresApi.getVariantsWithPrice();
+        const rows = toMasterRows(Array.isArray(featuresRes?.data) ? featuresRes.data : []);
+        cacheRef.current.featureRows = rows;
+        writeCache(MASTER_ROWS_CACHE_KEY, rows);
+        return rows;
+      } catch {
+        return [];
+      } finally {
+        inFlightRef.current.masterRows = null;
+      }
+    })();
+
+    return inFlightRef.current.masterRows;
+  }, []);
 
   // Watch form values
   const make = form?.getFieldValue(makeFieldName);
@@ -59,120 +164,170 @@ export const useVehicleData = (form, options = {}) => {
      FETCH UNIQUE MAKES
   ========================= */
   const fetchMakes = useCallback(async () => {
-  // Return cached data if available
-  if (cacheRef.current.makes) {
-    setMakes(cacheRef.current.makes);
-    return;
-  }
+    if (Array.isArray(cacheRef.current.makes) && cacheRef.current.makes.length) {
+      setMakes(cacheRef.current.makes);
+      return;
+    }
+    const cachedMakes = readCache(MAKES_CACHE_KEY, []);
+    if (Array.isArray(cachedMakes) && cachedMakes.length) {
+      cacheRef.current.makes = cachedMakes;
+      setMakes(cachedMakes);
+      return;
+    }
+    if (inFlightRef.current.makes) {
+      await inFlightRef.current.makes;
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
+      // Fast path: lightweight distinct endpoint
+      inFlightRef.current.makes = vehiclesApi.getUniqueMakes();
+      const res = await inFlightRef.current.makes;
+      let makesList = toLabelList(res?.data, ["make", "name", "label"]);
 
-    // Use same variants master as EMI calculator
-    const res = await featuresApi.getVariantsWithPrice();
-    const items = Array.isArray(res?.data) ? res.data : res.data?.data || [];
+      // Background warm-up of master rows for fallback
+      void loadMasterRows();
 
-    const makesList = [
-      ...new Set(items.map((v: any) => v?.make).filter(Boolean)),
-    ].sort();
+      // Fallback only if distinct endpoint is empty
+      if (!makesList.length) {
+        const masterRows = await loadMasterRows();
+        makesList = toLabelList(masterRows, ["make"]);
+      }
 
-    cacheRef.current.makes = makesList;
-    setMakes(makesList);
-  } catch (error) {
-    console.error("Failed to load makes:", error);
-    message.error("Failed to load vehicle makes");
-    setMakes([]);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      cacheRef.current.makes = makesList;
+      writeCache(MAKES_CACHE_KEY, makesList);
+      setMakes(makesList);
+    } catch (error) {
+      console.error("Failed to load makes:", error);
+      message.error("Failed to load vehicle makes");
+      setMakes([]);
+    } finally {
+      inFlightRef.current.makes = null;
+      setLoading(false);
+    }
+  }, [loadMasterRows]);
 
 
   /* =========================
      FETCH MODELS BY MAKE
   ========================= */
   const fetchModels = useCallback(async (selectedMake) => {
-  if (!selectedMake) {
-    setModels([]);
-    return;
-  }
+    if (!selectedMake) {
+      setModels([]);
+      return;
+    }
 
-  const cacheKey = selectedMake;
-  if (cacheRef.current.modelsByMake[cacheKey]) {
-    setModels(cacheRef.current.modelsByMake[cacheKey]);
-    return;
-  }
+    const cacheKey = selectedMake;
+    if (cacheRef.current.modelsByMake[cacheKey]) {
+      setModels(cacheRef.current.modelsByMake[cacheKey]);
+      return;
+    }
+    const cachedModelsMap = readCache(MODELS_CACHE_KEY, {});
+    if (Array.isArray(cachedModelsMap?.[cacheKey]) && cachedModelsMap[cacheKey].length) {
+      cacheRef.current.modelsByMake[cacheKey] = cachedModelsMap[cacheKey];
+      setModels(cachedModelsMap[cacheKey]);
+      return;
+    }
+    if (inFlightRef.current.modelsByMake[cacheKey]) {
+      await inFlightRef.current.modelsByMake[cacheKey];
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
+      // Fast path: lightweight distinct endpoint
+      inFlightRef.current.modelsByMake[cacheKey] = vehiclesApi.getUniqueModels(selectedMake);
+      const res = await inFlightRef.current.modelsByMake[cacheKey];
+      let modelsList = toLabelList(res?.data, ["model", "name", "label"]);
 
-    const res = await featuresApi.getVariantsWithPrice();
-    const items = Array.isArray(res?.data) ? res.data : res.data?.data || [];
+      // Fallback to master rows only if distinct endpoint is empty
+      if (!modelsList.length) {
+        const masterRows = await loadMasterRows();
+        const targetMake = normalize(selectedMake);
+        modelsList = toLabelList(
+          masterRows.filter((r) => normalize(r?.make || r?.brand) === targetMake),
+          ["model"],
+        );
+      }
 
-    const modelsList = [
-      ...new Set(
-        items
-          .filter((v: any) => v?.make === selectedMake)
-          .map((v: any) => v?.model)
-          .filter(Boolean),
-      ),
-    ].sort();
-
-    cacheRef.current.modelsByMake[cacheKey] = modelsList;
-    setModels(modelsList);
-  } catch (error) {
-    console.error("Failed to load models:", error);
-    message.error("Failed to load vehicle models");
-    setModels([]);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      cacheRef.current.modelsByMake[cacheKey] = modelsList;
+      const existing = readCache(MODELS_CACHE_KEY, {});
+      existing[cacheKey] = modelsList;
+      writeCache(MODELS_CACHE_KEY, existing);
+      setModels(modelsList);
+    } catch (error) {
+      console.error("Failed to load models:", error);
+      message.error("Failed to load vehicle models");
+      setModels([]);
+    } finally {
+      inFlightRef.current.modelsByMake[cacheKey] = null;
+      setLoading(false);
+    }
+  }, [loadMasterRows]);
 
 
   /* =========================
      FETCH VARIANTS BY MAKE + MODEL
   ========================= */
   const fetchVariants = useCallback(async (selectedMake, selectedModel) => {
-  if (!selectedMake || !selectedModel) {
-    setVariants([]);
-    return;
-  }
+    if (!selectedMake || !selectedModel) {
+      setVariants([]);
+      return;
+    }
 
-  const cacheKey = `${selectedMake}|${selectedModel}`;
-  if (cacheRef.current.variantsByMakeModel[cacheKey]) {
-    setVariants(cacheRef.current.variantsByMakeModel[cacheKey]);
-    return;
-  }
+    const cacheKey = `${selectedMake}|${selectedModel}`;
+    if (cacheRef.current.variantsByMakeModel[cacheKey]) {
+      setVariants(cacheRef.current.variantsByMakeModel[cacheKey]);
+      return;
+    }
+    const cachedVariantsMap = readCache(VARIANTS_CACHE_KEY, {});
+    if (Array.isArray(cachedVariantsMap?.[cacheKey]) && cachedVariantsMap[cacheKey].length) {
+      cacheRef.current.variantsByMakeModel[cacheKey] = cachedVariantsMap[cacheKey];
+      setVariants(cachedVariantsMap[cacheKey]);
+      return;
+    }
+    if (inFlightRef.current.variantsByMakeModel[cacheKey]) {
+      await inFlightRef.current.variantsByMakeModel[cacheKey];
+      return;
+    }
 
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
+      // Fast path: lightweight distinct endpoint
+      inFlightRef.current.variantsByMakeModel[cacheKey] = vehiclesApi.getUniqueVariants(selectedMake, selectedModel);
+      const res = await inFlightRef.current.variantsByMakeModel[cacheKey];
+      let variantsList = toLabelList(res?.data, ["variant", "name", "label"]);
 
-    const res = await featuresApi.getVariantsWithPrice();
-    const items = Array.isArray(res?.data) ? res.data : res.data?.data || [];
+      // Fallback to master rows only if distinct endpoint is empty
+      if (!variantsList.length) {
+        const masterRows = await loadMasterRows();
+        const targetMake = normalize(selectedMake);
+        const targetModel = normalize(selectedModel);
+        variantsList = toLabelList(
+          masterRows.filter(
+            (r) =>
+              normalize(r?.make || r?.brand) === targetMake &&
+              normalize(r?.model) === targetModel,
+          ),
+          ["variant"],
+        );
+      }
 
-    const variantsList = [
-      ...new Set(
-        items
-          .filter(
-            (v: any) =>
-              v?.make === selectedMake && v?.model === selectedModel,
-          )
-          .map((v: any) => v?.variant)
-          .filter(Boolean),
-      ),
-    ].sort();
-
-    cacheRef.current.variantsByMakeModel[cacheKey] = variantsList;
-    setVariants(variantsList);
-  } catch (error) {
-    console.error("Failed to load variants:", error);
-    message.error("Failed to load vehicle variants");
-    setVariants([]);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      cacheRef.current.variantsByMakeModel[cacheKey] = variantsList;
+      const existing = readCache(VARIANTS_CACHE_KEY, {});
+      existing[cacheKey] = variantsList;
+      writeCache(VARIANTS_CACHE_KEY, existing);
+      setVariants(variantsList);
+    } catch (error) {
+      console.error("Failed to load variants:", error);
+      message.error("Failed to load vehicle variants");
+      setVariants([]);
+    } finally {
+      inFlightRef.current.variantsByMakeModel[cacheKey] = null;
+      setLoading(false);
+    }
+  }, [loadMasterRows]);
 
 
 
@@ -224,12 +379,27 @@ export const useVehicleData = (form, options = {}) => {
           setSelectedVehicle(null);
         }
       } catch (error) {
-        console.error("Failed to fetch vehicle details:", error);
+        // Legacy/migrated values may not exist in master vehicle DB.
+        // Do not spam console or disturb UX for known 404-not-found cases.
+        if (!isVehicleNotFoundError(error)) {
+          console.error("Failed to fetch vehicle details:", error);
+        }
         setSelectedVehicle(null);
       }
     },
     // Only depend on autofillPricing and onVehicleSelect, not form
     [autofillPricing, onVehicleSelect],
+  );
+
+  const canLookupVehicleDetails = useCallback(
+    (selectedVariant) => {
+      if (!selectedVariant) return false;
+      // For migrated/legacy values not present in current master list, skip lookup to avoid noisy 404s.
+      if (!Array.isArray(variants) || variants.length === 0) return true;
+      const target = normalize(selectedVariant);
+      return variants.some((v) => normalize(v) === target);
+    },
+    [variants],
   );
 
   /* =========================
@@ -292,12 +462,8 @@ export const useVehicleData = (form, options = {}) => {
       setModels([]);
       setVariants([]);
       setSelectedVehicle(null);
-
-      if (value) {
-        fetchModels(value);
-      }
     },
-    [form, modelFieldName, variantFieldName, fetchModels],
+    [form, modelFieldName, variantFieldName],
   );
 
   /* =========================
@@ -314,13 +480,8 @@ export const useVehicleData = (form, options = {}) => {
 
       setVariants([]);
       setSelectedVehicle(null);
-
-      const currentMake = form.getFieldValue(makeFieldName);
-      if (currentMake && value) {
-        fetchVariants(currentMake, value);
-      }
     },
-    [form, makeFieldName, variantFieldName, fetchVariants],
+    [form, variantFieldName],
   );
 
   /* =========================
@@ -333,13 +494,13 @@ export const useVehicleData = (form, options = {}) => {
       const currentMake = form.getFieldValue(makeFieldName);
       const currentModel = form.getFieldValue(modelFieldName);
 
-      if (currentMake && currentModel && value) {
+      if (currentMake && currentModel && value && canLookupVehicleDetails(value)) {
         fetchVehicleDetails(currentMake, currentModel, value);
       } else {
         setSelectedVehicle(null);
       }
     },
-    [form, makeFieldName, modelFieldName, fetchVehicleDetails],
+    [form, makeFieldName, modelFieldName, fetchVehicleDetails, canLookupVehicleDetails],
   );
 
   /* =========================
@@ -378,7 +539,7 @@ export const useVehicleData = (form, options = {}) => {
   // Only trigger fetchVehicleDetails when make/model/variant change, and debounce to avoid rapid repeated calls
   useEffect(() => {
     let debounceTimer;
-    if (make && model && variant) {
+    if (make && model && variant && canLookupVehicleDetails(variant)) {
       debounceTimer = setTimeout(() => {
         fetchVehicleDetails(make, model, variant);
       }, 200); // 200ms debounce
@@ -388,7 +549,7 @@ export const useVehicleData = (form, options = {}) => {
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, [make, model, variant]);
+  }, [make, model, variant, canLookupVehicleDetails, fetchVehicleDetails]);
 
   return {
     // Data

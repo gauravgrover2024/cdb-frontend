@@ -108,3 +108,274 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.loan-form-workbench .ant-form-item,
+.prefile-workbench .ant-form-item {
+  margin-bottom: 18px;
+}
+
+.loan-form-workbench .ant-form-item-label > label,
+.prefile-workbench .ant-form-item-label > label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(var(--muted-foreground), 0.95);
+}
+
+.loan-form-workbench .ant-input,
+.loan-form-workbench .ant-input-number,
+.loan-form-workbench .ant-input-number .ant-input-number-input,
+.loan-form-workbench .ant-input-affix-wrapper,
+.loan-form-workbench .ant-select-selector,
+.loan-form-workbench .ant-picker,
+.loan-form-workbench textarea.ant-input,
+.loan-form-workbench .ant-auto-complete .ant-input,
+.prefile-workbench .ant-input,
+.prefile-workbench .ant-input-number,
+.prefile-workbench .ant-input-number .ant-input-number-input,
+.prefile-workbench .ant-input-affix-wrapper,
+.prefile-workbench .ant-select-selector,
+.prefile-workbench .ant-picker,
+.prefile-workbench textarea.ant-input,
+.prefile-workbench .ant-auto-complete .ant-input {
+  border-radius: 18px !important;
+  border-color: rgba(var(--border), 0.9) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.98)) !important;
+  color: rgb(var(--foreground)) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 14px 30px -24px rgba(15, 23, 42, 0.28);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.loan-form-workbench .ant-input,
+.loan-form-workbench .ant-input-affix-wrapper,
+.loan-form-workbench .ant-picker,
+.loan-form-workbench .ant-select-selector,
+.loan-form-workbench .ant-input-number,
+.prefile-workbench .ant-input,
+.prefile-workbench .ant-input-affix-wrapper,
+.prefile-workbench .ant-picker,
+.prefile-workbench .ant-select-selector,
+.prefile-workbench .ant-input-number {
+  min-height: 46px;
+}
+
+.loan-form-workbench textarea.ant-input,
+.prefile-workbench textarea.ant-input {
+  min-height: 98px;
+  padding-top: 12px;
+}
+
+.loan-form-workbench .ant-input::placeholder,
+.loan-form-workbench .ant-input-number-input::placeholder,
+.loan-form-workbench .ant-select-selection-placeholder,
+.loan-form-workbench .ant-picker-input input::placeholder,
+.prefile-workbench .ant-input::placeholder,
+.prefile-workbench .ant-input-number-input::placeholder,
+.prefile-workbench .ant-select-selection-placeholder,
+.prefile-workbench .ant-picker-input input::placeholder {
+  color: rgba(var(--muted-foreground), 0.72) !important;
+}
+
+.loan-form-workbench .ant-input:hover,
+.loan-form-workbench .ant-input-number:hover,
+.loan-form-workbench .ant-input-affix-wrapper:hover,
+.loan-form-workbench .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.loan-form-workbench .ant-picker:hover,
+.prefile-workbench .ant-input:hover,
+.prefile-workbench .ant-input-number:hover,
+.prefile-workbench .ant-input-affix-wrapper:hover,
+.prefile-workbench .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.prefile-workbench .ant-picker:hover {
+  border-color: rgba(var(--primary), 0.45) !important;
+}
+
+.loan-form-workbench .ant-input:focus,
+.loan-form-workbench .ant-input-focused,
+.loan-form-workbench .ant-input-number-focused,
+.loan-form-workbench .ant-input-affix-wrapper-focused,
+.loan-form-workbench .ant-select-focused .ant-select-selector,
+.loan-form-workbench .ant-picker-focused,
+.prefile-workbench .ant-input:focus,
+.prefile-workbench .ant-input-focused,
+.prefile-workbench .ant-input-number-focused,
+.prefile-workbench .ant-input-affix-wrapper-focused,
+.prefile-workbench .ant-select-focused .ant-select-selector,
+.prefile-workbench .ant-picker-focused {
+  border-color: rgb(var(--primary)) !important;
+  box-shadow:
+    0 0 0 4px rgba(var(--primary), 0.14),
+    0 18px 34px -24px rgba(29, 155, 240, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+.loan-form-workbench .ant-select-arrow,
+.loan-form-workbench .ant-picker-suffix,
+.loan-form-workbench .ant-input-password-icon,
+.prefile-workbench .ant-select-arrow,
+.prefile-workbench .ant-picker-suffix,
+.prefile-workbench .ant-input-password-icon {
+  color: rgba(var(--muted-foreground), 0.95) !important;
+}
+
+.loan-form-workbench .ant-radio-group,
+.loan-form-workbench .ant-checkbox-group,
+.prefile-workbench .ant-radio-group,
+.prefile-workbench .ant-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.loan-form-workbench .ant-radio-wrapper,
+.loan-form-workbench .ant-checkbox-wrapper,
+.prefile-workbench .ant-radio-wrapper,
+.prefile-workbench .ant-checkbox-wrapper {
+  margin-inline-start: 0 !important;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--border), 0.95);
+  background: rgba(var(--card), 0.85);
+}
+
+.loan-form-workbench .ant-radio-wrapper-checked,
+.loan-form-workbench .ant-checkbox-wrapper-checked,
+.prefile-workbench .ant-radio-wrapper-checked,
+.prefile-workbench .ant-checkbox-wrapper-checked {
+  border-color: rgba(var(--primary), 0.34);
+  background: rgba(var(--primary), 0.08);
+}
+
+.loan-form-workbench .prefile-quote-card,
+.prefile-workbench .prefile-quote-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.97)) !important;
+}
+
+.dark .loan-form-workbench .ant-input,
+.dark .loan-form-workbench .ant-input-number,
+.dark .loan-form-workbench .ant-input-number .ant-input-number-input,
+.dark .loan-form-workbench .ant-input-affix-wrapper,
+.dark .loan-form-workbench .ant-select-selector,
+.dark .loan-form-workbench .ant-picker,
+.dark .loan-form-workbench textarea.ant-input,
+.dark .loan-form-workbench .ant-auto-complete .ant-input,
+.dark .prefile-workbench .ant-input,
+.dark .prefile-workbench .ant-input-number,
+.dark .prefile-workbench .ant-input-number .ant-input-number-input,
+.dark .prefile-workbench .ant-input-affix-wrapper,
+.dark .prefile-workbench .ant-select-selector,
+.dark .prefile-workbench .ant-picker,
+.dark .prefile-workbench textarea.ant-input,
+.dark .prefile-workbench .ant-auto-complete .ant-input {
+  background:
+    linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(3, 7, 18, 0.95)) !important;
+  border-color: rgba(var(--border), 0.95) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 18px 32px -26px rgba(0, 0, 0, 0.75);
+}
+
+.dark .loan-form-workbench .ant-radio-wrapper,
+.dark .loan-form-workbench .ant-checkbox-wrapper,
+.dark .prefile-workbench .ant-radio-wrapper,
+.dark .prefile-workbench .ant-checkbox-wrapper {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(var(--border), 0.95);
+}
+
+.dark .loan-form-workbench .ant-radio-wrapper-checked,
+.dark .loan-form-workbench .ant-checkbox-wrapper-checked,
+.dark .prefile-workbench .ant-radio-wrapper-checked,
+.dark .prefile-workbench .ant-checkbox-wrapper-checked {
+  background: rgba(var(--primary), 0.14);
+  border-color: rgba(var(--primary), 0.42);
+}
+
+.dark .loan-form-workbench .prefile-quote-card,
+.dark .prefile-workbench .prefile-quote-card {
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.96)) !important;
+}
+
+/* Pre-file visual consistency + stronger dark readability */
+.prefile-workbench.prefile-elegance,
+.prefile-workbench.prefile-elegance .ant-form,
+.prefile-workbench.prefile-elegance .ant-form-item,
+.prefile-workbench.prefile-elegance .ant-select,
+.prefile-workbench.prefile-elegance .ant-input,
+.prefile-workbench.prefile-elegance .ant-typography {
+  font-family: Manrope, Satoshi, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+.prefile-workbench.prefile-elegance .form-section,
+.prefile-workbench.prefile-elegance .ant-card,
+.prefile-workbench.prefile-elegance [class*="rounded-2xl"],
+.prefile-workbench.prefile-elegance [class*="rounded-xl"] {
+  border-color: rgba(var(--border), 0.92);
+}
+
+.prefile-workbench.prefile-elegance .ant-select-selector,
+.prefile-workbench.prefile-elegance .ant-input,
+.prefile-workbench.prefile-elegance .ant-input-affix-wrapper,
+.prefile-workbench.prefile-elegance .ant-picker,
+.prefile-workbench.prefile-elegance .ant-input-number {
+  border-color: rgba(var(--border), 0.96) !important;
+}
+
+.prefile-workbench.prefile-elegance .ant-select-selection-item,
+.prefile-workbench.prefile-elegance .ant-input,
+.prefile-workbench.prefile-elegance .ant-input-number-input,
+.prefile-workbench.prefile-elegance .ant-picker-input > input {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.prefile-workbench.prefile-elegance .ant-select-dropdown,
+.prefile-workbench.prefile-elegance .ant-picker-dropdown {
+  border: 1px solid rgba(var(--border), 0.96);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 24px 50px -34px rgba(15, 23, 42, 0.4);
+}
+
+.prefile-workbench.prefile-elegance .ant-select-item {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.dark .prefile-workbench.prefile-elegance .form-section,
+.dark .prefile-workbench.prefile-elegance .ant-card,
+.dark .prefile-workbench.prefile-elegance [class*="rounded-2xl"],
+.dark .prefile-workbench.prefile-elegance [class*="rounded-xl"] {
+  border-color: rgba(148, 163, 184, 0.38) !important;
+}
+
+.dark .prefile-workbench.prefile-elegance .ant-select-selector,
+.dark .prefile-workbench.prefile-elegance .ant-input,
+.dark .prefile-workbench.prefile-elegance .ant-input-affix-wrapper,
+.dark .prefile-workbench.prefile-elegance .ant-picker,
+.dark .prefile-workbench.prefile-elegance .ant-input-number {
+  border-color: rgba(148, 163, 184, 0.44) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 18px 32px -26px rgba(2, 6, 23, 0.92);
+}
+
+.dark .prefile-workbench.prefile-elegance .ant-select-dropdown,
+.dark .prefile-workbench.prefile-elegance .ant-picker-dropdown {
+  background: rgba(3, 7, 18, 0.98);
+  border-color: rgba(148, 163, 184, 0.42);
+  box-shadow: 0 28px 60px -38px rgba(0, 0, 0, 0.95);
+}

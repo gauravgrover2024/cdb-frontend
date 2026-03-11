@@ -13,6 +13,7 @@ import {
   Row,
   Select,
 } from "antd";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import { BUSINESS_NATURE_OPTIONS, COMPANY_TYPE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
 import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
@@ -32,6 +33,10 @@ const GuarantorSection = () => {
   const occupation = Form.useWatch("gu_occupation", form);
   const guCompanyType = Form.useWatch("gu_companyType", form);
   const guBusinessNature = Form.useWatch("gu_businessNature", form);
+  const guPincode = Form.useWatch("gu_pincode", form);
+  const guCompanyPincode = Form.useWatch("gu_companyPincode", form);
+  const [fetchingGuPincode, setFetchingGuPincode] = useState(false);
+  const [fetchingGuCompanyPincode, setFetchingGuCompanyPincode] = useState(false);
   const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, guCompanyType);
   const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, guBusinessNature);
 
@@ -39,6 +44,54 @@ const GuarantorSection = () => {
     const mappedFields = mapCustomerToPersonFields(customer, "gu");
     form.setFieldsValue(mappedFields);
   };
+
+  useEffect(() => {
+    if (!guPincode || String(guPincode).length !== 6) return;
+
+    const fetchCity = async () => {
+      try {
+        setFetchingGuPincode(true);
+        const res = await fetch(`https://api.postalpincode.in/pincode/${guPincode}`);
+        const data = await res.json();
+        const district = data?.[0]?.PostOffice?.[0]?.District;
+        if (district) {
+          form.setFieldsValue({ gu_city: district });
+        }
+      } catch (error) {
+        console.error("Guarantor pincode fetch failed", error);
+      } finally {
+        setFetchingGuPincode(false);
+      }
+    };
+
+    const timer = setTimeout(fetchCity, 500);
+    return () => clearTimeout(timer);
+  }, [guPincode, form]);
+
+  useEffect(() => {
+    if (!guCompanyPincode || String(guCompanyPincode).length !== 6) return;
+
+    const fetchCity = async () => {
+      try {
+        setFetchingGuCompanyPincode(true);
+        const res = await fetch(
+          `https://api.postalpincode.in/pincode/${guCompanyPincode}`,
+        );
+        const data = await res.json();
+        const district = data?.[0]?.PostOffice?.[0]?.District;
+        if (district) {
+          form.setFieldsValue({ gu_companyCity: district });
+        }
+      } catch (error) {
+        console.error("Guarantor company pincode fetch failed", error);
+      } finally {
+        setFetchingGuCompanyPincode(false);
+      }
+    };
+
+    const timer = setTimeout(fetchCity, 500);
+    return () => clearTimeout(timer);
+  }, [guCompanyPincode, form]);
 
   if (!hasGuarantor) return null;
 
@@ -51,7 +104,7 @@ const GuarantorSection = () => {
 
   return (
     <div className="bg-card p-6 rounded-2xl border border-border/60 shadow-sm mb-6">
-      <div className="mb-6 flex items-center gap-3">
+      <div className="section-header mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
           <TeamOutlined className="text-[18px] text-foreground" />
         </div>
@@ -180,7 +233,16 @@ const GuarantorSection = () => {
         </Col>
         <Col xs={24} md={8}>
           <Form.Item label="City" name="gu_city">
-            <Input className={fieldClass} />
+            <Input
+              className={fieldClass}
+              suffix={
+                fetchingGuPincode ? (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">
+                    Fetching...
+                  </span>
+                ) : null
+              }
+            />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
@@ -324,7 +386,16 @@ const GuarantorSection = () => {
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="City" name="gu_companyCity">
-                <Input className={fieldClass} />
+                <Input
+                  className={fieldClass}
+                  suffix={
+                    fetchingGuCompanyPincode ? (
+                      <span className="text-[10px] text-muted-foreground animate-pulse">
+                        Fetching...
+                      </span>
+                    ) : null
+                  }
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>

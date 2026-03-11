@@ -12,7 +12,7 @@ import {
   Select,
   Switch,
 } from "antd";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
 import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
@@ -21,6 +21,13 @@ const { Option } = Select;
 const asDayjs = (value) => {
   if (!value) return null;
   if (dayjs.isDayjs(value)) return value;
+  if (typeof value === "object") {
+    const mongoDate = value?.$date || value?.date || value?.value;
+    if (mongoDate) {
+      const md = dayjs(mongoDate);
+      return md.isValid() ? md : null;
+    }
+  }
   const parsed = dayjs(value);
   return parsed.isValid() ? parsed : null;
 };
@@ -40,6 +47,8 @@ const AuthorisedSignatorySection = () => {
   const coPan = Form.useWatch("co_pan", form);
   const coAadhaar = Form.useWatch("co_aadhaar", form);
   const coDesignation = Form.useWatch("co_designation", form);
+  const signatoryPincode = Form.useWatch("signatory_pincode", form);
+  const [fetchingSignatoryPincode, setFetchingSignatoryPincode] = useState(false);
   const sectionLabelClass =
     "text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground";
   const fieldClass = "h-10 rounded-lg w-full";
@@ -86,12 +95,37 @@ const AuthorisedSignatorySection = () => {
     }
   }, [applicantType, sameAsCoApplicant, coCustomerName, coPrimaryMobile, form]);
 
+  useEffect(() => {
+    if (!signatoryPincode || String(signatoryPincode).length !== 6) return;
+
+    const fetchCity = async () => {
+      try {
+        setFetchingSignatoryPincode(true);
+        const res = await fetch(
+          `https://api.postalpincode.in/pincode/${signatoryPincode}`,
+        );
+        const data = await res.json();
+        const district = data?.[0]?.PostOffice?.[0]?.District;
+        if (district) {
+          form.setFieldsValue({ signatory_city: district });
+        }
+      } catch (error) {
+        console.error("Signatory pincode fetch failed", error);
+      } finally {
+        setFetchingSignatoryPincode(false);
+      }
+    };
+
+    const timer = setTimeout(fetchCity, 500);
+    return () => clearTimeout(timer);
+  }, [signatoryPincode, form]);
+
   // Render ONLY for company applicant
   if (applicantType !== "Company") return null;
 
   return (
     <div className="bg-card p-6 rounded-2xl border border-border/60 shadow-sm mb-6">
-      <div className="mb-6 flex items-center gap-3">
+      <div className="section-header mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
           <SafetyCertificateOutlined className="text-[18px] text-foreground" />
         </div>
@@ -153,7 +187,16 @@ const AuthorisedSignatorySection = () => {
 
         <Col xs={24} md={8}>
           <Form.Item label="City" name="signatory_city">
-            <Input className={fieldClass} />
+            <Input
+              className={fieldClass}
+              suffix={
+                fetchingSignatoryPincode ? (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">
+                    Fetching...
+                  </span>
+                ) : null
+              }
+            />
           </Form.Item>
         </Col>
 

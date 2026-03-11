@@ -654,7 +654,7 @@ const EMICalculator = ({
     setSelectedVehicleRecord(matchedVariant);
     pricingTouchedRef.current = false;
     setPricingState((prev) => ({
-      vehicleId: matchedVariant._id,
+      vehicleId: matchedVariant._id || matchedVariant.id,
       city: prev?.city || cityInput || "",
       color: prev?.color || "",
       ...buildVehiclePricingSeed(matchedVariant),
@@ -757,7 +757,7 @@ const EMICalculator = ({
           const seed = buildVehiclePricingSeed(normalizedRecord);
           setPricingState((prev) => ({
             ...seed,
-            vehicleId: normalizedRecord._id,
+            vehicleId: normalizedRecord._id || normalizedRecord.id,
             city: prev?.city || cityInput || "",
             color: prev?.color || "",
           }));
@@ -831,29 +831,12 @@ const EMICalculator = ({
     }
 
     setPricingState({
-      vehicleId: selectedVehicle._id,
+      vehicleId: selectedVehicle._id || selectedVehicle.id,
       city: pricingState?.city || cityInput || "",
       color: pricingState?.color || "",
       ...seed,
     });
   }, [selectedVehicle, pricingState?.city, pricingState?.color, cityInput]);
-
-  // When pricingState (netOnRoad or onRoadBeforeDiscount) changes, update loan amounts and derived EMI
-  useEffect(() => {
-    // If onRoadPrice changes (via pricingState), recompute derived loan and EMIs
-    const newOnRoad =
-      pricingState?.netOnRoad ?? selectedVehicle?.onRoadPrice ?? 0;
-    if (!newOnRoad) return;
-
-    const dpAmt = (newOnRoad * downPct) / 100;
-    const loan = newOnRoad - dpAmt;
-
-    setLoanAmountA(loan);
-    if (!comparisonTouched) setLoanAmountB(loan);
-
-    // If solveForA === 'emi' we rely on computeScenario useMemo which uses loanAmountA,
-    // so updating loanAmountA will update resultA automatically.
-  }, [pricingState, selectedVehicle, downPct]);
 
   useEffect(() => {
     console.log("fromVariant:", fromVariant);
@@ -900,7 +883,7 @@ const EMICalculator = ({
     setCityInput("Delhi");
     pricingTouchedRef.current = false;
     setPricingState({
-      vehicleId: v._id,
+      vehicleId: v._id || v.id,
       city: "Delhi",
       color: "",
       ...buildVehiclePricingSeed(v),
@@ -1078,7 +1061,8 @@ const EMICalculator = ({
   const effectivePricing = useMemo(() => {
     const seed = buildVehiclePricingSeed(selectedVehicle || {});
     const merged =
-      pricingState && pricingState.vehicleId === selectedVehicle?._id
+      pricingState &&
+      pricingState.vehicleId === (selectedVehicle?._id || selectedVehicle?.id)
         ? {
             ...seed,
             ...pricingState,
@@ -1105,6 +1089,18 @@ const EMICalculator = ({
   }, [selectedVehicle, pricingState]);
 
   const onRoadPrice = effectivePricing?.netOnRoad ?? 0;
+
+  // When pricing changes, update loan amount from the visible on-road total.
+  useEffect(() => {
+    const newOnRoad = effectivePricing?.netOnRoad ?? 0;
+    if (!newOnRoad) return;
+
+    const dpAmt = (newOnRoad * downPct) / 100;
+    const loan = newOnRoad - dpAmt;
+
+    setLoanAmountA(loan);
+    if (!comparisonTouched) setLoanAmountB(loan);
+  }, [effectivePricing?.netOnRoad, downPct, comparisonTouched]);
 
   const exShowroom = effectivePricing?.exShowroom || 0;
   const rto = effectivePricing?.rto || 0;
@@ -1727,6 +1723,12 @@ const EMICalculator = ({
     });
   });
 
+  const displayNetOnRoad = Math.max(
+    0,
+    additionLines.reduce((sum, row) => sum + (Number(row.amount) || 0), 0) -
+      discountLines.reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
+  );
+
   const disableAll = shareMode;
   const scenarioAInputsDisabled = false; // we want Scenario A editable even in share mode
 
@@ -1879,11 +1881,11 @@ const EMICalculator = ({
                             x.variant === val.value,
                         );
 
-                      if (v) {
-                        setSelectedVehicleRecord(v);
-                        pricingTouchedRef.current = false;
-                        setPricingState((prev) => ({
-                          vehicleId: v._id,
+                        if (v) {
+                          setSelectedVehicleRecord(v);
+                          pricingTouchedRef.current = false;
+                          setPricingState((prev) => ({
+                          vehicleId: v._id || v.id,
                           city: prev?.city || cityInput || "",
                           color: prev?.color || "",
                           ...buildVehiclePricingSeed(v),
@@ -2034,7 +2036,7 @@ const EMICalculator = ({
                     </div>
 
                     <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 text-right">
-                      <AnimatedNumber value={onRoadPrice} />
+                      {formatINR(displayNetOnRoad)}
                     </div>
                   </div>
                 </div>
@@ -2917,7 +2919,7 @@ const EMICalculator = ({
               setPricingState((prev) => ({
                 ...(prev || {}),
                 ...(next || {}),
-                vehicleId: selectedVehicle?._id,
+                vehicleId: selectedVehicle?._id || selectedVehicle?.id,
                 city: prev?.city || cityInput || "",
                 color: prev?.color || "",
               }));

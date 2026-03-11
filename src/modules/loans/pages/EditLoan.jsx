@@ -18,8 +18,30 @@ const EditLoan = () => {
       setLoading(true);
       setError("");
 
-      const data = await loansApi.getById(loanId);
-      setLoan(data?.data || null);
+      try {
+        const data = await loansApi.getById(loanId);
+        setLoan(data?.data || null);
+      } catch (directError) {
+        const list = await loansApi.getAll();
+        const loans = Array.isArray(list?.data) ? list.data : [];
+        const matched = loans.find(
+          (item) =>
+            item?._id === loanId ||
+            item?.loanId === loanId ||
+            item?.loan_number === loanId,
+        );
+        if (!matched) throw directError;
+        if (matched?._id && matched._id !== loanId) {
+          try {
+            const full = await loansApi.getById(matched._id);
+            setLoan(full?.data || matched);
+          } catch {
+            setLoan(matched);
+          }
+        } else {
+          setLoan(matched);
+        }
+      }
     } catch (e) {
       console.error("EditLoan fetch error:", e);
       setError(e.message || "Failed to load loan");
@@ -84,7 +106,7 @@ const EditLoan = () => {
               Edit Loan
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Loan ID: <span className="font-mono">{loanId}</span>
+              Loan ID: <span className="font-mono">{loan?.loan_number || loan?.loanId || loanId}</span>
             </p>
           </div>
 

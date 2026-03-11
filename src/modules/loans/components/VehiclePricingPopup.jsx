@@ -1,5 +1,5 @@
 // src/modules/loans/components/VehiclePricingPopup.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Input, Button, Row, Col, Divider, Form, Tag } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 
@@ -37,6 +37,7 @@ const formatDisplay = (num) =>
 const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
   const selectedVehicle = vehicle;
   const [form] = Form.useForm();
+  const isInitializingRef = useRef(false);
   const [totals, setTotals] = useState({
     onRoadBeforeDiscount: 0,
     totalDiscount: 0,
@@ -104,6 +105,8 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
       normalized[k] = Number(normalized[k] || 0);
     });
 
+    isInitializingRef.current = true;
+
     // Set form fields
     form.setFieldsValue(normalized);
 
@@ -151,8 +154,9 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
     // call it next tick to ensure form.setFieldsValue took effect
     setTimeout(() => {
       recomputeTotals({ notifyParent: false });
+      isInitializingRef.current = false;
     }, 0);
-  }, [selectedVehicle?._id, form]);
+  }, [selectedVehicle?._id, selectedVehicle?.id, form]);
 
   const recomputeTotals = ({ notifyParent = true } = {}) => {
     const v = form.getFieldsValue(true);
@@ -236,6 +240,7 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
   };
 
   const handleValuesChange = () => {
+    if (isInitializingRef.current) return;
     recomputeTotals();
   };
 

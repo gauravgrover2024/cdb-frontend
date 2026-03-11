@@ -6,6 +6,26 @@
   "type": "object",
   "additionalProperties": true,
   "properties": {
+    "__postfileLocked": {
+      "type": "string",
+      "title": "__postfileLocked",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "__postfileSeeded": {
+      "type": "string",
+      "title": "__postfileSeeded",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
     "aadhaarCardDocUrl": {
       "type": "string",
       "title": "aadhaarCardDocUrl",
@@ -452,6 +472,1806 @@
       "title": "caseType",
       "x-sourceFiles": [
         "src/modules/loans/components/LoanStickyHeader.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_1_accountNumber": {
+      "type": "string",
+      "title": "cheque_1_accountNumber",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_1_amount": {
+      "type": "number",
+      "title": "cheque_1_amount",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_1_bankName": {
+      "type": "string",
+      "title": "cheque_1_bankName",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_1_date": {
+      "type": "string",
+      "title": "cheque_1_date",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_1_favouring": {
+      "type": "string",
+      "title": "cheque_1_favouring",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_1_image": {
+      "type": "string",
+      "title": "cheque_1_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_1_number": {
+      "type": "string",
+      "title": "cheque_1_number",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_1_signedBy": {
+      "type": "string",
+      "title": "cheque_1_signedBy",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_1_tag": {
+      "type": "string",
+      "title": "cheque_1_tag",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "cheque_10_accountNumber": {
+      "type": "string",
+      "title": "cheque_10_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_10_amount": {
+      "type": "number",
+      "title": "cheque_10_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_10_bankName": {
+      "type": "string",
+      "title": "cheque_10_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_10_date": {
+      "type": "string",
+      "title": "cheque_10_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_10_favouring": {
+      "type": "string",
+      "title": "cheque_10_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_10_image": {
+      "type": "string",
+      "title": "cheque_10_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_10_number": {
+      "type": "string",
+      "title": "cheque_10_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_10_signedBy": {
+      "type": "string",
+      "title": "cheque_10_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_10_tag": {
+      "type": "string",
+      "title": "cheque_10_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_accountNumber": {
+      "type": "string",
+      "title": "cheque_11_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_amount": {
+      "type": "number",
+      "title": "cheque_11_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_11_bankName": {
+      "type": "string",
+      "title": "cheque_11_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_date": {
+      "type": "string",
+      "title": "cheque_11_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_favouring": {
+      "type": "string",
+      "title": "cheque_11_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_image": {
+      "type": "string",
+      "title": "cheque_11_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_number": {
+      "type": "string",
+      "title": "cheque_11_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_signedBy": {
+      "type": "string",
+      "title": "cheque_11_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_11_tag": {
+      "type": "string",
+      "title": "cheque_11_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_accountNumber": {
+      "type": "string",
+      "title": "cheque_12_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_amount": {
+      "type": "number",
+      "title": "cheque_12_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_12_bankName": {
+      "type": "string",
+      "title": "cheque_12_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_date": {
+      "type": "string",
+      "title": "cheque_12_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_favouring": {
+      "type": "string",
+      "title": "cheque_12_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_image": {
+      "type": "string",
+      "title": "cheque_12_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_number": {
+      "type": "string",
+      "title": "cheque_12_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_signedBy": {
+      "type": "string",
+      "title": "cheque_12_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_12_tag": {
+      "type": "string",
+      "title": "cheque_12_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_accountNumber": {
+      "type": "string",
+      "title": "cheque_13_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_amount": {
+      "type": "number",
+      "title": "cheque_13_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_13_bankName": {
+      "type": "string",
+      "title": "cheque_13_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_date": {
+      "type": "string",
+      "title": "cheque_13_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_favouring": {
+      "type": "string",
+      "title": "cheque_13_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_image": {
+      "type": "string",
+      "title": "cheque_13_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_number": {
+      "type": "string",
+      "title": "cheque_13_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_signedBy": {
+      "type": "string",
+      "title": "cheque_13_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_13_tag": {
+      "type": "string",
+      "title": "cheque_13_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_accountNumber": {
+      "type": "string",
+      "title": "cheque_14_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_amount": {
+      "type": "number",
+      "title": "cheque_14_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_14_bankName": {
+      "type": "string",
+      "title": "cheque_14_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_date": {
+      "type": "string",
+      "title": "cheque_14_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_favouring": {
+      "type": "string",
+      "title": "cheque_14_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_image": {
+      "type": "string",
+      "title": "cheque_14_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_number": {
+      "type": "string",
+      "title": "cheque_14_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_signedBy": {
+      "type": "string",
+      "title": "cheque_14_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_14_tag": {
+      "type": "string",
+      "title": "cheque_14_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_accountNumber": {
+      "type": "string",
+      "title": "cheque_15_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_amount": {
+      "type": "number",
+      "title": "cheque_15_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_15_bankName": {
+      "type": "string",
+      "title": "cheque_15_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_date": {
+      "type": "string",
+      "title": "cheque_15_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_favouring": {
+      "type": "string",
+      "title": "cheque_15_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_image": {
+      "type": "string",
+      "title": "cheque_15_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_number": {
+      "type": "string",
+      "title": "cheque_15_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_signedBy": {
+      "type": "string",
+      "title": "cheque_15_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_15_tag": {
+      "type": "string",
+      "title": "cheque_15_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_accountNumber": {
+      "type": "string",
+      "title": "cheque_16_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_amount": {
+      "type": "number",
+      "title": "cheque_16_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_16_bankName": {
+      "type": "string",
+      "title": "cheque_16_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_date": {
+      "type": "string",
+      "title": "cheque_16_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_favouring": {
+      "type": "string",
+      "title": "cheque_16_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_image": {
+      "type": "string",
+      "title": "cheque_16_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_number": {
+      "type": "string",
+      "title": "cheque_16_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_signedBy": {
+      "type": "string",
+      "title": "cheque_16_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_16_tag": {
+      "type": "string",
+      "title": "cheque_16_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_accountNumber": {
+      "type": "string",
+      "title": "cheque_17_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_amount": {
+      "type": "number",
+      "title": "cheque_17_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_17_bankName": {
+      "type": "string",
+      "title": "cheque_17_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_date": {
+      "type": "string",
+      "title": "cheque_17_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_favouring": {
+      "type": "string",
+      "title": "cheque_17_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_image": {
+      "type": "string",
+      "title": "cheque_17_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_number": {
+      "type": "string",
+      "title": "cheque_17_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_signedBy": {
+      "type": "string",
+      "title": "cheque_17_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_17_tag": {
+      "type": "string",
+      "title": "cheque_17_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_accountNumber": {
+      "type": "string",
+      "title": "cheque_18_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_amount": {
+      "type": "number",
+      "title": "cheque_18_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_18_bankName": {
+      "type": "string",
+      "title": "cheque_18_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_date": {
+      "type": "string",
+      "title": "cheque_18_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_favouring": {
+      "type": "string",
+      "title": "cheque_18_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_image": {
+      "type": "string",
+      "title": "cheque_18_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_number": {
+      "type": "string",
+      "title": "cheque_18_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_signedBy": {
+      "type": "string",
+      "title": "cheque_18_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_18_tag": {
+      "type": "string",
+      "title": "cheque_18_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_accountNumber": {
+      "type": "string",
+      "title": "cheque_19_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_amount": {
+      "type": "number",
+      "title": "cheque_19_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_19_bankName": {
+      "type": "string",
+      "title": "cheque_19_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_date": {
+      "type": "string",
+      "title": "cheque_19_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_favouring": {
+      "type": "string",
+      "title": "cheque_19_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_image": {
+      "type": "string",
+      "title": "cheque_19_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_number": {
+      "type": "string",
+      "title": "cheque_19_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_signedBy": {
+      "type": "string",
+      "title": "cheque_19_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_19_tag": {
+      "type": "string",
+      "title": "cheque_19_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_accountNumber": {
+      "type": "string",
+      "title": "cheque_2_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_amount": {
+      "type": "number",
+      "title": "cheque_2_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_2_bankName": {
+      "type": "string",
+      "title": "cheque_2_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_date": {
+      "type": "string",
+      "title": "cheque_2_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_favouring": {
+      "type": "string",
+      "title": "cheque_2_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_image": {
+      "type": "string",
+      "title": "cheque_2_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_number": {
+      "type": "string",
+      "title": "cheque_2_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_signedBy": {
+      "type": "string",
+      "title": "cheque_2_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_2_tag": {
+      "type": "string",
+      "title": "cheque_2_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_accountNumber": {
+      "type": "string",
+      "title": "cheque_20_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_amount": {
+      "type": "number",
+      "title": "cheque_20_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_20_bankName": {
+      "type": "string",
+      "title": "cheque_20_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_date": {
+      "type": "string",
+      "title": "cheque_20_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_favouring": {
+      "type": "string",
+      "title": "cheque_20_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_image": {
+      "type": "string",
+      "title": "cheque_20_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_number": {
+      "type": "string",
+      "title": "cheque_20_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_signedBy": {
+      "type": "string",
+      "title": "cheque_20_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_20_tag": {
+      "type": "string",
+      "title": "cheque_20_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_accountNumber": {
+      "type": "string",
+      "title": "cheque_3_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_amount": {
+      "type": "number",
+      "title": "cheque_3_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_3_bankName": {
+      "type": "string",
+      "title": "cheque_3_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_date": {
+      "type": "string",
+      "title": "cheque_3_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_favouring": {
+      "type": "string",
+      "title": "cheque_3_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_image": {
+      "type": "string",
+      "title": "cheque_3_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_number": {
+      "type": "string",
+      "title": "cheque_3_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_signedBy": {
+      "type": "string",
+      "title": "cheque_3_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_3_tag": {
+      "type": "string",
+      "title": "cheque_3_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_accountNumber": {
+      "type": "string",
+      "title": "cheque_4_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_amount": {
+      "type": "number",
+      "title": "cheque_4_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_4_bankName": {
+      "type": "string",
+      "title": "cheque_4_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_date": {
+      "type": "string",
+      "title": "cheque_4_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_favouring": {
+      "type": "string",
+      "title": "cheque_4_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_image": {
+      "type": "string",
+      "title": "cheque_4_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_number": {
+      "type": "string",
+      "title": "cheque_4_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_signedBy": {
+      "type": "string",
+      "title": "cheque_4_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_4_tag": {
+      "type": "string",
+      "title": "cheque_4_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_accountNumber": {
+      "type": "string",
+      "title": "cheque_5_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_amount": {
+      "type": "number",
+      "title": "cheque_5_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_5_bankName": {
+      "type": "string",
+      "title": "cheque_5_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_date": {
+      "type": "string",
+      "title": "cheque_5_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_favouring": {
+      "type": "string",
+      "title": "cheque_5_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_image": {
+      "type": "string",
+      "title": "cheque_5_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_number": {
+      "type": "string",
+      "title": "cheque_5_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_signedBy": {
+      "type": "string",
+      "title": "cheque_5_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_5_tag": {
+      "type": "string",
+      "title": "cheque_5_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_accountNumber": {
+      "type": "string",
+      "title": "cheque_6_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_amount": {
+      "type": "number",
+      "title": "cheque_6_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_6_bankName": {
+      "type": "string",
+      "title": "cheque_6_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_date": {
+      "type": "string",
+      "title": "cheque_6_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_favouring": {
+      "type": "string",
+      "title": "cheque_6_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_image": {
+      "type": "string",
+      "title": "cheque_6_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_number": {
+      "type": "string",
+      "title": "cheque_6_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_signedBy": {
+      "type": "string",
+      "title": "cheque_6_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_6_tag": {
+      "type": "string",
+      "title": "cheque_6_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_accountNumber": {
+      "type": "string",
+      "title": "cheque_7_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_amount": {
+      "type": "number",
+      "title": "cheque_7_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_7_bankName": {
+      "type": "string",
+      "title": "cheque_7_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_date": {
+      "type": "string",
+      "title": "cheque_7_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_favouring": {
+      "type": "string",
+      "title": "cheque_7_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_image": {
+      "type": "string",
+      "title": "cheque_7_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_number": {
+      "type": "string",
+      "title": "cheque_7_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_signedBy": {
+      "type": "string",
+      "title": "cheque_7_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_7_tag": {
+      "type": "string",
+      "title": "cheque_7_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_accountNumber": {
+      "type": "string",
+      "title": "cheque_8_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_amount": {
+      "type": "number",
+      "title": "cheque_8_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_8_bankName": {
+      "type": "string",
+      "title": "cheque_8_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_date": {
+      "type": "string",
+      "title": "cheque_8_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_favouring": {
+      "type": "string",
+      "title": "cheque_8_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_image": {
+      "type": "string",
+      "title": "cheque_8_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_number": {
+      "type": "string",
+      "title": "cheque_8_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_signedBy": {
+      "type": "string",
+      "title": "cheque_8_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_8_tag": {
+      "type": "string",
+      "title": "cheque_8_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_accountNumber": {
+      "type": "string",
+      "title": "cheque_9_accountNumber",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_amount": {
+      "type": "number",
+      "title": "cheque_9_amount",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number"
+      ]
+    },
+    "cheque_9_bankName": {
+      "type": "string",
+      "title": "cheque_9_bankName",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_date": {
+      "type": "string",
+      "title": "cheque_9_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_favouring": {
+      "type": "string",
+      "title": "cheque_9_favouring",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_image": {
+      "type": "string",
+      "title": "cheque_9_image",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_number": {
+      "type": "string",
+      "title": "cheque_9_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_signedBy": {
+      "type": "string",
+      "title": "cheque_9_signedBy",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "unknown"
+      ]
+    },
+    "cheque_9_tag": {
+      "type": "string",
+      "title": "cheque_9_tag",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
       ],
       "x-typeHints": [
         "unknown"
@@ -922,6 +2742,26 @@
         "unknown"
       ]
     },
+    "contactPersonMobile": {
+      "type": "string",
+      "title": "contactPersonMobile",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "select"
+      ]
+    },
+    "contactPersonName": {
+      "type": "string",
+      "title": "contactPersonName",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "select"
+      ]
+    },
     "createdAt": {
       "type": "string",
       "title": "createdAt",
@@ -985,6 +2825,16 @@
         "number",
         "string",
         "unknown"
+      ]
+    },
+    "customerIdDisplay": {
+      "type": "string",
+      "title": "customerIdDisplay",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx"
+      ],
+      "x-typeHints": [
+        "number"
       ]
     },
     "customerName": {
@@ -1396,6 +3246,16 @@
         "unknown"
       ]
     },
+    "docs_prepared_by": {
+      "type": "string",
+      "title": "docs_prepared_by",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx"
+      ],
+      "x-typeHints": [
+        "input"
+      ]
+    },
     "docsPreparedBy": {
       "type": "string",
       "title": "docsPreparedBy",
@@ -1415,6 +3275,16 @@
       ],
       "x-typeHints": [
         "unknown"
+      ]
+    },
+    "dsaCode": {
+      "type": "string",
+      "title": "dsaCode",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
       ]
     },
     "ecs_accountNumber": {
@@ -1653,6 +3523,16 @@
       ],
       "x-typeHints": [
         "unknown"
+      ]
+    },
+    "gstNumber": {
+      "type": "string",
+      "title": "gstNumber",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx"
+      ],
+      "x-typeHints": [
+        "select"
       ]
     },
     "gu_aadhaar": {
@@ -2203,6 +4083,28 @@
       ],
       "x-typeHints": []
     },
+    "insurance_policy_duration_od": {
+      "type": "string",
+      "title": "insurance_policy_duration_od",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "enum",
+        "string"
+      ]
+    },
+    "insurance_policy_end_date_od": {
+      "type": "string",
+      "title": "insurance_policy_end_date_od",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "string"
+      ]
+    },
     "insurance_policy_number": {
       "type": "string",
       "title": "insurance_policy_number",
@@ -2210,6 +4112,17 @@
         "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
       ],
       "x-typeHints": []
+    },
+    "insurance_policy_start_date": {
+      "type": "string",
+      "title": "insurance_policy_start_date",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "date",
+        "string"
+      ]
     },
     "insuranceCost": {
       "type": "number",
@@ -2365,6 +4278,18 @@
         "unknown"
       ]
     },
+    "loan_number": {
+      "type": "string",
+      "title": "loan_number",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "input",
+        "hidden"
+      ]
+    },
     "loan_payables": {
       "type": "string",
       "title": "loan_payables",
@@ -2487,6 +4412,36 @@
         "string"
       ]
     },
+    "nach_accountNumber": {
+      "type": "string",
+      "title": "nach_accountNumber",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "nach_image": {
+      "type": "string",
+      "title": "nach_image",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
+    "nach_signedBy": {
+      "type": "string",
+      "title": "nach_signedBy",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
     "NEW": {
       "type": "string",
       "title": "NEW",
@@ -2560,6 +4515,16 @@
       "x-typeHints": [
         "number",
         "string"
+      ]
+    },
+    "paid_date": {
+      "type": "string",
+      "title": "paid_date",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx"
+      ],
+      "x-typeHints": [
+        "date"
       ]
     },
     "panCardDocUrl": {
@@ -2893,6 +4858,16 @@
         "unknown"
       ]
     },
+    "postfile_maturityDate": {
+      "type": "string",
+      "title": "postfile_maturityDate",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "hidden"
+      ]
+    },
     "postfile_processingFees": {
       "type": "number",
       "title": "postfile_processingFees",
@@ -3071,6 +5046,17 @@
         "unknown"
       ]
     },
+    "rc_inv_storage_number": {
+      "type": "string",
+      "title": "rc_inv_storage_number",
+      "x-sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
     "rc_received_as": {
       "type": "string",
       "title": "rc_received_as",
@@ -3210,6 +5196,16 @@
         "unknown"
       ]
     },
+    "registerSameAsPermanent": {
+      "type": "boolean",
+      "title": "registerSameAsPermanent",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "radio"
+      ]
+    },
     "registrationAddress": {
       "type": "string",
       "title": "registrationAddress",
@@ -3232,6 +5228,16 @@
         "enum",
         "string",
         "unknown"
+      ]
+    },
+    "registrationPincode": {
+      "type": "string",
+      "title": "registrationPincode",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "input"
       ]
     },
     "remarks": {
@@ -3293,6 +5299,58 @@
         "enum",
         "number",
         "string"
+      ]
+    },
+    "showroomDealerAddress": {
+      "type": "string",
+      "title": "showroomDealerAddress",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "input",
+        "hidden"
+      ]
+    },
+    "showroomDealerContactNumber": {
+      "type": "string",
+      "title": "showroomDealerContactNumber",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "input",
+        "hidden"
+      ]
+    },
+    "showroomDealerContactPerson": {
+      "type": "string",
+      "title": "showroomDealerContactPerson",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "input",
+        "hidden"
+      ]
+    },
+    "showroomDealerName": {
+      "type": "string",
+      "title": "showroomDealerName",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx"
+      ],
+      "x-typeHints": [
+        "input",
+        "hidden"
       ]
     },
     "si_accountNumber": {
@@ -3371,6 +5429,16 @@
         "string"
       ]
     },
+    "signatory_designation": {
+      "type": "string",
+      "title": "signatory_designation",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "input"
+      ]
+    },
     "signatory_dob": {
       "type": "string",
       "title": "signatory_dob",
@@ -3440,6 +5508,16 @@
         "date",
         "enum",
         "string"
+      ]
+    },
+    "signatorySameAsCoApplicant": {
+      "type": "boolean",
+      "title": "signatorySameAsCoApplicant",
+      "x-sourceFiles": [
+        "/Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx"
+      ],
+      "x-typeHints": [
+        "switch"
       ]
     },
     "signatureUrl": {
@@ -3592,6 +5670,17 @@
         "string"
       ]
     },
+    "valuation": {
+      "type": "number",
+      "title": "valuation",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
+      ]
+    },
     "vehicleChassisNo": {
       "type": "string",
       "title": "vehicleChassisNo",
@@ -3690,6 +5779,35 @@
       "x-typeHints": [
         "enum",
         "unknown"
+      ]
+    },
+    "vehicleFuelType": {
+      "type": "string",
+      "title": "vehicleFuelType",
+      "enum": [
+        "Petrol",
+        "Diesel",
+        "CNG",
+        "Hybrid",
+        "Electric"
+      ],
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+        "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx"
+      ],
+      "x-typeHints": [
+        "enum"
+      ]
+    },
+    "yearOfManufacture": {
+      "type": "string",
+      "title": "yearOfManufacture",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx"
+      ],
+      "x-typeHints": [
+        "number",
+        "string"
       ]
     },
     "yearsInCurrentCity": {

@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from "react";
 import {
   PhoneOutlined,
   SolutionOutlined,
@@ -17,11 +18,19 @@ import dayjs from "dayjs";
 import { BUSINESS_NATURE_OPTIONS, COMPANY_TYPE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
 import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
 import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
+import { customersApi } from "../../../../../api/customers";
 
 const { Option } = Select;
 const asDayjs = (value) => {
   if (!value) return null;
   if (dayjs.isDayjs(value)) return value;
+  if (typeof value === "object") {
+    const mongoDate = value?.$date || value?.date || value?.value;
+    if (mongoDate) {
+      const md = dayjs(mongoDate);
+      return md.isValid() ? md : null;
+    }
+  }
   const parsed = dayjs(value);
   return parsed.isValid() ? parsed : null;
 };
@@ -29,9 +38,14 @@ const asDayjs = (value) => {
 const CoApplicantSection = () => {
   const form = Form.useFormInstance();
   const hasCoApplicant = Form.useWatch("hasCoApplicant", form);
+  const coId = Form.useWatch("co_id", form);
   const occupation = Form.useWatch("co_occupation", form);
   const coCompanyType = Form.useWatch("co_companyType", form);
   const coBusinessNature = Form.useWatch("co_businessNature", form);
+  const coPincode = Form.useWatch("co_pincode", form);
+  const coCompanyPincode = Form.useWatch("co_companyPincode", form);
+  const [fetchingCoPincode, setFetchingCoPincode] = useState(false);
+  const [fetchingCoCompanyPincode, setFetchingCoCompanyPincode] = useState(false);
   const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, coCompanyType);
   const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, coBusinessNature);
 
@@ -39,6 +53,90 @@ const CoApplicantSection = () => {
     const mappedFields = mapCustomerToPersonFields(customer, "co");
     form.setFieldsValue(mappedFields);
   };
+
+  useEffect(() => {
+    const fillLinkedCustomer = async () => {
+      if (!hasCoApplicant || !coId) return;
+      const currentExp = form.getFieldValue("co_currentExperience");
+      const totalExp = form.getFieldValue("co_totalExperience");
+      if (currentExp !== undefined && currentExp !== null && currentExp !== "") {
+        return;
+      }
+
+      try {
+        const res = await customersApi.getById(coId);
+        const customer = res?.data;
+        if (!customer) return;
+        const patch = {};
+        const customerCurrent = customer.experienceCurrent ?? customer.currentExp;
+        const customerTotal = customer.totalExperience ?? customer.totalExp;
+        if ((currentExp === undefined || currentExp === null || currentExp === "") && customerCurrent !== undefined && customerCurrent !== null && customerCurrent !== "") {
+          patch.co_currentExperience = customerCurrent;
+        }
+        if ((totalExp === undefined || totalExp === null || totalExp === "") && customerTotal !== undefined && customerTotal !== null && customerTotal !== "") {
+          patch.co_totalExperience = customerTotal;
+        }
+        if ((form.getFieldValue("co_pan") === undefined || form.getFieldValue("co_pan") === null) && customer.panNumber) {
+          patch.co_pan = customer.panNumber;
+        }
+        if (Object.keys(patch).length) {
+          form.setFieldsValue(patch);
+        }
+      } catch (error) {
+        console.error("Failed to hydrate linked co-applicant customer", error);
+      }
+    };
+
+    fillLinkedCustomer();
+  }, [hasCoApplicant, coId, form]);
+
+  useEffect(() => {
+    if (!coPincode || String(coPincode).length !== 6) return;
+
+    const fetchCity = async () => {
+      try {
+        setFetchingCoPincode(true);
+        const res = await fetch(`https://api.postalpincode.in/pincode/${coPincode}`);
+        const data = await res.json();
+        const district = data?.[0]?.PostOffice?.[0]?.District;
+        if (district) {
+          form.setFieldsValue({ co_city: district });
+        }
+      } catch (error) {
+        console.error("Co-applicant pincode fetch failed", error);
+      } finally {
+        setFetchingCoPincode(false);
+      }
+    };
+
+    const timer = setTimeout(fetchCity, 500);
+    return () => clearTimeout(timer);
+  }, [coPincode, form]);
+
+  useEffect(() => {
+    if (!coCompanyPincode || String(coCompanyPincode).length !== 6) return;
+
+    const fetchCity = async () => {
+      try {
+        setFetchingCoCompanyPincode(true);
+        const res = await fetch(
+          `https://api.postalpincode.in/pincode/${coCompanyPincode}`,
+        );
+        const data = await res.json();
+        const district = data?.[0]?.PostOffice?.[0]?.District;
+        if (district) {
+          form.setFieldsValue({ co_companyCity: district });
+        }
+      } catch (error) {
+        console.error("Co-applicant company pincode fetch failed", error);
+      } finally {
+        setFetchingCoCompanyPincode(false);
+      }
+    };
+
+    const timer = setTimeout(fetchCity, 500);
+    return () => clearTimeout(timer);
+  }, [coCompanyPincode, form]);
 
   if (!hasCoApplicant) return null;
 
@@ -51,7 +149,7 @@ const CoApplicantSection = () => {
 
   return (
     <div className="bg-card p-6 rounded-2xl border border-border/60 shadow-sm mb-6">
-      <div className="mb-6 flex items-center gap-3">
+      <div className="section-header mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
           <TeamOutlined className="text-[18px] text-foreground" />
         </div>
@@ -180,7 +278,16 @@ const CoApplicantSection = () => {
         </Col>
         <Col xs={24} md={8}>
           <Form.Item label="City" name="co_city">
-            <Input className={fieldClass} />
+            <Input
+              className={fieldClass}
+              suffix={
+                fetchingCoPincode ? (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">
+                    Fetching...
+                  </span>
+                ) : null
+              }
+            />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
@@ -324,7 +431,16 @@ const CoApplicantSection = () => {
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="City" name="co_companyCity">
-                <Input className={fieldClass} />
+                <Input
+                  className={fieldClass}
+                  suffix={
+                    fetchingCoCompanyPincode ? (
+                      <span className="text-[10px] text-muted-foreground animate-pulse">
+                        Fetching...
+                      </span>
+                    ) : null
+                  }
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>

@@ -196,8 +196,10 @@ const StageFooter = ({
   onMoveToPayout,
   onCloseLead,
   onPrint,
+  onClearForm,
   approvedBanks = [],
   onMoveToPostFile,
+  hasDisbursed = false,
   form,
 }) => {
   const [showDisburseModal, setShowDisburseModal] = useState(false);
@@ -207,14 +209,21 @@ const StageFooter = ({
   const isRefinanceOrCashIn = loanType === "Refinance" || loanType === "Car Cash-in";
 
   const approvalStatus = form?.getFieldValue?.("approval_status") || "";
+  const disburseStatus = form?.getFieldValue?.("disburse_status") || "";
+  const disbursementStatus = form?.getFieldValue?.("disbursement_status") || "";
+  const approvalDisbursedDate = form?.getFieldValue?.("approval_disbursedDate");
+  const disbursementDate = form?.getFieldValue?.("disbursement_date");
   const alreadyDisbursed =
-    String(approvalStatus || "").toLowerCase() === "disbursed";
+    hasDisbursed ||
+    String(approvalStatus || "").toLowerCase() === "disbursed" ||
+    String(disburseStatus || "").toLowerCase() === "disbursed" ||
+    String(disbursementStatus || "").toLowerCase() === "disbursed" ||
+    Boolean(approvalDisbursedDate) ||
+    Boolean(disbursementDate);
 
   const canDisburse = useMemo(() => {
-    // You can adjust this rule later
-    // For now: need at least 1 approved bank OR alreadyDisbursed status
-    return alreadyDisbursed || (approvedBanks?.length || 0) > 0;
-  }, [approvedBanks, alreadyDisbursed]);
+    return (approvedBanks?.length || 0) > 0;
+  }, [approvedBanks]);
 
   const handleDisburseLoan = useCallback(() => {
     if (!approvedBanks || approvedBanks.length === 0) {
@@ -261,6 +270,19 @@ const StageFooter = ({
       </Button>
     );
 
+    const ClearBtn = (
+      <Button
+        variant="outline"
+        size="sm"
+        key="clear-form-btn"
+        onClick={onClearForm}
+        className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700/60 dark:text-amber-300 dark:hover:bg-amber-900/20"
+      >
+        <Icon name="Eraser" size={16} style={{ marginRight: 6 }} />
+        Clear Form
+      </Button>
+    );
+
     const DiscardBtn = (
       <Button
         variant="outline"
@@ -291,6 +313,7 @@ const StageFooter = ({
       case "profile":
         return (
           <>
+            {ClearBtn}
             {PrintBtn}
             {SaveBtn}
             {ExitBtn}
@@ -333,16 +356,29 @@ const StageFooter = ({
           <>
             {SaveBtn}
             {ExitBtn}
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleDisburseLoan}
-              disabled={!canDisburse}
-              className="bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Icon name="CreditCard" size={16} style={{ marginRight: 6 }} />
-              Disburse Loan
-            </Button>
+            {alreadyDisbursed ? (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onMoveToPostFile}
+                className="bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-600/30"
+              >
+                <Icon name="FileText" size={16} style={{ marginRight: 6 }} />
+                Post-File
+                <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleDisburseLoan}
+                disabled={!canDisburse}
+                className="bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Icon name="CreditCard" size={16} style={{ marginRight: 6 }} />
+                Disburse Loan
+              </Button>
+            )}
           </>
         );
 
@@ -442,8 +478,11 @@ const StageFooter = ({
     onSave,
     onMoveToDelivery,
     onMoveToPayout,
+    onMoveToPostFile,
     onCloseLead,
+    onClearForm,
     handleDisburseLoan,
+    alreadyDisbursed,
   ]);
 
   return (

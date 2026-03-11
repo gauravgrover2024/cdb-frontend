@@ -1,340 +1,382 @@
 # Loan Field Catalog
 
-Generated: 2026-03-02T06:17:51.260Z
+Generated: 2026-03-09T08:18:29.590Z
 
-- Field occurrences: 316
-- Unique fields: 266
-- customer-profile: 24
-- pre-file: 163
-- post-file: 54
-- vehicle-delivery: 21
-- payout: 11
-- system-hidden: 39
+- Field occurrences: 358
+- Unique fields: 289
+- customer-profile: 25
+- pre-file: 173
+- post-file: 66
+- vehicle-delivery: 25
+- payout: 14
+- system-hidden: 51
 - unassigned: 4
 
 ## customer-profile
-- financeExpectation | Expected Funding | FinanceDetailsForm, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx:40
-- loanTenureMonths | Requested Tenure (Months) | FinanceDetailsForm, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx:56
-- typeOfLoan | Type of Loan | FinanceDetailsForm, select, options=New Car | Used Car | Cash-in | Re-finance | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx:29
-- applicantType | Applicant Category | LeadDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:211
-- dealerAddress | Dealer Address | LeadDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:168
-- dealerMobile | Dealer Mobile | LeadDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:173
-- dealerName | Dealer Name | LeadDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:154
-- dealtBy | Assigned Employee | LeadDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:205
-- isMSME | Is MSME Registered? | LeadDetails, select, options=Yes | No | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:231
-- leadDate | Lead Date | LeadDetails, select, options=Direct | Indirect | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:125
-- leadTime | Lead Time | LeadDetails, select, options=Direct | Indirect | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:129
-- source | Lead Source Type | LeadDetails, select, options=Direct | Indirect | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:133
-- sourceDetails | Direct Reference / Source Name | LeadDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:187
-- customerName | Customer Name | PersonalDetailsSimplified, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:185
-- dependents | Dependents | PersonalDetailsSimplified, select, options=owned | rented | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:229
-- email | Email | PersonalDetailsSimplified, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:197
-- houseType | House Type | PersonalDetailsSimplified, select, options=owned | rented | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:235
-- maritalStatus | Marital Status | PersonalDetailsSimplified, select, options=Single | Married | Divorced | Widowed | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:218
-- primaryMobile | Primary Mobile | PersonalDetailsSimplified, select, options=Single | Married | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:203
-- yearsInCurrentHouse | Years in Current House | PersonalDetailsSimplified, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:244
-- isFinanced | isFinanced | VehicleDetailsForm, unknown, options=Yes | No | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:253
-- vehicleMake | Make | VehicleDetailsForm, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:91
-- vehicleModel | Model | VehicleDetailsForm, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:142
-- vehicleVariant | Variant | VehicleDetailsForm, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:185
+- financeExpectation | Expected Funding | FinanceDetailsForm, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx:41
+- loanTenureMonths | Requested Tenure (Months) | FinanceDetailsForm, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx:57
+- typeOfLoan | Type of Loan | FinanceDetailsForm, select, options=New Car | Used Car | Car Cash-in | Refinance | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/FinanceDetailsForm.jsx:30
+- applicantType | Applicant Category | LeadDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:241
+- dealerAddress | Dealer Address | LeadDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:198
+- dealerMobile | Dealer Mobile | LeadDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:203
+- dealerName | Dealer Name | LeadDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:184
+- dealtBy | Assigned Employee | LeadDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:235
+- isMSME | Is MSME Registered? | LeadDetails, select, options=Yes | No | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:261
+- leadDate | Lead Date | LeadDetails, select, options=Direct | Indirect | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:155
+- leadTime | Lead Time | LeadDetails, select, options=Direct | Indirect | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:159
+- source | Lead Source Type | LeadDetails, select, options=Direct | Indirect | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:163
+- sourceDetails | Direct Reference / Source Name | LeadDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/LeadDetails.jsx:217
+- customerName | isCompany ? "Company Name" : "Customer Name" | PersonalDetailsSimplified, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:187
+- dependents | Dependents | PersonalDetailsSimplified, select, options=owned | rented | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:239
+- email | Email | PersonalDetailsSimplified, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:199
+- gstNumber | GST Number | PersonalDetailsSimplified, select, options=Single | Married | Divorced | Widowed | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:219
+- houseType | House Type | PersonalDetailsSimplified, select, options=owned | rented | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:245
+- maritalStatus | Marital Status | PersonalDetailsSimplified, select, options=Single | Married | Divorced | Widowed | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:228
+- primaryMobile | Primary Mobile | PersonalDetailsSimplified, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:205
+- yearsInCurrentHouse | Years in Current House | PersonalDetailsSimplified, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/PersonalDetailsSimplified.jsx:254
+- isFinanced | isFinanced | VehicleDetailsForm, unknown, options=Yes | No | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:311
+- vehicleMake | Make | VehicleDetailsForm, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:133
+- vehicleModel | Model | VehicleDetailsForm, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:190
+- vehicleVariant | Variant | VehicleDetailsForm, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx:239
 
 ## pre-file
-- designation | Designation | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:114
-- signatory_aadhaar | Aadhaar Number | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:126
-- signatory_address | Present / Current Address | AuthorisedSignatorySection, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:75
-- signatory_city | City | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:87
-- signatory_customerName | Applicant Name | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:55
-- signatory_dob | Date of Birth | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:93
-- signatory_gender | Gender | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:99
-- signatory_id | Customer ID | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:49
-- signatory_pan | PAN Number | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:120
-- signatory_pincode | Pincode | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:81
-- signatory_primaryMobile | Primary Mobile | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:65
+- signatory_aadhaar | Aadhaar Number | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:194
+- signatory_address | Present / Current Address | AuthorisedSignatorySection, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:143
+- signatory_city | City | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:155
+- signatory_customerName | Applicant Name | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:123
+- signatory_designation | Designation | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:182
+- signatory_dob | Date of Birth | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:161
+- signatory_gender | Gender | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:167
+- signatory_id | Customer ID | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:117
+- signatory_pan | PAN Number | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:188
+- signatory_pincode | Pincode | AuthorisedSignatorySection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:149
+- signatory_primaryMobile | Primary Mobile | AuthorisedSignatorySection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:133
+- signatorySameAsCoApplicant | Same as Co-Applicant | AuthorisedSignatorySection, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/AuthorisedSignatorySection.jsx:109
 - isMultipleCars | isMultipleCars | BulkLoanCreationSection, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/BulkLoanCreationSection.jsx:39
 - isSameVehicle | isSameVehicle | BulkLoanCreationSection, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/BulkLoanCreationSection.jsx:75
 - numberOfCars | numberOfCars | BulkLoanCreationSection, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/BulkLoanCreationSection.jsx:108
-- co_aadhaar | Aadhaar | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:182
-- co_address | Address | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:162
-- co_businessNature | Nature of Business | CoApplicantSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:257
-- co_city | City | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:172
-- co_companyAddress | Company Address | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:306
-- co_companyCity | City | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:316
-- co_companyName | Company Name | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:301
-- co_companyPhone | Phone No | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:321
-- co_companyPincode | Pin Code | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:311
-- co_companyType | Type of Company | CoApplicantSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:240
-- co_currentExperience | Current Exp (Years) | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:287
-- co_customerName | Name | CoApplicantSection, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:64
-- co_dependents | Dependents | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:117
-- co_designation | Designation | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:282
-- co_dob | DOB | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:84
-- co_education | Education | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:123
-- co_fatherName | Father / Husband Name | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:78
-- co_gender | Gender | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:89
-- co_houseType | House | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:138
-- co_id | Customer ID | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:59
-- co_maritalStatus | Marital Status | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:103
-- co_motherName | Mother's Name | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:73
-- co_occupation | Occupation | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:196
-- co_pan | PAN | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:177
-- co_pincode | Pincode | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:167
-- co_primaryMobile | Mobile | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:152
-- co_professionalType | Professional Type | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:217
-- co_totalExperience | Total Exp (Years) | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:295
-- gu_aadhaar | Aadhaar | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:182
-- gu_address | Address | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:162
-- gu_businessNature | Nature of Business | GuarantorSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:257
-- gu_city | City | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:172
-- gu_companyAddress | Company Address | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:306
-- gu_companyCity | City | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:316
-- gu_companyName | Company Name | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:301
-- gu_companyPhone | Phone No | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:321
-- gu_companyPincode | Pin Code | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:311
-- gu_companyType | Type of Company | GuarantorSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:240
-- gu_currentExperience | Current Exp (Years) | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:287
-- gu_customerName | Name | GuarantorSection, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:64
-- gu_dependents | Dependents | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:117
-- gu_designation | Designation | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:282
-- gu_dob | DOB | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:84
-- gu_education | Education | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:123
-- gu_fatherName | Father / Husband Name | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:78
-- gu_gender | Gender | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:89
-- gu_houseType | House | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:138
-- gu_id | Customer ID | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:59
-- gu_maritalStatus | Marital Status | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:103
-- gu_motherName | Mother's Name | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:73
-- gu_occupation | Occupation | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:196
-- gu_pan | PAN | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:177
-- gu_pincode | Pincode | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:167
-- gu_primaryMobile | Mobile | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:152
-- gu_professionalType | Professional Type | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:217
-- gu_totalExperience | Total Exp (Years) | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:295
-- accountNumber | Applicant Account Number | IncomeBankingDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:144
-- accountSinceYears | Account Since (Years) | IncomeBankingDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:162
-- accountType | Account Type | IncomeBankingDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:183
-- bankName | Bank Name | IncomeBankingDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:119
-- branch | Branch / Address | IncomeBankingDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:135
-- customerId | Customer ID | IncomeBankingDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:153
-- ifsc | IFSC Code | IncomeBankingDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:110
-- openedIn | Opened In | IncomeBankingDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:173
-- totalIncomeITR | Total Income (as per ITR) | IncomeBankingDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:83
-- applicantType | Applicant Type | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:61
-- businessNature | Nature of Business | OccupationalDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:144
-- businessNature | Nature of Business | OccupationalDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:177
-- companyName | Company Name | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:218
-- companyType | Type of Company | OccupationalDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:130
-- companyType | Company Type | OccupationalDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:163
-- designation | Designation | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:194
-- employmentAddress | Company Address | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:224
-- employmentCity | City | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:236
-- employmentPhone | Phone Number | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:246
-- employmentPincode | Pincode | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:230
-- experienceCurrent | Current Exp (Years) | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:200
-- isMSME | Whether MSME | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:76
-- occupationType | Occupation | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:90
-- officialEmail | Official Email ID | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:252
-- professionalType | Professional Type | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:108
-- totalExperience | Total Exp (Years) | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:209
-- addressProofNumber | Address Proof Number | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:231
-- addressProofType | Address Proof (type) | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:230
-- addressType | Address Type | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:159
-- city | City | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:171
-- customerName | Customer Name | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:136
-- dependents | No. of Dependents | PersonalDetailsPreFile, select, options=Undergraduate | Graduate | Postgraduate | Others | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:150
-- dob | Date of Birth | PersonalDetailsPreFile, select, options=Male | Female | Married | Unmarried | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:142
-- education | Education | PersonalDetailsPreFile, select, options=Undergraduate | Graduate | Postgraduate | Others | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:152
-- email | Email ID | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:229
-- gender | Gender | PersonalDetailsPreFile, select, options=Male | Female | Married | Unmarried | Undergraduate | Graduate | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:146
-- hasCoApplicant | Is Co-Applicant Applicable | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:245
-- hasGuarantor | Is Guarantor Applicable | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:246
-- houseType | House | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:156
-- identityProofExpiry | Identity Proof Expiry | PersonalDetailsPreFile, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:165
-- identityProofNumber | Identity Proof Number | PersonalDetailsPreFile, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:161
-- identityProofType | Identity Proof | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:160
-- maritalStatus | Marital Status | PersonalDetailsPreFile, select, options=Married | Unmarried | Undergraduate | Graduate | Postgraduate | Others | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:147
-- motherName | Mother's Name | PersonalDetailsPreFile, select, options=Male | Female | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:137
-- permanentAddress | Permanent Address | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:238
-- permanentCity | Permanent City | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:240
-- permanentPincode | Permanent Pincode | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:239
-- pincode | Pincode | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:170
-- primaryMobile | Primary Mobile | PersonalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:182
-- residenceAddress | Present Address | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:169
-- sameAsCurrentAddress | Permanent Address is same as the current Address? | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:234
-- sdwOf | Father / Husband Name | PersonalDetailsPreFile, select, options=Male | Female | Married | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:138
-- yearsInCurrentCity | Years at current City | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:174
-- yearsInCurrentHouse | Years at current Residence | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:175
-- dealerAddress | Dealer Address | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:222
-- dealerAddress | Dealer Address | Section7RecordDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:233
-- dealerMobile | Dealer Mobile | Section7RecordDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:188
-- dealtBy | Dealt By | Section7RecordDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:247
-- docsPreparedBy | Docs Prepared By | Section7RecordDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:265
-- payoutApplicable | Payout Applicable | Section7RecordDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:198
-- prefile_sourcePayoutPercentage | Payout % | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:213
-- receivingDate | Receiving Date | Section7RecordDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:115
-- receivingTime | Receiving Time | Section7RecordDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:125
-- recordSource | Source | Section7RecordDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:135
-- referenceName | Reference Name | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:165
-- referenceNumber | Reference Number | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:175
-- sourceName | recordSource === "Direct" ? "Source Name" : "Dealer / Channel" | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:154
-- accessoriesAmount | Accessories Amount | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:522
-- advanceEmi | Advance EMI | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:590
-- boughtInYear | Bought In (Year) | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:421
-- dealerAddress | Dealer Address | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:644
-- dealerContactNumber | Contact Number | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:635
-- dealerContactPerson | Contact Person | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:626
-- dealerDiscount | Dealer Discount | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:544
-- dealerName | Dealer Name | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:620
-- exShowroomPrice | Ex-Showroom Price | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:486
-- hypothecation | Hypothecation | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:426
-- hypothecationBank | Hypothecation Bank | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:435
-- insuranceCost | Insurance Cost | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:498
-- manufacturerDiscount | Manufacturer Discount | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:556
-- marginMoney | Margin Money | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:578
-- otherDiscounts | Other Discounts | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:608
-- purposeOfLoan | Purpose of Loan | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:449
-- registerSameAsAadhaar | Is vehicle registered at Aadhaar address? | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:655
-- registrationAddress | Registration Address | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:668
-- registrationCity | Registration City | VehiclePricingLoanDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:396
-- roadTax | Road Tax | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:510
-- tradeInValue | Trade-in Value | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:602
-- typeOfLoan | Type of Loan | VehiclePricingLoanDetails, select, options=Private | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:370
-- usage | Usage | VehiclePricingLoanDetails, select, options=Private | Commercial | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:381
-- vehicleMake | Make | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:268
-- vehicleModel | Model | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:301
-- vehicleVariant | Variant | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:335
+- co_aadhaar | Aadhaar | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:231
+- co_address | Address | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:211
+- co_businessNature | Nature of Business | CoApplicantSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:306
+- co_city | City | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:221
+- co_companyAddress | Company Address | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:355
+- co_companyCity | City | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:365
+- co_companyName | Company Name | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:350
+- co_companyPhone | Phone No | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:370
+- co_companyPincode | Pin Code | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:360
+- co_companyType | Type of Company | CoApplicantSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:289
+- co_currentExperience | Current Exp (Years) | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:336
+- co_customerName | Name | CoApplicantSection, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:113
+- co_dependents | Dependents | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:166
+- co_designation | Designation | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:331
+- co_dob | DOB | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:133
+- co_education | Education | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:172
+- co_fatherName | Father / Husband Name | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:127
+- co_gender | Gender | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:138
+- co_houseType | House | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:187
+- co_id | Customer ID | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:108
+- co_maritalStatus | Marital Status | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:152
+- co_motherName | Mother's Name | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:122
+- co_occupation | Occupation | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:245
+- co_pan | PAN | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:226
+- co_pincode | Pincode | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:216
+- co_primaryMobile | Mobile | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:201
+- co_professionalType | Professional Type | CoApplicantSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:266
+- co_totalExperience | Total Exp (Years) | CoApplicantSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx:344
+- gu_aadhaar | Aadhaar | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:192
+- gu_address | Address | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:172
+- gu_businessNature | Nature of Business | GuarantorSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:267
+- gu_city | City | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:182
+- gu_companyAddress | Company Address | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:316
+- gu_companyCity | City | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:326
+- gu_companyName | Company Name | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:311
+- gu_companyPhone | Phone No | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:331
+- gu_companyPincode | Pin Code | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:321
+- gu_companyType | Type of Company | GuarantorSection, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:250
+- gu_currentExperience | Current Exp (Years) | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:297
+- gu_customerName | Name | GuarantorSection, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:74
+- gu_dependents | Dependents | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:127
+- gu_designation | Designation | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:292
+- gu_dob | DOB | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:94
+- gu_education | Education | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:133
+- gu_fatherName | Father / Husband Name | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:88
+- gu_gender | Gender | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:99
+- gu_houseType | House | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:148
+- gu_id | Customer ID | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:69
+- gu_maritalStatus | Marital Status | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:113
+- gu_motherName | Mother's Name | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:83
+- gu_occupation | Occupation | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:206
+- gu_pan | PAN | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:187
+- gu_pincode | Pincode | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:177
+- gu_primaryMobile | Mobile | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:162
+- gu_professionalType | Professional Type | GuarantorSection, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:227
+- gu_totalExperience | Total Exp (Years) | GuarantorSection, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/GuarantorSection.jsx:305
+- accountNumber | Applicant Account Number | IncomeBankingDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:178
+- accountSinceYears | Account Since (Years) | IncomeBankingDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:196
+- accountType | Account Type | IncomeBankingDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:217
+- bankName | Bank Name | IncomeBankingDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:142
+- branch | Branch / Address | IncomeBankingDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:169
+- customerIdDisplay | Customer ID | IncomeBankingDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:187
+- ifsc | IFSC Code | IncomeBankingDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:133
+- openedIn | Opened In | IncomeBankingDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:207
+- panNumber | PAN Number | IncomeBankingDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:114
+- totalIncomeITR | Total Income (as per ITR) | IncomeBankingDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/IncomeBankingDetailsPreFile.jsx:97
+- applicantType | Applicant Type | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:128
+- businessNature | Nature of Business | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:233
+- businessNature | Nature of Business | OccupationalDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:267
+- companyName | Company Name | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:310
+- companyType | Type of Company | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:219
+- companyType | Company Type | OccupationalDetailsPreFile, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:253
+- designation | Designation | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:304
+- employmentAddress | Company Address | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:316
+- employmentCity | City | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:328
+- employmentPhone | Phone Number | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:338
+- employmentPincode | Pincode | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:322
+- experienceCurrent | companyMode ? "Business Since / Current Vintage (Years)" : "Current Exp (Years)" | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:284
+- isMSME | Whether MSME | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:143
+- occupationType | Occupation | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:162
+- occupationType | Occupation | OccupationalDetailsPreFile, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:180
+- officialEmail | Official Email ID | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:344
+- professionalType | Professional Type | OccupationalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:197
+- totalExperience | Total Exp (Years) | OccupationalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/OccupationalDetailsPreFile.jsx:293
+- addressProofNumber | Address Proof Number | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:329
+- addressProofType | Address Proof (type) | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:328
+- addressType | Address Type | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:235
+- city | isCompany ? "Present City" : "City" | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:247
+- contactPersonMobile | Contact Person Mobile | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:323
+- contactPersonName | Contact Person Name | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:316
+- customerName | isCompany ? "Company Name" : "Customer Name" | PersonalDetailsPreFile, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:206
+- dependents | No. of Dependents | PersonalDetailsPreFile, select, options=Undergraduate | Graduate | Postgraduate | Others | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:224
+- dob | isCompany ? "Date of Incorporation" : "Date of Birth" | PersonalDetailsPreFile, select, options=Male | Female | Married | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:212
+- education | Education | PersonalDetailsPreFile, select, options=Undergraduate | Graduate | Postgraduate | Others | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:227
+- email | Email ID | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:313
+- gender | Gender | PersonalDetailsPreFile, select, options=Male | Female | Married | Unmarried | Undergraduate | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:220
+- hasCoApplicant | Is Co-Applicant Applicable | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:343
+- hasGuarantor | Is Guarantor Applicable | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:344
+- houseType | House | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:232
+- identityProofExpiry | Identity Proof Expiry | PersonalDetailsPreFile, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:241
+- identityProofNumber | Identity Proof Number | PersonalDetailsPreFile, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:237
+- identityProofType | Identity Proof | PersonalDetailsPreFile, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:236
+- maritalStatus | Marital Status | PersonalDetailsPreFile, select, options=Married | Unmarried | Undergraduate | Graduate | Postgraduate | Others | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:221
+- motherName | Mother's Name | PersonalDetailsPreFile, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:207
+- permanentAddress | Permanent Address | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:336
+- permanentCity | Permanent City | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:338
+- permanentPincode | Permanent Pincode | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:337
+- pincode | isCompany ? "Present Pincode" : "Pincode" | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:246
+- primaryMobile | Primary Mobile | PersonalDetailsPreFile, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:254
+- residenceAddress | Present Address | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:245
+- sameAsCurrentAddress | Permanent Address is same as the current Address? | PersonalDetailsPreFile, switch | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:332
+- sdwOf | Father / Husband Name | PersonalDetailsPreFile, select, options=Male | Female | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:208
+- yearsInCurrentCity | Years at current City | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:250
+- yearsInCurrentHouse | Years at current Residence | PersonalDetailsPreFile, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/PersonalDetailsPreFile.jsx:251
+- dealerAddress | Dealer Address | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:225
+- dealerAddress | Dealer Address | Section7RecordDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:236
+- dealerMobile | Dealer Mobile | Section7RecordDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:191
+- dealtBy | Dealt By | Section7RecordDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:250
+- docsPreparedBy | Docs Prepared By | Section7RecordDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:268
+- payoutApplicable | Payout Applicable | Section7RecordDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:201
+- prefile_sourcePayoutPercentage | Payout % | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:216
+- receivingDate | Receiving Date | Section7RecordDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:118
+- receivingTime | Receiving Time | Section7RecordDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:128
+- recordSource | Source | Section7RecordDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:138
+- referenceName | Reference Name | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:168
+- referenceNumber | Reference Number | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:178
+- sourceName | recordSource === "Direct" ? "Source Name" : "Dealer / Channel" | Section7RecordDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/Section7RecordDetails.jsx:157
+- accessoriesAmount | Accessories Amount | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:713
+- advanceEmi | Advance EMI | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:781
+- boughtInYear | Bought In (Year) | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:612
+- dealerDiscount | Dealer Discount | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:735
+- exShowroomPrice | Ex-Showroom Price | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:677
+- hypothecation | Hypothecation | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:617
+- hypothecationBank | Hypothecation Bank | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:626
+- insuranceCost | Insurance Cost | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:689
+- manufacturerDiscount | Manufacturer Discount | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:747
+- marginMoney | Margin Money | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:769
+- otherDiscounts | Other Discounts | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:799
+- purposeOfLoan | Purpose of Loan | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:640
+- registerSameAsAadhaar | isCompany ? "Is vehicle registered at GST/office address?" : "Is vehicle registered at Aadhaar address?" | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:846
+- registerSameAsPermanent | Is vehicle registered at permanent address? | VehiclePricingLoanDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:864
+- registrationAddress | Registration Address | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:878
+- registrationCity | Registration City | VehiclePricingLoanDetails, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:587
+- registrationCity | Registration City | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:901
+- registrationPincode | Registration Pincode | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:891
+- roadTax | Road Tax | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:701
+- showroomDealerAddress | Dealer Address | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:835
+- showroomDealerContactNumber | Contact Number | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:826
+- showroomDealerContactPerson | Contact Person | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:817
+- showroomDealerName | Dealer Name | VehiclePricingLoanDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:811
+- tradeInValue | Trade-in Value | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:793
+- typeOfLoan | Type of Loan | VehiclePricingLoanDetails, select, options=Private | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:540
+- usage | Usage | VehiclePricingLoanDetails, select, options=Private | Commercial | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:551
+- valuation | Valuation | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:573
+- vehicleMake | Make | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:428
+- vehicleModel | Model | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:462
+- vehicleRegNo | Vehicle Regd Number | VehiclePricingLoanDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:565
+- vehicleVariant | Variant | VehiclePricingLoanDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx:497
 
 ## post-file
-- postfile_approvalDate | Date of Approval | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:264
-- postfile_bankName | Bank Name | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:282
-- postfile_disbursedCreditAssured | postfile_disbursedCreditAssured | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:504
-- postfile_disbursedEw | postfile_disbursedEw | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:506
-- postfile_disbursedInsurance | postfile_disbursedInsurance | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:505
-- postfile_disbursedLoan | postfile_disbursedLoan | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:503
-- postfile_disbursedLoanTotal | Net Loan Amount for Disbursal | PostFileApprovalDetails, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:311
-- postfile_emiAmount | `EMI Amount ${ emiAmount ? `(Calculated: ${formatINR(emiAmount) | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:476
-- postfile_emiMode | EMI Mode | PostFileApprovalDetails, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:419
-- postfile_emiPlan | EMI Plan | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:431
-- postfile_firstEmiDate | Date of 1st EMI | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:456
-- postfile_loanAmountApproved | Loan Amount Approved | PostFileApprovalDetails, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:295
-- postfile_processingFees | Processing Fees | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:371
-- postfile_roi | Rate of Interest (%) | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:405
-- postfile_roiType | Rate of Interest Type | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:392
-- postfile_sameAsApproved | postfile_sameAsApproved | PostFileApprovalDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:340
-- postfile_tenureMonths | Tenure (Months) | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:445
-- accountNumber | Account Number | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:133
-- branch | Branch / Address | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:141
-- disbursement_date | Disbursement Date | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:102
-- disbursement_time | Disbursement Time | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:105
-- dispatch_date | Dispatch Date | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:82
-- dispatch_through | Dispatch Through | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:88
-- dispatch_time | Dispatch Time | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:85
-- ifscCode | IFSC Code | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:137
-- loanId | Loan Number | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:109
-- ecs_accountNumber | Acc Number | PostFileInstrumentDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:352
-- ecs_amount | Max Amount | PostFileInstrumentDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:362
-- ecs_bankName | Bank Name | PostFileInstrumentDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:348
-- ecs_date | Start Date | PostFileInstrumentDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:356
-- ecs_favouring | Favouring | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:375
-- ecs_image | ecs_image | PostFileInstrumentDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:394
-- ecs_micrCode | MICR Code | PostFileInstrumentDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:344
-- ecs_signedBy | Signed By | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:379
-- ecs_tag | Type / Tag | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:371
-- instrumentType | instrumentType | PostFileInstrumentDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:209
-- si_accountNumber | Account Number | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:409
-- si_image | si_image | PostFileInstrumentDetails, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:428
-- si_signedBy | Signed By | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:413
-- accessoriesAmount | Accessories Amount | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:365
-- boughtInYear | Bought in Year | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:304
-- dealerAddress | Dealer Address | PostFileVehicleVerification, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:459
-- dealerContactNumber | Contact Number | PostFileVehicleVerification, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:446
-- dealerContactPerson | Contact Person | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:435
-- dealerDiscount | Dealer Discount | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:378
-- dealerName | Dealer Name | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:427
-- exShowroomPrice | Ex-Showroom Price | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:334
-- insuranceCost | Insurance Cost | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:345
-- manufacturerDiscount | Manufacturer Discount | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:389
-- postfile_regd_city | Regd-City | PostFileVehicleVerification, autocomplete | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:271
-- roadTax | Road Tax | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:358
-- vehicleMake | Make | PostFileVehicleVerification, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:168
-- vehicleModel | Model | PostFileVehicleVerification, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:201
-- vehicleVariant | Variant | PostFileVehicleVerification, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:237
+- postfile_bankName | Bank Name | PostFileApprovalDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:371
+- postfile_disbursedCreditAssured | postfile_disbursedCreditAssured | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:672
+- postfile_disbursedEw | postfile_disbursedEw | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:674
+- postfile_disbursedInsurance | postfile_disbursedInsurance | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:673
+- postfile_disbursedLoan | postfile_disbursedLoan | PostFileApprovalDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:671
+- postfile_disbursedLoanTotal | Net Loan Amount for Disbursal | PostFileApprovalDetails, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:400
+- postfile_emiAmount | `EMI Amount ${ emiAmount ? `(Calculated: ${formatINR(emiAmount) | PostFileApprovalDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:637
+- postfile_emiMode | EMI Mode | PostFileApprovalDetails, select, options=Arrear | Advance | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:536
+- postfile_emiPlan | EMI Plan | PostFileApprovalDetails, select, options=Normal | 1+1 | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:557
+- postfile_loanAmountApproved | Loan Amount Approved | PostFileApprovalDetails, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:384
+- postfile_processingFees | Processing Fees | PostFileApprovalDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:468
+- postfile_roi | Rate of Interest (%) | PostFileApprovalDetails, select, options=Arrear | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:522
+- postfile_roiType | Rate of Interest Type | PostFileApprovalDetails, select, options=Reducing | Fixed | Floating | Flat | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:497
+- postfile_sameAsApproved | postfile_sameAsApproved | PostFileApprovalDetails, radio | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:437
+- postfile_tenureMonths | Tenure (Months) | PostFileApprovalDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileApprovalDetails.jsx:580
+- disbursement_date | disbursement_date | PostFileDispatchAndRecords, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:87
+- disbursement_time | disbursement_time | PostFileDispatchAndRecords, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:88
+- dispatch_date | dispatch_date | PostFileDispatchAndRecords, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:85
+- dispatch_through | dispatch_through | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:149
+- dispatch_time | dispatch_time | PostFileDispatchAndRecords, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:86
+- loan_number | loan_number | PostFileDispatchAndRecords, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileDispatchAndRecords.jsx:195
+- cheque_1_accountNumber | cheque_1_accountNumber | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:301
+- cheque_1_amount | cheque_1_amount | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:303
+- cheque_1_bankName | cheque_1_bankName | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:300
+- cheque_1_date | cheque_1_date | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:302
+- cheque_1_favouring | cheque_1_favouring | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:305
+- cheque_1_number | cheque_1_number | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:299
+- cheque_1_signedBy | cheque_1_signedBy | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:306
+- cheque_1_tag | cheque_1_tag | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:304
+- ecs_accountNumber | ecs_accountNumber | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:293
+- ecs_accountNumber | ecs_accountNumber | PostFileInstrumentDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:492
+- ecs_amount | ecs_amount | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:295
+- ecs_amount | ecs_amount | PostFileInstrumentDetails, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:506
+- ecs_bankName | ecs_bankName | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:292
+- ecs_bankName | ecs_bankName | PostFileInstrumentDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:486
+- ecs_date | ecs_date | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:294
+- ecs_date | ecs_date | PostFileInstrumentDetails, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:498
+- ecs_favouring | ecs_favouring | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:297
+- ecs_favouring | ecs_favouring | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:523
+- ecs_image | ecs_image | PostFileInstrumentDetails, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:545
+- ecs_micrCode | ecs_micrCode | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:291
+- ecs_micrCode | ecs_micrCode | PostFileInstrumentDetails, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:480
+- ecs_signedBy | ecs_signedBy | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:298
+- ecs_signedBy | ecs_signedBy | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:529
+- ecs_tag | ecs_tag | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:296
+- ecs_tag | ecs_tag | PostFileInstrumentDetails, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:517
+- instrumentType | instrumentType | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:284
+- nach_accountNumber | nach_accountNumber | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:288
+- nach_image | nach_image | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:290
+- nach_signedBy | nach_signedBy | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:289
+- si_accountNumber | si_accountNumber | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:285
+- si_image | si_image | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:287
+- si_signedBy | si_signedBy | PostFileInstrumentDetails, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileInstrumentDetails.jsx:286
+- accessoriesAmount | Accessories Amount | PostFileVehicleVerification, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:541
+- dealerDiscount | Dealer Discount | PostFileVehicleVerification, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:552
+- exShowroomPrice | Ex-Showroom Price | PostFileVehicleVerification, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:508
+- insuranceCost | Insurance Cost | PostFileVehicleVerification, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:519
+- manufacturerDiscount | Manufacturer Discount | PostFileVehicleVerification, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:563
+- roadTax | Road Tax | PostFileVehicleVerification, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:530
+- showroomDealerAddress | Dealer Address | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:482
+- showroomDealerContactNumber | Contact Number | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:475
+- showroomDealerContactPerson | Contact Person | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:468
+- showroomDealerName | Dealer Name | PostFileVehicleVerification, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:461
+- vehicleMake | Make | PostFileVehicleVerification, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:345
+- vehicleModel | Model | PostFileVehicleVerification, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:370
+- vehicleVariant | Variant | PostFileVehicleVerification, select | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx:395
 
 ## vehicle-delivery
-- delivery_by | Delivery By | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:322
-- delivery_date | Delivery Date | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:267
-- delivery_dealerAddress | Dealer Address | VehicleDeliveryStep, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:311
-- delivery_dealerContactNumber | Contact Number | VehicleDeliveryStep, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:298
-- delivery_dealerContactPerson | Contact Person | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:287
-- delivery_dealerName | Dealer Name | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:276
-- insurance_by | Insurance By | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:350
-- insurance_company_name | Insurance Company Name | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:362
-- insurance_policy_number | Policy Number | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:374
-- invoice_date | Invoice Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:418
-- invoice_number | Invoice Number | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:406
-- invoice_received_as | Received As | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:427
-- invoice_received_date | Received Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:453
-- invoice_received_from | Received From | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:439
-- rc_chassis_no | Chassis No | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:544
-- rc_engine_no | Engine No | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:552
-- rc_received_as | Received As | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:578
-- rc_received_date | Received Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:602
-- rc_received_from | Received From | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:590
-- rc_redg_date | Regd Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:560
-- rc_redg_no | Regd No | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:536
+- delivery_by | Delivery By | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:470
+- delivery_date | Delivery Date | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:427
+- delivery_dealerAddress | Dealer Address | VehicleDeliveryStep, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:462
+- delivery_dealerContactNumber | Contact Number | VehicleDeliveryStep, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:452
+- delivery_dealerContactPerson | Contact Person | VehicleDeliveryStep, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:444
+- delivery_dealerName | Dealer Name | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:436
+- insurance_by | Insurance By | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:496
+- insurance_company_name | Insurance Company Name | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:517
+- insurance_policy_duration_od | Policy Duration | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:552
+- insurance_policy_end_date_od | Policy End Date (OD) | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:567
+- insurance_policy_number | Policy Number | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:529
+- insurance_policy_start_date | Policy Start Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:541
+- invoice_date | Invoice Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:607
+- invoice_number | Invoice Number | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:595
+- invoice_received_as | Received As | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:616
+- invoice_received_date | Received Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:642
+- invoice_received_from | Received From | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:628
+- rc_chassis_no | Chassis No | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:700
+- rc_engine_no | Engine No | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:708
+- rc_received_as | Received As | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:725
+- rc_received_date | Received Date | VehicleDeliveryStep, unknown | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:749
+- rc_received_from | Received From | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:737
+- rc_redg_date | Regd Date | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:716
+- rc_redg_no | Regd No | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:679
+- yearOfManufacture | Year of Manufacture | VehicleDeliveryStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/vehicle-delivery/VehicleDeliveryStep.jsx:687
 
 ## payout
-- bulk_next_action | Set Next Action Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1325
-- bulk_priority | Set Priority | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1317
-- bulk_remarks | Add Remarks (will append to existing) | PayoutReceivablesDashboard, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1329
-- collection_last_followup | Last Follow-up Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1485
-- collection_next_action | Next Action Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1492
-- collection_remarks | Remarks / Notes | PayoutReceivablesDashboard, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1496
-- payment_amount | Payment Amount | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1370
-- payment_date | Payment Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1387
-- payment_remarks | Remarks | PayoutReceivablesDashboard, textarea | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1401
-- received_date | Collection Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1242
-- total_amount_received | Total Amount Received | PayoutReceivablesDashboard, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1284
+- paid_date | Payment Date | PayoutPayablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx:1123
+- payment_amount | Payment Amount | PayoutPayablesDashboard, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx:1236
+- payment_amount | Payment Amount | PayoutPayablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx:1377
+- payment_date | Payment Date | PayoutPayablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx:1266
+- payment_date | Payment Date | PayoutPayablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx:1392
+- payment_remarks | Remarks (optional) | PayoutPayablesDashboard, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx:1274
+- payment_remarks | Remarks | PayoutPayablesDashboard, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutPayablesDashboard.jsx:1400
+- payment_amount | Payment Amount | PayoutReceivablesDashboard, number | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1187
+- payment_amount | Payment Amount | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1334
+- payment_date | Payment Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1217
+- payment_date | Payment Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1349
+- payment_remarks | Remarks (optional) | PayoutReceivablesDashboard, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1225
+- payment_remarks | Remarks | PayoutReceivablesDashboard, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1357
+- received_date | Collection Date | PayoutReceivablesDashboard, date | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx:1071
 
 ## system-hidden
-- __postfileLocked | __postfileLocked | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1098
-- __postfileSeeded | __postfileSeeded | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1097
-- approval_approvalDate | approval_approvalDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1075
-- approval_bankId | approval_bankId | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1067
-- approval_bankName | approval_bankName | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1068
-- approval_banksData | approval_banksData | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1081
-- approval_breakup_creditAssured | approval_breakup_creditAssured | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1078
-- approval_breakup_ewFinance | approval_breakup_ewFinance | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1080
-- approval_breakup_insuranceFinance | approval_breakup_insuranceFinance | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1079
-- approval_breakup_netLoanApproved | approval_breakup_netLoanApproved | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1077
-- approval_disbursedDate | approval_disbursedDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1076
-- approval_loanAmountApproved | approval_loanAmountApproved | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1070
-- approval_loanAmountDisbursed | approval_loanAmountDisbursed | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1071
-- approval_processingFees | approval_processingFees | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1074
-- approval_roi | approval_roi | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1072
-- approval_status | approval_status | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1069
-- approval_tenureMonths | approval_tenureMonths | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1073
-- completedDate | completedDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1064
-- createdAt | createdAt | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1060
-- currentStage | currentStage | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1062
-- customerId | customerId | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1057
-- customerName | customerName | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1058
-- delivery_invoiceFile | delivery_invoiceFile | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1084
-- delivery_rcFile | delivery_rcFile | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1085
-- loan_notes | loan_notes | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1065
-- loanId | loanId | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1056
-- payoutPercentage | payoutPercentage | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1082
-- postfile_bankName | postfile_bankName | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1088
-- postfile_documents | postfile_documents | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1086
-- postfile_emiAmount | postfile_emiAmount | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1094
-- postfile_firstEmiDate | postfile_firstEmiDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1095
-- postfile_loanAmountApproved | postfile_loanAmountApproved | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1089
-- postfile_loanAmountDisbursed | postfile_loanAmountDisbursed | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1090
-- postfile_processingFees | postfile_processingFees | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1093
-- postfile_roi | postfile_roi | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1091
-- postfile_tenureMonths | postfile_tenureMonths | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1092
-- primaryMobile | primaryMobile | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1059
-- status | status | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1063
-- updatedAt | updatedAt | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1061
+- __postfileLocked | __postfileLocked | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1883
+- __postfileSeeded | __postfileSeeded | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1882
+- approval_approvalDate | approval_approvalDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1859
+- approval_bankId | approval_bankId | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1851
+- approval_bankName | approval_bankName | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1852
+- approval_banksData | approval_banksData | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1865
+- approval_breakup_creditAssured | approval_breakup_creditAssured | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1862
+- approval_breakup_ewFinance | approval_breakup_ewFinance | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1864
+- approval_breakup_insuranceFinance | approval_breakup_insuranceFinance | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1863
+- approval_breakup_netLoanApproved | approval_breakup_netLoanApproved | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1861
+- approval_disbursedDate | approval_disbursedDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1860
+- approval_loanAmountApproved | approval_loanAmountApproved | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1854
+- approval_loanAmountDisbursed | approval_loanAmountDisbursed | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1855
+- approval_processingFees | approval_processingFees | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1858
+- approval_roi | approval_roi | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1856
+- approval_status | approval_status | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1853
+- approval_tenureMonths | approval_tenureMonths | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1857
+- co_currentExperience | co_currentExperience | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1834
+- co_id | co_id | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1833
+- co_totalExperience | co_totalExperience | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1835
+- completedDate | completedDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1843
+- createdAt | createdAt | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1839
+- currentStage | currentStage | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1841
+- customerId | customerId | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1831
+- customerName | customerName | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1837
+- delivery_invoiceFile | delivery_invoiceFile | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1868
+- delivery_rcFile | delivery_rcFile | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1869
+- dsaCode | dsaCode | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1832
+- gu_id | gu_id | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1836
+- loan_notes | loan_notes | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1844
+- loan_number | loan_number | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1830
+- loanId | loanId | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1829
+- payoutPercentage | payoutPercentage | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1866
+- postfile_bankName | postfile_bankName | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1872
+- postfile_documents | postfile_documents | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1870
+- postfile_emiAmount | postfile_emiAmount | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1878
+- postfile_firstEmiDate | postfile_firstEmiDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1879
+- postfile_loanAmountApproved | postfile_loanAmountApproved | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1873
+- postfile_loanAmountDisbursed | postfile_loanAmountDisbursed | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1874
+- postfile_maturityDate | postfile_maturityDate | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1880
+- postfile_processingFees | postfile_processingFees | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1877
+- postfile_roi | postfile_roi | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1875
+- postfile_tenureMonths | postfile_tenureMonths | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1876
+- primaryMobile | primaryMobile | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1838
+- rc_inv_storage_number | rc_inv_storage_number | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1849
+- showroomDealerAddress | showroomDealerAddress | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1848
+- showroomDealerContactNumber | showroomDealerContactNumber | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1847
+- showroomDealerContactPerson | showroomDealerContactPerson | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1846
+- showroomDealerName | showroomDealerName | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1845
+- status | status | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1842
+- updatedAt | updatedAt | LoanFormWithSteps, hidden, hidden | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/LoanFormWithSteps.jsx:1840
 
 ## unassigned
 - disburseAmount | Disbursement Amount | DisbursementStep, input | /Users/gauravgrover/cdb-frontend/src/modules/loans/components/loan-form/disbursement/DisbursementStep.jsx:141

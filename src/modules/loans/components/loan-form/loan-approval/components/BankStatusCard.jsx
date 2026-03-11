@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Modal, Timeline } from "antd";
 import Icon from "../../../../../../components/AppIcon";
 import Button from "../../../../../../components/ui/Button";
 
@@ -7,6 +8,8 @@ const getStatusClasses = (status) => {
 
   if (s === "approved")
     return "bg-success/10 text-success border border-success/20";
+  if (s === "disbursed")
+    return "bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800/50";
   if (s === "documents required")
     return "bg-accent/10 text-accent border border-accent/20";
   if (s === "rejected") return "bg-error/10 text-error border border-error/20";
@@ -14,6 +17,16 @@ const getStatusClasses = (status) => {
     return "bg-warning/10 text-warning border border-warning/20";
 
   return "bg-muted text-muted-foreground border border-border/50";
+};
+
+const getStatusIcon = (status) => {
+  const s = (status || "").toLowerCase();
+  if (s === "approved") return "BadgeCheck";
+  if (s === "disbursed") return "WalletCards";
+  if (s === "documents required") return "FileWarning";
+  if (s === "rejected") return "ShieldX";
+  if (s === "pending" || s === "under review") return "Clock3";
+  return "CircleDot";
 };
 
 const parseInr = (val) => {
@@ -57,15 +70,12 @@ const BankStatusCard = ({
   onBankUpdate, // NEW: parent updater
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const [status, setStatus] = useState(bank.status || "Pending");
-  const [remarks, setRemarks] = useState(bank.remarks || "");
   const [showBreakup, setShowBreakup] = useState(false);
   const [breakupReadOnly, setBreakupReadOnly] = useState(false);
+  const [showHistoryTimeline, setShowHistoryTimeline] = useState(false);
 
-  // breakup fields (strings)
-  const [netLoanApproved, setNetLoanApproved] = useState(
-    bank.breakupNetLoanApproved ?? bank.loanAmount ?? ""
-  );
+  // breakup fields
+  const [netLoanApproved, setNetLoanApproved] = useState(0);
 
   const [creditAssuredFinance, setCreditAssuredFinance] = useState(
     bank.breakupCreditAssured ?? ""
@@ -87,7 +97,11 @@ const BankStatusCard = ({
   const loanType = form?.getFieldValue("typeOfLoan");
   const isNewCar = loanType === "New Car";
 
-  const [tenureMonths, setTenureMonths] = useState(Number(bank.tenure) || 60);
+  const [tenureMonths, setTenureMonths] = useState(
+    Number(bank.tenure) ||
+      Number(form?.getFieldValue?.("approval_tenureMonths")) ||
+      60
+  );
   const [interestRate, setInterestRate] = useState(
     bank.interestRate?.toString() || ""
   );
@@ -97,14 +111,34 @@ const BankStatusCard = ({
   const [dsaCode, setDsaCode] = useState(bank?.dsaCode || form?.getFieldValue("dsaCode") || "");
   const [payoutPercent, setPayoutPercent] = useState(bank.payoutPercent || "");
 
-  const breakupTotal =
-    parseInr(netLoanApproved) +
+  const netFromBreakup = parseInr(netLoanApproved);
+  const addOnTotal =
     parseInr(creditAssuredFinance) +
     parseInr(insuranceFinance) +
     parseInr(extendedWarrantyFinance);
+  const loanAmountFromBank = parseInr(bank.loanAmount);
+  const approvedFromForm = parseInr(form?.getFieldValue?.("approval_loanAmountApproved"));
+  const disbursedFromForm = parseInr(form?.getFieldValue?.("approval_loanAmountDisbursed"));
+  const topLevelBase = Math.max(approvedFromForm, disbursedFromForm, 0);
 
-  const displayLoanAmount =
-    breakupTotal > 0 ? breakupTotal : parseInr(bank.loanAmount);
+  let displayLoanAmount = 0;
+  if (netFromBreakup > 0) {
+    displayLoanAmount = netFromBreakup + addOnTotal;
+  } else if (loanAmountFromBank > 0) {
+    if (addOnTotal > 0 && loanAmountFromBank <= addOnTotal && topLevelBase > 0) {
+      displayLoanAmount = topLevelBase + addOnTotal;
+    } else {
+      displayLoanAmount = loanAmountFromBank;
+    }
+  } else if (topLevelBase > 0) {
+    displayLoanAmount = topLevelBase + addOnTotal;
+  } else {
+    displayLoanAmount = addOnTotal;
+  }
+
+  const topLevelTenure = Number(form?.getFieldValue?.("approval_tenureMonths")) || 0;
+  const bankTenure = Number(bank?.tenure) || 0;
+  const tenureDisplay = bankTenure || topLevelTenure || Number(tenureMonths) || 0;
 
   const emi = calculateEmi(
     displayLoanAmount,
@@ -113,22 +147,18 @@ const BankStatusCard = ({
   );
 
   const ltv = calculateLtv(displayLoanAmount, exShowroomPrice);
-
-  // SUMMARY loan amount (read-only, opens popup read-only)
-  const SummaryLoanAmount = (
-    <div
-      className="cursor-pointer"
-      onClick={() => {
-        setBreakupReadOnly(true);
-        setShowBreakup(true);
-      }}
-    >
-      <p className="text-xs text-muted-foreground">Loan Amount</p>
-      <p className="font-semibold font-mono">
-        ₹ {formatInr(displayLoanAmount)}
-      </p>
-    </div>
-  );
+  const cardSurfaceClass =
+    (bank.status || "").toLowerCase() === "approved"
+      ? "bg-emerald-50/55 dark:bg-emerald-950/18"
+      : (bank.status || "").toLowerCase() === "disbursed"
+        ? "bg-teal-50/70 dark:bg-teal-950/22"
+        : (bank.status || "").toLowerCase() === "pending" ||
+            (bank.status || "").toLowerCase() === "under review" ||
+            (bank.status || "").toLowerCase() === "documents required"
+          ? "bg-amber-50/75 dark:bg-amber-950/24"
+        : (bank.status || "").toLowerCase() === "rejected"
+          ? "bg-rose-50/55 dark:bg-rose-950/18"
+          : "bg-card dark:bg-black/75";
 
   // EXPANDED loan amount (styled like other fields, opens popup editable)
   const ExpandedLoanAmount = (
@@ -141,7 +171,7 @@ const BankStatusCard = ({
     >
       <label className="text-xs text-muted-foreground">Loan Amount</label>
       <div className="w-full mt-1 border rounded-md px-3 py-2 text-sm bg-muted/40">
-        <span className="font-mono">₹ {formatInr(displayLoanAmount)}</span>
+        <span className="font-semibold">₹ {formatInr(displayLoanAmount)}</span>
       </div>
     </div>
   );
@@ -170,17 +200,45 @@ const BankStatusCard = ({
   };
 
   useEffect(() => {
-    setNetLoanApproved(bank.breakupNetLoanApproved ?? bank.loanAmount ?? "");
-    setCreditAssuredFinance(bank.breakupCreditAssured ?? "");
-    setInsuranceFinance(bank.breakupInsuranceFinance ?? "");
-    setExtendedWarrantyFinance(bank.breakupEwFinance ?? "");
+    const bankLoan = parseInr(bank.loanAmount);
+    const breakupNet = parseInr(bank.breakupNetLoanApproved);
+    const breakupCredit = parseInr(bank.breakupCreditAssured);
+    const breakupInsurance = parseInr(bank.breakupInsuranceFinance);
+    const breakupEw = parseInr(bank.breakupEwFinance);
+    const addons = breakupCredit + breakupInsurance + breakupEw;
+    const formApproved = parseInr(form?.getFieldValue?.("approval_loanAmountApproved"));
+    const formDisbursed = parseInr(form?.getFieldValue?.("approval_loanAmountDisbursed"));
+    const baseFromForm = Math.max(formApproved, formDisbursed, 0);
+
+    let resolvedNet = 0;
+    if (breakupNet > 0) {
+      resolvedNet = breakupNet;
+    } else if (baseFromForm > 0) {
+      resolvedNet = baseFromForm;
+    } else if (bankLoan > 0) {
+      resolvedNet = bankLoan > addons ? bankLoan - addons : bankLoan;
+    }
+
+    setNetLoanApproved(resolvedNet);
+    setCreditAssuredFinance(breakupCredit);
+    setInsuranceFinance(breakupInsurance);
+    setExtendedWarrantyFinance(breakupEw);
   }, [
     bank.breakupNetLoanApproved,
     bank.breakupCreditAssured,
     bank.breakupInsuranceFinance,
     bank.breakupEwFinance,
     bank.loanAmount,
+    form,
   ]);
+
+  useEffect(() => {
+    const nextTenure =
+      Number(bank?.tenure) ||
+      Number(form?.getFieldValue?.("approval_tenureMonths")) ||
+      60;
+    setTenureMonths(nextTenure);
+  }, [bank?.tenure, form]);
 
   useEffect(() => {
     if (!form) return;
@@ -191,68 +249,114 @@ const BankStatusCard = ({
   }, [bank?.dsaCode, form, dsaCode]);
 
   return (
-    <div className="bg-card rounded-lg border border-border p-4 md:p-6 transition-all relative max-w-sm mx-auto w-full min-h-[350px] flex flex-col">
+    <div
+      className={`relative mx-auto flex min-h-[380px] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 p-4 shadow-sm transition-all md:p-5 ${cardSurfaceClass}`}
+    >
       {/* SUMMARY */}
       {!expanded && (
         <>
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Icon name="Building2" size={24} className="text-primary" />
+          <div className="relative mb-3 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background shadow-sm">
+                <Icon name="Building2" size={20} className="text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">{bank.bankName}</h3>
+                <h3 className="text-base font-semibold text-foreground">
+                  {bank.bankName}
+                </h3>
                 <p className="text-xs text-muted-foreground">
-                  Loan A/c:{" "}
-                  <span className="font-mono">{bank.applicationId}</span>
+                  Application:
+                  {" "}
+                  <span>{bank.applicationId}</span>
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start">
+            <div className="flex items-start pt-0.5">
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${getStatusClasses(
                   bank.status
                 )}`}
               >
+                <Icon name={getStatusIcon(bank.status)} size={12} className="mr-1" />
                 {bank.status || "Status N/A"}
               </span>
+              {onDeleteBank && (
+                <button
+                  type="button"
+                  className="ml-2 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-error"
+                  onClick={onDeleteBank}
+                  disabled={readOnly}
+                >
+                  <Icon name="Trash2" size={16} />
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 flex-1 content-start">
-            {/* Loan Amount summary */}
-            <div>{SummaryLoanAmount}</div>
+          <div
+            className="relative mb-3 cursor-pointer rounded-xl border border-border/70 bg-background p-3"
+            onClick={() => {
+              setBreakupReadOnly(true);
+              setShowBreakup(true);
+            }}
+          >
+            <p className="mb-1 text-xs text-muted-foreground">Loan Amount</p>
+            <p className="text-2xl font-semibold leading-tight text-foreground">
+              ₹ {formatInr(displayLoanAmount)}
+            </p>
+          </div>
 
-            <div>
+          <div className="relative mb-3 rounded-xl border border-border/70 bg-background p-3 dark:bg-black/45">
+            <div className="grid grid-cols-3 gap-2 text-left">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">EMI</p>
+                <p className="text-sm font-semibold text-foreground">
+                  ₹ {emi ? formatInr(emi) : "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">LTV</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {ltv ? ltv.toFixed(1) : "0.0"}%
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Tenure</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {tenureDisplay ? `${tenureDisplay}m` : "-"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid flex-1 content-start grid-cols-2 gap-2.5">
+            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
               <p className="text-xs text-muted-foreground">Interest Rate</p>
-              <p className="font-semibold">
+              <p className="text-sm font-semibold">
                 {bank.interestRate ? `${bank.interestRate}%` : "-"}
               </p>
             </div>
 
-            <div>
-              <p className="text-xs text-muted-foreground">Tenure</p>
-              <p className="font-semibold">
-                {bank.tenure ? `${bank.tenure} months` : "-"}
-              </p>
+            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
+              <p className="text-xs text-muted-foreground">Status History</p>
+              <button
+                type="button"
+                className="text-sm font-semibold text-primary hover:underline"
+                onClick={() => setShowHistoryTimeline(true)}
+              >
+                {(bank.statusHistory || []).length} updates
+              </button>
             </div>
 
-            <div>
-              <p className="text-xs text-muted-foreground">EMI</p>
-              <p className="font-semibold font-mono">
-                ₹ {emi ? formatInr(emi) : "-"}
-              </p>
-            </div>
-
-            <div>
+            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
               <p className="text-xs text-muted-foreground">Processing Fee</p>
-              <p className="font-semibold font-mono">
+              <p className="text-sm font-semibold">
                 {bank.processingFee || "0"}
               </p>
             </div>
 
-            <div>
+            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
               <p className="text-xs text-muted-foreground">CIBIL Score</p>
               <div className="flex items-center gap-2 mt-1">
                 <div className="relative w-10 h-10">
@@ -302,14 +406,15 @@ const BankStatusCard = ({
             </div>
           </div>
 
-          <div className="flex gap-2 mt-auto pt-4">
+          <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
             <Button
               size="sm"
               fullWidth
               onClick={() => setExpanded(true)}
               disabled={readOnly}
+              iconName="FileText"
             >
-              Show Details
+              Loan Details
             </Button>
             <Button
               size="sm"
@@ -317,65 +422,18 @@ const BankStatusCard = ({
               fullWidth
               onClick={() => onUpdateStatus(bank)}
               disabled={readOnly}
+              iconName="RefreshCw"
             >
               Update Status
             </Button>
-            {onDeleteBank && (
-              <Button
-                size="sm"
-                variant="outline"
-                iconName="Trash2"
-                onClick={onDeleteBank}
-                disabled={readOnly}
-              />
-            )}
           </div>
         </>
       )}
       {/* EXPANDED */}
       {expanded && (
         <div className="space-y-5">
-          {/* Status Dropdown */}
-          <div>
-            <label className="text-xs text-muted-foreground">Status</label>
-            <select
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground"
-              value={status}
-              onChange={e => setStatus(e.target.value)}
-            >
-              <option value="Pending">Pending</option>
-              <option value="Approved">Approved</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Documents Required">Documents Required</option>
-            </select>
-          </div>
-
-          {/* Remarks Textarea */}
-          <div>
-            <label className="text-xs text-muted-foreground">Remarks</label>
-            <textarea
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-              value={remarks}
-              onChange={e => setRemarks(e.target.value)}
-              placeholder="Enter remarks"
-              rows={2}
-            />
-          </div>
-          <div className="flex gap-2 mt-2">
-            <Button
-              size="sm"
-              fullWidth
-              variant="primary"
-              onClick={() => {
-                onBankUpdate && onBankUpdate({ status, remarks });
-                setExpanded(false);
-              }}
-            >
-              Save
-            </Button>
-          </div>
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-lg">Loan Details</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-foreground">Loan Details</h3>
             <Button
               size="sm"
               variant="outline"
@@ -457,7 +515,7 @@ const BankStatusCard = ({
               LTV (Loan to Value)
             </label>
             <div className="w-full mt-1 border rounded-md px-3 py-2 text-sm bg-muted/40">
-              <span className="font-mono">
+              <span className="font-semibold">
                 {ltv ? ltv.toFixed(2) : "0.00"}%
               </span>
             </div>
@@ -535,7 +593,7 @@ const BankStatusCard = ({
           <div>
             <label className="text-xs text-muted-foreground">Monthly EMI</label>
             <div className="w-full mt-1 border rounded-md px-3 py-2 text-sm bg-muted/40">
-              <span className="font-mono">
+              <span className="font-semibold">
                 ₹ {emi ? emi.toLocaleString("en-IN") : "-"}
               </span>
             </div>
@@ -620,7 +678,7 @@ const BankStatusCard = ({
                     >
                       {cibilScore}
                     </span>
-                    <span className="text-[10px] md:text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       out of 900
                     </span>
                   </div>
@@ -680,6 +738,71 @@ const BankStatusCard = ({
           onBankUpdate={onBankUpdate} // NEW
         />
       )}
+
+      <Modal
+        title="Status Timeline"
+        open={showHistoryTimeline}
+        onCancel={() => setShowHistoryTimeline(false)}
+        footer={null}
+        width={560}
+      >
+        {(bank.statusHistory || []).length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No status history available
+          </div>
+        ) : (
+          <Timeline
+            items={[...(bank.statusHistory || [])]
+              .reverse()
+              .map((entry) => ({
+                // Use status-specific date fallbacks for legacy rows.
+                // Some historical entries have note/status but no changedAt.
+                ts:
+                  entry.changedAt ||
+                  entry.timestamp ||
+                  ((entry.status || "").toLowerCase() === "approved"
+                    ? bank.approvalDate
+                    : null) ||
+                  ((entry.status || "").toLowerCase() === "disbursed"
+                    ? bank.disbursalDate || bank.approvalDate
+                    : null),
+                children: (
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">
+                      {entry.status || "Status Updated"}
+                    </div>
+                    {entry.note ? (
+                      <div className="text-xs text-muted-foreground">
+                        {entry.note}
+                      </div>
+                    ) : null}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {(entry.changedAt ||
+                        entry.timestamp ||
+                        ((entry.status || "").toLowerCase() === "approved"
+                          ? bank.approvalDate
+                          : null) ||
+                        ((entry.status || "").toLowerCase() === "disbursed"
+                          ? bank.disbursalDate || bank.approvalDate
+                          : null))
+                        ? new Date(
+                            entry.changedAt ||
+                              entry.timestamp ||
+                              ((entry.status || "").toLowerCase() === "approved"
+                                ? bank.approvalDate
+                                : null) ||
+                              ((entry.status || "").toLowerCase() === "disbursed"
+                                ? bank.disbursalDate || bank.approvalDate
+                                : null),
+                          ).toLocaleString("en-IN")
+                        : "NA"}
+                    </div>
+                  </div>
+                ),
+              }))}
+          />
+        )}
+      </Modal>
     </div>
   );
 };
@@ -875,7 +998,7 @@ const LoanBreakupPopup = ({
             <span className="text-xs text-muted-foreground">
               Total Loan Amount
             </span>
-            <span className="text-sm font-semibold font-mono">
+            <span className="text-sm font-semibold">
               ₹ {formatInr(total)}
             </span>
           </div>

@@ -28,6 +28,9 @@ const LeadDetails = () => {
   ]);
 
   const applicantType = Form.useWatch("applicantType", form);
+  const customerType = Form.useWatch("customerType", form);
+  const companyType = Form.useWatch("companyType", form);
+  const gstNumber = Form.useWatch("gstNumber", form);
   const source = Form.useWatch("source", form);
 
   const dealerName = Form.useWatch("dealerName", form);
@@ -48,6 +51,33 @@ const LeadDetails = () => {
       form.setFieldValue("leadTime", dayjs());
     }
   }, [form]);
+
+  // Normalize applicant category for legacy/company-like values
+  useEffect(() => {
+    const currentApplicantType = String(form.getFieldValue("applicantType") || "").trim();
+    const currentCustomerType = String(form.getFieldValue("customerType") || "").trim();
+    const inferCompany =
+      /company|corporate|firm|llp|partnership|proprietor/i.test(
+        `${currentApplicantType} ${currentCustomerType} ${companyType || ""}`,
+      ) || Boolean(gstNumber);
+
+    const normalizedApplicantType = inferCompany ? "Company" : "Individual";
+    if (currentApplicantType !== "Company" && currentApplicantType !== "Individual") {
+      form.setFieldsValue({ applicantType: normalizedApplicantType });
+    }
+    if (currentCustomerType !== "Company" && currentCustomerType !== "Individual") {
+      form.setFieldsValue({ customerType: normalizedApplicantType });
+    }
+  }, [form, companyType, gstNumber]);
+
+  // Keep customerType aligned with applicantType for downstream sections
+  useEffect(() => {
+    if (!applicantType) return;
+    const normalized = applicantType === "Company" ? "Company" : "Individual";
+    if (customerType !== normalized) {
+      form.setFieldsValue({ customerType: normalized });
+    }
+  }, [applicantType, customerType, form]);
 
   // ✅ 2) Wire LeadDetails -> Section7 Record Details (safe sync)
   useEffect(() => {

@@ -55,7 +55,7 @@ const getStatusColor = (status) => {
   const s = (status || "").toLowerCase();
   if (s === "approved") return "text-success";
   if (s === "rejected") return "text-error";
-  if (s === "disbursed") return "text-success";
+  if (s === "disbursed") return "text-teal-600 dark:text-teal-300";
   if (s === "pending" || s === "under review") return "text-warning";
   return "text-muted-foreground";
 };
@@ -64,9 +64,42 @@ const getStatusIcon = (status) => {
   const s = (status || "").toLowerCase();
   if (s === "approved") return "CheckCircle2";
   if (s === "rejected") return "XCircle";
-  if (s === "disbursed") return "CheckCircle2";
+  if (s === "disbursed") return "WalletCards";
   if (s === "pending" || s === "under review") return "Clock";
   return "Circle";
+};
+
+const getStatusBg = (status) => {
+  const s = (status || "").toLowerCase();
+  if (s === "approved") return "bg-success/10";
+  if (s === "disbursed") return "bg-teal-100 dark:bg-teal-900/30";
+  if (s === "rejected") return "bg-error/10";
+  return "bg-amber-100 dark:bg-amber-900/30";
+};
+
+const getStatusSurface = (status) => {
+  const s = (status || "").toLowerCase();
+  if (s === "approved")
+    return "border-emerald-300/60 bg-emerald-50/80 dark:border-emerald-800/40 dark:bg-emerald-950/20";
+  if (s === "disbursed")
+    return "border-teal-300/60 bg-teal-50/80 dark:border-teal-800/40 dark:bg-teal-950/20";
+  if (s === "rejected")
+    return "border-rose-300/60 bg-rose-50/80 dark:border-rose-800/40 dark:bg-rose-950/20";
+  return "border-amber-300/60 bg-amber-50/85 dark:border-amber-800/40 dark:bg-amber-950/24";
+};
+
+const resolveTimelineDate = (event, bank) => {
+  const s = (event?.status || "").toLowerCase();
+  return (
+    event?.changedAt ||
+    event?.timestamp ||
+    event?.date ||
+    (s === "approved" ? bank?.approvalDate : null) ||
+    (s === "rejected" ? bank?.rejectionDate : null) ||
+    (s === "disbursed" ? bank?.disbursalDate || bank?.approvalDate : null) ||
+    bank?.lastUpdated ||
+    null
+  );
 };
 
 const StatusUpdateModal = ({ bank, onClose, onSave }) => {
@@ -112,15 +145,15 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
       ...event,
       title: event.status || "Status Update",
       description: event.note || "No notes",
-      date: event.changedAt
-        ? new Date(event.changedAt).toLocaleDateString("en-IN", {
+      date: resolveTimelineDate(event, bank)
+        ? new Date(resolveTimelineDate(event, bank)).toLocaleDateString("en-IN", {
             day: "2-digit",
             month: "short",
             year: "numeric",
             hour: "2-digit",
             minute: "2-digit",
           })
-        : "N/A",
+        : "NA",
     }));
 
     if (!timeline.length) {
@@ -139,13 +172,9 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
           <div key={index} className="flex gap-4">
             <div className="flex flex-col items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  event?.status === "Disbursed" || event?.status === "Approved"
-                    ? "bg-success/10"
-                    : event?.status === "Rejected"
-                    ? "bg-error/10"
-                    : "bg-warning/10"
-                }`}
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${getStatusBg(
+                  event?.status,
+                )}`}
               >
                 <Icon
                   name={getStatusIcon(event?.status)}
@@ -178,12 +207,16 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-      <div className="bg-card rounded-lg shadow-elevation-4 w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-xl max-h-[82vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 md:p-6 border-b border-border">
+        <div className={`flex items-center justify-between p-4 md:p-6 border-b ${getStatusSurface(status)}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Icon name="RefreshCw" size={20} className="text-primary" />
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusBg(status)}`}>
+              <Icon
+                name={getStatusIcon(status)}
+                size={20}
+                className={getStatusColor(status)}
+              />
             </div>
             <div>
               <h2 className="text-lg md:text-xl font-semibold text-foreground">
@@ -205,13 +238,13 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
         {/* Body */}
         <form
           onSubmit={handleSubmit}
-          className="flex-1 overflow-y-auto p-4 md:p-6"
+          className="flex-1 overflow-y-auto p-4 md:p-5"
         >
           <div className="space-y-6 md:space-y-8">
             {/* Status Update Form */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Icon name="Edit" size={16} />
+                <Icon name={getStatusIcon(status)} size={16} className={getStatusColor(status)} />
                 Update Status
               </h3>
 
@@ -282,7 +315,7 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
         </form>
 
         {/* Footer */}
-        <div className="flex flex-col sm:flex-row gap-3 p-4 md:p-6 border-t border-border">
+        <div className="flex flex-col sm:flex-row gap-3 p-4 md:p-5 border-t border-border bg-background/60">
           <Button type="button" variant="outline" fullWidth onClick={onClose}>
             Cancel
           </Button>

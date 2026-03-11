@@ -4,6 +4,15 @@ import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { uploadToCloudinary } from "../../../../../utils/cloudinary";
 
+const inputClassName =
+  "h-10 w-full rounded-xl border border-slate-300/90 bg-white px-3 text-sm text-foreground shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70 dark:placeholder:text-slate-500";
+
+const textAreaClassName =
+  "w-full rounded-xl border border-slate-300/90 bg-white px-3 py-2 text-sm text-foreground shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70 dark:placeholder:text-slate-500";
+
+const selectClassName =
+  "h-10 w-full appearance-none rounded-xl border border-slate-300/90 bg-white px-3 pr-10 text-sm text-foreground shadow-sm outline-none transition focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70";
+
 // Helper component to handle date input formatting
 // Converts incoming value (DayJS, Date, timestamp, string) to yyyy-MM-dd
 // Returns yyyy-MM-dd string on change
@@ -11,18 +20,18 @@ const DateInput = ({ value, onChange, ...props }) => {
   const formattedValue = React.useMemo(() => {
     if (!value) return "";
     try {
-        // If it's a DayJS object (has format function)
-        if (value && typeof value.format === 'function') {
-            return value.format('YYYY-MM-DD');
-        }
-        // If it's a string or number (timestamp)
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
-        }
+      // If it's a DayJS object (has format function)
+      if (value && typeof value.format === "function") {
+        return value.format("YYYY-MM-DD");
+      }
+      // If it's a string or number (timestamp)
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split("T")[0];
+      }
     } catch (e) {
-        console.warn("Date parsing error", e);
-        return "";
+      console.warn("Date parsing error", e);
+      return "";
     }
     return "";
   }, [value]);
@@ -36,7 +45,7 @@ const DateInput = ({ value, onChange, ...props }) => {
       />
       <input
         type="date"
-        className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
+        className="h-10 w-full rounded-xl border border-slate-300/90 bg-white pl-9 pr-3 text-sm text-foreground shadow-sm outline-none transition focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70"
         value={formattedValue}
         onChange={(e) => onChange?.(e.target.value)}
         {...props}
@@ -45,12 +54,163 @@ const DateInput = ({ value, onChange, ...props }) => {
   );
 };
 
+const nextStorageNumber = () => {
+  const key = "loan_rc_inv_storage_sequence";
+  const current = Number(localStorage.getItem(key) || 4099);
+  const next = current >= 4100 ? current + 1 : 4100;
+  localStorage.setItem(key, String(next));
+  return String(next);
+};
+
+const POLICY_DURATION_OPTIONS = [
+  { value: "1", label: "1yr OD + 3yr TP" },
+  { value: "2", label: "2yr OD + 3yr TP" },
+  { value: "3", label: "3yr OD + 3yr TP" },
+];
+
+const addYearsToIsoDate = (dateString, yearsToAdd) => {
+  if (!dateString || !yearsToAdd) return "";
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const nextDate = new Date(date);
+  nextDate.setFullYear(nextDate.getFullYear() + Number(yearsToAdd));
+  nextDate.setDate(nextDate.getDate() - 1);
+
+  if (Number.isNaN(nextDate.getTime())) return "";
+  return nextDate.toISOString().split("T")[0];
+};
+
+const DeliverySection = ({ id, icon, iconTone, title, aside, children }) => (
+  <section
+    id={id}
+    className="rounded-[24px] border border-border/70 bg-card p-4 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.16)] dark:bg-black/20 md:p-6"
+  >
+    <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-center gap-3">
+        <div
+          className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconTone}`}
+        >
+          <Icon name={icon} size={17} />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold tracking-tight text-foreground md:text-lg">
+            {title}
+          </h2>
+        </div>
+      </div>
+      {aside}
+    </div>
+    {children}
+  </section>
+);
+
+const SelectField = ({
+  value,
+  onChange,
+  children,
+  className = "",
+  ...props
+}) => (
+  <div className="relative">
+    <select
+      value={value}
+      onChange={onChange}
+      className={`${selectClassName} ${className}`}
+      {...props}
+    >
+      {children}
+    </select>
+    <Icon
+      name="ChevronDown"
+      size={16}
+      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+    />
+  </div>
+);
+
+const UploadField = ({
+  id,
+  label,
+  file,
+  uploading,
+  onChange,
+  onView,
+  onRemove,
+}) => (
+  <div>
+    <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+    {!file ? (
+      <label
+        htmlFor={id}
+        className={`flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 text-sm transition-all ${
+          uploading
+            ? "cursor-not-allowed border-slate-300/60 bg-slate-100/60 opacity-60 dark:border-slate-700 dark:bg-slate-900/50"
+            : "cursor-pointer border-slate-300/80 bg-white hover:border-sky-300 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-950/70 dark:hover:bg-slate-900"
+        }`}
+      >
+        <input
+          type="file"
+          id={id}
+          style={{ display: "none" }}
+          accept="image/*,.pdf"
+          onChange={onChange}
+          disabled={uploading}
+        />
+        {uploading ? (
+          <>
+            <Spin size="small" />
+            <span className="text-muted-foreground">Uploading...</span>
+          </>
+        ) : (
+          <>
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              <Icon name="Upload" size={14} />
+            </span>
+            <span className="font-medium text-slate-600 dark:text-slate-300">
+              Upload File
+            </span>
+          </>
+        )}
+      </label>
+    ) : (
+      <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex max-w-[180px] items-center gap-1.5 truncate rounded-xl bg-white px-3 py-2 text-sm font-medium text-foreground shadow-sm dark:bg-slate-950/70">
+            <Icon
+              name="FileText"
+              size={14}
+              className="text-sky-600 dark:text-sky-300"
+            />
+            {file.name}
+          </span>
+          <button
+            type="button"
+            onClick={onView}
+            className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 transition hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-500/10 dark:text-sky-200"
+          >
+            View
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+);
+
 /**
  * VEHICLE DELIVERY STEP COMPONENT
- * 
+ *
  * PURPOSE:
  * Manages vehicle delivery details including invoice, RC, and insurance information
- * 
+ *
  * BACKEND INTEGRATION:
  * - Data Source/Update: Loan model
  * - Fields Managed:
@@ -69,7 +229,7 @@ const VehicleDeliveryStep = ({ form }) => {
   const [rcFile, setRcFile] = useState(null);
   const [viewInvoice, setViewInvoice] = useState(false);
   const [viewRc, setViewRc] = useState(false);
-  
+
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [uploadingRc, setUploadingRc] = useState(false);
 
@@ -80,18 +240,33 @@ const VehicleDeliveryStep = ({ form }) => {
   const approvalBankName =
     Form.useWatch("approval_bankName", form) ||
     form.getFieldValue("approval_bankName");
+  const rcInvStorageNumber =
+    Form.useWatch("rc_inv_storage_number", form) ||
+    form.getFieldValue("rc_inv_storage_number");
+  const insuranceBy =
+    Form.useWatch("insurance_by", form) || form.getFieldValue("insurance_by");
+  const loanIdValue = Form.useWatch("loanId", form);
+  const loanNumber = Form.useWatch("loan_number", form);
+  const createdAt = Form.useWatch("createdAt", form);
+  const insuranceStartDate = Form.useWatch("insurance_policy_start_date", form);
+  const insurancePolicyDuration = Form.useWatch(
+    "insurance_policy_duration_od",
+    form,
+  );
 
   const isNewCar = loanType === "New Car";
-  const isRefinance = loanType === "Refinance";
-  const isCarCashIn = loanType === "Car Cash-in";
   const showHypothecation = isFinanced === "Yes";
 
   // Pre-fill dealer details from vehicle verification
   useEffect(() => {
-    const dealerName = form.getFieldValue("dealerName");
-    const dealerContactPerson = form.getFieldValue("dealerContactPerson");
-    const dealerContactNumber = form.getFieldValue("dealerContactNumber");
-    const dealerAddress = form.getFieldValue("dealerAddress");
+    const dealerName = form.getFieldValue("showroomDealerName");
+    const dealerContactPerson = form.getFieldValue(
+      "showroomDealerContactPerson",
+    );
+    const dealerContactNumber = form.getFieldValue(
+      "showroomDealerContactNumber",
+    );
+    const dealerAddress = form.getFieldValue("showroomDealerAddress");
 
     // Only set if delivery fields are empty
     if (dealerName && !form.getFieldValue("delivery_dealerName")) {
@@ -104,24 +279,39 @@ const VehicleDeliveryStep = ({ form }) => {
     }
   }, [form]);
 
-  // Initialize Insurance by default to "Autocredits India LLP"
+  // Initialize defaults only for genuinely new loans.
   useEffect(() => {
-    const alreadyInitialized = form.getFieldValue("__deliveryInitialized");
-    if (alreadyInitialized) return;
+    const isEditRoute =
+      typeof window !== "undefined" &&
+      /\/loans\/edit\//.test(window.location.pathname);
+    const isExistingLoan = Boolean(loanIdValue || loanNumber || createdAt);
+    const patch = {};
 
-    form.setFieldsValue({
-      insurance_by: "Autocredits India LLP",
-      __deliveryInitialized: true,
-    });
-  }, [form]);
+    if (!form.getFieldValue("insurance_by")) {
+      patch.insurance_by = "Autocredits India LLP";
+    }
+    if (
+      !isEditRoute &&
+      !isExistingLoan &&
+      !form.getFieldValue("rc_inv_storage_number")
+    ) {
+      patch.rc_inv_storage_number = nextStorageNumber();
+    }
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  }, [form, loanIdValue, loanNumber, createdAt]);
 
   // Sync local file state to the form (URL String only)
   useEffect(() => {
     if (invoiceFile !== undefined) {
-        form.setFieldValue("delivery_invoiceFile", invoiceFile ? invoiceFile.url : null);
+      form.setFieldValue(
+        "delivery_invoiceFile",
+        invoiceFile ? invoiceFile.url : null,
+      );
     }
     if (rcFile !== undefined) {
-        form.setFieldValue("delivery_rcFile", rcFile ? rcFile.url : null);
+      form.setFieldValue("delivery_rcFile", rcFile ? rcFile.url : null);
     }
   }, [invoiceFile, rcFile, form]);
 
@@ -134,13 +324,13 @@ const VehicleDeliveryStep = ({ form }) => {
 
     const initialInvoice = form.getFieldValue("delivery_invoiceFile");
     const initialRc = form.getFieldValue("delivery_rcFile");
-    
+
     // Helper to safely parse initial value
     const parseInitialFile = (val) => {
       if (!val) return null;
-      if (typeof val === 'string') {
+      if (typeof val === "string") {
         // It's a URL string from DB
-        const name = val.split('/').pop() || "Document";
+        const name = val.split("/").pop() || "Document";
         return { name: name, size: "", url: val };
       }
       // It's an object (maybe from draft)
@@ -149,9 +339,25 @@ const VehicleDeliveryStep = ({ form }) => {
 
     if (initialInvoice) setInvoiceFile(parseInitialFile(initialInvoice));
     if (initialRc) setRcFile(parseInitialFile(initialRc));
-    
+
     initializedFiles.current = true;
   }, [form]);
+
+  useEffect(() => {
+    const calculatedOdEndDate = addYearsToIsoDate(
+      insuranceStartDate,
+      insurancePolicyDuration,
+    );
+
+    if (
+      form.getFieldValue("insurance_policy_end_date_od") !== calculatedOdEndDate
+    ) {
+      form.setFieldValue(
+        "insurance_policy_end_date_od",
+        calculatedOdEndDate || "",
+      );
+    }
+  }, [form, insurancePolicyDuration, insuranceStartDate]);
 
   const formatFileSize = (bytes) => {
     if (!bytes && bytes !== 0) return "";
@@ -168,7 +374,7 @@ const VehicleDeliveryStep = ({ form }) => {
       try {
         setUploadingInvoice(true);
         const data = await uploadToCloudinary(file);
-        
+
         setInvoiceFile({
           name: file.name,
           size: formatFileSize(file.size),
@@ -190,7 +396,7 @@ const VehicleDeliveryStep = ({ form }) => {
       try {
         setUploadingRc(true);
         const data = await uploadToCloudinary(file);
-        
+
         setRcFile({
           name: file.name,
           size: formatFileSize(file.size),
@@ -206,345 +412,295 @@ const VehicleDeliveryStep = ({ form }) => {
     }
   };
 
-  // Show message if Refinance or Car Cash-in
-  if (isRefinance || isCarCashIn) {
-    return (
-      <div className="bg-card rounded-lg shadow-elevation-2 border border-border/60 p-8 text-center">
-        <Icon
-          name="AlertCircle"
-          size={48}
-          className="text-amber-500 mx-auto mb-4"
-        />
-        <p className="text-base font-medium text-foreground">
-          Vehicle Delivery module is disabled for {loanType} loans
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          This section is only applicable for New Car and Used Car loans
-        </p>
-      </div>
-    );
-  }
-
-  // Show message if not New Car
-  if (!isNewCar) {
-    return (
-      <div className="bg-card rounded-lg shadow-elevation-2 border border-border/60 p-8 text-center">
-        <Icon
-          name="Info"
-          size={48}
-          className="text-muted-foreground mx-auto mb-4"
-        />
-        <p className="text-base font-medium text-foreground">
-          Vehicle Delivery section is only applicable for New Car loans
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Current loan type: {loanType || "Not selected"}
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Delivery Details Section */}
-      <div className="bg-card rounded-lg shadow-elevation-2 border border-border/60 p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-4 md:mb-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20 flex items-center justify-center">
-            <Icon name="Truck" size={22} className="text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              Delivery Details
-            </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Vehicle delivery information
-            </p>
-          </div>
-        </div>
+      {isNewCar && (
+        <DeliverySection
+          id="delivery-details"
+          icon="Truck"
+          iconTone="bg-sky-100 text-sky-700 dark:bg-sky-900/60 dark:text-sky-200"
+          title="Delivery Details"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+              <Form.Item
+                label="Delivery Date"
+                name="delivery_date"
+                className="mb-0"
+                getValueProps={(val) => ({ value: val })}
+              >
+                <DateInput />
+              </Form.Item>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Form.Item
-              label="Delivery Date"
-              name="delivery_date"
-              className="mb-0"
-              getValueProps={(val) => ({ value: val })} 
-            >
-               <DateInput />
-            </Form.Item>
+              <Form.Item
+                label="Dealer Name"
+                name="delivery_dealerName"
+                className="mb-0"
+              >
+                <input type="text" className={inputClassName} />
+              </Form.Item>
 
-            <Form.Item
-              label="Dealer Name"
-              name="delivery_dealerName"
-              className="mb-0"
-            >
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
-            </Form.Item>
+              <Form.Item
+                label="Contact Person"
+                name="delivery_dealerContactPerson"
+                className="mb-0"
+              >
+                <input type="text" className={inputClassName} />
+              </Form.Item>
 
-            <Form.Item
-              label="Contact Person"
-              name="delivery_dealerContactPerson"
-              className="mb-0"
-            >
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
-            </Form.Item>
+              <Form.Item
+                label="Contact Number"
+                name="delivery_dealerContactNumber"
+                className="mb-0"
+              >
+                <input type="text" className={inputClassName} />
+              </Form.Item>
+            </div>
 
-            <Form.Item
-              label="Contact Number"
-              name="delivery_dealerContactNumber"
-              className="mb-0"
-            >
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              />
-            </Form.Item>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Form.Item
+                label="Dealer Address"
+                name="delivery_dealerAddress"
+                className="mb-0"
+              >
+                <textarea className={textAreaClassName} rows={2} />
+              </Form.Item>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
-              label="Dealer Address"
-              name="delivery_dealerAddress"
-              className="mb-0"
-            >
-              <textarea
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                rows={2}
-              />
-            </Form.Item>
-
-            <Form.Item label="Delivery By" name="delivery_by" className="mb-0">
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                placeholder="e.g., Showroom Staff"
-              />
-            </Form.Item>
-          </div>
-        </div>
-      </div>
-
-      {/* Insurance Details Section */}
-      <div className="bg-card rounded-lg shadow-elevation-2 border border-border/60 p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-4 md:mb-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/20 flex items-center justify-center">
-            <Icon name="Shield" size={22} className="text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              Insurance Details
-            </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Vehicle insurance information
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Form.Item label="Insurance By" name="insurance_by" className="mb-0">
-            <select className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background">
-              <option value="">Select</option>
-              <option value="Autocredits India LLP">
-                Autocredits India LLP
-              </option>
-              <option value="Customer">Customer</option>
-              <option value="Showroom">Showroom</option>
-              <option value="Broker">Broker</option>
-            </select>
-          </Form.Item>
-
-          <Form.Item
-            label="Insurance Company Name"
-            name="insurance_company_name"
-            className="mb-0"
-          >
-            <input
-              type="text"
-              className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              placeholder="e.g., HDFC ERGO"
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="Policy Number"
-            name="insurance_policy_number"
-            className="mb-0"
-          >
-            <input
-              type="text"
-              className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-              placeholder="e.g., POL123456"
-            />
-          </Form.Item>
-        </div>
-      </div>
-
-      {/* Invoice Details Section */}
-      <div className="bg-card rounded-lg shadow-elevation-2 border border-border/60 p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-4 md:mb-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/20 flex items-center justify-center">
-            <Icon name="FileText" size={22} className="text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              Invoice Details
-            </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Vehicle invoice information
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Form.Item
-              label="Invoice Number"
-              name="invoice_number"
-              className="mb-0"
-            >
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                placeholder="e.g., INV-2025-001"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="Invoice Date"
-              name="invoice_date"
-              className="mb-0"
-              getValueProps={(val) => ({ value: val })}
-            >
-               <DateInput />
-            </Form.Item>
-
-            <Form.Item
-              label="Received As"
-              name="invoice_received_as"
-              className="mb-0"
-            >
-              <select className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background">
-                <option value="">Select</option>
-                <option value="Original">Original</option>
-                <option value="Photocopy">Photocopy</option>
-              </select>
-            </Form.Item>
-
-            <Form.Item
-              label="Received From"
-              name="invoice_received_from"
-              className="mb-0"
-            >
-              <input
-                type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
-                placeholder="e.g., Dealer"
-              />
-            </Form.Item>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Form.Item
-              label="Received Date"
-              name="invoice_received_date"
-              className="mb-0"
-              getValueProps={(val) => ({ value: val })}
-            >
-               <DateInput />
-            </Form.Item>
-
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Upload Invoice
-              </label>
-              {!invoiceFile ? (
-                <label
-                  htmlFor="invoiceUpload"
-                  className={`w-full h-10 inline-flex items-center justify-center gap-2 px-4 border-2 border-dashed border-border/60 rounded-lg text-sm transition-all group ${uploadingInvoice ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-primary/60 hover:bg-primary/5'}`}
-                >
-                  <input
-                    type="file"
-                    id="invoiceUpload"
-                    style={{ display: "none" }}
-                    accept="image/*,.pdf"
-                    onChange={handleInvoiceUpload}
-                    disabled={uploadingInvoice}
-                  />
-                  {uploadingInvoice ? (
-                    <>
-                      <Spin size="small" />
-                      <span className="text-muted-foreground">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="bg-primary/10 p-1 rounded-md group-hover:bg-primary/20 transition-colors">
-                        <Icon name="Upload" size={14} className="text-primary" />
-                      </div>
-                      <span className="text-muted-foreground group-hover:text-primary font-medium">Upload File</span>
-                    </>
-                  )}
-                </label>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-md text-sm border border-primary/20 max-w-[120px] truncate">
-                    <Icon name="Tag" size={14} />
-                    {invoiceFile.name}
-                  </span>
-                  <button
-                    onClick={() => setViewInvoice(true)}
-                    className="px-3 py-1.5 border border-border rounded-md text-sm hover:bg-muted"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => setInvoiceFile(null)}
-                    className="px-3 py-1.5 border border-error/20 text-error rounded-md text-sm hover:bg-error/10"
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
+              <Form.Item
+                label="Delivery By"
+                name="delivery_by"
+                className="mb-0"
+              >
+                <input
+                  type="text"
+                  className={inputClassName}
+                  placeholder="e.g., Showroom Staff"
+                />
+              </Form.Item>
             </div>
           </div>
-        </div>
-      </div>
+        </DeliverySection>
+      )}
+
+      {/* Insurance Details Section */}
+      {isNewCar && (
+        <DeliverySection
+          id="delivery-insurance"
+          icon="Shield"
+          iconTone="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-200"
+          title="Insurance Details"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <Form.Item
+                label="Insurance By"
+                name="insurance_by"
+                className="mb-0"
+              >
+                <SelectField
+                  value={insuranceBy}
+                  onChange={(e) =>
+                    form.setFieldValue("insurance_by", e.target.value)
+                  }
+                >
+                  <option value="">Select</option>
+                  <option value="Autocredits India LLP">
+                    Autocredits India LLP
+                  </option>
+                  <option value="Customer">Customer</option>
+                  <option value="Showroom">Showroom</option>
+                  <option value="Broker">Broker</option>
+                </SelectField>
+              </Form.Item>
+
+              <Form.Item
+                label="Insurance Company Name"
+                name="insurance_company_name"
+                className="mb-0"
+              >
+                <input
+                  type="text"
+                  className={inputClassName}
+                  placeholder="e.g., HDFC ERGO"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Policy Number"
+                name="insurance_policy_number"
+                className="mb-0"
+              >
+                <input
+                  type="text"
+                  className={inputClassName}
+                  placeholder="e.g., POL123456"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Policy Start Date"
+                name="insurance_policy_start_date"
+                className="mb-0"
+                getValueProps={(val) => ({ value: val })}
+              >
+                <DateInput />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <Form.Item
+                label="Policy Duration"
+                name="insurance_policy_duration_od"
+                className="mb-0"
+              >
+                <SelectField>
+                  <option value="">Select duration</option>
+                  {POLICY_DURATION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </SelectField>
+              </Form.Item>
+
+              <Form.Item
+                label="Policy End Date (OD)"
+                name="insurance_policy_end_date_od"
+                className="mb-0"
+                getValueProps={(val) => ({ value: val })}
+              >
+                <DateInput disabled />
+              </Form.Item>
+            </div>
+          </div>
+        </DeliverySection>
+      )}
+
+      {/* Invoice Details Section */}
+      {isNewCar && (
+        <DeliverySection
+          id="delivery-invoice"
+          icon="FileText"
+          iconTone="bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-200"
+          title="Invoice Details"
+          aside={
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200">
+              RC/INV Storage Number: {rcInvStorageNumber || "-"}
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Form.Item
+                label="Invoice Number"
+                name="invoice_number"
+                className="mb-0"
+              >
+                <input
+                  type="text"
+                  className={inputClassName}
+                  placeholder="e.g., INV-2025-001"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Invoice Date"
+                name="invoice_date"
+                className="mb-0"
+                getValueProps={(val) => ({ value: val })}
+              >
+                <DateInput />
+              </Form.Item>
+
+              <Form.Item
+                label="Received As"
+                name="invoice_received_as"
+                className="mb-0"
+              >
+                <SelectField>
+                  <option value="">Select</option>
+                  <option value="Original">Original</option>
+                  <option value="Photocopy">Photocopy</option>
+                </SelectField>
+              </Form.Item>
+
+              <Form.Item
+                label="Received From"
+                name="invoice_received_from"
+                className="mb-0"
+              >
+                <input
+                  type="text"
+                  className={inputClassName}
+                  placeholder="e.g., Dealer"
+                />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Form.Item
+                label="Received Date"
+                name="invoice_received_date"
+                className="mb-0"
+                getValueProps={(val) => ({ value: val })}
+              >
+                <DateInput />
+              </Form.Item>
+
+              <UploadField
+                id="invoiceUpload"
+                label="Upload Invoice"
+                file={invoiceFile}
+                uploading={uploadingInvoice}
+                onChange={handleInvoiceUpload}
+                onView={() => setViewInvoice(true)}
+                onRemove={() => setInvoiceFile(null)}
+              />
+            </div>
+          </div>
+        </DeliverySection>
+      )}
 
       {/* RC Details Section */}
-      <div className="bg-card rounded-lg shadow-elevation-2 border border-border/60 p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-4 md:mb-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 shadow-lg shadow-violet-500/20 flex items-center justify-center">
-            <Icon name="CreditCard" size={22} className="text-white" />
+      <DeliverySection
+        id="delivery-rc"
+        icon="CreditCard"
+        iconTone="bg-violet-100 text-violet-700 dark:bg-violet-900/60 dark:text-violet-200"
+        title="RC Details"
+        aside={
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200">
+            RC/INV Storage Number: {rcInvStorageNumber || "-"}
           </div>
-          <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              RC Details
-            </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Registration certificate information
-            </p>
-          </div>
-        </div>
-
+        }
+      >
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Form.Item label="Regd No" name="rc_redg_no" className="mb-0">
               <input
                 type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                className={inputClassName}
                 placeholder="e.g., DL01AB1234"
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="Year of Manufacture"
+              name="yearOfManufacture"
+              className="mb-0"
+            >
+              <input
+                type="text"
+                maxLength={4}
+                className={inputClassName}
+                placeholder="e.g., 2026"
               />
             </Form.Item>
 
             <Form.Item label="Chassis No" name="rc_chassis_no" className="mb-0">
               <input
                 type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                className={inputClassName}
                 placeholder="e.g., MA3EXXXX"
               />
             </Form.Item>
@@ -552,39 +708,30 @@ const VehicleDeliveryStep = ({ form }) => {
             <Form.Item label="Engine No" name="rc_engine_no" className="mb-0">
               <input
                 type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                className={inputClassName}
                 placeholder="e.g., K15BXXXX"
               />
             </Form.Item>
 
-            <Form.Item label="Regd Date" name="rc_redg_date" className="mb-0" getValueProps={(val) => ({ value: val })}>
+            <Form.Item
+              label="Regd Date"
+              name="rc_redg_date"
+              className="mb-0"
+              getValueProps={(val) => ({ value: val })}
+            >
               <DateInput />
             </Form.Item>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {showHypothecation && (
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">
-                  Hypothecation
-                </label>
-                <div className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/40 flex items-center gap-2">
-                  <Icon name="Building2" size={14} className="text-primary" />
-                  <span className="font-medium">{approvalBankName || "-"}</span>
-                </div>
-              </div>
-            )}
 
             <Form.Item
               label="Received As"
               name="rc_received_as"
               className="mb-0"
             >
-              <select className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background">
+              <SelectField>
                 <option value="">Select</option>
                 <option value="Original">Original</option>
                 <option value="Photocopy">Photocopy</option>
-              </select>
+              </SelectField>
             </Form.Item>
 
             <Form.Item
@@ -594,7 +741,7 @@ const VehicleDeliveryStep = ({ form }) => {
             >
               <input
                 type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                className={inputClassName}
                 placeholder="e.g., RTO Office"
               />
             </Form.Item>
@@ -605,66 +752,37 @@ const VehicleDeliveryStep = ({ form }) => {
               className="mb-0"
               getValueProps={(val) => ({ value: val })}
             >
-               <DateInput />
+              <DateInput />
             </Form.Item>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Upload RC
-              </label>
-              {!rcFile ? (
-                <label
-                  htmlFor="rcUpload"
-                  className={`w-full h-10 inline-flex items-center justify-center gap-2 px-4 border-2 border-dashed border-border/60 rounded-lg text-sm transition-all group ${uploadingRc ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-primary/60 hover:bg-primary/5'}`}
-                >
-                  <input
-                    type="file"
-                    id="rcUpload"
-                    style={{ display: "none" }}
-                    accept="image/*,.pdf"
-                    onChange={handleRcUpload}
-                    disabled={uploadingRc}
-                  />
-                  {uploadingRc ? (
-                    <>
-                      <Spin size="small" />
-                      <span className="text-muted-foreground">Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="bg-primary/10 p-1 rounded-md group-hover:bg-primary/20 transition-colors">
-                        <Icon name="Upload" size={14} className="text-primary" />
-                      </div>
-                      <span className="text-muted-foreground group-hover:text-primary font-medium">Upload File</span>
-                    </>
-                  )}
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 ${showHypothecation ? "xl:grid-cols-4" : "xl:grid-cols-3"} gap-4`}
+          >
+            {showHypothecation && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">
+                  Hypothecation
                 </label>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-md text-sm border border-primary/20 max-w-[120px] truncate">
-                    <Icon name="Tag" size={14} />
-                    {rcFile.name}
-                  </span>
-                  <button
-                    onClick={() => setViewRc(true)}
-                    className="px-3 py-1.5 border border-border rounded-md text-sm hover:bg-muted"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => setRcFile(null)}
-                    className="px-3 py-1.5 border border-error/20 text-error rounded-md text-sm hover:bg-error/10"
-                  >
-                    Remove
-                  </button>
+                <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm dark:border-slate-800 dark:bg-slate-900/60">
+                  <Icon name="Building2" size={14} className="text-primary" />
+                  <span className="font-medium">{approvalBankName || "-"}</span>
                 </div>
-              )}
-            </div>  
+              </div>
+            )}
+
+            <UploadField
+              id="rcUpload"
+              label="Upload RC"
+              file={rcFile}
+              uploading={uploadingRc}
+              onChange={handleRcUpload}
+              onView={() => setViewRc(true)}
+              onRemove={() => setRcFile(null)}
+            />
           </div>
         </div>
-      </div>
+      </DeliverySection>
 
       {/* Invoice Viewer Modal */}
       {viewInvoice && invoiceFile && (

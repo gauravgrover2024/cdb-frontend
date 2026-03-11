@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-03-07T08:41:39.326Z",
+  "loanFormMissingInBackend": [
+    {
+      "field": "bulk_next_action",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "bulk_priority",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "bulk_remarks",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "coApplicant_name",
+      "sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ]
+    },
+    {
+      "field": "collection_last_followup",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "collection_next_action",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "collection_remarks",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "completedDate",
+      "sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ]
+    },
+    {
+      "field": "createdAt",
+      "sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx",
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ]
+    },
+    {
+      "field": "guarantor_name",
+      "sourceFiles": [
+        "src/modules/loans/components/LoanStickyHeader.jsx"
+      ]
+    },
+    {
+      "field": "NEW",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx"
+      ]
+    },
+    {
+      "field": "payment_amount",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "payment_date",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "payment_remarks",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "postFileStatus",
+      "sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ]
+    },
+    {
+      "field": "received_date",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "total_amount_received",
+      "sourceFiles": [
+        "src/modules/loans/components/loan-form/payout/PayoutReceivablesDashboard.jsx"
+      ]
+    },
+    {
+      "field": "updatedAt",
+      "sourceFiles": [
+        "src/modules/loans/components/LoanFormWithSteps.jsx"
+      ]
+    }
+  ],
+  "loanFormMissingCount": 18,
+  "customerFormMissingInBackend": [],
+  "customerFormMissingCount": 0,
+  "vehicleFieldPages": [
+    {
+      "file": "src/modules/loans/components/loan-form/customer-profile/VehicleDetailsForm.jsx",
+      "usesUseVehicleData": true
+    },
+    {
+      "file": "src/modules/loans/components/loan-form/post-file/PostFileVehicleVerification.jsx",
+      "usesUseVehicleData": true
+    },
+    {
+      "file": "src/modules/loans/components/loan-form/pre-file/VehiclePricingLoanDetails.jsx",
+      "usesUseVehicleData": true
+    },
+    {
+      "file": "src/modules/payments/components/bookings/NewCarBookingForm.jsx",
+      "usesUseVehicleData": true
+    },
+    {
+      "file": "src/modules/payments/pages/NewBookingPage.jsx",
+      "usesUseVehicleData": true
+    }
+  ]
+}

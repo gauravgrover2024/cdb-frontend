@@ -52,6 +52,13 @@ const ADDRESS_TYPE_OPTIONS = [
 const asDayjs = (value) => {
   if (!value) return null;
   if (dayjs.isDayjs(value)) return value;
+  if (typeof value === "object") {
+    const mongoDate = value?.$date || value?.date || value?.value;
+    if (mongoDate) {
+      const md = dayjs(mongoDate);
+      return md.isValid() ? md : null;
+    }
+  }
   const parsed = dayjs(value);
   return parsed.isValid() ? parsed : null;
 };
@@ -194,7 +201,7 @@ const PersonalDetailsPreFile = () => {
 
   return (
     <div style={{ background: "var(--card)", padding: 20, borderRadius: 12, border: "2px solid var(--border)", marginBottom: 24 }}>
-      <Space style={{ marginBottom: 20 }}>
+      <Space className="section-header" style={{ marginBottom: 20 }}>
         <IdcardOutlined style={{ color: "#722ed1" }} />
         <span style={{ fontWeight: 600, fontSize: 15 }}>
           {isCompany ? "Company Details" : "Personal Details"}

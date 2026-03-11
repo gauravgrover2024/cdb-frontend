@@ -1,0 +1,1221 @@
+{
+  "totalLoans": 200,
+  "suspects": 135,
+  "sample": [
+    {
+      "loanId": "LN-2026-1476",
+      "temp": "3000004237",
+      "customer": "SANJAY SUKHIJA",
+      "make": "Mahindra",
+      "model": "TUV300 Plus",
+      "variant": "P8 2018",
+      "legacy": "TUV 300 PLUS P8 2018 TUV 300 PLUS P8 2018"
+    },
+    {
+      "loanId": "LN-2026-1474",
+      "temp": "3000004250",
+      "customer": "SHEIKH MANZOOR AHMED (CAR DEKHO)",
+      "make": "Mercedes Benz",
+      "model": "E Class",
+      "variant": "E 220d",
+      "legacy": "MERC E 220 D 2018 MERC E 220 D 2018"
+    },
+    {
+      "loanId": "LN-2026-1469",
+      "temp": "0000013921",
+      "customer": "BANKE BIHARI POLYMERS",
+      "make": "Mercedes Benz",
+      "model": "Amg S 63",
+      "variant": "Mercedes-Benz AMG S 63 E Performance Edition 1",
+      "legacy": "CITY 1.5 I-VTEC S MT CITY I VTEC SV MT"
+    },
+    {
+      "loanId": "LN-2026-1468",
+      "temp": "0000013920",
+      "customer": "YAD RAM",
+      "make": "Mahindra",
+      "model": "Scorpio N",
+      "variant": "Scorpio N Z2 E",
+      "legacy": "SCORPIO VLX AIRBAG SCORPIO VLX AIRBAG"
+    },
+    {
+      "loanId": "LN-2026-1467",
+      "temp": "0000013918",
+      "customer": "ANITA TISHWAR",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "CITY I-DTEC SV MT 1.5 CITY I-DTEC SV MT 1.5"
+    },
+    {
+      "loanId": "LN-2026-1466",
+      "temp": "0000013917",
+      "customer": "NISHA JAIN",
+      "make": "Mercedes Benz",
+      "model": "Amg S 63",
+      "variant": "Mercedes-Benz AMG S 63 E Performance Edition 1",
+      "legacy": "CITY 1.5 I-VTEC S MT 2009 CITY 1.5 I-VTEC S MT 2009"
+    },
+    {
+      "loanId": "LN-2026-1464",
+      "temp": "0000013915",
+      "customer": "PANKAJ KHANKRIYAL",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.0 Comfortline",
+      "legacy": "SPARK 1.0 LS 2010 SPARK 1.0 LS 2010"
+    },
+    {
+      "loanId": "LN-2026-1463",
+      "temp": "0000013914",
+      "customer": "GAURAV BANSAL",
+      "make": "Hyundai",
+      "model": "Creta Electric",
+      "variant": "Creta Electric Smart (O)",
+      "legacy": "CIAZ ZDI (O) DSL CIAZ ZDI (O) DSL"
+    },
+    {
+      "loanId": "LN-2026-1462",
+      "temp": "0000013913",
+      "customer": "MANOJ VERMA",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "CITY I VTEC VX MT 1.5 CITY I VTEC VX MT 1.5"
+    },
+    {
+      "loanId": "LN-2026-1461",
+      "temp": "0000013912",
+      "customer": "SWETA GOYAT",
+      "make": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "Grand i10 Nios Magna",
+      "legacy": "I-10 GRAND MAGNA (P) SANTRO GLS WITH AUDIO"
+    },
+    {
+      "loanId": "LN-2026-1460",
+      "temp": "0000013910",
+      "customer": "GEETESH TOUR AND TRAVELS PRIVATE LIMITED",
+      "make": "Maruti",
+      "model": "Dzire Tour S",
+      "variant": "Dzire Tour S STD",
+      "legacy": "DZIRE LDI DZIRE LDI"
+    },
+    {
+      "loanId": "LN-2026-1459",
+      "temp": "0000013910",
+      "customer": "GEETESH TOUR AND TRAVELS PRIVATE LIMITED",
+      "make": "Maruti",
+      "model": "Dzire Tour S",
+      "variant": "Dzire Tour S STD",
+      "legacy": "DZIRE LDI DZIRE LDI"
+    },
+    {
+      "loanId": "LN-2026-1458",
+      "temp": "0000013910",
+      "customer": "GEETESH TOUR AND TRAVELS PRIVATE LIMITED",
+      "make": "",
+      "model": "f",
+      "variant": "Standard",
+      "legacy": "DZIRE LDI DZIRE LDI"
+    },
+    {
+      "loanId": "LN-2026-1457",
+      "temp": "0000013910",
+      "customer": "GEETESH TOUR AND TRAVELS PRIVATE LIMITED",
+      "make": "",
+      "model": "f",
+      "variant": "Standard",
+      "legacy": "DZIRE LDI DZIRE LDI"
+    },
+    {
+      "loanId": "LN-2026-1456",
+      "temp": "0000013910",
+      "customer": "GEETESH TOUR AND TRAVELS PRIVATE LIMITED",
+      "make": "",
+      "model": "f",
+      "variant": "Standard",
+      "legacy": "DZIRE LDI DZIRE LDI"
+    },
+    {
+      "loanId": "LN-2026-1455",
+      "temp": "0000013904",
+      "customer": "KALPANA KALIA",
+      "make": "Toyota",
+      "model": "Camry",
+      "variant": "Camry Elegance",
+      "legacy": "RAPID ELEGANCE TDI RAPID ELEGANCE TDI"
+    },
+    {
+      "loanId": "LN-2026-1454",
+      "temp": "0000013902",
+      "customer": "RINKU AGGARWAL",
+      "make": "Mercedes Benz",
+      "model": "Amg E 53 Cabriolet",
+      "variant": "Mercedes-Benz AMG E 53 Cabriolet 4MATIC Plus",
+      "legacy": "SANTRO GL PLUS 2014 SANTRO GL PLUS 2014"
+    },
+    {
+      "loanId": "LN-2026-1453",
+      "temp": "0000013901",
+      "customer": "LALIT SUKHIJA",
+      "make": "Land Rover",
+      "model": "Range Rover Velar",
+      "variant": "Range Rover Velar 2.0 l Petrol Autobiography",
+      "legacy": "I-20 ELITE ASTA PETROL I-20 ELITE ASTA PETROL"
+    },
+    {
+      "loanId": "LN-2026-1452",
+      "temp": "0000013900",
+      "customer": "NITIN JAIN",
+      "make": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "Grand i10 Nios Magna CNG",
+      "legacy": "SANTRO GL + CNG 2011 SANTRO GL + CNG 2011"
+    },
+    {
+      "loanId": "LN-2026-1451",
+      "temp": "0000013899",
+      "customer": "MUSKAN SILVER ARTS PRIVATE LIMITED",
+      "make": "Toyota",
+      "model": "Innova Hycross",
+      "variant": "Innova Hycross GX (O) 8STR",
+      "legacy": "INNOVA Z 7-S (O) DSL INNOVA Z 7-S (O) DSL"
+    },
+    {
+      "loanId": "LN-2026-1450",
+      "temp": "0000013898",
+      "customer": "ABHISHEK KUMAR GUPTA",
+      "make": "Mercedes Benz",
+      "model": "G Class Electric",
+      "variant": "Mercedes-Benz G-Class Electric G 580",
+      "legacy": "COROLLA ALTIS G YB M/T PETROL COROLLA ALTIS G YB M/T PETROL"
+    },
+    {
+      "loanId": "LN-2026-1447",
+      "temp": "0000013894",
+      "customer": "SONAL KUMAR JHA",
+      "make": "Land Rover",
+      "model": "Range Rover Evoque",
+      "variant": "Range Rover Evoque Autobiography Diesel",
+      "legacy": "VENTO DIESEL HIGHLINE 2010 VENTO DIESEL HIGHLINE 2010"
+    },
+    {
+      "loanId": "LN-2026-1446",
+      "temp": "0000013893",
+      "customer": "SUBHATA AGNIHOTRI",
+      "make": "Hyundai",
+      "model": "Creta Electric",
+      "variant": "Creta Electric Smart (O)",
+      "legacy": "I-20 KAPPA MAGNA (O) I-20 KAPPA MAGNA (O)"
+    },
+    {
+      "loanId": "LN-2026-1445",
+      "temp": "0000013892",
+      "customer": "NITIN GUPTA",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 VXI",
+      "legacy": "WAGONR VXI WAGONR VXI"
+    },
+    {
+      "loanId": "LN-2026-1444",
+      "temp": "0000013889",
+      "customer": "ANKUR SINGH",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "AVEO UVA 1.2 LS 2009 AVEO UVA 1.2 LS 2009"
+    },
+    {
+      "loanId": "LN-2026-1443",
+      "temp": "0000013885",
+      "customer": "NIDHI KHANNA",
+      "make": "Mercedes Benz",
+      "model": "Amg Gt 4 Door Coupe",
+      "variant": "Mercedes-Benz AMG GT 4 Door Coupe 63 S E Performance",
+      "legacy": "I-20 SPORTZ 1.4 DSL I-20 SPORTZ 1.4 DSL"
+    },
+    {
+      "loanId": "LN-2026-1442",
+      "temp": "0000013884",
+      "customer": "MOHIT KUMAR",
+      "make": "Mercedes Benz",
+      "model": "A Class Limousine",
+      "variant": "Mercedes-Benz A-Class Limousine A 200",
+      "legacy": "A STAR VXI 2009 A STAR VXI 2009"
+    },
+    {
+      "loanId": "LN-2026-1440",
+      "temp": "0000013843",
+      "customer": "MANOJ BUDHIRAJA",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I-20 ELITE MAGNA PTL I-20 ELITE MAGNA PTL"
+    },
+    {
+      "loanId": "LN-2026-1439",
+      "temp": "3000001312",
+      "customer": "SIDDHI VINAYAK ROLLER FLOUR MILLS PRIVATE LIMITED",
+      "make": "Mercedes Benz",
+      "model": "Amg Gle 53",
+      "variant": "Mercedes-Benz AMG GLE 53 Coupe",
+      "legacy": "MERC. GLE-250 D MERC. GLE-250 D"
+    },
+    {
+      "loanId": "LN-2026-1438",
+      "temp": "3000001311",
+      "customer": "TARANPREET SINGH",
+      "make": "Mercedes Benz",
+      "model": "Amg E 53 Cabriolet",
+      "variant": "Mercedes-Benz AMG E 53 Cabriolet 4MATIC Plus",
+      "legacy": "CIAZ VDI PLUS CIAZ VDI PLUS"
+    },
+    {
+      "loanId": "LN-2026-1437",
+      "temp": "3000001310",
+      "customer": "RAMA SINGH",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "AMAZE 1.2 SMT AMAZE 1.2 SMT"
+    },
+    {
+      "loanId": "LN-2026-1436",
+      "temp": "3000001309",
+      "customer": "SHARE INDIA SECURITIES LTD",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 VXI Plus",
+      "legacy": "CIAZ VXI PLUS CIAZ VX PLUS"
+    },
+    {
+      "loanId": "LN-2026-1435",
+      "temp": "3000001309",
+      "customer": "SHARE INDIA SECURITIES LTD",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 VXI",
+      "legacy": "CIAZ VXI PLUS CIAZ VX PLUS"
+    },
+    {
+      "loanId": "LN-2026-1434",
+      "temp": "3000001309",
+      "customer": "SHARE INDIA SECURITIES LTD",
+      "make": "Mahindra",
+      "model": "Bolero Pik Up",
+      "variant": "Bolero Pik-Up 1.3 T CBC MS",
+      "legacy": "CIAZ VXI PLUS CIAZ VX PLUS"
+    },
+    {
+      "loanId": "LN-2026-1429",
+      "temp": "3000001302",
+      "customer": "JASVINDER SINGH",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I 20 ELITE SPORTZ PTL I 20 ELITE SPORTZ PTL"
+    },
+    {
+      "loanId": "LN-2026-1428",
+      "temp": "3000001301",
+      "customer": "KIRAN ARORA",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "AMAZE 1.2 SMT PTL AMAZE 1.2 SMT PTL"
+    },
+    {
+      "loanId": "LN-2026-1427",
+      "temp": "3000001300",
+      "customer": "ANIL KUMAR",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 LXI S-CNG",
+      "legacy": "WAGONR LXI CNG WAGONR LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1425",
+      "temp": "3000001298",
+      "customer": "SANJEEV ANEJA",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "CITY 1.5 I-VTEC V MT CITY 1.5 I-VTEC V MT"
+    },
+    {
+      "loanId": "LN-2026-1424",
+      "temp": "3000001297",
+      "customer": "GAURSONS PROMOTERS PRIVATE LIMITED",
+      "make": "Mercedes Benz",
+      "model": "Amg Gle 53",
+      "variant": "Mercedes-Benz AMG GLE 53 Coupe",
+      "legacy": "MERC. GLE-250 D MERC. GLE-250 D"
+    },
+    {
+      "loanId": "LN-2026-1422",
+      "temp": "3000001295",
+      "customer": "KIRAN BALA",
+      "make": "",
+      "model": "CRUZE LT",
+      "variant": "CRUZE LT",
+      "legacy": "CHEVROLET CRUZE CRUZE 2010 CHEVROLET CRUZE CRUZE 2010"
+    },
+    {
+      "loanId": "LN-2026-1419",
+      "temp": "3000001292",
+      "customer": "AJNARA INDIA LTD",
+      "make": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "Grand i10 Nios Asta",
+      "legacy": "I-10 GRAND ASTA (O) A/T JAZZ V CVT"
+    },
+    {
+      "loanId": "LN-2026-1418",
+      "temp": "3000001291",
+      "customer": "G P LIGHTING LTD",
+      "make": "Toyota",
+      "model": "Hyryder",
+      "variant": "Hyryder V Dual Tone",
+      "legacy": "ETIOS LIVA V PTL ETIOS LIVA V PTL"
+    },
+    {
+      "loanId": "LN-2026-1417",
+      "temp": "3000001292",
+      "customer": "AJNARA INDIA LTD",
+      "make": "Bmw",
+      "model": "7 Series",
+      "variant": "7 Series 740i M Sport",
+      "legacy": "I-10 GRAND ASTA (O) A/T JAZZ V CVT"
+    },
+    {
+      "loanId": "LN-2026-1416",
+      "temp": "3000001289",
+      "customer": "ANURAG ARJUAN SINGH GEHLOT",
+      "make": "Toyota",
+      "model": "Innova Crysta",
+      "variant": "Innova Crysta 2.4 Zx 7Str",
+      "legacy": "INNOVA ZX CRYSTA AT INNOVA ZX CRYSTA AT"
+    },
+    {
+      "loanId": "LN-2026-1415",
+      "temp": "3000001288",
+      "customer": "RAHUL SINGH",
+      "make": "Isuzu",
+      "model": "S Cab Z",
+      "variant": "S-CAB Z 4x2 MT",
+      "legacy": "CITY S MT PTL 2009 CITY S MT PTL 2009"
+    },
+    {
+      "loanId": "LN-2026-1414",
+      "temp": "3000001287",
+      "customer": "HOMES CONNECT DEVELOPERS PVT. LTD.",
+      "make": "Mahindra",
+      "model": "Bolero Pik Up",
+      "variant": "Bolero Pik-Up 1.3 T CBC MS",
+      "legacy": "ENJOY 1.3 LS 7 STR ENJOY 1.3 LS 7 STR"
+    },
+    {
+      "loanId": "LN-2026-1413",
+      "temp": "3000001286",
+      "customer": "ANIL KUMAR TANTIA",
+      "make": "Hyundai",
+      "model": "Creta Electric",
+      "variant": "Creta Electric Smart (O)",
+      "legacy": "CIAZ VDI (O) CIAZ VDI (O)"
+    },
+    {
+      "loanId": "LN-2026-1412",
+      "temp": "3000001285",
+      "customer": "J R MALHOTRA",
+      "make": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "Grand i10 Nios Asta",
+      "legacy": "I-10 GRAND ASTA A/T I-10 GRAND ASTA A/T"
+    },
+    {
+      "loanId": "LN-2026-1411",
+      "temp": "3000001284",
+      "customer": "ROHTASH KAUSHIK",
+      "make": "Mercedes Benz",
+      "model": "Cle Cabriolet",
+      "variant": "Mercedes-Benz CLE Cabriolet 300 4Matic AMG Line",
+      "legacy": "TUV 300 T6 TUV 300 T6"
+    },
+    {
+      "loanId": "LN-2026-1409",
+      "temp": "3000001282",
+      "customer": "PIYUSH ARORA",
+      "make": "Mercedes Benz",
+      "model": "Amg E 53 Cabriolet",
+      "variant": "Mercedes-Benz AMG E 53 Cabriolet 4MATIC Plus",
+      "legacy": "CIAZ VDI PLUS CIAZ VDI PLUS"
+    },
+    {
+      "loanId": "LN-2026-1408",
+      "temp": "3000001281",
+      "customer": "LALIT KUMAR KAPIL",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "AMAZE 1.2 SMT PTL AMAZE 1.2 SMT PTL"
+    },
+    {
+      "loanId": "LN-2026-1407",
+      "temp": "3000001311",
+      "customer": "TARANPREET SINGH",
+      "make": "Mercedes Benz",
+      "model": "Amg E 53 Cabriolet",
+      "variant": "Mercedes-Benz AMG E 53 Cabriolet 4MATIC Plus",
+      "legacy": "CIAZ VDI PLUS CIAZ VDI PLUS"
+    },
+    {
+      "loanId": "LN-2026-1406",
+      "temp": "3000001279",
+      "customer": "SURINDER PRATAP SINGH",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I-20 ACTIVE SX WITH AVN DSL I-20 ACTIVE SX WITH AVN DSL"
+    },
+    {
+      "loanId": "LN-2026-1405",
+      "temp": "3000001278",
+      "customer": "NEW MILLENIUM EDUCATION SOCIETY",
+      "make": "Mercedes Benz",
+      "model": "A Class Limousine",
+      "variant": "Mercedes-Benz A-Class Limousine A 200",
+      "legacy": "MERC. CLA 200 SPORTS CDI MERC. CLA 200 SPORTS CDI"
+    },
+    {
+      "loanId": "LN-2026-1402",
+      "temp": "3000001275",
+      "customer": "JATIN BARTRA",
+      "make": "Mercedes Benz",
+      "model": "Amg S 63",
+      "variant": "Mercedes-Benz AMG S 63 E Performance Edition 1",
+      "legacy": "I-10 MAGNA 1.1 2013 I-10 MAGNA 1.1 2013"
+    },
+    {
+      "loanId": "LN-2026-1401",
+      "temp": "3000001274",
+      "customer": "RESHMA SHRESHTHA",
+      "make": "Hyundai",
+      "model": "Creta",
+      "variant": "Creta SX (O)",
+      "legacy": "ELANTRA SX O A/T PETROL ELANTRA SX O A/T PETROL"
+    },
+    {
+      "loanId": "LN-2026-1400",
+      "temp": "3000001273",
+      "customer": "PANKAJ BANSAL",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "JAZZ VMT 1.5 PTL JAZZ VMT 1.5 PTL"
+    },
+    {
+      "loanId": "LN-2026-1399",
+      "temp": "3000001272",
+      "customer": "RAHUL SHARMA",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 LXI S-CNG",
+      "legacy": "WAGONR LXI CNG WAGONR LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1398",
+      "temp": "3000001271",
+      "customer": "PRIYANKA",
+      "make": "Toyota",
+      "model": "Innova Crysta",
+      "variant": "Innova Crysta 2.4 GX Plus 7Str",
+      "legacy": "KUV100 K-2 PLUS PTL KUV100 K-2 PLUS PTL"
+    },
+    {
+      "loanId": "LN-2026-1397",
+      "temp": "3000001270",
+      "customer": "SEEMA DUA",
+      "make": "Maruti",
+      "model": "Grand Vitara",
+      "variant": "Grand Vitara Delta Plus Hybrid CVT",
+      "legacy": "VITARA BREZZA ZDI PLUS DUAL VITARA BREZZA ZDI PLUS DUAL"
+    },
+    {
+      "loanId": "LN-2026-1396",
+      "temp": "3000001269",
+      "customer": "PAWAN KUMAR JAIN",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 LXI S-CNG",
+      "legacy": "ALTO LXI CNG ALTO LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1395",
+      "temp": "3000001268",
+      "customer": "SHAFI AHMAD KHAN",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "AMAZE 1.2 SMT AMAZE 1.2 SMT"
+    },
+    {
+      "loanId": "LN-2026-1394",
+      "temp": "3000001267",
+      "customer": "MANOJ KUMAR NATH",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I-10 ERA 2012 I-10 ERA 2012"
+    },
+    {
+      "loanId": "LN-2026-1392",
+      "temp": "3000001265",
+      "customer": "GARIMA BAJAJ",
+      "make": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "Grand i10 Nios Magna",
+      "legacy": "I-10 GRAND MAGNA (P) I-10 GRAND MAGNA (P)"
+    },
+    {
+      "loanId": "LN-2026-1389",
+      "temp": "3000001262",
+      "customer": "USHA GUPTA",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 VXI",
+      "legacy": "WAGONR VXI WAGONR VXI"
+    },
+    {
+      "loanId": "LN-2026-1387",
+      "temp": "3000001260",
+      "customer": "FAIR LIGHTING PRODUCTS PRIVATE LIMITED",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "CITY 1.5 SV CVT CITY 1.5 SV CVT"
+    },
+    {
+      "loanId": "LN-2026-1386",
+      "temp": "3000001259",
+      "customer": "SUSHIL CHANDER AGGARWAL",
+      "make": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "Grand i10 Nios Magna",
+      "legacy": "I-10 GRAND MAGNA WITH AIRBAG I-10 GRAND MAGNA WITH AIRBAG"
+    },
+    {
+      "loanId": "LN-2026-1385",
+      "temp": "3000001258",
+      "customer": "JYOTI SHARMA",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "AMAZE 1.2 SMT PTL AMAZE 1.2 SMT PTL"
+    },
+    {
+      "loanId": "LN-2026-1384",
+      "temp": "3000001257",
+      "customer": "SURESH",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I 20 SPORTZ DSL I 20 SPORTZ DSL"
+    },
+    {
+      "loanId": "LN-2026-1383",
+      "temp": "3000001256",
+      "customer": "DAVENDER SAHNI",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "AMAZE 1.2 SMT PTL AMAZE 1.2 SMT PTL"
+    },
+    {
+      "loanId": "LN-2026-1381",
+      "temp": "3000001254",
+      "customer": "JATIN BHALLA",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "CITY 1.5 SV MT DSL 2015 CITY 1.5 SV MT DSL 2015"
+    },
+    {
+      "loanId": "LN-2026-1379",
+      "temp": "3000001252",
+      "customer": "SATYA PAL CHOPRA",
+      "make": "Maruti",
+      "model": "Grand Vitara",
+      "variant": "Grand Vitara Sigma",
+      "legacy": "VITARA BREZZA VDI VITARA BREZZA VDI"
+    },
+    {
+      "loanId": "LN-2026-1375",
+      "temp": "3000001248",
+      "customer": "SHAIFALI SHARMA",
+      "make": "Mercedes Benz",
+      "model": "Amg Gt 4 Door Coupe",
+      "variant": "Mercedes-Benz AMG GT 4 Door Coupe 63 S E Performance",
+      "legacy": "XCENT VTVT S PETROL XCENT VTVT S PETROL"
+    },
+    {
+      "loanId": "LN-2026-1373",
+      "temp": "3000001246",
+      "customer": "RAMESH KUMAR VERMA",
+      "make": "Land Rover",
+      "model": "Range Rover Velar",
+      "variant": "Range Rover Velar 2.0 l Petrol Autobiography",
+      "legacy": "I-20 ELITE MAGNA PETROL I-20 ELITE MAGNA PETROL"
+    },
+    {
+      "loanId": "LN-2026-1370",
+      "temp": "3000001243",
+      "customer": "AJAY AGGARWAL",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max CBC HR 2.0",
+      "legacy": "MERC. C-220 D AVANTGRADE -2 MERC. C-220 D AVANTGRADE -2"
+    },
+    {
+      "loanId": "LN-2026-1369",
+      "temp": "3000001242",
+      "customer": "RAJ KUMAR CHOWDARY",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 VXI",
+      "legacy": "WAGONR VXI WAGONR VXI"
+    },
+    {
+      "loanId": "LN-2026-1368",
+      "temp": "3000001241",
+      "customer": "DAYANAND RAI",
+      "make": "Mahindra",
+      "model": "Bolero Camper",
+      "variant": "Bolero Camper GOLD ZX",
+      "legacy": "SUMO GOLD EX SUMO GOLD EX"
+    },
+    {
+      "loanId": "LN-2026-1365",
+      "temp": "3000001238",
+      "customer": "HUNNY RASTOGI",
+      "make": "Mercedes Benz",
+      "model": "Amg E 53 Cabriolet",
+      "variant": "Mercedes-Benz AMG E 53 Cabriolet 4MATIC Plus",
+      "legacy": "CIAZ ZDI PLUS RS CIAZ ZDI PLUS RS"
+    },
+    {
+      "loanId": "LN-2026-1364",
+      "temp": "3000001237",
+      "customer": "AJAY KUMAR JAIN",
+      "make": "Land Rover",
+      "model": "Range Rover Velar",
+      "variant": "Range Rover Velar 2.0 l Petrol Autobiography",
+      "legacy": "I-20 ELITE ASTA PETROL I-20 ELITE ASTA PETROL"
+    },
+    {
+      "loanId": "LN-2026-1363",
+      "temp": "3000001236",
+      "customer": "TANVI JAIN",
+      "make": "Hyundai",
+      "model": "Grand I10 Nios",
+      "variant": "Grand i10 Nios Magna",
+      "legacy": "I-10 GRAND MAGNA DSL I-10 GRAND MAGNA DSL"
+    },
+    {
+      "loanId": "LN-2026-1361",
+      "temp": "3000001234",
+      "customer": "HIMANSHU AGARWAL",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "I-10 MAGNA 1.2 MET BS-1V 2013 I-10 MAGNA 1.2 MET BS-1V 2013"
+    },
+    {
+      "loanId": "LN-2026-1360",
+      "temp": "3000001233",
+      "customer": "RAMESH CHAND CHHABRA",
+      "make": "Tata",
+      "model": "Nexon",
+      "variant": "Nexon Creative Plus PS DT Diesel",
+      "legacy": "BEAT PS DIESEL 2015 BEAT PS DIESEL 2015"
+    },
+    {
+      "loanId": "LN-2026-1359",
+      "temp": "3000001232",
+      "customer": "SUSHIL ARORA",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "ECO SPORT TITANIUM 1.5 PLUS DSL ECO SPORT TITANIUM 1.5 PLUS DSL"
+    },
+    {
+      "loanId": "LN-2026-1355",
+      "temp": "3000001232",
+      "customer": "SUSHIL ARORA",
+      "make": "Isuzu",
+      "model": "D Max",
+      "variant": "D-Max Flat Deck HR AC 1.2",
+      "legacy": "ECO SPORT TITANIUM 1.5 PLUS DSL ECO SPORT TITANIUM 1.5 PLUS DSL"
+    },
+    {
+      "loanId": "LN-2026-1353",
+      "temp": "3000001226",
+      "customer": "NAVNEET KUMAR MITTAL",
+      "make": "Toyota",
+      "model": "Innova Hycross",
+      "variant": "Innova Hycross VX 7STR Hybrid",
+      "legacy": "INNOVA VX 7 STR 2012 INNOVA VX 7 STR 2012"
+    },
+    {
+      "loanId": "LN-2026-1352",
+      "temp": "3000001225",
+      "customer": "RITESH DHAWAN",
+      "make": "Mercedes",
+      "model": "Benz C Class",
+      "variant": "Mercedes-Benz C-Class C 200",
+      "legacy": "MERC. C 200 CGI 2012 MERC. C 200 CGI 2012"
+    },
+    {
+      "loanId": "LN-2026-1351",
+      "temp": "3000001224",
+      "customer": "ASHOK K SACHDEVA",
+      "make": "Tata",
+      "model": "Nexon",
+      "variant": "Nexon Creative Plus PS DT Diesel",
+      "legacy": "DUSTER DIESEL RXL (85 PS) DUSTER RXE 85 PS"
+    },
+    {
+      "loanId": "LN-2026-1350",
+      "temp": "3000001223",
+      "customer": "KAILASH TECHNOLOGY PRIVATE LIMITED",
+      "make": "Toyota",
+      "model": "Innova Crysta",
+      "variant": "Innova Crysta 2.4 Zx 7Str",
+      "legacy": "INNOVA ZX CRYSTA AT INNOVA ZX CRYSTA AT"
+    },
+    {
+      "loanId": "LN-2026-1349",
+      "temp": "3000001222",
+      "customer": "RAJNISH SAXENA",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "CITY 1.5 SV MT DSL 2015 CITY 1.5 SV MT DSL 2015"
+    },
+    {
+      "loanId": "LN-2026-1348",
+      "temp": "3000001221",
+      "customer": "RANJEET SINGH",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 LXI S-CNG",
+      "legacy": "WAGONR LXI CNG WAGONR LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1346",
+      "temp": "3000001243",
+      "customer": "AJAY AGGARWAL",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.0 Highline Plus AT",
+      "legacy": "MERC. C-220 D AVANTGRADE -2 MERC. C-220 D AVANTGRADE -2"
+    },
+    {
+      "loanId": "LN-2026-1345",
+      "temp": "3000001218",
+      "customer": "SHOBHIT BURMAN",
+      "make": "Mahindra",
+      "model": "Xuv 3Xo",
+      "variant": "XUV 3XO REVX A Turbo",
+      "legacy": "XUV 500 W-6 A/T XUV 500 W-6 A/T"
+    },
+    {
+      "loanId": "LN-2026-1344",
+      "temp": "3000001287",
+      "customer": "HOMES CONNECT DEVELOPERS PVT. LTD.",
+      "make": "Mercedes Benz",
+      "model": "Eqb",
+      "variant": "Mercedes-Benz EQB 350 4Matic",
+      "legacy": "ENJOY 1.3 LS 7 STR ENJOY 1.3 LS 7 STR"
+    },
+    {
+      "loanId": "LN-2026-1343",
+      "temp": "3000001216",
+      "customer": "SARABJEET SINGH",
+      "make": "Land Rover",
+      "model": "Range Rover Velar",
+      "variant": "Range Rover Velar 2.0 l Petrol Autobiography",
+      "legacy": "JAZZ 1.2 V MT PETROL JAZZ 1.2 V MT PETROL"
+    },
+    {
+      "loanId": "LN-2026-1342",
+      "temp": "3000001215",
+      "customer": "ALKA SHARMA",
+      "make": "Land Rover",
+      "model": "Range Rover Velar",
+      "variant": "Range Rover Velar 2.0 l Petrol Autobiography",
+      "legacy": "I-10 GRAND SPOORTZ PETROL I-10 GRAND SPOORTZ PETROL"
+    },
+    {
+      "loanId": "LN-2026-1341",
+      "temp": "3000001214",
+      "customer": "RAJEEV GOYAL",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.0 Highline Plus",
+      "legacy": "CRETA 1.6 SX PLUS PTL CRETA 1.6 SX PLUS PTL"
+    },
+    {
+      "loanId": "LN-2026-1340",
+      "temp": "3000001213",
+      "customer": "R S OVERSEAS PRIVATE LIMITED",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.0 Highline Plus",
+      "legacy": "CRETA 1.6 SX PLUS PTL CRETA 1.6 SX PLUS PTL"
+    },
+    {
+      "loanId": "LN-2026-1339",
+      "temp": "3000001269",
+      "customer": "PAWAN KUMAR JAIN",
+      "make": "Hyundai",
+      "model": "Creta Electric",
+      "variant": "Creta Electric Smart (O)",
+      "legacy": "ALTO LXI CNG ALTO LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1338",
+      "temp": "3000001211",
+      "customer": "ANUJ MALIK",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "ECO SPORT AMBIENTE 1.5 P ECO SPORT AMBIENTE 1.5 P"
+    },
+    {
+      "loanId": "LN-2026-1337",
+      "temp": "3000001225",
+      "customer": "RITESH DHAWAN",
+      "make": "Bmw",
+      "model": "2 Series Gran Coupe",
+      "variant": "2 Series Gran Coupe 218 M Sport",
+      "legacy": "MERC. C 200 CGI 2012 MERC. C 200 CGI 2012"
+    },
+    {
+      "loanId": "LN-2026-1336",
+      "temp": "3000001209",
+      "customer": "LALIT KWATRA",
+      "make": "Mercedes Benz",
+      "model": "Amg S 63",
+      "variant": "Mercedes-Benz AMG S 63 E Performance Edition 1",
+      "legacy": "VERNA CRDI 1.6 S VERNA CRDI 1.6 S"
+    },
+    {
+      "loanId": "LN-2026-1334",
+      "temp": "3000001207",
+      "customer": "RAJESH KUMAR",
+      "make": "Mercedes Benz",
+      "model": "Amg E 53 Cabriolet",
+      "variant": "Mercedes-Benz AMG E 53 Cabriolet 4MATIC Plus",
+      "legacy": "CIAZ VDI PLUS CIAZ VDI PLUS"
+    },
+    {
+      "loanId": "LN-2026-1333",
+      "temp": "3000001206",
+      "customer": "PAWAN KUMAR GOEL",
+      "make": "Toyota",
+      "model": "Innova Hycross",
+      "variant": "Innova Hycross GX 7STR",
+      "legacy": "INNOVA GX 7 STR 2013 INNOVA GX 7 STR 2013"
+    },
+    {
+      "loanId": "LN-2026-1332",
+      "temp": "3000001205",
+      "customer": "NAMRATA AGGARWAL",
+      "make": "Mercedes Benz",
+      "model": "Amg S 63",
+      "variant": "Mercedes-Benz AMG S 63 E Performance Edition 1",
+      "legacy": "CITY 1.5VMT 2010 CITY 1.5VMT 2010"
+    },
+    {
+      "loanId": "LN-2026-1331",
+      "temp": "3000001204",
+      "customer": "MEENA BALUJA",
+      "make": "Mercedes Benz",
+      "model": "Amg S 63",
+      "variant": "Mercedes-Benz AMG S 63 E Performance Edition 1",
+      "legacy": "BRIO E MT 1.2 DZIRE LXI (O)"
+    },
+    {
+      "loanId": "LN-2026-1330",
+      "temp": "3000001203",
+      "customer": "ASHOK ARORA",
+      "make": "Mahindra",
+      "model": "Scorpio N",
+      "variant": "Scorpio N Z2 E",
+      "legacy": "SCORPIO VLX BS IV 2012 SCORPIO VLX BS IV 2012"
+    },
+    {
+      "loanId": "LN-2026-1329",
+      "temp": "3000001202",
+      "customer": "MAYANK JINDAL",
+      "make": "Maruti",
+      "model": "Dzire Tour S",
+      "variant": "Dzire Tour S STD",
+      "legacy": "DZIRE LDI DZIRE LDI"
+    },
+    {
+      "loanId": "LN-2026-1327",
+      "temp": "3000001200",
+      "customer": "DEEPANSHU ANAND",
+      "make": "Mercedes Benz",
+      "model": "A Class Limousine",
+      "variant": "Mercedes-Benz A-Class Limousine A 200",
+      "legacy": "MERC. CLA 200 SPORTS PETROL MERC. CLA 200 SPORTS CDI"
+    },
+    {
+      "loanId": "LN-2026-1324",
+      "temp": "3000001197",
+      "customer": "MOHIT JAIN",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "ECO SPORT TITANIUM 1.5 PLUS DSL ECO SPORT TITANIUM 1.5 PLUS DSL"
+    },
+    {
+      "loanId": "LN-2026-1322",
+      "temp": "3000001195",
+      "customer": "MOHSIN KHAN",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 LXI S-CNG",
+      "legacy": "WAGONR LXI CNG WAGONR LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1320",
+      "temp": "3000001193",
+      "customer": "FAISAL QURAISHY",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I-10 GRAND SPORTS WITH AIRBAG I-10 GRAND SPORTS WITH AIRBAG"
+    },
+    {
+      "loanId": "LN-2026-1319",
+      "temp": "3000001192",
+      "customer": "HASNAIN GOUS ANSARI",
+      "make": "Mercedes Benz",
+      "model": "Amg S 63",
+      "variant": "Mercedes-Benz AMG S 63 E Performance Edition 1",
+      "legacy": "I-10 MAGNA 1.1 TIAGO XE 1.2 P"
+    },
+    {
+      "loanId": "LN-2026-1317",
+      "temp": "3000001190",
+      "customer": "RAVINDRA KUMAR ANEJA",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 4.4 l Petrol LWB SV",
+      "legacy": "CITY 1.5 SV M/T PETROL CITY 1.5 SV M/T PETROL"
+    },
+    {
+      "loanId": "LN-2026-1312",
+      "temp": "0000013899",
+      "customer": "MUSKAN SILVER ARTS PRIVATE LIMITED",
+      "make": "Toyota",
+      "model": "Innova Hycross",
+      "variant": "Innova Hycross G Fleet 7STR",
+      "legacy": "INNOVA Z 7-S (O) DSL INNOVA Z 7-S (O) DSL"
+    },
+    {
+      "loanId": "LN-2026-1311",
+      "temp": "3000001184",
+      "customer": "AJAY KUMAR RASTOGI",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 VXI",
+      "legacy": "ALTO 800 VXI 2015 ALTO 800 VXI 2015"
+    },
+    {
+      "loanId": "LN-2026-1310",
+      "temp": "3000001184",
+      "customer": "AJAY KUMAR RASTOGI",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "ALTO 800 VXI 2015 ALTO 800 VXI 2015"
+    },
+    {
+      "loanId": "LN-2026-1308",
+      "temp": "3000001181",
+      "customer": "SARIKA ARORA",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 VXI",
+      "legacy": "ALTO VXI AIRBAG ALTO VXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1307",
+      "temp": "3000001180",
+      "customer": "HEM RAJ",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 LXI S-CNG",
+      "legacy": "WAGONR LXI CNG WAGONR LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1305",
+      "temp": "3000001178",
+      "customer": "SANTOSH KUMAR",
+      "make": "Toyota",
+      "model": "Innova Hycross",
+      "variant": "Innova Hycross VX(O) 7STR Hybrid",
+      "legacy": "CITY 1.5 VX MT (O) DSL CITY 1.5 VX MT (O) DSL"
+    },
+    {
+      "loanId": "LN-2026-1303",
+      "temp": "3000001241",
+      "customer": "DAYANAND RAI",
+      "make": "",
+      "model": "fortuner",
+      "variant": "Standard",
+      "legacy": "SUMO GOLD EX SUMO GOLD EX"
+    },
+    {
+      "loanId": "LN-2026-1302",
+      "temp": "3000001175",
+      "customer": "VISHAL BHUTANI",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "ECO SPORT 1.5 TITANIUM PTL ECO SPORT 1.5 TITANIUM PTL"
+    },
+    {
+      "loanId": "LN-2026-1301",
+      "temp": "3000001174",
+      "customer": "GAV DEVELOPERS PVT LTD",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I 20 ELITE SPORTZ PTL I 20 ELITE SPORTZ PTL"
+    },
+    {
+      "loanId": "LN-2026-1300",
+      "temp": "3000001173",
+      "customer": "SANTOSH KUMAR SINGH",
+      "make": "Maruti",
+      "model": "Alto K10",
+      "variant": "Alto K10 LXI S-CNG",
+      "legacy": "WAGONR LXI CNG WAGONR LXI CNG"
+    },
+    {
+      "loanId": "LN-2026-1299",
+      "temp": "3000001172",
+      "customer": "BHARAT BHUSHAN",
+      "make": "Mahindra",
+      "model": "Bolero Pik Up",
+      "variant": "Bolero Pik-Up 1.3 T CBC MS",
+      "legacy": "CITY 1.5 VX M/T CITY 1.5 VX M/T"
+    },
+    {
+      "loanId": "LN-2026-1294",
+      "temp": "3000001172",
+      "customer": "BHARAT BHUSHAN",
+      "make": "Maruti",
+      "model": "Celerio",
+      "variant": "Celerio ZXI",
+      "legacy": "CITY 1.5 VX M/T CITY 1.5 VX M/T"
+    },
+    {
+      "loanId": "LN-2026-1293",
+      "temp": "3000001166",
+      "customer": "ASHUTOSH PANDAY",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "ECO SPORT TITANIUM 1.5 PLUS DSL ECO SPORT 1.5 TITANIUM DSL"
+    },
+    {
+      "loanId": "LN-2026-1292",
+      "temp": "3000001165",
+      "customer": "GNR TECHMART PRIVATE LIMITED",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 3.0 I Diesel LWB HSE",
+      "legacy": "I-10 GRAND WITH AIR BAG I-10 GRAND WITH AIR BAG"
+    },
+    {
+      "loanId": "LN-2026-1290",
+      "temp": "3000001163",
+      "customer": "PAWAN KUMAR",
+      "make": "Jaguar",
+      "model": "F Pace",
+      "variant": "F-Pace 2.0 R-Dynamic S",
+      "legacy": "JAGUAR XJ 3.0 2011 JAGUAR XJ 3.0 2011"
+    },
+    {
+      "loanId": "LN-2026-1288",
+      "temp": "3000001161",
+      "customer": "ANIL SATIJA",
+      "make": "Mercedes Benz",
+      "model": "Eqe Suv",
+      "variant": "Mercedes-Benz EQE SUV 500 4MATIC",
+      "legacy": "XUV 500 W-6 XUV 500 W-6"
+    },
+    {
+      "loanId": "LN-2026-1287",
+      "temp": "3000001160",
+      "customer": "SHRADDHA RAJPUT",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.0 Highline",
+      "legacy": "POLO 1.2 HIGHLINE POLO 1.2 HIGHLINE"
+    },
+    {
+      "loanId": "LN-2026-1286",
+      "temp": "3000001159",
+      "customer": "MANJU KHERA",
+      "make": "Land Rover",
+      "model": "Range Rover Velar",
+      "variant": "Range Rover Velar 2.0 l Petrol Autobiography",
+      "legacy": "I-20 ELITE MAGNA PETROL 2014 I-20 ELITE MAGNA PETROL 2014"
+    },
+    {
+      "loanId": "LN-2026-1285",
+      "temp": "3000001158",
+      "customer": "KARTAR NATH",
+      "make": "Land Rover",
+      "model": "Range Rover",
+      "variant": "Range Rover 4.4 l Petrol LWB SV",
+      "legacy": "CITY 1.5 SV M/T PETROL CITY 1.5 SV M/T PETROL"
+    },
+    {
+      "loanId": "LN-2026-1283",
+      "temp": "3000001156",
+      "customer": "NEELAM ARORA",
+      "make": "Volkswagen",
+      "model": "Taigun",
+      "variant": "Taigun 1.5 GT Plus Chrome DSG ES",
+      "legacy": "CITY 1.5 I-VTEC V MT CITY 1.5 I-VTEC V MT"
+    },
+    {
+      "loanId": "LN-2026-1281",
+      "temp": "3000001154",
+      "customer": "AAYUSH BHANDARI",
+      "make": "Mercedes Benz",
+      "model": "Amg Gt 4 Door Coupe",
+      "variant": "Mercedes-Benz AMG GT 4 Door Coupe 63 S E Performance",
+      "legacy": "I-20 ACTIVE S DLS I-20 MAGNA CRDI DSL 1.4"
+    },
+    {
+      "loanId": "LN-2026-1278",
+      "temp": "3000001151",
+      "customer": "ANIL KUMAR MEHRA",
+      "make": "Mercedes Benz",
+      "model": "Amg E 53 Cabriolet",
+      "variant": "Mercedes-Benz AMG E 53 Cabriolet 4MATIC Plus",
+      "legacy": "EON MAGNA PLUS EON MAGNA PLUS"
+    }
+  ]
+}

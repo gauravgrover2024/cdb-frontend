@@ -16,6 +16,7 @@ const EmploymentDetails = () => {
   const businessNatureValue = Form.useWatch("businessNature", form);
   const customerName = Form.useWatch("customerName", form);
   const panNumber = Form.useWatch("panNumber", form);
+  const incorporationDate = Form.useWatch("dob", form);
   const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, companyTypeValue);
   const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, businessNatureValue);
   const isCompany = applicantType === "Company";
@@ -77,6 +78,24 @@ const EmploymentDetails = () => {
       form.setFieldsValue(patch);
     }
   }, [isCompany, customerName, panNumber, form]);
+
+  useEffect(() => {
+    if (!isCompany || !incorporationDate) return;
+    const date = new Date(incorporationDate?.toISOString ? incorporationDate.toISOString() : incorporationDate);
+    if (Number.isNaN(date.getTime())) return;
+
+    const now = new Date();
+    let years = now.getFullYear() - date.getFullYear();
+    const monthDiff = now.getMonth() - date.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < date.getDate())) {
+      years -= 1;
+    }
+    const value = years >= 0 ? String(years) : "";
+    form.setFieldsValue({
+      experienceCurrent: value,
+      totalExperience: value,
+    });
+  }, [isCompany, incorporationDate, form]);
 
   const showEmployment = isFinanced !== "No";
   if (!showEmployment) return null;

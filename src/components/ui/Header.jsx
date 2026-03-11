@@ -119,6 +119,11 @@ const Header = () => {
           desc: "Track incoming funds",
         },
         {
+          label: "Payables",
+          path: "/payouts/payables",
+          desc: "Track outgoing payouts",
+        },
+        {
           label: "Delivery Orders",
           path: "/delivery-orders",
           desc: "Manage DO dispatch",

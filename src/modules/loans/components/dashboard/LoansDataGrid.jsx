@@ -6,6 +6,7 @@ import Icon from "../../../../components/AppIcon";
 import Button from "../../../../components/ui/Button";
 import { Checkbox } from "../../../../components/ui/Checkbox";
 import { formatINR } from "../../../../utils/currency";
+import { calculateLivePrincipalOutstanding } from "../../../../utils/emiCalculator";
 
 const STAGES = [
   { key: "customerProfile", label: "Customer Profile" },
@@ -21,52 +22,278 @@ const STAGES = [
   { key: "rc", label: "RC" },
 ];
 
-// Map your real fields to the stages (support multiple possible field names from API)
-const buildRawTimeline = (loan) => ({
-  customerProfile: loan?.receivingDate || loan?.createdAt || null,
-  prefileCompletion: loan?.__postfileSeeded
-    ? loan?.postfile_approvalDate || null
-    : null,
-  loginToBank: loan?.approval_approvalDate || null,
-  approval: loan?.approval_approvalDate || null,
-  postfileCompletion: loan?.__deliveryInitialized
-    ? loan?.postfile_approvalDate || null
-    : null,
-  disbursement: loan?.disbursement_date || loan?.approval_disbursedDate || null,
-  documentsCollected: loan?.docs_collected_at || null,
-  insurance: loan?.insurance_done_at || null,
-  invoice: loan?.invoice_done_at || loan?.invoice_received_date || null,
-  vehicleDelivery: loan?.delivery_done_at || null,
-  rc: loan?.rc_received_at || loan?.rc_received_date || null,
-});
+const SORT_OPTIONS = [
+  { key: "createdAt", label: "Latest" },
+  { key: "loanAmount", label: "Loan Amount" },
+  { key: "emi", label: "EMI" },
+  { key: "aging", label: "Aging" },
+  { key: "customer", label: "Customer" },
+  { key: "vehicle", label: "Vehicle" },
+];
+
+const STAGE_INDEX_MAP = {
+  profile: 0,
+  customerprofile: 0,
+  customer_profile: 0,
+  prefile: 1,
+  "pre-file": 1,
+  login: 2,
+  logintobank: 2,
+  login_to_bank: 2,
+  approval: 3,
+  postfile: 4,
+  "post-file": 4,
+  disbursement: 5,
+  disbursal: 5,
+  documents: 6,
+  docs: 6,
+  insurance: 7,
+  invoice: 8,
+  delivery: 9,
+  vehicledelivery: 9,
+  rc: 10,
+  payout: 10,
+};
+
+const toDateOrNull = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const toIsoOrNull = (value) => {
+  const d = toDateOrNull(value);
+  return d ? d.toISOString() : null;
+};
+
+const minDate = (dates = []) => {
+  const valid = dates.filter(Boolean);
+  if (!valid.length) return null;
+  return new Date(Math.min(...valid.map((d) => d.getTime())));
+};
+
+const maxDate = (dates = []) => {
+  const valid = dates.filter(Boolean);
+  if (!valid.length) return null;
+  return new Date(Math.max(...valid.map((d) => d.getTime())));
+};
+
+const hasDisplayValue = (value) => {
+  if (value == null) return false;
+  const text = String(value).trim();
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  return !["n/a", "na", "not set", "unknown", "-", "null", "undefined"].includes(
+    normalized,
+  );
+};
+
+const findStageIndexByCurrentStage = (loan) => {
+  const rawStage = String(loan?.currentStage || "").trim().toLowerCase();
+  if (!rawStage) return -1;
+  const normalized = rawStage.replace(/\s+/g, "").replace(/_/g, "").replace(/-/g, "");
+  if (Object.prototype.hasOwnProperty.call(STAGE_INDEX_MAP, rawStage)) {
+    return STAGE_INDEX_MAP[rawStage];
+  }
+  if (Object.prototype.hasOwnProperty.call(STAGE_INDEX_MAP, normalized)) {
+    return STAGE_INDEX_MAP[normalized];
+  }
+  if (normalized.includes("prefile")) return 1;
+  if (normalized.includes("login")) return 2;
+  if (normalized.includes("approv")) return 3;
+  if (normalized.includes("postfile")) return 4;
+  if (normalized.includes("disburs")) return 5;
+  if (normalized.includes("doc")) return 6;
+  if (normalized.includes("insur")) return 7;
+  if (normalized.includes("invo")) return 8;
+  if (normalized.includes("deliv")) return 9;
+  if (normalized.includes("rc")) return 10;
+  return -1;
+};
+
+const buildRawTimeline = (loan) => {
+  const currentStageIndex = findStageIndexByCurrentStage(loan);
+  const reached = (idx) => currentStageIndex >= idx;
+  const statusLower = String(
+    loan?.approval_status || loan?.loanStatus || loan?.status || "",
+  ).toLowerCase();
+  const hasDisbursedStatus = statusLower.includes("disburs");
+  const receivingDate = toDateOrNull(loan?.receivingDate);
+  const createdAtDate = toDateOrNull(loan?.createdAt);
+  const approvalDate = toDateOrNull(loan?.approval_approvalDate || loan?.postfile_approvalDate);
+  const disbursementDate = toDateOrNull(
+    loan?.disbursement_date || loan?.approval_disbursedDate || loan?.disbursementDate,
+  );
+  const dispatchDate = toDateOrNull(
+    loan?.dispatch_date || loan?.docs_collected_at || loan?.documents_collected_at,
+  );
+  const insuranceDate = toDateOrNull(
+    loan?.insurance_done_at || loan?.insurance_start_date || loan?.insurance_policy_start_date,
+  );
+  const invoiceDate = toDateOrNull(
+    loan?.invoice_done_at || loan?.invoice_received_date || loan?.invoice_date,
+  );
+  const deliveryDate = toDateOrNull(
+    loan?.delivery_done_at || loan?.delivery_date || loan?.deliveryDate,
+  );
+  const rcDate = toDateOrNull(loan?.rc_received_at || loan?.rc_received_date);
+
+  const historicalDates = [
+    receivingDate,
+    approvalDate,
+    disbursementDate,
+    dispatchDate,
+    insuranceDate,
+    invoiceDate,
+    deliveryDate,
+    rcDate,
+  ].filter(Boolean);
+
+  // Migration-safe anchors:
+  // 1) Prefer legacy business dates, then receiving date.
+  // 2) Use createdAt only as last fallback to avoid "today" timelines after migration import.
+  let leadDate = receivingDate || minDate(historicalDates) || createdAtDate || null;
+  let journeyEndDate = maxDate(historicalDates) || leadDate || createdAtDate || null;
+  if (leadDate && journeyEndDate && journeyEndDate < leadDate) {
+    const lo = minDate([leadDate, journeyEndDate]);
+    const hi = maxDate([leadDate, journeyEndDate]);
+    leadDate = lo || leadDate;
+    journeyEndDate = hi || journeyEndDate;
+  }
+  const timelineAnchorDate =
+    journeyEndDate || leadDate || disbursementDate || approvalDate || null;
+  const inRangeStepDate = (idx) => {
+    if (leadDate && journeyEndDate && journeyEndDate >= leadDate) {
+      const ratio = Math.max(0, Math.min(1, idx / (STAGES.length - 1)));
+      const ms =
+        leadDate.getTime() + (journeyEndDate.getTime() - leadDate.getTime()) * ratio;
+      return new Date(ms).toISOString();
+    }
+    if (leadDate) return leadDate.toISOString();
+    if (journeyEndDate) return journeyEndDate.toISOString();
+    return null;
+  };
+
+  const resolveStepDate = (explicitDate, idx, fallbackDate = inRangeStepDate(idx)) => {
+    if (explicitDate) {
+      const explicit = toDateOrNull(explicitDate);
+      // Keep explicit only if it falls within the lead -> journey-end window.
+      // This prevents previously injected "today" dates from overriding timeline reconstruction.
+      if (explicit) {
+        if (leadDate && journeyEndDate && journeyEndDate >= leadDate) {
+          if (explicit >= leadDate && explicit <= journeyEndDate) {
+            return explicit.toISOString();
+          }
+          return reached(idx) ? fallbackDate : null;
+        }
+        if (timelineAnchorDate) {
+          // If we have any historical anchor and explicit is after it, treat explicit as noisy.
+          if (explicit > timelineAnchorDate) {
+            return reached(idx) ? fallbackDate : null;
+          }
+          return explicit.toISOString();
+        }
+        return explicit.toISOString();
+      }
+    }
+    if (reached(idx)) return fallbackDate;
+    return null;
+  };
+
+  return {
+    customerProfile: resolveStepDate(
+      loan?.receivingDate || loan?.createdAt,
+      0,
+      toIsoOrNull(loan?.receivingDate) || inRangeStepDate(0),
+    ),
+    prefileCompletion: resolveStepDate(
+      loan?.prefile_completed_at ||
+        loan?.prefile_completion_date ||
+        loan?.approval_approvalDate,
+      1,
+      toIsoOrNull(loan?.approval_approvalDate) || inRangeStepDate(1),
+    ),
+    loginToBank: resolveStepDate(
+      loan?.login_to_bank_date || loan?.bank_login_date || loan?.approval_loginDate,
+      2,
+      toIsoOrNull(loan?.approval_approvalDate) || inRangeStepDate(2),
+    ),
+    approval: resolveStepDate(
+      loan?.approval_approvalDate || loan?.postfile_approvalDate,
+      3,
+      toIsoOrNull(loan?.approval_approvalDate) || inRangeStepDate(3),
+    ),
+    postfileCompletion: resolveStepDate(
+      loan?.postfile_completed_at ||
+        loan?.postfile_completion_date ||
+        loan?.postfile_approvalDate,
+      4,
+      toIsoOrNull(loan?.postfile_approvalDate || loan?.approval_approvalDate) ||
+        inRangeStepDate(4),
+    ),
+    disbursement: resolveStepDate(
+      loan?.disbursement_date ||
+        loan?.approval_disbursedDate ||
+        loan?.disbursementDate,
+      hasDisbursedStatus ? 5 : 5,
+      toIsoOrNull(
+        loan?.disbursement_date || loan?.approval_disbursedDate || loan?.disbursementDate,
+      ) || inRangeStepDate(5),
+    ),
+    documentsCollected: resolveStepDate(
+      loan?.docs_collected_at ||
+        loan?.documents_collected_at ||
+        loan?.dispatch_date,
+      6,
+      inRangeStepDate(6),
+    ),
+    insurance: resolveStepDate(
+      loan?.insurance_done_at ||
+        loan?.insurance_start_date ||
+        loan?.insurance_policy_start_date,
+      7,
+      inRangeStepDate(7),
+    ),
+    invoice: resolveStepDate(
+      loan?.invoice_done_at ||
+        loan?.invoice_received_date ||
+        loan?.invoice_date,
+      8,
+      inRangeStepDate(8),
+    ),
+    vehicleDelivery: resolveStepDate(
+      loan?.delivery_done_at || loan?.delivery_date || loan?.deliveryDate,
+      9,
+      inRangeStepDate(9),
+    ),
+    rc: resolveStepDate(
+      loan?.rc_received_at || loan?.rc_received_date,
+      10,
+      inRangeStepDate(10),
+    ),
+  };
+};
 
 const buildTimeline = (loan) => {
   const raw = buildRawTimeline(loan);
-  return STAGES.map((s) => {
-    const ts = raw[s.key];
-    return {
-      ...s,
-      date: ts ? new Date(ts) : null,
-    };
-  });
+  return STAGES.map((s) => ({
+    ...s,
+    date: toDateOrNull(raw[s.key]),
+  }));
 };
 
 const findCurrentStageIndex = (loan) => {
   const steps = buildTimeline(loan);
-  // last stage with a date
   let lastDone = -1;
   steps.forEach((s, i) => {
     if (s.date) lastDone = i;
   });
   if (lastDone !== -1) return lastDone;
 
-  // fallback to currentStage text
-  const cs = (loan?.currentStage || "").toLowerCase();
-  const byStage = steps.findIndex((s) => s.label.toLowerCase().includes(cs));
+  const byStage = findStageIndexByCurrentStage(loan);
   return byStage !== -1 ? byStage : 0;
 };
 
-// Only previous, current (center), next
 const getMiniWindow = (loan) => {
   const steps = buildTimeline(loan);
   const current = findCurrentStageIndex(loan);
@@ -80,8 +307,41 @@ const getMiniWindow = (loan) => {
   };
 };
 
+const getStatusTheme = (status) => {
+  const s = String(status || "").toLowerCase();
+  if (s.includes("disburs")) {
+    return "border-emerald-300/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
+  }
+  if (s.includes("approved")) {
+    return "border-cyan-300/80 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300";
+  }
+  if (s.includes("pending") || s.includes("progress")) {
+    return "border-amber-300/80 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300";
+  }
+  if (s.includes("reject")) {
+    return "border-rose-300/80 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300";
+  }
+  return "border-slate-300/80 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
+};
+
+const pickPrimaryBank = (loan) => {
+  const banks = loan?.approval_banksData || [];
+  return (
+    banks.find((b) => b.status === "Disbursed") ||
+    banks.find((b) => b.status === "Approved") ||
+    banks[0] ||
+    null
+  );
+};
+
 const LoansDataGrid = ({
   loans,
+  totalCount,
+  currentPage = 1,
+  pageSize = 75,
+  onPageChange,
+  sortConfig = { key: "createdAt", direction: "desc" },
+  onSortChange,
   selectedLoans,
   onSelectLoan,
   onSelectAll,
@@ -90,984 +350,809 @@ const LoansDataGrid = ({
   onDeleteLoan,
   userRole,
   loading,
-  onUploadDocuments,
   onUpdateStatus,
   onShareLoan,
-  onPendencyClick,
   onShowOtherBanks,
   onRefreshLoans,
   onNotesClick,
 }) => {
-  const [sortConfig, setSortConfig] = useState({
-    key: null,
-    direction: "asc",
-  });
   const [timelineLoan, setTimelineLoan] = useState(null);
   const [pendencyLoan, setPendencyLoan] = useState(null);
   const [documentsLoan, setDocumentsLoan] = useState(null);
 
-  const handleSort = (key) => {
-    setSortConfig((prev) => ({
-      key,
-      direction:
-        prev?.key === key && prev?.direction === "asc" ? "desc" : "asc",
-    }));
+  const formatLoanId = (id) => {
+    if (!id) return "Loan number not set";
+    return String(id);
   };
-
-  const getSortableValue = (loan, key) => {
-    switch (key) {
-      case "loanId":
-        return loan?.loanId || loan?.loan_number || "";
-      case "customer":
-        return loan?.customerName || "";
-      case "mobile":
-        return loan?.primaryMobile || "";
-      case "email":
-        return loan?.email || "";
-      case "city":
-        return loan?.city || loan?.permanentCity || "";
-      case "vehicle":
-        return `${loan?.vehicleMake || ""} ${loan?.vehicleModel || ""}`;
-      case "vehicleVariant":
-        return loan?.vehicleVariant || "";
-      case "typeOfLoan":
-        return loan?.typeOfLoan || loan?.loanType || "";
-      case "loanAmount": {
-        const banks = loan?.approval_banksData || [];
-        const primary =
-          banks.find((b) => b.status === "Disbursed") ||
-          banks.find((b) => b.status === "Approved") ||
-          banks[0];
-        return (
-          primary?.loanAmount ||
-          loan?.approval_loanAmountDisbursed ||
-          loan?.approval_loanAmountApproved ||
-          loan?.financeExpectation ||
-          0
-        );
-      }
-      case "bank": {
-        const banksList = loan?.approval_banksData || [];
-        const primaryBank =
-          banksList.find((b) => b.status === "Disbursed") ||
-          banksList.find((b) => b.status === "Approved") ||
-          banksList[0];
-        return primaryBank?.bankName || loan?.approval_bankName || "";
-      }
-      case "interest": {
-        const banksInterest = loan?.approval_banksData || [];
-        const primaryInt =
-          banksInterest.find((b) => b.status === "Disbursed") ||
-          banksInterest.find((b) => b.status === "Approved") ||
-          banksInterest[0];
-        return primaryInt?.interestRate ?? loan?.approval_roi ?? 0;
-      }
-      case "tenure": {
-        const banksTenure = loan?.approval_banksData || [];
-        const primaryTen =
-          banksTenure.find((b) => b.status === "Disbursed") ||
-          banksTenure.find((b) => b.status === "Approved") ||
-          banksTenure[0];
-        return (
-          primaryTen?.tenure ||
-          loan?.approval_tenureMonths ||
-          loan?.loanTenureMonths ||
-          0
-        );
-      }
-      case "reference":
-        return loan?.reference1?.name || "";
-      case "source":
-        return loan?.source || loan?.recordSource || "";
-      case "sourceName":
-        return loan?.sourceName || "";
-      case "dealer":
-        return loan?.dealerName || "";
-      case "aging":
-        return loan?.aging ?? 0;
-      case "createdAt":
-        return loan?.createdAt ? new Date(loan.createdAt).getTime() : 0;
-      default:
-        return "";
-    }
-  };
-
-  const sortedLoans = useMemo(() => {
-    if (!sortConfig.key) return loans || [];
-
-    const sorted = [...(loans || [])].sort((a, b) => {
-      const aValue = getSortableValue(a, sortConfig.key);
-      const bValue = getSortableValue(b, sortConfig.key);
-
-      // Handle different types
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortConfig.direction === "asc"
-          ? aValue - bValue
-          : bValue - aValue;
-      }
-
-      // String comparison
-      const aStr = String(aValue).toLowerCase();
-      const bStr = String(bValue).toLowerCase();
-
-      if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return sorted;
-  }, [loans, sortConfig]);
 
   const formatCurrency = (amount) => {
     if (!amount || amount === 0) return "Cash Sale";
     return formatINR(amount);
   };
 
-  const formatLoanId = (id) => {
-    if (!id) return "Loan number not set";
-    if (id.length > 12) {
-      return `${id.slice(0, 6)}…${id.slice(-4)}`;
-    }
-    return id;
+  const parseAmount = (value) => {
+    if (value == null || value === "") return 0;
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    const cleaned = String(value).replace(/[^\d.-]/g, "");
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
   };
 
-  const allChecked =
-    selectedLoans?.length === loans?.length && loans?.length > 0;
-  const someChecked =
-    selectedLoans?.length > 0 && selectedLoans?.length < loans?.length;
+  const sortedLoans = loans || [];
 
-  // Calculate pendencyCount and pending step names for each loan
   const getPendingSteps = (loan) => {
+    const currentStageIndex = findStageIndexByCurrentStage(loan);
+    const reached = (idx) => currentStageIndex >= idx;
+    const statusLower = String(
+      loan?.approval_status || loan?.loanStatus || loan?.status || "",
+    ).toLowerCase();
+    const hasDisbursedStatus = statusLower.includes("disburs");
     const steps = [
       {
         label: "Profile Created",
-        completed: !!(loan.createdAt || loan.receivingDate),
+        completed: !!(loan.createdAt || loan.receivingDate) || reached(0),
       },
       {
         label: "Disbursement",
-        completed: !!(loan.approval_disbursedDate || loan.disbursement_date),
+        completed:
+          !!(loan.approval_disbursedDate || loan.disbursement_date) ||
+          hasDisbursedStatus ||
+          reached(5),
       },
-      { label: "RC Received", completed: !!loan.rc_received_date },
-      { label: "Invoice Received", completed: !!loan.invoice_received_date },
-      { label: "Loan Number Assigned", completed: !!loan.loan_number },
+      {
+        label: "RC Received",
+        completed: !!(loan.rc_received_date || loan.rc_received_at) || reached(10),
+      },
+      {
+        label: "Invoice Received",
+        completed: !!(loan.invoice_received_date || loan.invoice_date) || reached(8),
+      },
+      {
+        label: "Loan Number Assigned",
+        completed: !!(loan.loan_number || loan.loanId),
+      },
     ];
     return steps.filter((s) => !s.completed).map((s) => s.label);
   };
 
-  // Add pendencyCount and pendingSteps to each loan
-  const loansWithPendency = useMemo(() => {
-    return (loans || []).map((loan) => {
-      const pendingSteps = getPendingSteps(loan);
-      return {
-        ...loan,
-        pendencyCount: pendingSteps.length,
-        pendingSteps,
-      };
-    });
-  }, [loans]);
+  const loansWithPendency = useMemo(
+    () =>
+      (sortedLoans || []).map((loan) => {
+        const pendingSteps = getPendingSteps(loan);
+        return {
+          ...loan,
+          pendencyCount: pendingSteps.length,
+          pendingSteps,
+        };
+      }),
+    [sortedLoans],
+  );
+
+  const allChecked = selectedLoans?.length === sortedLoans?.length && sortedLoans?.length > 0;
+  const someChecked = selectedLoans?.length > 0 && selectedLoans?.length < sortedLoans?.length;
+  const totalPages = Math.max(1, Math.ceil((totalCount || 0) / pageSize));
 
   return (
-    <div className="h-full flex flex-col bg-card rounded-2xl border border-border overflow-hidden">
-      {/* Top bar */}
-      <div className="">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-          {selectedLoans?.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                iconName="FileDown"
-                onClick={() => onBulkAction("export")}
-              >
-                Export
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                iconName="Send"
-                onClick={() => onBulkAction("dispatch")}
-              >
-                Dispatch
-              </Button>
-              {userRole === "admin" && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  iconName="CheckCircle2"
-                  onClick={() => onBulkAction("approve")}
-                >
-                  Approve
-                </Button>
-              )}
-            </div>
-          )}
+    <div className="h-full flex flex-col overflow-hidden bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-3 py-2">
+        <div className="flex items-center gap-3">
+          <Checkbox
+            checked={allChecked}
+            indeterminate={someChecked}
+            onChange={(e) => onSelectAll(e?.target?.checked)}
+          />
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">Visual Loan Board</p>
+            <p className="text-sm font-semibold text-foreground">
+              {totalCount || sortedLoans?.length || 0} case(s) in current result
+            </p>
+          </div>
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {SORT_OPTIONS.map((opt) => {
+            const active = sortConfig.key === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() =>
+                  onSortChange?.((prev) => ({
+                    key: opt.key,
+                    direction: prev.key === opt.key && prev.direction === "desc" ? "asc" : "desc",
+                  }))
+                }
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedLoans?.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" iconName="FileDown" onClick={() => onBulkAction("export")}>
+              Export
+            </Button>
+            <Button variant="outline" size="sm" iconName="Send" onClick={() => onBulkAction("dispatch")}>
+              Dispatch
+            </Button>
+            {userRole === "admin" && (
+              <Button variant="default" size="sm" iconName="CheckCircle2" onClick={() => onBulkAction("approve")}>
+                Approve
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur border-b border-border">
-            <tr>
-              <th className="p-3 text-left w-[44px]">
-                <Checkbox
-                  checked={allChecked}
-                  indeterminate={someChecked}
-                  onChange={(e) => onSelectAll(e?.target?.checked)}
-                />
-              </th>
-              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <button
-                  onClick={() => handleSort("loanId")}
-                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  Loan No.
-                  {sortConfig?.key === "loanId" && (
-                    <Icon
-                      name={
-                        sortConfig?.direction === "asc"
-                          ? "ChevronUp"
-                          : "ChevronDown"
-                      }
-                      size={14}
-                    />
-                  )}
-                </button>
-              </th>
-              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <button
-                  onClick={() => handleSort("customer")}
-                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  Customer
-                  {sortConfig?.key === "customer" && (
-                    <Icon
-                      name={
-                        sortConfig?.direction === "asc"
-                          ? "ChevronUp"
-                          : "ChevronDown"
-                      }
-                      size={14}
-                    />
-                  )}
-                </button>
-              </th>
-              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <button
-                  onClick={() => handleSort("vehicle")}
-                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  Vehicle
-                  {sortConfig?.key === "vehicle" && (
-                    <Icon
-                      name={
-                        sortConfig?.direction === "asc"
-                          ? "ChevronUp"
-                          : "ChevronDown"
-                      }
-                      size={14}
-                    />
-                  )}
-                </button>
-              </th>
-              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <button
-                  onClick={() => handleSort("loanAmount")}
-                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  Loan Details
-                  {sortConfig?.key === "loanAmount" && (
-                    <Icon
-                      name={
-                        sortConfig?.direction === "asc"
-                          ? "ChevronUp"
-                          : "ChevronDown"
-                      }
-                      size={14}
-                    />
-                  )}
-                </button>
-              </th>
-              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <button
-                  onClick={() => handleSort("source")}
-                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  Reference &amp; Source
-                  {sortConfig?.key === "source" && (
-                    <Icon
-                      name={
-                        sortConfig?.direction === "asc"
-                          ? "ChevronUp"
-                          : "ChevronDown"
-                      }
-                      size={14}
-                    />
-                  )}
-                </button>
-              </th>
-              <th className="p-3 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <button
-                  onClick={() => handleSort("aging")}
-                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  Timeline
-                  {sortConfig?.key === "aging" && (
-                    <Icon
-                      name={
-                        sortConfig?.direction === "asc"
-                          ? "ChevronUp"
-                          : "ChevronDown"
-                      }
-                      size={14}
-                    />
-                  )}
-                </button>
-              </th>
-              <th className="p-3 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[220px]">
-                Actions
-              </th>
-            </tr>
-          </thead>
+      <div className="flex-1 overflow-auto p-3 bg-background">
+        {loading && (
+          <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Loading loans...
+          </div>
+        )}
 
-          <tbody>
-            {sortedLoans?.slice(0, 50).map((loan, index) => {
-              // Use loansWithPendency to get pendencyCount and pendingSteps
-              const loanWithPendency = loansWithPendency.find(
-                (l) => l.loanId === loan.loanId || l._id === loan._id,
-              );
-              const pendencyCount = loanWithPendency?.pendencyCount || 0;
-              const pendingSteps = loanWithPendency?.pendingSteps || [];
+        {!loading && sortedLoans?.length === 0 && (
+          <div className="rounded-xl border border-dashed border-border p-8 text-center">
+            <Icon name="FileX2" size={44} className="mx-auto text-muted-foreground" />
+            <p className="mt-3 text-base font-semibold text-foreground">No loans found</p>
+            <p className="text-sm text-muted-foreground">Try adjusting filters or create a new case.</p>
+          </div>
+        )}
 
-              // Unique key: prefer stable id, fallback to index
-              const loanKey =
-                loan?._id ||
-                loan?.loanId ||
-                loan?.loan_number ||
-                `loan-${index}`;
+        <div className="grid grid-cols-1 gap-2.5">
+          {!loading && loansWithPendency?.map((loanWithPendency, index) => {
+            const loan = loanWithPendency;
+            const pendencyCount = loanWithPendency?.pendencyCount || 0;
+            const pendingSteps = loanWithPendency?.pendingSteps || [];
 
-              // customer
-              const customerName =
-                loan?.customerName || "Customer name not set";
-              const mobile = loan?.primaryMobile || "Mobile not set";
-              const email = loan?.email || "Email not set";
-              const address =
-                loan?.residenceAddress ||
-                loan?.permanentAddress ||
-                "Address not available";
-              const cityLine =
-                loan?.city || loan?.permanentCity || loan?.pincode
-                  ? `${loan?.city || loan?.permanentCity || ""}${
-                      loan?.pincode || loan?.permanentPincode
-                        ? ` · ${loan?.pincode || loan?.permanentPincode}`
-                        : ""
-                    }`
-                  : "";
+            const loanKey = loan?._id || loan?.loan_number || loan?.loanId || `loan-${index}`;
+            const statusText = loan?.status || "New";
 
-              // vehicle
-              const fullCarName = `${loan?.vehicleMake || ""} ${
-                loan?.vehicleModel || ""
-              }`.trim();
-              const carTitle = fullCarName || "Vehicle not selected";
-              const variant = loan?.vehicleVariant || "Variant not set";
-              const regNo = loan?.postfile_regd_city
-                ? `${loan.postfile_regd_city} (Regn. city)`
-                : "Registration not set";
-              const typeOfLoan = loan?.typeOfLoan || "Loan type not set";
+            const fullCarName = `${loan?.vehicleMake || ""} ${loan?.vehicleModel || ""}`.trim();
+            const carTitle = fullCarName || "Vehicle not selected";
+            const variant = loan?.vehicleVariant || "Variant not set";
+            const regNo =
+              loan?.rc_redg_no ||
+              loan?.vehicleRegNo ||
+              loan?.registrationNumber ||
+              loan?.vehicleNumber ||
+              "Reg no not set";
+            const regCity = loan?.postfile_regd_city || loan?.registrationCity || "-";
 
-              // banks
-              const banks = loan?.approval_banksData || [];
-              const primary =
-                banks.find((b) => b.status === "Disbursed") ||
-                banks.find((b) => b.status === "Approved") ||
-                banks[0];
+            const primary = pickPrimaryBank(loan);
+            const banks = loan?.approval_banksData || [];
+            const otherBanks = banks.filter((b) => primary && b?.id !== primary.id);
 
-              const primaryBankName =
-                primary?.bankName || loan?.approval_bankName || "Bank not set";
-              const primaryLoanAmount =
-                typeof primary?.loanAmount === "number"
-                  ? primary.loanAmount
-                  : loan?.approval_loanAmountDisbursed ||
-                    loan?.approval_loanAmountApproved ||
-                    loan?.financeExpectation ||
-                    0;
-              const primaryInterest =
-                typeof primary?.interestRate === "number"
-                  ? primary.interestRate
-                  : loan?.approval_roi;
-              const primaryTenureMonths =
-                primary?.tenure ||
-                loan?.approval_tenureMonths ||
-                loan?.loanTenureMonths;
+            const primaryBankName = primary?.bankName || loan?.approval_bankName || "Bank not set";
+            const primaryLoanAmount =
+              parseAmount(primary?.loanAmount) ||
+              loan?.approval_loanAmountDisbursed ||
+              loan?.approval_loanAmountApproved ||
+              loan?.financeExpectation ||
+              0;
+            const loanTypeText = String(
+              loan?.typeOfLoan || loan?.loanType || loan?.caseType || loan?.loan_type || "",
+            ).toLowerCase();
+            const caseTypeLabel =
+              loan?.typeOfLoan || loan?.loanType || loan?.caseType || loan?.loan_type || "Case";
+            const primaryInterest =
+              typeof primary?.interestRate === "number" ? primary.interestRate : loan?.approval_roi;
+            const primaryTenureMonths =
+              primary?.tenure || loan?.approval_tenureMonths || loan?.loanTenureMonths || null;
+            const primaryEmiAmount =
+              parseAmount(primary?.emiAmount) ||
+              parseAmount(primary?.emi) ||
+              parseAmount(loan?.postfile_emiAmount) ||
+              parseAmount(loan?.emiAmount) ||
+              0;
+            const isCashCar = (() => {
+              const isFinancedRaw = loan?.isFinanced ?? loan?.isFinanceRequired;
+              const isFinancedText = String(isFinancedRaw ?? "").trim().toLowerCase();
+              if (isFinancedText === "no" || isFinancedText === "false") return true;
+              if (isFinancedText === "yes" || isFinancedText === "true") return false;
+              if (loanTypeText.includes("cash")) return true;
+              if (loan?.isFinanced === false || loan?.isFinanceRequired === false) return true;
+              const financeExpectation = parseAmount(loan?.financeExpectation);
+              const bankLoanAmount = parseAmount(primary?.loanAmount);
+              const hasBankName = !!(primary?.bankName || loan?.approval_bankName);
+              const noFinanceMetrics =
+                bankLoanAmount === 0 && primaryEmiAmount === 0 && !primaryInterest && !primaryTenureMonths;
+              return (financeExpectation === 0 && !hasBankName) || noFinanceMetrics;
+            })();
+            const disbursementDate =
+              loan?.disbursement_date ||
+              loan?.approval_disbursedDate ||
+              loan?.disbursedDate ||
+              loan?.disbursementDate ||
+              primary?.disbursedDate ||
+              null;
+            const storedPrincipalOutstanding =
+              parseAmount(loan?.postfile_currentOutstanding) ||
+              parseAmount(loan?.postfile_current_outstanding) ||
+              parseAmount(loan?.currentOutstanding) ||
+              parseAmount(loan?.livePrincipalOutstanding) ||
+              parseAmount(loan?.live_principal_outstanding) ||
+              parseAmount(loan?.principalOutstanding) ||
+              parseAmount(loan?.principal_outstanding) ||
+              parseAmount(loan?.outstandingPrincipal) ||
+              parseAmount(loan?.outstandingBalance) ||
+              parseAmount(loan?.postfile_principalOutstanding) ||
+              parseAmount(loan?.postfile_livePrincipalOutstanding) ||
+              parseAmount(loan?.postFile?.currentOutstanding) ||
+              0;
+            const liveOutstandingFallback =
+              !storedPrincipalOutstanding && !isCashCar && primaryLoanAmount && primaryInterest && primaryTenureMonths
+                ? calculateLivePrincipalOutstanding(
+                    primaryLoanAmount,
+                    primaryInterest,
+                    primaryTenureMonths,
+                    loan?.postfile_firstEmiDate || disbursementDate,
+                  )?.outstanding || 0
+                : 0;
+            const principalOutstanding =
+              storedPrincipalOutstanding || parseAmount(liveOutstandingFallback);
+            const maturityDate = (() => {
+              if (loan?.postfile_maturityDate) return loan.postfile_maturityDate;
+              const tenureMonths = parseAmount(primaryTenureMonths || loan?.loanTenureMonths || loan?.tenure);
+              const firstEmiDate =
+                loan?.postfile_firstEmiDate ||
+                loan?.postfile_first_emi_date ||
+                primary?.firstEmiDate ||
+                loan?.firstEmiDate ||
+                null;
+              if (!firstEmiDate || !tenureMonths) return null;
+              const start = new Date(firstEmiDate);
+              if (Number.isNaN(start.getTime())) return null;
+              const derived = new Date(start);
+              derived.setMonth(derived.getMonth() + tenureMonths);
+              return derived.toISOString();
+            })();
+            const isLoanClosed =
+              !!loan?.closureDate ||
+              !!loan?.closedDate ||
+              String(loan?.loanStatus || loan?.status || "")
+                .toLowerCase()
+                .includes("closed");
+            const customerAddress =
+              loan?.residenceAddress || loan?.permanentAddress || loan?.address || "";
+            const customerCity = loan?.city || loan?.permanentCity || "";
+            const showroomName =
+              loan?.dealerName ||
+              loan?.showroomName ||
+              loan?.showroom ||
+              loan?.showroom_name ||
+              "";
+            const disbursementLabel = disbursementDate
+              ? new Date(disbursementDate).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "";
+            const maturityStatus = (() => {
+              if (!maturityDate) return null;
+              const m = new Date(maturityDate);
+              if (Number.isNaN(m.getTime())) return null;
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              m.setHours(0, 0, 0, 0);
+              return m > today ? "Active" : "Closed";
+            })();
+            const statusTextLower = String(statusText || "").toLowerCase();
+            const effectiveLifecycleStatus = (() => {
+              if (isCashCar) return null;
+              if (isLoanClosed || maturityStatus === "Closed") return "Closed";
+              if (maturityStatus === "Active") return "Active";
+              if (
+                statusTextLower.includes("disburs") ||
+                statusTextLower.includes("approved") ||
+                statusTextLower.includes("progress") ||
+                statusTextLower.includes("pending")
+              ) {
+                return "Active";
+              }
+              return "Active";
+            })();
+            const isClosedByStatus = effectiveLifecycleStatus === "Closed";
+            const isShowroomApplicable =
+              !loanTypeText.includes("cash-in") && !loanTypeText.includes("refinance");
+            const sourceText = loan?.source || loan?.recordSource || "";
+            const sourceNameText = loan?.sourceName || loan?.dealerName || "";
+            const referenceName =
+              loan?.reference1?.name || loan?.reference1_name || loan?.reference_name || "";
+            const hasFinanceMeta = primaryInterest != null || !!primaryTenureMonths;
 
-              const otherBanks = banks.filter(
-                (b) => primary && b?.id !== primary.id,
-              );
-              const moreBanksCount = otherBanks.length;
+            const miniWindowData = getMiniWindow(loan);
+            const currentStageIndex = findCurrentStageIndex(loan);
+            const missingEmi = !primaryEmiAmount;
+            const missingRegNo = regNo === "Reg no not set";
 
-              const loanAmountLabel = formatCurrency(primaryLoanAmount);
-              const interestLabel =
-                primaryInterest != null
-                  ? `${primaryInterest}%`
-                  : "Interest not set";
-              const tenureLabel =
-                primaryTenureMonths != null
-                  ? `${primaryTenureMonths} months`
-                  : "Tenure not set";
+            return (
+              <article
+                key={loanKey}
+                className="group rounded-xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <div className="border-b border-border px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={selectedLoans?.includes(loan?.loanId)}
+                        onChange={(e) => onSelectLoan(loan?.loanId, e?.target?.checked)}
+                      />
+                      <div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                            {isCashCar ? "Cash Sale" : "Loan"}
+                          </span>
+                          <span className="rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300">
+                            {caseTypeLabel}
+                          </span>
+                          <span className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[12px] font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                            {formatLoanId(loan?.loan_number || loan?.loanId)}
+                          </span>
+                          {!isCashCar && hasDisplayValue(primaryBankName) && (
+                            <span className="rounded-full border border-fuchsia-300 bg-fuchsia-50 px-2.5 py-1 text-[11px] font-bold text-fuchsia-700 dark:border-fuchsia-800 dark:bg-fuchsia-950/40 dark:text-fuchsia-300">
+                              {primaryBankName}
+                            </span>
+                          )}
+                          {!isCashCar && hasDisplayValue(disbursementLabel) && (
+                            <span className="rounded-full border border-cyan-300 bg-cyan-50 px-2.5 py-1 text-[11px] font-semibold text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300">
+                              Disb: {disbursementLabel}
+                            </span>
+                          )}
+                          {!isCashCar && !isClosedByStatus && !!principalOutstanding && (
+                            <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              Live POS: {formatINR(principalOutstanding)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-              // reference & source
-              const referenceName =
-                loan?.reference1?.name || "Reference not set";
-              const source =
-                loan?.source || loan?.recordSource || "Source not set";
-              const sourceName = loan?.sourceName || "Source name not set";
-              const showroomName = loan?.dealerName || "Showroom not set";
-              const contactPerson =
-                loan?.dealerContactPerson || "Contact person not set";
-
-              // FIX: Get mini window data without causing re-renders
-              const miniWindowData = getMiniWindow(loan);
-
-              return (
-                <tr
-                  key={loanKey}
-                  className="border-b border-border hover:bg-muted/40 transition-colors cursor-pointer align-top"
-                  onClick={() => setDocumentsLoan(loan)}
-                >
-                  {/* checkbox */}
-                  <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedLoans?.includes(loan?.loanId)}
-                      onChange={(e) =>
-                        onSelectLoan(loan?.loanId, e?.target?.checked)
-                      }
-                    />
-                  </td>
-
-                  {/* Loan No */}
-                  <td className="p-3 align-top">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-foreground">
-                        {formatLoanId(loan?.loanId || loan?.loan_number)}
+                    <div className="flex items-start gap-1.5">
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getStatusTheme(statusText)}`}>
+                        {statusText}
                       </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {loan?.createdAt
-                          ? new Date(loan.createdAt).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )
-                          : "Created date not set"}
+                      <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {loan?.currentStage || "profile"}
                       </span>
                     </div>
-                  </td>
+                  </div>
+                </div>
 
-                  {/* Customer */}
-                  <td className="p-3 align-top">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-foreground">
-                        {customerName}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {mobile}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {email}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {address}
-                      </span>
-                      {cityLine && (
-                        <span className="text-[11px] text-muted-foreground">
-                          {cityLine}
-                        </span>
+                <div className="p-3 space-y-2">
+                  <section className="grid grid-cols-1 gap-2 lg:grid-cols-5">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 dark:border-slate-800 dark:bg-slate-950/60">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Customer</p>
+                      <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {hasDisplayValue(loan?.customerName) ? loan.customerName : "Customer"}
+                      </p>
+                      {hasDisplayValue(loan?.primaryMobile) && (
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300">{loan.primaryMobile}</p>
+                      )}
+                      {hasDisplayValue(customerAddress) && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">{customerAddress}</p>
+                      )}
+                      {hasDisplayValue(customerCity) && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">{customerCity}</p>
                       )}
                     </div>
-                  </td>
 
-                  {/* Vehicle */}
-                  <td className="p-3 align-top">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-foreground">
-                        {carTitle}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {variant}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {regNo}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {typeOfLoan}
-                      </span>
+                    <div className="rounded-lg border border-sky-200 bg-sky-50/80 p-2 dark:border-sky-900/70 dark:bg-sky-950/40">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700 dark:text-sky-300">Vehicle</p>
+                      <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{carTitle}</p>
+                      <p className="text-[10px] text-slate-600 dark:text-slate-300 truncate">{variant}</p>
+                      <p className="text-[10px] font-semibold text-sky-700 dark:text-sky-300 truncate">Reg: {regNo}</p>
                     </div>
-                  </td>
 
-                  {/* Loan Details */}
-                  <td className="p-3 align-top">
-                    <div className="flex flex-col gap-0.5 text-xs">
-                      <span className="font-semibold text-foreground">
-                        Loan Amount – {loanAmountLabel}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {primaryBankName}
-                      </span>
-                      <span className="text-muted-foreground">
-                        Interest – {interestLabel}
-                      </span>
-                      <span className="text-muted-foreground">
-                        Tenure – {tenureLabel}
-                      </span>
+                    <div className="rounded-lg border border-fuchsia-200 bg-fuchsia-50/80 p-2 dark:border-fuchsia-900/70 dark:bg-fuchsia-950/40">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fuchsia-700 dark:text-fuchsia-300">Finance</p>
+                      <p className="text-[11px] text-slate-700 dark:text-slate-200">Loan: <span className="font-semibold">{formatCurrency(primaryLoanAmount)}</span></p>
+                      {!!primaryEmiAmount && (
+                        <p className="text-[11px] text-slate-700 dark:text-slate-200">EMI: <span className="font-semibold">{formatINR(primaryEmiAmount)}</span></p>
+                      )}
+                      {hasFinanceMeta && (
+                        <p className="text-[10px] text-slate-600 dark:text-slate-300 truncate">
+                          {primaryInterest != null ? `ROI ${primaryInterest}%` : ""}{primaryInterest != null && primaryTenureMonths ? " · " : ""}{primaryTenureMonths ? `${primaryTenureMonths}m` : ""}
+                        </p>
+                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {!isCashCar && effectiveLifecycleStatus && (
+                          <span
+                            className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                              effectiveLifecycleStatus === "Closed"
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                            }`}
+                          >
+                            {effectiveLifecycleStatus}
+                          </span>
+                        )}
+                        {otherBanks.length > 0 && (
+                          <button
+                            type="button"
+                            className="rounded-full border border-sky-300 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300"
+                            onClick={() => onShowOtherBanks && onShowOtherBanks(loan, otherBanks)}
+                          >
+                            +{otherBanks.length} banks
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                      {moreBanksCount > 0 && (
-                        <button
-                          type="button"
-                          className="mt-1 text-[11px] text-primary underline underline-offset-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onShowOtherBanks &&
-                              onShowOtherBanks(loan, otherBanks);
-                          }}
-                        >
-                          + {moreBanksCount} more bank
-                          {moreBanksCount > 1 ? "s" : ""}
-                        </button>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 dark:border-slate-800 dark:bg-slate-950/60">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Sourcing</p>
+                      {hasDisplayValue(sourceText) && (
+                        <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{sourceText}</p>
+                      )}
+                      {hasDisplayValue(sourceNameText) && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{sourceNameText}</p>
+                      )}
+                      {isShowroomApplicable && showroomName && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Showroom: {showroomName}</p>
+                      )}
+                      {hasDisplayValue(referenceName) && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Ref: {referenceName}</p>
                       )}
                     </div>
-                  </td>
 
-                  {/* Reference & Source */}
-                  <td className="p-3 align-top">
-                    <div className="flex flex-col gap-0.5 text-xs">
-                      <span className="text-muted-foreground">
-                        Reference – {referenceName}
-                      </span>
-                      <span className="text-muted-foreground">
-                        Source – {source}
-                      </span>
-                      <span className="text-muted-foreground">
-                        Source Name – {sourceName}
-                      </span>
-                      <span className="text-muted-foreground">
-                        Showroom – {showroomName}
-                      </span>
-                      <span className="text-muted-foreground">
-                        Contact – {contactPerson}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Mini vertical timeline (prev / current / next) */}
-                  <td className="p-3 align-top">
                     <button
                       type="button"
-                      className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-muted/50 hover:border-primary/30 transition-colors p-2.5 group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTimelineLoan(loan);
-                      }}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-left transition-colors hover:border-slate-300 hover:bg-slate-100/80 dark:border-slate-800 dark:bg-slate-950/60 dark:hover:border-slate-700 dark:hover:bg-slate-900/80"
+                      onClick={() => setTimelineLoan(loan)}
                       title="View full timeline"
                     >
-                      <div className="relative flex flex-col gap-1.5 pl-3 min-h-[52px]">
-                        <div className="absolute left-[5px] top-2 bottom-2 w-px bg-border group-hover:bg-primary/30 transition-colors" />
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        Timeline
+                      </p>
+                      <div className="relative mt-1.5 min-h-[56px]">
+                        <div className="absolute bottom-1 left-[7px] top-1 w-px bg-slate-300 dark:bg-slate-700" />
                         {miniWindowData.steps.map((step, idx) => {
                           if (!step) {
                             return (
                               <div
                                 key={`empty-${idx}`}
-                                className="flex items-center gap-2 min-h-[14px]"
+                                className="grid min-h-[16px] items-center gap-2"
+                                style={{ gridTemplateColumns: "14px 1fr" }}
                               >
-                                <span className="w-2 h-2 rounded-full bg-muted-foreground/20 flex-shrink-0" />
-                                <span className="text-[11px] text-muted-foreground truncate max-w-[100px]">
-                                  —
-                                </span>
+                                <span className="relative z-10 mx-auto block h-2.5 w-2.5 rounded-full border border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800" />
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400">—</span>
                               </div>
                             );
                           }
-                          const isCurrent =
-                            step.key === miniWindowData.currentKey;
+                          const isCurrent = step.key === miniWindowData.currentKey;
                           return (
                             <div
-                              key={step.key || `placeholder-${idx}`}
-                              className={`flex items-center gap-2 min-h-[14px] ${isCurrent ? "" : "opacity-75"}`}
+                              key={step.key || `step-${idx}`}
+                              className={`grid min-h-[16px] items-center gap-2 ${isCurrent ? "" : "opacity-80"}`}
+                              style={{ gridTemplateColumns: "14px 1fr" }}
                             >
                               <span
-                                className={`relative z-10 flex-shrink-0 rounded-full border-2 ${
+                                className={`relative z-10 rounded-full border ${
                                   isCurrent
-                                    ? "w-2.5 h-2.5 bg-primary border-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.25)]"
+                                    ? "h-2.5 w-2.5 border-amber-500 bg-amber-500"
                                     : step.date
-                                      ? "w-2 h-2 bg-primary/60 border-primary/40"
-                                      : "w-2 h-2 bg-muted border-border"
-                                }`}
+                                      ? "h-2.5 w-2.5 border-emerald-500 bg-emerald-500"
+                                      : "h-2.5 w-2.5 border-slate-300 bg-slate-200 dark:border-slate-700 dark:bg-slate-800"
+                                } mx-auto block`}
                               />
-                              <span
-                                className={`text-[11px] truncate max-w-[100px] ${
-                                  isCurrent
-                                    ? "font-semibold text-foreground"
-                                    : step.date
-                                      ? "text-muted-foreground"
-                                      : "text-muted-foreground/70"
-                                }`}
-                                title={
-                                  step.label +
-                                  (step.date
-                                    ? ` · ${new Date(
-                                        step.date,
-                                      ).toLocaleDateString("en-IN")}`
-                                    : "")
-                                }
-                              >
-                                {step.label || "—"}
+                              <span className={`max-w-[130px] truncate text-[10px] ${isCurrent ? "font-semibold text-slate-900 dark:text-slate-100" : "text-slate-600 dark:text-slate-300"}`}>
+                                {step.label}
                               </span>
                             </div>
                           );
                         })}
                       </div>
+                      <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                        Stage {currentStageIndex + 1}/{STAGES.length}
+                      </p>
                     </button>
-                  </td>
+                  </section>
 
-                  {/* Actions */}
-                  <td
-                    className="p-3 align-top"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex flex-col items-end gap-1.5">
-                      {/* Row 1 – icons */}
-                      <div className="flex items-center gap-1.5">
+                  <section className="flex flex-wrap items-center justify-between gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {missingEmi && (
+                        <span className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+                          EMI missing
+                        </span>
+                      )}
+                      {missingRegNo && (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                          Reg no missing
+                        </span>
+                      )}
+                      <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        Reg City: {regCity}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Tooltip title="View loan details" placement="top">
                         <button
                           type="button"
-                          title="View loan details"
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onLoanClick(loan, "view");
-                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-sky-100 text-sky-700 border border-sky-200 hover:bg-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800"
+                          onClick={() => onLoanClick(loan, "view")}
                         >
                           <Icon name="Eye" size={12} />
                         </button>
+                      </Tooltip>
+                      <Tooltip title="Open documents" placement="top">
                         <button
                           type="button"
-                          title="Documents – present & pending"
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDocumentsLoan(loan);
-                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                          onClick={() => setDocumentsLoan(loan)}
                         >
                           <Icon name="FolderOpen" size={12} />
                         </button>
-
+                      </Tooltip>
+                      <Tooltip title="Edit case" placement="top">
                         <button
                           type="button"
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-background"
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
                           onClick={() => onLoanClick(loan, "edit")}
                         >
                           <Icon name="Edit" size={12} />
                         </button>
+                      </Tooltip>
+                      <Tooltip title="Share case link" placement="top">
                         <button
                           type="button"
-                          title="Share loan link"
-                          className="w-7 h-7 flex items-center justify-center rounded-full bg-muted text-foreground border border-border hover:bg-background"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onShareLoan?.(loan);
-                          }}
+                          className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                          onClick={() => onShareLoan?.(loan)}
                         >
                           <Icon name="Share2" size={12} />
                         </button>
-
-                        {userRole === "admin" && (
-                          <button
-                            type="button"
-                            className="w-7 h-7 flex items-center justify-center rounded-full bg-error/5 text-error border border-error/20 hover:bg-error/10"
-                            onClick={() => onDeleteLoan?.(loan)}
-                          >
-                            <Icon name="Trash2" size={12} />
-                          </button>
-                        )}
-
+                      </Tooltip>
+                      <Tooltip title="Update status" placement="top">
                         <button
                           type="button"
-                          title="Internal Notes"
-                          className={`w-7 h-7 flex items-center justify-center rounded-full border transition-all ${
-                            loan.loan_notes
-                              ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200"
-                              : "bg-muted text-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/30"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onNotesClick?.(loan);
-                          }}
+                          className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300"
+                          onClick={() => onUpdateStatus?.(loan)}
                         >
-                          <Icon name="StickyNote" size={12} />
+                          <Icon name="Flag" size={12} /> Update
                         </button>
-                      </div>
-
-                      {/* Row 2 – Update Status */}
-                      <button
-                        type="button"
-                        title="Update approval status"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted text-foreground border border-border hover:bg-background"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onUpdateStatus?.(loan);
-                        }}
-                      >
-                        <Icon name="Flag" size={11} />
-                        Update status
-                      </button>
-
-                      {/* Row 3 – Pendency */}
+                      </Tooltip>
                       <Tooltip
                         title={
-                          pendencyCount > 0
-                            ? `Pending: ${pendingSteps.join(", ")}`
-                            : "No pendency"
+                          pendencyCount > 0 ? `Pending: ${pendingSteps.join(", ")}` : "No pendency"
                         }
                         placement="top"
                       >
                         <button
                           type="button"
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border border-border hover:bg-background relative ${
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                             pendencyCount > 0
-                              ? "bg-warning/10 text-warning border-warning/20"
-                              : "bg-muted text-foreground"
+                              ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                              : "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                           }`}
                           onClick={() => setPendencyLoan(loan)}
                         >
-                          <Icon name="AlertTriangle" size={11} />
-                          Pendency
-                          {pendencyCount > 0 && (
-                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-warning text-white text-[10px] font-bold animate-pulse">
-                              {pendencyCount}
-                            </span>
-                          )}
+                          <Icon name="AlertTriangle" size={12} /> Pendency {pendencyCount > 0 ? `(${pendencyCount})` : ""}
                         </button>
                       </Tooltip>
-                      {/* Pendency Modal */}
-                      {pendencyLoan && (
-                        <div
-                          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-                          onClick={() => setPendencyLoan(null)}
+                      <Tooltip title="Internal notes" placement="top">
+                        <button
+                          type="button"
+                          className={`w-7 h-7 flex items-center justify-center rounded-full border ${
+                            loan.loan_notes
+                              ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800"
+                              : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                          }`}
+                          onClick={() => onNotesClick?.(loan)}
                         >
-                          <div
-                            className="w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border p-6 relative animate-fadeIn"
-                            onClick={(e) => e.stopPropagation()}
+                          <Icon name="StickyNote" size={12} />
+                        </button>
+                      </Tooltip>
+                      {userRole === "admin" && (
+                        <Tooltip title="Delete case" placement="top">
+                          <button
+                            type="button"
+                            className="w-7 h-7 flex items-center justify-center rounded-full bg-rose-100 text-rose-700 border border-rose-200 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800"
+                            onClick={() => onDeleteLoan?.(loan)}
                           >
-                            <div className="flex items-center justify-between mb-4">
-                              <div className="flex flex-col">
-                                <span className="text-base font-bold text-foreground tracking-tight">
-                                  Loan Pendency
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {pendencyLoan.customerName || "Customer"} ·{" "}
-                                  {formatLoanId(
-                                    pendencyLoan.loanId ||
-                                      pendencyLoan.loan_number,
-                                  )}
-                                </span>
-                              </div>
-                              <button
-                                className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition"
-                                onClick={() => setPendencyLoan(null)}
-                                title="Close"
-                              >
-                                <Icon name="X" size={16} />
-                              </button>
-                            </div>
-                            <PendencyTracker singleLoan={pendencyLoan} />
-                          </div>
-                        </div>
+                            <Icon name="Trash2" size={12} />
+                          </button>
+                        </Tooltip>
                       )}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </section>
+                </div>
+              </article>
+            );
+          })}
+        </div>
 
-        {/* Loan Documents modal - single instance outside row map */}
-        <LoanDocumentsModal
-          loan={documentsLoan}
-          open={!!documentsLoan}
-          onClose={() => setDocumentsLoan(null)}
-          onUploadComplete={() => {
-            onRefreshLoans?.();
-          }}
-        />
-
-        {loading && (
-          <div className="text-center py-12 text-sm text-muted-foreground">
-            Loading loans...
-          </div>
-        )}
-
-        {!loading && loans?.length === 0 && (
-          <div className="text-center py-14">
-            <Icon
-              name="FileText"
-              size={46}
-              className="text-muted-foreground mx-auto mb-4"
-            />
-            <p className="text-base font-semibold text-foreground">
-              No loans found
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Create a new loan to get started
-            </p>
+        {!loading && (totalCount || 0) > 0 && (
+          <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+            <div>
+              Showing{" "}
+              <span className="font-semibold text-foreground">
+                {Math.min((currentPage - 1) * pageSize + 1, totalCount || 0)}
+              </span>{" "}
+              -{" "}
+              <span className="font-semibold text-foreground">
+                {Math.min(currentPage * pageSize, totalCount || 0)}
+              </span>{" "}
+              of <span className="font-semibold text-foreground">{totalCount || 0}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                iconName="ChevronLeft"
+                disabled={currentPage <= 1}
+                onClick={() => onPageChange?.(Math.max(1, currentPage - 1))}
+              >
+                Prev
+              </Button>
+              <span className="px-2 text-foreground font-medium">
+                {currentPage}/{totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                iconName="ChevronRight"
+                disabled={currentPage >= totalPages}
+                onClick={() => onPageChange?.(Math.min(totalPages, currentPage + 1))}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Timeline popup */}
+      <LoanDocumentsModal
+        loan={documentsLoan}
+        open={!!documentsLoan}
+        onClose={() => setDocumentsLoan(null)}
+        onUploadComplete={() => {
+          onRefreshLoans?.();
+        }}
+      />
+
+      {pendencyLoan && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setPendencyLoan(null)}
+        >
+          <div
+            className="w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col">
+                <span className="text-base font-bold text-foreground tracking-tight">Loan Pendency</span>
+                <span className="text-xs text-muted-foreground">
+                  {pendencyLoan.customerName || "Customer"} · {formatLoanId(pendencyLoan.loanId || pendencyLoan.loan_number)}
+                </span>
+              </div>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition"
+                onClick={() => setPendencyLoan(null)}
+                title="Close"
+              >
+                <Icon name="X" size={16} />
+              </button>
+            </div>
+            <PendencyTracker singleLoan={pendencyLoan} />
+          </div>
+        </div>
+      )}
+
       {timelineLoan && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setTimelineLoan(null)}
         >
           <div
-            className="w-full max-w-md bg-card rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[85vh]"
+            className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+            <div className="flex items-center justify-between border-b border-border bg-muted/30 px-5 py-4">
               <div className="flex flex-col gap-0.5">
-                <span className="text-base font-bold text-foreground tracking-tight">
-                  Loan Timeline
-                </span>
+                <span className="text-base font-bold text-foreground tracking-tight">Loan Timeline</span>
                 <span className="text-xs text-muted-foreground">
-                  {timelineLoan.customerName || "Customer"} ·{" "}
-                  {formatLoanId(
-                    timelineLoan.loanId || timelineLoan.loan_number,
-                  )}
+                  {timelineLoan.customerName || "Customer"} · {formatLoanId(timelineLoan.loanId || timelineLoan.loan_number)}
                 </span>
               </div>
-              <button
-                type="button"
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                onClick={() => setTimelineLoan(null)}
-                title="Close"
-              >
-                <Icon name="X" size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  Stage {findCurrentStageIndex(timelineLoan) + 1}/{STAGES.length}
+                </span>
+                <button
+                  type="button"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => setTimelineLoan(null)}
+                  title="Close"
+                >
+                  <Icon name="X" size={16} />
+                </button>
+              </div>
             </div>
-            {/* body */}
-            <div className="flex-1 overflow-y-auto p-5 min-h-0">
-              <div className="relative pl-6">
-                {/* vertical spine */}
-                <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-border rounded-full" />
-                <div className="space-y-3">
-                  {buildTimeline(timelineLoan).map((step) => {
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="relative rounded-xl border border-border bg-background px-3 py-3">
+                <div className="space-y-0">
+                  {(() => {
                     const currentIndex = findCurrentStageIndex(timelineLoan);
                     const currentStageKey = STAGES[currentIndex]?.key;
-                    const isCurrent = currentStageKey === step.key;
-                    const isDone = step.date != null;
+                    const timelineSteps = buildTimeline(timelineLoan);
+                    return timelineSteps.map((step, idx) => {
+                      const isCurrent = currentStageKey === step.key;
+                      const isDone = step.date != null;
+                      const isFirst = idx === 0;
+                      const isLast = idx === timelineSteps.length - 1;
 
-                    return (
-                      <div key={step.key} className="relative flex gap-4">
-                        {/* node dot - aligned to card center */}
-                        <div className="relative z-10 flex-shrink-0 flex items-center justify-center w-6 h-8">
-                          <div
-                            className={`w-3 h-3 rounded-full border-2 transition-all ${
-                              isCurrent
-                                ? "border-primary bg-primary ring-4 ring-primary/20"
-                                : isDone
-                                  ? "border-primary bg-primary/80"
-                                  : "border-border bg-muted"
-                            }`}
-                          />
-                        </div>
-                        {/* card */}
+                      return (
                         <div
-                          className={`flex-1 min-w-0 rounded-xl border px-4 py-3 transition-all ${
-                            isCurrent
-                              ? "border-primary bg-primary/5 shadow-sm"
-                              : isDone
-                                ? "border-border bg-background"
-                                : "border-dashed border-border bg-muted/20"
-                          }`}
+                          key={step.key}
+                          className="grid items-start gap-3 py-1"
+                          style={{ gridTemplateColumns: "24px 1fr" }}
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span
-                              className={`text-sm font-medium ${
-                                isCurrent
-                                  ? "text-primary"
-                                  : isDone
-                                    ? "text-foreground"
-                                    : "text-muted-foreground"
-                              }`}
-                            >
-                              {step.label}
-                              {isCurrent && (
-                                <span className="ml-1.5 text-xs font-semibold text-primary opacity-90">
-                                  (Current)
-                                </span>
-                              )}
-                            </span>
-                            {step.date ? (
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {step.date.toLocaleDateString("en-IN", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                                <span className="ml-1 opacity-80">
-                                  {step.date.toLocaleTimeString("en-IN", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground/80">
-                                Pending
-                              </span>
+                          <div className="relative z-10 h-9 w-6">
+                            {!isFirst && (
+                              <span className="absolute left-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-border" />
                             )}
+                            {!isLast && (
+                              <span className="absolute left-1/2 top-1/2 h-1/2 w-px -translate-x-1/2 bg-border" />
+                            )}
+                            <span
+                              className={`absolute left-1/2 top-1/2 block h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border ${
+                                isCurrent
+                                  ? "border-amber-500 bg-amber-500"
+                                  : isDone
+                                    ? "border-emerald-500 bg-emerald-500"
+                                    : "border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-950"
+                              }`}
+                            />
+                          </div>
+                          <div
+                            className={`rounded-lg border px-3 py-2 ${
+                              isCurrent
+                                ? "border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/25"
+                                : isDone
+                                  ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/25"
+                                  : "border-border bg-card"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`truncate text-sm ${isCurrent ? "font-semibold text-foreground" : "text-foreground/90"}`}>
+                                {step.label}
+                              </p>
+                              <span
+                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                  isCurrent
+                                    ? "border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300"
+                                    : isDone
+                                      ? "border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+                                      : "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                }`}
+                              >
+                                {isCurrent ? "Current" : isDone ? "Done" : "Pending"}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              {step.date ? new Date(step.date).toLocaleDateString("en-IN") : "Date not available"}
+                            </p>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-border bg-card">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div>
-            Showing{" "}
-            <span className="font-semibold">
-              {Math.min(50, sortedLoans?.length || 0)}
-            </span>{" "}
-            of <span className="font-semibold">{sortedLoans?.length || 0}</span>{" "}
-            loan(s)
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" iconName="ChevronLeft" disabled>
-              Previous
-            </Button>
-            <Button variant="default" size="sm">
-              1
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              iconName="ChevronRight"
-              disabled
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

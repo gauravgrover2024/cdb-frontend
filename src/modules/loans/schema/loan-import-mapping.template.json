@@ -1608,6 +1608,11 @@
       "transform": "identity"
     },
     {
+      "targetField": "vehicleFuelType",
+      "sourcePath": "",
+      "transform": "identity"
+    },
+    {
       "targetField": "yearsInCurrentCity",
       "sourcePath": "",
       "transform": "identity"

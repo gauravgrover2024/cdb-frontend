@@ -1,259 +1,338 @@
-import React, { useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Spin } from "antd";
 import Icon from "../../../../components/AppIcon";
-import Button from "../../../../components/ui/Button";
 import { loansApi } from "../../../../api/loans";
-import { message } from "antd";
 
-const DOCUMENT_CATEGORIES = [
-  {
-    id: "kyc",
-    title: "KYC Documents",
-    icon: "FileText",
-    fields: [
-      { key: "aadhaarCardDocUrl", label: "Aadhaar Card" },
-      { key: "panCardDocUrl", label: "PAN Card" },
-      { key: "passportDocUrl", label: "Passport" },
-      { key: "dlDocUrl", label: "Driving License" },
-      { key: "addressProofDocUrl", label: "Address Proof" },
-      { key: "gstDocUrl", label: "GST Certificate" },
-    ],
-  },
-  {
-    id: "co-applicant",
-    title: "Co-Applicant Documents",
-    icon: "Users",
-    fields: [
-      { key: "co_aadhaarCardDocUrl", label: "Co-App Aadhaar" },
-      { key: "co_panCardDocUrl", label: "Co-App PAN" },
-      { key: "co_passportDocUrl", label: "Co-App Passport" },
-      { key: "co_dlDocUrl", label: "Co-App DL" },
-      { key: "co_addressProofDocUrl", label: "Co-App Address Proof" },
-    ],
-  },
-  {
-    id: "guarantor",
-    title: "Guarantor Documents",
-    icon: "Shield",
-    fields: [
-      { key: "gu_aadhaarCardDocUrl", label: "Guarantor Aadhaar" },
-      { key: "gu_panCardDocUrl", label: "Guarantor PAN" },
-      { key: "gu_passportDocUrl", label: "Guarantor Passport" },
-      { key: "gu_dlDocUrl", label: "Guarantor DL" },
-      { key: "gu_addressProofDocUrl", label: "Guarantor Address Proof" },
-    ],
-  },
-  {
-    id: "vehicle",
-    title: "Vehicle Documents",
-    icon: "Car",
-    fields: [
-      { key: "vehiclePhotoUrl", label: "Vehicle Photo" },
-      { key: "vehicleRCUrl", label: "RC Book" },
-      { key: "insurancePolicyUrl", label: "Insurance Policy" },
-      { key: "hypothecationDocUrl", label: "Hypothecation Doc" },
-    ],
-  },
-  {
-    id: "delivery",
-    title: "Delivery Documents",
-    icon: "Truck",
-    fields: [
-      { key: "delivery_invoiceFile", label: "Invoice" },
-      { key: "delivery_rcFile", label: "RC Copy" },
-    ],
-  },
-  {
-    id: "postfile",
-    title: "Post-File Documents",
-    icon: "FolderOpen",
-    fields: [{ key: "postfile_documents", label: "Additional Documents", isArray: true }],
-  },
-];
-
-const getDocUrl = (loan, key, isArray) => {
-  if (isArray && key === "postfile_documents") {
-    const arr = loan?.postfile_documents;
-    if (!Array.isArray(arr)) return [];
-    return arr.map((item) => (typeof item === "object" && item ? item.url || item.secure_url : item)).filter(Boolean);
-  }
-  const v = loan?.[key];
-  return v ? [v] : [];
+const KEY_LABELS = {
+  aadhaarCardDocUrl: "Aadhaar Card",
+  panCardDocUrl: "PAN Card",
+  passportDocUrl: "Passport",
+  dlDocUrl: "Driving License",
+  addressProofDocUrl: "Address Proof",
+  gstDocUrl: "GST Certificate",
+  co_aadhaarCardDocUrl: "Co-Applicant Aadhaar",
+  co_panCardDocUrl: "Co-Applicant PAN",
+  co_passportDocUrl: "Co-Applicant Passport",
+  co_dlDocUrl: "Co-Applicant Driving License",
+  co_addressProofDocUrl: "Co-Applicant Address Proof",
+  gu_aadhaarCardDocUrl: "Guarantor Aadhaar",
+  gu_panCardDocUrl: "Guarantor PAN",
+  gu_passportDocUrl: "Guarantor Passport",
+  gu_dlDocUrl: "Guarantor Driving License",
+  gu_addressProofDocUrl: "Guarantor Address Proof",
+  delivery_invoiceFile: "Delivery Invoice",
+  delivery_rcFile: "Delivery RC Copy",
+  vehiclePhotoUrl: "Vehicle Photo",
+  vehicleRCUrl: "Vehicle RC",
+  insurancePolicyUrl: "Insurance Policy",
+  hypothecationDocUrl: "Hypothecation Document",
+  photoUrl: "Customer Photo",
+  signatureUrl: "Customer Signature",
+  postfile_documents: "Post-File Document",
+  postfile_documents_ledger: "Post-File Ledger Document",
 };
 
-const LoanDocumentsModal = ({ loan, open, onClose, onUploadComplete }) => {
-  const [localLoan, setLocalLoan] = useState(loan);
-  const [uploadingKey, setUploadingKey] = useState(null);
-  const fileInputRefs = useRef({});
+const hasValue = (v) =>
+  v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "");
 
-  React.useEffect(() => {
-    if (loan) setLocalLoan(loan);
-  }, [loan]);
+const looksLikeUrl = (v) => {
+  if (!hasValue(v) || typeof v !== "string") return false;
+  const s = v.trim().toLowerCase();
+  return (
+    s.startsWith("http://") ||
+    s.startsWith("https://") ||
+    s.startsWith("data:application/pdf") ||
+    s.startsWith("data:image/")
+  );
+};
 
-  const loanId = localLoan?._id || localLoan?.loanId;
-  const formatLoanId = (id) => {
-    if (!id) return "—";
-    const s = String(id);
-    return s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s;
+const isImageUrl = (url = "") => /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(url) || url.startsWith("data:image/");
+const isPdfUrl = (url = "") => /\.pdf(\?|#|$)/i.test(url) || url.startsWith("data:application/pdf");
+
+const formatLabelFromPath = (path = "") =>
+  String(path)
+    .split(".")
+    .filter(Boolean)
+    .map((segment) =>
+      segment
+        .replace(/\[(\d+)\]/g, " $1")
+        .replace(/_/g, " ")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .trim(),
+    )
+    .join(" > ");
+
+const getSourceFromPath = (path = "") => {
+  const p = String(path).toLowerCase();
+  if (p.includes("co_") || p.includes("coapplicant")) return "Co-Applicant";
+  if (p.includes("gu_") || p.includes("guarantor")) return "Guarantor";
+  if (p.includes("aadhaar") || p.includes("aadhar") || p.includes("pan") || p.includes("passport") || p.includes("kyc")) {
+    return "KYC Documents";
+  }
+  if (p.includes("instrument")) return "Post-File Instruments";
+  if (p.includes("approval_") || p.includes("banksdata")) return "Loan Approval Documents";
+  if (p.includes("postfile_")) return "Post-File Document Management";
+  if (p.includes("delivery_") || p.includes("rc_") || p.includes("invoice")) return "Delivery & RC";
+  if (p.includes("vehicle")) return "Vehicle Documents";
+  return "Other Documents";
+};
+
+const normalizeDocName = (path, rawName, url) => {
+  if (hasValue(rawName)) return String(rawName);
+  const key = String(path).split(".").pop();
+  if (KEY_LABELS[key]) return KEY_LABELS[key];
+  const fromUrl = String(url || "").split("/").pop();
+  return decodeURIComponent(fromUrl || formatLabelFromPath(path) || "Document");
+};
+
+const extractAllDocuments = (loan) => {
+  if (!loan || typeof loan !== "object") return [];
+  const found = [];
+
+  const pushDoc = ({ path, url, tag, name, source }) => {
+    if (!looksLikeUrl(url)) return;
+    found.push({
+      id: `${path}:${url}`,
+      path,
+      url,
+      tag: hasValue(tag) ? String(tag) : "",
+      name: normalizeDocName(path, name, url),
+      source: source || getSourceFromPath(path),
+      isImage: isImageUrl(url),
+      isPdf: isPdfUrl(url),
+    });
   };
 
-  const categoriesWithStatus = useMemo(() => {
-    return DOCUMENT_CATEGORIES.map((cat) => ({
-      ...cat,
-      fields: cat.fields.map((field) => {
-        const isArray = field.isArray;
-        const urls = getDocUrl(localLoan, field.key, isArray);
-        const present = isArray ? urls.length > 0 : urls.length === 1;
-        const count = isArray ? urls.length : (urls[0] ? 1 : 0);
-        return {
-          ...field,
-          present,
-          count,
-          url: isArray ? null : urls[0] || null,
-          urls: isArray ? urls : [],
-        };
-      }),
-    }));
-  }, [localLoan]);
+  const walk = (value, path = "", parent = null) => {
+    if (!hasValue(value)) return;
 
-  const handleUpload = async (fieldKey, isArray, file) => {
-    if (!file || !loanId) return;
-    setUploadingKey(fieldKey);
-    try {
-      const { uploadToCloudinary } = await import("../../../../utils/cloudinary");
-      const data = await uploadToCloudinary(file);
-      const url = data?.secure_url || data?.url;
-      if (!url) throw new Error("No URL returned from upload");
+    if (typeof value === "string" && looksLikeUrl(value)) {
+      pushDoc({
+        path,
+        url: value,
+        tag: parent?.tag || parent?.label || parent?.documentTag,
+        name: parent?.name || parent?.fileName || parent?.filename || parent?.title,
+      });
+      return;
+    }
 
-      if (isArray && fieldKey === "postfile_documents") {
-        const existing = Array.isArray(localLoan.postfile_documents) ? localLoan.postfile_documents : [];
-        const newDoc = { name: file.name, url, uploadedAt: new Date().toISOString() };
-        const updated = [...existing, newDoc];
-        await loansApi.update(loanId, { postfile_documents: updated });
-        setLocalLoan((prev) => ({ ...prev, postfile_documents: updated }));
-      } else {
-        await loansApi.update(loanId, { [fieldKey]: url });
-        setLocalLoan((prev) => ({ ...prev, [fieldKey]: url }));
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => walk(entry, `${path}[${index}]`, parent));
+      return;
+    }
+
+    if (typeof value === "object") {
+      const objectUrl = value.url || value.secure_url || value.fileUrl || value.docUrl;
+      if (looksLikeUrl(objectUrl)) {
+        pushDoc({
+          path,
+          url: objectUrl,
+          tag: value.tag || value.label || value.documentTag,
+          name: value.name || value.fileName || value.filename || value.title,
+          source: value.source,
+        });
       }
-      message.success("Document uploaded.");
-      onUploadComplete?.();
-    } catch (err) {
-      console.error("Upload error", err);
-      message.error(err?.message || "Upload failed.");
-    } finally {
-      setUploadingKey(null);
-      const input = fileInputRefs.current[fieldKey];
-      if (input) input.value = "";
+
+      Object.entries(value).forEach(([k, v]) => {
+        walk(v, path ? `${path}.${k}` : k, value);
+      });
     }
   };
 
-  const triggerFileInput = (fieldKey, isArray) => {
-    const input = fileInputRefs.current[fieldKey];
-    if (input) input.click();
-  };
+  walk(loan);
+
+  const seenByUrl = new Map();
+  found.forEach((doc) => {
+    if (!seenByUrl.has(doc.url)) {
+      seenByUrl.set(doc.url, doc);
+      return;
+    }
+    const existing = seenByUrl.get(doc.url);
+    if (!existing.tag && doc.tag) existing.tag = doc.tag;
+    if (existing.name === "Document" && doc.name !== "Document") existing.name = doc.name;
+    if (existing.source === "Other Documents" && doc.source !== "Other Documents") existing.source = doc.source;
+  });
+
+  return Array.from(seenByUrl.values());
+};
+
+const LoanDocumentsModal = ({ loan, open, onClose }) => {
+  const [localLoan, setLocalLoan] = useState(loan || null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLocalLoan(loan || null);
+  }, [loan]);
+
+  useEffect(() => {
+    if (!open || !loan) return;
+    const loanId = loan?._id || loan?.loanId;
+    if (!loanId) return;
+    let cancelled = false;
+
+    const loadFullLoan = async () => {
+      setLoading(true);
+      try {
+        const res = await loansApi.getById(loanId);
+        if (cancelled) return;
+        const full = res?.data ?? res;
+        if (full && typeof full === "object") {
+          setLocalLoan((prev) => ({ ...(prev || {}), ...full }));
+        }
+      } catch (err) {
+        console.warn("Could not fetch full loan for documents modal:", err?.message || err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadFullLoan();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loan]);
+
+  const allDocs = useMemo(() => extractAllDocuments(localLoan), [localLoan]);
+
+  const groupedDocs = useMemo(() => {
+    const map = new Map();
+    allDocs.forEach((doc) => {
+      const key = doc.source || "Other Documents";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(doc);
+    });
+    return Array.from(map.entries()).map(([source, docs]) => ({ source, docs }));
+  }, [allDocs]);
+
+  const taggedCount = useMemo(() => allDocs.filter((d) => hasValue(d.tag)).length, [allDocs]);
+
+  const displayId = localLoan?.loan_number || localLoan?.loanId || "—";
+  const displayName = localLoan?.customerName || "Customer";
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]"
+        className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-base font-bold text-foreground tracking-tight">Loan Documents</span>
-            <span className="text-xs text-muted-foreground">
-              {localLoan?.customerName || "Customer"} · {formatLoanId(localLoan?.loanId || localLoan?.loan_number)}
-            </span>
+        <div className="flex items-center justify-between border-b border-border bg-muted/20 px-5 py-4">
+          <div>
+            <p className="text-base font-bold text-foreground">All Loan Documents</p>
+            <p className="text-xs text-muted-foreground">
+              {displayName} · {displayId}
+            </p>
           </div>
           <button
             type="button"
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             onClick={onClose}
-            title="Close"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            <Icon name="X" size={18} />
+            <Icon name="X" size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 min-h-0 space-y-5">
-          {categoriesWithStatus.map((category) => (
-            <div key={category.id} className="rounded-xl border border-border bg-background/50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-                <Icon name={category.icon} size={18} className="text-muted-foreground" />
-                <span className="font-semibold text-sm text-foreground">{category.title}</span>
-              </div>
-              <div className="p-3 space-y-2">
-                {category.fields.map((field) => {
-                  const isArray = field.isArray;
-                  const isUploading = uploadingKey === field.key;
-                  const present = field.present;
-                  return (
-                    <div
-                      key={field.key}
-                      className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-muted/20 border border-transparent hover:border-border/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 ${
-                            present ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                          }`}
-                        >
-                          <Icon name={present ? "CheckCircle2" : "AlertCircle"} size={16} />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{field.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {present
-                              ? isArray
-                                ? `${field.count} file(s) uploaded`
-                                : "Uploaded"
-                              : "Pending"}
-                          </p>
+        <div className="border-b border-border bg-background px-5 py-3">
+          <div className="flex flex-wrap gap-3 text-xs">
+            <span className="rounded-full border border-border bg-card px-3 py-1 font-semibold text-foreground">
+              Total Files: {allDocs.length}
+            </span>
+            <span className="rounded-full border border-border bg-card px-3 py-1 font-semibold text-foreground">
+              Tagged: {taggedCount}
+            </span>
+            <span className="rounded-full border border-border bg-card px-3 py-1 font-semibold text-foreground">
+              Sources: {groupedDocs.length}
+            </span>
+            {loading && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-sky-300/70 bg-sky-50 px-3 py-1 font-semibold text-sky-700 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300">
+                <Spin size="small" />
+                Syncing latest files...
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+          {groupedDocs.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-background px-6 py-12 text-center">
+              <p className="text-sm font-semibold text-foreground">No documents found in this case</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Upload files in Profile KYC, Post-File Instrument/Document Management, or Delivery RC/Invoice.
+              </p>
+            </div>
+          ) : (
+            groupedDocs.map((group) => (
+              <section key={group.source} className="rounded-2xl border border-border bg-background">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <p className="text-sm font-bold text-foreground">{group.source}</p>
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                    {group.docs.length} file(s)
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto p-4">
+                  <div className="flex min-w-max gap-3">
+                    {group.docs.map((doc) => (
+                      <article
+                        key={doc.id}
+                        className="w-[240px] shrink-0 rounded-xl border border-border bg-card p-3"
+                        title={doc.path}
+                      >
+                        <div className="mb-3 h-28 overflow-hidden rounded-lg border border-border bg-muted">
+                          {doc.isImage ? (
+                            <img src={doc.url} alt={doc.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                              <Icon name={doc.isPdf ? "FileText" : "File"} size={24} />
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {field.url && !isArray && (
+
+                        <p className="truncate text-sm font-semibold text-foreground">{doc.name}</p>
+                        <p className="mt-1 truncate text-[11px] text-muted-foreground">{formatLabelFromPath(doc.path)}</p>
+
+                        <div className="mt-2 flex min-h-[24px] items-center">
+                          {hasValue(doc.tag) ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/80 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              <Icon name="Tag" size={11} />
+                              {doc.tag}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">No tag</span>
+                          )}
+                        </div>
+
+                        <div className="mt-3 flex gap-2">
                           <a
-                            href={field.url}
+                            href={doc.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline"
+                            className="inline-flex flex-1 items-center justify-center rounded-md border border-border bg-background px-2 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
                           >
                             View
                           </a>
-                        )}
-                        <input
-                          ref={(el) => (fileInputRefs.current[field.key] = el)}
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleUpload(field.key, isArray, file);
-                          }}
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          iconName="Upload"
-                          onClick={() => triggerFileInput(field.key, isArray)}
-                          disabled={isUploading}
-                          className="text-xs"
-                        >
-                          {isUploading ? "Uploading…" : present ? "Replace" : "Upload"}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="inline-flex flex-1 items-center justify-center rounded-md border border-border bg-background px-2 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            ))
+          )}
         </div>
 
-        <div className="px-5 py-3 border-t border-border bg-muted/20 text-xs text-muted-foreground">
-          Required documents are shown in their respective sections. Upload missing documents or replace existing ones.
+        <div className="border-t border-border bg-muted/20 px-5 py-3 text-xs text-muted-foreground">
+          Includes all files found across this loan: Profile KYC, Co-Applicant, Guarantor, Post-File Instruments, Document Management, Delivery RC/Invoice, and other uploaded document URLs.
         </div>
       </div>
     </div>

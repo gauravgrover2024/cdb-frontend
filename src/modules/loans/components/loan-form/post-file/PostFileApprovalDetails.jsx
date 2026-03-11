@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import { Form, Radio, Input } from "antd";
+import { Form, Radio, InputNumber, DatePicker, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { formatINR } from "../../../../../utils/currency";
@@ -26,6 +26,14 @@ const calculateEmi = (principal, annualRate, tenureMonths, type = "Reducing") =>
 
   const pow = Math.pow(1 + R, N);
   return Math.round((P * R * pow) / (pow - 1));
+};
+
+const controlClass =
+  "w-full rounded-lg border border-border/90 bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/15";
+const asDayjs = (value) => {
+  if (!value) return null;
+  const d = dayjs.isDayjs(value) ? value : dayjs(value);
+  return d.isValid() ? d : null;
 };
 
 const PostFileApprovalDetails = ({ form }) => {
@@ -60,7 +68,11 @@ const PostFileApprovalDetails = ({ form }) => {
   // -----------------------------
   const postfileRoi = Form.useWatch("postfile_roi", form);
   const postfileRoiType = Form.useWatch("postfile_roiType", form);
+  const postfileEmiMode = Form.useWatch("postfile_emiMode", form);
   const postfileTenure = Form.useWatch("postfile_tenureMonths", form);
+  const postfileEmiPlan = Form.useWatch("postfile_emiPlan", form);
+  const postfileLoanAmountApproved = Form.useWatch("postfile_loanAmountApproved", form);
+  const postfileFirstEmiDate = Form.useWatch("postfile_firstEmiDate", form);
 
   // lock sync after vehicle verification (you will set this later)
   const postfileLocked = Form.useWatch("__postfileLocked", form);
@@ -82,12 +94,22 @@ const PostFileApprovalDetails = ({ form }) => {
   const disbursalTotal =
     disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw;
 
-  const approvalBreakup = useMemo(() => ({
-    net: form.getFieldValue("approval_breakup_netLoanApproved") || 0,
-    credit: form.getFieldValue("approval_breakup_creditAssured") || 0,
-    insurance: form.getFieldValue("approval_breakup_insuranceFinance") || 0,
-    ew: form.getFieldValue("approval_breakup_ewFinance") || 0,
-  }), [form]);
+  const toNumSafe = (val) => Number(String(val ?? "").replace(/[^0-9.-]/g, "")) || 0;
+  const approvalBreakup = useMemo(() => {
+    const rawNet = toNumSafe(form.getFieldValue("approval_breakup_netLoanApproved"));
+    const credit = toNumSafe(form.getFieldValue("approval_breakup_creditAssured"));
+    const insurance = toNumSafe(form.getFieldValue("approval_breakup_insuranceFinance"));
+    const ew = toNumSafe(form.getFieldValue("approval_breakup_ewFinance"));
+    const addOns = credit + insurance + ew;
+    const approvedBase = Math.max(
+      toNumSafe(approvalLoanApproved),
+      toNumSafe(approvalLoanDisbursed),
+      0
+    );
+    const net = rawNet > 0 ? rawNet : approvedBase;
+    return { net, credit, insurance, ew, addOns, total: net + addOns };
+  }, [form, approvalLoanApproved, approvalLoanDisbursed]);
+  const approvalBreakupTotal = approvalBreakup.total;
 
   const formatDateForInput = (dateStr) => {
     if (!dateStr) return "";
@@ -102,16 +124,10 @@ const PostFileApprovalDetails = ({ form }) => {
       return "";
     }
   };
-  const getDateInputValue = (name) => {
-    if (name === "postfile_approvalDate") {
-      return formatDateForInput(
-        form.getFieldValue("postfile_approvalDate") ||
-        form.getFieldValue("approval_approvalDate") ||
-        form.getFieldValue("approval_disbursedDate")
-      );
-    }
-    return formatDateForInput(form.getFieldValue(name));
-  };
+  const approvalDateValue =
+    form.getFieldValue("postfile_approvalDate") ||
+    form.getFieldValue("approval_approvalDate") ||
+    form.getFieldValue("approval_disbursedDate");
 
   /**
    * ✅ MAIN FIX:
@@ -140,11 +156,20 @@ const PostFileApprovalDetails = ({ form }) => {
       postfile_approvalDate: formatDateForInput(
         form.getFieldValue("approval_approvalDate")
       ),
-      postfile_loanAmountApproved: approvalLoanApproved || "",
-      postfile_loanAmountDisbursed: approvalLoanDisbursed || "",
-      postfile_roi: approvalRoi || "",
-      postfile_tenureMonths: approvalTenureMonths || "",
-      postfile_processingFees: approvalProcessingFees || "",
+      postfile_loanAmountApproved:
+        (approvalBreakupTotal > 0 ? approvalBreakupTotal : toNumSafe(approvalLoanApproved)) ??
+        form.getFieldValue("postfile_loanAmountApproved") ??
+        "",
+      postfile_loanAmountDisbursed:
+        (toNumSafe(approvalLoanDisbursed) || approvalBreakupTotal) ??
+        form.getFieldValue("postfile_loanAmountDisbursed") ??
+        "",
+      postfile_roi: approvalRoi ?? form.getFieldValue("postfile_roi") ?? "",
+      postfile_tenureMonths:
+        approvalTenureMonths ?? form.getFieldValue("postfile_tenureMonths") ?? "",
+      postfile_processingFees:
+        approvalProcessingFees ?? form.getFieldValue("postfile_processingFees") ?? "",
+      postfile_emiPlan: postfileEmiPlan || form.getFieldValue("postfile_emiPlan") || "",
       __postfileSeeded: true, // keep for backward compatibility
     };
 
@@ -158,6 +183,8 @@ const PostFileApprovalDetails = ({ form }) => {
     approvalRoi,
     approvalTenureMonths,
     approvalProcessingFees,
+    approvalBreakupTotal,
+    postfileEmiPlan,
     form,
   ]);
 
@@ -174,14 +201,12 @@ const PostFileApprovalDetails = ({ form }) => {
       return Number(str) || 0;
     };
 
-    // Get approval breakup values directly
-    const appNet = toNum(form.getFieldValue("approval_breakup_netLoanApproved"));
-    const appCredit = toNum(form.getFieldValue("approval_breakup_creditAssured"));
-    const appInsurance = toNum(form.getFieldValue("approval_breakup_insuranceFinance"));
-    const appEw = toNum(form.getFieldValue("approval_breakup_ewFinance"));
-
+    // Get derived approved breakup values
+    const appNet = toNum(approvalBreakup.net);
+    const appCredit = toNum(approvalBreakup.credit);
+    const appInsurance = toNum(approvalBreakup.insurance);
+    const appEw = toNum(approvalBreakup.ew);
     const breakupTotal = appNet + appCredit + appInsurance + appEw;
-    // Use approvalLoanApproved from useWatch (source of truth for the display that is working)
     const approvedTotal = toNum(approvalLoanApproved);
 
     let patch = {};
@@ -225,10 +250,64 @@ const PostFileApprovalDetails = ({ form }) => {
       postfile_disbursedLoanTotal: totalDisbursed,
       postfile_loanAmountDisbursed: totalDisbursed, // Keep main DB field in sync
     });
-  }, [isSameAsApproved, approvalLoanApproved, postfileRoi, postfileTenure, postfileRoiType, form]);
+  }, [isSameAsApproved, approvalLoanApproved, approvalBreakup, postfileRoi, postfileTenure, postfileRoiType, form]);
+
+  // Auto-calculate Loan Maturity Date = Date of 1st EMI + Tenure (months)
+  useEffect(() => {
+    const tenure = Number(postfileTenure || approvalTenureMonths || 0);
+    if (!postfileFirstEmiDate || !tenure) return;
+
+    const firstEmi = dayjs.isDayjs(postfileFirstEmiDate)
+      ? postfileFirstEmiDate
+      : dayjs(postfileFirstEmiDate);
+    if (!firstEmi.isValid()) return;
+
+    const maturity = firstEmi.add(tenure, "month").format("YYYY-MM-DD");
+    if (form.getFieldValue("postfile_maturityDate") !== maturity) {
+      form.setFieldsValue({ postfile_maturityDate: maturity });
+    }
+  }, [postfileFirstEmiDate, postfileTenure, approvalTenureMonths, form]);
 
   const netLoanForDisbursal =
     disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw;
+
+  const displayedApprovedAmount = Number(
+    (approvalBreakupTotal > 0
+      ? approvalBreakupTotal
+      : postfileLoanAmountApproved || approvalLoanApproved) || 0
+  );
+
+  const derivedMaturityDate = useMemo(() => {
+    const tenure = Number(postfileTenure || approvalTenureMonths || 0);
+    if (!postfileFirstEmiDate || !tenure) return "";
+    const firstEmi = dayjs.isDayjs(postfileFirstEmiDate)
+      ? postfileFirstEmiDate
+      : dayjs(postfileFirstEmiDate);
+    if (!firstEmi.isValid()) return "";
+    return firstEmi.add(tenure, "month").format("YYYY-MM-DD");
+  }, [postfileFirstEmiDate, postfileTenure, approvalTenureMonths]);
+
+  const maturityValue = form.getFieldValue("postfile_maturityDate") || derivedMaturityDate;
+  const parsedMaturity = maturityValue
+    ? (dayjs.isDayjs(maturityValue) ? maturityValue : dayjs(maturityValue))
+    : null;
+  const hasValidMaturity = parsedMaturity?.isValid?.() || false;
+  const today = dayjs().startOf("day");
+  const isActiveByMaturity = hasValidMaturity
+    ? parsedMaturity.isAfter(today, "day")
+    : false;
+  const showMaturityPill = hasValidMaturity;
+  const maturityPill = isActiveByMaturity
+    ? {
+        label: "Active",
+        className:
+          "bg-emerald-600 text-white border border-emerald-700 shadow-sm dark:bg-emerald-500 dark:text-white dark:border-emerald-300/60",
+      }
+    : {
+        label: "Closed",
+        className:
+          "bg-rose-600 text-white border border-rose-700 shadow-sm dark:bg-rose-500 dark:text-white dark:border-rose-300/60",
+      };
 
   const emiAmount = useMemo(
     () =>
@@ -239,7 +318,7 @@ const PostFileApprovalDetails = ({ form }) => {
   return (
     <div className="bg-card rounded-xl border border-border p-5 md:p-6 h-full flex flex-col">
       {/* header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="section-header flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Icon name="Stamp" size={20} className="text-primary" />
@@ -253,21 +332,21 @@ const PostFileApprovalDetails = ({ form }) => {
             </p>
           </div>
         </div>
-        {approvalDisbursedDate && (
-          <div className="text-right bg-muted/30 px-3 py-2 rounded-lg border border-border">
-            <p className="text-[11px] font-medium text-muted-foreground">Disbursed on</p>
-            <p className="text-xs font-semibold text-foreground">
-              {new Date(approvalDisbursedDate).toLocaleDateString("en-IN")}
-            </p>
-          </div>
-        )}
       </div>
 
       {/* content */}
       <div className="flex-1 overflow-y-auto space-y-4 md:space-y-6 text-sm">
+        {approvalDisbursedDate && (
+          <div className="rounded-xl border border-border/80 bg-muted/20 px-3 py-2.5">
+            <p className="text-[11px] font-medium text-muted-foreground">Disbursal Date</p>
+            <p className="text-sm font-semibold text-foreground">
+              {new Date(approvalDisbursedDate).toLocaleDateString("en-IN")}
+            </p>
+          </div>
+        )}
         {/* Basic approval info */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-2">
             <Icon name="FileText" size={16} className="text-primary" />
             Core Approval Info
           </h3>
@@ -275,22 +354,20 @@ const PostFileApprovalDetails = ({ form }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Form.Item
               label="Date of Approval"
-              name="postfile_approvalDate"
               className="mb-0"
             >
-              <div className="relative">
-                <Icon
-                  name="Calendar"
-                  size={16}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                />
-                <input
-                  type="date"
-                  value={getDateInputValue("postfile_approvalDate")}
-                  onChange={(e) => form.setFieldsValue({ postfile_approvalDate: e.target.value })}
-                  className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
-                />
-              </div>
+              <DatePicker
+                value={asDayjs(approvalDateValue)}
+                onChange={(date) =>
+                  form.setFieldsValue({
+                    postfile_approvalDate: date ? date.format("YYYY-MM-DD") : "",
+                  })
+                }
+                format="DD MMM YYYY"
+                className="w-full [&_.ant-picker-input>input]:text-sm"
+                size="middle"
+                allowClear={false}
+              />
             </Form.Item>
 
             <Form.Item
@@ -300,7 +377,7 @@ const PostFileApprovalDetails = ({ form }) => {
             >
               <input
                 type="text"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                className={controlClass}
               />
             </Form.Item>
           </div>
@@ -315,8 +392,8 @@ const PostFileApprovalDetails = ({ form }) => {
                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-muted/30 cursor-pointer flex items-center justify-between hover:bg-muted/50 transition-colors"
                 onClick={() => setShowBreakupPopup(true)}
               >
-                <span className="font-semibold font-mono text-primary">
-                  {formatINR(approvalLoanApproved)}
+                <span className="font-semibold text-primary">
+                  {formatINR(displayedApprovedAmount)}
                 </span>
                 <Icon name="Info" size={14} className="text-primary" />
               </div>
@@ -328,19 +405,27 @@ const PostFileApprovalDetails = ({ form }) => {
               className="mb-0"
               tooltip={isSameAsApproved === "Yes" ? "Set to 'No' to edit this amount" : "Click to edit breakdown"}
             >
-              <div
-                className={`w-full border border-border rounded-md px-3 py-2 text-sm flex items-center justify-between transition-all ${
-                  isSameAsApproved === "Yes"
-                    ? "bg-muted/50 cursor-not-allowed opacity-80"
-                    : "bg-muted/30 cursor-pointer hover:bg-muted/50"
-                }`}
-                onClick={() => isSameAsApproved !== "Yes" && setShowDisbursalPopup(true)}
-              >
-                <span className={`font-semibold font-mono ${isSameAsApproved === "Yes" ? "text-muted-foreground" : "text-primary"}`}>
-                  {formatINR(disbursalTotal)}
-                </span>
-                {isSameAsApproved !== "Yes" && <Icon name="PenSquare" size={14} className="text-primary" />}
-                {isSameAsApproved === "Yes" && <Icon name="Lock" size={14} className="text-muted-foreground" />}
+              <div className="space-y-1.5">
+                <div
+                  className={`w-full border border-border rounded-md px-3 py-2 text-sm flex items-center justify-between transition-all ${
+                    isSameAsApproved === "Yes"
+                      ? "bg-muted/50 cursor-not-allowed opacity-80"
+                      : "bg-muted/30 cursor-pointer hover:bg-muted/50"
+                  }`}
+                  onClick={() => isSameAsApproved !== "Yes" && setShowDisbursalPopup(true)}
+                >
+                  <span className={`font-semibold ${isSameAsApproved === "Yes" ? "text-muted-foreground" : "text-primary"}`}>
+                    {formatINR(disbursalTotal)}
+                  </span>
+                  {isSameAsApproved !== "Yes" && <Icon name="PenSquare" size={14} className="text-primary" />}
+                  {isSameAsApproved === "Yes" && <Icon name="Lock" size={14} className="text-muted-foreground" />}
+                </div>
+                {isSameAsApproved === "Yes" && (
+                  <div className="inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-100/60 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
+                    <Icon name="Lock" size={10} />
+                    Locked to approved breakup. Select "No" to edit.
+                  </div>
+                )}
               </div>
             </Form.Item>
           </div>
@@ -348,7 +433,7 @@ const PostFileApprovalDetails = ({ form }) => {
           {/* Checkbox: Same as Approved */}
             {/* Is Disbursement Same as Approved Check - Radio Option */}
             <div className="p-4 bg-muted/30 rounded-lg border border-border">
-              <span className="text-sm font-semibold text-foreground block mb-3">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground block mb-3">
                 Is disbursement amount same as approved amount?
               </span>
               <Form.Item name="postfile_sameAsApproved" className="mb-0">
@@ -376,7 +461,7 @@ const PostFileApprovalDetails = ({ form }) => {
 
         {/* Loan breakup + finance components */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-2">
             <Icon name="Calculator" size={16} className="text-primary" />
             Loan Components
           </h3>
@@ -387,9 +472,17 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_processingFees"
               className="mb-0"
             >
-              <Input
-                type="number"
+              <InputNumber
+                className="w-full"
+                size="middle"
+                min={0}
                 placeholder="0"
+                formatter={(value) =>
+                  value === undefined || value === null || value === ""
+                    ? ""
+                    : String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                }
+                parser={(value) => (value ? value.replace(/,/g, "") : "")}
               />
             </Form.Item>
           </div>
@@ -397,7 +490,7 @@ const PostFileApprovalDetails = ({ form }) => {
 
         {/* Rate & EMI information */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-2">
             <Icon name="Percent" size={16} className="text-primary" />
             Rate & EMI
           </h3>
@@ -408,12 +501,24 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_roiType"
               className="mb-0"
             >
-              <select className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background">
-                <option value="">Select</option>
-                <option value="Fixed">Fixed</option>
-                <option value="Floating">Floating</option>
-                <option value="Flat">Flat Rate</option>
-              </select>
+              <Select
+                className="h-10 rounded-xl"
+                placeholder="Select ROI type"
+                optionFilterProp="label"
+                showSearch
+                allowClear
+              >
+                <Select.Option value="Reducing" label="Reducing">Reducing</Select.Option>
+                <Select.Option value="Fixed" label="Fixed">Fixed</Select.Option>
+                <Select.Option value="Floating" label="Floating">Floating</Select.Option>
+                <Select.Option value="Flat" label="Flat Rate">Flat Rate</Select.Option>
+                {postfileRoiType &&
+                  !["Reducing", "Fixed", "Floating", "Flat"].includes(postfileRoiType) && (
+                    <Select.Option value={postfileRoiType} label={postfileRoiType}>
+                      {postfileRoiType}
+                    </Select.Option>
+                  )}
+              </Select>
             </Form.Item>
 
             <Form.Item
@@ -424,7 +529,7 @@ const PostFileApprovalDetails = ({ form }) => {
               <input
                 type="number"
                 step="0.01"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                className={controlClass}
               />
             </Form.Item>
           </div>
@@ -435,11 +540,20 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_emiMode"
               className="mb-0"
             >
-              <select className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background">
-                <option value="">Select</option>
-                <option value="Arrear">Arrear</option>
-                <option value="Advance">Advance</option>
-              </select>
+              <Select
+                className="h-10 rounded-xl"
+                placeholder="Select EMI mode"
+                allowClear
+              >
+                <Select.Option value="Arrear">Arrear</Select.Option>
+                <Select.Option value="Advance">Advance</Select.Option>
+                {postfileEmiMode &&
+                  !["Arrear", "Advance"].includes(postfileEmiMode) && (
+                    <Select.Option value={postfileEmiMode}>
+                      {postfileEmiMode}
+                    </Select.Option>
+                  )}
+              </Select>
             </Form.Item>
 
             <Form.Item
@@ -447,11 +561,20 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_emiPlan"
               className="mb-0"
             >
-              <select className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background">
-                <option value="">Select</option>
-                <option value="Normal">Normal</option>
-                <option value="1+1">1+1</option>
-              </select>
+              <Select
+                className="h-10 rounded-xl"
+                placeholder="Select EMI plan"
+                allowClear
+              >
+                <Select.Option value="Normal">Normal</Select.Option>
+                <Select.Option value="1+1">1+1</Select.Option>
+                {postfileEmiPlan &&
+                  !["Normal", "1+1"].includes(postfileEmiPlan) && (
+                    <Select.Option value={postfileEmiPlan}>
+                      {postfileEmiPlan}
+                    </Select.Option>
+                  )}
+              </Select>
             </Form.Item>
           </div>
 
@@ -463,27 +586,51 @@ const PostFileApprovalDetails = ({ form }) => {
             >
               <input
                 type="number"
-                className="w-full border border-border rounded-md px-2 py-1 text-sm bg-background"
+                className={controlClass}
               />
             </Form.Item>
 
             <Form.Item
               label="Date of 1st EMI"
-              name="postfile_firstEmiDate"
+              className="mb-0"
+            >
+              <DatePicker
+                value={asDayjs(form.getFieldValue("postfile_firstEmiDate"))}
+                onChange={(date) =>
+                  form.setFieldsValue({
+                    postfile_firstEmiDate: date ? date.format("YYYY-MM-DD") : "",
+                  })
+                }
+                format="DD MMM YYYY"
+                className="w-full [&_.ant-picker-input>input]:text-sm"
+                size="middle"
+                allowClear
+              />
+            </Form.Item>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Form.Item
+              label="Loan Maturity Date"
               className="mb-0"
             >
               <div className="relative">
-                <Icon
-                  name="Calendar"
-                  size={16}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                <DatePicker
+                  value={asDayjs(form.getFieldValue("postfile_maturityDate") || derivedMaturityDate)}
+                  format="DD MMM YYYY"
+                  className="w-full [&_.ant-picker-input>input]:text-sm"
+                  size="middle"
+                  suffixIcon={null}
+                  disabled
+                  allowClear={false}
                 />
-                <input
-                  type="date"
-                  value={getDateInputValue("postfile_firstEmiDate")}
-                  onChange={(e) => form.setFieldsValue({ postfile_firstEmiDate: e.target.value })}
-                  className="w-full border border-border rounded-md pl-9 pr-2 py-1 text-sm bg-background text-foreground"
-                />
+                {showMaturityPill && (
+                  <span
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold ${maturityPill.className}`}
+                  >
+                    {maturityPill.label}
+                  </span>
+                )}
               </div>
             </Form.Item>
           </div>
@@ -498,10 +645,17 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_emiAmount"
               className="mb-0"
             >
-              <input
-                type="number"
+              <InputNumber
+                className="w-full"
+                size="middle"
+                min={0}
                 placeholder={`Calculated: ${formatINR(emiAmount)}`}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
+                formatter={(value) =>
+                  value === undefined || value === null || value === ""
+                    ? ""
+                    : String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                }
+                parser={(value) => (value ? value.replace(/,/g, "") : "")}
               />
             </Form.Item>
           </div>
@@ -560,16 +714,16 @@ const LoanBreakupPopup = ({
     Number(extendedWarrantyFinance || 0);
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-md">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/55 backdrop-blur-[1px] p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
           <div className="flex items-center gap-2">
             <Icon name="IndianRupee" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Loan Amount Breakdown (Approved)
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted transition-colors">
             <Icon name="X" size={18} />
           </button>
         </div>
@@ -635,12 +789,12 @@ const DisbursalBreakupPopup = ({ form, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-md">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/55 backdrop-blur-[1px] p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
           <div className="flex items-center gap-2">
             <Icon name="Calculator" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Net Loan Disbursal Breakup
             </span>
           </div>

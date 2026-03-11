@@ -1,408 +1,324 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 
-/**
- * Comprehensive Documents List
- * Displays all uploaded documents organized by category
- * Shows below Record Details in Post-File
- */
+const getDocumentId = (doc, index) => doc?.id || doc?.publicId || `${doc?.tag || "doc"}_${index}`;
+
+const getLedgerLabel = (doc, index) => {
+  const tag = String(doc?.tag || "").trim();
+  if (tag) return tag;
+  return `Untagged ${index + 1}`;
+};
+
+const normalizeDocsForLedger = (docs) =>
+  (Array.isArray(docs) ? docs : []).map((doc, index) => ({
+    ...doc,
+    ledgerId: getDocumentId(doc, index),
+    ledgerLabel: getLedgerLabel(doc, index),
+  }));
+
 const DocumentsList = ({ form }) => {
-  const [expandedCategories, setExpandedCategories] = useState(["kyc", "vehicle"]);
+  const watchedPostfileDocuments = Form.useWatch("postfile_documents", form);
+  const watchedLedgerDocuments = Form.useWatch("postfile_documents_ledger", form);
+  const [ledgerDocuments, setLedgerDocuments] = useState([]);
+  const [draggingId, setDraggingId] = useState(null);
+  const [manualLabel, setManualLabel] = useState("");
 
-  // Watch specific document fields from form (prevent unnecessary re-renders)
-  const aadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
-  const panCardDocUrl = Form.useWatch("panCardDocUrl", form);
-  const passportDocUrl = Form.useWatch("passportDocUrl", form);
-  const dlDocUrl = Form.useWatch("dlDocUrl", form);
-  const addressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
-  const gstDocUrl = Form.useWatch("gstDocUrl", form);
-  
-  const co_aadhaarCardDocUrl = Form.useWatch("co_aadhaarCardDocUrl", form);
-  const co_panCardDocUrl = Form.useWatch("co_panCardDocUrl", form);
-  const co_passportDocUrl = Form.useWatch("co_passportDocUrl", form);
-  const co_dlDocUrl = Form.useWatch("co_dlDocUrl", form);
-  const co_addressProofDocUrl = Form.useWatch("co_addressProofDocUrl", form);
-  
-  const gu_aadhaarCardDocUrl = Form.useWatch("gu_aadhaarCardDocUrl", form);
-  const gu_panCardDocUrl = Form.useWatch("gu_panCardDocUrl", form);
-  const gu_passportDocUrl = Form.useWatch("gu_passportDocUrl", form);
-  const gu_dlDocUrl = Form.useWatch("gu_dlDocUrl", form);
-  const gu_addressProofDocUrl = Form.useWatch("gu_addressProofDocUrl", form);
-  
-  const vehiclePhotoUrl = Form.useWatch("vehiclePhotoUrl", form);
-  const vehicleRCUrl = Form.useWatch("vehicleRCUrl", form);
-  const insurancePolicyUrl = Form.useWatch("insurancePolicyUrl", form);
-  const hypothecationDocUrl = Form.useWatch("hypothecationDocUrl", form);
-  
-  const delivery_invoiceFile = Form.useWatch("delivery_invoiceFile", form);
-  const delivery_rcFile = Form.useWatch("delivery_rcFile", form);
-  
-  const postfile_documents = Form.useWatch("postfile_documents", form);
+  useEffect(() => {
+    const incoming = normalizeDocsForLedger(watchedPostfileDocuments || []);
+    const savedLedger = normalizeDocsForLedger(watchedLedgerDocuments || []);
 
-  // Aggregate all watched values into an object
-  const formValues = useMemo(() => ({
-    aadhaarCardDocUrl,
-    panCardDocUrl,
-    passportDocUrl,
-    dlDocUrl,
-    addressProofDocUrl,
-    gstDocUrl,
-    co_aadhaarCardDocUrl,
-    co_panCardDocUrl,
-    co_passportDocUrl,
-    co_dlDocUrl,
-    co_addressProofDocUrl,
-    gu_aadhaarCardDocUrl,
-    gu_panCardDocUrl,
-    gu_passportDocUrl,
-    gu_dlDocUrl,
-    gu_addressProofDocUrl,
-    vehiclePhotoUrl,
-    vehicleRCUrl,
-    insurancePolicyUrl,
-    hypothecationDocUrl,
-    delivery_invoiceFile,
-    delivery_rcFile,
-    postfile_documents,
-  }), [
-    aadhaarCardDocUrl, panCardDocUrl, passportDocUrl, dlDocUrl, addressProofDocUrl, gstDocUrl,
-    co_aadhaarCardDocUrl, co_panCardDocUrl, co_passportDocUrl, co_dlDocUrl, co_addressProofDocUrl,
-    gu_aadhaarCardDocUrl, gu_panCardDocUrl, gu_passportDocUrl, gu_dlDocUrl, gu_addressProofDocUrl,
-    vehiclePhotoUrl, vehicleRCUrl, insurancePolicyUrl, hypothecationDocUrl,
-    delivery_invoiceFile, delivery_rcFile, postfile_documents,
-  ]);
+    setLedgerDocuments((prev) => {
+      const currentBase = prev.length > 0 ? prev : savedLedger;
+      if (currentBase.length === 0) return incoming;
 
-  // Document categories and field mappings
-  const documentCategories = useMemo(() => {
-    return [
-      {
-        id: "kyc",
-        title: "KYC Documents",
-        icon: "FileText",
-        color: "emerald",
-        fields: [
-          { key: "aadhaarCardDocUrl", label: "Aadhaar Card", icon: "CreditCard" },
-          { key: "panCardDocUrl", label: "PAN Card", icon: "CreditCard" },
-          { key: "passportDocUrl", label: "Passport", icon: "Globe" },
-          { key: "dlDocUrl", label: "Driving License", icon: "Car" },
-          { key: "addressProofDocUrl", label: "Address Proof", icon: "Home" },
-          { key: "gstDocUrl", label: "GST Certificate", icon: "FileCheck" },
-        ],
-      },
-      {
-        id: "co-applicant",
-        title: "Co-Applicant Documents",
-        icon: "Users",
-        color: "blue",
-        fields: [
-          { key: "co_aadhaarCardDocUrl", label: "Co-App Aadhaar", icon: "CreditCard" },
-          { key: "co_panCardDocUrl", label: "Co-App PAN", icon: "CreditCard" },
-          { key: "co_passportDocUrl", label: "Co-App Passport", icon: "Globe" },
-          { key: "co_dlDocUrl", label: "Co-App DL", icon: "Car" },
-          { key: "co_addressProofDocUrl", label: "Co-App Address Proof", icon: "Home" },
-        ],
-      },
-      {
-        id: "guarantor",
-        title: "Guarantor Documents",
-        icon: "Shield",
-        color: "purple",
-        fields: [
-          { key: "gu_aadhaarCardDocUrl", label: "Guarantor Aadhaar", icon: "CreditCard" },
-          { key: "gu_panCardDocUrl", label: "Guarantor PAN", icon: "CreditCard" },
-          { key: "gu_passportDocUrl", label: "Guarantor Passport", icon: "Globe" },
-          { key: "gu_dlDocUrl", label: "Guarantor DL", icon: "Car" },
-          { key: "gu_addressProofDocUrl", label: "Guarantor Address Proof", icon: "Home" },
-        ],
-      },
-      {
-        id: "vehicle",
-        title: "Vehicle Documents",
-        icon: "Car",
-        color: "amber",
-        fields: [
-          { key: "vehiclePhotoUrl", label: "Vehicle Photo", icon: "Image" },
-          { key: "vehicleRCUrl", label: "RC Book", icon: "FileText" },
-          { key: "insurancePolicyUrl", label: "Insurance Policy", icon: "Shield" },
-          { key: "hypothecationDocUrl", label: "Hypothecation Doc", icon: "FileCheck" },
-        ],
-      },
-      {
-        id: "delivery",
-        title: "Delivery Documents",
-        icon: "Truck",
-        color: "indigo",
-        fields: [
-          { key: "delivery_invoiceFile", label: "Invoice", icon: "Receipt" },
-          { key: "delivery_rcFile", label: "RC Copy", icon: "FileText" },
-        ],
-      },
-      {
-        id: "postfile",
-        title: "Post-File Documents",
-        icon: "FolderOpen",
-        color: "rose",
-        fields: [
-          { key: "postfile_documents", label: "Additional Documents", icon: "Paperclip", isArray: true },
-        ],
-      },
-    ];
-  }, []);
+      const incomingMap = new Map(incoming.map((doc) => [doc.ledgerId, doc]));
+      const merged = currentBase
+        .filter((doc) => incomingMap.has(doc.ledgerId) || doc.isManualLedger)
+        .map((doc) =>
+          incomingMap.has(doc.ledgerId) ? { ...incomingMap.get(doc.ledgerId) } : doc,
+        );
 
-  // Extract documents by category
-  const documentsByCategory = useMemo(() => {
-    return documentCategories.map((category) => {
-      const docs = category.fields
-        .map((field) => {
-          const value = formValues[field.key];
-          
-          // Handle array fields (like postfile_documents)
-          if (field.isArray && Array.isArray(value)) {
-            return value.map((item, index) => {
-              const itemUrl = typeof item === 'object' && item ? (item.url || item.secure_url) : item;
-              const itemName = (typeof item === 'object' && item?.name) ? item.name : `${field.label} ${index + 1}`;
-              
-              return {
-                key: `${field.key}_${index}`,
-                label: itemName,
-                icon: field.icon,
-                url: itemUrl,
-                uploaded: !!itemUrl,
-              };
-            });
-          }
-          
-          // Handle single file fields
-          return {
-            key: field.key,
-            label: field.label,
-            icon: field.icon,
-            url: value,
-            uploaded: !!value,
-          };
-        })
-        .flat()
-        .filter((doc) => doc.uploaded); // Only show uploaded documents
+      incoming.forEach((doc) => {
+        if (!merged.some((item) => item.ledgerId === doc.ledgerId)) {
+          merged.push(doc);
+        }
+      });
 
-      return {
-        ...category,
-        documents: docs,
-        count: docs.length,
-      };
+      return merged;
     });
-  }, [documentCategories, formValues]);
+  }, [watchedPostfileDocuments, watchedLedgerDocuments]);
 
-  // Total documents count
-  const totalDocuments = useMemo(() => {
-    return documentsByCategory.reduce((sum, cat) => sum + cat.count, 0);
-  }, [documentsByCategory]);
-
-  const toggleCategory = (categoryId) => {
-    setExpandedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId]
-    );
+  const totalDocuments = ledgerDocuments.length;
+  const updateLedgerOrder = (nextDocs) => {
+    setLedgerDocuments(nextDocs);
+    form.setFieldsValue({
+      postfile_documents_ledger: nextDocs.map(({ ledgerId, ledgerLabel, ...doc }) => doc),
+    });
   };
 
-  const handleDownload = (url, filename) => {
-    // Open in new tab for cloud URLs
-    if (url.startsWith('http')) {
-      window.open(url, '_blank');
-    } else {
-      // For blob URLs, trigger download
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename || 'document';
-      a.click();
+  const addManualLedgerDocument = () => {
+    const label = manualLabel.trim();
+    if (!label) return;
+
+    const manualDoc = {
+      id: `manual_${Date.now()}`,
+      tag: label,
+      status: "Manual Entry",
+      uploadedBy: "Ledger",
+      uploadedAt: new Date().toLocaleDateString("en-IN"),
+      isManualLedger: true,
+    };
+
+    updateLedgerOrder([...ledgerDocuments, ...normalizeDocsForLedger([manualDoc])]);
+    setManualLabel("");
+  };
+
+  const removeLedgerDocument = (ledgerId) => {
+    updateLedgerOrder(ledgerDocuments.filter((doc) => doc.ledgerId !== ledgerId));
+  };
+
+  const handleDragStart = (docId) => {
+    setDraggingId(docId);
+  };
+
+  const handleDrop = (targetId) => {
+    if (!draggingId || draggingId === targetId) {
+      setDraggingId(null);
+      return;
     }
+
+    const nextDocs = [...ledgerDocuments];
+    const fromIndex = nextDocs.findIndex((doc) => doc.ledgerId === draggingId);
+    const toIndex = nextDocs.findIndex((doc) => doc.ledgerId === targetId);
+
+    if (fromIndex === -1 || toIndex === -1) {
+      setDraggingId(null);
+      return;
+    }
+
+    const [moved] = nextDocs.splice(fromIndex, 1);
+    nextDocs.splice(toIndex, 0, moved);
+    updateLedgerOrder(nextDocs);
+    setDraggingId(null);
   };
 
-  const getFileIcon = (url) => {
-    if (!url || typeof url !== 'string') return "File";
-    const parts = url.split('.');
-    if (parts.length < 2) return "File";
-    const ext = parts.pop().toLowerCase();
-    
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return "Image";
-    if (['pdf'].includes(ext)) return "FileText";
-    if (['doc', 'docx'].includes(ext)) return "FileText";
-    if (['xls', 'xlsx'].includes(ext)) return "Table";
-    return "File";
-  };
+  const exportLedger = () => {
+    const rows = ledgerDocuments.map((doc, index) => ({
+      Sequence: index + 1,
+      "Document Tag": doc.ledgerLabel,
+      Source: doc.isPreFile ? "Synced" : "Uploaded",
+      Status: doc.status || "-",
+      "Uploaded By": doc.uploadedBy || "-",
+      "Uploaded At": doc.uploadedAt || "-",
+    }));
 
-  const getColorClasses = () =>
-    "bg-muted/30 border-border text-foreground";
+    const headers = Object.keys(rows[0] || {});
+    if (!headers.length) return;
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        headers
+          .map((header) => {
+            const value = String(row[header] ?? "");
+            return value.includes(",") ? `"${value.replace(/"/g, '""')}"` : value;
+          })
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "Documents_Ledger.csv");
+    link.click();
+  };
 
   if (totalDocuments === 0) {
     return (
-      <div className="bg-card rounded-lg border border-dashed border-muted p-6 text-center">
-        <Icon name="FolderOpen" size={40} className="text-primary mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground mb-1">No documents uploaded yet</p>
-        <p className="text-xs text-muted-foreground">
-          Upload documents in Pre-File and Post-File stages
+      <div className="rounded-[24px] border border-dashed border-border/80 bg-muted/20 px-6 py-12 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+          <Icon name="ListOrdered" size={28} />
+        </div>
+        <p className="text-base font-semibold text-foreground">No documents in ledger yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Add and tag files in Document Management. They will appear here in dispatch order.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-card rounded-lg border border-border p-4 md:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+    <div className="rounded-[24px] border border-border/70 bg-card p-5 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] dark:bg-black/20 md:p-6">
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center">
-            <Icon name="FolderOpen" size={20} className="text-primary" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <Icon name="ListOrdered" size={20} />
           </div>
           <div>
-            <h3 className="text-base md:text-lg font-semibold text-foreground">
-              Documents Library
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {totalDocuments} document{totalDocuments !== 1 ? 's' : ''} uploaded across {documentsByCategory.filter(c => c.count > 0).length} categories
+            <div className="mb-1 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Bank Dispatch
+            </div>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Arrange the exact physical paper sequence sent to the bank. This ledger is sourced from Document Management and shows tag names only.
             </p>
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-muted/20 p-2">
           <Button
             variant="outline"
-            size="small"
-            onClick={() => {
-              const allCategoryIds = documentsByCategory.map(c => c.id);
-              setExpandedCategories(
-                expandedCategories.length === allCategoryIds.length ? [] : allCategoryIds
-              );
-            }}
+            size="sm"
+            onClick={exportLedger}
+            className="h-10 rounded-xl border-sky-200 bg-sky-50 px-4 text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:bg-sky-500/15"
           >
-            <Icon 
-              name={expandedCategories.length === documentsByCategory.length ? "ChevronsUp" : "ChevronsDown"} 
-              size={14} 
-            />
-            {expandedCategories.length === documentsByCategory.length ? "Collapse All" : "Expand All"}
+            <Icon name="FileSpreadsheet" size={14} />
+            Export Ledger
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+            className="h-10 rounded-xl border-emerald-200 bg-emerald-50 px-4 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-emerald-200 dark:hover:bg-emerald-500/15"
+          >
+            <Icon name="Printer" size={14} />
+            Print
           </Button>
         </div>
       </div>
 
-      {/* Categories */}
-      <div className="space-y-3">
-        {documentsByCategory.map((category) => {
-          if (category.count === 0) return null;
+      <div className="mb-4 flex items-center justify-between rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+        <div>
+          <div className="text-sm font-semibold text-foreground">Dispatch Sequence</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Drag rows using the handle to reorder the bank paper stack.
+          </div>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200">
+          <span className="h-2 w-2 rounded-full bg-sky-500" />
+          {totalDocuments} rows
+        </div>
+      </div>
 
-          const isExpanded = expandedCategories.includes(category.id);
-
-          return (
-            <div
-              key={category.id}
-              className={`${getColorClasses()} rounded-lg border overflow-hidden transition-all`}
-            >
-              {/* Category Header */}
-              <button
-                onClick={() => toggleCategory(category.id)}
-                className="w-full flex items-center justify-between p-3 hover:bg-background/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Icon name={category.icon} size={18} className="text-primary" />
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-foreground">
-                      {category.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {category.count} document{category.count !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="px-2 py-0.5 bg-background/80 rounded-full">
-                    <span className="text-xs font-semibold text-foreground">
-                      {category.count}
-                    </span>
-                  </div>
-                  <Icon
-                    name={isExpanded ? "ChevronUp" : "ChevronDown"}
-                    size={16}
-                    className="text-muted-foreground"
-                  />
-                </div>
-              </button>
-
-              {/* Documents List */}
-              {isExpanded && (
-                <div className="border-t border-border/50 bg-card/50 p-3">
-                  <div className="space-y-2">
-                    {category.documents.map((doc) => (
-                      <div
-                        key={doc.key}
-                        className="flex items-center justify-between p-2 bg-background rounded-md border border-border hover:border-primary/30 transition-all group"
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                            <Icon
-                              name={getFileIcon(doc.url)}
-                              size={14}
-                              className="text-muted-foreground"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-foreground font-medium truncate">
-                              {doc.label}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {doc.url && typeof doc.url === 'string'
-                                ? (doc.url.startsWith('blob:') 
-                                   ? 'Local Preview' 
-                                   : new URL(doc.url, window.location.origin).pathname.split('/').pop())
-                                : 'Uploaded File'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => window.open(doc.url, '_blank')}
-                            title="View"
-                          >
-                            <Icon name="Eye" size={14} className="text-primary" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => handleDownload(doc.url, doc.label)}
-                            title="Download"
-                          >
-                            <Icon name="Download" size={14} className="text-primary" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      <div className="mb-4 rounded-2xl border border-border/70 bg-muted/20 p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 text-sm font-semibold text-foreground">Add Manual Ledger Row</div>
+            <div className="text-xs text-muted-foreground">
+              Add dispatch-only papers directly here. These rows join the same sortable bank sequence.
             </div>
-          );
-        })}
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <input
+              type="text"
+              value={manualLabel}
+              onChange={(e) => setManualLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addManualLedgerDocument();
+                }
+              }}
+              placeholder="Enter paper name or tag"
+              className="h-10 min-w-[260px] rounded-xl border border-border/80 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-300 dark:border-slate-800 dark:bg-white/5 dark:placeholder:text-slate-500"
+            />
+            <Button
+              variant="default"
+              size="sm"
+              onClick={addManualLedgerDocument}
+              disabled={!manualLabel.trim()}
+              className="h-10 rounded-xl bg-slate-900 px-4 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200"
+            >
+              <Icon name="Plus" size={14} />
+              Add Row
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Footer Actions */}
-      <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          All documents are securely stored and encrypted
-        </p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="small">
-            <Icon name="Download" size={14} className="text-primary" />
-            Download All
-          </Button>
-          <Button variant="outline" size="small" onClick={() => window.print()}>
-            <Icon name="Printer" size={14} className="text-primary" />
-            Print List
-          </Button>
-        </div>
+      <div className="space-y-3">
+        {ledgerDocuments.map((doc, index) => (
+          <div
+            key={doc.ledgerId}
+            draggable
+            onDragStart={() => handleDragStart(doc.ledgerId)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleDrop(doc.ledgerId)}
+            onDragEnd={() => setDraggingId(null)}
+            className={`flex items-center gap-3 rounded-[22px] border px-4 py-3 transition ${
+              draggingId === doc.ledgerId
+                ? "border-slate-400 bg-slate-100/80 opacity-70 dark:border-slate-600 dark:bg-slate-800/70"
+                : doc.isPreFile
+                  ? "border-sky-200/80 bg-sky-50/70 hover:border-sky-300 hover:bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/20 dark:hover:bg-sky-950/30"
+                  : doc.isManualLedger
+                    ? "border-emerald-200/80 bg-emerald-50/60 hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30"
+                    : "border-slate-200/80 bg-white/90 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-white/5 dark:hover:bg-white/10"
+            }`}
+          >
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold ${
+              doc.isPreFile
+                ? "bg-sky-600 text-white dark:bg-sky-300 dark:text-slate-950"
+                : doc.isManualLedger
+                  ? "bg-emerald-600 text-white dark:bg-emerald-300 dark:text-slate-950"
+                  : "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-950"
+            }`}>
+              {index + 1}
+            </div>
+
+            <button
+              type="button"
+              className={`flex h-10 w-10 shrink-0 cursor-grab items-center justify-center rounded-2xl border text-muted-foreground active:cursor-grabbing ${
+                doc.isPreFile
+                  ? "border-sky-200/80 bg-white/70 dark:border-sky-900/60 dark:bg-sky-950/20"
+                  : doc.isManualLedger
+                    ? "border-emerald-200/80 bg-white/70 dark:border-emerald-900/60 dark:bg-emerald-950/20"
+                    : "border-slate-200/80 bg-white/70 dark:border-slate-800 dark:bg-slate-950/20"
+              }`}
+              aria-label="Drag to reorder"
+            >
+              <Icon name="GripVertical" size={18} />
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <div className="text-base font-semibold text-foreground">
+                {doc.ledgerLabel}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span className={`rounded-full px-2.5 py-1 ${
+                  doc.isPreFile
+                    ? "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200"
+                    : doc.isManualLedger
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"
+                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                }`}>
+                  {doc.isPreFile ? "Synced" : doc.isManualLedger ? "Manual" : "Uploaded"}
+                </span>
+                {doc.status && (
+                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                    {doc.status}
+                  </span>
+                )}
+                {doc.uploadedAt && (
+                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                    {doc.uploadedAt}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => removeLedgerDocument(doc.ledgerId)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-white/80 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200"
+              aria-label="Remove row"
+            >
+              <Icon name="Trash2" size={16} />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

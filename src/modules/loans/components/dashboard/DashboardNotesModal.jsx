@@ -67,7 +67,7 @@ const DashboardNotesModal = ({ open, loan, onClose, onRefresh }) => {
         <div className="bg-muted/30 p-3 rounded-lg border border-border">
           <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Loan / Customer</p>
           <p className="text-sm font-semibold text-foreground">
-            {loan.loanId || loan.loan_number} — {loan.customerName}
+            {loan.loan_number || loan.loanId} — {loan.customerName}
           </p>
         </div>
 

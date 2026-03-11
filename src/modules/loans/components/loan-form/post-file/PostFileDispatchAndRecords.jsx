@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Form, message } from "antd";
+import { Form, DatePicker, TimePicker } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { getEmployees } from "../../../../../api/employees";
-import { banksApi } from "../../../../../api/banks";
 import dayjs from "dayjs";
 
 const PostFileDispatchAndRecords = ({ form }) => {
@@ -13,7 +12,6 @@ const PostFileDispatchAndRecords = ({ form }) => {
   const disbursementDate = Form.useWatch("disbursement_date", form);
   const disbursementTime = Form.useWatch("disbursement_time", form);
   const [employees, setEmployees] = useState([]);
-  const [banks, setBanks] = useState([]);
 
   const formatDateForInput = (value) => {
     if (!value) return "";
@@ -25,6 +23,14 @@ const PostFileDispatchAndRecords = ({ form }) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
     return date.toISOString().slice(0, 10);
+  };
+  const asDayjsDate = (value) => {
+    const date = formatDateForInput(value);
+    return date ? dayjs(date) : null;
+  };
+  const asDayjsTime = (value) => {
+    const time = formatTimeForInput(value);
+    return time ? dayjs(time, "HH:mm") : null;
   };
 
   const formatTimeForInput = (value) => {
@@ -39,17 +45,10 @@ const PostFileDispatchAndRecords = ({ form }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [empData, bankRes] = await Promise.all([
-          getEmployees(),
-          banksApi.getAll()
-        ]);
+        const empData = await getEmployees();
         
         // Employees usually come as array of objects
         setEmployees(empData.map(e => e.name || e.username || e.email)); // Adjust based on API response structure
-        
-        // Banks response might be { data: [...] } or just [...]
-        const bankList = bankRes.data || bankRes || [];
-        setBanks(bankList);
       } catch (err) {
         console.error("Error fetching master data:", err);
       }
@@ -74,99 +73,134 @@ const PostFileDispatchAndRecords = ({ form }) => {
     }
   }, [form, loanId]);
 
-  // Handle adding a new bank to database
-  const handleCreateBank = async (bankData) => {
-    try {
-      const res = await banksApi.create(bankData);
-      const newBank = res.data;
-      setBanks(prev => [...prev, newBank].sort((a, b) => a.name.localeCompare(b.name)));
-      message.success("Bank saved for future use!");
-      return newBank;
-    } catch (error) {
-       console.error(error);
-       message.error("Failed to save bank details.");
-       return null;
-    }
-  };
+  const FieldShell = ({ label, children }) => (
+    <div className="space-y-1">
+      <div className="text-[13px] text-muted-foreground">{label}</div>
+      {children}
+    </div>
+  );
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 md:space-y-5">
       <Form.Item name="dispatch_date" hidden><input /></Form.Item>
       <Form.Item name="dispatch_time" hidden><input /></Form.Item>
       <Form.Item name="disbursement_date" hidden><input /></Form.Item>
       <Form.Item name="disbursement_time" hidden><input /></Form.Item>
 
-      {/* Dispatch Details Section */}
-      <div className="bg-card rounded-lg border border-border p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-4 md:mb-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon name="Send" size={20} className="text-primary" />
-          </div>
+      <div className="rounded-2xl border border-border bg-[#f9fafb] dark:bg-slate-950/35 p-4 md:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              Dispatch & Disbursement
+            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              Post-File Operations
+            </div>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">
+              Dispatch & Record Details
             </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Document dispatch and payout information
+            <p className="mt-1 text-xs text-muted-foreground">
+              Capture dispatch movement, disbursement timing and bank record details.
             </p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
+            <Icon name="Clock3" size={13} className="text-primary" />
+            Timeline critical
           </div>
         </div>
 
-        <div className="space-y-6">
-          {/* Dispatch Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Form.Item label="Dispatch Date" className="mb-0">
-               <input
-                 type="date"
-                 value={formatDateForInput(dispatchDate)}
-                 onChange={(e) => form.setFieldsValue({ dispatch_date: e.target.value })}
-                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
-               />
-            </Form.Item>
-            <Form.Item label="Dispatch Time" className="mb-0">
-               <input
-                 type="time"
-                 value={formatTimeForInput(dispatchTime)}
-                 onChange={(e) => form.setFieldsValue({ dispatch_time: e.target.value })}
-                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
-               />
-            </Form.Item>
-            <Form.Item label="Dispatch Through" name="dispatch_through" className="mb-0">
-              <input type="text" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" placeholder="e.g., Courier" />
-            </Form.Item>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-card p-4 md:p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Icon name="Send" size={15} className="text-primary" />
+              </div>
+              <div className="text-sm font-semibold text-foreground">Dispatch Movement</div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FieldShell label="Dispatch Date">
+                <Form.Item className="mb-0">
+                  <DatePicker
+                    className="w-full"
+                    format="DD MMM YYYY"
+                    value={asDayjsDate(dispatchDate)}
+                    onChange={(date) =>
+                      form.setFieldsValue({
+                        dispatch_date: date ? date.format("YYYY-MM-DD") : "",
+                      })
+                    }
+                  />
+                </Form.Item>
+              </FieldShell>
+
+              <FieldShell label="Dispatch Time">
+                <Form.Item className="mb-0">
+                  <TimePicker
+                    className="w-full"
+                    format="HH:mm"
+                    value={asDayjsTime(dispatchTime)}
+                    onChange={(time) =>
+                      form.setFieldsValue({
+                        dispatch_time: time ? time.format("HH:mm") : "",
+                      })
+                    }
+                  />
+                </Form.Item>
+              </FieldShell>
+
+              <FieldShell label="Dispatch Through">
+                <Form.Item name="dispatch_through" className="mb-0">
+                  <input type="text" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" placeholder="e.g., Courier" />
+                </Form.Item>
+              </FieldShell>
+            </div>
           </div>
 
-          <div className="h-[1px] bg-border/50 my-2" />
-
-          {/* Disbursement Info & Bank Details */}
-          <div>
-            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-              <Icon name="CreditCard" size={16} className="text-primary" />
-              Disbursement Details
-            </h3>
+          <div className="rounded-2xl border border-border bg-card p-4 md:p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Icon name="CreditCard" size={15} className="text-primary" />
+              </div>
+              <div className="text-sm font-semibold text-foreground">Disbursement & Bank Record</div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-               <Form.Item label="Disbursement Date" className="mb-0">
-                 <input
-                   type="date"
-                   value={formatDateForInput(disbursementDate)}
-                   onChange={(e) => form.setFieldsValue({ disbursement_date: e.target.value })}
-                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
-                 />
-               </Form.Item>
-               <Form.Item label="Disbursement Time" className="mb-0">
-                 <input
-                   type="time"
-                   value={formatTimeForInput(disbursementTime)}
-                   onChange={(e) => form.setFieldsValue({ disbursement_time: e.target.value })}
-                   className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
-                 />
-               </Form.Item>
-               
-                <Form.Item label="Loan Number" name="loan_number" className="mb-0">
+              <FieldShell label="Disbursement Date">
+                <Form.Item className="mb-0">
+                  <DatePicker
+                    className="w-full"
+                    format="DD MMM YYYY"
+                    value={asDayjsDate(disbursementDate)}
+                    onChange={(date) =>
+                      form.setFieldsValue({
+                        disbursement_date: date ? date.format("YYYY-MM-DD") : "",
+                      })
+                    }
+                  />
+                </Form.Item>
+              </FieldShell>
+
+              <FieldShell label="Disbursement Time">
+                <Form.Item className="mb-0">
+                  <TimePicker
+                    className="w-full"
+                    format="HH:mm"
+                    value={asDayjsTime(disbursementTime)}
+                    onChange={(time) =>
+                      form.setFieldsValue({
+                        disbursement_time: time ? time.format("HH:mm") : "",
+                      })
+                    }
+                  />
+                </Form.Item>
+              </FieldShell>
+
+              <FieldShell label="Loan Number">
+                <Form.Item name="loan_number" className="mb-0">
                   <div className="relative">
                     <input
                       type="text"
-                      className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground font-medium"
+                      className={`w-full border rounded-md px-3 py-2 text-sm font-semibold transition-all ${
+                        loanNumber
+                          ? "border-primary bg-primary/12 text-primary ring-2 ring-primary/30 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]"
+                          : "border-border bg-background text-foreground"
+                      }`}
                       placeholder="Enter Loan Number..."
                       value={loanNumber || ""}
                       onChange={(e) => form.setFieldsValue({ loan_number: e.target.value })}
@@ -175,63 +209,46 @@ const PostFileDispatchAndRecords = ({ form }) => {
                       <Icon name={loanNumber ? "CheckCircle" : "AlertCircle"} size={14} />
                     </div>
                   </div>
+                  {loanNumber && (
+                    <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                      <Icon name="Sparkles" size={11} />
+                      Active loan number
+                    </div>
+                  )}
                 </Form.Item>
-
-                {/* Bank Name Autosuggest */}
-                <div className="md:col-span-1">
-                   <BankAutosuggest 
-                      banks={banks} 
-                      form={form} 
-                      onCreate={handleCreateBank}
-                   />
-                </div>
-
-                <Form.Item label="Account Number" name="accountNumber" className="mb-0 md:col-span-1">
-                  <input type="text" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background font-medium" placeholder="Account No" />
-                </Form.Item>
-
-                <Form.Item label="IFSC Code" name="ifscCode" className="mb-0 md:col-span-1">
-                  <input type="text" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" placeholder="SBIN0001234" maxLength={11} style={{textTransform: 'uppercase'}} />
-                </Form.Item>
-
-                <Form.Item label="Branch / Address" name="branch" className="mb-0 md:col-span-1">
-                  <input type="text" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" placeholder="Branch Name" />
-                </Form.Item>
+              </FieldShell>
             </div>
           </div>
 
           <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
             <p className="text-xs text-foreground flex items-center gap-2">
               <Icon name="Info" size={14} className="text-primary" />
-              <span>Loan number is assigned automatically. Bank details are saved for future use.</span>
+              <span>Loan number is assigned automatically.</span>
             </p>
           </div>
         </div>
       </div>
 
-      {/* Record Details Section */}
-      <div className="bg-card rounded-lg border border-border p-4 md:p-6">
-        <div className="flex items-center gap-3 mb-4 md:mb-6">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon name="FileCheck" size={20} className="text-primary" />
+      <div className="rounded-2xl border border-border bg-card p-4 md:p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Icon name="FileCheck" size={15} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-semibold text-foreground">
-              Record Details
-            </h2>
-            <p className="text-xs md:text-sm text-muted-foreground">
-              Document preparation information
-            </p>
+            <h3 className="text-sm font-semibold text-foreground">Record Details</h3>
+            <p className="text-xs text-muted-foreground">Document preparation information</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <EmployeeAutosuggest
-            label="Docs Prepared By"
-            name="docs_prepared_by"
-            form={form}
-            employees={employees}
-          />
+          <FieldShell label="Docs Prepared By">
+            <EmployeeAutosuggest
+              label={null}
+              name="docs_prepared_by"
+              form={form}
+              employees={employees}
+            />
+          </FieldShell>
         </div>
       </div>
     </div>
@@ -254,7 +271,7 @@ const EmployeeAutosuggest = ({ label, name, form, employees }) => {
 
   return (
     <div className="relative">
-      <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
+      {label && <label className="text-[13px] text-muted-foreground mb-1 block">{label}</label>}
       <div className="relative">
         <input
           type="text"
@@ -281,81 +298,6 @@ const EmployeeAutosuggest = ({ label, name, form, employees }) => {
           </div>
         )}
       </div>
-    </div>
-  );
-};
-
-// Bank Autosuggest with "Create New" support
-const BankAutosuggest = ({ banks, form, onCreate }) => {
-  const [inputValue, setInputValue] = useState(form.getFieldValue("bankName") || "");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  
-  const filtered = (banks || []).filter(b => b.name.toLowerCase().includes((inputValue || "").toLowerCase()));
-  const exactMatch = filtered.find(b => b.name.toLowerCase() === (inputValue || "").toLowerCase());
-
-  const handleSelect = (bank) => {
-    setInputValue(bank.name);
-    form.setFieldsValue({
-      bankName: bank.name,
-      ifscCode: bank.ifsc,
-      branch: bank.address
-    });
-    setShowSuggestions(false);
-  };
-
-  const createNewBank = async () => {
-     // Simple prompt or modal could go here, but for now we take the Name and current IFSC form value
-     const currentIFSC = form.getFieldValue("ifscCode");
-     const currentAddr = form.getFieldValue("branch");
-     
-     if (!currentIFSC) {
-       message.error("Please enter IFSC code to save this bank.");
-       return;
-     }
-
-     await onCreate({
-       name: inputValue,
-       ifsc: currentIFSC,
-       address: currentAddr || ""
-     });
-     setShowSuggestions(false);
-  };
-
-  return (
-    <div className="relative">
-       <label className="text-xs text-muted-foreground mb-1 block">Bank Name</label>
-       <div className="relative">
-         <input
-           type="text"
-           className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background pr-8"
-           placeholder="Search or Type Bank..."
-           value={inputValue}
-           onChange={(e) => {
-             setInputValue(e.target.value);
-             form.setFieldsValue({ bankName: e.target.value });
-             setShowSuggestions(true);
-           }}
-           onFocus={() => setShowSuggestions(true)}
-           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-         />
-         <Icon name="Building2" size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-         
-         {showSuggestions && inputValue && (
-           <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg max-h-48 overflow-y-auto z-50">
-             {filtered.map((b) => (
-               <div key={b._id} className="px-3 py-2 text-sm hover:bg-muted cursor-pointer" onClick={() => handleSelect(b)}>
-                 <div className="font-medium">{b.name}</div>
-                 <div className="text-xs text-muted-foreground">{b.ifsc}</div>
-               </div>
-             ))}
-             {!exactMatch && inputValue.length > 2 && (
-               <div className="px-3 py-2 text-sm bg-primary/5 hover:bg-primary/10 cursor-pointer text-primary border-t border-border" onClick={createNewBank}>
-                 + Save "{inputValue}" for future
-               </div>
-             )}
-           </div>
-         )}
-       </div>
     </div>
   );
 };

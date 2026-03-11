@@ -14,6 +14,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { bookingsApi } from "../../../api/bookings";
 import { ArrowLeftOutlined, SaveOutlined } from "@ant-design/icons";
+import { useVehicleData } from "../../../hooks/useVehicleData";
 
 const { Option } = Select;
 
@@ -23,6 +24,19 @@ const NewBookingPage = () => {
 
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(!!bookingId);
+  const {
+    makes,
+    models,
+    variants,
+    loading: vehicleLoading,
+    handleMakeChange,
+    handleModelChange,
+    handleVariantChange,
+  } = useVehicleData(form, {
+    makeFieldName: "vehicleMake",
+    modelFieldName: "vehicleModel",
+    variantFieldName: "vehicleVariant",
+  });
 
   useEffect(() => {
     if (!bookingId) return; // pure "new" case
@@ -153,13 +167,59 @@ const NewBookingPage = () => {
             {/* Vehicle details */}
             <Card size="small" title="Vehicle details">
               <Form.Item label="Make" name="vehicleMake">
-                <Input />
+                <Select
+                  showSearch
+                  loading={vehicleLoading}
+                  placeholder="Select make"
+                  onChange={handleMakeChange}
+                  optionFilterProp="children"
+                >
+                  {makes.map((make) => (
+                    <Option key={make} value={make}>
+                      {make}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
               <Form.Item label="Model" name="vehicleModel">
-                <Input />
+                <Select
+                  showSearch
+                  loading={vehicleLoading}
+                  placeholder={
+                    form.getFieldValue("vehicleMake")
+                      ? "Select model"
+                      : "Select make first"
+                  }
+                  disabled={!form.getFieldValue("vehicleMake")}
+                  onChange={handleModelChange}
+                  optionFilterProp="children"
+                >
+                  {models.map((model) => (
+                    <Option key={model} value={model}>
+                      {model}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
               <Form.Item label="Variant" name="vehicleVariant">
-                <Input />
+                <Select
+                  showSearch
+                  loading={vehicleLoading}
+                  placeholder={
+                    form.getFieldValue("vehicleModel")
+                      ? "Select variant"
+                      : "Select model first"
+                  }
+                  disabled={!form.getFieldValue("vehicleModel")}
+                  onChange={handleVariantChange}
+                  optionFilterProp="children"
+                >
+                  {variants.map((variant) => (
+                    <Option key={variant} value={variant}>
+                      {variant}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
               <Form.Item label="Color" name="vehicleColor">
                 <Input />

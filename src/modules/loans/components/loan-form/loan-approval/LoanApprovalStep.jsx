@@ -1,27 +1,21 @@
 // src/modules/loans/components/loan-form/loan-approval/LoanApprovalStep.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Form } from "antd";
+import { apiClient } from "../../../../../api/client";
 
 import Button from "../../../../../components/ui/Button";
-import QuickActionToolbar from "../../../../../components/ui/QuickActionToolbar";
 import Icon from "../../../../../components/AppIcon";
-import WorkflowProgress from "../../../../../components/ui/WorkflowProgress";
-import Section7RecordDetails from "../pre-file/Section7RecordDetails";
 import dayjs from "dayjs";
 
 import BankStatusCard from "./components/BankStatusCard";
 import ComparisonMatrix from "./components/ComparisonMatrix";
-import BankDetailsModal from "./components/BankDetailsModal";
 import StatusUpdateModal from "./components/StatusUpdateModal";
-import FilterPanel from "./components/FilterPanel";
 
 // API function to fetch banks data
 const fetchBanksDataFromAPI = async (loanId) => {
   try {
-    const response = await fetch(`/api/loans/${loanId}/banks`);
-    if (!response.ok) throw new Error("Failed to fetch banks");
-    const data = await response.json();
-    return data.banks || [];
+    const data = await apiClient.get(`/api/loans/${loanId}/banks`);
+    return data?.banks || [];
   } catch (error) {
     console.error("Error fetching banks:", error);
     return null;
@@ -31,13 +25,9 @@ const fetchBanksDataFromAPI = async (loanId) => {
 // API function to save banks data
 const saveBanksDataToAPI = async (loanId, banksData) => {
   try {
-    const response = await fetch(`/api/loans/${loanId}/banks`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ banks: banksData }),
+    return await apiClient.put(`/api/loans/${loanId}/banks`, {
+      banks: banksData,
     });
-    if (!response.ok) throw new Error("Failed to save banks");
-    return await response.json();
   } catch (error) {
     console.error("Error saving banks:", error);
     return null;
@@ -266,7 +256,6 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
   const [activeView, setActiveView] = useState("cards");
   const [selectedBank, setSelectedBank] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const saveTimeoutRef = useRef(null);
@@ -310,15 +299,11 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
     };
   }, [banksData, loanId, isLoading]);
 
-  const primaryBank =
-    banksData.find((b) => b.status === "Disbursed") ||
-    banksData.find((b) => b.status === "Approved") ||
-    null;
-
   // live values from form
   const vehicleMake = Form.useWatch("vehicleMake", form);
   const vehicleModel = Form.useWatch("vehicleModel", form);
   const vehicleVariant = Form.useWatch("vehicleVariant", form);
+  const vehicleFuelType = Form.useWatch("vehicleFuelType", form);
   const exShowroomPrice = Form.useWatch("exShowroomPrice", form);
   const loanType = Form.useWatch("typeOfLoan", form);
 
@@ -341,24 +326,6 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
     );
   };
 
-  const handleVehicleFieldChange = (bankId, fieldName, value) => {
-    if (form && typeof form.setFieldsValue === "function") {
-      form.setFieldsValue({ [fieldName]: value });
-    }
-
-    setBanksData((prev) =>
-      prev.map((b) => {
-        if (b.id !== bankId) return b;
-        const vehicle = { ...(b.vehicle || {}) };
-        if (fieldName === "vehicleMake") vehicle.make = value;
-        if (fieldName === "vehicleModel") vehicle.model = value;
-        if (fieldName === "vehicleVariant") vehicle.variant = value;
-        vehicle.exShowroomPrice = exShowroomPrice;
-        return { ...b, vehicle };
-      }),
-    );
-  };
-
   const updateBankStatus = (updatedBank, newStatus, note) => {
     const now = new Date().toISOString(); // ✅ DEFINE ONCE
 
@@ -374,6 +341,8 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
             !b.approvalDate
               ? now
               : b.approvalDate,
+          disbursalDate:
+            newStatus === "Disbursed" && !b.disbursalDate ? now : b.disbursalDate,
 
           statusHistory: [
             ...history,
@@ -388,64 +357,15 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
     );
   };
 
-  const handleSaveAndNext = () => {
-    if (!primaryBank) {
-      onNext && onNext();
-      return;
-    }
-
-    console.log("💾 Saving bank data:", primaryBank); // ADD THIS
-    console.log("💾 Payout %:", primaryBank.payoutPercent); // ADD THIS
-
-    // normalize numeric fields
-    const cleanNumber = (val) =>
-      Number(String(val || "").replace(/[^0-9.]/g, "")) || 0;
-
-    form.setFieldsValue({
-      approval_bankId: primaryBank.id,
-      approval_bankName: primaryBank.bankName || "",
-      approval_status: primaryBank.status,
-      approval_loanAmountApproved: cleanNumber(primaryBank.loanAmount),
-      approval_loanAmountDisbursed: cleanNumber(
-        primaryBank.disbursedAmount || primaryBank.loanAmount,
-      ),
-      approval_roi: Number(primaryBank.interestRate) || undefined,
-      approval_tenureMonths: Number(primaryBank.tenure) || undefined,
-      approval_processingFees: cleanNumber(primaryBank.processingFee),
-      approval_statusHistory: primaryBank.statusHistory || [],
-      approval_approvalDate:
-        primaryBank.approvalDate ||
-        primaryBank.statusHistory?.find((h) => h.status === "Approved")
-          ?.changedAt ||
-        primaryBank.statusHistory?.find((h) => h.status === "Disbursed")
-          ?.changedAt ||
-        null,
-
-      approval_disbursedDate:
-        primaryBank.statusHistory?.find((h) => h.status === "Disbursed")
-          ?.changedAt || null,
-      // NEW: breakup fields
-      approval_breakup_netLoanApproved: primaryBank.breakupNetLoanApproved ?? 0,
-      approval_breakup_creditAssured: primaryBank.breakupCreditAssured ?? 0,
-      approval_breakup_insuranceFinance:
-        primaryBank.breakupInsuranceFinance ?? 0,
-      approval_breakup_ewFinance: primaryBank.breakupEwFinance ?? 0,
-      payoutPercentage: primaryBank.payoutPercent || "", // ADD THIS LINE
-    });
-
-    // ✅ allow AntD + React to flush form updates
-    requestAnimationFrame(() => {
-      onNext && onNext();
-    });
-  };
-
   const bankWithLiveVehicle = (bank) => ({
     ...bank,
+    vehicleFuelType: vehicleFuelType ?? bank.vehicleFuelType ?? bank.vehicle?.fuel ?? "",
     loanType,
     vehicle: {
       make: vehicleMake ?? bank.vehicle?.make ?? "",
       model: vehicleModel ?? bank.vehicle?.model ?? "",
       variant: vehicleVariant ?? bank.vehicle?.variant ?? "",
+      fuel: vehicleFuelType ?? bank.vehicle?.fuel ?? "",
       exShowroomPrice: exShowroomPrice ?? bank.vehicle?.exShowroomPrice ?? "",
     },
   });
@@ -486,25 +406,17 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
 
   const statusSummary = {
     total: banksData.length,
-    approved: banksData.filter((b) => b.status === "Approved").length,
+    approved: banksData.filter(
+      (b) => b.status === "Approved" || b.status === "Disbursed",
+    ).length,
     pending: banksData.filter(
       (b) => b.status === "Pending" || b.status === "Under Review",
     ).length,
-    documentsRequired: banksData.filter(
-      (b) => b.status === "Documents Required",
-    ).length,
     rejected: banksData.filter((b) => b.status === "Rejected").length,
   };
-
-  const hasDisbursed = banksData.some((b) => b.status === "Disbursed");
-
-  const workflowStages = [
-    "Prefill & KYC",
-    "Vehicle & Loan Details",
-    "Multi-Bank Approval",
-    "Documentation",
-    "Disbursement",
-  ];
+  const underProcess =
+    statusSummary.pending +
+    banksData.filter((b) => b.status === "Documents Required").length;
 
   const handleAddBank = () => {
     setBanksData((prev) => {
@@ -543,7 +455,7 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
   };
 
   return (
-    <div className="relative -mx-6 lg:-mx-8">
+    <div className="relative space-y-5 font-sans md:space-y-6">
       {isLoading && (
         <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-50 rounded-lg">
           <div className="text-center">
@@ -558,73 +470,26 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
           Saving...
         </div>
       )}
-      <div className="px-6 lg:px-8 space-y-6">
-        <WorkflowProgress
-          currentStage="Multi-Bank Approval"
-          stages={workflowStages}
-        />
-
-        {/* Status summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-          <div className="bg-card rounded-lg border border-border p-4 md:p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Icon name="Building2" size={20} className="text-primary" />
-              <span className="text-xs md:text-sm text-muted-foreground">
-                Total Banks
-              </span>
+      <div className="relative overflow-hidden rounded-[18px] border border-border/70 bg-card p-2.5 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.42)] md:p-3 dark:bg-black/85 dark:shadow-[0_18px_40px_-34px_rgba(0,0,0,0.9)]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.2),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.18),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.2),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(52,211,153,0.18),transparent_35%)]" />
+        <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-0.5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <Icon name="ShieldCheck" size={12} />
+              Approval Desk
             </div>
-            <p className="text-2xl md:text-3xl font-semibold text-foreground">
-              {statusSummary.total}
-            </p>
+            <h2 className="text-lg font-semibold text-foreground md:text-xl">
+              Bank Decision Center
+            </h2>
           </div>
-
-          <div className="bg-card rounded-lg border border-border p-4 md:p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Icon name="CheckCircle2" size={20} className="text-success" />
-              <span className="text-xs md:text-sm text-muted-foreground">
-                Approved
-              </span>
-            </div>
-            <p className="text-2xl md:text-3xl font-semibold text-success">
-              {statusSummary.approved}
-            </p>
-          </div>
-
-          <div className="bg-card rounded-lg border border-border p-4 md:p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Icon name="Clock" size={20} className="text-warning" />
-              <span className="text-xs md:text-sm text-muted-foreground">
-                Pending
-              </span>
-            </div>
-            <p className="text-2xl md:text-3xl font-semibold text-warning">
-              {statusSummary.pending}
-            </p>
-          </div>
-
-          <div className="bg-card rounded-lg border border-border p-4 md:p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <Icon name="XCircle" size={20} className="text-error" />
-              <span className="text-xs md:text-sm text-muted-foreground">
-                Rejected
-              </span>
-            </div>
-            <p className="text-2xl md:text-3xl font-semibold text-error">
-              {statusSummary.rejected}
-            </p>
-          </div>
-        </div>
-
-        {/* View toggle + filters */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card rounded-lg border border-border p-4">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-background/70 p-2 dark:bg-black/55">
             <Button
               size="sm"
               variant={activeView === "cards" ? "default" : "outline"}
               iconName="LayoutGrid"
               onClick={() => setActiveView("cards")}
             >
-              Card View
+              Cards
             </Button>
             <Button
               size="sm"
@@ -632,73 +497,112 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
               iconName="BarChart3"
               onClick={() => setActiveView("comparison")}
             >
-              Comparison
+              Matrix
             </Button>
           </div>
-
-          <Button
-            size="sm"
-            variant="outline"
-            iconName={showFilters ? "ChevronUp" : "Filter"}
-            onClick={() => setShowFilters((s) => !s)}
-          >
-            {showFilters ? "Hide Filters" : "Show Filters"}
-          </Button>
         </div>
+      </div>
 
-        {showFilters && (
-          <FilterPanel
-            filters={{}}
-            onFilterChange={() => {}}
-            onReset={() => {}}
-          />
-        )}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-2xl border border-sky-200/70 bg-sky-50/90 p-4 shadow-sm dark:border-sky-900/60 dark:bg-sky-950/20">
+          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Icon name="Building2" size={16} />
+          </div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground">Total Banks</div>
+          <div className="text-3xl font-semibold leading-none text-foreground">{statusSummary.total}</div>
+        </div>
+        <div className="rounded-2xl border border-emerald-300/60 bg-emerald-50/90 p-4 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
+          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+            <Icon name="BadgeCheck" size={16} />
+          </div>
+          <div className="mb-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">Approved / Disbursed</div>
+          <div className="text-3xl font-semibold leading-none text-emerald-700 dark:text-emerald-300">{statusSummary.approved}</div>
+        </div>
+        <div className="rounded-2xl border border-amber-300/60 bg-amber-50/90 p-4 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/20">
+          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
+            <Icon name="Clock3" size={16} />
+          </div>
+          <div className="mb-1 text-xs font-medium text-amber-700 dark:text-amber-300">In Progress</div>
+          <div className="text-3xl font-semibold leading-none text-amber-700 dark:text-amber-300">{underProcess}</div>
+        </div>
+        <div className="rounded-2xl border border-rose-300/60 bg-rose-50/90 p-4 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/20">
+          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300">
+            <Icon name="ShieldX" size={16} />
+          </div>
+          <div className="mb-1 text-xs font-medium text-rose-700 dark:text-rose-300">Rejected</div>
+          <div className="text-3xl font-semibold leading-none text-rose-700 dark:text-rose-300">{statusSummary.rejected}</div>
+        </div>
+      </div>
 
+      <div className="rounded-[26px] border border-border/70 bg-card/95 p-4 shadow-[0_20px_55px_-36px_rgba(15,23,42,0.4)] md:p-5 dark:bg-black/75 dark:shadow-[0_20px_55px_-38px_rgba(0,0,0,0.9)]">
         {activeView === "cards" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredBanks.map((bank) => (
-              <BankStatusCard
-                key={bank.id}
-                bank={bankWithLiveVehicle(bank)}
-                form={form}
-                readOnly={hasDisbursed && bank.status !== "Disbursed"}
-                onUpdateStatus={(b) => {
-                  setSelectedBank(b);
-                  setShowStatusModal(true);
-                }}
-                onBankNameChange={handleBankNameChange}
-                onBankUpdate={(patch) => handleBankUpdate(bank.id, patch)}
-                onDeleteBank={() =>
-                  setBanksData((prev) => prev.filter((b) => b.id !== bank.id))
-                }
-              />
-            ))}
-            {!hasDisbursed && (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-2.5 text-xs text-muted-foreground dark:bg-black/45">
+              Offers board: {filteredBanks.length} bank{filteredBanks.length === 1 ? "" : "s"} active
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {filteredBanks.map((bank) => (
+                <div
+                  key={bank.id}
+                  className="rounded-2xl bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-xl dark:bg-black/70"
+                >
+                  <BankStatusCard
+                    bank={bankWithLiveVehicle(bank)}
+                    form={form}
+                    readOnly={false}
+                    onUpdateStatus={(b) => {
+                      setSelectedBank(b);
+                      setShowStatusModal(true);
+                    }}
+                    onBankNameChange={handleBankNameChange}
+                    onBankUpdate={(patch) => handleBankUpdate(bank.id, patch)}
+                    onDeleteBank={() =>
+                      setBanksData((prev) => prev.filter((b) => b.id !== bank.id))
+                    }
+                  />
+                </div>
+              ))}
               <button
                 type="button"
                 onClick={handleAddBank}
-                className="bg-card rounded-lg border border-border p-4 md:p-6 transition-all hover:shadow-md active:scale-95 cursor-pointer relative group max-w-sm mx-auto w-full min-h-[350px]"
+                className="group relative mx-auto min-h-[380px] w-full max-w-sm cursor-pointer rounded-2xl border border-dashed border-primary/45 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 md:p-6 dark:border-primary/45 dark:from-primary/15 dark:via-primary/10 dark:to-transparent"
               >
-                <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                <div className="flex h-full flex-col items-center justify-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/30 bg-primary/15 transition-colors group-hover:bg-primary/25">
                     <Icon name="Plus" size={24} className="text-primary" />
                   </div>
                   <div className="flex-1 text-center">
-                    <h3 className="font-semibold text-foreground mb-1 ">Add Bank</h3>
-                    <p className="text-xs text-muted-foreground">Click to add another bank for approval</p>
+                    <h3 className="mb-1 text-base font-semibold text-foreground">Add Bank</h3>
+                    <p className="text-xs text-muted-foreground">Add another lender for comparison.</p>
                   </div>
                 </div>
               </button>
+            </div>
+            {filteredBanks.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-border/70 bg-background/70 p-10 text-center text-sm text-muted-foreground">
+                No banks added yet. Use <span className="font-semibold text-foreground">Add Bank</span> to begin comparison.
+              </div>
             )}
           </div>
         ) : (
-          <ComparisonMatrix banks={filteredBanks.map(bankWithLiveVehicle)} />
+          <div className="rounded-2xl border border-border/70 bg-background/70 p-3 md:p-4 dark:bg-black/50">
+            <ComparisonMatrix banks={filteredBanks.map(bankWithLiveVehicle)} />
+          </div>
         )}
       </div>
 
       {/* Record Details per additional bank (editable, not wired to prefile form) */}
       {banksData.length > 1 && (
-        <div className="mt-6 space-y-4">
+        <div className="space-y-4">
+          <div className="rounded-xl border border-border/70 bg-card/95 px-4 py-3 dark:bg-black/65">
+            <div className="flex items-center gap-2">
+              <Icon name="FilePenLine" size={16} className="text-primary" />
+              <span className="text-sm font-semibold text-foreground">Bank-Specific Record Details</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Secondary banks can keep individual receiving and reference notes here.
+            </p>
+          </div>
           {banksData.slice(1).map((bank) => (
             <RecordDetailsEditable
               key={bank.id}

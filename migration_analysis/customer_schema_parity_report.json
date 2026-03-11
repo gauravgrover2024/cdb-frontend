@@ -1,0 +1,38 @@
+{
+  "count": 71,
+  "backend": 117,
+  "missing": [
+    "Phone",
+    "ShieldCheck",
+    "co_address",
+    "co_customerName",
+    "co_dob",
+    "co_pan",
+    "co_primaryMobile",
+    "docsPreparedBy",
+    "registerSameAsAadhaar",
+    "registerSameAsPermanent",
+    "registrationAddress",
+    "registrationCity",
+    "registrationPincode",
+    "signatory_aadhaar",
+    "signatory_address",
+    "signatory_city",
+    "signatory_customerName",
+    "signatory_designation",
+    "signatory_dob",
+    "signatory_pan",
+    "signatory_pincode",
+    "signatory_primaryMobile"
+  ],
+  "files": [
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/AddCustomer.jsx",
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/EditCustomer.jsx",
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/customer-form/BankDetails.jsx",
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/customer-form/EmploymentDetails.jsx",
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/customer-form/IncomeDetails.jsx",
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/customer-form/KycDetails.jsx",
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/customer-form/PersonalDetails.jsx",
+    "/Users/gauravgrover/cdb-frontend/src/modules/customers/customer-form/ReferenceDetails.jsx"
+  ]
+}

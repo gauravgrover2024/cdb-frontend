@@ -21,9 +21,35 @@ const SUGGESTED_TAGS = [
   "MSME",
 ];
 
+const normalizeTagKey = (value) => String(value || "").trim().toLowerCase();
+
+const toCanonicalTagName = (value, existingTagNames = [], suggestedTagNames = []) => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+
+  const normalized = normalizeTagKey(trimmed);
+  const match = [...existingTagNames, ...suggestedTagNames].find(
+    (tag) => normalizeTagKey(tag) === normalized,
+  );
+
+  if (match) return match;
+
+  // Keep acronyms in uppercase, title-case everything else.
+  if (/^[a-z]{2,6}$/i.test(trimmed) && trimmed.length <= 5) {
+    return trimmed.toUpperCase();
+  }
+
+  return trimmed
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+};
+
 const PostFileDocumentManagement = ({ form }) => {
   const [documents, setDocuments] = useState([]);
   const [tags, setTags] = useState([]);
+  const [selectedTagFilter, setSelectedTagFilter] = useState("All");
   const [showAddTagsModal, setShowAddTagsModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isFetchingDocs, setIsFetchingDocs] = useState(false);
@@ -217,6 +243,8 @@ const PostFileDocumentManagement = ({ form }) => {
     // Dependency only on the values, not the full array processing to avoid frequent re-runs
     aadhaarCardDocUrl, panCardDocUrl, passportDocUrl, dlDocUrl, 
     addressProofDocUrl, gstDocUrl, photoUrl, signatureUrl,
+    documents.length,
+    tags.length,
     // Note: NOT depending on documents/tags state to avoid loops, only external inputs
   ]);
 
@@ -225,21 +253,31 @@ const PostFileDocumentManagement = ({ form }) => {
     : SUGGESTED_TAGS.filter((tag) => tag !== "GST" && tag !== "MSME");
 
   const addTags = (newTags) => {
-    const uniqueTags = newTags.filter(
-      (tag) => !tags.some((t) => t.name === tag)
+    const canonicalTags = newTags
+      .map((tag) =>
+        toCanonicalTagName(
+          tag,
+          tags.map((t) => t.name),
+          availableTags,
+        ),
+      )
+      .filter(Boolean);
+
+    const uniqueTags = canonicalTags.filter(
+      (tag) => !tags.some((t) => normalizeTagKey(t.name) === normalizeTagKey(tag))
     );
     const tagObjects = uniqueTags.map((tagName) => ({
       id: Date.now() + Math.random(),
       name: tagName,
       documentCount: 0,
     }));
-    setTags([...tags, ...tagObjects]);
+    setTags((prev) => [...prev, ...tagObjects]);
   };
 
   const deleteTag = (tagId) => {
-    setTags(tags.filter((t) => t.id !== tagId));
-    setDocuments(
-      documents.map((doc) =>
+    setTags((prev) => prev.filter((t) => t.id !== tagId));
+    setDocuments((prev) =>
+      prev.map((doc) =>
         doc.tagId === tagId ? { ...doc, tagId: null, tag: null } : doc
       )
     );
@@ -313,20 +351,33 @@ const PostFileDocumentManagement = ({ form }) => {
   };
 
   const assignTag = (docId, tagName) => {
+    const canonicalBaseName = toCanonicalTagName(
+      tagName,
+      tags.map((t) => t.name),
+      availableTags,
+    );
+
+    if (!canonicalBaseName) return;
+
     // 🏷️ Auto-Increment Tag Name if used (e.g., Aadhaar -> Aadhaar 2)
-    let finalTagName = tagName;
+    let finalTagName = canonicalBaseName;
     let counter = 2;
     
     // Check if any OTHER document already uses this tag name
-    const isUsed = (name) => documents.some(d => d.tag === name && d.id !== docId);
+    const isUsed = (name) =>
+      documents.some(
+        (d) => normalizeTagKey(d.tag) === normalizeTagKey(name) && d.id !== docId,
+      );
     
     while (isUsed(finalTagName)) {
-        finalTagName = `${tagName} ${counter}`;
+        finalTagName = `${canonicalBaseName} ${counter}`;
         counter++;
     }
     
     // Now use finalTagName for creation/assignment
-    let tag = tags.find((t) => t.name === finalTagName);
+    let tag = tags.find(
+      (t) => normalizeTagKey(t.name) === normalizeTagKey(finalTagName),
+    );
 
     if (!tag) {
       // Create new tag if it doesn't exist (e.g. Aadhaar 2)
@@ -335,40 +386,19 @@ const PostFileDocumentManagement = ({ form }) => {
         name: finalTagName,
         documentCount: 0,
       };
-      setTags([...tags, newTag]);
+      setTags((prev) => [...prev, newTag]);
       tag = newTag;
     }
 
-    setDocuments(
-      documents.map((doc) =>
+    setDocuments((prev) =>
+      prev.map((doc) =>
         doc.id === docId ? { ...doc, tagId: tag.id, tag: tag.name } : doc
       )
     );
-
-    updateTagCounts();
-  };
-
-  const updateTagCounts = () => {
-    setTimeout(() => {
-      const counts = {};
-      documents.forEach((doc) => {
-        if (doc.tagId) {
-          counts[doc.tagId] = (counts[doc.tagId] || 0) + 1;
-        }
-      });
-
-      setTags(
-        tags.map((tag) => ({
-          ...tag,
-          documentCount: counts[tag.id] || 0,
-        }))
-      );
-    }, 100);
   };
 
   const deleteDocument = (docId) => {
-    setDocuments(documents.filter((d) => d.id !== docId));
-    updateTagCounts();
+    setDocuments((prev) => prev.filter((d) => d.id !== docId));
   };
 
   // 🔄 SYNC TO FORM: Ensure documents are saved on submit
@@ -394,410 +424,600 @@ const PostFileDocumentManagement = ({ form }) => {
 
 
   // ... (Code removed) ...
+  const tagCountsByName = documents.reduce(
+    (acc, doc) => {
+      if (doc.tag) {
+        acc[doc.tag] = (acc[doc.tag] || 0) + 1;
+      } else {
+        acc.Untagged += 1;
+      }
+      return acc;
+    },
+    { All: documents.length, Untagged: 0 },
+  );
 
+  const vaultTags = tags.map((tag) => ({
+    ...tag,
+    liveCount: tagCountsByName[tag.name] || 0,
+  }));
 
+  const filteredDocuments =
+    selectedTagFilter === "All"
+      ? documents
+      : selectedTagFilter === "Untagged"
+        ? documents.filter((doc) => !doc.tag)
+        : documents.filter((doc) => doc.tag === selectedTagFilter);
+
+  const taggedCount = documents.filter((d) => d.tag).length;
+  const untaggedCount = documents.length - taggedCount;
+  const preFileCount = documents.filter((d) => d.isPreFile).length;
+  const uploadedCount = documents.length - preFileCount;
+
+  useEffect(() => {
+    const counts = documents.reduce((acc, doc) => {
+      if (doc.tag) {
+        acc[doc.tag] = (acc[doc.tag] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    setTags((prev) =>
+      prev.map((tag) => ({
+        ...tag,
+        documentCount: counts[tag.name] || 0,
+      })),
+    );
+  }, [documents]);
 
   return (
-    <div className="bg-card rounded-xl border border-border p-5 md:p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon name="FolderOpen" size={20} className="text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">
-              Document Management
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {documents.length} documents • {tags.length} tags
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-           <Button
-             variant="outline"
-             iconName="RefreshCw"
-             iconPosition="left"
-             size="sm"
-             onClick={() => fetchCustomerDocuments(true)}
-             isLoading={isFetchingDocs}
-           >
-             Sync Docs
-           </Button>
-          {documents.length > 0 && (
-            <Button
-              variant="outline"
-              iconName="Eye"
-              iconPosition="left"
-              size="sm"
-              onClick={() => setShowAllDocumentsModal(true)}
-            >
-              View All
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            iconName="Tag"
-            iconPosition="left"
-            size="sm"
-            onClick={() => setShowAddTagsModal(true)}
-          >
-            Add Tags
-          </Button>
-          <Button
-            variant="default"
-            iconName="Upload"
-            iconPosition="left"
-            size="sm"
-            onClick={() => setShowUploadModal(true)}
-          >
-            Upload
-          </Button>
-        </div>
-      </div>
-
-      {/* Tags Panel */}
-      {tags.length > 0 && (
-        <div className="mb-4 md:mb-6 p-4 bg-muted/30 rounded-lg border border-border">
-          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Icon name="Tag" size={16} className="text-primary" />
-            Document Tags
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <div
-                key={tag.id}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border transition-colors ${getTagColor()}`}
-              >
-                <Icon name="Tag" size={12} className="text-primary" />
-                <span className="font-medium">{tag.name}</span>
-                <span className="text-[10px] bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded-full">
-                  {tag.documentCount}
-                </span>
-                <button
-                  onClick={() => deleteTag(tag.id)}
-                  className="hover:text-red-600 dark:hover:text-red-400 transition-colors ml-1"
-                >
-                  <Icon name="X" size={12} />
-                </button>
+    <div className="relative overflow-hidden rounded-[24px] border border-border/70 bg-card p-5 shadow-[0_20px_50px_-38px_rgba(15,23,42,0.16)] dark:bg-black/20 dark:shadow-[0_24px_60px_-42px_rgba(2,6,23,0.7)] md:p-6">
+      <div className="relative">
+        <div className="documents-header mb-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 via-pink-500 to-orange-400 text-white shadow-[0_18px_40px_-22px_rgba(244,63,94,0.65)] dark:text-slate-950">
+                <Icon name="FolderOpen" size={20} />
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Untagged Documents Alert */}
-      {documents.filter((d) => !d.tagId).length > 0 && (
-        <div className="mb-4 p-3 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-2">
-          <Icon name="AlertCircle" size={16} className="text-warning mt-0.5" />
-          <div className="text-xs">
-            <p className="font-medium text-warning">
-              {documents.filter((d) => !d.tagId).length} document(s) not tagged
-            </p>
-            <p className="text-warning/80 mt-1">
-              Please assign tags to all uploaded documents
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Document List */}
-      <div className="space-y-3 md:space-y-4">
-        {documents.map((doc) => (
-          <div
-            key={doc.id}
-            className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex flex-col sm:flex-row gap-4">
-              {/* Document Preview */}
-              {/* Document Preview */}
-              <div
-                className="w-full sm:w-24 h-32 sm:h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 cursor-pointer"
-                onClick={() => setViewDocument(doc)}
-              >
-                {doc.url && 
-                 !doc.url.toLowerCase().endsWith('.pdf') && 
-                 doc.format !== 'pdf' ? (
-                  <img
-                    src={doc.url}
-                    alt={doc.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted/50">
-                    <Icon
-                      name={doc.url?.toLowerCase().endsWith('.pdf') ? "FileText" : "File"} // Use FileText for PDF
-                      size={32}
-                      className={doc.url ? "text-primary" : "text-muted-foreground"}
-                    />
-                    {doc.url?.toLowerCase().endsWith('.pdf') && (
-                      <span className="absolute bottom-1 text-[10px] font-bold text-primary">PDF</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Document Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Icon
-                        name="FileText"
-                        size={18}
-                        className="text-primary"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-sm md:text-base font-semibold text-foreground truncate">
-                        {doc.tag || doc.name}
-                      </h4>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {doc.size} • {doc.uploadedBy}
-                      </p>
-
-                      {/* Tag Badge or Assignment */}
-                      <div className="mt-2">
-                        {doc.tag ? (
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs border border-primary/20">
-                              <Icon name="Tag" size={12} className="text-primary" />
-                              {doc.tag}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setDocuments(
-                                  documents.map((d) =>
-                                    d.id === doc.id
-                                      ? { ...d, tagId: null, tag: null }
-                                      : d
-                                  )
-                                );
-                                updateTagCounts();
-                              }}
-                              className="text-xs text-muted-foreground hover:text-error"
-                            >
-                              <Icon name="X" size={12} />
-                            </button>
-                          </div>
-                        ) : (
-                          <TagInputWithSuggestions
-                            docId={doc.id}
-                            availableTags={tags.map((t) => t.name)}
-                            onAssign={(tagName) => assignTag(doc.id, tagName)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
+              <div>
+                <div className="mb-1 text-[11px] font-black uppercase tracking-[0.22em] text-rose-500 dark:text-rose-300">
+                  Post-File Control
                 </div>
-
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <Icon name="Calendar" size={14} className="text-primary" />
-                    <span>{doc.uploadedAt}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    iconName="Eye"
-                    iconPosition="left"
-                    size="xs"
-                    onClick={() => setViewDocument(doc)}
-                  >
-                    View
-                  </Button>
-                  <Button
-                    variant="outline"
-                    iconName="Download"
-                    iconPosition="left"
-                    size="xs"
-                    onClick={() => {
-                      const link = document.createElement("a");
-                      link.href = doc.url;
-                      link.download = doc.name;
-                      link.click();
-                    }}
-                  >
-                    Download
-                  </Button>
-                  <Button
-                    variant="outline"
-                    iconName="Trash2"
-                    iconPosition="left"
-                    size="xs"
-                    onClick={() => deleteDocument(doc.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Empty State */}
-        {documents.length === 0 && (
-          <div className="text-center py-12 md:py-16">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-muted mx-auto flex items-center justify-center mb-4">
-              <Icon name="Upload" size={32} className="text-primary" />
-            </div>
-            <p className="text-sm md:text-base font-medium text-foreground">
-              No documents uploaded yet
-            </p>
-            <p className="text-xs md:text-sm text-muted-foreground mt-1 mb-4">
-              Upload your first document to get started
-            </p>
-            <Button
-              variant="default"
-              iconName="Upload"
-              iconPosition="left"
-              size="sm"
-              onClick={() => setShowUploadModal(true)}
-            >
-              Upload Document
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Document Viewer Modal */}
-      {viewDocument && (
-        <DocumentViewerModal
-          document={viewDocument}
-          allDocuments={documents}
-          onClose={() => setViewDocument(null)}
-          onNavigate={(doc) => setViewDocument(doc)}
-        />
-      )}
-
-      {/* View All Documents Modal */}
-      {showAllDocumentsModal && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-4xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Icon name="FolderOpen" size={18} className="text-primary" />
-                <span className="text-sm font-semibold text-foreground">
-                  All Documents ({documents.length})
-                </span>
-              </div>
-              <button
-                onClick={() => setShowAllDocumentsModal(false)}
-                className="p-1.5 rounded-lg hover:bg-muted"
-              >
-                <Icon name="X" size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {documents.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => {
-                      setViewDocument(doc);
-                      setShowAllDocumentsModal(false);
-                    }}
-                  >
-                    <div className="aspect-square bg-muted flex items-center justify-center">
-                      {doc.url ? (
-                        <img
-                          src={doc.url}
-                          alt={doc.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Icon
-                          name="FileText"
-                          size={48}
-                          className="text-muted-foreground"
-                        />
-                      )}
-                    </div>
-                    <div className="p-3 bg-card">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {doc.tag || doc.name}
-                      </p>
-                      {doc.tag && (
-                        <div className="mt-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-[10px] border border-primary/20">
-                            <Icon name="Tag" size={10} />
-                            {doc.tag}
-                          </span>
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {doc.size}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                  Centralize synced customer records, additional uploads, and document tagging in one review-friendly workspace.
+                </p>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+            <div className="flex flex-wrap items-center justify-start gap-2 rounded-2xl border border-rose-200/70 bg-white/85 p-2 shadow-sm dark:border-rose-900/50 dark:bg-white/5 lg:justify-end">
               <Button
                 variant="outline"
+                iconName="RefreshCw"
+                iconPosition="left"
                 size="sm"
-                onClick={() => setShowAllDocumentsModal(false)}
+                onClick={() => fetchCustomerDocuments(true)}
+                isLoading={isFetchingDocs}
+                className="h-10 rounded-xl border-rose-200 bg-white px-4 text-rose-700 hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-transparent dark:text-rose-200 dark:hover:bg-rose-500/10"
               >
-                Close
+                Sync Docs
+              </Button>
+              <Button
+                variant="outline"
+                iconName="Tag"
+                iconPosition="left"
+                size="sm"
+                onClick={() => setShowAddTagsModal(true)}
+                className="h-10 rounded-xl border-sky-200 bg-white px-4 text-sky-700 hover:border-sky-300 hover:bg-sky-50 dark:border-sky-900/60 dark:bg-transparent dark:text-sky-200 dark:hover:bg-sky-500/10"
+              >
+                Tag
+              </Button>
+              {documents.length > 0 && (
+                <Button
+                  variant="outline"
+                  iconName="Eye"
+                  iconPosition="left"
+                  size="sm"
+                  onClick={() => setShowAllDocumentsModal(true)}
+                  className="h-10 rounded-xl border-slate-200 bg-white px-4 hover:bg-slate-50 dark:border-slate-800 dark:bg-transparent dark:hover:bg-white/10"
+                >
+                  View All
+                </Button>
+              )}
+              <Button
+                variant="default"
+                iconName="Upload"
+                iconPosition="left"
+                size="sm"
+                onClick={() => setShowUploadModal(true)}
+                className="h-10 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 px-4 text-white shadow-[0_16px_34px_-18px_rgba(244,63,94,0.6)] hover:opacity-95 dark:text-slate-950"
+              >
+                Add Document
               </Button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Add Tags Modal */}
-      {showAddTagsModal && (
-        <AddTagsModal
-          availableTags={availableTags}
-          existingTags={tags.map((t) => t.name)}
-          onAdd={addTags}
-          onClose={() => setShowAddTagsModal(false)}
-        />
-      )}
-
-      {/* Upload Documents Modal */}
-      {showUploadModal && (
-        <UploadDocumentsModal
-          onUpload={uploadDocuments}
-          onClose={() => setShowUploadModal(false)}
-          uploading={uploading}
-          progress={uploadProgress}
-        />
-      )}
-
-      {/* Footer Stats */}
-      {documents.length > 0 && (
-        <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-border">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="w-2 h-2 rounded-full bg-primary" />
-              <span className="text-xs text-muted-foreground">
-                {documents.filter((d) => d.tag).length} Tagged
-              </span>
-              <div className="w-2 h-2 rounded-full bg-warning ml-3" />
-              <span className="text-xs text-muted-foreground">
-                {documents.filter((d) => !d.tag).length} Untagged
-              </span>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 shadow-sm dark:border-slate-800/90 dark:bg-white/5">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Total Documents
+              </div>
+              <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                {documents.length}
+              </div>
             </div>
-            <Button
-              variant="ghost"
-              iconName="Download"
-              iconPosition="left"
-              size="sm"
-            >
-              Export All
-            </Button>
+            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 shadow-sm dark:border-emerald-900/70 dark:bg-emerald-500/10">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">
+                Tagged
+              </div>
+              <div className="mt-2 text-2xl font-semibold tracking-tight text-emerald-800 dark:text-emerald-100">
+                {taggedCount}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-sky-200/80 bg-sky-50/90 px-4 py-3 shadow-sm dark:border-sky-900/70 dark:bg-sky-500/10">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-700 dark:text-sky-200">
+                Needs Tagging
+              </div>
+              <div className="mt-2 text-2xl font-semibold tracking-tight text-sky-800 dark:text-sky-100">
+                {untaggedCount}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-sky-200/80 bg-sky-50/90 px-4 py-3 shadow-sm dark:border-sky-900/70 dark:bg-sky-500/10">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-700 dark:text-sky-200">
+                Additional Uploads
+              </div>
+              <div className="mt-2 text-2xl font-semibold tracking-tight text-sky-800 dark:text-sky-100">
+                {uploadedCount}
+              </div>
+            </div>
           </div>
         </div>
-      )}
+
+        {(tags.length > 0 || documents.length > 0) && (
+          <div className="mb-4 rounded-[24px] border border-border/70 bg-muted/20 p-4 shadow-sm dark:bg-white/5 md:mb-6">
+            <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-500 dark:text-rose-300">
+                  Tag Vault
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Organize the file stack with structured tags for audit and retrieval.
+                </p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {vaultTags.length} active tag{vaultTags.length !== 1 ? "s" : ""}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSelectedTagFilter("All")}
+                className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs shadow-sm transition-colors ${
+                  selectedTagFilter === "All"
+                    ? "border-rose-300 bg-rose-500 text-white dark:text-slate-950"
+                    : "border-border/70 bg-card hover:border-rose-200 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                }`}
+              >
+                <Icon name="Files" size={12} />
+                <span className="font-semibold">All</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${selectedTagFilter === "All" ? "bg-white/20 text-white dark:text-slate-950" : "bg-rose-500/10 text-rose-700 dark:text-rose-200"}`}>
+                  {documents.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedTagFilter("Untagged")}
+                className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs shadow-sm transition-colors ${
+                  selectedTagFilter === "Untagged"
+                    ? "border-sky-300 bg-sky-500 text-white dark:text-slate-950"
+                    : "border-sky-200/80 bg-sky-50/80 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-500/10 dark:hover:bg-sky-500/15"
+                }`}
+              >
+                <Icon name="AlertCircle" size={12} />
+                <span className="font-semibold">Untagged</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${selectedTagFilter === "Untagged" ? "bg-white/20 text-white dark:text-slate-950" : "bg-sky-500/10 text-sky-700 dark:text-sky-200"}`}>
+                  {untaggedCount}
+                </span>
+              </button>
+
+              {vaultTags.map((tag) => (
+                <div
+                  key={tag.id}
+                  className={`inline-flex items-center gap-2 rounded-full border px-1.5 py-1.5 text-xs shadow-sm transition-colors ${
+                    selectedTagFilter === tag.name
+                      ? "border-rose-300 bg-rose-500 text-white dark:text-slate-950"
+                      : "border-rose-200/80 bg-gradient-to-r from-white to-rose-50 dark:border-rose-900/50 dark:from-white/10 dark:to-rose-500/10"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTagFilter(tag.name)}
+                    className="inline-flex items-center gap-2 rounded-full px-2 py-0.5"
+                  >
+                    <Icon
+                      name="Tag"
+                      size={12}
+                      className={selectedTagFilter === tag.name ? "text-white dark:text-slate-950" : "text-rose-500 dark:text-rose-300"}
+                    />
+                    <span className={selectedTagFilter === tag.name ? "font-semibold text-white dark:text-slate-950" : "font-semibold text-foreground"}>
+                      {tag.name}
+                    </span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${selectedTagFilter === tag.name ? "bg-white/20 text-white dark:text-slate-950" : "bg-rose-500/10 text-rose-700 dark:text-rose-200"}`}>
+                      {tag.liveCount}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => deleteTag(tag.id)}
+                    className={`ml-1 rounded-full p-1 transition-colors ${
+                      selectedTagFilter === tag.name
+                        ? "text-white/80 hover:bg-white/15 hover:text-white dark:text-slate-950/80 dark:hover:text-slate-950"
+                        : "text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-300"
+                    }`}
+                  >
+                    <Icon name="X" size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {untaggedCount > 0 && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-sky-200/80 bg-gradient-to-r from-sky-50 via-cyan-50 to-transparent p-4 dark:border-sky-900/60 dark:from-sky-500/10 dark:via-cyan-500/5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-700 dark:text-sky-200">
+              <Icon name="AlertCircle" size={16} />
+            </div>
+            <div className="text-xs">
+              <p className="font-semibold text-sky-800 dark:text-sky-100">
+                {untaggedCount} document(s) not tagged
+              </p>
+              <p className="mt-1 text-sky-700/85 dark:text-sky-100/80">
+                Please assign tags to all uploaded documents.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-4 md:space-y-5">
+          {filteredDocuments.map((doc) => (
+            <div
+              key={doc.id}
+              className="group rounded-[24px] border border-border/70 bg-white/80 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-[0_22px_50px_-34px_rgba(244,63,94,0.28)] dark:bg-white/5 dark:hover:border-rose-900/60"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row">
+                <div
+                  className="relative h-32 w-full shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-border/70 bg-muted lg:h-28 lg:w-28"
+                  onClick={() => setViewDocument(doc)}
+                >
+                  {doc.url &&
+                  !doc.url.toLowerCase().endsWith(".pdf") &&
+                  doc.format !== "pdf" ? (
+                    <img
+                      src={doc.url}
+                      alt={doc.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-rose-500/10 via-transparent to-sky-500/10">
+                      <Icon
+                        name={doc.url?.toLowerCase().endsWith(".pdf") ? "FileText" : "File"}
+                        size={32}
+                        className={doc.url ? "text-rose-500 dark:text-rose-300" : "text-muted-foreground"}
+                      />
+                      {doc.url?.toLowerCase().endsWith(".pdf") && (
+                        <span className="absolute bottom-2 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white dark:text-slate-950">
+                          PDF
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {doc.isPreFile && (
+                    <span className="absolute left-2 top-2 rounded-full bg-sky-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white dark:text-slate-950">
+                      Synced
+                    </span>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-1 items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+                        <Icon name="FileText" size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="truncate text-sm font-semibold text-foreground md:text-base">
+                            {doc.tag || doc.name}
+                          </h4>
+                          <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                            {doc.format || "file"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Original file: {doc.name}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="rounded-full bg-muted/60 px-2.5 py-1">{doc.size}</span>
+                          <span className="rounded-full bg-muted/60 px-2.5 py-1">{doc.uploadedBy}</span>
+                          <span className="rounded-full bg-muted/60 px-2.5 py-1">{doc.uploadedAt}</span>
+                        </div>
+
+                        <div className="mt-3">
+                          {doc.tag ? (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-500/10 dark:text-emerald-200">
+                                <Icon name="Tag" size={12} className="text-emerald-600 dark:text-emerald-300" />
+                                {doc.tag}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setDocuments(
+                                    documents.map((d) =>
+                                      d.id === doc.id
+                                        ? { ...d, tagId: null, tag: null }
+                                        : d
+                                    )
+                                  );
+                                }}
+                                className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                              >
+                                Remove tag
+                              </button>
+                            </div>
+                          ) : (
+                            <TagInputWithSuggestions
+                              docId={doc.id}
+                              availableTags={tags.map((t) => t.name)}
+                              onAssign={(tagName) => assignTag(doc.id, tagName)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <Button
+                        variant="outline"
+                        iconName="Eye"
+                        iconPosition="left"
+                        size="sm"
+                        onClick={() => setViewDocument(doc)}
+                        className="h-10 rounded-xl border-slate-200 bg-white px-4 hover:bg-slate-50 dark:border-slate-800 dark:bg-white/5 dark:hover:bg-white/10"
+                      >
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        iconName="Download"
+                        iconPosition="left"
+                        size="sm"
+                        onClick={() => {
+                          const link = document.createElement("a");
+                          link.href = doc.url;
+                          link.download = doc.name;
+                          link.click();
+                        }}
+                        className="h-10 rounded-xl border-sky-200 bg-sky-50 px-4 text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:bg-sky-500/15"
+                      >
+                        Download
+                      </Button>
+                      <Button
+                        variant="outline"
+                        iconName="Trash2"
+                        iconPosition="left"
+                        size="sm"
+                        onClick={() => deleteDocument(doc.id)}
+                        className="h-10 rounded-xl border-rose-200 bg-rose-50 px-4 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:bg-rose-500/15"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {documents.length === 0 && (
+            <div className="overflow-hidden rounded-[28px] border border-dashed border-rose-200/80 bg-gradient-to-br from-white via-rose-50/70 to-orange-50/60 px-6 py-14 text-center shadow-inner dark:border-rose-900/60 dark:from-white/5 dark:via-rose-500/5 dark:to-orange-500/5 md:px-10 md:py-16">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 shadow-sm dark:text-rose-300">
+                <Icon name="FolderOpen" size={34} />
+              </div>
+              <p className="text-lg font-semibold text-foreground">
+                No documents uploaded yet
+              </p>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                Start by syncing customer records or upload fresh post-file documents for verification and dispatch.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  variant="default"
+                  iconName="Upload"
+                  iconPosition="left"
+                  size="sm"
+                  onClick={() => setShowUploadModal(true)}
+                  className="h-11 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 px-5 text-white shadow-[0_18px_40px_-22px_rgba(244,63,94,0.6)] hover:opacity-95 dark:text-slate-950"
+                >
+                  Add Document
+                </Button>
+                <Button
+                  variant="outline"
+                  iconName="RefreshCw"
+                  iconPosition="left"
+                  size="sm"
+                  onClick={() => fetchCustomerDocuments(true)}
+                  isLoading={isFetchingDocs}
+                  className="h-11 rounded-xl border-rose-200 bg-white px-5 text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-transparent dark:text-rose-200 dark:hover:bg-rose-500/10"
+                >
+                  Sync Docs
+                </Button>
+                <Button
+                  variant="outline"
+                  iconName="Tag"
+                  iconPosition="left"
+                  size="sm"
+                  onClick={() => setShowAddTagsModal(true)}
+                  className="h-11 rounded-xl border-sky-200 bg-white px-5 text-sky-700 hover:bg-sky-50 dark:border-sky-900/60 dark:bg-transparent dark:text-sky-200 dark:hover:bg-sky-500/10"
+                >
+                  Tag
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {documents.length > 0 && filteredDocuments.length === 0 && (
+            <div className="rounded-[24px] border border-dashed border-border/80 bg-muted/20 px-6 py-12 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                <Icon name="Filter" size={24} />
+              </div>
+              <p className="text-base font-semibold text-foreground">
+                No documents in this filter
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Switch the tag filter to view other files.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {viewDocument && (
+          <DocumentViewerModal
+            document={viewDocument}
+            allDocuments={documents}
+            onClose={() => setViewDocument(null)}
+            onNavigate={(doc) => setViewDocument(doc)}
+          />
+        )}
+
+        {showAllDocumentsModal && (
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+            <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-border bg-card shadow-elevation-4">
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+                    <Icon name="FolderOpen" size={18} />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.16em] text-rose-500 dark:text-rose-300">
+                      All Documents
+                    </div>
+                    <div className="text-sm font-semibold text-foreground">
+                      {documents.length} files in the ledger
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAllDocumentsModal(false)}
+                  className="rounded-xl p-2 transition hover:bg-muted"
+                >
+                  <Icon name="X" size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-auto p-5">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="overflow-hidden rounded-[22px] border border-border bg-white/80 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-white/5"
+                      onClick={() => {
+                        setViewDocument(doc);
+                        setShowAllDocumentsModal(false);
+                      }}
+                    >
+                      <div className="aspect-square bg-muted flex items-center justify-center">
+                        {doc.url ? (
+                          <img
+                            src={doc.url}
+                            alt={doc.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Icon
+                            name="FileText"
+                            size={48}
+                            className="text-muted-foreground"
+                          />
+                        )}
+                      </div>
+                      <div className="bg-card p-3.5">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {doc.tag || doc.name}
+                        </p>
+                        {doc.tag && (
+                          <div className="mt-2">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                              <Icon name="Tag" size={10} />
+                              {doc.tag}
+                            </span>
+                          </div>
+                        )}
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {doc.size}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAllDocumentsModal(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showAddTagsModal && (
+          <AddTagsModal
+            availableTags={availableTags}
+            existingTags={tags.map((t) => t.name)}
+            onAdd={addTags}
+            onClose={() => setShowAddTagsModal(false)}
+          />
+        )}
+
+        {showUploadModal && (
+          <UploadDocumentsModal
+            onUpload={uploadDocuments}
+            onClose={() => setShowUploadModal(false)}
+            uploading={uploading}
+            progress={uploadProgress}
+          />
+        )}
+
+        {documents.length > 0 && (
+          <div className="mt-5 border-t border-border/70 pt-5 md:mt-6 md:pt-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap gap-3">
+                <div className="rounded-xl border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-500/10 dark:text-emerald-200">
+                  Tagged: <span className="font-semibold">{taggedCount}</span>
+                </div>
+                <div className="rounded-xl border border-sky-200/80 bg-sky-50 px-3 py-2 text-xs text-sky-700 dark:border-sky-900/60 dark:bg-sky-500/10 dark:text-sky-200">
+                  Untagged: <span className="font-semibold">{untaggedCount}</span>
+                </div>
+                <div className="rounded-xl border border-sky-200/80 bg-sky-50 px-3 py-2 text-xs text-sky-700 dark:border-sky-900/60 dark:bg-sky-500/10 dark:text-sky-200">
+                  Synced: <span className="font-semibold">{preFileCount}</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                iconName="Download"
+                iconPosition="left"
+                size="sm"
+                className="h-10 rounded-xl border-slate-200 bg-white px-4 hover:bg-slate-50 dark:border-slate-800 dark:bg-white/5 dark:hover:bg-white/10"
+              >
+                Export All
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -830,7 +1050,7 @@ const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
       <div className="relative flex-1">
         <input
           type="text"
-          className="w-full border border-border rounded-md px-3 py-1.5 text-xs bg-background pr-8"
+          className="w-full rounded-xl border border-sky-200/80 bg-sky-50/60 px-3 py-2 text-xs pr-8 shadow-sm outline-none transition placeholder:text-sky-700/45 focus:border-sky-300 focus:bg-white dark:border-sky-900/60 dark:bg-sky-500/10 dark:placeholder:text-sky-200/45 dark:focus:bg-white/5"
           placeholder="Type tag name..."
           value={inputValue}
           onChange={(e) => {
@@ -849,16 +1069,16 @@ const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
         <Icon
           name="Tag"
           size={14}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-sky-600 dark:text-sky-300"
         />
 
         {/* Suggestions Dropdown */}
         {showSuggestions && filteredTags.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto z-10">
+          <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-2xl border border-sky-200/80 bg-card shadow-lg dark:border-sky-900/60">
             {filteredTags.map((tag, index) => (
               <div
                 key={index}
-                className={`px-3 py-2 text-xs hover:brightness-95 cursor-pointer flex items-center gap-2 border-b border-border/10 last:border-0 ${getTagColor(tag)}`}
+                className={`flex cursor-pointer items-center gap-2 border-b border-border/10 px-3 py-2 text-xs hover:brightness-95 last:border-0 ${getTagColor(tag)}`}
                 onClick={() => handleSelect(tag)}
               >
                 <Icon name="Tag" size={12} className="text-primary" />
@@ -871,7 +1091,7 @@ const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
 
       <button
         onClick={handleSubmit}
-        className="px-3 py-1.5 bg-primary text-white rounded-md text-xs hover:bg-primary/90 disabled:opacity-50"
+        className="rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50 dark:text-slate-950"
         disabled={!inputValue.trim()}
       >
         Tag
@@ -915,28 +1135,30 @@ const DocumentViewerModal = ({
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-border bg-card shadow-elevation-4">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <Icon name="Eye" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+              <Icon name="Eye" size={18} />
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {document.tag || document.name}
             </span>
             <span className="text-xs text-muted-foreground">
               ({currentIndex + 1} of {allDocuments.length})
             </span>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+          <button onClick={onClose} className="rounded-xl p-2 hover:bg-muted">
             <Icon name="X" size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-muted/20 relative">
+        <div className="relative flex flex-1 items-center justify-center overflow-auto bg-muted/20 p-4">
           {/* Previous Button */}
           {hasPrev && (
             <button
               onClick={handlePrev}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-muted z-10"
+              className="absolute left-4 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card shadow-lg hover:bg-muted"
             >
               <Icon name="ChevronLeft" size={20} className="text-primary" />
             </button>
@@ -953,14 +1175,14 @@ const DocumentViewerModal = ({
           {hasNext && (
             <button
               onClick={handleNext}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-muted z-10"
+              className="absolute right-4 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card shadow-lg hover:bg-muted"
             >
               <Icon name="ChevronRight" size={20} className="text-primary" />
             </button>
           )}
         </div>
 
-        <div className="flex justify-between items-center px-4 py-3 border-t border-border">
+        <div className="flex items-center justify-between border-t border-border px-5 py-4">
           <div className="text-xs text-muted-foreground">
             {document.size} • Uploaded by {document.uploadedBy}
             {document.tag && (
@@ -1022,20 +1244,27 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-2xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="w-full max-w-3xl rounded-[28px] border border-sky-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,250,255,0.96))] shadow-elevation-4 dark:border-sky-900/60 dark:bg-[linear-gradient(180deg,rgba(10,10,10,0.98),rgba(8,18,28,0.96))]">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <Icon name="Tag" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
-              Add Document Tags
-            </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/15 to-cyan-400/15 text-sky-700 dark:text-sky-300">
+              <Icon name="Tag" size={18} />
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Add Document Tags
+              </div>
+              <div className="text-sm font-semibold text-foreground">
+                Build reusable tags for document classification
+              </div>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+          <button onClick={onClose} className="rounded-xl p-2 hover:bg-muted">
             <Icon name="X" size={18} />
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="space-y-4 p-5">
           {/* Suggested Tags */}
           <div>
             <h4 className="text-xs font-semibold text-foreground mb-2">
@@ -1081,7 +1310,7 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
             <div className="flex gap-2">
               <input
                 type="text"
-                className="flex-1 border border-border rounded-md px-3 py-2 text-sm bg-background"
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
                 placeholder="Enter custom tag name..."
                 value={customTag}
                 onChange={(e) => setCustomTag(e.target.value)}
@@ -1092,7 +1321,7 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
                   }
                 }}
               />
-              <Button size="sm" onClick={addCustomTag}>
+              <Button size="sm" onClick={addCustomTag} className="rounded-xl">
                 Add
               </Button>
             </div>
@@ -1124,14 +1353,15 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
+          <Button variant="outline" size="sm" onClick={onClose} className="rounded-xl">
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleAdd}
             disabled={selectedTags.length === 0}
+            className="rounded-xl"
           >
             Add {selectedTags.length} Tag{selectedTags.length !== 1 ? "s" : ""}
           </Button>
@@ -1196,25 +1426,27 @@ const UploadDocumentsModal = ({ onUpload, onClose, uploading, progress }) => {
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-2xl pointer-events-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="pointer-events-auto w-full max-w-2xl rounded-[28px] border border-border bg-card shadow-elevation-4">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <Icon name="Upload" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+              <Icon name="Upload" size={18} />
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {uploading ? "Uploading..." : "Upload Documents"}
             </span>
           </div>
           {!uploading && (
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
+            <button onClick={onClose} className="rounded-xl p-2 hover:bg-muted">
                 <Icon name="X" size={18} />
             </button>
           )}
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="space-y-4 p-5">
           {/* File Upload Area */}
           {!uploading && (
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+              <div className="rounded-[24px] border-2 border-dashed border-rose-200/80 bg-gradient-to-br from-white via-rose-50/60 to-orange-50/40 p-8 text-center transition-colors hover:border-rose-300 dark:border-rose-900/60 dark:from-white/5 dark:via-rose-500/5 dark:to-orange-500/5">
                 <input
                   type="file"
                   id="fileUpload"
@@ -1227,8 +1459,8 @@ const UploadDocumentsModal = ({ onUpload, onClose, uploading, progress }) => {
                   htmlFor="fileUpload"
                   className="cursor-pointer flex flex-col items-center"
                 >
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                    <Icon name="Upload" size={24} className="text-primary" />
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+                    <Icon name="Upload" size={24} />
                   </div>
                   <p className="text-sm font-medium text-foreground mb-1">
                     Click to upload or drag and drop
@@ -1243,8 +1475,8 @@ const UploadDocumentsModal = ({ onUpload, onClose, uploading, progress }) => {
           {/* Progress Bar */}
           {uploading && (
               <div className="py-8 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3 mx-auto animate-pulse">
-                    <Icon name="Upload" size={24} className="text-primary" />
+                  <div className="mx-auto mb-3 flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+                    <Icon name="Upload" size={24} />
                   </div>
                   <p className="font-medium">Uploading {selectedFiles.length} files...</p>
                   <div className="w-full bg-muted rounded-full h-2.5 dark:bg-gray-700 max-w-xs mx-auto">
@@ -1264,7 +1496,7 @@ const UploadDocumentsModal = ({ onUpload, onClose, uploading, progress }) => {
                 {selectedFiles.map((file, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border"
+                    className="flex items-center justify-between rounded-2xl border border-border bg-muted/30 p-3"
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Icon
@@ -1294,14 +1526,15 @@ const UploadDocumentsModal = ({ onUpload, onClose, uploading, progress }) => {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={uploading}>
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={uploading} className="rounded-xl">
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleUpload}
             disabled={selectedFiles.length === 0 || uploading}
+            className="rounded-xl"
           >
             {uploading ? "Uploading..." : `Upload ${selectedFiles.length} File${selectedFiles.length !== 1 ? "s" : ""}`}
           </Button>
