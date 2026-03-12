@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 import { BUSINESS_NATURE_OPTIONS, COMPANY_TYPE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
 import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
 import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
+import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { Option } = Select;
 const asDayjs = (value) => {
@@ -46,51 +47,55 @@ const GuarantorSection = () => {
   };
 
   useEffect(() => {
-    if (!guPincode || String(guPincode).length !== 6) return;
+    const pin = normalizePincode(guPincode);
+    if (!pin) return;
+    let cancelled = false;
 
     const fetchCity = async () => {
       try {
         setFetchingGuPincode(true);
-        const res = await fetch(`https://api.postalpincode.in/pincode/${guPincode}`);
-        const data = await res.json();
-        const district = data?.[0]?.PostOffice?.[0]?.District;
-        if (district) {
-          form.setFieldsValue({ gu_city: district });
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ gu_city: city });
         }
       } catch (error) {
         console.error("Guarantor pincode fetch failed", error);
       } finally {
-        setFetchingGuPincode(false);
+        if (!cancelled) setFetchingGuPincode(false);
       }
     };
 
-    const timer = setTimeout(fetchCity, 500);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [guPincode, form]);
 
   useEffect(() => {
-    if (!guCompanyPincode || String(guCompanyPincode).length !== 6) return;
+    const pin = normalizePincode(guCompanyPincode);
+    if (!pin) return;
+    let cancelled = false;
 
     const fetchCity = async () => {
       try {
         setFetchingGuCompanyPincode(true);
-        const res = await fetch(
-          `https://api.postalpincode.in/pincode/${guCompanyPincode}`,
-        );
-        const data = await res.json();
-        const district = data?.[0]?.PostOffice?.[0]?.District;
-        if (district) {
-          form.setFieldsValue({ gu_companyCity: district });
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ gu_companyCity: city });
         }
       } catch (error) {
         console.error("Guarantor company pincode fetch failed", error);
       } finally {
-        setFetchingGuCompanyPincode(false);
+        if (!cancelled) setFetchingGuCompanyPincode(false);
       }
     };
 
-    const timer = setTimeout(fetchCity, 500);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [guCompanyPincode, form]);
 
   if (!hasGuarantor) return null;
@@ -118,11 +123,6 @@ const GuarantorSection = () => {
       </div>
 
       <Row gutter={[16, 0]}>
-        <Col xs={24} md={8}>
-          <Form.Item label="Customer ID" name="gu_id">
-            <Input disabled placeholder="Auto-filled" className={`${fieldClass} bg-muted/30`} />
-          </Form.Item>
-        </Col>
         <Col xs={24} md={8}>
           <Form.Item label="Name" name="gu_customerName">
             <CustomerQuickSearch

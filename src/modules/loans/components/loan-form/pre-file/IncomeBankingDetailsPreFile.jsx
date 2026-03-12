@@ -13,15 +13,18 @@ import {
 } from "antd";
 import { BankOutlined, DollarOutlined } from "@ant-design/icons";
 import { banksApi } from "../../../../../api/banks";
+import { lookupIfscDetails, normalizeIfsc } from "../../../../../utils/ifscLookup";
 
 const { Option } = Select;
 
 const IncomeBankingDetailsPreFile = () => {
-  const accountSinceYears = Form.useWatch("accountSinceYears");
   const form = Form.useFormInstance();
+  const accountSinceYears = Form.useWatch("accountSinceYears", form);
+  const ifsc = Form.useWatch("ifsc", form);
 
   const [bankOptions, setBankOptions] = useState([]);
   const [loadingBanks, setLoadingBanks] = useState(false);
+  const [loadingIfsc, setLoadingIfsc] = useState(false);
 
   useEffect(() => {
     const fetchBanks = async () => {
@@ -44,11 +47,40 @@ const IncomeBankingDetailsPreFile = () => {
   const handleBankSelect = (value, option) => {
     if (option) {
       form.setFieldsValue({
+        ifsc: option.ifsc || "",
         ifscCode: option.ifsc || "",
-        branch: option.address || "",
+        branch: option.address || option.branch || "",
       });
     }
   };
+
+  useEffect(() => {
+    const normalized = normalizeIfsc(ifsc);
+    if (normalized.length !== 11) return;
+    let cancelled = false;
+
+    const resolveIfsc = async () => {
+      try {
+        setLoadingIfsc(true);
+        const details = await lookupIfscDetails(normalized);
+        if (cancelled || !details) return;
+        const patch = { ifsc: normalized, ifscCode: normalized };
+        if (details.bankName) patch.bankName = details.bankName;
+        if (details.branch || details.address) patch.branch = details.branch || details.address;
+        form.setFieldsValue(patch);
+      } catch (error) {
+        console.error("IFSC lookup failed", error);
+      } finally {
+        if (!cancelled) setLoadingIfsc(false);
+      }
+    };
+
+    const timer = setTimeout(resolveIfsc, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ifsc, form]);
 
   /* ------------------------------
      AUTO CALCULATE "OPENED IN"
@@ -130,10 +162,22 @@ const IncomeBankingDetailsPreFile = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={6}>
-          <Form.Item label="IFSC Code" name="ifsc">
+          <Form.Item
+            label="IFSC Code"
+            name="ifsc"
+            normalize={(value) => normalizeIfsc(value)}
+          >
             <Input
               placeholder="IFSC Code"
+              maxLength={11}
               className="rounded-xl border-border"
+              suffix={
+                loadingIfsc ? (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">
+                    Fetching...
+                  </span>
+                ) : null
+              }
             />
           </Form.Item>
         </Col>

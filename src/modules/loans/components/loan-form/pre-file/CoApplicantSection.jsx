@@ -19,6 +19,7 @@ import { BUSINESS_NATURE_OPTIONS, COMPANY_TYPE_OPTIONS, getOptionsWithCustom } f
 import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
 import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
 import { customersApi } from "../../../../../api/customers";
+import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { Option } = Select;
 const asDayjs = (value) => {
@@ -91,51 +92,55 @@ const CoApplicantSection = () => {
   }, [hasCoApplicant, coId, form]);
 
   useEffect(() => {
-    if (!coPincode || String(coPincode).length !== 6) return;
+    const pin = normalizePincode(coPincode);
+    if (!pin) return;
+    let cancelled = false;
 
     const fetchCity = async () => {
       try {
         setFetchingCoPincode(true);
-        const res = await fetch(`https://api.postalpincode.in/pincode/${coPincode}`);
-        const data = await res.json();
-        const district = data?.[0]?.PostOffice?.[0]?.District;
-        if (district) {
-          form.setFieldsValue({ co_city: district });
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ co_city: city });
         }
       } catch (error) {
         console.error("Co-applicant pincode fetch failed", error);
       } finally {
-        setFetchingCoPincode(false);
+        if (!cancelled) setFetchingCoPincode(false);
       }
     };
 
-    const timer = setTimeout(fetchCity, 500);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [coPincode, form]);
 
   useEffect(() => {
-    if (!coCompanyPincode || String(coCompanyPincode).length !== 6) return;
+    const pin = normalizePincode(coCompanyPincode);
+    if (!pin) return;
+    let cancelled = false;
 
     const fetchCity = async () => {
       try {
         setFetchingCoCompanyPincode(true);
-        const res = await fetch(
-          `https://api.postalpincode.in/pincode/${coCompanyPincode}`,
-        );
-        const data = await res.json();
-        const district = data?.[0]?.PostOffice?.[0]?.District;
-        if (district) {
-          form.setFieldsValue({ co_companyCity: district });
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ co_companyCity: city });
         }
       } catch (error) {
         console.error("Co-applicant company pincode fetch failed", error);
       } finally {
-        setFetchingCoCompanyPincode(false);
+        if (!cancelled) setFetchingCoCompanyPincode(false);
       }
     };
 
-    const timer = setTimeout(fetchCity, 500);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [coCompanyPincode, form]);
 
   if (!hasCoApplicant) return null;
@@ -163,11 +168,6 @@ const CoApplicantSection = () => {
       </div>
 
       <Row gutter={[16, 0]}>
-        <Col xs={24} md={8}>
-          <Form.Item label="Customer ID" name="co_id">
-            <Input disabled placeholder="Auto-filled" className={`${fieldClass} bg-muted/30`} />
-          </Form.Item>
-        </Col>
         <Col xs={24} md={8}>
           <Form.Item label="Name" name="co_customerName">
             <CustomerQuickSearch

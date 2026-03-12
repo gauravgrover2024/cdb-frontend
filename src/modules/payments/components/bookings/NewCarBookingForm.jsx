@@ -1,6 +1,7 @@
 // src/modules/payments/components/bookings/NewCarBookingForm.jsx
 import React from "react";
 import {
+  AutoComplete,
   Form,
   Input,
   InputNumber,
@@ -18,6 +19,7 @@ import {
   SwapOutlined,
 } from "@ant-design/icons";
 import { useVehicleData } from "../../../../hooks/useVehicleData";
+import { useBankDirectoryOptions } from "../../../../hooks/useBankDirectoryOptions";
 
 const { Option } = Select;
 
@@ -28,6 +30,7 @@ const moneyParser = (v) => (v ? v.replace(/₹\s?|,/g, "") : "");
 
 const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
   const [form] = Form.useForm();
+  const { options: bankDirectoryOptions } = useBankDirectoryOptions();
   const {
     makes,
     models,
@@ -446,7 +449,15 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 </Select>
               </Form.Item>
               <Form.Item label="Bank name" name="bookingBankName">
-                <Input placeholder="Bank / wallet" />
+                <AutoComplete
+                  options={bankDirectoryOptions}
+                  placeholder="Bank / wallet"
+                  filterOption={(inputValue, option) =>
+                    String(option?.value || "")
+                      .toUpperCase()
+                      .includes(String(inputValue || "").toUpperCase())
+                  }
+                />
               </Form.Item>
             </div>
 

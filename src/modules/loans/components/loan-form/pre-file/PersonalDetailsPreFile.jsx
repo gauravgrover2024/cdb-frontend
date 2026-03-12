@@ -19,6 +19,7 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { TextArea } = Input;
 
@@ -105,38 +106,48 @@ const PersonalDetailsPreFile = () => {
 
   // Pincode Fetching (Current)
   useEffect(() => {
-    if (pincode?.length === 6) {
-      const fetchCity = async () => {
-        try {
-          setFetchingPincode(true);
-          const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
-          const data = await res.json();
-          if (data?.[0]?.Status === "Success") {
-            form.setFieldsValue({ city: data[0].PostOffice[0].District });
-          }
-        } finally { setFetchingPincode(false); }
-      };
-      const timer = setTimeout(fetchCity, 500);
-      return () => clearTimeout(timer);
-    }
+    const pin = normalizePincode(pincode);
+    if (!pin) return;
+    let cancelled = false;
+    const fetchCity = async () => {
+      try {
+        setFetchingPincode(true);
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ city });
+        }
+      } finally {
+        if (!cancelled) setFetchingPincode(false);
+      }
+    };
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [pincode, form]);
 
   // Pincode Fetching (Permanent)
   useEffect(() => {
-    if (permanentPincode?.length === 6) {
-      const fetchCity = async () => {
-        try {
-          setFetchingPermanentPincode(true);
-          const res = await fetch(`https://api.postalpincode.in/pincode/${permanentPincode}`);
-          const data = await res.json();
-          if (data?.[0]?.Status === "Success") {
-            form.setFieldsValue({ permanentCity: data[0].PostOffice[0].District });
-          }
-        } finally { setFetchingPermanentPincode(false); }
-      };
-      const timer = setTimeout(fetchCity, 500);
-      return () => clearTimeout(timer);
-    }
+    const pin = normalizePincode(permanentPincode);
+    if (!pin) return;
+    let cancelled = false;
+    const fetchCity = async () => {
+      try {
+        setFetchingPermanentPincode(true);
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ permanentCity: city });
+        }
+      } finally {
+        if (!cancelled) setFetchingPermanentPincode(false);
+      }
+    };
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [permanentPincode, form]);
 
   // Identity logic

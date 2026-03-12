@@ -1,10 +1,11 @@
 import React, { useMemo, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import { Form, Radio, InputNumber, DatePicker, Select } from "antd";
+import { AutoComplete, DatePicker, Form, InputNumber, Radio, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { formatINR } from "../../../../../utils/currency";
 import dayjs from "dayjs";
+import { lenderHypothecationOptions } from "../../../../../constants/lenderHypothecationOptions";
 
 const calculateEmi = (principal, annualRate, tenureMonths, type = "Reducing") => {
   const P = Number(String(principal).replace(/[^0-9.]/g, "")) || 0;
@@ -375,9 +376,14 @@ const PostFileApprovalDetails = ({ form }) => {
               name="postfile_bankName"
               className="mb-0"
             >
-              <input
-                type="text"
-                className={controlClass}
+              <AutoComplete
+                options={lenderHypothecationOptions}
+                className="w-full"
+                filterOption={(inputValue, option) =>
+                  String(option?.value || "")
+                    .toUpperCase()
+                    .includes(String(inputValue || "").toUpperCase())
+                }
               />
             </Form.Item>
           </div>

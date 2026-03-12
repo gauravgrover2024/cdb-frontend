@@ -1,6 +1,7 @@
 // src/modules/payments/components/showroom/ShowroomPaymentsEntryNew.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AutoComplete,
   Card,
   Button,
   Input,
@@ -19,6 +20,7 @@ import {
   SwapOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useBankDirectoryOptions } from "../../../../hooks/useBankDirectoryOptions";
 
 const { Text } = Typography;
 
@@ -118,6 +120,7 @@ const ShowroomPaymentsEntryNew = ({
    */
   loadCaseOptions,
 }) => {
+  const { options: bankDirectoryOptions } = useBankDirectoryOptions();
   const [rows, setRows] = useState([]);
   const [activeSection, setActiveSection] = useState("ALL");
   const [editingRowId, setEditingRowId] = useState(null);
@@ -1270,12 +1273,18 @@ const ShowroomPaymentsEntryNew = ({
                             >
                               Bank name
                             </div>
-                            <Input
+                            <AutoComplete
                               value={row.bankName}
+                              options={bankDirectoryOptions}
                               placeholder="Bank"
-                              onChange={(e) =>
+                              filterOption={(inputValue, option) =>
+                                String(option?.value || "")
+                                  .toUpperCase()
+                                  .includes(String(inputValue || "").toUpperCase())
+                              }
+                              onChange={(value) =>
                                 updateRow(row.id, {
-                                  bankName: e.target.value,
+                                  bankName: value,
                                 })
                               }
                             />

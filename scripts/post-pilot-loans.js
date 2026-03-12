@@ -222,7 +222,7 @@ async function main() {
       return notes.includes(marker);
     });
 
-    const body = { ...payload };
+    const body = cleanupInstrumentPayload({ ...payload });
     delete body.__pilot;
     delete body._id;
 
@@ -307,6 +307,72 @@ function extractCaseArgs(argv) {
   return uniq(out);
 }
 
+function cleanupInstrumentPayload(payload) {
+  if (!payload || typeof payload !== "object") return payload;
+  const out = { ...payload };
+  const type = String(out.instrumentType || "").trim().toUpperCase();
+  const chequeSuffixes = [
+    "number",
+    "bankName",
+    "accountNumber",
+    "date",
+    "amount",
+    "tag",
+    "favouring",
+    "signedBy",
+    "image",
+  ];
+
+  const isFilled = (v) => {
+    if (v === undefined || v === null) return false;
+    if (typeof v === "number") return Number.isFinite(v) && v !== 0;
+    const s = String(v).trim();
+    if (!s || s === "0" || s === "0.0" || s === "0.00") return false;
+    return true;
+  };
+
+  for (let i = 1; i <= 20; i += 1) {
+    const hasValue = chequeSuffixes.some((suffix) => isFilled(out[`cheque_${i}_${suffix}`]));
+    if (!hasValue) {
+      chequeSuffixes.forEach((suffix) => delete out[`cheque_${i}_${suffix}`]);
+    }
+  }
+
+  if (type === "SI") {
+    delete out.ecs_micrCode;
+    delete out.ecs_bankName;
+    delete out.ecs_accountNumber;
+    delete out.ecs_date;
+    delete out.ecs_amount;
+    delete out.ecs_tag;
+    delete out.ecs_favouring;
+    delete out.ecs_signedBy;
+    delete out.ecs_image;
+    for (let i = 1; i <= 20; i += 1) {
+      chequeSuffixes.forEach((suffix) => delete out[`cheque_${i}_${suffix}`]);
+    }
+  } else if (type === "ECS") {
+    delete out.si_accountNumber;
+    delete out.si_signedBy;
+    delete out.si_image;
+  } else if (type === "CHEQUE") {
+    delete out.si_accountNumber;
+    delete out.si_signedBy;
+    delete out.si_image;
+    delete out.ecs_micrCode;
+    delete out.ecs_bankName;
+    delete out.ecs_accountNumber;
+    delete out.ecs_date;
+    delete out.ecs_amount;
+    delete out.ecs_tag;
+    delete out.ecs_favouring;
+    delete out.ecs_signedBy;
+    delete out.ecs_image;
+  }
+
+  return out;
+}
+
 async function postCasesStreaming(caseIds, extracted, vehicles, meta = {}) {
   const existing = await apiGet("/api/loans");
   const existingLoans = Array.isArray(existing?.data) ? existing.data : [];
@@ -322,7 +388,7 @@ async function postCasesStreaming(caseIds, extracted, vehicles, meta = {}) {
       const marker = getPilotMarker(payload.__pilot.caseId);
       const matched = existingLoans.find((loan) => String(loan?.loan_notes || "").includes(marker));
 
-      const body = { ...payload };
+      const body = cleanupInstrumentPayload({ ...payload });
       delete body.__pilot;
       delete body._id;
 
@@ -1608,7 +1674,48 @@ function buildPayload(caseId, caseData, vehicles) {
     conflictFlags,
   };
 
+  applyCityFallbacks(payload);
+  applyIfscBankFallbacks(payload);
   return pruneUndefined(payload);
+}
+
+function applyCityFallbacks(payload) {
+  if (!payload || typeof payload !== "object") return;
+  const pairs = [
+    ["city", "pincode"],
+    ["permanentCity", "permanentPincode"],
+    ["employmentCity", "employmentPincode"],
+    ["co_city", "co_pincode"],
+    ["co_companyCity", "co_companyPincode"],
+    ["gu_city", "gu_pincode"],
+    ["gu_companyCity", "gu_companyPincode"],
+    ["signatory_city", "signatory_pincode"],
+    ["registrationCity", "registrationPincode"],
+    ["reference1_city", "reference1_pincode"],
+    ["reference2_city", "reference2_pincode"],
+  ];
+
+  pairs.forEach(([cityKey, pinKey]) => {
+    if (cleanText(payload[cityKey])) return;
+    const inferred = guessCityFromPincode(payload[pinKey]);
+    if (inferred) payload[cityKey] = inferred;
+  });
+}
+
+function applyIfscBankFallbacks(payload) {
+  if (!payload || typeof payload !== "object") return;
+  const inferredMain = inferBankNameFromIfsc(payload.ifscCode || payload.ifsc);
+  if (inferredMain) {
+    ["bankName", "approval_bankName", "postfile_bankName", "disburse_bankName"].forEach((key) => {
+      if (!cleanText(payload[key])) payload[key] = inferredMain;
+    });
+  }
+  const inferredEcs = inferBankNameFromMicr(payload.ecs_micrCode);
+  if (inferredEcs && !cleanText(payload.ecs_bankName)) payload.ecs_bankName = inferredEcs;
+  const inferredCo = inferBankNameFromIfsc(payload.co_ifscCode || payload.co_ifsc);
+  if (inferredCo && !cleanText(payload.co_bankName)) payload.co_bankName = inferredCo;
+  const inferredGu = inferBankNameFromIfsc(payload.gu_ifscCode || payload.gu_ifsc);
+  if (inferredGu && !cleanText(payload.gu_bankName)) payload.gu_bankName = inferredGu;
 }
 
 async function upsertCustomerRecord({ payload, name, mobile, panNumber, existingId, createOnlyWithMobile = true }) {
@@ -2583,6 +2690,60 @@ function normalizeBankName(value) {
   if (upper.includes("YESBANK") || upper.includes("YES BANK")) return "Yes Bank";
   if (!/\bBANK\b/i.test(text) && /^[A-Z\s.&-]{2,}$/.test(text)) return `${text} Bank`;
   return text;
+}
+
+function inferBankNameFromIfsc(value) {
+  const ifsc = String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 11);
+  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return undefined;
+  const code = ifsc.slice(0, 4);
+  const map = {
+    HDFC: "HDFC Bank",
+    ICIC: "ICICI Bank",
+    SBIN: "State Bank of India",
+    UTIB: "Axis Bank",
+    KKBK: "Kotak Mahindra Bank",
+    FDRL: "Federal Bank",
+    PUNB: "Punjab National Bank",
+    CNRB: "Canara Bank",
+    IDIB: "Indian Bank",
+    BARB: "Bank of Baroda",
+    BKID: "Bank of India",
+    UBIN: "Union Bank of India",
+    INDB: "IndusInd Bank",
+    YESB: "Yes Bank",
+    IDFB: "IDFC First Bank",
+    MAHB: "Bank of Maharashtra",
+  };
+  return map[code];
+}
+
+function inferBankNameFromMicr(value) {
+  const micr = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 9);
+  if (micr.length !== 9) return undefined;
+  const bankCode = micr.slice(3, 6);
+  const map = {
+    "002": "State Bank of India",
+    "012": "Bank of Baroda",
+    "013": "Bank of India",
+    "015": "Canara Bank",
+    "019": "Indian Bank",
+    "026": "Union Bank of India",
+    "176": "Punjab National Bank",
+    "211": "Axis Bank",
+    "229": "ICICI Bank",
+    "237": "IndusInd Bank",
+    "240": "HDFC Bank",
+    "425": "Federal Bank",
+    "485": "Kotak Mahindra Bank",
+    "532": "Yes Bank",
+    "760": "IDFC First Bank",
+  };
+  return map[bankCode];
 }
 
 function normalizeFuelType(value) {

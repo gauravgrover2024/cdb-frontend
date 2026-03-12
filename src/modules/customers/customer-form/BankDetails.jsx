@@ -1,17 +1,9 @@
-import React from "react";
-import { Form, Input, Select, InputNumber, Row, Col } from "antd";
+import React, { useEffect, useState } from "react";
+import { AutoComplete, Col, Form, Input, InputNumber, Row, Select } from "antd";
 
 import Icon from "../../../components/AppIcon";
-
-const bankOptions = [
-  { label: "HDFC Bank", value: "HDFC Bank" },
-  { label: "ICICI Bank", value: "ICICI Bank" },
-  { label: "State Bank of India", value: "State Bank of India" },
-  { label: "Axis Bank", value: "Axis Bank" },
-  { label: "Kotak Mahindra Bank", value: "Kotak Mahindra Bank" },
-  { label: "Federal Bank", value: "Federal Bank" },
-  { label: "Punjab National Bank", value: "Punjab National Bank" },
-];
+import { lookupIfscDetails, normalizeIfsc } from "../../../utils/ifscLookup";
+import { useBankDirectoryOptions } from "../../../hooks/useBankDirectoryOptions";
 
 const accountTypeOptions = [
   { label: "Savings", value: "Savings" },
@@ -21,9 +13,41 @@ const accountTypeOptions = [
 const BankDetails = () => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
+  const ifsc = Form.useWatch("ifsc", form);
+  const [loadingIfsc, setLoadingIfsc] = useState(false);
+  const { options: bankDirectoryOptions } = useBankDirectoryOptions();
 
   // Show in customer module & financed loans
   const showBank = isFinanced !== "No";
+
+  useEffect(() => {
+    if (!showBank) return;
+    const normalized = normalizeIfsc(ifsc);
+    if (normalized.length !== 11) return;
+    let cancelled = false;
+
+    const resolveIfsc = async () => {
+      try {
+        setLoadingIfsc(true);
+        const details = await lookupIfscDetails(normalized);
+        if (cancelled || !details) return;
+        const patch = { ifsc: normalized, ifscCode: normalized };
+        if (details.bankName) patch.bankName = details.bankName;
+        if (details.branch || details.address) patch.branch = details.branch || details.address;
+        form.setFieldsValue(patch);
+      } catch (error) {
+        console.error("Customer IFSC lookup failed", error);
+      } finally {
+        if (!cancelled) setLoadingIfsc(false);
+      }
+    };
+
+    const timer = setTimeout(resolveIfsc, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ifsc, form, showBank]);
 
   if (!showBank) {
     return null;
@@ -50,19 +74,37 @@ const BankDetails = () => {
 
          {/* IFSC */}
         <Col xs={24} md={8}>
-          <Form.Item label="IFSC Code" name="ifsc">
-            <Input placeholder="IFSC Code" className="rounded-xl border-border placeholder:font-normal" />
+          <Form.Item
+            label="IFSC Code"
+            name="ifsc"
+            normalize={(value) => normalizeIfsc(value)}
+          >
+            <Input
+              placeholder="IFSC Code"
+              maxLength={11}
+              className="rounded-xl border-border placeholder:font-normal"
+              suffix={
+                loadingIfsc ? (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">
+                    Fetching...
+                  </span>
+                ) : null
+              }
+            />
           </Form.Item>
         </Col>
 
         {/* Bank Name */}
         <Col xs={24} md={8}>
           <Form.Item label="Bank Name" name="bankName">
-            <Select
+            <AutoComplete
               placeholder="Select or type bank name"
-              options={bankOptions}
-              showSearch
-              optionFilterProp="label"
+              options={bankDirectoryOptions}
+              filterOption={(inputValue, option) =>
+                String(option?.value || "")
+                  .toUpperCase()
+                  .includes(String(inputValue || "").toUpperCase())
+              }
               className="rounded-xl border-border w-full placeholder:font-normal"
             />
           </Form.Item>

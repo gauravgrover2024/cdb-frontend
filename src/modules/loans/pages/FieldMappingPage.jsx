@@ -151,6 +151,71 @@ const getValueFromCaseMerged = (merged, sourcePath) => {
   return getValueByPathWithNumericAlias(merged, sourcePath);
 };
 
+const normalizeLegacyInstrumentType = (value) => {
+  const t = String(value || "").trim().toUpperCase();
+  if (!t) return "";
+  if (t.includes("CHEQUE") || t.includes("CHQ") || t.includes("PDC")) return "CHEQUE";
+  if (t.includes("ECS")) return "ECS";
+  if (t === "SI" || t.includes("STANDING INSTRUCTION")) return "SI";
+  if (t.includes("NACH") || t.includes("MANDATE")) return "NACH";
+  return "";
+};
+
+const resolveInstrumentAwareValue = (merged, targetField, sourcePath) => {
+  if (!merged || !targetField || !sourcePath) return getValueFromCaseMerged(merged, sourcePath);
+  const [head, ...rest] = String(sourcePath).split(".");
+  const tailPath = rest.join(".");
+  const rows = merged?.[head];
+  if (!Array.isArray(rows) || !tailPath) return getValueFromCaseMerged(merged, sourcePath);
+
+  const pickFromRows = (filteredRows, index = 0) => {
+    const row = filteredRows[index];
+    if (!row) return undefined;
+    return getValueByPathWithNumericAlias(row, tailPath);
+  };
+
+  const instrumentRows = rows.filter((r) => r && typeof r === "object");
+  if (!instrumentRows.length) return getValueFromCaseMerged(merged, sourcePath);
+
+  const typedRows = instrumentRows.map((row) => ({
+    row,
+    type: normalizeLegacyInstrumentType(
+      row.INSTRMNT_TYPE || row.instrmnt_type || row.instrument_type || row.InstrumentType,
+    ),
+  }));
+
+  const chequeMatch = String(targetField).match(/^cheque_(\d+)_/i);
+  if (chequeMatch) {
+    const slotIndex = Math.max(0, Number(chequeMatch[1]) - 1);
+    const chequeRows = typedRows
+      .filter(({ row, type }) => {
+        if (type === "CHEQUE") return true;
+        if (!type) return !!(row.INSTRMNT_NO || row.instrmnt_no || row.CHEQUE_NO || row.cheque_no);
+        return false;
+      })
+      .map(({ row }) => row);
+    const v = pickFromRows(chequeRows, slotIndex);
+    if (v !== undefined) return v;
+    return getValueFromCaseMerged(merged, sourcePath);
+  }
+
+  if (String(targetField).startsWith("ecs_")) {
+    const ecsRows = typedRows.filter(({ type }) => type === "ECS").map(({ row }) => row);
+    const v = pickFromRows(ecsRows, 0);
+    if (v !== undefined) return v;
+    return getValueFromCaseMerged(merged, sourcePath);
+  }
+
+  if (String(targetField).startsWith("si_")) {
+    const siRows = typedRows.filter(({ type }) => type === "SI").map(({ row }) => row);
+    const v = pickFromRows(siRows, 0);
+    if (v !== undefined) return v;
+    return getValueFromCaseMerged(merged, sourcePath);
+  }
+
+  return getValueFromCaseMerged(merged, sourcePath);
+};
+
 const findFirstValueByTail = (merged, tailCandidates = []) => {
   if (!merged || !tailCandidates.length) return undefined;
   const allPaths = new Set();
@@ -288,6 +353,38 @@ const capChequeFieldsByCount = (doc, maxCheques) => {
     ].forEach((suffix) => {
       delete doc[`cheque_${i}_${suffix}`];
     });
+  }
+};
+
+const pruneEmptyChequeRows = (doc) => {
+  if (!doc || typeof doc !== "object") return;
+  const suffixes = [
+    "number",
+    "bankName",
+    "accountNumber",
+    "date",
+    "amount",
+    "tag",
+    "favouring",
+    "signedBy",
+    "image",
+  ];
+
+  const isFilled = (v) => {
+    if (v === undefined || v === null) return false;
+    if (typeof v === "number") return Number.isFinite(v) && v !== 0;
+    const s = String(v).trim();
+    if (!s) return false;
+    const n = Number(String(v).replace(/[^\d.-]/g, ""));
+    if (!Number.isNaN(n) && s === "0") return false;
+    return true;
+  };
+
+  for (let i = 1; i <= 20; i += 1) {
+    const rowHasValue = suffixes.some((suffix) => isFilled(doc[`cheque_${i}_${suffix}`]));
+    if (!rowHasValue) {
+      suffixes.forEach((suffix) => delete doc[`cheque_${i}_${suffix}`]);
+    }
   }
 };
 
@@ -1148,6 +1245,60 @@ const guessCityFromPincodeLite = (value) => {
   if (pin.startsWith("2013")) return "Noida";
   if (pin.startsWith("2010")) return "Ghaziabad";
   return "";
+};
+
+const inferBankFromIfscLite = (value) => {
+  const ifsc = String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 11);
+  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return "";
+  const code = ifsc.slice(0, 4);
+  const map = {
+    HDFC: "HDFC Bank",
+    ICIC: "ICICI Bank",
+    SBIN: "State Bank of India",
+    UTIB: "Axis Bank",
+    KKBK: "Kotak Mahindra Bank",
+    FDRL: "Federal Bank",
+    PUNB: "Punjab National Bank",
+    CNRB: "Canara Bank",
+    IDIB: "Indian Bank",
+    BARB: "Bank of Baroda",
+    BKID: "Bank of India",
+    UBIN: "Union Bank of India",
+    INDB: "IndusInd Bank",
+    YESB: "Yes Bank",
+    IDFB: "IDFC First Bank",
+    MAHB: "Bank of Maharashtra",
+  };
+  return map[code] || "";
+};
+
+const inferBankFromMicrLite = (value) => {
+  const micr = String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, 9);
+  if (micr.length !== 9) return "";
+  const bankCode = micr.slice(3, 6);
+  const map = {
+    "002": "State Bank of India",
+    "012": "Bank of Baroda",
+    "013": "Bank of India",
+    "015": "Canara Bank",
+    "019": "Indian Bank",
+    "026": "Union Bank of India",
+    "176": "Punjab National Bank",
+    "211": "Axis Bank",
+    "229": "ICICI Bank",
+    "237": "IndusInd Bank",
+    "240": "HDFC Bank",
+    "425": "Federal Bank",
+    "485": "Kotak Mahindra Bank",
+    "532": "Yes Bank",
+    "760": "IDFC First Bank",
+  };
+  return map[bankCode] || "";
 };
 
 const inferUsageFromLegacy = (merged) => {
@@ -2173,13 +2324,13 @@ const FieldMappingPage = () => {
     }
 
     mappedEntries.forEach(([targetField, sourcePath]) => {
-      let rawValue = getValueFromCaseMerged(merged, sourcePath);
+      let rawValue = resolveInstrumentAwareValue(merged, targetField, sourcePath);
       if (!isMeaningfulValue(rawValue)) {
         const fallbacks = Array.isArray(fallbackMappings[targetField])
           ? fallbackMappings[targetField]
           : [];
         for (const fbSourcePath of fallbacks) {
-          const candidate = getValueFromCaseMerged(merged, fbSourcePath);
+          const candidate = resolveInstrumentAwareValue(merged, targetField, fbSourcePath);
           if (isMeaningfulValue(candidate)) {
             rawValue = candidate;
             break;
@@ -2387,6 +2538,7 @@ const FieldMappingPage = () => {
         capChequeFieldsByCount(doc, detectedLegacyChequeCount);
       }
     }
+    pruneEmptyChequeRows(doc);
 
     const companyCase = isCompanyProfileDoc(doc);
 
@@ -3284,6 +3436,52 @@ const FieldMappingPage = () => {
       doc.approval_loanAmountDisbursed = doc.postfile_loanAmountDisbursed;
     }
     doc.postfile_sameAsApproved = "Yes";
+
+    // Generic pincode -> city fallback across loan form fields.
+    // Keeps frontend behavior aligned with migration when postal API autofill is absent.
+    [
+      ["city", "pincode"],
+      ["permanentCity", "permanentPincode"],
+      ["employmentCity", "employmentPincode"],
+      ["co_city", "co_pincode"],
+      ["co_companyCity", "co_companyPincode"],
+      ["gu_city", "gu_pincode"],
+      ["gu_companyCity", "gu_companyPincode"],
+      ["signatory_city", "signatory_pincode"],
+      ["registrationCity", "registrationPincode"],
+      ["reference1_city", "reference1_pincode"],
+      ["reference2_city", "reference2_pincode"],
+    ].forEach(([cityKey, pinKey]) => {
+      if (!isMeaningfulValue(doc[cityKey]) && isMeaningfulValue(doc[pinKey])) {
+        const inferred = guessCityFromPincodeLite(doc[pinKey]);
+        if (isMeaningfulValue(inferred)) {
+          doc[cityKey] = inferred;
+        }
+      }
+    });
+
+    // Generic IFSC -> bank-name fallback across loan form fields.
+    const inferredIfscBank = inferBankFromIfscLite(
+      firstMeaningful(doc.ifscCode, doc.ifsc, ""),
+    );
+    if (isMeaningfulValue(inferredIfscBank)) {
+      [
+        "bankName",
+        "approval_bankName",
+        "postfile_bankName",
+        "disburse_bankName",
+        "co_bankName",
+        "gu_bankName",
+      ].forEach((bankKey) => {
+        if (!isMeaningfulValue(doc[bankKey])) {
+          doc[bankKey] = inferredIfscBank;
+        }
+      });
+    }
+    const inferredEcsBank = inferBankFromMicrLite(firstMeaningful(doc.ecs_micrCode, ""));
+    if (isMeaningfulValue(inferredEcsBank) && !isMeaningfulValue(doc.ecs_bankName)) {
+      doc.ecs_bankName = inferredEcsBank;
+    }
 
     // Reference object synthesis for UI/API consumers that expect nested objects.
     const toRefObj = (prefix) => ({

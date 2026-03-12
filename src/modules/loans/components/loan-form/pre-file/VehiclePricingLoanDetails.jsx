@@ -17,6 +17,8 @@ import {
 } from "antd";
 import { CarOutlined } from "@ant-design/icons";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
+import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
+import { lenderHypothecationOptions } from "../../../../../constants/lenderHypothecationOptions";
 
 const { Option } = Select;
 
@@ -70,6 +72,130 @@ const INDIAN_CITIES = [
   "Proddatur", "Mahbubnagar", "Saharsa", "Dibrugarh", "Jorhat", "Hazaribagh"
 ];
 
+const CITY_ALIASES = {
+  "new delhi": "Delhi",
+};
+
+const UP_CITY_KEYWORDS = [
+  "noida",
+  "greater noida",
+  "ghaziabad",
+  "lucknow",
+  "kanpur",
+  "agra",
+  "meerut",
+  "varanasi",
+  "prayagraj",
+  "allahabad",
+  "gorakhpur",
+  "bareilly",
+  "aligarh",
+  "mathura",
+  "moradabad",
+  "jhansi",
+  "ayodhya",
+  "gautam buddha nagar",
+];
+
+const HARYANA_CITY_KEYWORDS = [
+  "gurgaon",
+  "gurugram",
+  "faridabad",
+  "sonipat",
+  "panipat",
+  "karnal",
+  "rohtak",
+  "hisar",
+  "ambala",
+  "panchkula",
+  "bhiwani",
+  "rewari",
+  "yamunanagar",
+  "jhajjar",
+  "sirsa",
+  "kurukshetra",
+  "kaithal",
+  "palwal",
+  "mahendragarh",
+  "jind",
+];
+
+const resolveVehiclePricingCity = (rawCity, form) => {
+  const parts = [
+    rawCity,
+    form?.getFieldValue?.("state"),
+    form?.getFieldValue?.("permanentState"),
+    form?.getFieldValue?.("officeState"),
+    form?.getFieldValue?.("employmentState"),
+  ]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+
+  const haystack = parts.join(" ").toLowerCase();
+
+  if (!haystack) return "New-Delhi";
+  if (haystack.includes("delhi")) return "New-Delhi";
+  if (
+    haystack.includes("haryana") ||
+    HARYANA_CITY_KEYWORDS.some((key) => haystack.includes(key))
+  ) {
+    return "Gurgaon";
+  }
+  if (
+    haystack.includes("uttar pradesh") ||
+    /\bup\b/.test(haystack) ||
+    UP_CITY_KEYWORDS.some((key) => haystack.includes(key))
+  ) {
+    return "Noida";
+  }
+  return "New-Delhi";
+};
+
+const normalizeCityAlias = (city) => {
+  const raw = String(city || "").trim();
+  if (!raw) return "";
+  const alias = CITY_ALIASES[raw.toLowerCase()];
+  return alias || raw;
+};
+
+const cleanVariantDisplay = (variant, make, model) => {
+  const raw = String(variant || "").trim();
+  if (!raw) return "";
+  const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const stripLeadingPhrase = (text, phrase) => {
+    const rawText = String(text || "").trim();
+    const rawPhrase = String(phrase || "").trim();
+    if (!rawText || !rawPhrase) return rawText;
+    const pattern = new RegExp(
+      `^${escapeRegex(rawPhrase).replace(/\s+/g, "[\\s\\-]*")}[\\s\\-:]*`,
+      "i",
+    );
+    return rawText.replace(pattern, "").trim();
+  };
+  let cleaned = raw;
+  const m = String(make || "").trim();
+  const md = String(model || "").trim();
+  const composedPrefix = [m, md].filter(Boolean).join(" ").trim();
+  if (composedPrefix) cleaned = stripLeadingPhrase(cleaned, composedPrefix);
+  if (md) cleaned = stripLeadingPhrase(cleaned, md);
+  if (m) cleaned = stripLeadingPhrase(cleaned, m);
+  return cleaned || raw;
+};
+
+const INDIAN_CITY_OPTIONS = (() => {
+  const seen = new Set();
+  const normalized = INDIAN_CITIES.map(normalizeCityAlias).filter(Boolean);
+  const unique = normalized.filter((city) => {
+    const key = city.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique
+    .sort((a, b) => a.localeCompare(b))
+    .map((city) => ({ value: city, label: city }));
+})();
+
 /**
  * Section4VehiclePricing
  * - Make / Model / Variant are shown for ALL loan types
@@ -100,26 +226,19 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
     variantFieldName: "vehicleVariant",
+    cityFieldName: "registrationCity",
+    cityResolver: resolveVehiclePricingCity,
     autofillPricing: true,
     onVehicleSelect: (vehicleData) => {
       // Auto-populate pricing if needed
       if (vehicleData && loanType === "New Car") {
-        const currentValues = form.getFieldsValue();
-        const fieldsToUpdate = {};
+        const fieldsToUpdate = {
+          exShowroomPrice: vehicleData.exShowroom || 0,
+          insuranceCost: vehicleData.insurance || 0,
+          roadTax: vehicleData.rto || 0,
+        };
 
-        if (!currentValues.exShowroomPrice && vehicleData.exShowroom) {
-          fieldsToUpdate.exShowroomPrice = vehicleData.exShowroom;
-        }
-        if (!currentValues.insuranceCost && vehicleData.insurance) {
-          fieldsToUpdate.insuranceCost = vehicleData.insurance;
-        }
-        if (!currentValues.roadTax && vehicleData.rto) {
-          fieldsToUpdate.roadTax = vehicleData.rto;
-        }
-
-        if (Object.keys(fieldsToUpdate).length > 0) {
-          form.setFieldsValue(fieldsToUpdate);
-        }
+        form.setFieldsValue(fieldsToUpdate);
       }
     },
   });
@@ -152,7 +271,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     else if (v.includes("cng")) normalized = "CNG";
     else if (v.includes("hybrid") || v.includes("hev") || v.includes("mhev")) normalized = "Hybrid";
     else if (v.includes("electric") || v === "ev") normalized = "Electric";
-    if (normalized && !form.getFieldValue("vehicleFuelType")) {
+    if (normalized && normalize(form.getFieldValue("vehicleFuelType")) !== normalize(normalized)) {
       form.setFieldsValue({ vehicleFuelType: normalized });
     }
   }, [selectedVehicle, form]);
@@ -216,27 +335,27 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   const loadingVariants = vehicleLoading && Boolean(vehicleModel) && variants.length === 0;
 
   useEffect(() => {
-    if (!registrationPincode || registrationPincode.length !== 6) return;
+    const pin = normalizePincode(registrationPincode);
+    if (!pin) return;
+    let cancelled = false;
 
     const fetchCity = async () => {
       try {
         setFetchingRegistrationPincode(true);
-        const res = await fetch(
-          `https://api.postalpincode.in/pincode/${registrationPincode}`,
-        );
-        const data = await res.json();
-        if (data?.[0]?.Status === "Success") {
-          form.setFieldsValue({
-            registrationCity: data[0].PostOffice[0].District,
-          });
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ registrationCity: normalizeCityAlias(city) });
         }
       } finally {
-        setFetchingRegistrationPincode(false);
+        if (!cancelled) setFetchingRegistrationPincode(false);
       }
     };
 
-    const timer = setTimeout(fetchCity, 500);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [registrationPincode, form]);
 
   useEffect(() => {
@@ -566,7 +685,12 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         key={`legacy-variant-${vehicleVariantValue}`}
                         value={vehicleVariantValue}
                       >
-                        {vehicleVariantValue} (Legacy)
+                        {cleanVariantDisplay(
+                          vehicleVariantValue,
+                          form?.getFieldValue?.("vehicleMake"),
+                          form?.getFieldValue?.("vehicleModel"),
+                        )}{" "}
+                        (Legacy)
                       </Select.Option>
                     )}
                     {variants.map((variant) => (
@@ -650,10 +774,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                     rules={[{ required: true, message: "Select registration city" }]}
                   >
                     <AutoComplete
-                      options={INDIAN_CITIES.sort().map((city) => ({
-                        value: city,
-                        label: city,
-                      }))}
+                      options={INDIAN_CITY_OPTIONS}
                       placeholder="Search or Select City"
                       filterOption={(inputValue, option) =>
                         option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
@@ -688,7 +809,16 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         name="hypothecationBank"
                         rules={[{ required: true, message: "Bank required" }]}
                       >
-                        <Input />
+                        <AutoComplete
+                          options={lenderHypothecationOptions}
+                          placeholder="Select lender / hypothecation bank"
+                          filterOption={(inputValue, option) =>
+                            String(option?.value || "")
+                              .toUpperCase()
+                              .includes(String(inputValue || "").toUpperCase())
+                          }
+                          allowClear
+                        />
                       </Form.Item>
                     </Col>
                   )}
@@ -963,11 +1093,22 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                                 <Form.Item
                                   label="Registration City"
                                   name="registrationCity"
-                                  rules={[{ required: true, message: "Enter registration city" }]}
+                                  rules={[{ required: true, message: "Select registration city" }]}
                                 >
-                                  <Input
-                                    placeholder="Auto-filled City"
-                                    suffix={fetchingRegistrationPincode ? "..." : null}
+                                  <AutoComplete
+                                    options={INDIAN_CITY_OPTIONS}
+                                    placeholder={
+                                      fetchingRegistrationPincode
+                                        ? "Fetching city..."
+                                        : "Search or Select City"
+                                    }
+                                    filterOption={(inputValue, option) =>
+                                      String(option?.value || "")
+                                        .toUpperCase()
+                                        .includes(String(inputValue || "").toUpperCase())
+                                    }
+                                    allowClear
+                                    showSearch
                                   />
                                 </Form.Item>
                               </Col>

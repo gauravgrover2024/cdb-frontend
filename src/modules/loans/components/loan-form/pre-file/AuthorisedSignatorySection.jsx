@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
 import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
+import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { Option } = Select;
 const asDayjs = (value) => {
@@ -96,28 +97,29 @@ const AuthorisedSignatorySection = () => {
   }, [applicantType, sameAsCoApplicant, coCustomerName, coPrimaryMobile, form]);
 
   useEffect(() => {
-    if (!signatoryPincode || String(signatoryPincode).length !== 6) return;
+    const pin = normalizePincode(signatoryPincode);
+    if (!pin) return;
+    let cancelled = false;
 
     const fetchCity = async () => {
       try {
         setFetchingSignatoryPincode(true);
-        const res = await fetch(
-          `https://api.postalpincode.in/pincode/${signatoryPincode}`,
-        );
-        const data = await res.json();
-        const district = data?.[0]?.PostOffice?.[0]?.District;
-        if (district) {
-          form.setFieldsValue({ signatory_city: district });
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ signatory_city: city });
         }
       } catch (error) {
         console.error("Signatory pincode fetch failed", error);
       } finally {
-        setFetchingSignatoryPincode(false);
+        if (!cancelled) setFetchingSignatoryPincode(false);
       }
     };
 
-    const timer = setTimeout(fetchCity, 500);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [signatoryPincode, form]);
 
   // Render ONLY for company applicant
@@ -147,12 +149,6 @@ const AuthorisedSignatorySection = () => {
       </Row>
 
       <Row gutter={[16, 0]}>
-        <Col xs={24} md={8}>
-          <Form.Item label="Customer ID" name="signatory_id">
-            <Input disabled placeholder="Auto-filled" className={`${fieldClass} bg-muted/30`} />
-          </Form.Item>
-        </Col>
-
         <Col xs={24} md={8}>
           <Form.Item label="Applicant Name" name="signatory_customerName">
             <CustomerQuickSearch

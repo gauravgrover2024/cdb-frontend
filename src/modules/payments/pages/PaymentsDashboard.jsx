@@ -1,6 +1,7 @@
 // src/modules/payments/pages/PaymentsDashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  AutoComplete,
   Card,
   Table,
   Tag,
@@ -31,6 +32,7 @@ import { loansApi } from "../../../api/loans";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { paymentsApi } from "../../../api/payments";
 import { bookingsApi } from "../../../api/bookings";
+import { useBankDirectoryOptions } from "../../../hooks/useBankDirectoryOptions";
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -47,6 +49,7 @@ const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
 const PaymentsDashboard = () => {
   const navigate = useNavigate();
+  const { options: bankDirectoryOptions } = useBankDirectoryOptions();
 
   const [loans, setLoans] = useState([]);
   const [savedPayments, setSavedPayments] = useState([]);
@@ -1501,11 +1504,17 @@ const PaymentsDashboard = () => {
                     Bank name
                   </div>
                   <div className="border border-border rounded-xl bg-background px-2 py-1.5">
-                    <Input
+                    <AutoComplete
                       value={modalBank}
-                      onChange={(e) => setModalBank(e.target.value)}
+                      options={bankDirectoryOptions}
+                      onChange={(value) => setModalBank(value)}
+                      filterOption={(inputValue, option) =>
+                        String(option?.value || "")
+                          .toUpperCase()
+                          .includes(String(inputValue || "").toUpperCase())
+                      }
                       placeholder="Bank"
-                      bordered={false}
+                      className="w-full"
                     />
                   </div>
                 </div>
@@ -1606,11 +1615,17 @@ const PaymentsDashboard = () => {
                     Bank name
                   </div>
                   <div className="border border-border rounded-xl bg-background px-2 py-1.5">
-                    <Input
+                    <AutoComplete
                       value={modalBank}
-                      onChange={(e) => setModalBank(e.target.value)}
+                      options={bankDirectoryOptions}
+                      onChange={(value) => setModalBank(value)}
+                      filterOption={(inputValue, option) =>
+                        String(option?.value || "")
+                          .toUpperCase()
+                          .includes(String(inputValue || "").toUpperCase())
+                      }
                       placeholder="Bank"
-                      bordered={false}
+                      className="w-full"
                     />
                   </div>
                 </div>

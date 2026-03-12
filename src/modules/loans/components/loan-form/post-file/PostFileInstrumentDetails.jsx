@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Form, Select, Input, DatePicker, InputNumber, Tooltip, Upload, message } from "antd";
+import { AutoComplete, DatePicker, Form, Input, InputNumber, message, Select, Tooltip, Upload } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { formatINR, formatINRInput, parseINRInput } from "../../../../../utils/currency";
+import { lookupMicrDetails, normalizeMicr } from "../../../../../utils/ifscLookup";
 import dayjs from "dayjs";
+import { useBankDirectoryOptions } from "../../../../../hooks/useBankDirectoryOptions";
 
 const { Option } = Select;
 const asDayjs = (value) => {
@@ -168,11 +170,13 @@ const ChequeHeader = ({ id, index, isExpanded, onToggle, onDelete, onCopy, isFir
 };
 
 const PostFileInstrumentDetails = ({ form }) => {
+  const { options: bankDirectoryOptions } = useBankDirectoryOptions();
   const loanId = Form.useWatch("loanId", form);
   const instrumentType = Form.useWatch("instrumentType", form);
   const siAccountNumber = Form.useWatch("si_accountNumber", form);
   const nachAccountNumber = Form.useWatch("nach_accountNumber", form);
   const ecsAccountNumber = Form.useWatch("ecs_accountNumber", form);
+  const ecsMicrCode = Form.useWatch("ecs_micrCode", form);
   const ecsBankName = Form.useWatch("ecs_bankName", form);
   const cheque1Number = Form.useWatch("cheque_1_number", form);
   const cheque1BankName = Form.useWatch("cheque_1_bankName", form);
@@ -237,11 +241,40 @@ const PostFileInstrumentDetails = ({ form }) => {
     nachAccountNumber,
     siAccountNumber,
     ecsAccountNumber,
+    ecsMicrCode,
     ecsBankName,
     cheque1Number,
     cheque1BankName,
     cheque1AccountNumber,
   ]);
+
+  useEffect(() => {
+    const normalized = normalizeMicr(ecsMicrCode);
+    if (String(ecsMicrCode || "") !== normalized) {
+      form.setFieldsValue({ ecs_micrCode: normalized });
+      return;
+    }
+    if (normalized.length !== 9) return;
+
+    let cancelled = false;
+    const resolveMicr = async () => {
+      try {
+        const details = await lookupMicrDetails(normalized);
+        if (cancelled || !details) return;
+        if (details.bankName && !String(form.getFieldValue("ecs_bankName") || "").trim()) {
+          form.setFieldsValue({ ecs_bankName: details.bankName });
+        }
+      } catch (error) {
+        console.error("MICR lookup failed", error);
+      }
+    };
+
+    const timer = setTimeout(resolveMicr, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ecsMicrCode, form]);
 
   // Calculate Total Cheque Amount
   const totalAmount = React.useMemo(() => {
@@ -392,7 +425,16 @@ const PostFileInstrumentDetails = ({ form }) => {
 
                         <EntryField label="Bank Name">
                           <Form.Item name={`cheque_${cheque.id}_bankName`} className="mb-0">
-                            <Input placeholder="e.g. HDFC Bank" className="bg-background border-border font-medium h-10" />
+                            <AutoComplete
+                              options={bankDirectoryOptions}
+                              placeholder="e.g. HDFC Bank"
+                              className="w-full"
+                              filterOption={(inputValue, option) =>
+                                String(option?.value || "")
+                                  .toUpperCase()
+                                  .includes(String(inputValue || "").toUpperCase())
+                              }
+                            />
                           </Form.Item>
                         </EntryField>
 
@@ -477,14 +519,27 @@ const PostFileInstrumentDetails = ({ form }) => {
             <div className="rounded-2xl border border-border bg-muted/30 p-5 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <EntryField label="MICR Code">
-                  <Form.Item name="ecs_micrCode" className="mb-0">
+                  <Form.Item
+                    name="ecs_micrCode"
+                    className="mb-0"
+                    normalize={(value) => normalizeMicr(value)}
+                  >
                     <Input placeholder="9-digit MICR" maxLength={9} className="bg-background border-border font-medium h-10" />
                   </Form.Item>
                 </EntryField>
 
                 <EntryField label="Bank Name">
                   <Form.Item name="ecs_bankName" className="mb-0">
-                    <Input placeholder="e.g. HDFC Bank" className="bg-background border-border font-medium h-10" />
+                    <AutoComplete
+                      options={bankDirectoryOptions}
+                      placeholder="e.g. HDFC Bank"
+                      className="w-full"
+                      filterOption={(inputValue, option) =>
+                        String(option?.value || "")
+                          .toUpperCase()
+                          .includes(String(inputValue || "").toUpperCase())
+                      }
+                    />
                   </Form.Item>
                 </EntryField>
 
@@ -595,7 +650,16 @@ const PostFileInstrumentDetails = ({ form }) => {
 
                         <EntryField label="Bank Name">
                           <Form.Item name={`cheque_${cheque.id}_bankName`} className="mb-0">
-                            <Input placeholder="e.g. HDFC Bank" className="bg-background border-border font-medium h-10" />
+                            <AutoComplete
+                              options={bankDirectoryOptions}
+                              placeholder="e.g. HDFC Bank"
+                              className="w-full"
+                              filterOption={(inputValue, option) =>
+                                String(option?.value || "")
+                                  .toUpperCase()
+                                  .includes(String(inputValue || "").toUpperCase())
+                              }
+                            />
                           </Form.Item>
                         </EntryField>
 

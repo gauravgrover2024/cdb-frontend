@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AutoComplete,
   Card,
   Button,
   Input,
@@ -16,6 +17,7 @@ import {
   SwapOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useBankDirectoryOptions } from "../../../../hooks/useBankDirectoryOptions";
 
 const { Text } = Typography;
 
@@ -104,6 +106,7 @@ const AutocreditsPaymentsEntryTable = ({
   initialRows = [],
   readOnly = false,
 }) => {
+  const { options: bankDirectoryOptions } = useBankDirectoryOptions();
   const [rows, setRows] = useState([]);
   const [activeSection, setActiveSection] = useState("ALL");
   const [editingRowId, setEditingRowId] = useState(null);
@@ -654,11 +657,17 @@ const AutocreditsPaymentsEntryTable = ({
 
                       <FieldBox>
                         <FieldLabel>Bank name</FieldLabel>
-                        <Input
+                        <AutoComplete
                           value={row.bankName}
+                          options={bankDirectoryOptions}
                           placeholder="Bank"
-                          onChange={(e) =>
-                            updateRow(row.id, { bankName: e.target.value })
+                          filterOption={(inputValue, option) =>
+                            String(option?.value || "")
+                              .toUpperCase()
+                              .includes(String(inputValue || "").toUpperCase())
+                          }
+                          onChange={(value) =>
+                            updateRow(row.id, { bankName: value })
                           }
                           disabled={readOnly}
                         />

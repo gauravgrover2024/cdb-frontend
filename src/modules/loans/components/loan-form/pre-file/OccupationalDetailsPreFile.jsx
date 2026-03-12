@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Form, Input, Select, AutoComplete, Row, Col, Button } from "antd";
 import { SolutionOutlined, PlusCircleOutlined, DeleteOutlined } from "@ant-design/icons";
 import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
+import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { Option } = Select;
 
@@ -50,27 +51,27 @@ const OccupationalDetailsPreFile = () => {
 
   // Employment Pincode to City Auto-fill
   useEffect(() => {
-    if (!isCompany && employmentPincode && employmentPincode.length === 6) {
-      const fetchCity = async () => {
-        try {
-          setFetchingEmploymentPincode(true);
-          const response = await fetch(`https://api.postalpincode.in/pincode/${employmentPincode}`);
-          const data = await response.json();
-          if (data && data[0]?.Status === "Success") {
-            const postOffices = data[0].PostOffice;
-            if (postOffices && postOffices.length > 0) {
-              form.setFieldsValue({ employmentCity: postOffices[0].District });
-            }
-          }
-        } catch (error) {
-          console.error("Employment pincode fetch failed", error);
-        } finally {
-          setFetchingEmploymentPincode(false);
+    const pin = normalizePincode(employmentPincode);
+    if (isCompany || !pin) return;
+    let cancelled = false;
+    const fetchCity = async () => {
+      try {
+        setFetchingEmploymentPincode(true);
+        const city = await lookupCityByPincode(pin);
+        if (!cancelled && city) {
+          form.setFieldsValue({ employmentCity: city });
         }
-      };
-      const timer = setTimeout(fetchCity, 500);
-      return () => clearTimeout(timer);
-    }
+      } catch (error) {
+        console.error("Employment pincode fetch failed", error);
+      } finally {
+        if (!cancelled) setFetchingEmploymentPincode(false);
+      }
+    };
+    const timer = setTimeout(fetchCity, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [employmentPincode, form, isCompany]);
 
   useEffect(() => {

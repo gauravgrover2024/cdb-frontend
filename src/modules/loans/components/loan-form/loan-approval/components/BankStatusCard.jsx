@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Timeline } from "antd";
+import { AutoComplete, Modal, Timeline } from "antd";
 import Icon from "../../../../../../components/AppIcon";
 import Button from "../../../../../../components/ui/Button";
+import { lenderHypothecationOptions } from "../../../../../../constants/lenderHypothecationOptions";
 
 const getStatusClasses = (status) => {
   const s = (status || "").toLowerCase();
@@ -446,11 +447,17 @@ const BankStatusCard = ({
           {/* Bank Name */}
           <div>
             <label className="text-xs text-muted-foreground">Bank Name</label>
-            <input
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+            <AutoComplete
+              className="w-full mt-1"
               value={bank.bankName}
-              onChange={(e) => onBankNameChange(bank.id, e.target.value)}
-              placeholder="Enter bank name"
+              options={lenderHypothecationOptions}
+              onChange={(value) => onBankNameChange(bank.id, value)}
+              filterOption={(inputValue, option) =>
+                String(option?.value || "")
+                  .toUpperCase()
+                  .includes(String(inputValue || "").toUpperCase())
+              }
+              placeholder="Select lender"
             />
           </div>
 

@@ -52,6 +52,30 @@ const formatIndianNumber = (value) => {
   return n.toLocaleString("en-IN");
 };
 
+const cleanVariantDisplay = (variant, make, model) => {
+  const raw = String(variant || "").trim();
+  if (!raw) return "";
+  const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const stripLeadingPhrase = (text, phrase) => {
+    const rawText = String(text || "").trim();
+    const rawPhrase = String(phrase || "").trim();
+    if (!rawText || !rawPhrase) return rawText;
+    const pattern = new RegExp(
+      `^${escapeRegex(rawPhrase).replace(/\s+/g, "[\\s\\-]*")}[\\s\\-:]*`,
+      "i",
+    );
+    return rawText.replace(pattern, "").trim();
+  };
+  let cleaned = raw;
+  const mk = String(make || "").trim();
+  const md = String(model || "").trim();
+  const prefix = [mk, md].filter(Boolean).join(" ").trim();
+  if (prefix) cleaned = stripLeadingPhrase(cleaned, prefix);
+  if (md) cleaned = stripLeadingPhrase(cleaned, md);
+  if (mk) cleaned = stripLeadingPhrase(cleaned, mk);
+  return cleaned || raw;
+};
+
 const PostFileVehicleVerification = ({ form }) => {
   const [isVehicleEdit, setIsVehicleEdit] = useState(false);
   const [isShowroomEdit, setIsShowroomEdit] = useState(false);
@@ -417,7 +441,9 @@ const PostFileVehicleVerification = ({ form }) => {
                     }}
                   >
                     {vehicleVariant && !variants.includes(vehicleVariant) && (
-                      <Option value={vehicleVariant}>{vehicleVariant}</Option>
+                      <Option value={vehicleVariant}>
+                        {cleanVariantDisplay(vehicleVariant, vehicleMake, vehicleModel)}
+                      </Option>
                     )}
                     {variants.map((variant) => (
                       <Option key={variant} value={variant}>

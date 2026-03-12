@@ -3,6 +3,48 @@ import { message } from "antd";
 import { vehiclesApi } from "../api/vehicles";
 import { featuresApi } from "../api/features";
 
+const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const stripLeadingPhrase = (text, phrase) => {
+  const rawText = String(text || "").trim();
+  const rawPhrase = String(phrase || "").trim();
+  if (!rawText || !rawPhrase) return rawText;
+  const pattern = new RegExp(
+    `^${escapeRegex(rawPhrase).replace(/\s+/g, "[\\s\\-]*")}[\\s\\-:]*`,
+    "i",
+  );
+  return rawText.replace(pattern, "").trim();
+};
+
+const cleanVariantLabel = (rawVariant, selectedMake, selectedModel) => {
+  const raw = String(rawVariant || "").trim();
+  if (!raw) return "";
+
+  const make = String(selectedMake || "").trim();
+  const model = String(selectedModel || "").trim();
+  let cleaned = raw;
+
+  const composedPrefix = [make, model].filter(Boolean).join(" ").trim();
+  if (composedPrefix) cleaned = stripLeadingPhrase(cleaned, composedPrefix);
+  if (model) cleaned = stripLeadingPhrase(cleaned, model);
+  if (make) cleaned = stripLeadingPhrase(cleaned, make);
+
+  cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
+  return cleaned || raw;
+};
+
+const toVariantDisplayMap = (rawVariants, selectedMake, selectedModel) => {
+  const map = {};
+  for (const raw of rawVariants) {
+    const rawValue = String(raw || "").trim();
+    if (!rawValue) continue;
+    const displayValue = cleanVariantLabel(rawValue, selectedMake, selectedModel);
+    if (!displayValue) continue;
+    if (!map[displayValue]) map[displayValue] = rawValue;
+  }
+  const labels = Object.keys(map).sort((a, b) => a.localeCompare(b));
+  return { labels, rawByDisplay: map };
+};
+
 
 /**
  * useVehicleData Hook
@@ -32,13 +74,15 @@ export const useVehicleData = (form, options = {}) => {
     makeFieldName = "vehicleMake",
     modelFieldName = "vehicleModel",
     variantFieldName = "vehicleVariant",
+    cityFieldName = null,
+    cityResolver = null,
     autofillPricing = false,
     onVehicleSelect,
   } = options;
 
   const normalize = (v) => String(v || "").trim().toLowerCase();
   const MODELS_CACHE_KEY = "vehicle_models_by_make_cache_v1";
-  const VARIANTS_CACHE_KEY = "vehicle_variants_by_make_model_cache_v1";
+  const VARIANTS_CACHE_KEY = "vehicle_variants_by_make_model_cache_v2";
   const MAKES_CACHE_KEY = "vehicle_makes_cache_v1";
   const MASTER_ROWS_CACHE_KEY = "vehicle_master_rows_cache_v1";
 
@@ -116,6 +160,7 @@ export const useVehicleData = (form, options = {}) => {
     makes: null,
     modelsByMake: {},
     variantsByMakeModel: {},
+    variantRawByDisplayByMakeModel: {},
     featureRows: null,
   });
   const inFlightRef = useRef({
@@ -159,6 +204,7 @@ export const useVehicleData = (form, options = {}) => {
   const make = form?.getFieldValue(makeFieldName);
   const model = form?.getFieldValue(modelFieldName);
   const variant = form?.getFieldValue(variantFieldName);
+  const cityValue = cityFieldName ? form?.getFieldValue(cityFieldName) : null;
 
   /* =========================
      FETCH UNIQUE MAKES
@@ -277,14 +323,21 @@ export const useVehicleData = (form, options = {}) => {
     }
 
     const cacheKey = `${selectedMake}|${selectedModel}`;
-    if (cacheRef.current.variantsByMakeModel[cacheKey]) {
+    if (Array.isArray(cacheRef.current.variantsByMakeModel[cacheKey])) {
       setVariants(cacheRef.current.variantsByMakeModel[cacheKey]);
       return;
     }
     const cachedVariantsMap = readCache(VARIANTS_CACHE_KEY, {});
-    if (Array.isArray(cachedVariantsMap?.[cacheKey]) && cachedVariantsMap[cacheKey].length) {
-      cacheRef.current.variantsByMakeModel[cacheKey] = cachedVariantsMap[cacheKey];
-      setVariants(cachedVariantsMap[cacheKey]);
+    const cachedEntry = cachedVariantsMap?.[cacheKey];
+    if (Array.isArray(cachedEntry) && cachedEntry.length) {
+      cacheRef.current.variantsByMakeModel[cacheKey] = cachedEntry;
+      setVariants(cachedEntry);
+      return;
+    }
+    if (cachedEntry && Array.isArray(cachedEntry.labels) && cachedEntry.labels.length) {
+      cacheRef.current.variantsByMakeModel[cacheKey] = cachedEntry.labels;
+      cacheRef.current.variantRawByDisplayByMakeModel[cacheKey] = cachedEntry.rawByDisplay || {};
+      setVariants(cachedEntry.labels);
       return;
     }
     if (inFlightRef.current.variantsByMakeModel[cacheKey]) {
@@ -297,14 +350,14 @@ export const useVehicleData = (form, options = {}) => {
       // Fast path: lightweight distinct endpoint
       inFlightRef.current.variantsByMakeModel[cacheKey] = vehiclesApi.getUniqueVariants(selectedMake, selectedModel);
       const res = await inFlightRef.current.variantsByMakeModel[cacheKey];
-      let variantsList = toLabelList(res?.data, ["variant", "name", "label"]);
+      let variantsListRaw = toLabelList(res?.data, ["variant", "name", "label"]);
 
       // Fallback to master rows only if distinct endpoint is empty
-      if (!variantsList.length) {
+      if (!variantsListRaw.length) {
         const masterRows = await loadMasterRows();
         const targetMake = normalize(selectedMake);
         const targetModel = normalize(selectedModel);
-        variantsList = toLabelList(
+        variantsListRaw = toLabelList(
           masterRows.filter(
             (r) =>
               normalize(r?.make || r?.brand) === targetMake &&
@@ -313,12 +366,17 @@ export const useVehicleData = (form, options = {}) => {
           ["variant"],
         );
       }
-
-      cacheRef.current.variantsByMakeModel[cacheKey] = variantsList;
+      const { labels, rawByDisplay } = toVariantDisplayMap(
+        variantsListRaw,
+        selectedMake,
+        selectedModel,
+      );
+      cacheRef.current.variantsByMakeModel[cacheKey] = labels;
+      cacheRef.current.variantRawByDisplayByMakeModel[cacheKey] = rawByDisplay;
       const existing = readCache(VARIANTS_CACHE_KEY, {});
-      existing[cacheKey] = variantsList;
+      existing[cacheKey] = { labels, rawByDisplay };
       writeCache(VARIANTS_CACHE_KEY, existing);
-      setVariants(variantsList);
+      setVariants(labels);
     } catch (error) {
       console.error("Failed to load variants:", error);
       message.error("Failed to load vehicle variants");
@@ -336,18 +394,40 @@ export const useVehicleData = (form, options = {}) => {
   ========================= */
   // Memoize fetchVehicleDetails with only stable dependencies
   const fetchVehicleDetails = useCallback(
-    async (selectedMake, selectedModel, selectedVariant) => {
+    async (selectedMake, selectedModel, selectedVariant, selectedCity = null) => {
       if (!selectedMake || !selectedModel || !selectedVariant) {
         setSelectedVehicle(null);
         return;
       }
 
       try {
-        const response = await vehiclesApi.getByDetails(
+        const cacheKey = `${selectedMake}|${selectedModel}`;
+        const rawByDisplay = cacheRef.current.variantRawByDisplayByMakeModel?.[cacheKey] || {};
+        const resolvedVariant = rawByDisplay[selectedVariant] || selectedVariant;
+        const resolvedCity = cityResolver
+          ? cityResolver(selectedCity, form)
+          : selectedCity;
+        let response = await vehiclesApi.getByDetails(
           selectedMake,
           selectedModel,
-          selectedVariant,
+          resolvedVariant,
+          null,
+          resolvedCity || null,
         );
+        const normalizedResolvedCity = String(resolvedCity || "").trim().toLowerCase();
+        const shouldTryDelhiFallback =
+          (!response?.success || !response?.data) &&
+          normalizedResolvedCity &&
+          normalizedResolvedCity !== "new-delhi";
+        if (shouldTryDelhiFallback) {
+          response = await vehiclesApi.getByDetails(
+            selectedMake,
+            selectedModel,
+            resolvedVariant,
+            null,
+            "New-Delhi",
+          );
+        }
         if (response.success && response.data) {
           const vehicleData = response.data;
           setSelectedVehicle(vehicleData);
@@ -387,8 +467,7 @@ export const useVehicleData = (form, options = {}) => {
         setSelectedVehicle(null);
       }
     },
-    // Only depend on autofillPricing and onVehicleSelect, not form
-    [autofillPricing, onVehicleSelect],
+    [autofillPricing, onVehicleSelect, cityResolver, form],
   );
 
   const canLookupVehicleDetails = useCallback(
@@ -493,14 +572,22 @@ export const useVehicleData = (form, options = {}) => {
 
       const currentMake = form.getFieldValue(makeFieldName);
       const currentModel = form.getFieldValue(modelFieldName);
+      const currentCity = cityFieldName ? form.getFieldValue(cityFieldName) : null;
 
       if (currentMake && currentModel && value && canLookupVehicleDetails(value)) {
-        fetchVehicleDetails(currentMake, currentModel, value);
+        fetchVehicleDetails(currentMake, currentModel, value, currentCity);
       } else {
         setSelectedVehicle(null);
       }
     },
-    [form, makeFieldName, modelFieldName, fetchVehicleDetails, canLookupVehicleDetails],
+    [
+      form,
+      makeFieldName,
+      modelFieldName,
+      cityFieldName,
+      fetchVehicleDetails,
+      canLookupVehicleDetails,
+    ],
   );
 
   /* =========================
@@ -541,7 +628,7 @@ export const useVehicleData = (form, options = {}) => {
     let debounceTimer;
     if (make && model && variant && canLookupVehicleDetails(variant)) {
       debounceTimer = setTimeout(() => {
-        fetchVehicleDetails(make, model, variant);
+        fetchVehicleDetails(make, model, variant, cityValue);
       }, 200); // 200ms debounce
     } else {
       setSelectedVehicle(null);
@@ -549,7 +636,7 @@ export const useVehicleData = (form, options = {}) => {
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
     };
-  }, [make, model, variant, canLookupVehicleDetails, fetchVehicleDetails]);
+  }, [make, model, variant, cityValue, canLookupVehicleDetails, fetchVehicleDetails]);
 
   return {
     // Data
@@ -576,6 +663,7 @@ export const useVehicleData = (form, options = {}) => {
         makes: null,
         modelsByMake: {},
         variantsByMakeModel: {},
+        variantRawByDisplayByMakeModel: {},
       };
     },
   };
