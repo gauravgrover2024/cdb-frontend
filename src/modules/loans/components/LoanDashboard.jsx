@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { message } from "antd";
 import HorizontalFilterBar from "./dashboard/HorizontalFilterBar";
@@ -7,6 +13,7 @@ import LoanViewModal from "./dashboard/LoanViewModal";
 import DashboardNotesModal from "./dashboard/DashboardNotesModal";
 import Icon from "../../../components/AppIcon";
 import { loansApi } from "../../../api/loans";
+import { startNewLoanCase } from "../utils/startNewLoanCase";
 
 const PRIMARY_STAT_THEMES = {
   total: {
@@ -41,7 +48,16 @@ const PRIMARY_STAT_THEMES = {
   },
 };
 
-const MetricCard = ({ id, title, subtitle, value, iconName, onClick, isActive, loading }) => {
+const MetricCard = ({
+  id,
+  title,
+  subtitle,
+  value,
+  iconName,
+  onClick,
+  isActive,
+  loading,
+}) => {
   const theme = PRIMARY_STAT_THEMES[id] || PRIMARY_STAT_THEMES.total;
 
   return (
@@ -53,14 +69,20 @@ const MetricCard = ({ id, title, subtitle, value, iconName, onClick, isActive, l
       <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
       <div className="relative flex items-start justify-between gap-3">
         <div>
-          <p className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${theme.accent}`}>{title}</p>
+          <p
+            className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${theme.accent}`}
+          >
+            {title}
+          </p>
           <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums">
             {loading ? "—" : value}
           </p>
           {subtitle && <p className="mt-1 text-xs text-white/80">{subtitle}</p>}
         </div>
 
-        <div className={`mt-1 h-10 w-10 rounded-xl ${theme.iconBg} text-white flex items-center justify-center backdrop-blur-sm`}>
+        <div
+          className={`mt-1 h-10 w-10 rounded-xl ${theme.iconBg} text-white flex items-center justify-center backdrop-blur-sm`}
+        >
           <Icon name={iconName} size={18} />
         </div>
       </div>
@@ -106,7 +128,10 @@ const LoanDashboard = () => {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: "createdAt", direction: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "createdAt",
+    direction: "desc",
+  });
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [serverTotal, setServerTotal] = useState(0);
   const [statsData, setStatsData] = useState({
@@ -156,7 +181,8 @@ const LoanDashboard = () => {
         loan?.status ||
         loan?.loanStatus ||
         "New",
-      currentStage: loan?.currentStage || loan?.stage || loan?.workflowStage || "profile",
+      currentStage:
+        loan?.currentStage || loan?.stage || loan?.workflowStage || "profile",
       loanAmount:
         loan?.approval_loanAmountApproved ||
         loan?.approval_loanAmountDisbursed ||
@@ -174,15 +200,26 @@ const LoanDashboard = () => {
       bankName: loan?.approval_bankName || loan?.bankName || null,
 
       customerName:
-        loan?.customerName || loan?.applicant_name || loan?.applicantName || loan?.leadName || "Unknown",
-      primaryMobile: loan?.primaryMobile || loan?.mobile || loan?.phone || loan?.phoneNumber || "N/A",
+        loan?.customerName ||
+        loan?.applicant_name ||
+        loan?.applicantName ||
+        loan?.leadName ||
+        "Unknown",
+      primaryMobile:
+        loan?.primaryMobile ||
+        loan?.mobile ||
+        loan?.phone ||
+        loan?.phoneNumber ||
+        "N/A",
       email: loan?.email || loan?.emailId || "",
       city: loan?.city || loan?.permanentCity || "N/A",
       pincode: loan?.pincode || loan?.permanentPincode || "",
-      residenceAddress: loan?.residenceAddress || loan?.currentAddress || loan?.address || "",
+      residenceAddress:
+        loan?.residenceAddress || loan?.currentAddress || loan?.address || "",
       permanentAddress: loan?.permanentAddress || "",
 
-      source: loan?.source || loan?.sourcingChannel || loan?.recordSource || "N/A",
+      source:
+        loan?.source || loan?.sourcingChannel || loan?.recordSource || "N/A",
       sourceName:
         loan?.sourceName ||
         loan?.source_name ||
@@ -223,7 +260,8 @@ const LoanDashboard = () => {
         "",
       typeOfLoan: loan?.typeOfLoan || loan?.loanType || "",
       registrationCity: loan?.registrationCity || "",
-      postfile_regd_city: loan?.postfile_regd_city || loan?.registrationCity || "",
+      postfile_regd_city:
+        loan?.postfile_regd_city || loan?.registrationCity || "",
       rc_redg_no:
         loan?.rc_redg_no ||
         loan?.vehicleRegNo ||
@@ -231,13 +269,17 @@ const LoanDashboard = () => {
         loan?.registrationNumber ||
         "",
 
-      approval_loanAmountApproved: loan?.approval_loanAmountApproved || loan?.loanAmount || 0,
+      approval_loanAmountApproved:
+        loan?.approval_loanAmountApproved || loan?.loanAmount || 0,
       approval_loanAmountDisbursed: loan?.approval_loanAmountDisbursed || 0,
       approval_bankName: loan?.approval_bankName || loan?.bankName || "N/A",
       approval_banksData: loan?.approval_banksData || [],
       approval_roi: loan?.approval_roi || loan?.roi || null,
       approval_tenureMonths:
-        loan?.approval_tenureMonths || loan?.loanTenureMonths || loan?.tenure || null,
+        loan?.approval_tenureMonths ||
+        loan?.loanTenureMonths ||
+        loan?.tenure ||
+        null,
       approval_approvalDate: loan?.approval_approvalDate || null,
       approval_disbursedDate:
         loan?.approval_disbursedDate ||
@@ -259,9 +301,15 @@ const LoanDashboard = () => {
         loan?.vehicleDeliveryDate ||
         null,
       postfile_maturityDate:
-        loan?.postfile_maturityDate || loan?.postfile_maturity_date || loan?.maturityDate || null,
+        loan?.postfile_maturityDate ||
+        loan?.postfile_maturity_date ||
+        loan?.maturityDate ||
+        null,
       postfile_firstEmiDate:
-        loan?.postfile_firstEmiDate || loan?.postfile_first_emi_date || loan?.firstEmiDate || null,
+        loan?.postfile_firstEmiDate ||
+        loan?.postfile_first_emi_date ||
+        loan?.firstEmiDate ||
+        null,
       postfile_currentOutstanding:
         loan?.postfile_currentOutstanding ||
         loan?.postfile_current_outstanding ||
@@ -303,21 +351,36 @@ const LoanDashboard = () => {
       const mapSortToApi = (cfg) => {
         switch (cfg?.key) {
           case "loanAmount":
-            return { sortBy: "approval_loanAmountDisbursed", sortDir: cfg?.direction || "desc" };
+            return {
+              sortBy: "approval_loanAmountDisbursed",
+              sortDir: cfg?.direction || "desc",
+            };
           case "emi":
-            return { sortBy: "postfile_emiAmount", sortDir: cfg?.direction || "desc" };
+            return {
+              sortBy: "postfile_emiAmount",
+              sortDir: cfg?.direction || "desc",
+            };
           case "aging":
             return {
               sortBy: "createdAt",
               sortDir: cfg?.direction === "desc" ? "asc" : "desc",
             };
           case "customer":
-            return { sortBy: "customerName", sortDir: cfg?.direction || "desc" };
+            return {
+              sortBy: "customerName",
+              sortDir: cfg?.direction || "desc",
+            };
           case "vehicle":
-            return { sortBy: "vehicleModel", sortDir: cfg?.direction || "desc" };
+            return {
+              sortBy: "vehicleModel",
+              sortDir: cfg?.direction || "desc",
+            };
           case "createdAt":
           default:
-            return { sortBy: "latestBusiness", sortDir: cfg?.direction || "desc" };
+            return {
+              sortBy: "latestBusiness",
+              sortDir: cfg?.direction || "desc",
+            };
         }
       };
       const apiSort = mapSortToApi(sortConfig);
@@ -637,7 +700,7 @@ const LoanDashboard = () => {
 
   const handleQuickAction = async (actionId) => {
     if (actionId === "new-case") {
-      navigate("/loans/new");
+      startNewLoanCase(navigate, "loan-dashboard");
     }
   };
 
@@ -664,12 +727,18 @@ const LoanDashboard = () => {
         try {
           message.loading({ content: "Deleting...", key: "bulk_delete" });
           await Promise.all(selectedLoans.map((id) => loansApi.delete(id)));
-          message.success({ content: "Deleted successfully", key: "bulk_delete" });
+          message.success({
+            content: "Deleted successfully",
+            key: "bulk_delete",
+          });
           setSelectedLoans([]);
           refreshDashboard();
         } catch (e) {
           console.error("Bulk delete failed", e);
-          message.error({ content: "Failed to delete some cases", key: "bulk_delete" });
+          message.error({
+            content: "Failed to delete some cases",
+            key: "bulk_delete",
+          });
         }
         break;
       default:
@@ -785,7 +854,8 @@ const LoanDashboard = () => {
       if (filters.loanTypes?.length) {
         const matches = filters.loanTypes.some(
           (ft) =>
-            (loanTypeValue && ft.toLowerCase() === loanTypeValue.toLowerCase()) ||
+            (loanTypeValue &&
+              ft.toLowerCase() === loanTypeValue.toLowerCase()) ||
             ft === loanTypeValue,
         );
         if (!matches) return false;
@@ -800,7 +870,8 @@ const LoanDashboard = () => {
       const loanStatus = (loan.status || loan.approval_status || "New").trim();
       if (filters.statuses?.length) {
         const matches = filters.statuses.some(
-          (s) => s && loanStatus && s.toLowerCase() === loanStatus.toLowerCase(),
+          (s) =>
+            s && loanStatus && s.toLowerCase() === loanStatus.toLowerCase(),
         );
         if (!matches) return false;
       }
@@ -852,7 +923,15 @@ const LoanDashboard = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [filters.searchQuery, filters.loanTypes, filters.stages, filters.statuses, filters.agingBuckets, filters.amountRanges, filters.approvedToday]);
+  }, [
+    filters.searchQuery,
+    filters.loanTypes,
+    filters.stages,
+    filters.statuses,
+    filters.agingBuckets,
+    filters.amountRanges,
+    filters.approvedToday,
+  ]);
 
   const hasClientOnlyFilters =
     filters.loanTypes.length > 0 ||
@@ -863,7 +942,7 @@ const LoanDashboard = () => {
     filters.approvedToday;
   const totalCountForGrid = hasClientOnlyFilters
     ? filteredLoans.length
-    : (Number(serverTotal) || filteredLoans.length);
+    : Number(serverTotal) || filteredLoans.length;
 
   return (
     <div className="h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-b from-sky-50 via-white to-white p-4 md:p-6 dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
@@ -871,33 +950,35 @@ const LoanDashboard = () => {
         <section className="rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-600 dark:text-sky-400">Loans Module</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-600 dark:text-sky-400">
+                Loans Module
+              </p>
               <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">
                 Dashboard Command Center
               </h1>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                Rich overview of pipeline, approvals, disbursals, EMI health, and registration readiness.
-              </p>
-              <div className="mt-2 inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-                Live Stats Auto Refresh Enabled
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
               <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 dark:border-sky-900/40 dark:bg-sky-950/30">
-                <p className="text-slate-500 dark:text-slate-400">Cases in view</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  Cases in view
+                </p>
                 <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
                   {totalCountForGrid}
                 </p>
               </div>
               <div className="rounded-xl border border-fuchsia-100 bg-fuchsia-50 px-3 py-2 dark:border-fuchsia-900/40 dark:bg-fuchsia-950/30">
-                <p className="text-slate-500 dark:text-slate-400">EMI captured</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  EMI captured
+                </p>
                 <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
                   {statsData.emiCapturedCount}/{statsData.total || 0}
                 </p>
               </div>
               <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 dark:border-rose-900/40 dark:bg-rose-950/30">
-                <p className="text-slate-500 dark:text-slate-400">Reg no captured</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  Reg no captured
+                </p>
                 <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
                   {statsData.regNoCapturedCount}/{statsData.total || 0}
                 </p>

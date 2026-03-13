@@ -1,7 +1,7 @@
 // src/modules/loans/components/LoanFormWithSteps.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Form, message } from "antd";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { useFormAutoSave, AutoSaveIndicator } from "../../../utils/formDataProtection";
 
@@ -576,9 +576,14 @@ const PrefileSectionShell = ({
 const LoanFormWithSteps = ({ mode, initialData }) => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  const location = useLocation();
   const params = useParams();
 
   const loanIdFromRoute = params?.loanId || params?.id;
+  const freshLoanToken = useMemo(
+    () => new URLSearchParams(location.search).get("fresh"),
+    [location.search],
+  );
 
   const isEditMode = useMemo(() => {
     return Boolean(mode === "edit" || loanIdFromRoute);
@@ -717,6 +722,19 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   // banksData must persist across steps
   const [banksData, setBanksData] = useState([]);
+
+  useEffect(() => {
+    if (isEditMode || !freshLoanToken) return;
+
+    form.resetFields();
+    setBanksData([]);
+    setActiveStep("profile");
+    clearSavedFormData();
+    form.setFieldsValue({
+      isFinanced: "Yes",
+      currentStage: "profile",
+    });
+  }, [isEditMode, freshLoanToken, form, clearSavedFormData]);
 
   const resolveBankAmounts = useCallback((bank = {}, context = {}) => {
     const toNum = (val) => {

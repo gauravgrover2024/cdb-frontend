@@ -14,6 +14,7 @@ import {
 import Icon from "../AppIcon";
 import { Dropdown, Avatar, Badge as AntBadge } from "antd";
 import { useTheme } from "../../context/ThemeContext";
+import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -146,7 +147,47 @@ const Header = () => {
   const isGroupActive = (children) =>
     children?.some((child) => isActive(child.path));
 
+  const groupAccent = (label) => {
+    const map = {
+      Analytics: {
+        icon: "bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 dark:from-sky-500/20 dark:to-indigo-500/20 dark:text-sky-300",
+        dot: "bg-sky-500 dark:bg-sky-400",
+      },
+      Customers: {
+        icon: "bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700 dark:from-emerald-500/20 dark:to-teal-500/20 dark:text-emerald-300",
+        dot: "bg-emerald-500 dark:bg-emerald-400",
+      },
+      Loans: {
+        icon: "bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-700 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:text-violet-300",
+        dot: "bg-violet-500 dark:bg-violet-400",
+      },
+      Vehicles: {
+        icon: "bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 dark:from-amber-500/20 dark:to-orange-500/20 dark:text-amber-300",
+        dot: "bg-amber-500 dark:bg-amber-400",
+      },
+      Finance: {
+        icon: "bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-700 dark:from-cyan-500/20 dark:to-blue-500/20 dark:text-cyan-300",
+        dot: "bg-cyan-500 dark:bg-cyan-400",
+      },
+      "Control Panel": {
+        icon: "bg-gradient-to-br from-slate-200 to-slate-100 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",
+        dot: "bg-slate-500 dark:bg-slate-300",
+      },
+    };
+    return (
+      map[label] || {
+        icon: "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",
+        dot: "bg-sky-500 dark:bg-sky-400",
+      }
+    );
+  };
+
   const handleNavigation = (path) => {
+    if (path === "/loans/new") {
+      startNewLoanCase(navigate, "global-header");
+      setMobileMenuOpen(false);
+      return;
+    }
     navigate(path);
     setMobileMenuOpen(false);
   };
@@ -154,211 +195,219 @@ const Header = () => {
   return (
     <>
       <header
-        className={`sticky top-0 z-[1000] w-full transition-all duration-500 will-change-[background-color,backdrop-filter,border-color] ${
-          scrolled
-            ? "h-16 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-border/50 shadow-sm"
-            : "h-16 bg-white dark:bg-black border-b border-transparent"
-        }`}
+        className="sticky top-0 z-[1000] py-0 transition-all duration-500"
       >
-        <div className="max-w-[1440px] mx-auto px-4 md:px-8 h-full flex items-center justify-between">
-          {/* Brand Logo */}
+        <div className="w-full px-3 md:px-5">
           <div
-            className="flex items-center group cursor-pointer shrink-0"
-            onClick={() => handleNavigation("/")}
+            className={`relative flex h-16 items-center gap-3 rounded-2xl px-3 md:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-all duration-500 ${
+              scrolled
+                ? "bg-white/86 dark:bg-black/96 backdrop-blur-xl"
+                : "bg-white/95 dark:bg-black"
+            }`}
           >
-            <div
-              className={`relative transition-all duration-500 will-change-transform group-hover:scale-105 ${scrolled ? "h-9" : "h-10"}`}
+            {/* Brand Logo */}
+            <button
+              type="button"
+              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-2 py-1 transition-all hover:bg-slate-100/80 dark:bg-white dark:hover:bg-white"
+              onClick={() => handleNavigation("/")}
             >
               <img
-                src={process.env.PUBLIC_URL + "/ACILLP.svg"}
+                src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
                 alt="ACILLP"
-                className="h-full w-auto object-contain logo-theme-aware"
+                className="h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
-            </div>
-          </div>
+            </button>
 
-          {/* Center: Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
-            {navigationGroups.map((group) => (
-              <div key={group.label} className="relative group/nav">
-                {group.children ? (
-                  <>
-                    <button
-                      className={`flex items-center gap-2 px-4 py-2 text-[13px] font-semibold rounded-full transition-all duration-300 h-10 outline-none
-                        ${
-                          isGroupActive(group.children)
-                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        }
-                      `}
-                    >
-                      <span className="opacity-70 group-hover/nav:opacity-100 transition-opacity">
-                        {group.icon}
-                      </span>
-                      {group.label}
-                      <ChevronDown
-                        size={14}
-                        className={`transition-transform duration-300 group-hover/nav:rotate-180 opacity-50`}
-                      />
-                    </button>
-
-                    {/* Mega Menu style Dropdown */}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible translate-y-2 group-hover/nav:opacity-100 group-hover/nav:visible group-hover/nav:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-50">
-                      <div className="w-[280px] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-border/50 p-2 overflow-hidden ring-1 ring-black/5">
-                        <div className="px-3 py-2 border-b border-border/40 mb-1">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                            {group.label} Operations
-                          </span>
-                        </div>
-                        {group.children.map((child) => (
-                          <button
-                            key={child.path}
-                            onClick={() => handleNavigation(child.path)}
-                            className={`w-full text-left flex flex-col px-4 py-3 rounded-xl transition-all duration-200 group/item
-                              ${
-                                isActive(child.path)
-                                  ? "bg-primary/5 text-primary"
-                                  : "text-foreground hover:bg-muted"
-                              }
-                            `}
+            {/* Center: Desktop Navigation */}
+            <nav className="relative z-[1] hidden lg:flex flex-1 items-center gap-1 rounded-xl bg-white/70 px-2 py-1.5 dark:bg-black/80">
+              {navigationGroups.map((group) => (
+                <div key={group.label} className="relative group/nav">
+                  {(() => {
+                    const accent = groupAccent(group.label);
+                    return group.children ? (
+                      <>
+                        <button
+                          className={`flex h-10 items-center gap-2 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-300 outline-none ${
+                            isGroupActive(group.children)
+                              ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
+                              : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                          }`}
+                        >
+                          <span
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${
+                              accent.icon
+                            }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-bold tracking-tight">
-                                {child.label}
+                            {group.icon}
+                          </span>
+                          {group.label}
+                          <ChevronDown
+                            size={14}
+                            className="opacity-60 transition-transform duration-300 group-hover/nav:rotate-180"
+                          />
+                        </button>
+
+                        {/* Dropdown */}
+                        <div className="absolute left-1/2 top-full z-50 w-[320px] -translate-x-1/2 translate-y-2 pt-3 opacity-0 invisible transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/nav:translate-y-0 group-hover/nav:opacity-100 group-hover/nav:visible">
+                          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-xl ring-1 ring-black/5 dark:border-slate-800 dark:bg-black">
+                            <div className="mb-2 flex items-center justify-between border-b border-slate-200/80 px-3 pb-2 dark:border-slate-800">
+                              <span className="text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-400">
+                                {group.label}
                               </span>
-                              <div
-                                className={`w-1.5 h-1.5 rounded-full bg-primary transition-all duration-300 ${isActive(child.path) ? "opacity-100 scale-100" : "opacity-0 scale-0 group-hover/item:opacity-40 group-hover/item:scale-100"}`}
-                              />
+                              <span className={`h-1.5 w-1.5 rounded-full ${accent.dot}`} />
                             </div>
-                            <span className="text-[11px] text-muted-foreground font-medium mt-0.5 opacity-70 group-hover/item:opacity-100 transition-opacity">
-                              {child.desc}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => handleNavigation(group.path)}
-                    className={`flex items-center gap-2 px-5 py-2 text-[13px] font-semibold rounded-full transition-all duration-300 h-10 outline-none
-                      ${
-                        isActive(group.path)
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }
-                    `}
-                  >
-                    <span className="opacity-70 group-hover/nav:opacity-100 transition-opacity">
-                      {group.icon}
-                    </span>
-                    {group.label}
-                  </button>
-                )}
-              </div>
-            ))}
-          </nav>
-
-          {/* Right: Actions */}
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {/* Notifications (Visual Placeholder) */}
-            <div className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full hover:bg-muted cursor-pointer transition-colors text-muted-foreground hover:text-foreground relative">
-              <AntBadge dot color="#1d9bf0" offset={[-2, 2]}>
-                <Bell size={20} />
-              </AntBadge>
-            </div>
-
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className={`hidden sm:flex items-center justify-center w-10 h-10 rounded-full transition-all duration-500 hover:scale-110 active:scale-90
-                ${
-                  isDarkMode
-                    ? "bg-zinc-800 text-yellow-400 hover:bg-zinc-700"
-                    : "bg-zinc-100 text-blue-600 hover:bg-zinc-200"
-                }
-              `}
-            >
-              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-
-            <div className="w-px h-6 bg-border/60 mx-1 hidden sm:block" />
-
-            {/* Profile Dropdown */}
-            <Dropdown
-              menu={{
-                items: [
-                  {
-                    key: "user-info",
-                    label: (
-                      <div className="px-4 py-3 min-w-[200px] border-b border-border/40 mb-2">
-                        <div className="text-[13px] font-black text-foreground uppercase tracking-tight">
-                          {userData?.name || "Administrator"}
+                            {group.children.map((child) => (
+                              <button
+                                key={child.path}
+                                onClick={() => handleNavigation(child.path)}
+                                className={`group/item mb-1 w-full rounded-xl px-4 py-3 text-left transition-all duration-200 last:mb-0 ${
+                                  isActive(child.path)
+                                    ? "bg-sky-50 text-sky-700 dark:bg-slate-900 dark:text-sky-300"
+                                    : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/80"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[13px] font-bold tracking-tight">
+                                    {child.label}
+                                  </span>
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${accent.dot} transition-all ${
+                                      isActive(child.path)
+                                        ? "opacity-100"
+                                        : "opacity-0 group-hover/item:opacity-45"
+                                    }`}
+                                  />
+                                </div>
+                                <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                  {child.desc}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-muted-foreground font-medium">
-                          {userData?.email || "system@acillp.com"}
-                        </div>
-                        <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">
-                          {userData?.role || "Staff"} Access
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    key: "settings",
-                    label: (
-                      <div className="flex items-center gap-3 px-1 py-1 font-semibold text-[13px]">
-                        <Settings size={16} className="opacity-60" />
-                        Settings
-                      </div>
-                    ),
-                  },
-                  { type: "divider" },
-                  {
-                    key: "logout",
-                    danger: true,
-                    label: (
-                      <div className="flex items-center gap-3 px-1 py-1 font-bold text-[13px]">
-                        <LogOut size={16} />
-                        Sign Out
-                      </div>
-                    ),
-                  },
-                ],
-                onClick: ({ key }) => {
-                  if (key === "logout") {
-                    localStorage.clear();
-                    navigate("/login");
-                  }
-                },
-              }}
-              trigger={["click"]}
-              placement="bottomRight"
-              overlayClassName="header-profile-dropdown"
-            >
-              <div className="flex items-center gap-2 cursor-pointer group/profile rounded-full pr-2 transition-all duration-300">
-                <div className="relative">
-                  <Avatar
-                    className="bg-primary text-primary-foreground border-2 border-transparent group-hover/profile:border-primary/30 transition-all duration-300 shadow-sm"
-                    size={36}
-                    icon={<User size={18} />}
-                  />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-success rounded-full border-2 border-white dark:border-black" />
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleNavigation(group.path)}
+                        className={`flex h-10 items-center gap-2 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-300 ${
+                          isActive(group.path)
+                            ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
+                            : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                        }`}
+                      >
+                        <span
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${
+                            accent.icon
+                          }`}
+                        >
+                          {group.icon}
+                        </span>
+                        {group.label}
+                      </button>
+                    );
+                  })()}
                 </div>
-                <ChevronDown
-                  size={14}
-                  className="text-muted-foreground group-hover/profile:text-foreground transition-colors hidden sm:block"
-                />
-              </div>
-            </Dropdown>
+              ))}
+            </nav>
 
-            {/* Mobile Menu Trigger */}
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-muted text-foreground hover:text-primary transition-all active:scale-95"
-            >
-              <Menu size={24} />
-            </button>
+            {/* Right: Actions */}
+            <div className="relative z-[1] flex items-center gap-2 sm:gap-3">
+              <div className="relative hidden sm:flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-emerald-100 text-slate-600 transition-colors hover:from-sky-200 hover:to-emerald-200 hover:text-slate-900 dark:from-sky-500/20 dark:to-emerald-500/20 dark:text-slate-200 dark:hover:from-sky-500/30 dark:hover:to-emerald-500/30">
+                <AntBadge dot color="#1d9bf0" offset={[-1, 2]}>
+                  <Bell size={18} />
+                </AntBadge>
+              </div>
+
+              <button
+                onClick={toggleTheme}
+                className={`hidden h-10 w-10 items-center justify-center rounded-lg transition-all duration-300 sm:flex ${
+                  isDarkMode
+                    ? "bg-white/[0.08] text-amber-300 hover:bg-white/[0.14]"
+                    : "bg-gradient-to-br from-violet-100 to-indigo-100 text-indigo-700 hover:from-violet-200 hover:to-indigo-200"
+                }`}
+              >
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+
+              {/* Profile Dropdown */}
+              <Dropdown
+                menu={{
+                  items: [
+                    {
+                      key: "user-info",
+                      label: (
+                        <div className="px-4 py-3 min-w-[200px] border-b border-border/40 mb-2">
+                          <div className="text-[13px] font-black text-foreground uppercase tracking-tight">
+                            {userData?.name || "Administrator"}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground font-medium">
+                            {userData?.email || "system@acillp.com"}
+                          </div>
+                          <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">
+                            {userData?.role || "Staff"} Access
+                          </div>
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "settings",
+                      label: (
+                        <div className="flex items-center gap-3 px-1 py-1 font-semibold text-[13px]">
+                          <Settings size={16} className="opacity-60" />
+                          Settings
+                        </div>
+                      ),
+                    },
+                    { type: "divider" },
+                    {
+                      key: "logout",
+                      danger: true,
+                      label: (
+                        <div className="flex items-center gap-3 px-1 py-1 font-bold text-[13px]">
+                          <LogOut size={16} />
+                          Sign Out
+                        </div>
+                      ),
+                    },
+                  ],
+                  onClick: ({ key }) => {
+                    if (key === "logout") {
+                      localStorage.clear();
+                      navigate("/login");
+                    }
+                  },
+                }}
+                trigger={["click"]}
+                placement="bottomRight"
+                overlayClassName="header-profile-dropdown"
+              >
+                <button
+                  type="button"
+                  className="group/profile flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-slate-100 to-slate-50 px-1.5 pr-2.5 transition-colors hover:from-slate-200 hover:to-slate-100 dark:from-white/[0.08] dark:to-white/[0.04] dark:hover:from-white/[0.12] dark:hover:to-white/[0.08]"
+                >
+                  <div className="relative">
+                    <Avatar
+                      className="bg-primary text-primary-foreground transition-all duration-300 shadow-sm"
+                      size={30}
+                      icon={<User size={16} />}
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-success dark:border-black" />
+                  </div>
+                  <ChevronDown
+                    size={13}
+                    className="hidden text-muted-foreground transition-colors group-hover/profile:text-foreground sm:block"
+                  />
+                </button>
+              </Dropdown>
+
+              {/* Mobile Menu Trigger */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-100 to-blue-100 text-slate-700 transition-all hover:from-cyan-200 hover:to-blue-200 hover:text-sky-600 active:scale-95 dark:from-white/[0.08] dark:to-white/[0.04] dark:text-slate-100 dark:hover:from-white/[0.14] dark:hover:to-white/[0.08] dark:hover:text-sky-300 lg:hidden"
+              >
+                <Menu size={22} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -386,11 +435,13 @@ const Header = () => {
           <div className="flex flex-col h-full bg-gradient-to-b from-white to-muted/20 dark:from-black dark:to-zinc-900/50">
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-border/50">
-              <img
-                src={process.env.PUBLIC_URL + "/ACILLP.svg"}
-                alt="ACILLP"
-                className="h-10 w-auto logo-theme-aware"
-              />
+              <div className="rounded-lg px-2 py-1 dark:bg-white">
+                <img
+                  src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
+                  alt="ACILLP"
+                  className="h-12 w-auto object-contain"
+                />
+              </div>
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground transition-colors"
