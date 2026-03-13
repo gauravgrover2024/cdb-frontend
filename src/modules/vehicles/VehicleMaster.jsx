@@ -318,7 +318,7 @@ const VehicleMaster = () => {
   return (
     <div className="min-h-full p-4 md:p-6 bg-background">
       {/* Outer page card */}
-      <div className="max-w-[1600px] mx-auto flex flex-col gap-5">
+      <div className="app-max-wrap flex flex-col gap-5">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>

@@ -1,56 +1,46 @@
 import React, { useState, useEffect } from "react";
-import { Form, message, Spin } from "antd";
+import { AutoComplete, DatePicker, Form, Input, Select, Spin, message } from "antd";
+import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { uploadToCloudinary } from "../../../../../utils/cloudinary";
+import { IRDAI_INSURANCE_COMPANIES } from "../../../../../constants/irdaiInsuranceCompanies";
 
-const inputClassName =
-  "h-10 w-full rounded-xl border border-slate-300/90 bg-white px-3 text-sm text-foreground shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70 dark:placeholder:text-slate-500";
-
-const textAreaClassName =
-  "w-full rounded-xl border border-slate-300/90 bg-white px-3 py-2 text-sm text-foreground shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70 dark:placeholder:text-slate-500";
-
-const selectClassName =
-  "h-10 w-full appearance-none rounded-xl border border-slate-300/90 bg-white px-3 pr-10 text-sm text-foreground shadow-sm outline-none transition focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70";
+const inputClassName = "h-10";
+const textAreaClassName = "min-h-[84px]";
 
 // Helper component to handle date input formatting
 // Converts incoming value (DayJS, Date, timestamp, string) to yyyy-MM-dd
 // Returns yyyy-MM-dd string on change
 const DateInput = ({ value, onChange, ...props }) => {
-  const formattedValue = React.useMemo(() => {
-    if (!value) return "";
+  const parsedValue = React.useMemo(() => {
+    if (!value) return null;
     try {
       // If it's a DayJS object (has format function)
       if (value && typeof value.format === "function") {
-        return value.format("YYYY-MM-DD");
+        return value;
       }
       // If it's a string or number (timestamp)
-      const date = new Date(value);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split("T")[0];
+      const parsed = dayjs(value);
+      if (parsed.isValid()) {
+        return parsed;
       }
     } catch (e) {
       console.warn("Date parsing error", e);
-      return "";
+      return null;
     }
-    return "";
+    return null;
   }, [value]);
 
   return (
-    <div className="relative">
-      <Icon
-        name="Calendar"
-        size={16}
-        className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-      />
-      <input
-        type="date"
-        className="h-10 w-full rounded-xl border border-slate-300/90 bg-white pl-9 pr-3 text-sm text-foreground shadow-sm outline-none transition focus:border-sky-400 dark:border-slate-700 dark:bg-slate-950/70"
-        value={formattedValue}
-        onChange={(e) => onChange?.(e.target.value)}
-        {...props}
-      />
-    </div>
+    <DatePicker
+      className="h-10 w-full"
+      format="DD/MM/YYYY"
+      value={parsedValue || null}
+      onChange={(date) => onChange?.(date ? date.format("YYYY-MM-DD") : "")}
+      allowClear
+      {...props}
+    />
   );
 };
 
@@ -104,30 +94,6 @@ const DeliverySection = ({ id, icon, iconTone, title, aside, children }) => (
     </div>
     {children}
   </section>
-);
-
-const SelectField = ({
-  value,
-  onChange,
-  children,
-  className = "",
-  ...props
-}) => (
-  <div className="relative">
-    <select
-      value={value}
-      onChange={onChange}
-      className={`${selectClassName} ${className}`}
-      {...props}
-    >
-      {children}
-    </select>
-    <Icon
-      name="ChevronDown"
-      size={16}
-      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-    />
-  </div>
 );
 
 const UploadField = ({
@@ -438,7 +404,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerName"
                 className="mb-0"
               >
-                <input type="text" className={inputClassName} />
+                <Input className={inputClassName} />
               </Form.Item>
 
               <Form.Item
@@ -446,7 +412,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerContactPerson"
                 className="mb-0"
               >
-                <input type="text" className={inputClassName} />
+                <Input className={inputClassName} />
               </Form.Item>
 
               <Form.Item
@@ -454,7 +420,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerContactNumber"
                 className="mb-0"
               >
-                <input type="text" className={inputClassName} />
+                <Input className={inputClassName} />
               </Form.Item>
             </div>
 
@@ -464,7 +430,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerAddress"
                 className="mb-0"
               >
-                <textarea className={textAreaClassName} rows={2} />
+                <Input.TextArea className={textAreaClassName} rows={2} />
               </Form.Item>
 
               <Form.Item
@@ -472,11 +438,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_by"
                 className="mb-0"
               >
-                <input
-                  type="text"
-                  className={inputClassName}
-                  placeholder="e.g., Showroom Staff"
-                />
+                <Input className={inputClassName} placeholder="e.g., Showroom Staff" />
               </Form.Item>
             </div>
           </div>
@@ -498,20 +460,19 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="insurance_by"
                 className="mb-0"
               >
-                <SelectField
-                  value={insuranceBy}
-                  onChange={(e) =>
-                    form.setFieldValue("insurance_by", e.target.value)
-                  }
-                >
-                  <option value="">Select</option>
-                  <option value="Autocredits India LLP">
-                    Autocredits India LLP
-                  </option>
-                  <option value="Customer">Customer</option>
-                  <option value="Showroom">Showroom</option>
-                  <option value="Broker">Broker</option>
-                </SelectField>
+                <Select
+                  className="h-10"
+                  placeholder="Select"
+                  options={[
+                    { label: "Autocredits India LLP", value: "Autocredits India LLP" },
+                    { label: "Customer", value: "Customer" },
+                    { label: "Showroom", value: "Showroom" },
+                    { label: "Broker", value: "Broker" },
+                  ]}
+                  value={insuranceBy || undefined}
+                  onChange={(value) => form.setFieldValue("insurance_by", value || "")}
+                  allowClear
+                />
               </Form.Item>
 
               <Form.Item
@@ -519,11 +480,20 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="insurance_company_name"
                 className="mb-0"
               >
-                <input
-                  type="text"
-                  className={inputClassName}
-                  placeholder="e.g., HDFC ERGO"
-                />
+                <AutoComplete
+                  className="w-full"
+                  options={IRDAI_INSURANCE_COMPANIES.map((company) => ({
+                    value: company,
+                    label: company,
+                  }))}
+                  filterOption={(input, option) =>
+                    String(option?.value || "")
+                      .toLowerCase()
+                      .includes(String(input || "").toLowerCase())
+                  }
+                >
+                  <Input className={inputClassName} placeholder="Start typing insurer name" />
+                </AutoComplete>
               </Form.Item>
 
               <Form.Item
@@ -531,11 +501,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="insurance_policy_number"
                 className="mb-0"
               >
-                <input
-                  type="text"
-                  className={inputClassName}
-                  placeholder="e.g., POL123456"
-                />
+                <Input className={inputClassName} placeholder="e.g., POL123456" />
               </Form.Item>
 
               <Form.Item
@@ -554,14 +520,12 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="insurance_policy_duration_od"
                 className="mb-0"
               >
-                <SelectField>
-                  <option value="">Select duration</option>
-                  {POLICY_DURATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </SelectField>
+                <Select
+                  className="h-10"
+                  placeholder="Select duration"
+                  options={POLICY_DURATION_OPTIONS}
+                  allowClear
+                />
               </Form.Item>
 
               <Form.Item
@@ -597,11 +561,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="invoice_number"
                 className="mb-0"
               >
-                <input
-                  type="text"
-                  className={inputClassName}
-                  placeholder="e.g., INV-2025-001"
-                />
+                <Input className={inputClassName} placeholder="e.g., INV-2025-001" />
               </Form.Item>
 
               <Form.Item
@@ -618,11 +578,15 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="invoice_received_as"
                 className="mb-0"
               >
-                <SelectField>
-                  <option value="">Select</option>
-                  <option value="Original">Original</option>
-                  <option value="Photocopy">Photocopy</option>
-                </SelectField>
+                <Select
+                  className="h-10"
+                  placeholder="Select"
+                  options={[
+                    { label: "Original", value: "Original" },
+                    { label: "Photocopy", value: "Photocopy" },
+                  ]}
+                  allowClear
+                />
               </Form.Item>
 
               <Form.Item
@@ -630,11 +594,7 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="invoice_received_from"
                 className="mb-0"
               >
-                <input
-                  type="text"
-                  className={inputClassName}
-                  placeholder="e.g., Dealer"
-                />
+                <Input className={inputClassName} placeholder="e.g., Dealer" />
               </Form.Item>
             </div>
 
@@ -677,11 +637,7 @@ const VehicleDeliveryStep = ({ form }) => {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Form.Item label="Regd No" name="rc_redg_no" className="mb-0">
-              <input
-                type="text"
-                className={inputClassName}
-                placeholder="e.g., DL01AB1234"
-              />
+              <Input className={inputClassName} placeholder="e.g., DL01AB1234" />
             </Form.Item>
 
             <Form.Item
@@ -689,28 +645,15 @@ const VehicleDeliveryStep = ({ form }) => {
               name="yearOfManufacture"
               className="mb-0"
             >
-              <input
-                type="text"
-                maxLength={4}
-                className={inputClassName}
-                placeholder="e.g., 2026"
-              />
+              <Input maxLength={4} className={inputClassName} placeholder="e.g., 2026" />
             </Form.Item>
 
             <Form.Item label="Chassis No" name="rc_chassis_no" className="mb-0">
-              <input
-                type="text"
-                className={inputClassName}
-                placeholder="e.g., MA3EXXXX"
-              />
+              <Input className={inputClassName} placeholder="e.g., MA3EXXXX" />
             </Form.Item>
 
             <Form.Item label="Engine No" name="rc_engine_no" className="mb-0">
-              <input
-                type="text"
-                className={inputClassName}
-                placeholder="e.g., K15BXXXX"
-              />
+              <Input className={inputClassName} placeholder="e.g., K15BXXXX" />
             </Form.Item>
 
             <Form.Item
@@ -727,11 +670,15 @@ const VehicleDeliveryStep = ({ form }) => {
               name="rc_received_as"
               className="mb-0"
             >
-              <SelectField>
-                <option value="">Select</option>
-                <option value="Original">Original</option>
-                <option value="Photocopy">Photocopy</option>
-              </SelectField>
+              <Select
+                className="h-10"
+                placeholder="Select"
+                options={[
+                  { label: "Original", value: "Original" },
+                  { label: "Photocopy", value: "Photocopy" },
+                ]}
+                allowClear
+              />
             </Form.Item>
 
             <Form.Item
@@ -739,11 +686,7 @@ const VehicleDeliveryStep = ({ form }) => {
               name="rc_received_from"
               className="mb-0"
             >
-              <input
-                type="text"
-                className={inputClassName}
-                placeholder="e.g., RTO Office"
-              />
+              <Input className={inputClassName} placeholder="e.g., RTO Office" />
             </Form.Item>
 
             <Form.Item
@@ -764,10 +707,12 @@ const VehicleDeliveryStep = ({ form }) => {
                 <label className="text-xs text-muted-foreground mb-1 block">
                   Hypothecation
                 </label>
-                <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm dark:border-slate-800 dark:bg-slate-900/60">
-                  <Icon name="Building2" size={14} className="text-primary" />
-                  <span className="font-medium">{approvalBankName || "-"}</span>
-                </div>
+                <Input
+                  className="h-10"
+                  value={approvalBankName || "-"}
+                  readOnly
+                  prefix={<Icon name="Building2" size={14} className="text-primary" />}
+                />
               </div>
             )}
 

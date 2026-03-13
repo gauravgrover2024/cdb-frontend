@@ -3015,6 +3015,12 @@ const FieldMappingPage = () => {
       if (isMeaningfulValue(individualAadhaar)) {
         doc.identityProofType = "AADHAAR";
         doc.addressProofType = "AADHAAR";
+        if (!isMeaningfulValue(doc.identityProofNumber)) {
+          doc.identityProofNumber = String(individualAadhaar).trim();
+        }
+        if (!isMeaningfulValue(doc.addressProofNumber)) {
+          doc.addressProofNumber = String(individualAadhaar).trim();
+        }
       }
     }
 

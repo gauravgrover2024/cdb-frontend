@@ -498,7 +498,7 @@ const LoanViewModal = ({ open, loan, onClose, initialTab }) => {
         </div>
 
         <div className="h-[calc(90vh-152px)] overflow-y-auto bg-gradient-to-b from-background via-background to-muted/20">
-          <main className="mx-auto w-full max-w-[1500px] p-4 md:p-5">
+          <main className="app-max-wrap w-full p-3 md:p-4">
             <div className="sticky top-0 z-20 -mx-1 mb-4 rounded-2xl border border-border/60 bg-background/90 px-2 py-2 backdrop-blur">
               <div className="flex flex-wrap gap-2 overflow-x-auto">
                 {sections.map((section) => {

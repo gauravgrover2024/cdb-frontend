@@ -4,6 +4,190 @@ import Icon from "../../../../../../components/AppIcon";
 import Button from "../../../../../../components/ui/Button";
 import { lenderHypothecationOptions } from "../../../../../../constants/lenderHypothecationOptions";
 
+const BANK_LOGO_DOMAIN_MAP = {
+  hdfc: "hdfcbank.com",
+  "hdfc bank": "hdfcbank.com",
+  icici: "icicibank.com",
+  "icici bank": "icicibank.com",
+  sbi: "sbi.co.in",
+  "state bank of india": "sbi.co.in",
+  axis: "axisbank.com",
+  "axis bank": "axisbank.com",
+  kotak: "kotak.com",
+  "kotak mahindra bank": "kotak.com",
+  federal: "federalbank.co.in",
+  "federal bank": "federalbank.co.in",
+  pnb: "pnbindia.in",
+  "punjab national bank": "pnbindia.in",
+  bob: "bankofbaroda.in",
+  "bank of baroda": "bankofbaroda.in",
+  boi: "bankofindia.co.in",
+  "bank of india": "bankofindia.co.in",
+  canara: "canarabank.com",
+  "canara bank": "canarabank.com",
+  indusind: "indusind.com",
+  "indusind bank": "indusind.com",
+  idfc: "idfcfirstbank.com",
+  "idfc first bank": "idfcfirstbank.com",
+  idbi: "idbibank.in",
+  "idbi bank": "idbibank.in",
+  yes: "yesbank.in",
+  "yes bank": "yesbank.in",
+  rbl: "rblbank.com",
+  "rbl bank": "rblbank.com",
+  union: "unionbankofindia.co.in",
+  "union bank of india": "unionbankofindia.co.in",
+  iob: "iob.in",
+  "indian bank": "indianbank.in",
+  "indian overseas bank": "iob.in",
+  "uco bank": "ucobank.com",
+  "jammu & kashmir bank": "jkbank.com",
+  "karur vysya bank": "kvb.co.in",
+  "karnataka bank": "ktkbank.com",
+  "city union bank": "cityunionbank.com",
+  "bandhan bank": "bandhanbank.com",
+  "dbs bank india": "dbs.com",
+  "dbs bank india limited": "dbs.com",
+  "paytm payments bank": "paytmbank.com",
+  "paytm payments bank limited": "paytmbank.com",
+  "airtel payments bank": "airtel.in",
+  "airtel payments bank limited": "airtel.in",
+  "india post payments bank": "ippbonline.com",
+  "india post payments bank limited": "ippbonline.com",
+  "fino payments bank": "finobank.com",
+  "fino payments bank limited": "finobank.com",
+  "jio payments bank": "jio.com",
+  "jio payments bank limited": "jio.com",
+  "nsdl payments bank": "nsdlbank.co.in",
+  "nsdl payments bank limited": "nsdlbank.co.in",
+  "bajaj finance": "bajajfinserv.in",
+  "bajaj finance limited": "bajajfinserv.in",
+  "tata capital": "tatacapital.com",
+  "tata capital financial services": "tatacapital.com",
+  "tata capital financial services limited": "tatacapital.com",
+  "hdb financial services": "hdbfs.com",
+  "mahindra & mahindra financial services": "mahindrafinance.com",
+  "mmfsl": "mahindrafinance.com",
+  "shriram finance": "shriramfinance.in",
+  "cholamandalam investment & finance": "cholamandalam.com",
+  "cholamandalam finance": "chola.ms",
+  "hero fincorp": "herofincorp.com",
+  "aditya birla finance": "adityabirlacapital.com",
+  "l&t finance": "ltfs.com",
+  "lt finance": "ltfs.com",
+  "sbi general insurance company limited": "sbigeneral.in",
+  "sbi life insurance company limited": "sbilife.co.in",
+};
+
+const SIMPLE_ICON_SLUG_MAP = {
+  hdfc: "hdfcbank",
+  "hdfc bank": "hdfcbank",
+  icici: "icicibank",
+  "icici bank": "icicibank",
+  axis: "axisbank",
+  "axis bank": "axisbank",
+  paytm: "paytm",
+  "paytm payments bank": "paytm",
+  airtel: "airtel",
+  "airtel payments bank": "airtel",
+  "idfc first bank": "idfcfirstbank",
+  indusind: "indusindbank",
+  "indusind bank": "indusindbank",
+  yes: "yesbank",
+  "yes bank": "yesbank",
+  "bajaj finance": "bajajfinserv",
+  "bajaj finance limited": "bajajfinserv",
+};
+
+const normalizeBankNameKey = (name) =>
+  String(name || "")
+    .toLowerCase()
+    .replace(/[.,&/()-]/g, " ")
+    .replace(/\b(ltd|limited|banking|co|company)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const bankLogoSources = (bankName) => {
+  const rawKey = String(bankName || "").toLowerCase().trim();
+  const normalized = normalizeBankNameKey(bankName);
+  const simpleExact = SIMPLE_ICON_SLUG_MAP[rawKey] || SIMPLE_ICON_SLUG_MAP[normalized];
+  const simpleHit = Object.entries(SIMPLE_ICON_SLUG_MAP).find(([key]) =>
+    normalized.includes(normalizeBankNameKey(key)),
+  );
+  const simpleSlug = simpleExact || simpleHit?.[1] || "";
+  const byExact = BANK_LOGO_DOMAIN_MAP[rawKey] || BANK_LOGO_DOMAIN_MAP[normalized];
+  const entries = Object.entries(BANK_LOGO_DOMAIN_MAP);
+  const fallbackHit = entries.find(([key]) => normalized.includes(normalizeBankNameKey(key)));
+  const domain = byExact || fallbackHit?.[1] || "";
+  const sources = [];
+  if (domain) {
+    sources.push(
+      // Prefer full-color logo providers first.
+      `https://logo.clearbit.com/${domain}?size=256`,
+      `https://logo.clearbit.com/${domain}?size=128`,
+      `https://www.google.com/s2/favicons?sz=256&domain=${domain}`,
+      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    );
+  }
+  if (simpleSlug) {
+    // Last fallback only; many simpleicons render monochrome.
+    sources.push(`https://cdn.simpleicons.org/${simpleSlug}`);
+  }
+  return sources;
+};
+
+const initialsFromBankName = (bankName) => {
+  const tokens = String(bankName || "")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .filter((t) => !["bank", "limited", "ltd", "finance", "financial", "services"].includes(t.toLowerCase()));
+
+  if (!tokens.length) return "BK";
+  if (tokens.length === 1) return tokens[0].slice(0, 2).toUpperCase();
+  return `${tokens[0][0] || ""}${tokens[1][0] || ""}`.toUpperCase();
+};
+
+const BankLogoBadge = ({ bankName }) => {
+  const [logoIndex, setLogoIndex] = useState(0);
+  const logoUrls = React.useMemo(() => bankLogoSources(bankName), [bankName]);
+  const logoUrl = logoUrls[logoIndex] || "";
+  const isSimpleIcon = logoUrl.includes("cdn.simpleicons.org");
+  const isFaviconFallback =
+    logoUrl.includes("google.com/s2/favicons") ||
+    logoUrl.includes("icons.duckduckgo.com");
+
+  useEffect(() => {
+    setLogoIndex(0);
+  }, [bankName]);
+
+  const canShowImage = Boolean(logoUrl);
+
+  return (
+    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-border bg-white shadow-sm dark:bg-slate-950">
+      {canShowImage ? (
+        <img
+          src={logoUrl}
+          alt={bankName || "Bank"}
+          className={`object-contain ${
+            isSimpleIcon
+              ? "h-8 w-8"
+              : isFaviconFallback
+                ? "h-7 w-7"
+                : "h-9 w-9"
+          }`}
+          loading="lazy"
+          onError={() => setLogoIndex((prev) => prev + 1)}
+        />
+      ) : (
+        <span className="text-[11px] font-black tracking-wide text-primary">
+          {initialsFromBankName(bankName)}
+        </span>
+      )}
+    </div>
+  );
+};
+
 const getStatusClasses = (status) => {
   const s = (status || "").toLowerCase();
 
@@ -258,9 +442,7 @@ const BankStatusCard = ({
         <>
           <div className="relative mb-3 flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background shadow-sm">
-                <Icon name="Building2" size={20} className="text-primary" />
-              </div>
+              <BankLogoBadge bankName={bank.bankName} />
               <div>
                 <h3 className="text-base font-semibold text-foreground">
                   {bank.bankName}

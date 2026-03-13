@@ -70,6 +70,7 @@ const PersonalDetailsPreFile = () => {
   // Watches
   const applicantType = Form.useWatch("applicantType", form);
   const identityType = Form.useWatch("identityProofType", form);
+  const addressProofType = Form.useWatch("addressProofType", form);
   const sameAsCurrent = Form.useWatch("sameAsCurrentAddress", form);
   const pincode = Form.useWatch("pincode", form);
   const permanentPincode = Form.useWatch("permanentPincode", form);
@@ -80,6 +81,10 @@ const PersonalDetailsPreFile = () => {
   const employmentPhone = Form.useWatch("employmentPhone", form);
   const officialEmail = Form.useWatch("officialEmail", form);
   const primaryMobile = Form.useWatch("primaryMobile", form);
+  const aadhaarNumber = Form.useWatch("aadhaarNumber", form);
+  const aadharNumber = Form.useWatch("aadharNumber", form);
+  const passportNumber = Form.useWatch("passportNumber", form);
+  const dlNumber = Form.useWatch("dlNumber", form);
   const isCompany = applicantType === "Company";
 
   // State
@@ -97,12 +102,18 @@ const PersonalDetailsPreFile = () => {
     }
   }, [dob]);
 
-  // Helper for KYC auto-fill
-  const getKycValues = React.useCallback(() => ({
-    aadhaar: form.getFieldValue("aadhaarNumber") || "",
-    passport: form.getFieldValue("passportNumber") || "",
-    dl: form.getFieldValue("dlNumber") || "",
-  }), [form]);
+  const resolveProofNumber = React.useCallback((type) => {
+    if (type === "AADHAAR") {
+      return aadhaarNumber || aadharNumber || form.getFieldValue("aadhaarNumber") || form.getFieldValue("aadharNumber") || "";
+    }
+    if (type === "PASSPORT") {
+      return passportNumber || form.getFieldValue("passportNumber") || "";
+    }
+    if (type === "DRIVING_LICENSE") {
+      return dlNumber || form.getFieldValue("dlNumber") || "";
+    }
+    return "";
+  }, [aadhaarNumber, aadharNumber, passportNumber, dlNumber, form]);
 
   // Pincode Fetching (Current)
   useEffect(() => {
@@ -150,12 +161,21 @@ const PersonalDetailsPreFile = () => {
     };
   }, [permanentPincode, form]);
 
-  // Identity logic
+  // Identity proof number auto-fill from selected proof type.
   useEffect(() => {
-    const kyc = getKycValues();
-    let val = identityType === "AADHAAR" ? kyc.aadhaar : identityType === "PASSPORT" ? kyc.passport : identityType === "DRIVING_LICENSE" ? kyc.dl : "";
-    if (val) form.setFieldsValue({ identityProofNumber: val });
-  }, [identityType, form, getKycValues]);
+    const val = resolveProofNumber(identityType);
+    if (val) {
+      form.setFieldsValue({ identityProofNumber: val });
+    }
+  }, [identityType, resolveProofNumber, form]);
+
+  // Address proof number auto-fill from selected address proof type.
+  useEffect(() => {
+    const val = resolveProofNumber(addressProofType);
+    if (val) {
+      form.setFieldsValue({ addressProofNumber: val });
+    }
+  }, [addressProofType, resolveProofNumber, form]);
 
   // Company cases use business contact details and must always have a co-applicant.
   useEffect(() => {

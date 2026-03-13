@@ -39,6 +39,8 @@
     --ring: 29 155 240;
 
     --radius: 0.5rem;
+    --app-max-content: 1860px;
+    --app-gutter: clamp(10px, 1.6vw, 22px);
   }
 
   .dark {
@@ -89,6 +91,43 @@ body {
     background-color 0.2s ease,
     color 0.2s ease;
   -webkit-font-smoothing: antialiased;
+}
+
+.app-max-wrap {
+  width: min(100% - (var(--app-gutter) * 2), var(--app-max-content));
+  margin-inline: auto;
+}
+
+@media (max-width: 1680px) {
+  html {
+    font-size: 15.5px;
+  }
+}
+
+@media (max-width: 1512px) {
+  :root {
+    --app-gutter: clamp(8px, 1.2vw, 14px);
+  }
+
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 1366px) {
+  html {
+    font-size: 14.5px;
+  }
+}
+
+@media (max-width: 1280px) {
+  :root {
+    --app-gutter: 10px;
+  }
+
+  html {
+    font-size: 14px;
+  }
 }
 
 /* Focus styles */
@@ -165,6 +204,26 @@ body {
 .prefile-workbench .ant-select-selector,
 .prefile-workbench .ant-input-number {
   min-height: 46px;
+}
+
+@media (max-width: 1366px) {
+  .loan-form-workbench .ant-input,
+  .loan-form-workbench .ant-input-affix-wrapper,
+  .loan-form-workbench .ant-picker,
+  .loan-form-workbench .ant-select-selector,
+  .loan-form-workbench .ant-input-number,
+  .prefile-workbench .ant-input,
+  .prefile-workbench .ant-input-affix-wrapper,
+  .prefile-workbench .ant-picker,
+  .prefile-workbench .ant-select-selector,
+  .prefile-workbench .ant-input-number {
+    min-height: 42px;
+  }
+
+  .loan-form-workbench .ant-form-item,
+  .prefile-workbench .ant-form-item {
+    margin-bottom: 14px;
+  }
 }
 
 .loan-form-workbench textarea.ant-input,

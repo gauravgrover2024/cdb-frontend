@@ -316,7 +316,7 @@ const QuotationManagerPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#171717] px-4 py-4 md:px-8 md:py-6">
-      <div className="max-w-6xl mx-auto space-y-3 pb-10">
+      <div className="app-max-wrap space-y-3 pb-10">
         {/* Header row */}
         <div className="flex items-center justify-between mb-1">
           <div>

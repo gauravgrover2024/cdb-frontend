@@ -256,26 +256,46 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
   const [activeView, setActiveView] = useState("cards");
   const [selectedBank, setSelectedBank] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const saveTimeoutRef = useRef(null);
-  const initialFetchRef = useRef(false);
+  const fetchedLoanIdRef = useRef(null);
 
   // Fetch banks data on component mount
   useEffect(() => {
-    if (!loanId || initialFetchRef.current) return;
-    initialFetchRef.current = true;
+    if (!loanId) {
+      setIsLoading(false);
+      return;
+    }
+    if (fetchedLoanIdRef.current === loanId) return;
+
+    let cancelled = false;
 
     const fetchData = async () => {
       setIsLoading(true);
-      const fetchedBanks = await fetchBanksDataFromAPI(loanId);
-      if (fetchedBanks) {
-        setBanksData(fetchedBanks);
+      try {
+        // Keep UI responsive even if banks endpoint is slow/unavailable.
+        const fetchedBanks = await Promise.race([
+          fetchBanksDataFromAPI(loanId),
+          new Promise((resolve) => setTimeout(() => resolve(null), 7000)),
+        ]);
+
+        if (!cancelled && Array.isArray(fetchedBanks)) {
+          setBanksData(fetchedBanks);
+        }
+      } finally {
+        if (!cancelled) {
+          fetchedLoanIdRef.current = loanId;
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
     fetchData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loanId, setBanksData]);
 
   // Auto-save with debounce
@@ -503,43 +523,56 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-sky-200/70 bg-sky-50/90 p-4 shadow-sm dark:border-sky-900/60 dark:bg-sky-950/20">
-          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icon name="Building2" size={16} />
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="rounded-xl border border-sky-200/70 bg-sky-50/90 px-3 py-2.5 shadow-sm dark:border-sky-900/60 dark:bg-sky-950/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon name="Building2" size={14} />
+              </span>
+              <span className="truncate text-[11px] font-medium text-muted-foreground">Total Banks</span>
+            </div>
+            <span className="text-xl font-semibold leading-none text-foreground">{statusSummary.total}</span>
           </div>
-          <div className="mb-1 text-xs font-medium text-muted-foreground">Total Banks</div>
-          <div className="text-3xl font-semibold leading-none text-foreground">{statusSummary.total}</div>
         </div>
-        <div className="rounded-2xl border border-emerald-300/60 bg-emerald-50/90 p-4 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
-          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-            <Icon name="BadgeCheck" size={16} />
+        <div className="rounded-xl border border-emerald-300/60 bg-emerald-50/90 px-3 py-2.5 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                <Icon name="BadgeCheck" size={14} />
+              </span>
+              <span className="truncate text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Approved / Disbursed</span>
+            </div>
+            <span className="text-xl font-semibold leading-none text-emerald-700 dark:text-emerald-300">{statusSummary.approved}</span>
           </div>
-          <div className="mb-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">Approved / Disbursed</div>
-          <div className="text-3xl font-semibold leading-none text-emerald-700 dark:text-emerald-300">{statusSummary.approved}</div>
         </div>
-        <div className="rounded-2xl border border-amber-300/60 bg-amber-50/90 p-4 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/20">
-          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
-            <Icon name="Clock3" size={16} />
+        <div className="rounded-xl border border-amber-300/60 bg-amber-50/90 px-3 py-2.5 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                <Icon name="Clock3" size={14} />
+              </span>
+              <span className="truncate text-[11px] font-medium text-amber-700 dark:text-amber-300">In Progress</span>
+            </div>
+            <span className="text-xl font-semibold leading-none text-amber-700 dark:text-amber-300">{underProcess}</span>
           </div>
-          <div className="mb-1 text-xs font-medium text-amber-700 dark:text-amber-300">In Progress</div>
-          <div className="text-3xl font-semibold leading-none text-amber-700 dark:text-amber-300">{underProcess}</div>
         </div>
-        <div className="rounded-2xl border border-rose-300/60 bg-rose-50/90 p-4 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/20">
-          <div className="mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300">
-            <Icon name="ShieldX" size={16} />
+        <div className="rounded-xl border border-rose-300/60 bg-rose-50/90 px-3 py-2.5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300">
+                <Icon name="ShieldX" size={14} />
+              </span>
+              <span className="truncate text-[11px] font-medium text-rose-700 dark:text-rose-300">Rejected</span>
+            </div>
+            <span className="text-xl font-semibold leading-none text-rose-700 dark:text-rose-300">{statusSummary.rejected}</span>
           </div>
-          <div className="mb-1 text-xs font-medium text-rose-700 dark:text-rose-300">Rejected</div>
-          <div className="text-3xl font-semibold leading-none text-rose-700 dark:text-rose-300">{statusSummary.rejected}</div>
         </div>
       </div>
 
       <div className="rounded-[26px] border border-border/70 bg-card/95 p-4 shadow-[0_20px_55px_-36px_rgba(15,23,42,0.4)] md:p-5 dark:bg-black/75 dark:shadow-[0_20px_55px_-38px_rgba(0,0,0,0.9)]">
         {activeView === "cards" ? (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-2.5 text-xs text-muted-foreground dark:bg-black/45">
-              Offers board: {filteredBanks.length} bank{filteredBanks.length === 1 ? "" : "s"} active
-            </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredBanks.map((bank) => (
                 <div

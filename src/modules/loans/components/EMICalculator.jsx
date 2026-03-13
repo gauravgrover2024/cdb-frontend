@@ -1734,7 +1734,7 @@ const EMICalculator = ({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#171717] px-4 py-6 md:px-8 md:py-8">
-      <div className="max-w-6xl mx-auto space-y-4 pb-16">
+      <div className="app-max-wrap space-y-4 pb-16">
         <div className="flex items-center justify-between">
           <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">
             EMI calculator & quotation

@@ -91,21 +91,21 @@ function ModuleFrame({ children }) {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 via-white to-slate-50">
-      <div className="mx-auto w-full max-w-[1440px] px-4 pb-6 pt-4 md:px-6 md:pt-5">
-        <section className="relative mb-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm md:mb-5 md:p-5">
+      <div className="app-max-wrap w-full pb-5 pt-2.5 md:pt-3 xl:pb-6 xl:pt-4">
+        <section className="relative mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm md:mb-4 md:p-4 xl:mb-5 xl:p-5">
           <div className={`pointer-events-none absolute inset-0 bg-gradient-to-r ${moduleMeta.glow}`} />
           <div className="relative flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="mb-1.5 inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">
                 {moduleMeta.badge}
               </div>
-              <h1 className="truncate text-lg font-black tracking-tight text-zinc-900 md:text-2xl">
+              <h1 className="truncate text-base font-black tracking-tight text-zinc-900 md:text-xl xl:text-2xl">
                 {moduleMeta.title}
               </h1>
-              <p className="mt-1 text-xs font-medium text-zinc-600 md:text-sm">{moduleMeta.subtitle}</p>
+              <p className="mt-1 text-[11px] font-medium text-zinc-600 md:text-xs xl:text-sm">{moduleMeta.subtitle}</p>
             </div>
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/80 bg-white/90 shadow-sm">
-              <Icon name={moduleMeta.icon} size={22} className="text-zinc-800" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/80 bg-white/90 shadow-sm xl:h-11 xl:w-11">
+              <Icon name={moduleMeta.icon} size={20} className="text-zinc-800 xl:text-[22px]" />
             </div>
           </div>
         </section>

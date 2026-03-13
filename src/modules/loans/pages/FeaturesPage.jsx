@@ -333,7 +333,7 @@ const FeaturesPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#050505] px-4 py-6 md:px-8 md:py-8">
-      <div className="max-w-7xl mx-auto pb-24 space-y-4">
+      <div className="app-max-wrap pb-24 space-y-4">
         {/* Header */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-1 px-1 md:px-0">
           <div>

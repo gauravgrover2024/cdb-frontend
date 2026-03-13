@@ -197,9 +197,9 @@ const Header = () => {
       <header
         className="sticky top-0 z-[1000] py-0 transition-all duration-500"
       >
-        <div className="w-full px-3 md:px-5">
+        <div className="app-max-wrap w-full">
           <div
-            className={`relative flex h-16 items-center gap-3 rounded-2xl px-3 md:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-all duration-500 ${
+            className={`relative flex h-14 items-center gap-2.5 rounded-2xl px-2.5 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-all duration-500 ${
               scrolled
                 ? "bg-white/86 dark:bg-black/96 backdrop-blur-xl"
                 : "bg-white/95 dark:bg-black"
@@ -208,18 +208,18 @@ const Header = () => {
             {/* Brand Logo */}
             <button
               type="button"
-              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-2 py-1 transition-all hover:bg-slate-100/80 dark:bg-white dark:hover:bg-white"
+              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1.5 py-0.5 transition-all hover:bg-slate-100/80 dark:bg-white dark:hover:bg-white"
               onClick={() => handleNavigation("/")}
             >
               <img
                 src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
                 alt="ACILLP"
-                className="h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105 xl:h-11"
               />
             </button>
 
             {/* Center: Desktop Navigation */}
-            <nav className="relative z-[1] hidden lg:flex flex-1 items-center gap-1 rounded-xl bg-white/70 px-2 py-1.5 dark:bg-black/80">
+            <nav className="relative z-[1] hidden lg:flex flex-1 items-center gap-1 rounded-xl bg-white/70 px-1.5 py-1 dark:bg-black/80 xl:px-2 xl:py-1.5">
               {navigationGroups.map((group) => (
                 <div key={group.label} className="relative group/nav">
                   {(() => {
@@ -227,7 +227,7 @@ const Header = () => {
                     return group.children ? (
                       <>
                         <button
-                          className={`flex h-10 items-center gap-2 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-300 outline-none ${
+                          className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-all duration-300 outline-none xl:h-10 xl:px-3.5 xl:text-[13px] ${
                             isGroupActive(group.children)
                               ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
                               : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
@@ -289,7 +289,7 @@ const Header = () => {
                     ) : (
                       <button
                         onClick={() => handleNavigation(group.path)}
-                        className={`flex h-10 items-center gap-2 rounded-lg px-3.5 text-[13px] font-semibold transition-all duration-300 ${
+                        className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-all duration-300 xl:h-10 xl:px-3.5 xl:text-[13px] ${
                           isActive(group.path)
                             ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
                             : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
@@ -312,7 +312,7 @@ const Header = () => {
 
             {/* Right: Actions */}
             <div className="relative z-[1] flex items-center gap-2 sm:gap-3">
-              <div className="relative hidden sm:flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-emerald-100 text-slate-600 transition-colors hover:from-sky-200 hover:to-emerald-200 hover:text-slate-900 dark:from-sky-500/20 dark:to-emerald-500/20 dark:text-slate-200 dark:hover:from-sky-500/30 dark:hover:to-emerald-500/30">
+              <div className="relative hidden sm:flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-emerald-100 text-slate-600 transition-colors hover:from-sky-200 hover:to-emerald-200 hover:text-slate-900 dark:from-sky-500/20 dark:to-emerald-500/20 dark:text-slate-200 dark:hover:from-sky-500/30 dark:hover:to-emerald-500/30 xl:h-10 xl:w-10">
                 <AntBadge dot color="#1d9bf0" offset={[-1, 2]}>
                   <Bell size={18} />
                 </AntBadge>

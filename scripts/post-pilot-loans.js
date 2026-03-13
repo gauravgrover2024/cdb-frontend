@@ -1405,9 +1405,11 @@ function buildPayload(caseId, caseData, vehicles) {
       : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER)
         ? "AADHAAR"
         : inferIdentityProofType(cpv),
-    identityProofNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER || cpv.DRIVING_LICENSE || cpv.PASSPORT_NUMBER),
+    identityProofNumber: isCompany
+      ? undefined
+      : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER || cpv.DRIVING_LICENSE || cpv.PASSPORT_NUMBER),
     addressProofType: isCompany ? undefined : "AADHAAR",
-    addressProofNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER),
+    addressProofNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER),
     addressType: isCompany ? undefined : "residential",
     aadhaarNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER),
     aadharNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER),

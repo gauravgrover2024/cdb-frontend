@@ -257,7 +257,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
         className="fixed left-0 right-0 z-[100] w-full border-b border-border bg-background/95 shadow-sm backdrop-blur-md"
         style={{ top: 60 }}
       >
-        <div className="mx-auto max-w-[1600px] px-3 py-1 md:px-5 md:py-1">
+        <div className="app-max-wrap px-1 py-1 md:px-1 md:py-1">
           <div className="flex items-stretch overflow-x-auto rounded-xl border border-slate-300/70 bg-white/90 shadow-[0_14px_28px_-20px_rgba(15,23,42,0.35)] no-scrollbar dark:border-slate-700/80 dark:bg-slate-950/85">
             <div className="min-w-[220px] px-3 py-1.5 bg-sky-50/65 dark:bg-sky-950/15">
               <p className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-sky-700 dark:text-sky-300">

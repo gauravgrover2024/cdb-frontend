@@ -390,7 +390,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#171717] px-4 py-6 md:px-8 md:py-8">
-      <div className="max-w-6xl mx-auto space-y-4 pb-16">
+      <div className="app-max-wrap space-y-4 pb-16">
         {/* New cleaner header */}
         <div className="bg-white dark:bg-[#1f1f1f] rounded-[28px] border border-slate-100 dark:border-[#262626] shadow-sm px-6 py-4 md:px-8 md:py-4 flex flex-col gap-3">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -938,7 +938,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
         {/* Sticky footer summary */}
         <div className="fixed bottom-4 left-0 right-0 z-20">
-          <div className="max-w-6xl mx-auto px-4">
+          <div className="app-max-wrap px-2">
             <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/95 dark:bg-[#1f1f1f]/95 border border-gray-200 dark:border-[#262626] shadow-xl backdrop-blur">
               <div className="flex flex-wrap items-center gap-3 text-sm md:text-base">
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
