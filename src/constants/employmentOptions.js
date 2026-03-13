@@ -6,9 +6,15 @@
 /** Build options list including current value if it's custom (not in base list), so it displays when loaded from DB */
 export function getOptionsWithCustom(baseOptions, currentValue) {
   const options = baseOptions.map((opt) => ({ value: opt, label: opt }));
-  if (currentValue && typeof currentValue === "string" && currentValue.trim() && !baseOptions.includes(currentValue.trim())) {
-    options.push({ value: currentValue.trim(), label: currentValue.trim() });
-  }
+  const values = Array.isArray(currentValue) ? currentValue : [currentValue];
+  values
+    .filter((val) => typeof val === "string" && val.trim())
+    .map((val) => val.trim())
+    .forEach((val) => {
+      if (!baseOptions.includes(val) && !options.some((opt) => opt.value === val)) {
+        options.push({ value: val, label: val });
+      }
+    });
   return options;
 }
 

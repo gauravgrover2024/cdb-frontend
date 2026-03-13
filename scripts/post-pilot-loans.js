@@ -2821,10 +2821,12 @@ function inferVehicleUsage(cpv, rc) {
 }
 
 function normalizeOccupationType(value) {
-  const text = cleanText(value).toLowerCase();
+  const text = cleanText(value).toLowerCase().replace(/[_-]+/g, " ");
   if (!text) return undefined;
   if (text.includes("salaried")) return "Salaried";
+  if (text.includes("self employed professional")) return "Self Employed Professional";
   if (text.includes("professional")) return "Self Employed Professional";
+  if (text.includes("self employed") || text.includes("selfemployed")) return "Self Employed";
   return "Self Employed";
 }
 

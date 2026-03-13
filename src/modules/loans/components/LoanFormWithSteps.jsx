@@ -140,6 +140,15 @@ const normalizeLoanTypeLabel = (value) => {
   return value;
 };
 
+const normalizeOccupationLabel = (value) => {
+  const text = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  if (!text) return value;
+  if (text.includes("salaried")) return "Salaried";
+  if (text.includes("professional")) return "Self Employed Professional";
+  if (text.includes("self employed") || text.includes("selfemployed")) return "Self Employed";
+  return value;
+};
+
 const normalizeKnownDateFields = (value, key = "") => {
   if (Array.isArray(value)) {
     return value.map((item) => normalizeKnownDateFields(item));
@@ -978,6 +987,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         const hydratedLoan = {
           ...(loan || {}),
           typeOfLoan: normalizeLoanTypeLabel(loan?.typeOfLoan || loan?.loanType) || loan?.typeOfLoan || "",
+          occupationType: normalizeOccupationLabel(loan?.occupationType),
+          co_occupation: normalizeOccupationLabel(loan?.co_occupation),
+          gu_occupation: normalizeOccupationLabel(loan?.gu_occupation),
           dispatch_date:
             loan?.dispatch_date || loan?.dispatchDate || "",
           disbursement_date:

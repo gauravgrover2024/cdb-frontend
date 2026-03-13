@@ -21,6 +21,14 @@ import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { Option } = Select;
+const normalizeOccupationForUI = (value) => {
+  const text = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  if (!text) return "";
+  if (text.includes("salaried")) return "Salaried";
+  if (text.includes("professional")) return "Self Employed Professional";
+  if (text.includes("self employed") || text.includes("selfemployed")) return "Self Employed";
+  return value;
+};
 const asDayjs = (value) => {
   if (!value) return null;
   if (dayjs.isDayjs(value)) return value;
@@ -98,11 +106,18 @@ const GuarantorSection = () => {
     };
   }, [guCompanyPincode, form]);
 
+  useEffect(() => {
+    if (typeof guBusinessNature === "string" && guBusinessNature.trim()) {
+      form.setFieldsValue({ gu_businessNature: [guBusinessNature.trim()] });
+    }
+  }, [guBusinessNature, form]);
+
   if (!hasGuarantor) return null;
 
-  const isSalaried = occupation === "Salaried";
-  const isSelfEmployed = occupation === "Self Employed";
-  const isProfessional = occupation === "Self Employed Professional";
+  const normalizedOccupation = normalizeOccupationForUI(occupation);
+  const isSalaried = normalizedOccupation === "Salaried";
+  const isSelfEmployed = normalizedOccupation === "Self Employed";
+  const isProfessional = normalizedOccupation === "Self Employed Professional";
   const sectionLabelClass =
     "text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground";
   const fieldClass = "h-10 rounded-lg w-full";
@@ -327,14 +342,14 @@ const GuarantorSection = () => {
         {(isSalaried || isSelfEmployed || isProfessional) && (
           <Col xs={24} md={8}>
             <Form.Item label="Nature of Business" name="gu_businessNature">
-              <AutoComplete
-                className={fieldClass}
-                placeholder="Select or type"
+              <Select
+                mode="multiple"
+                className="w-full"
+                placeholder="Select or type multiple business types"
                 allowClear
+                showSearch
+                optionFilterProp="label"
                 options={businessNatureOptions}
-                filterOption={(input, option) =>
-                  (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
-                }
               />
             </Form.Item>
           </Col>

@@ -987,6 +987,16 @@ const normalizeBankNameValue = (rawValue) => {
   return text;
 };
 
+const normalizeOccupationValue = (rawValue) => {
+  const text = String(rawValue ?? "").trim();
+  if (!text) return rawValue;
+  const lc = text.toLowerCase().replace(/[_-]+/g, " ");
+  if (lc.includes("salaried")) return "Salaried";
+  if (lc.includes("professional")) return "Self Employed Professional";
+  if (lc.includes("self employed") || lc.includes("selfemployed")) return "Self Employed";
+  return text;
+};
+
 const applyBuiltInNormalization = (targetField, rawValue) => {
   if (rawValue === undefined || rawValue === null) return rawValue;
   const target = String(targetField || "");
@@ -1092,6 +1102,10 @@ const applyBuiltInNormalization = (targetField, rawValue) => {
     case "maritalStatus":
     case "co_maritalStatus":
       return normalizeMaritalStatusValue(rawValue);
+    case "occupationType":
+    case "co_occupation":
+    case "gu_occupation":
+      return normalizeOccupationValue(rawValue);
     default:
       return rawValue;
   }

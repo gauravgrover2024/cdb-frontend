@@ -5,6 +5,14 @@ import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } f
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { Option } = Select;
+const normalizeOccupationForUI = (value) => {
+  const text = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  if (!text) return "";
+  if (text.includes("salaried")) return "Salaried";
+  if (text.includes("professional")) return "Self Employed Professional";
+  if (text.includes("self employed") || text.includes("selfemployed")) return "Self Employed";
+  return value;
+};
 
 const OccupationalDetailsPreFile = () => {
   const form = Form.useFormInstance();
@@ -119,7 +127,7 @@ const OccupationalDetailsPreFile = () => {
       <Form.Item shouldUpdate noStyle>
         {({ getFieldValue }) => {
           const liveApplicantType = getFieldValue("applicantType");
-          const occupation = getFieldValue("occupationType");
+          const occupation = normalizeOccupationForUI(getFieldValue("occupationType"));
           const companyMode = liveApplicantType === "Company";
 
           return (
@@ -183,7 +191,7 @@ const OccupationalDetailsPreFile = () => {
                   </Form.Item>
                   <Form.Item label="Business Profile" className="mb-0">
                     <Select
-                      value={occupationType || "Self Employed"}
+                      value={normalizeOccupationForUI(occupationType) || "Self Employed"}
                       options={companyOccupationOptions}
                       className="h-10 rounded-lg"
                       onChange={(value) => form.setFieldsValue({ occupationType: value })}
