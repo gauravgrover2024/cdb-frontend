@@ -89,7 +89,7 @@ const MetricCard = ({
 
       {isActive && (
         <div className="absolute right-2 top-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
-          Active
+          
         </div>
       )}
     </button>

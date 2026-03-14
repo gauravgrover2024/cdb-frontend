@@ -4,6 +4,7 @@ import {
   Card,
   Form,
   Input,
+  AutoComplete,
   DatePicker,
   InputNumber,
   Select,
@@ -15,6 +16,7 @@ import dayjs from "dayjs";
 import { bookingsApi } from "../../../api/bookings";
 import { ArrowLeftOutlined, SaveOutlined } from "@ant-design/icons";
 import { useVehicleData } from "../../../hooks/useVehicleData";
+import useShowroomAutoSuggest from "../../../hooks/useShowroomAutoSuggest";
 
 const { Option } = Select;
 
@@ -24,6 +26,8 @@ const NewBookingPage = () => {
 
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(!!bookingId);
+  const { options: showroomOptions, search: searchShowrooms } =
+    useShowroomAutoSuggest({ limit: 25 });
   const {
     makes,
     models,
@@ -108,6 +112,17 @@ const NewBookingPage = () => {
       console.error("Failed to save booking", err);
       message.error("Failed to save booking");
     }
+  };
+
+  const handleShowroomSelect = (_, option) => {
+    const showroom = option?.showroom;
+    if (!showroom) return;
+    form.setFieldsValue({
+      showroomName: showroom.name || "",
+      showroomContactPerson: showroom.contactPerson || "",
+      showroomContactNumber: showroom.mobile || "",
+      showroomAddress: showroom.address || "",
+    });
   };
 
   return (
@@ -288,7 +303,18 @@ const NewBookingPage = () => {
             {/* Showroom details */}
             <Card size="small" title="Showroom details">
               <Form.Item label="Showroom name" name="showroomName">
-                <Input />
+                <AutoComplete
+                  options={showroomOptions}
+                  onSearch={searchShowrooms}
+                  onSelect={handleShowroomSelect}
+                  filterOption={(inputValue, option) =>
+                    String(option?.label || "")
+                      .toUpperCase()
+                      .includes(inputValue.toUpperCase())
+                  }
+                >
+                  <Input />
+                </AutoComplete>
               </Form.Item>
               <Form.Item
                 label="Showroom contact person"

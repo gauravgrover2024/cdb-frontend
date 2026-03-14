@@ -16,6 +16,7 @@ import {
 import { FileTextOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { getEmployees, formatEmployeesForAutocomplete } from "../../../../../api/employees";
+import useChannelPartnerAutoSuggest from "../../../../../hooks/useChannelPartnerAutoSuggest";
 
 const { Option } = Select;
 const asDayjs = (value) => {
@@ -29,6 +30,8 @@ const Section7RecordDetails = () => {
   const form = Form.useFormInstance();
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const { options: channelOptions, search: searchChannelPartners, getByName } =
+    useChannelPartnerAutoSuggest({ limit: 25 });
 
   // Watch fields from LeadDetails
   const leadSource = Form.useWatch("source", form);
@@ -36,6 +39,7 @@ const Section7RecordDetails = () => {
   const dealerAddress = Form.useWatch("dealerAddress", form);
   const dealerMobile = Form.useWatch("dealerMobile", form);
   const sourceDetails = Form.useWatch("sourceDetails", form);
+  const sourceName = Form.useWatch("sourceName", form);
 
   // Watch fields from RecordDetails
   const recordSource = Form.useWatch("recordSource", form);
@@ -94,6 +98,24 @@ const Section7RecordDetails = () => {
       }
     }
   }, [leadSource, dealerName, dealerAddress, dealerMobile, sourceDetails, form]);
+
+  useEffect(() => {
+    if (recordSource !== "Indirect") return;
+    if (!sourceName) return;
+    const partner = getByName(sourceName);
+    if (!partner) return;
+    const next = {};
+    if (partner.mobile && !form.getFieldValue("dealerMobile")) {
+      next.dealerMobile = partner.mobile;
+    }
+    if (partner.address && !form.getFieldValue("dealerAddress")) {
+      next.dealerAddress = partner.address;
+    }
+    if (!form.getFieldValue("dealerName")) {
+      next.dealerName = partner.name || "";
+    }
+    if (Object.keys(next).length) form.setFieldsValue(next);
+  }, [recordSource, sourceName, form, getByName]);
 
   return (
     <Card
@@ -159,7 +181,38 @@ const Section7RecordDetails = () => {
               name="sourceName"
               rules={[{ required: true, message: 'Required' }]}
             >
-              <Input placeholder="Enter name" className="h-10 rounded-lg" />
+              {recordSource === "Indirect" ? (
+                <AutoComplete
+                  options={channelOptions}
+                  onSearch={searchChannelPartners}
+                  onSelect={(_, option) => {
+                    const partner = option?.partner;
+                    if (!partner) return;
+                    form.setFieldsValue({
+                      sourceName: partner.name || "",
+                      dealerName: partner.name || "",
+                      dealerMobile: partner.mobile || "",
+                      dealerAddress: partner.address || "",
+                    });
+                  }}
+                  onChange={(value) => {
+                    const v = value || "";
+                    form.setFieldsValue({
+                      sourceName: v,
+                      dealerName: v,
+                    });
+                  }}
+                  filterOption={(inputValue, option) =>
+                    String(option?.label || "")
+                      .toUpperCase()
+                      .includes(String(inputValue || "").toUpperCase())
+                  }
+                >
+                  <Input placeholder="Enter dealer/channel name" className="h-10 rounded-lg" />
+                </AutoComplete>
+              ) : (
+                <Input placeholder="Enter name" className="h-10 rounded-lg" />
+              )}
             </Form.Item>
           </Col>
         )}

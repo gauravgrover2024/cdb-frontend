@@ -213,11 +213,16 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
   // Persist latest known non-empty values; live values always override
   useEffect(() => {
     setSnapshot((prev) => {
+      let changed = false;
       const next = { ...prev };
       Object.entries(live).forEach(([k, v]) => {
-        if (hasValue(v)) next[k] = v;
+        if (!hasValue(v)) return;
+        if (prev[k] !== v) {
+          next[k] = v;
+          changed = true;
+        }
       });
-      return next;
+      return changed ? next : prev;
     });
   }, [live]);
 

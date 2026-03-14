@@ -3,13 +3,24 @@ import { apiClient } from "./client";
 export const showroomsApi = {
   // Get all showrooms with optional filters
   getAll: async (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return await apiClient.get(`/api/showrooms?${query}`);
+    return await apiClient.get("/api/showrooms", { params });
   },
 
   // Search showrooms for auto-complete (returns limited fields)
-  search: async (term) => {
-    return await apiClient.get(`/api/showrooms/search?term=${encodeURIComponent(term)}`);
+  // Supports old signature: search(term, limit)
+  // And new signature: search({ term, limit, brand })
+  search: async (termOrOptions = "", limit = 20, brand = "") => {
+    let params;
+    if (termOrOptions && typeof termOrOptions === "object") {
+      params = {
+        term: termOrOptions.term || "",
+        limit: termOrOptions.limit ?? 20,
+        brand: termOrOptions.brand || "",
+      };
+    } else {
+      params = { term: termOrOptions || "", limit, brand: brand || "" };
+    }
+    return await apiClient.get("/api/showrooms/search", { params });
   },
 
   // Get showroom by ID

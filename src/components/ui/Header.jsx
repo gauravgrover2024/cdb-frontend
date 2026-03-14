@@ -199,12 +199,10 @@ const Header = () => {
 
   return (
     <>
-      <header
-        className="sticky top-0 z-[1000] py-0 transition-all duration-500"
-      >
+      <header className="sticky top-0 z-[1000] py-0">
         <div className="app-max-wrap w-full">
           <div
-            className={`relative flex h-14 items-center gap-2.5 rounded-2xl px-2.5 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-all duration-500 ${
+            className={`relative flex h-14 items-center gap-2.5 rounded-2xl px-2.5 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-colors duration-300 ${
               scrolled
                 ? "bg-white/86 dark:bg-black/96 backdrop-blur-xl"
                 : "bg-white/95 dark:bg-black"
@@ -213,7 +211,7 @@ const Header = () => {
             {/* Brand Logo */}
             <button
               type="button"
-              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1.5 py-0.5 transition-all hover:bg-slate-100/80 dark:bg-white dark:hover:bg-white"
+              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1.5 py-0.5 transition-colors hover:bg-slate-100/80 dark:bg-white dark:hover:bg-white"
               onClick={() => handleNavigation("/")}
             >
               <img
@@ -232,7 +230,7 @@ const Header = () => {
                     return group.children ? (
                       <>
                         <button
-                          className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-all duration-300 outline-none xl:h-10 xl:px-3.5 xl:text-[13px] ${
+                          className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-colors duration-200 outline-none xl:h-10 xl:px-3.5 xl:text-[13px] ${
                             isGroupActive(group.children)
                               ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
                               : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
@@ -253,7 +251,7 @@ const Header = () => {
                         </button>
 
                         {/* Dropdown */}
-                        <div className="absolute left-1/2 top-full z-50 w-[320px] -translate-x-1/2 translate-y-2 pt-3 opacity-0 invisible transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/nav:translate-y-0 group-hover/nav:opacity-100 group-hover/nav:visible">
+                        <div className="absolute left-1/2 top-full z-50 w-[320px] -translate-x-1/2 translate-y-2 pt-3 opacity-0 invisible transition-[opacity,transform,visibility] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/nav:translate-y-0 group-hover/nav:opacity-100 group-hover/nav:visible">
                           <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-xl ring-1 ring-black/5 dark:border-slate-800 dark:bg-black">
                             <div className="mb-2 flex items-center justify-between border-b border-slate-200/80 px-3 pb-2 dark:border-slate-800">
                               <span className="text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-400">
@@ -265,7 +263,7 @@ const Header = () => {
                               <button
                                 key={child.path}
                                 onClick={() => handleNavigation(child.path)}
-                                className={`group/item mb-1 w-full rounded-xl px-4 py-3 text-left transition-all duration-200 last:mb-0 ${
+                                className={`group/item mb-1 w-full rounded-xl px-4 py-3 text-left transition-colors duration-150 last:mb-0 ${
                                   isActive(child.path)
                                     ? "bg-sky-50 text-sky-700 dark:bg-slate-900 dark:text-sky-300"
                                     : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/80"
@@ -294,7 +292,7 @@ const Header = () => {
                     ) : (
                       <button
                         onClick={() => handleNavigation(group.path)}
-                        className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-all duration-300 xl:h-10 xl:px-3.5 xl:text-[13px] ${
+                        className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-colors duration-200 xl:h-10 xl:px-3.5 xl:text-[13px] ${
                           isActive(group.path)
                             ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
                             : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"

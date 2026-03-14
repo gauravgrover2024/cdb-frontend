@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import dayjs from "dayjs";
 import {
   Form,
@@ -14,18 +14,10 @@ import {
 
 
 import Icon from "../../../../../components/AppIcon";
+import useChannelPartnerAutoSuggest from "../../../../../hooks/useChannelPartnerAutoSuggest";
 
 const LeadDetails = () => {
   const form = Form.useFormInstance();
-  
-  // Showroom/Dealer autocomplete options
-  const [showroomOptions] = useState([
-    { value: "Landmark Motors" },
-    { value: "Elite Auto Showroom" },
-    { value: "Prime Vehicles" },
-    { value: "Royal Motors" },
-    { value: "City Car Showroom" },
-  ]);
 
   const applicantType = Form.useWatch("applicantType", form);
   const customerType = Form.useWatch("customerType", form);
@@ -38,6 +30,8 @@ const LeadDetails = () => {
   const dealerMobile = Form.useWatch("dealerMobile", form);
 
   const sourceDetails = Form.useWatch("sourceDetails", form);
+  const { options: channelOptions, search: searchChannelPartners, getByName } =
+    useChannelPartnerAutoSuggest({ limit: 25 });
 
   // Set default date and time
   useEffect(() => {
@@ -131,6 +125,18 @@ const LeadDetails = () => {
     }
   }, [form, source, dealerName, dealerAddress, dealerMobile, sourceDetails]);
 
+  useEffect(() => {
+    if (source !== "Indirect") return;
+    if (!dealerName) return;
+    const partner = getByName(dealerName);
+    if (!partner) return;
+
+    const next = {};
+    if (partner.mobile && !dealerMobile) next.dealerMobile = partner.mobile;
+    if (partner.address && !dealerAddress) next.dealerAddress = partner.address;
+    if (Object.keys(next).length) form.setFieldsValue(next);
+  }, [source, dealerName, dealerMobile, dealerAddress, getByName, form]);
+
   return (
     <div id="section-lead-details" className="form-section">
       {/* SECTION HEADER */}
@@ -183,14 +189,31 @@ const LeadDetails = () => {
                     <Col xs={24} md={8}>
                       <Form.Item label="Dealer Name" name="dealerName" className="mb-0">
                         <AutoComplete
-                          options={showroomOptions}
-                          placeholder="Enter dealer name"
-                          filterOption={(inputValue, option) =>
-                            option.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                          options={channelOptions}
+                          onSearch={searchChannelPartners}
+                          onSelect={(_, option) => {
+                            const partner = option?.partner;
+                            if (!partner) return;
+                            form.setFieldsValue({
+                              dealerName: partner.name || "",
+                              dealerMobile: partner.mobile || "",
+                              dealerAddress: partner.address || "",
+                            });
+                          }}
+                          onChange={(value) =>
+                            form.setFieldValue("dealerName", value || "")
                           }
-                          className="rounded-xl"
+                          filterOption={(inputValue, option) =>
+                            String(option?.label || "")
+                              .toUpperCase()
+                              .includes(String(inputValue || "").toUpperCase())
+                          }
                         >
-                          <Input className="rounded-xl h-10" prefix={<Icon name="Building2" size={14} className="text-muted-foreground" />} />
+                          <Input
+                            placeholder="Enter dealer name"
+                            className="rounded-xl h-10"
+                            prefix={<Icon name="Building2" size={14} className="text-muted-foreground" />}
+                          />
                         </AutoComplete>
                       </Form.Item>
                     </Col>

@@ -5,9 +5,11 @@ import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { uploadToCloudinary } from "../../../../../utils/cloudinary";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../../../constants/irdaiInsuranceCompanies";
+import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 
 const inputClassName = "h-10";
 const textAreaClassName = "min-h-[84px]";
+const SHOWROOM_AUTOSUGGEST_POPUP_WIDTH = 520;
 
 // Helper component to handle date input formatting
 // Converts incoming value (DayJS, Date, timestamp, string) to yyyy-MM-dd
@@ -211,6 +213,7 @@ const VehicleDeliveryStep = ({ form }) => {
     form.getFieldValue("rc_inv_storage_number");
   const insuranceBy =
     Form.useWatch("insurance_by", form) || form.getFieldValue("insurance_by");
+  const vehicleMake = Form.useWatch("vehicleMake", form);
   const loanIdValue = Form.useWatch("loanId", form);
   const loanNumber = Form.useWatch("loan_number", form);
   const createdAt = Form.useWatch("createdAt", form);
@@ -222,24 +225,38 @@ const VehicleDeliveryStep = ({ form }) => {
 
   const isNewCar = loanType === "New Car";
   const showHypothecation = isFinanced === "Yes";
+  const { options: showroomOptions, search: searchShowrooms } =
+    useShowroomAutoSuggest({ limit: 25, brand: vehicleMake });
+
+  const syncDealerFields = (patch = {}) => {
+    const next = { ...patch };
+    if (Object.prototype.hasOwnProperty.call(patch, "delivery_dealerName")) {
+      next.showroomDealerName = patch.delivery_dealerName;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "delivery_dealerAddress")) {
+      next.showroomDealerAddress = patch.delivery_dealerAddress;
+    }
+    form.setFieldsValue(next);
+  };
+
+  const handleShowroomSelect = (_, option) => {
+    const showroom = option?.showroom;
+    if (!showroom) return;
+    syncDealerFields({
+      delivery_dealerName: showroom.name || "",
+      delivery_dealerAddress: showroom.address || "",
+    });
+  };
 
   // Pre-fill dealer details from vehicle verification
   useEffect(() => {
     const dealerName = form.getFieldValue("showroomDealerName");
-    const dealerContactPerson = form.getFieldValue(
-      "showroomDealerContactPerson",
-    );
-    const dealerContactNumber = form.getFieldValue(
-      "showroomDealerContactNumber",
-    );
     const dealerAddress = form.getFieldValue("showroomDealerAddress");
 
     // Only set if delivery fields are empty
     if (dealerName && !form.getFieldValue("delivery_dealerName")) {
       form.setFieldsValue({
         delivery_dealerName: dealerName,
-        delivery_dealerContactPerson: dealerContactPerson,
-        delivery_dealerContactNumber: dealerContactNumber,
         delivery_dealerAddress: dealerAddress,
       });
     }
@@ -404,7 +421,26 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerName"
                 className="mb-0"
               >
-                <Input className={inputClassName} />
+                <AutoComplete
+                  options={showroomOptions}
+                  popupMatchSelectWidth={false}
+                  popupStyle={{
+                    width: SHOWROOM_AUTOSUGGEST_POPUP_WIDTH,
+                    maxWidth: "92vw",
+                  }}
+                  onSearch={searchShowrooms}
+                  onSelect={handleShowroomSelect}
+                  onChange={(value) =>
+                    syncDealerFields({ delivery_dealerName: value || "" })
+                  }
+                  filterOption={(inputValue, option) =>
+                    String(option?.label || "")
+                      .toUpperCase()
+                      .includes(String(inputValue || "").toUpperCase())
+                  }
+                >
+                  <Input className={inputClassName} />
+                </AutoComplete>
               </Form.Item>
 
               <Form.Item
@@ -430,7 +466,15 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerAddress"
                 className="mb-0"
               >
-                <Input.TextArea className={textAreaClassName} rows={2} />
+                <Input.TextArea
+                  className={textAreaClassName}
+                  rows={2}
+                  onChange={(e) =>
+                    syncDealerFields({
+                      delivery_dealerAddress: e.target.value || "",
+                    })
+                  }
+                />
               </Form.Item>
 
               <Form.Item

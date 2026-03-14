@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Form, Input, InputNumber, Select } from "antd";
+import { AutoComplete, Form, Input, InputNumber, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { formatINR } from "../../../../../utils/currency";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
+import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 
 const { Option } = Select;
+const SHOWROOM_AUTOSUGGEST_POPUP_WIDTH = 520;
 
 const asAmount = (val) => {
   if (val === null || val === undefined || val === "") return 0;
@@ -111,6 +113,8 @@ const PostFileVehicleVerification = ({ form }) => {
   const vehicleModelRaw = Form.useWatch("vehicleModel", form);
   const vehicleVariantRaw = Form.useWatch("vehicleVariant", form);
   const vehicleFuelTypeRaw = Form.useWatch("vehicleFuelType", form);
+  const { options: showroomOptions, search: searchShowrooms } =
+    useShowroomAutoSuggest({ limit: 25, brand: vehicleMakeRaw });
 
   const registerSameAsAadhaarRaw = Form.useWatch("registerSameAsAadhaar", form);
   const registerSameAsPermanentRaw = Form.useWatch(
@@ -216,6 +220,24 @@ const PostFileVehicleVerification = ({ form }) => {
     deliveryDealerName,
     "",
   );
+  const syncDealerFields = (patch = {}) => {
+    const next = { ...patch };
+    if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerName")) {
+      next.delivery_dealerName = patch.showroomDealerName;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerAddress")) {
+      next.delivery_dealerAddress = patch.showroomDealerAddress;
+    }
+    form.setFieldsValue(next);
+  };
+  const handleShowroomSelect = (_, option) => {
+    const showroom = option?.showroom;
+    if (!showroom) return;
+    syncDealerFields({
+      showroomDealerName: showroom.name || "",
+      showroomDealerAddress: showroom.address || "",
+    });
+  };
 
   const exShowroomPrice = firstFilled(
     exShowroomPriceRaw,
@@ -510,7 +532,26 @@ const PostFileVehicleVerification = ({ form }) => {
                   name="showroomDealerName"
                   style={{ marginBottom: 0 }}
                 >
-                  <Input placeholder="Enter dealer name" />
+                  <AutoComplete
+                    options={showroomOptions}
+                    popupMatchSelectWidth={false}
+                    popupStyle={{
+                      width: SHOWROOM_AUTOSUGGEST_POPUP_WIDTH,
+                      maxWidth: "92vw",
+                    }}
+                    onSearch={searchShowrooms}
+                    onSelect={handleShowroomSelect}
+                    onChange={(value) =>
+                      syncDealerFields({ showroomDealerName: value || "" })
+                    }
+                    filterOption={(inputValue, option) =>
+                      String(option?.label || "")
+                        .toUpperCase()
+                        .includes(String(inputValue || "").toUpperCase())
+                    }
+                  >
+                    <Input placeholder="Enter dealer name" />
+                  </AutoComplete>
                 </Form.Item>
                 <Form.Item
                   label="Contact Person"
@@ -531,7 +572,15 @@ const PostFileVehicleVerification = ({ form }) => {
                   name="showroomDealerAddress"
                   style={{ marginBottom: 0 }}
                 >
-                  <Input.TextArea rows={2} placeholder="Enter dealer address" />
+                  <Input.TextArea
+                    rows={2}
+                    placeholder="Enter dealer address"
+                    onChange={(e) =>
+                      syncDealerFields({
+                        showroomDealerAddress: e.target.value || "",
+                      })
+                    }
+                  />
                 </Form.Item>
               </div>
             )}

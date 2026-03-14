@@ -559,7 +559,7 @@ const PrefileSectionShell = ({
 }) => (
   <section
     id={id}
-    className={`group relative overflow-hidden rounded-2xl border bg-card/95 dark:bg-black/90 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-36px_rgba(15,23,42,0.35)] ${panel} ${glow}`}
+    className={`group relative overflow-hidden rounded-2xl border bg-card/95 dark:bg-black/90 backdrop-blur-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-36px_rgba(15,23,42,0.35)] ${panel} ${glow}`}
   >
     <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent}`} />
     <div className="relative border-b border-border/50 px-4 py-3 md:px-5 md:py-3.5">
@@ -2344,7 +2344,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         */}
 
         {/* Main Form Content */}
-        <div className="flex-1 min-w-0 bg-background dark:bg-black md:mb-4 md:mr-4 md:rounded-3xl border-x md:border border-border shadow-sm flex flex-col min-h-screen transition-all duration-300">
+        <div className="flex-1 min-w-0 bg-background dark:bg-black md:mb-4 md:mr-4 md:rounded-3xl border-x md:border border-border shadow-sm flex flex-col min-h-screen">
           <LoanStickyHeader
             title={headerTitle}
             activeStep={activeStep}
@@ -2367,7 +2367,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                 activeStep === "prefile" ? "pt-14 pb-4 md:pt-16 md:pb-6" : "pt-14 pb-10 md:pt-16 md:pb-14"
               }`}
             >
-              <div className="w-full space-y-1 transition-all duration-300">
+              <div className="w-full space-y-1">
                 {renderStep()}
               </div>
             </div>
@@ -2492,7 +2492,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               <button
                 type="button"
                 onClick={() => setActiveStep(step)}
-                className={`inline-flex items-center gap-1.5 text-[11px] md:text-xs font-medium px-2 py-1 rounded-lg transition-all whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 text-[11px] md:text-xs font-medium px-2 py-1 rounded-lg transition-colors duration-150 whitespace-nowrap ${
                   activeStep === step
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -2504,7 +2504,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               {/* Dropdown menu on hover - now stays open on dropdown hover */}
               {sections.length > 0 && (
                 <div
-                  className="step-dropdown absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/stepnav:opacity-100 group-hover/stepnav:visible group-focus-within/stepnav:opacity-100 group-focus-within/stepnav:visible transition-all duration-200"
+                  className="step-dropdown absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/stepnav:opacity-100 group-hover/stepnav:visible group-focus-within/stepnav:opacity-100 group-focus-within/stepnav:visible transition-[opacity,transform,visibility] duration-150"
                 >
                   <div className="bg-card border border-border rounded-xl shadow-elevation-3 p-2 min-w-[180px] max-h-[400px] overflow-y-auto">
                     {sections.map((section) => (

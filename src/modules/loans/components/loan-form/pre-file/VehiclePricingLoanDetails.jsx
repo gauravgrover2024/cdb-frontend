@@ -17,10 +17,12 @@ import {
 } from "antd";
 import { CarOutlined } from "@ant-design/icons";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
+import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 import { lenderHypothecationOptions } from "../../../../../constants/lenderHypothecationOptions";
 
 const { Option } = Select;
+const SHOWROOM_AUTOSUGGEST_POPUP_WIDTH = 520;
 
 // Comprehensive list of Indian cities (100+ major cities)
 const INDIAN_CITIES = [
@@ -209,6 +211,7 @@ const INDIAN_CITY_OPTIONS = (() => {
 
 const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   const form = Form.useFormInstance();
+  const selectedBrandForShowroom = Form.useWatch("vehicleMake", form);
   const [fetchingRegistrationPincode, setFetchingRegistrationPincode] =
     useState(false);
 
@@ -242,6 +245,8 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
       }
     },
   });
+  const { options: showroomOptions, search: searchShowrooms } =
+    useShowroomAutoSuggest({ limit: 25, brand: selectedBrandForShowroom });
 
   useEffect(() => {
     const make = form.getFieldValue("vehicleMake");
@@ -333,6 +338,25 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   const loadingMakes = vehicleLoading && makes.length === 0;
   const loadingModels = vehicleLoading && Boolean(vehicleMake) && models.length === 0;
   const loadingVariants = vehicleLoading && Boolean(vehicleModel) && variants.length === 0;
+
+  const handleShowroomSelect = (_, option) => {
+    const showroom = option?.showroom;
+    if (!showroom) return;
+    syncDealerFields({
+      showroomDealerName: showroom.name || "",
+      showroomDealerAddress: showroom.address || "",
+    });
+  };
+  const syncDealerFields = (patch = {}) => {
+    const next = { ...patch };
+    if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerName")) {
+      next.delivery_dealerName = patch.showroomDealerName;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerAddress")) {
+      next.delivery_dealerAddress = patch.showroomDealerAddress;
+    }
+    form.setFieldsValue(next);
+  };
 
   useEffect(() => {
     const pin = normalizePincode(registrationPincode);
@@ -1001,7 +1025,26 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
 
                   <Col xs={24} md={8}>
                     <Form.Item label="Dealer Name" name="showroomDealerName">
-                      <Input placeholder="Enter Dealer Name" />
+                      <AutoComplete
+                        options={showroomOptions}
+                        popupMatchSelectWidth={false}
+                        popupStyle={{
+                          width: SHOWROOM_AUTOSUGGEST_POPUP_WIDTH,
+                          maxWidth: "92vw",
+                        }}
+                        onSearch={searchShowrooms}
+                        onChange={(value) =>
+                          syncDealerFields({ showroomDealerName: value || "" })
+                        }
+                        onSelect={handleShowroomSelect}
+                        filterOption={(inputValue, option) =>
+                          String(option?.label || "")
+                            .toUpperCase()
+                            .includes(inputValue.toUpperCase())
+                        }
+                      >
+                        <Input placeholder="Enter Dealer Name" />
+                      </AutoComplete>
                     </Form.Item>
                   </Col>
 
@@ -1025,7 +1068,15 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
 
                   <Col xs={24}>
                     <Form.Item label="Dealer Address" name="showroomDealerAddress">
-                      <Input.TextArea rows={2} placeholder="Enter Dealer Address" />
+                      <Input.TextArea
+                        rows={2}
+                        placeholder="Enter Dealer Address"
+                        onChange={(e) =>
+                          syncDealerFields({
+                            showroomDealerAddress: e.target.value || "",
+                          })
+                        }
+                      />
                     </Form.Item>
                   </Col>
 
