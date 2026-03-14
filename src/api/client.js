@@ -1,6 +1,7 @@
 // NEW (Vercel production backend)
 
-const API_BASE_URL = "https://cdb-api.vercel.app";
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL || "https://cdb-api.vercel.app";
 
 console.log("API_BASE_URL at runtime:", API_BASE_URL);
 

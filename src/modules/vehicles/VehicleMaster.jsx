@@ -360,6 +360,14 @@ const VehicleMaster = () => {
             <Button
               variant="outline"
               size="sm"
+              iconName="PlayCircle"
+              onClick={() => window.location.href = "/vehicles/data-sync"}
+            >
+              Data Sync
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               iconName="RefreshCcw"
               onClick={loadVehicles}
               loading={loading}
