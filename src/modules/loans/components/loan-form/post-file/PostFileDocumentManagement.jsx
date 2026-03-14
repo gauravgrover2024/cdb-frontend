@@ -3,6 +3,8 @@ import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { customersApi } from "../../../../../api/customers";
+import { loansApi } from "../../../../../api/loans";
+import { uploadSingleFile } from "../../../../../utils/upload";
 
 const getTagColor = () =>
   "bg-secondary text-secondary-foreground border-border";
@@ -46,15 +48,29 @@ const toCanonicalTagName = (value, existingTagNames = [], suggestedTagNames = []
     .join(" ");
 };
 
-const PostFileDocumentManagement = ({ form }) => {
+const getStableDocId = (doc, fallback = "") =>
+  String(
+    doc?.id ||
+      doc?.publicId ||
+      doc?.url ||
+      doc?.name ||
+      fallback ||
+      "",
+  );
+
+const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   const [documents, setDocuments] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTagFilter, setSelectedTagFilter] = useState("All");
   const [showAddTagsModal, setShowAddTagsModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isFetchingDocs, setIsFetchingDocs] = useState(false);
+  const [didHydrateFromForm, setDidHydrateFromForm] = useState(false);
+  const [lastPersistedSignature, setLastPersistedSignature] = useState("");
 
   const customerId = Form.useWatch("customerId", form);
+  const watchedPostFileDocuments = Form.useWatch("postfile_documents", form);
+  const watchedPostFileTags = Form.useWatch("postfile_tags", form);
   
   // 🔄 FETCH DOCUMENTS from Customer Record
   const fetchCustomerDocuments = useCallback(async (isManual = false) => {
@@ -170,40 +186,56 @@ const PostFileDocumentManagement = ({ form }) => {
   const photoUrl = Form.useWatch("photoUrl", form);
   const signatureUrl = Form.useWatch("signatureUrl", form);
 
-  // SYNC WITH FORM
-  useEffect(() => {
-    form.setFieldsValue({
-      postfile_documents: documents,
-      postfile_tags: tags,
-    });
-  }, [documents, tags, form]);
+  const docsSignature = useCallback((docs = []) => {
+    try {
+      return JSON.stringify(
+        (Array.isArray(docs) ? docs : []).map((doc) => ({
+          id: doc?.id || "",
+          name: doc?.name || "",
+          url: doc?.url || "",
+          tag: doc?.tag || "",
+          tagId: doc?.tagId || "",
+          isPreFile: Boolean(doc?.isPreFile),
+        })),
+      );
+    } catch {
+      return "";
+    }
+  }, []);
 
-  // LOAD INITIAL FROM FORM & PRE-FILE
-  useEffect(() => {
-    const existingDocs = form.getFieldValue("postfile_documents") || [];
-    const existingTags = form.getFieldValue("postfile_tags") || [];
-    
-    // Create objects for Pre-File docs
+  const tagsSignature = useCallback((list = []) => {
+    try {
+      return JSON.stringify(
+        (Array.isArray(list) ? list : []).map((tag) => ({
+          id: tag?.id || "",
+          name: tag?.name || "",
+        })),
+      );
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const buildPreFileDocuments = useCallback(() => {
     const preFileDocs = [];
     const addPreFile = (url, name, tagName) => {
-      if (url && typeof url === 'string') {
+      if (url && typeof url === "string") {
         preFileDocs.push({
-          id: name.toLowerCase().replace(/\s/g, '_'), // Stable ID based on name
-          name: name,
+          id: name.toLowerCase().replace(/\s/g, "_"),
+          name,
           size: "Pre-File",
           uploadedBy: "System",
           uploadedAt: new Date().toLocaleDateString("en-IN"),
           status: "submitted",
-          tagId: "prefile_" + name,
+          tagId: `prefile_${name}`,
           tag: tagName,
-          url: url,
-          format: url.split('.').pop() || 'jpg',
+          url,
+          format: url.split(".").pop() || "jpg",
           publicId: null,
-          isPreFile: true, // Marker
+          isPreFile: true,
         });
       }
     };
-
     addPreFile(aadhaarCardDocUrl, "Aadhaar Card", "KYC");
     addPreFile(panCardDocUrl, "PAN Card", "KYC");
     addPreFile(passportDocUrl, "Passport", "KYC");
@@ -212,41 +244,79 @@ const PostFileDocumentManagement = ({ form }) => {
     addPreFile(gstDocUrl, "GST Certificate", "Business");
     addPreFile(photoUrl, "Customer Photo", "Photo");
     addPreFile(signatureUrl, "Signature", "Signature");
-
-    // Merge: Start with existingDocs, add preFileDocs if they are not already in existingDocs (by URL)
-    let mergedDocs = [...existingDocs];
-    let changed = false;
-
-    preFileDocs.forEach(pDoc => {
-      if (!mergedDocs.some(d => d.url === pDoc.url)) {
-        mergedDocs.push(pDoc);
-        changed = true;
-      }
-    });
-
-    if (mergedDocs.length > 0 && (documents.length === 0 || changed)) {
-       // Only update if we have something new or strictly confusing logic
-       // Simplest: If documents is empty, definitely set it. 
-       // If docs exist, checking changed avoids infinite loop if memoization is tricky.
-       // However, since we depend on [aadhaarCardDocUrl, ...], this runs on change.
-       // We should be careful not to overwrite user edits.
-       // Best: Set documents to merged if length differs.
-       if (documents.length !== mergedDocs.length) {
-          setDocuments(mergedDocs);
-       }
-    }
-    
-    if (Array.isArray(existingTags) && tags.length === 0) setTags(existingTags);
-
+    return preFileDocs;
   }, [
-    form, 
-    // Dependency only on the values, not the full array processing to avoid frequent re-runs
-    aadhaarCardDocUrl, panCardDocUrl, passportDocUrl, dlDocUrl, 
-    addressProofDocUrl, gstDocUrl, photoUrl, signatureUrl,
-    documents.length,
-    tags.length,
-    // Note: NOT depending on documents/tags state to avoid loops, only external inputs
+    aadhaarCardDocUrl,
+    panCardDocUrl,
+    passportDocUrl,
+    dlDocUrl,
+    addressProofDocUrl,
+    gstDocUrl,
+    photoUrl,
+    signatureUrl,
   ]);
+
+  const mergeDocuments = useCallback((existing = [], preFile = []) => {
+    const base = (Array.isArray(existing) ? existing : []).map((doc, index) => ({
+      ...doc,
+      id: getStableDocId(doc, `existing_${index}`),
+    }));
+    const merged = [...base];
+    preFile.forEach((doc, index) => {
+      const normalized = {
+        ...doc,
+        id: getStableDocId(doc, `prefile_${index}`),
+      };
+      const hasMatch = merged.some(
+        (item) =>
+          (item?.url && normalized?.url && item.url === normalized.url) ||
+          (item?.id && normalized?.id && item.id === normalized.id),
+      );
+      if (!hasMatch) merged.push(normalized);
+    });
+    return merged;
+  }, []);
+
+  // LOAD INITIAL FROM FORM & PRE-FILE
+  useEffect(() => {
+    const existingDocs = Array.isArray(watchedPostFileDocuments)
+      ? watchedPostFileDocuments
+      : [];
+    const existingTags = Array.isArray(watchedPostFileTags)
+      ? watchedPostFileTags
+      : [];
+    const mergedDocs = mergeDocuments(existingDocs, buildPreFileDocuments());
+
+    setDocuments((prev) =>
+      docsSignature(mergedDocs) !== docsSignature(prev) ? mergedDocs : prev,
+    );
+    setTags((prev) =>
+      tagsSignature(existingTags) !== tagsSignature(prev) ? existingTags : prev,
+    );
+    if (!didHydrateFromForm) {
+      setLastPersistedSignature(
+        `${docsSignature(mergedDocs)}|${tagsSignature(existingTags)}`,
+      );
+    }
+    setDidHydrateFromForm(true);
+  }, [
+    watchedPostFileDocuments,
+    watchedPostFileTags,
+    buildPreFileDocuments,
+    mergeDocuments,
+    docsSignature,
+    tagsSignature,
+    didHydrateFromForm,
+  ]);
+
+  // Keep form in sync once initial hydration has happened.
+  useEffect(() => {
+    if (!didHydrateFromForm) return;
+    form.setFieldsValue({
+      postfile_documents: documents,
+      postfile_tags: tags,
+    });
+  }, [didHydrateFromForm, documents, tags, form]);
 
   const availableTags = isCompany
     ? SUGGESTED_TAGS
@@ -297,38 +367,28 @@ const PostFileDocumentManagement = ({ form }) => {
         const file = files[i];
         
         try {
-          // Upload to Cloudinary
-          // Dynamic import to avoid circular dependencies if any, or just standard import usage
-          const { uploadToCloudinary } = await import("../../../../../utils/cloudinary");
-          
-          let cloudinaryData;
+          let uploadedData;
           try {
-             cloudinaryData = await uploadToCloudinary(file);
+             uploadedData = await uploadSingleFile(file);
           } catch (err) {
              console.error(`Failed to upload ${file.name}:`, err);
-             // Fallback to local object URL if upload fails (or handle error differently)
-             // For now, we'll continue using objectURL but mark as 'upload-failed' status if you prefer
-             // Or just throw to stop. Let's assume we want to proceed with objectURL if dev env is missing keys
-             if (err.message.includes("not configured")) {
-                 alert("Cloudinary not configured. Falling back to local preview.");
-                 cloudinaryData = null;
-             } else {
-                 throw err;
-             }
+             uploadedData = null;
           }
 
           newDocs.push({
-            id: Date.now() + Math.random(),
+            id:
+              uploadedData?.public_id ||
+              `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
             name: file.name,
             size: formatFileSize(file.size),
             uploadedBy: "Current User", // Replace with actual user
             uploadedAt: new Date().toLocaleString("en-IN"),
-            status: cloudinaryData ? "submitted" : "pending",
+            status: uploadedData ? "submitted" : "pending",
             tagId: null,
             tag: null,
-            url: cloudinaryData ? cloudinaryData.secure_url : URL.createObjectURL(file),
-            format: cloudinaryData?.format || file.type.split('/')[1] || 'unknown',
-            publicId: cloudinaryData?.public_id,
+            url: uploadedData ? uploadedData.url : URL.createObjectURL(file),
+            format: uploadedData?.format || file.type.split('/')[1] || 'unknown',
+            publicId: uploadedData?.public_id,
             file: file,
           });
 
@@ -342,7 +402,7 @@ const PostFileDocumentManagement = ({ form }) => {
       }
       
       if (newDocs.length > 0) {
-        setDocuments([...documents, ...newDocs]);
+        setDocuments((prev) => [...prev, ...newDocs]);
       }
     } finally {
       setUploading(false);
@@ -401,10 +461,59 @@ const PostFileDocumentManagement = ({ form }) => {
     setDocuments((prev) => prev.filter((d) => d.id !== docId));
   };
 
-  // 🔄 SYNC TO FORM: Ensure documents are saved on submit
+  // Auto-persist post-file docs/tags for edit mode so refresh does not lose uploads.
   useEffect(() => {
-    form.setFieldsValue({ postfile_documents: documents });
-  }, [documents, form]);
+    if (!didHydrateFromForm) return;
+    if (!isEditMode) return;
+    if (!loanId) return;
+
+    const persistableDocs = (Array.isArray(documents) ? documents : [])
+      .filter((doc) => !(typeof doc?.url === "string" && doc.url.startsWith("blob:")))
+      .map((doc) => ({
+        id: doc?.id,
+        name: doc?.name || "",
+        size: doc?.size || "",
+        uploadedBy: doc?.uploadedBy || "",
+        uploadedAt: doc?.uploadedAt || "",
+        status: doc?.status || "",
+        tagId: doc?.tagId || null,
+        tag: doc?.tag || null,
+        url: doc?.url || "",
+        format: doc?.format || "",
+        publicId: doc?.publicId || null,
+        isPreFile: Boolean(doc?.isPreFile),
+      }));
+    const persistableTags = (Array.isArray(tags) ? tags : []).map((tag) => ({
+      id: tag?.id,
+      name: tag?.name || "",
+      documentCount: Number(tag?.documentCount) || 0,
+    }));
+    const persistSignature = `${docsSignature(persistableDocs)}|${tagsSignature(persistableTags)}`;
+    if (persistSignature === lastPersistedSignature) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await loansApi.update(loanId, {
+          postfile_documents: persistableDocs,
+          postfile_tags: persistableTags,
+        });
+        setLastPersistedSignature(persistSignature);
+      } catch (error) {
+        console.error("Failed to auto-persist post-file documents:", error);
+      }
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [
+    didHydrateFromForm,
+    isEditMode,
+    loanId,
+    documents,
+    tags,
+    docsSignature,
+    tagsSignature,
+    lastPersistedSignature,
+  ]);
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
@@ -678,9 +787,9 @@ const PostFileDocumentManagement = ({ form }) => {
         )}
 
         <div className="space-y-4 md:space-y-5">
-          {filteredDocuments.map((doc) => (
+          {filteredDocuments.map((doc, index) => (
             <div
-              key={doc.id}
+              key={getStableDocId(doc, `doc_${index}`)}
               className="group rounded-[24px] border border-border/70 bg-white/80 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-[0_22px_50px_-34px_rgba(244,63,94,0.28)] dark:bg-white/5 dark:hover:border-rose-900/60"
             >
               <div className="flex flex-col gap-4 lg:flex-row">
@@ -915,9 +1024,9 @@ const PostFileDocumentManagement = ({ form }) => {
 
               <div className="flex-1 overflow-auto p-5">
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-                  {documents.map((doc) => (
+                  {documents.map((doc, index) => (
                     <div
-                      key={doc.id}
+                      key={getStableDocId(doc, `all_${index}`)}
                       className="overflow-hidden rounded-[22px] border border-border bg-white/80 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-white/5"
                       onClick={() => {
                         setViewDocument(doc);

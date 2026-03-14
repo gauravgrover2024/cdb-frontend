@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AutoComplete, Form, Input, InputNumber, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { formatINR } from "../../../../../utils/currency";
@@ -82,6 +82,24 @@ const PostFileVehicleVerification = ({ form }) => {
   const [isVehicleEdit, setIsVehicleEdit] = useState(false);
   const [isShowroomEdit, setIsShowroomEdit] = useState(false);
   const [isPricingEdit, setIsPricingEdit] = useState(false);
+  const hasFieldChanged = useCallback(
+    (field, nextValue) =>
+      String(form.getFieldValue(field) ?? "") !== String(nextValue ?? ""),
+    [form],
+  );
+
+  const setFieldsIfChanged = useCallback(
+    (patch = {}) => {
+      const filtered = Object.fromEntries(
+        Object.entries(patch).filter(([field, value]) =>
+          hasFieldChanged(field, value),
+        ),
+      );
+      if (!Object.keys(filtered).length) return;
+      form.setFieldsValue(filtered);
+    },
+    [form, hasFieldChanged],
+  );
 
   const applicantType = Form.useWatch("applicantType", form);
   const customerType = Form.useWatch("customerType", form);
@@ -110,6 +128,8 @@ const PostFileVehicleVerification = ({ form }) => {
   const approvalBanksDataRaw = Form.useWatch("approval_banksData", form);
 
   const vehicleMakeRaw = Form.useWatch("vehicleMake", form);
+  const typeOfLoanRaw = Form.useWatch("typeOfLoan", form);
+  const loanTypeRaw = Form.useWatch("loanType", form);
   const vehicleModelRaw = Form.useWatch("vehicleModel", form);
   const vehicleVariantRaw = Form.useWatch("vehicleVariant", form);
   const vehicleFuelTypeRaw = Form.useWatch("vehicleFuelType", form);
@@ -220,6 +240,19 @@ const PostFileVehicleVerification = ({ form }) => {
     deliveryDealerName,
     "",
   );
+  const normalizedLoanType = String(
+    firstFilled(typeOfLoanRaw, loanTypeRaw, form.getFieldValue("typeOfLoan"), form.getFieldValue("loanType"), ""),
+  )
+    .trim()
+    .toLowerCase();
+  const isNewCarCase = normalizedLoanType === "new car";
+  const showroomSectionTitle = isNewCarCase ? "Showroom" : "Loan Payment Favouring";
+
+  useEffect(() => {
+    if (!isNewCarCase) {
+      setIsShowroomEdit(true);
+    }
+  }, [isNewCarCase]);
   const syncDealerFields = (patch = {}) => {
     const next = { ...patch };
     if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerName")) {
@@ -228,7 +261,7 @@ const PostFileVehicleVerification = ({ form }) => {
     if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerAddress")) {
       next.delivery_dealerAddress = patch.showroomDealerAddress;
     }
-    form.setFieldsValue(next);
+    setFieldsIfChanged(next);
   };
   const handleShowroomSelect = (_, option) => {
     const showroom = option?.showroom;
@@ -317,9 +350,15 @@ const PostFileVehicleVerification = ({ form }) => {
       "",
     );
     if (resolvedCity && !watchedPostfileRegdCity) {
-      form.setFieldsValue({ postfile_regd_city: resolvedCity });
+      setFieldsIfChanged({ postfile_regd_city: resolvedCity });
     }
-  }, [registrationCity, watchedPostfileRegdCity, city, permanentCity, form]);
+  }, [
+    registrationCity,
+    watchedPostfileRegdCity,
+    city,
+    permanentCity,
+    setFieldsIfChanged,
+  ]);
 
   useEffect(() => {
     const patch = {};
@@ -327,9 +366,8 @@ const PostFileVehicleVerification = ({ form }) => {
     if (!vehicleModelRaw && vehicleModel) patch.vehicleModel = vehicleModel;
     if (!vehicleVariantRaw && vehicleVariant) patch.vehicleVariant = vehicleVariant;
     if (!vehicleFuelTypeRaw && vehicleFuelType) patch.vehicleFuelType = vehicleFuelType;
-    if (Object.keys(patch).length) form.setFieldsValue(patch);
+    if (Object.keys(patch).length) setFieldsIfChanged(patch);
   }, [
-    form,
     vehicleMakeRaw,
     vehicleModelRaw,
     vehicleVariantRaw,
@@ -338,6 +376,7 @@ const PostFileVehicleVerification = ({ form }) => {
     vehicleModel,
     vehicleVariant,
     vehicleFuelType,
+    setFieldsIfChanged,
   ]);
 
   return (
@@ -490,26 +529,29 @@ const PostFileVehicleVerification = ({ form }) => {
           <div className="mt-3 rounded-2xl border border-border/70 bg-background/70 p-3">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-                Showroom
+                {showroomSectionTitle}
               </div>
-              <button
-                type="button"
-                onClick={() => setIsShowroomEdit((v) => !v)}
-                className="rounded-md border border-border/70 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/30"
-              >
-                {isShowroomEdit ? "Done" : "Edit"}
-              </button>
+              {isNewCarCase && (
+                <button
+                  type="button"
+                  onClick={() => setIsShowroomEdit((v) => !v)}
+                  className="rounded-md border border-border/70 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/30"
+                >
+                  {isShowroomEdit ? "Done" : "Edit"}
+                </button>
+              )}
             </div>
             {!isShowroomEdit ? (
               <>
                 <div className="text-sm font-semibold text-foreground">
                   {showroomDealerName || "Not Selected"}
                 </div>
-                {firstFilled(
+                {isNewCarCase &&
+                (firstFilled(
                   form.getFieldValue("showroomDealerContactPerson"),
                   "",
                 ) ||
-                firstFilled(form.getFieldValue("showroomDealerContactNumber"), "") ? (
+                firstFilled(form.getFieldValue("showroomDealerContactNumber"), "")) ? (
                   <div className="mt-1 text-xs text-muted-foreground">
                     {form.getFieldValue("showroomDealerContactPerson")}
                     {form.getFieldValue("showroomDealerContactPerson") &&
@@ -519,13 +561,13 @@ const PostFileVehicleVerification = ({ form }) => {
                     {form.getFieldValue("showroomDealerContactNumber")}
                   </div>
                 ) : null}
-                {form.getFieldValue("showroomDealerAddress") && (
+                {isNewCarCase && form.getFieldValue("showroomDealerAddress") && (
                   <div className="mt-1 text-xs text-muted-foreground/90">
                     {form.getFieldValue("showroomDealerAddress")}
                   </div>
                 )}
               </>
-            ) : (
+            ) : isNewCarCase ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Form.Item
                   label="Dealer Name"
@@ -553,32 +595,54 @@ const PostFileVehicleVerification = ({ form }) => {
                     <Input placeholder="Enter dealer name" />
                   </AutoComplete>
                 </Form.Item>
+                <>
+                  <Form.Item
+                    label="Contact Person"
+                    name="showroomDealerContactPerson"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input placeholder="Enter contact person" />
+                  </Form.Item>
+                  <Form.Item
+                    label="Contact Number"
+                    name="showroomDealerContactNumber"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input placeholder="Enter contact number" />
+                  </Form.Item>
+                  <Form.Item
+                    label="Dealer Address"
+                    name="showroomDealerAddress"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input.TextArea
+                      rows={2}
+                      placeholder="Enter dealer address"
+                      onChange={(e) =>
+                        syncDealerFields({
+                          showroomDealerAddress: e.target.value || "",
+                        })
+                      }
+                    />
+                  </Form.Item>
+                </>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 pb-1 md:grid-cols-[220px_minmax(0,1fr)] md:items-center md:gap-3">
+                <div className="text-sm font-semibold text-foreground">
+                  Loan Payment Favouring
+                </div>
                 <Form.Item
-                  label="Contact Person"
-                  name="showroomDealerContactPerson"
+                  name="showroomDealerName"
                   style={{ marginBottom: 0 }}
+                  className="!mb-0"
                 >
-                  <Input placeholder="Enter contact person" />
-                </Form.Item>
-                <Form.Item
-                  label="Contact Number"
-                  name="showroomDealerContactNumber"
-                  style={{ marginBottom: 0 }}
-                >
-                  <Input placeholder="Enter contact number" />
-                </Form.Item>
-                <Form.Item
-                  label="Dealer Address"
-                  name="showroomDealerAddress"
-                  style={{ marginBottom: 0 }}
-                >
-                  <Input.TextArea
-                    rows={2}
-                    placeholder="Enter dealer address"
+                  <Input
+                    placeholder="Enter loan payment favouring"
+                    className="h-10 !py-0"
+                    style={{ lineHeight: "40px" }}
                     onChange={(e) =>
-                      syncDealerFields({
-                        showroomDealerAddress: e.target.value || "",
-                      })
+                      syncDealerFields({ showroomDealerName: e.target.value || "" })
                     }
                   />
                 </Form.Item>

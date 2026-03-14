@@ -812,6 +812,7 @@ const EXTRA_TARGET_FIELDS = [
   "reference2_pincode",
   "reference2_city",
   "reference2_relation",
+  "co_yearsAtCurrentResidence",
 ];
 
 const COMPANY_PARTNER_SLOTS = 5;
@@ -835,6 +836,8 @@ const EXTRA_TARGET_LOCATOR = {
   reference2_pincode: "Pre-File > PersonalDetailsPreFile > Reference 2 Pincode",
   reference2_city: "Pre-File > PersonalDetailsPreFile > Reference 2 City",
   reference2_relation: "Pre-File > PersonalDetailsPreFile > Reference 2 Relation",
+  co_yearsAtCurrentResidence:
+    "Pre-File > CoApplicantSection > Occupational Details > Years at current Residence",
 };
 for (let i = 1; i <= COMPANY_PARTNER_SLOTS; i += 1) {
   EXTRA_TARGET_LOCATOR[`companyPartners_${i}_name`] =
@@ -2980,8 +2983,9 @@ const FieldMappingPage = () => {
     }
 
     // Residence-years routing:
-    // cpv_detail.YEARS_AT_RESIDENCE is applicable only for individual applicant.
     // Migration requirement: keep raw years (e.g., 25), not "since year".
+    // - Individual case -> applicant yearsInCurrentCity + yearsInCurrentHouse
+    // - Company case    -> co-applicant years at current residence
     {
       const legacyYearsAtResidence = firstMeaningful(
         findFirstValueByTail(merged, ["YEARS_AT_RESIDENCE"]),
@@ -2991,6 +2995,16 @@ const FieldMappingPage = () => {
       if (companyCase) {
         doc.yearsInCurrentCity = null;
         doc.yearsInCurrentHouse = null;
+        if (isMeaningfulValue(legacyYearsAtResidence)) {
+          const n = Number(String(legacyYearsAtResidence).replace(/[^0-9.-]/g, ""));
+          const yearsValue = Number.isFinite(n) ? n : legacyYearsAtResidence;
+          if (!isMeaningfulValue(doc.co_yearsAtCurrentResidence)) {
+            doc.co_yearsAtCurrentResidence = yearsValue;
+          }
+          if (!isMeaningfulValue(doc.co_yearsInCurrentResidence)) {
+            doc.co_yearsInCurrentResidence = yearsValue;
+          }
+        }
       } else if (isMeaningfulValue(legacyYearsAtResidence)) {
         const n = Number(String(legacyYearsAtResidence).replace(/[^0-9.-]/g, ""));
         const yearsValue = Number.isFinite(n) ? n : legacyYearsAtResidence;

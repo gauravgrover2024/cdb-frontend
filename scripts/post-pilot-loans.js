@@ -1354,6 +1354,9 @@ function buildPayload(caseId, caseData, vehicles) {
       variantYearInfo.year ||
       parseYear(rc.BOUGHT_IN_YEAR || rc.VEHICLE_YEAR || cpv.BOUGHT_IN_YEAR || preferredVehicleText)
     : undefined;
+  const coYearsAtCurrentResidence =
+    coApplicantSource?.yearsAtCurrentResidence ??
+    numericOrUndefined(cpv.YEARS_AT_RESIDENCE);
 
   const payload = {
     customerName,
@@ -1605,8 +1608,8 @@ function buildPayload(caseId, caseData, vehicles) {
     co_companyPincode: isCompany ? pincode : coApplicantSource?.companyPincode,
     co_companyCity: coApplicantSource?.companyCity,
     co_companyPhone: isCompany ? primaryMobile : coApplicantSource?.companyPhone,
-    co_yearsAtCurrentResidence: coApplicantSource?.yearsAtCurrentResidence,
-    co_yearsInCurrentResidence: coApplicantSource?.yearsAtCurrentResidence,
+    co_yearsAtCurrentResidence: coYearsAtCurrentResidence,
+    co_yearsInCurrentResidence: coYearsAtCurrentResidence,
 
     signatorySameAsCoApplicant: isCompany ? true : undefined,
     signatory_customerName: isCompany ? cleanText(auth.NAME || auth.NAME_1) || companyCoApplicant?.customerName : undefined,

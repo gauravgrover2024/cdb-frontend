@@ -119,7 +119,7 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
               type="text"
               value={searchValue}
               onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search across all fields: Loan ID, Customer, Vehicle, Bank, Mobile, City, Source..."
+              placeholder="Search by Customer Name, Mobile Number, Vehicle Number, or Loan Number..."
               className="w-full h-10 pl-10 pr-3 py-2 border border-border bg-background rounded-lg text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-muted-foreground"
             />
           </div>

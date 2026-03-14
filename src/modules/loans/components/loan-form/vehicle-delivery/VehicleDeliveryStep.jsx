@@ -3,7 +3,7 @@ import { AutoComplete, DatePicker, Form, Input, Select, Spin, message } from "an
 import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
-import { uploadToCloudinary } from "../../../../../utils/cloudinary";
+import { uploadSingleFile } from "../../../../../utils/upload";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../../../constants/irdaiInsuranceCompanies";
 import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 
@@ -190,7 +190,7 @@ const UploadField = ({
  *   • invoice_number, invoice_date, invoice_received_as, invoice_received_from, invoice_received_date
  *   • rc_redg_no, rc_chassis_no, rc_engine_no, rc_redg_date
  *   • rc_received_as, rc_received_from, rc_received_date
- *   • delivery_invoiceFile, delivery_rcFile: File uploads (Cloudinary URLs)
+ *   • delivery_invoiceFile, delivery_rcFile: File uploads (storage URLs)
  */
 const VehicleDeliveryStep = ({ form }) => {
   const [invoiceFile, setInvoiceFile] = useState(null);
@@ -356,12 +356,12 @@ const VehicleDeliveryStep = ({ form }) => {
     if (file) {
       try {
         setUploadingInvoice(true);
-        const data = await uploadToCloudinary(file);
+        const data = await uploadSingleFile(file);
 
         setInvoiceFile({
           name: file.name,
           size: formatFileSize(file.size),
-          url: data.secure_url,
+          url: data.url,
         });
         message.success("Invoice uploaded successfully");
       } catch (error) {
@@ -378,12 +378,12 @@ const VehicleDeliveryStep = ({ form }) => {
     if (file) {
       try {
         setUploadingRc(true);
-        const data = await uploadToCloudinary(file);
+        const data = await uploadSingleFile(file);
 
         setRcFile({
           name: file.name,
           size: formatFileSize(file.size),
-          url: data.secure_url,
+          url: data.url,
         });
         message.success("RC uploaded successfully");
       } catch (error) {

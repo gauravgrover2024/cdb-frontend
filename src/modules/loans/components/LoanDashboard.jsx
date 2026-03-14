@@ -156,6 +156,46 @@ const LoanDashboard = () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  const normalizeSearchToken = useCallback(
+    (value) =>
+      String(value ?? "")
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/[-_/().]/g, ""),
+    [],
+  );
+
+  const matchesDashboardSearch = useCallback(
+    (loan, query) => {
+      const rawQuery = String(query ?? "").trim().toLowerCase();
+      if (!rawQuery) return true;
+      const normalizedQuery = normalizeSearchToken(rawQuery);
+
+      const fields = [
+        loan?.customerName,
+        loan?.primaryMobile,
+        loan?.mobile,
+        loan?.phone,
+        loan?.phoneNumber,
+        loan?.vehicleRegNo,
+        loan?.registrationNumber,
+        loan?.rc_redg_no,
+        loan?.vehicleNumber,
+        loan?.loanId,
+        loan?.loan_number,
+        loan?._id,
+      ];
+
+      return fields.some((field) => {
+        if (field == null) return false;
+        const raw = String(field).toLowerCase();
+        if (raw.includes(rawQuery)) return true;
+        return normalizeSearchToken(field).includes(normalizedQuery);
+      });
+    },
+    [normalizeSearchToken],
+  );
+
   const normalizeLoan = useCallback(
     (loan) => ({
       ...loan,
@@ -233,6 +273,33 @@ const LoanDashboard = () => {
         loan?.showroom ||
         loan?.showroom_name ||
         loan?.branchName ||
+        "",
+      // Post-file / delivery showroom data used by dashboard card display
+      showroomDealerName:
+        loan?.showroomDealerName ||
+        loan?.delivery_dealerName ||
+        loan?.postFile?.showroomDealerName ||
+        loan?.postfile?.showroomDealerName ||
+        loan?.postFileVehicleVerification?.showroomDealerName ||
+        loan?.vehicleVerification?.showroomDealerName ||
+        loan?.postFileVehicle?.showroomDealerName ||
+        loan?.showroomName ||
+        loan?.showroom ||
+        loan?.showroom_name ||
+        loan?.postfile_showroomDealerName ||
+        "",
+      delivery_dealerName:
+        loan?.delivery_dealerName ||
+        loan?.showroomDealerName ||
+        loan?.postFile?.delivery_dealerName ||
+        loan?.postfile?.delivery_dealerName ||
+        loan?.postFileVehicleVerification?.delivery_dealerName ||
+        loan?.vehicleVerification?.delivery_dealerName ||
+        loan?.postFileVehicle?.delivery_dealerName ||
+        loan?.showroomName ||
+        loan?.showroom ||
+        loan?.showroom_name ||
+        loan?.postfile_showroomDealerName ||
         "",
       dealerContactPerson:
         loan?.dealerContactPerson ||
@@ -384,6 +451,7 @@ const LoanDashboard = () => {
         }
       };
       const apiSort = mapSortToApi(sortConfig);
+      const isSearchMode = Boolean(searchKey);
       const cacheKey = `${searchKey}|${page}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
       const cached = pageCacheRef.current.get(cacheKey);
       if (cached) {
@@ -404,11 +472,27 @@ const LoanDashboard = () => {
         sortDir: apiSort.sortDir,
       });
       const apiMs = Math.round(performance.now() - apiStartAt);
-      const rows = extractRows(payload);
+      let rows = extractRows(payload);
       const normalizeStartAt = performance.now();
-      const normalizedRows = rows.map(normalizeLoan);
+      let normalizedRows = rows.map(normalizeLoan);
       const normalizeMs = Math.round(performance.now() - normalizeStartAt);
-      const total = extractTotal(payload);
+      let total = extractTotal(payload);
+
+      // Fallback for partial queries (e.g. "5588" for "UP16BV5588"):
+      // if backend search returns no rows, fetch a larger window and rely on client-side matching.
+      if (isSearchMode && normalizedRows.length === 0) {
+        const fallbackPayload = await loansApi.getAll({
+          view: "dashboard",
+          page: 1,
+          limit: 5000,
+          search: "",
+          sortBy: apiSort.sortBy,
+          sortDir: apiSort.sortDir,
+        });
+        rows = extractRows(fallbackPayload);
+        normalizedRows = rows.map(normalizeLoan);
+        total = normalizedRows.length;
+      }
 
       pageCacheRef.current.set(cacheKey, {
         rows: normalizedRows,
@@ -538,7 +622,7 @@ const LoanDashboard = () => {
     } catch (e) {
       console.error("Fetch Dashboard Stats Error:", e);
     }
-  }, []);
+  }, [STATS_TTL_MS]);
 
   useEffect(() => {
     fetchLoans();
@@ -804,49 +888,7 @@ const LoanDashboard = () => {
   const filteredLoans = useMemo(() => {
     return loans.filter((loan) => {
       if (filters.searchQuery?.trim()) {
-        const q = filters.searchQuery.trim().toLowerCase();
-        const searchableFields = [
-          loan.loanId,
-          loan.loan_number,
-          loan._id,
-          loan.customerName,
-          loan.primaryMobile,
-          loan.email,
-          loan.city,
-          loan.permanentCity,
-          loan.residenceAddress,
-          loan.permanentAddress,
-          loan.pincode,
-          loan.permanentPincode,
-          loan.vehicleMake,
-          loan.vehicleModel,
-          loan.vehicleVariant,
-          loan.vehicleRegNo,
-          loan.registrationNumber,
-          loan.vehicleNumber,
-          loan.rc_redg_no,
-          loan.typeOfLoan,
-          loan.loanType,
-          loan.postfile_regd_city,
-          loan.bankName,
-          loan.approval_bankName,
-          loan.postfile_emiAmount,
-          ...(loan.approval_banksData || []).map((b) => b.bankName),
-          ...(loan.approval_banksData || []).map((b) => b.emiAmount),
-          loan.source,
-          loan.sourcingChannel,
-          loan.recordSource,
-          loan.sourceName,
-          loan.dealerName,
-          loan.dealerContactPerson,
-          loan.reference1?.name,
-          loan.status,
-          loan.approval_status,
-          loan.currentStage,
-        ];
-        const matchFound = searchableFields.some(
-          (field) => field != null && String(field).toLowerCase().includes(q),
-        );
+        const matchFound = matchesDashboardSearch(loan, filters.searchQuery);
         if (!matchFound) return false;
       }
 
@@ -919,7 +961,7 @@ const LoanDashboard = () => {
 
       return true;
     });
-  }, [loans, filters]);
+  }, [loans, filters, matchesDashboardSearch]);
 
   useEffect(() => {
     setPage(1);
@@ -943,6 +985,8 @@ const LoanDashboard = () => {
   const totalCountForGrid = hasClientOnlyFilters
     ? filteredLoans.length
     : Number(serverTotal) || filteredLoans.length;
+  const searchMode = Boolean(filters.searchQuery?.trim());
+  const effectiveTotalCountForGrid = searchMode ? filteredLoans.length : totalCountForGrid;
 
   return (
     <div className="h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-b from-sky-50 via-white to-white p-4 md:p-6 dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
@@ -1062,7 +1106,7 @@ const LoanDashboard = () => {
             <LoansDataGrid
               loans={filteredLoans}
               selectedLoans={selectedLoans}
-              totalCount={totalCountForGrid}
+              totalCount={effectiveTotalCountForGrid}
               currentPage={page}
               pageSize={pageSize}
               onPageChange={setPage}

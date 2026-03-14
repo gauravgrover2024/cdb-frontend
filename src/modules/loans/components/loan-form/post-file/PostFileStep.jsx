@@ -144,7 +144,7 @@ const PostFileSectionShell = ({
 }) => (
   <section
     id={id}
-    className={`group relative overflow-hidden rounded-2xl border bg-card/95 dark:bg-black/90 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-36px_rgba(15,23,42,0.35)] ${panel} ${glow}`}
+    className={`group relative overflow-hidden rounded-2xl border bg-card/95 dark:bg-black/90 backdrop-blur-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-36px_rgba(15,23,42,0.35)] ${panel} ${glow}`}
   >
     <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent}`} />
     <div className="relative border-b border-border/50 px-4 py-3 md:px-5 md:py-3.5">
@@ -167,7 +167,7 @@ const PostFileSectionShell = ({
   </section>
 );
 
-const PostFileStep = ({ form }) => {
+const PostFileStep = ({ form, loanId, isEditMode }) => {
   const contentConsistencyClass =
     "[&_.section-header]:hidden [&_.section-header]:mb-0 [&_input:not([type='hidden'])]:h-10 [&_input:not([type='hidden'])]:rounded-xl [&_input:not([type='hidden'])]:border-border/90 [&_input:not([type='hidden'])]:text-sm [&_textarea]:rounded-xl [&_textarea]:border-border/90 [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-xl [&_.ant-picker]:!border-border/90 [&_.ant-picker-input>input]:!text-sm [&_.ant-select-selector]:!h-10 [&_.ant-select-selector]:!rounded-xl [&_.ant-select-selector]:!border-border/90 [&_.ant-select-selection-item]:!leading-9 [&_.ant-select-selection-placeholder]:!leading-9 [&_.bg-card]:border-border/70 [&_.bg-card]:rounded-xl";
 
@@ -194,7 +194,9 @@ const PostFileStep = ({ form }) => {
       </PostFileSectionShell>
 
       <PostFileSectionShell {...POSTFILE_SECTIONS[4]} index={5}>
-        <div className={contentConsistencyClass}><SafePostFileDocumentManagement form={form} /></div>
+        <div className={contentConsistencyClass}>
+          <SafePostFileDocumentManagement form={form} loanId={loanId} isEditMode={isEditMode} />
+        </div>
       </PostFileSectionShell>
 
       <PostFileSectionShell {...POSTFILE_SECTIONS[5]} index={6}>

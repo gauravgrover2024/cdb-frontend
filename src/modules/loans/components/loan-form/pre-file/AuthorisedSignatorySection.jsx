@@ -148,93 +148,95 @@ const AuthorisedSignatorySection = () => {
         </Col>
       </Row>
 
-      <Row gutter={[16, 0]}>
-        <Col xs={24} md={8}>
-          <Form.Item label="Applicant Name" name="signatory_customerName">
-            <CustomerQuickSearch
-              onSelect={handleCustomerSelect}
-              placeholder="Search or Enter Name"
-              className={fieldClass}
-            />
-          </Form.Item>
-        </Col>
+      {!sameAsCoApplicant && (
+        <Row gutter={[16, 0]}>
+          <Col xs={24} md={8}>
+            <Form.Item label="Applicant Name" name="signatory_customerName">
+              <CustomerQuickSearch
+                onSelect={handleCustomerSelect}
+                placeholder="Search or Enter Name"
+                className={fieldClass}
+              />
+            </Form.Item>
+          </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item
-            label="Primary Mobile"
-            name="signatory_primaryMobile"
-            rules={[{ pattern: /^[0-9]{10}$/, message: '10 digits required' }]}
-          >
-            <Input maxLength={10} className={fieldClass} prefix={<PhoneOutlined className="text-muted-foreground mr-1" />} placeholder="10-digit number" />
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={16}>
-          <Form.Item label="Present / Current Address" name="signatory_address">
-            <Input className={fieldClass} placeholder="House no, Street, Area" />
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={8}>
-          <Form.Item label="Pincode" name="signatory_pincode">
-            <Input className={fieldClass} maxLength={6} placeholder="6-digit PIN" />
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={8}>
-          <Form.Item label="City" name="signatory_city">
-            <Input
-              className={fieldClass}
-              suffix={
-                fetchingSignatoryPincode ? (
-                  <span className="text-[10px] text-muted-foreground animate-pulse">
-                    Fetching...
-                  </span>
-                ) : null
-              }
-            />
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={8}>
-          <Form.Item label="Date of Birth" name="signatory_dob">
-            <DatePicker style={{ width: "100%" }} className={fieldClass} getValueProps={(value) => ({ value: asDayjs(value) })} />
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={8}>
-          <Form.Item label="Gender" name="signatory_gender">
-            <Select
-              className={fieldClass}
-              showSearch
-              filterOption={(input, option) =>
-                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Primary Mobile"
+              name="signatory_primaryMobile"
+              rules={[{ pattern: /^[0-9]{10}$/, message: '10 digits required' }]}
             >
-              <Option value="Male">Male</Option>
-              <Option value="Female">Female</Option>
-            </Select>
-          </Form.Item>
-        </Col>
+              <Input maxLength={10} className={fieldClass} prefix={<PhoneOutlined className="text-muted-foreground mr-1" />} placeholder="10-digit number" />
+            </Form.Item>
+          </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="Designation" name="signatory_designation">
-            <Input className={fieldClass} placeholder="e.g. Director" />
-          </Form.Item>
-        </Col>
+          <Col xs={24} md={16}>
+            <Form.Item label="Present / Current Address" name="signatory_address">
+              <Input className={fieldClass} placeholder="House no, Street, Area" />
+            </Form.Item>
+          </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="PAN Number" name="signatory_pan">
-            <Input className={fieldClass} placeholder="ABCDE1234F" />
-          </Form.Item>
-        </Col>
+          <Col xs={24} md={8}>
+            <Form.Item label="Pincode" name="signatory_pincode">
+              <Input className={fieldClass} maxLength={6} placeholder="6-digit PIN" />
+            </Form.Item>
+          </Col>
 
-        <Col xs={24} md={8}>
-          <Form.Item label="Aadhaar Number" name="signatory_aadhaar">
-            <Input className={fieldClass} placeholder="1234 5678 9012" />
-          </Form.Item>
-        </Col>
-      </Row>
+          <Col xs={24} md={8}>
+            <Form.Item label="City" name="signatory_city">
+              <Input
+                className={fieldClass}
+                suffix={
+                  fetchingSignatoryPincode ? (
+                    <span className="text-[10px] text-muted-foreground animate-pulse">
+                      Fetching...
+                    </span>
+                  ) : null
+                }
+              />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item label="Date of Birth" name="signatory_dob">
+              <DatePicker style={{ width: "100%" }} className={fieldClass} getValueProps={(value) => ({ value: asDayjs(value) })} />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item label="Gender" name="signatory_gender">
+              <Select
+                className={fieldClass}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                <Option value="Male">Male</Option>
+                <Option value="Female">Female</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item label="Designation" name="signatory_designation">
+              <Input className={fieldClass} placeholder="e.g. Director" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item label="PAN Number" name="signatory_pan">
+              <Input className={fieldClass} placeholder="ABCDE1234F" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item label="Aadhaar Number" name="signatory_aadhaar">
+              <Input className={fieldClass} placeholder="1234 5678 9012" />
+            </Form.Item>
+          </Col>
+        </Row>
+      )}
     </div>
   );
 };

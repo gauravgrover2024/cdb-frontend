@@ -46,6 +46,7 @@ const asDayjs = (value) => {
 
 const CoApplicantSection = () => {
   const form = Form.useFormInstance();
+  const applicantType = Form.useWatch("applicantType", form);
   const hasCoApplicant = Form.useWatch("hasCoApplicant", form);
   const coId = Form.useWatch("co_id", form);
   const occupation = Form.useWatch("co_occupation", form);
@@ -160,6 +161,7 @@ const CoApplicantSection = () => {
   if (!hasCoApplicant) return null;
 
   const normalizedOccupation = normalizeOccupationForUI(occupation);
+  const isCompanyApplicant = applicantType === "Company";
   const isSalaried = normalizedOccupation === "Salaried";
   const isSelfEmployed = normalizedOccupation === "Self Employed";
   const isProfessional = normalizedOccupation === "Self Employed Professional";
@@ -343,8 +345,39 @@ const CoApplicantSection = () => {
           </Form.Item>
         </Col>
 
+        {isCompanyApplicant && (
+          <>
+            <Col xs={24} md={8}>
+              <Form.Item label="Designation" name="co_designation">
+                <Input className={fieldClass} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Current Exp (Years)"
+                name="co_currentExperience"
+              >
+                <Input className={fieldClass} placeholder="Years" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item label="Total Exp (Years)" name="co_totalExperience">
+                <Input className={fieldClass} placeholder="Years" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Years at current Residence"
+                name="co_yearsAtCurrentResidence"
+              >
+                <Input className={fieldClass} placeholder="Years" />
+              </Form.Item>
+            </Col>
+          </>
+        )}
+
         {/* Professional Type */}
-        {isProfessional && (
+        {!isCompanyApplicant && isProfessional && (
           <Col xs={24} md={8}>
             <Form.Item label="Professional Type" name="co_professionalType">
               <Select
@@ -367,7 +400,7 @@ const CoApplicantSection = () => {
         )}
 
         {/* Company Type */}
-        {(isSalaried || isSelfEmployed || isProfessional) && (
+        {!isCompanyApplicant && (isSalaried || isSelfEmployed || isProfessional) && (
           <Col xs={24} md={8}>
             <Form.Item label="Type of Company" name="co_companyType">
               <AutoComplete
@@ -384,7 +417,7 @@ const CoApplicantSection = () => {
         )}
 
         {/* Nature of Business */}
-        {(isSalaried || isSelfEmployed || isProfessional) && (
+        {!isCompanyApplicant && (isSalaried || isSelfEmployed || isProfessional) && (
           <Col xs={24} md={8}>
             <Form.Item label="Nature of Business" name="co_businessNature">
               <Select
@@ -402,7 +435,7 @@ const CoApplicantSection = () => {
       </Row>
 
       {/* EMPLOYER / BUSINESS DETAIL HEADER */}
-      {(isSalaried || isSelfEmployed || isProfessional) && (
+      {!isCompanyApplicant && (isSalaried || isSelfEmployed || isProfessional) && (
         <>
           <div className="flex items-center gap-2 mb-4 mt-8 opacity-80">
             <SolutionOutlined className="text-[12px] text-muted-foreground" />

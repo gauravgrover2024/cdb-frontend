@@ -2483,6 +2483,16 @@
         "string"
       ]
     },
+    "co_yearsAtCurrentResidence": {
+      "type": "string",
+      "title": "co_yearsAtCurrentResidence",
+      "x-sourceFiles": [
+        "src/modules/loans/components/loan-form/pre-file/CoApplicantSection.jsx"
+      ],
+      "x-typeHints": [
+        "string"
+      ]
+    },
     "co_customerName": {
       "type": "string",
       "title": "co_customerName",

@@ -8,7 +8,7 @@ import {
   FilePdfOutlined, 
   LoadingOutlined 
 } from "@ant-design/icons";
-import { uploadToCloudinary } from "../../utils/cloudinary";
+import { uploadSingleFile } from "../../utils/upload";
 
 /**
  * DocumentUpload
@@ -18,7 +18,7 @@ import { uploadToCloudinary } from "../../utils/cloudinary";
  * Props:
  * - value: string (URL of uploaded doc)
  * - onChange: function(url) -> updates parent state
- * - folder: string (optional cloudinary folder)
+ * - folder: string (unused; retained for compatibility)
  */
 const DocumentUpload = ({ value, onChange, folder = "documents", className }) => {
   const [loading, setLoading] = useState(false);
@@ -29,9 +29,9 @@ const DocumentUpload = ({ value, onChange, folder = "documents", className }) =>
   const handleUpload = async (file) => {
     try {
       setLoading(true);
-      const data = await uploadToCloudinary(file);
-      if (data?.secure_url) {
-        onChange(data.secure_url);
+      const data = await uploadSingleFile(file);
+      if (data?.url) {
+        onChange(data.url);
         message.success("Uploaded successfully");
       }
     } catch (error) {

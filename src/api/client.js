@@ -1,12 +1,8 @@
 // API base resolution:
 // 1) explicit env override
-// 2) local backend for localhost dev
-// 3) deployed backend fallback
+// 2) deployed backend fallback
 const API_BASE_URL =
-  process.env.REACT_APP_API_BASE_URL ||
-  (typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "http://localhost:5050"
-    : "https://cdb-api.vercel.app");
+  process.env.REACT_APP_API_BASE_URL || "https://cdb-api.vercel.app";
 
 console.log("API_BASE_URL at runtime:", API_BASE_URL);
 

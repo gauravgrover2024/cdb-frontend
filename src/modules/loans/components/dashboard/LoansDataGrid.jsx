@@ -88,6 +88,14 @@ const hasDisplayValue = (value) => {
   );
 };
 
+const firstFilled = (...values) =>
+  values.find(
+    (v) =>
+      v !== undefined &&
+      v !== null &&
+      !(typeof v === "string" && v.trim() === ""),
+  );
+
 const findStageIndexByCurrentStage = (loan) => {
   const rawStage = String(loan?.currentStage || "").trim().toLowerCase();
   if (!rawStage) return -1;
@@ -623,12 +631,30 @@ const LoansDataGrid = ({
             const customerAddress =
               loan?.residenceAddress || loan?.permanentAddress || loan?.address || "";
             const customerCity = loan?.city || loan?.permanentCity || "";
-            const showroomName =
-              loan?.dealerName ||
-              loan?.showroomName ||
-              loan?.showroom ||
-              loan?.showroom_name ||
-              "";
+            const normalizedCaseType = String(
+              loan?.typeOfLoan || loan?.loanType || loan?.caseType || loan?.loan_type || "",
+            )
+              .trim()
+              .toLowerCase();
+            const isNewCarCase = normalizedCaseType === "new car";
+            const showroomFieldLabel = isNewCarCase
+              ? "Showroom"
+              : "Loan Payment Favouring";
+            // Show only Post-File/Delivery vehicle showroom data here.
+            // Do not fallback to channel/dealer source fields.
+            const showroomName = firstFilled(
+              loan?.showroomDealerName,
+              loan?.delivery_dealerName,
+              loan?.postFile?.showroomDealerName,
+              loan?.postfile?.showroomDealerName,
+              loan?.postFileVehicleVerification?.showroomDealerName,
+              loan?.vehicleVerification?.showroomDealerName,
+              loan?.postFileVehicle?.showroomDealerName,
+              loan?.showroomName,
+              loan?.showroom,
+              loan?.showroom_name,
+              "",
+            );
             const disbursementLabel = disbursementDate
               ? new Date(disbursementDate).toLocaleDateString("en-IN", {
                   day: "2-digit",
@@ -661,8 +687,6 @@ const LoansDataGrid = ({
               return "Active";
             })();
             const isClosedByStatus = effectiveLifecycleStatus === "Closed";
-            const isShowroomApplicable =
-              !loanTypeText.includes("cash-in") && !loanTypeText.includes("refinance");
             const sourceText = loan?.source || loan?.recordSource || "";
             const sourceNameText = loan?.sourceName || loan?.dealerName || "";
             const referenceName =
@@ -671,7 +695,7 @@ const LoansDataGrid = ({
 
             const miniWindowData = getMiniWindow(loan);
             const currentStageIndex = findCurrentStageIndex(loan);
-            const missingEmi = !primaryEmiAmount;
+            const missingEmi = !isCashCar && !primaryEmiAmount;
             const missingRegNo = regNo === "Reg no not set";
 
             return (
@@ -795,8 +819,10 @@ const LoansDataGrid = ({
                       {hasDisplayValue(sourceNameText) && (
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{sourceNameText}</p>
                       )}
-                      {isShowroomApplicable && showroomName && (
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Showroom: {showroomName}</p>
+                      {hasDisplayValue(showroomName) && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          {showroomFieldLabel}: {showroomName}
+                        </p>
                       )}
                       {hasDisplayValue(referenceName) && (
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Ref: {referenceName}</p>

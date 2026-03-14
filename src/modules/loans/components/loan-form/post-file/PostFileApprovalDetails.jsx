@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useCallback } from "react";
 import ReactDOM from "react-dom";
 import { AutoComplete, DatePicker, Form, InputNumber, Radio, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
@@ -130,6 +130,23 @@ const PostFileApprovalDetails = ({ form }) => {
     form.getFieldValue("approval_approvalDate") ||
     form.getFieldValue("approval_disbursedDate");
 
+  const hasFieldChanged = useCallback((field, nextValue) => {
+    const currentValue = form.getFieldValue(field);
+    if (nextValue === undefined && currentValue === undefined) return false;
+    if (nextValue === null && currentValue === null) return false;
+    return String(currentValue ?? "") !== String(nextValue ?? "");
+  }, [form]);
+
+  const setFieldsIfChanged = useCallback((patch = {}) => {
+    const filtered = Object.fromEntries(
+      Object.entries(patch).filter(([field, value]) =>
+        hasFieldChanged(field, value),
+      ),
+    );
+    if (!Object.keys(filtered).length) return;
+    form.setFieldsValue(filtered);
+  }, [form, hasFieldChanged]);
+
   /**
    * ✅ MAIN FIX:
    * Keep syncing approval -> postfile AFTER disbursement
@@ -174,7 +191,7 @@ const PostFileApprovalDetails = ({ form }) => {
       __postfileSeeded: true, // keep for backward compatibility
     };
 
-    form.setFieldsValue(patch);
+    setFieldsIfChanged(patch);
   }, [
     approvalStatus,
     postfileLocked,
@@ -187,6 +204,7 @@ const PostFileApprovalDetails = ({ form }) => {
     approvalBreakupTotal,
     postfileEmiPlan,
     form,
+    setFieldsIfChanged,
   ]);
 
   // Auto-fill disbursal from approved if checkbox is checked and calculate EMI
@@ -231,7 +249,7 @@ const PostFileApprovalDetails = ({ form }) => {
       };
     }
 
-    form.setFieldsValue(patch);
+    setFieldsIfChanged(patch);
 
     const totalDisbursed =
       toNum(patch.postfile_disbursedLoan) +
@@ -246,14 +264,23 @@ const PostFileApprovalDetails = ({ form }) => {
       postfileRoiType
     );
 
-    form.setFieldsValue({
+    setFieldsIfChanged({
       postfile_emiAmount: calculatedEmi,
       postfile_disbursedLoanTotal: totalDisbursed,
       postfile_loanAmountDisbursed: totalDisbursed, // Keep main DB field in sync
     });
-  }, [isSameAsApproved, approvalLoanApproved, approvalBreakup, postfileRoi, postfileTenure, postfileRoiType, form]);
+  }, [
+    isSameAsApproved,
+    approvalLoanApproved,
+    approvalBreakup,
+    postfileRoi,
+    postfileTenure,
+    postfileRoiType,
+    form,
+    setFieldsIfChanged,
+  ]);
 
-  // Auto-calculate Loan Maturity Date = Date of 1st EMI + Tenure (months)
+  // Auto-calculate Loan Maturity Date = Date of 1st EMI + (Tenure - 1) months
   useEffect(() => {
     const tenure = Number(postfileTenure || approvalTenureMonths || 0);
     if (!postfileFirstEmiDate || !tenure) return;
@@ -263,7 +290,9 @@ const PostFileApprovalDetails = ({ form }) => {
       : dayjs(postfileFirstEmiDate);
     if (!firstEmi.isValid()) return;
 
-    const maturity = firstEmi.add(tenure, "month").format("YYYY-MM-DD");
+    const maturity = firstEmi
+      .add(Math.max(tenure - 1, 0), "month")
+      .format("YYYY-MM-DD");
     if (form.getFieldValue("postfile_maturityDate") !== maturity) {
       form.setFieldsValue({ postfile_maturityDate: maturity });
     }
@@ -285,7 +314,9 @@ const PostFileApprovalDetails = ({ form }) => {
       ? postfileFirstEmiDate
       : dayjs(postfileFirstEmiDate);
     if (!firstEmi.isValid()) return "";
-    return firstEmi.add(tenure, "month").format("YYYY-MM-DD");
+    return firstEmi
+      .add(Math.max(tenure - 1, 0), "month")
+      .format("YYYY-MM-DD");
   }, [postfileFirstEmiDate, postfileTenure, approvalTenureMonths]);
 
   const maturityValue = form.getFieldValue("postfile_maturityDate") || derivedMaturityDate;

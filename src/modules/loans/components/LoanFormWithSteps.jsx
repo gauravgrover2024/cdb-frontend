@@ -615,6 +615,24 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedHasGuarantor = Form.useWatch("hasGuarantor", form);
   const watchedApplicantType = Form.useWatch("applicantType", form);
   const watchedApprovalBankName = Form.useWatch("approval_bankName", form);
+  const watchedAadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
+  const watchedPanCardDocUrl = Form.useWatch("panCardDocUrl", form);
+  const watchedPassportDocUrl = Form.useWatch("passportDocUrl", form);
+  const watchedDlDocUrl = Form.useWatch("dlDocUrl", form);
+  const watchedAddressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
+  const watchedGstDocUrl = Form.useWatch("gstDocUrl", form);
+  const watchedCoAadhaarCardDocUrl = Form.useWatch("co_aadhaarCardDocUrl", form);
+  const watchedCoPanCardDocUrl = Form.useWatch("co_panCardDocUrl", form);
+  const watchedCoPassportDocUrl = Form.useWatch("co_passportDocUrl", form);
+  const watchedCoDlDocUrl = Form.useWatch("co_dlDocUrl", form);
+  const watchedCoAddressProofDocUrl = Form.useWatch("co_addressProofDocUrl", form);
+  const watchedGuAadhaarCardDocUrl = Form.useWatch("gu_aadhaarCardDocUrl", form);
+  const watchedGuPanCardDocUrl = Form.useWatch("gu_panCardDocUrl", form);
+  const watchedGuPassportDocUrl = Form.useWatch("gu_passportDocUrl", form);
+  const watchedGuDlDocUrl = Form.useWatch("gu_dlDocUrl", form);
+  const watchedGuAddressProofDocUrl = Form.useWatch("gu_addressProofDocUrl", form);
+  const watchedDeliveryInvoiceFile = Form.useWatch("delivery_invoiceFile", form);
+  const watchedDeliveryRcFile = Form.useWatch("delivery_rcFile", form);
   const [activeStep, setActiveStep] = useState("profile");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
@@ -920,6 +938,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const docAutoSaveReadyRef = React.useRef(false);
+  const docAutoSaveSignatureRef = React.useRef("");
 
   // ----------------------------
   // API helpers
@@ -1019,6 +1039,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             loan?.co_currentExperience || loan?.co_currentExp || "",
           co_totalExperience:
             loan?.co_totalExperience || loan?.co_totalExp || "",
+          co_yearsAtCurrentResidence:
+            loan?.co_yearsAtCurrentResidence || loan?.co_yearsInCurrentResidence || "",
           co_houseType:
             loan?.co_houseType || loan?.houseType || "",
           co_dob:
@@ -1137,6 +1159,74 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       mounted = false;
     };
   }, [isEditMode, loanIdFromRoute, fetchLoanById, form, initialData, buildAutoBankCardFromApproval, normalizeApprovalSequence, resolveBankAmounts]);
+
+  // Persist KYC + delivery docs immediately on edit mode so refresh doesn't lose uploads.
+  useEffect(() => {
+    const effectiveLoanId = loanIdFromRoute || form.getFieldValue("loanId");
+    if (!isEditMode || !effectiveLoanId) return;
+
+    const docPatch = {
+      aadhaarCardDocUrl: watchedAadhaarCardDocUrl || "",
+      panCardDocUrl: watchedPanCardDocUrl || "",
+      passportDocUrl: watchedPassportDocUrl || "",
+      dlDocUrl: watchedDlDocUrl || "",
+      addressProofDocUrl: watchedAddressProofDocUrl || "",
+      gstDocUrl: watchedGstDocUrl || "",
+      co_aadhaarCardDocUrl: watchedCoAadhaarCardDocUrl || "",
+      co_panCardDocUrl: watchedCoPanCardDocUrl || "",
+      co_passportDocUrl: watchedCoPassportDocUrl || "",
+      co_dlDocUrl: watchedCoDlDocUrl || "",
+      co_addressProofDocUrl: watchedCoAddressProofDocUrl || "",
+      gu_aadhaarCardDocUrl: watchedGuAadhaarCardDocUrl || "",
+      gu_panCardDocUrl: watchedGuPanCardDocUrl || "",
+      gu_passportDocUrl: watchedGuPassportDocUrl || "",
+      gu_dlDocUrl: watchedGuDlDocUrl || "",
+      gu_addressProofDocUrl: watchedGuAddressProofDocUrl || "",
+      delivery_invoiceFile: watchedDeliveryInvoiceFile || "",
+      delivery_rcFile: watchedDeliveryRcFile || "",
+    };
+
+    const signature = JSON.stringify(docPatch);
+    if (!docAutoSaveReadyRef.current) {
+      docAutoSaveReadyRef.current = true;
+      docAutoSaveSignatureRef.current = signature;
+      return;
+    }
+    if (signature === docAutoSaveSignatureRef.current) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await loansApi.update(effectiveLoanId, docPatch);
+        docAutoSaveSignatureRef.current = signature;
+      } catch (error) {
+        console.error("Failed to auto-persist KYC/Delivery documents:", error);
+      }
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [
+    isEditMode,
+    loanIdFromRoute,
+    form,
+    watchedAadhaarCardDocUrl,
+    watchedPanCardDocUrl,
+    watchedPassportDocUrl,
+    watchedDlDocUrl,
+    watchedAddressProofDocUrl,
+    watchedGstDocUrl,
+    watchedCoAadhaarCardDocUrl,
+    watchedCoPanCardDocUrl,
+    watchedCoPassportDocUrl,
+    watchedCoDlDocUrl,
+    watchedCoAddressProofDocUrl,
+    watchedGuAadhaarCardDocUrl,
+    watchedGuPanCardDocUrl,
+    watchedGuPassportDocUrl,
+    watchedGuDlDocUrl,
+    watchedGuAddressProofDocUrl,
+    watchedDeliveryInvoiceFile,
+    watchedDeliveryRcFile,
+  ]);
 
   // When approval bank is available but approval_banksData is empty, auto-seed one bank card.
   useEffect(() => {
@@ -2115,7 +2205,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       case "postfile":
         return (
           <div className="prefile-workbench prefile-elegance relative space-y-3 md:space-y-4">
-            <PostFileStep form={form} banksData={banksData} />
+            <PostFileStep form={form} banksData={banksData} loanId={loanIdFromRoute} isEditMode={isEditMode} />
           </div>
         );
 
@@ -2162,6 +2252,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       <Form.Item name="co_id" hidden />
       <Form.Item name="co_currentExperience" hidden />
       <Form.Item name="co_totalExperience" hidden />
+      <Form.Item name="co_yearsAtCurrentResidence" hidden />
       <Form.Item name="gu_id" hidden />
       <Form.Item name="customerName" hidden />
       <Form.Item name="primaryMobile" hidden />
