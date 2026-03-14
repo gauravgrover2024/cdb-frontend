@@ -228,6 +228,8 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
 
   const data = { ...snapshot, ...Object.fromEntries(Object.entries(live).filter(([, v]) => hasValue(v))) };
 
+  const normalizedCaseType = String(data.caseType || "").trim().toLowerCase();
+  const isCashCaseByType = normalizedCaseType.includes("cash");
   const isNewCar = data.caseType === "New Car";
   const loanAmount = (() => {
     const disb = asNumber(data.disbursedAmount);
@@ -298,7 +300,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
               </p>
             </div>
 
-            {data.isFinancedCase && (hasValue(data.roi) || hasValue(data.tenure) || hasValue(data.emi)) && (
+            {data.isFinancedCase && !isCashCaseByType && (hasValue(data.roi) || hasValue(data.tenure) || hasValue(data.emi)) && (
               <>
                 <div className="flex items-center bg-gradient-to-r from-emerald-50/65 to-teal-50/65 px-1.5 dark:from-emerald-950/15 dark:to-teal-950/15">
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100/80 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300">

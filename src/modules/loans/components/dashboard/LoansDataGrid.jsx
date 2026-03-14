@@ -782,7 +782,7 @@ const LoansDataGrid = ({
                       {!!primaryEmiAmount && (
                         <p className="text-[11px] text-slate-700 dark:text-slate-200">EMI: <span className="font-semibold">{formatINR(primaryEmiAmount)}</span></p>
                       )}
-                      {hasFinanceMeta && (
+                      {!isCashCar && hasFinanceMeta && (
                         <p className="text-[10px] text-slate-600 dark:text-slate-300 truncate">
                           {primaryInterest != null ? `ROI ${primaryInterest}%` : ""}{primaryInterest != null && primaryTenureMonths ? " · " : ""}{primaryTenureMonths ? `${primaryTenureMonths}m` : ""}
                         </p>

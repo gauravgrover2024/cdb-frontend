@@ -145,6 +145,8 @@ const LoanDashboard = () => {
   });
   const pageSize = 75;
   const pageCacheRef = useRef(new Map());
+  const showroomHydrationCacheRef = useRef(new Map());
+  const showroomHydrationInFlightRef = useRef(new Set());
 
   const userRole = "admin";
 
@@ -155,6 +157,16 @@ const LoanDashboard = () => {
     const diffTime = Math.abs(now - created);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
+
+  const hasMeaningfulText = useCallback((value) => {
+    const t = String(value ?? "").trim().toLowerCase();
+    return !!t && !["n/a", "na", "not set", "unknown", "-", "null", "undefined"].includes(t);
+  }, []);
+
+  const firstMeaningfulText = useCallback(
+    (...values) => values.find((v) => hasMeaningfulText(v)) || "",
+    [hasMeaningfulText],
+  );
 
   const normalizeSearchToken = useCallback(
     (value) =>
@@ -196,9 +208,47 @@ const LoanDashboard = () => {
     [normalizeSearchToken],
   );
 
+  const extractShowroomFields = useCallback(
+    (loan) => {
+      const showroomDealerName = firstMeaningfulText(
+        loan?.showroomDealerName,
+        loan?.delivery_dealerName,
+        loan?.postFile?.showroomDealerName,
+        loan?.postfile?.showroomDealerName,
+        loan?.postFileVehicleVerification?.showroomDealerName,
+        loan?.vehicleVerification?.showroomDealerName,
+        loan?.postFileVehicle?.showroomDealerName,
+        loan?.postfile_showroomDealerName,
+        loan?.showroomName,
+        loan?.showroom,
+        loan?.showroom_name,
+      );
+      const deliveryDealerName = firstMeaningfulText(
+        loan?.delivery_dealerName,
+        loan?.showroomDealerName,
+        loan?.postFile?.delivery_dealerName,
+        loan?.postfile?.delivery_dealerName,
+        loan?.postFileVehicleVerification?.delivery_dealerName,
+        loan?.vehicleVerification?.delivery_dealerName,
+        loan?.postFileVehicle?.delivery_dealerName,
+        loan?.postfile_showroomDealerName,
+        loan?.showroomName,
+        loan?.showroom,
+        loan?.showroom_name,
+      );
+      return {
+        showroomDealerName,
+        delivery_dealerName: deliveryDealerName,
+      };
+    },
+    [firstMeaningfulText],
+  );
+
   const normalizeLoan = useCallback(
-    (loan) => ({
-      ...loan,
+    (loan) => {
+      const showroomFields = extractShowroomFields(loan);
+      return {
+        ...loan,
       loanId:
         loan?.loan_number ||
         loan?.loanNumber ||
@@ -275,32 +325,8 @@ const LoanDashboard = () => {
         loan?.branchName ||
         "",
       // Post-file / delivery showroom data used by dashboard card display
-      showroomDealerName:
-        loan?.showroomDealerName ||
-        loan?.delivery_dealerName ||
-        loan?.postFile?.showroomDealerName ||
-        loan?.postfile?.showroomDealerName ||
-        loan?.postFileVehicleVerification?.showroomDealerName ||
-        loan?.vehicleVerification?.showroomDealerName ||
-        loan?.postFileVehicle?.showroomDealerName ||
-        loan?.showroomName ||
-        loan?.showroom ||
-        loan?.showroom_name ||
-        loan?.postfile_showroomDealerName ||
-        "",
-      delivery_dealerName:
-        loan?.delivery_dealerName ||
-        loan?.showroomDealerName ||
-        loan?.postFile?.delivery_dealerName ||
-        loan?.postfile?.delivery_dealerName ||
-        loan?.postFileVehicleVerification?.delivery_dealerName ||
-        loan?.vehicleVerification?.delivery_dealerName ||
-        loan?.postFileVehicle?.delivery_dealerName ||
-        loan?.showroomName ||
-        loan?.showroom ||
-        loan?.showroom_name ||
-        loan?.postfile_showroomDealerName ||
-        "",
+      showroomDealerName: showroomFields.showroomDealerName,
+      delivery_dealerName: showroomFields.delivery_dealerName,
       dealerContactPerson:
         loan?.dealerContactPerson ||
         loan?.showroomContactPerson ||
@@ -391,8 +417,69 @@ const LoanDashboard = () => {
           : loan?.reference1 || { name: loan?.referenceName || "" },
       createdAt: loan?.createdAt || loan?.receivingDate || null,
       updatedAt: loan?.updatedAt || null,
-    }),
-    [],
+    };
+    },
+    [extractShowroomFields],
+  );
+
+  const hydrateMissingShowroomFields = useCallback(
+    async (rows = []) => {
+      const candidates = rows
+        .filter(
+          (loan) =>
+            !hasMeaningfulText(loan?.showroomDealerName) &&
+            !hasMeaningfulText(loan?.delivery_dealerName) &&
+            (loan?._id || loan?.loanId),
+        )
+        .slice(0, 40);
+      if (!candidates.length) return;
+
+      const updates = await Promise.all(
+        candidates.map(async (loan) => {
+          const id = String(loan?._id || loan?.loanId || "").trim();
+          if (!id) return null;
+
+          const cached = showroomHydrationCacheRef.current.get(id);
+          if (cached) return { id, patch: cached };
+          if (showroomHydrationInFlightRef.current.has(id)) return null;
+
+          showroomHydrationInFlightRef.current.add(id);
+          try {
+            const res = await loansApi.getById(id);
+            const body = res?.data ?? res;
+            const fullLoan = body?.data ?? body;
+            if (!fullLoan) return null;
+            const patch = extractShowroomFields(fullLoan);
+            if (
+              !hasMeaningfulText(patch?.showroomDealerName) &&
+              !hasMeaningfulText(patch?.delivery_dealerName)
+            ) {
+              return null;
+            }
+            showroomHydrationCacheRef.current.set(id, patch);
+            return { id, patch };
+          } catch {
+            return null;
+          } finally {
+            showroomHydrationInFlightRef.current.delete(id);
+          }
+        }),
+      );
+
+      const patchMap = new Map(
+        updates.filter(Boolean).map((item) => [item.id, item.patch]),
+      );
+      if (!patchMap.size) return;
+
+      setLoans((prev) =>
+        (prev || []).map((loan) => {
+          const id = String(loan?._id || loan?.loanId || "").trim();
+          const patch = patchMap.get(id);
+          return patch ? { ...loan, ...patch } : loan;
+        }),
+      );
+    },
+    [extractShowroomFields, hasMeaningfulText],
   );
 
   const fetchLoans = useCallback(async () => {
@@ -475,6 +562,12 @@ const LoanDashboard = () => {
       let rows = extractRows(payload);
       const normalizeStartAt = performance.now();
       let normalizedRows = rows.map(normalizeLoan);
+      normalizedRows = normalizedRows.map((loan) => {
+        const id = String(loan?._id || loan?.loanId || "").trim();
+        if (!id) return loan;
+        const cached = showroomHydrationCacheRef.current.get(id);
+        return cached ? { ...loan, ...cached } : loan;
+      });
       const normalizeMs = Math.round(performance.now() - normalizeStartAt);
       let total = extractTotal(payload);
 
@@ -510,6 +603,7 @@ const LoanDashboard = () => {
 
       setLoans(normalizedRows);
       setServerTotal(total);
+      void hydrateMissingShowroomFields(normalizedRows);
 
       const payloadSizeBytes = new Blob([JSON.stringify(payload || {})]).size;
       const payloadKB = Number((payloadSizeBytes / 1024).toFixed(1));
@@ -568,7 +662,7 @@ const LoanDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [normalizeLoan, page, pageSize, debouncedSearchQuery, sortConfig]);
+  }, [normalizeLoan, page, pageSize, debouncedSearchQuery, sortConfig, hydrateMissingShowroomFields]);
 
   const fetchDashboardStats = useCallback(async ({ force = false } = {}) => {
     try {
