@@ -452,6 +452,8 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
         loanAmount: "₹0",
         processingFee: "₹0",
         tenure: "60",
+        loanBookedIn: "Direct Code",
+        brokerName: "",
         vehicle: {},
         statusHistory: [
           {

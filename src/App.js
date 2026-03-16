@@ -18,7 +18,6 @@ import PaymentsDashboard from "./modules/payments/pages/PaymentsDashboard";
 import PaymentForm from "./modules/payments/components/PaymentsForm";
 import VehicleMaster from "./modules/vehicles/VehicleMaster";
 import VehiclePriceList from "./modules/vehicles/VehiclePriceList";
-import VehicleScraperDashboard from "./modules/vehicles/VehicleScraperDashboard";
 import AnalyticsDashboard from "./modules/analytics/AnalyticsDashboard";
 import Login from "./modules/auth/Login";
 import Signup from "./modules/auth/Signup";
@@ -110,7 +109,6 @@ function App() {
           {/* Vehicles */}
           <Route path="vehicles" element={<VehicleMaster />} />
           <Route path="vehicles/price-list" element={<VehiclePriceList />} />
-          <Route path="vehicles/data-sync" element={<VehicleScraperDashboard />} />
         </Route>
       </Routes>
     </ThemeProvider>

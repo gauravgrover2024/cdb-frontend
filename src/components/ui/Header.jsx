@@ -108,11 +108,6 @@ const Header = () => {
           path: "/vehicles/price-list",
           desc: "Browse pricing catalog",
         },
-        {
-          label: "Data Sync Jobs",
-          path: "/vehicles/data-sync",
-          desc: "Run scraper scripts and track DB changes",
-        },
       ],
     },
     {

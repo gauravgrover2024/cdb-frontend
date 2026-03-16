@@ -853,6 +853,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       bankName,
       applicationId: `ACILLP-Loan-${String(index + 1).padStart(4, "0")}`,
       status,
+      loanBookedIn: values?.approval_loanBookedIn || "Direct Code",
+      brokerName: values?.approval_brokerName || "",
       interestRate: String(values?.approval_roi ?? ""),
       loanAmount: toNum(values?.approval_loanAmountApproved),
       processingFee: toNum(values?.approval_processingFees),
@@ -1302,6 +1304,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       approval_bankId: primaryBank.id,
       approval_bankName: primaryBank.bankName || "",
       approval_status: primaryBank.status || "Pending",
+      approval_loanBookedIn: primaryBank.loanBookedIn || "Direct Code",
+      approval_brokerName:
+        (primaryBank.loanBookedIn || "Direct Code") === "Indirect Code"
+          ? primaryBank.brokerName || ""
+          : "",
       approval_loanAmountApproved: amt.derivedApproved,
       approval_loanAmountDisbursed: amt.derivedDisbursed,
       approval_roi: Number(primaryBank.interestRate) || undefined,
@@ -1313,6 +1320,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       approval_breakup_creditAssured: amt.credit,
       approval_breakup_insuranceFinance: amt.ins,
       approval_breakup_ewFinance: amt.ew,
+      dsaCode:
+        (primaryBank.loanBookedIn || "Direct Code") === "Indirect Code"
+          ? ""
+          : primaryBank.dsaCode || "",
       payoutPercentage: primaryBank.payoutPercent || "",
     });
   }, [banksData, form, resolveBankAmounts]);
@@ -2271,6 +2282,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       <Form.Item name="approval_bankId" hidden />
       <Form.Item name="approval_bankName" hidden />
       <Form.Item name="approval_status" hidden />
+      <Form.Item name="approval_loanBookedIn" hidden />
+      <Form.Item name="approval_brokerName" hidden />
       <Form.Item name="approval_loanAmountApproved" hidden />
       <Form.Item name="approval_loanAmountDisbursed" hidden />
       <Form.Item name="approval_roi" hidden />

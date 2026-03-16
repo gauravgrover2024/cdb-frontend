@@ -19,6 +19,8 @@ const PayoutSection = ({ form, readOnly = false }) => {
   const disbursementStatus = Form.useWatch("disbursement_status", form);
   const disbursedBankName = Form.useWatch("approval_bankName", form);
   const disbursedAmount = Form.useWatch("approval_loanAmountDisbursed", form);
+  const approvalLoanBookedIn = Form.useWatch("approval_loanBookedIn", form);
+  const approvalBrokerName = Form.useWatch("approval_brokerName", form);
 
   const netLoanApproved = Form.useWatch(
     "approval_breakup_netLoanApproved",
@@ -47,6 +49,8 @@ const PayoutSection = ({ form, readOnly = false }) => {
 
   // Dealer/Channel name comes from Record Details (sourceName)
   const dealerName = sourceName || "";
+  const isIndirectBookedIn = String(approvalLoanBookedIn || "Direct Code").trim() === "Indirect Code";
+  const brokerPartyName = String(approvalBrokerName || "").trim();
 
   // =========================
   // HELPERS
@@ -187,7 +191,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
       const shouldCreateDealerPayable =
         recordSource === "Indirect" &&
         payoutApplicablePrefile === "Yes" &&
-        dealerName &&
+        (isIndirectBookedIn ? brokerPartyName : dealerName) &&
         prefileSourcePayout;
 
       if (shouldCreateDealerPayable) {
@@ -205,8 +209,8 @@ const PayoutSection = ({ form, readOnly = false }) => {
           payout_createdAt: new Date().toISOString(),
 
           payout_applicable: "Yes",
-          payout_type: "Source",
-          payout_party_name: dealerName,
+          payout_type: isIndirectBookedIn ? "Broker" : "Source",
+          payout_party_name: isIndirectBookedIn ? brokerPartyName : dealerName,
           payout_percentage: sourcePercent,
           payout_amount: payoutAmount,
           payout_direction: "Payable",
@@ -222,7 +226,9 @@ const PayoutSection = ({ form, readOnly = false }) => {
           activity_log: [],
 
           payout_remarks:
-            "Auto-generated from pre-file source payout (indirect)",
+            isIndirectBookedIn
+              ? "Auto-generated from indirect broker payout"
+              : "Auto-generated from pre-file source payout (indirect)",
         });
       }
 
@@ -236,6 +242,8 @@ const PayoutSection = ({ form, readOnly = false }) => {
     recordSource,
     payoutApplicablePrefile,
     dealerName,
+    isIndirectBookedIn,
+    brokerPartyName,
     prefileSourcePayout,
     netLoanApproved,
     receivables.length,
@@ -353,6 +361,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
         // Dealer/Source both map to same party name here
         if (value === "Dealer") updated.payout_party_name = dealerName || "";
         if (value === "Source") updated.payout_party_name = dealerName || "";
+        if (value === "Broker") updated.payout_party_name = brokerPartyName || "";
       }
     }
 
@@ -577,7 +586,7 @@ const PayoutSection = ({ form, readOnly = false }) => {
                 <h3 className="text-base md:text-lg font-semibold text-foreground">
                   Payables
                 </h3>
-                <p className="text-xs text-muted-foreground">Dealer / Source</p>
+                <p className="text-xs text-muted-foreground">Dealer / Source / Broker</p>
               </div>
             </div>
 
@@ -738,6 +747,7 @@ const PayoutCard = ({
                 <>
                   <option value="Dealer">Dealer</option>
                   <option value="Source">Source</option>
+                  <option value="Broker">Broker</option>
                 </>
               )}
             </select>

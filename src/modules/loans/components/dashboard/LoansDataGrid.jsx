@@ -698,6 +698,18 @@ const LoansDataGrid = ({
             const isClosedByStatus = effectiveLifecycleStatus === "Closed";
             const sourceText = loan?.source || loan?.recordSource || "";
             const sourceNameText = loan?.sourceName || loan?.dealerName || "";
+            const loanBookedInMode =
+              loan?.approval_loanBookedIn ||
+              primary?.loanBookedIn ||
+              "Direct Code";
+            const brokerOrCorporateDsaName =
+              loanBookedInMode === "Indirect Code"
+                ? (
+                    loan?.approval_brokerName ||
+                    primary?.brokerName ||
+                    ""
+                  ).trim()
+                : "";
             const referenceName =
               loan?.reference1?.name || loan?.reference1_name || loan?.reference_name || "";
             const hasFinanceMeta = primaryInterest != null || !!primaryTenureMonths;
@@ -847,6 +859,11 @@ const LoansDataGrid = ({
                       )}
                       {hasDisplayValue(sourceNameText) && (
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{sourceNameText}</p>
+                      )}
+                      {hasDisplayValue(brokerOrCorporateDsaName) && (
+                        <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">
+                          Broker/Corporate DSA: {brokerOrCorporateDsaName}
+                        </p>
                       )}
                       {hasDisplayValue(showroomName) && (
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">

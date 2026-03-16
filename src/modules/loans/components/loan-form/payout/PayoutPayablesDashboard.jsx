@@ -202,7 +202,12 @@ const PayoutPayablesDashboard = () => {
         const payableList = list.filter((p) => {
           const type = p?.payout_type;
           const direction = p?.payout_direction;
-          return type === "Dealer" || type === "Source" || direction === "Payable";
+          return (
+            type === "Dealer" ||
+            type === "Source" ||
+            type === "Broker" ||
+            direction === "Payable"
+          );
         });
 
         return payableList.map((p) => ({
@@ -937,7 +942,7 @@ const PayoutPayablesDashboard = () => {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-semibold mb-1">Payables Dashboard</h1>
-            <p className="text-sm text-gray-500">Track payouts to Dealers and Sources</p>
+            <p className="text-sm text-gray-500">Track payouts to Dealers, Sources and Brokers</p>
           </div>
           <Space>
             <Button icon={<DownloadOutlined />} onClick={handleExport} size="large">
@@ -1011,6 +1016,7 @@ const PayoutPayablesDashboard = () => {
               <Option value="All">All Types</Option>
               <Option value="Dealer">Dealer</Option>
               <Option value="Source">Source</Option>
+              <Option value="Broker">Broker</Option>
             </Select>
             <Select value={ageFilter} onChange={setAgeFilter} size="large" className="w-full">
               <Option value="All">All Ages</Option>

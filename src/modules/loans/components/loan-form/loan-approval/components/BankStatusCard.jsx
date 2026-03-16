@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { AutoComplete, Modal, Timeline } from "antd";
+import { AutoComplete, Modal, Select, Timeline } from "antd";
 import Icon from "../../../../../../components/AppIcon";
 import Button from "../../../../../../components/ui/Button";
 import { lenderHypothecationOptions } from "../../../../../../constants/lenderHypothecationOptions";
@@ -192,16 +192,17 @@ const getStatusClasses = (status) => {
   const s = (status || "").toLowerCase();
 
   if (s === "approved")
-    return "bg-success/10 text-success border border-success/20";
+    return "border border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300";
   if (s === "disbursed")
-    return "bg-teal-100 text-teal-700 border border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800/50";
+    return "border border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/45 dark:text-teal-300";
   if (s === "documents required")
-    return "bg-accent/10 text-accent border border-accent/20";
-  if (s === "rejected") return "bg-error/10 text-error border border-error/20";
+    return "border border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/45 dark:text-amber-300";
+  if (s === "rejected")
+    return "border border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/45 dark:text-rose-300";
   if (s === "pending" || s === "under review")
-    return "bg-warning/10 text-warning border border-warning/20";
+    return "border border-yellow-300 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/45 dark:text-yellow-300";
 
-  return "bg-muted text-muted-foreground border border-border/50";
+  return "border border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
 };
 
 const getStatusIcon = (status) => {
@@ -294,6 +295,12 @@ const BankStatusCard = ({
 
   const [processingFee, setProcessingFee] = useState(bank.processingFee || "");
   const [cibilScore, setCibilScore] = useState(750);
+  const [loanBookedIn, setLoanBookedIn] = useState(
+    bank?.loanBookedIn || form?.getFieldValue("approval_loanBookedIn") || "Direct Code",
+  );
+  const [brokerName, setBrokerName] = useState(
+    bank?.brokerName || form?.getFieldValue("approval_brokerName") || "",
+  );
   const [dsaCode, setDsaCode] = useState(bank?.dsaCode || form?.getFieldValue("dsaCode") || "");
   const [payoutPercent, setPayoutPercent] = useState(bank.payoutPercent || "");
 
@@ -335,16 +342,16 @@ const BankStatusCard = ({
   const ltv = calculateLtv(displayLoanAmount, exShowroomPrice);
   const cardSurfaceClass =
     (bank.status || "").toLowerCase() === "approved"
-      ? "bg-emerald-50/55 dark:bg-emerald-950/18"
+      ? "bg-emerald-50/65 dark:bg-emerald-950/28"
       : (bank.status || "").toLowerCase() === "disbursed"
-        ? "bg-teal-50/70 dark:bg-teal-950/22"
+        ? "bg-teal-50/75 dark:bg-teal-950/30"
         : (bank.status || "").toLowerCase() === "pending" ||
             (bank.status || "").toLowerCase() === "under review" ||
             (bank.status || "").toLowerCase() === "documents required"
-          ? "bg-amber-50/75 dark:bg-amber-950/24"
+          ? "bg-amber-50/80 dark:bg-amber-950/30"
         : (bank.status || "").toLowerCase() === "rejected"
-          ? "bg-rose-50/55 dark:bg-rose-950/18"
-          : "bg-card dark:bg-black/75";
+          ? "bg-rose-50/65 dark:bg-rose-950/28"
+          : "bg-card dark:bg-zinc-950/85";
 
   // EXPANDED loan amount (styled like other fields, opens popup editable)
   const ExpandedLoanAmount = (
@@ -434,9 +441,27 @@ const BankStatusCard = ({
     }
   }, [bank?.dsaCode, form, dsaCode]);
 
+  useEffect(() => {
+    if (!form) return;
+    const existingLoanBookedIn =
+      bank?.loanBookedIn || form.getFieldValue("approval_loanBookedIn");
+    if (existingLoanBookedIn && existingLoanBookedIn !== loanBookedIn) {
+      setLoanBookedIn(existingLoanBookedIn);
+    }
+  }, [bank?.loanBookedIn, form, loanBookedIn]);
+
+  useEffect(() => {
+    if (!form) return;
+    const existingBrokerName =
+      bank?.brokerName || form.getFieldValue("approval_brokerName");
+    if (existingBrokerName !== undefined && existingBrokerName !== brokerName) {
+      setBrokerName(existingBrokerName || "");
+    }
+  }, [bank?.brokerName, form, brokerName]);
+
   return (
-    <div
-      className={`relative mx-auto flex min-h-[380px] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 p-4 shadow-sm transition-all md:p-5 ${cardSurfaceClass}`}
+      <div
+      className={`relative mx-auto flex min-h-[380px] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 p-4 shadow-sm transition-all md:p-5 dark:border-zinc-800 ${cardSurfaceClass}`}
     >
       {/* SUMMARY */}
       {!expanded && (
@@ -448,6 +473,11 @@ const BankStatusCard = ({
                 <h3 className="text-base font-semibold text-foreground">
                   {bank.bankName}
                 </h3>
+                {loanBookedIn === "Indirect Code" && brokerName && (
+                  <p className="text-[12px] font-bold text-foreground">
+                    {brokerName}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Application:
                   {" "}
@@ -646,6 +676,57 @@ const BankStatusCard = ({
               disabled={readOnly}
             />
           </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground">Loan Booked In</label>
+            <Select
+              className="w-full mt-1 h-10 rounded-xl"
+              value={loanBookedIn}
+              disabled={readOnly}
+              onChange={(value) => {
+                const next = value || "Direct Code";
+                setLoanBookedIn(next);
+                form?.setFieldsValue({ approval_loanBookedIn: next });
+                if (next === "Direct Code") {
+                  form?.setFieldsValue({ approval_brokerName: "" });
+                  setBrokerName("");
+                } else {
+                  form?.setFieldsValue({ dsaCode: "" });
+                  setDsaCode("");
+                }
+                onBankUpdate &&
+                  onBankUpdate({
+                    loanBookedIn: next,
+                    brokerName: next === "Direct Code" ? "" : brokerName,
+                    dsaCode: next === "Direct Code" ? dsaCode : "",
+                  });
+              }}
+              placeholder="Select booking type"
+            >
+              <Select.Option value="Direct Code">Direct Code</Select.Option>
+              <Select.Option value="Indirect Code">Indirect Code</Select.Option>
+            </Select>
+          </div>
+
+          {loanBookedIn === "Indirect Code" && (
+            <div>
+              <label className="text-xs text-muted-foreground">
+                Broker / Corporate DSA Name
+              </label>
+              <input
+                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                value={brokerName}
+                readOnly={readOnly}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setBrokerName(value);
+                  form?.setFieldsValue({ approval_brokerName: value });
+                  onBankUpdate && onBankUpdate({ brokerName: value });
+                }}
+                placeholder="Enter broker / corporate DSA name"
+              />
+            </div>
+          )}
 
           {/* Make / Model / Variant */}
           <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
@@ -889,21 +970,23 @@ const BankStatusCard = ({
           </div>
 
           {/* DSA Code */}
-          <div>
-            <label className="text-xs text-muted-foreground">DSA Code</label>
-            <input
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-              value={dsaCode}
-              readOnly={readOnly}
-              onChange={(e) => {
-                const value = e.target.value;
-                setDsaCode(value);
-                form?.setFieldsValue({ dsaCode: value });
-                onBankUpdate && onBankUpdate({ dsaCode: value });
-              }}
-              placeholder="Enter DSA code"
-            />
-          </div>
+          {loanBookedIn !== "Indirect Code" && (
+            <div>
+              <label className="text-xs text-muted-foreground">DSA Code</label>
+              <input
+                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
+                value={dsaCode}
+                readOnly={readOnly}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setDsaCode(value);
+                  form?.setFieldsValue({ dsaCode: value });
+                  onBankUpdate && onBankUpdate({ dsaCode: value });
+                }}
+                placeholder="Enter DSA code"
+              />
+            </div>
+          )}
 
           {/* Payout % */}
           <div>
