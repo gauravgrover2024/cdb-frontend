@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Tooltip } from "antd";
 import PendencyTracker from "../pendency/PendencyTracker";
 import LoanDocumentsModal from "./LoanDocumentsModal";
+import ApproxClosureModal from "./ApproxClosureModal";
 import Icon from "../../../../components/AppIcon";
 import Button from "../../../../components/ui/Button";
 import { Checkbox } from "../../../../components/ui/Checkbox";
@@ -367,6 +368,7 @@ const LoansDataGrid = ({
   const [timelineLoan, setTimelineLoan] = useState(null);
   const [pendencyLoan, setPendencyLoan] = useState(null);
   const [documentsLoan, setDocumentsLoan] = useState(null);
+  const [closureLoan, setClosureLoan] = useState(null);
 
   const formatLoanId = (id) => {
     if (!id) return "Loan number not set";
@@ -662,6 +664,13 @@ const LoansDataGrid = ({
                   year: "numeric",
                 })
               : "";
+            const firstEmiDateForClosure =
+              loan?.postfile_firstEmiDate ||
+              loan?.postfile_first_emi_date ||
+              primary?.firstEmiDate ||
+              loan?.firstEmiDate ||
+              disbursementDate ||
+              null;
             const maturityStatus = (() => {
               if (!maturityDate) return null;
               const m = new Date(maturityDate);
@@ -732,9 +741,29 @@ const LoansDataGrid = ({
                             </span>
                           )}
                           {!isCashCar && !isClosedByStatus && !!principalOutstanding && (
-                            <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setClosureLoan({
+                                  loanId:
+                                    loan?.loan_number ||
+                                    loan?.loanId ||
+                                    loan?._id ||
+                                    null,
+                                  customerName: loan?.customerName || "Loan",
+                                  principalOutstanding,
+                                  disbursedAmount: primaryLoanAmount,
+                                  interestRate: primaryInterest,
+                                  tenureMonths: primaryTenureMonths,
+                                  firstEmiDate: firstEmiDateForClosure,
+                                });
+                              }}
+                              className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/55"
+                              title="Open Approx Closure"
+                            >
                               Live POS: {formatINR(principalOutstanding)}
-                            </span>
+                            </button>
                           )}
                         </div>
                       </div>
@@ -1042,6 +1071,11 @@ const LoansDataGrid = ({
         onUploadComplete={() => {
           onRefreshLoans?.();
         }}
+      />
+      <ApproxClosureModal
+        open={!!closureLoan}
+        data={closureLoan}
+        onClose={() => setClosureLoan(null)}
       />
 
       {pendencyLoan && (

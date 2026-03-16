@@ -108,13 +108,15 @@ const RepaymentIntelligencePanel = ({ form }) => {
 
   const closureBreakup = useMemo(() => {
     const outstandingPrincipal = Number(outstanding?.outstanding || 0);
-    const pct = Number(preClosurePct || 0);
-    const preClosureCharge = (outstandingPrincipal * pct) / 100;
+    const inputPct = Math.max(0, Number(preClosurePct || 0));
+    const pctWithGst = inputPct * 1.18;
+    const preClosureCharge = (outstandingPrincipal * pctWithGst) / 100;
     const daysInterest = perDayInterest * daysAfterLastPaidEmi;
     const totalClosure = outstandingPrincipal + preClosureCharge + daysInterest;
     return {
       outstandingPrincipal,
-      pct,
+      inputPct,
+      pctWithGst,
       preClosureCharge,
       daysAfterLastPaidEmi,
       perDayInterest,
@@ -344,7 +346,7 @@ const RepaymentIntelligencePanel = ({ form }) => {
             <div className="space-y-3 px-4 py-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Pre-Closure %
+                  Pre-Closure % (Base)
                 </label>
                 <input
                   type="number"
@@ -355,6 +357,10 @@ const RepaymentIntelligencePanel = ({ form }) => {
                   className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-foreground outline-none ring-0 focus:border-indigo-400 dark:border-indigo-900 dark:bg-zinc-900 dark:focus:border-indigo-700"
                   placeholder="Enter %"
                 />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  GST 18% applied: {closureBreakup.inputPct.toFixed(2)}% →{" "}
+                  {closureBreakup.pctWithGst.toFixed(2)}%
+                </p>
               </div>
 
               <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/45 p-3 text-xs dark:border-indigo-900/50 dark:bg-indigo-950/20">
@@ -368,7 +374,9 @@ const RepaymentIntelligencePanel = ({ form }) => {
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(closureBreakup.outstandingPrincipal)}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/65">
-                  <span className="text-xs text-muted-foreground">Pre-Closure Charges ({closureBreakup.pct.toFixed(2)}%)</span>
+                  <span className="text-xs text-muted-foreground">
+                    Pre-Closure Charges ({closureBreakup.pctWithGst.toFixed(2)}%)
+                  </span>
                   <span className="text-sm font-semibold text-foreground">{formatCurrency(closureBreakup.preClosureCharge)}</span>
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/65">
@@ -393,7 +401,7 @@ const RepaymentIntelligencePanel = ({ form }) => {
                   <li>2. No overdue penalty, bounce charge, legal charge, or recovery cost is included.</li>
                   <li>3. Interest after last paid EMI is estimated as simple per-day interest on current outstanding.</li>
                   <li>4. Pre-closure charge is applied only on current outstanding principal.</li>
-                  <li>5. GST, statutory levies, foreclosure admin fees, and third-party charges are excluded.</li>
+                  <li>5. GST @18% is included in pre-closure charges.</li>
                   <li>6. Final settlement amount is subject to lender system calculation on closure date.</li>
                 </ul>
               </div>
