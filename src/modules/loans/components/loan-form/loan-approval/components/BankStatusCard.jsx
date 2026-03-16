@@ -252,6 +252,7 @@ const BankStatusCard = ({
   onBankNameChange,
   onDeleteBank,
   readOnly = false,
+  allowDetailsInReadOnly = false,
   onBankUpdate, // NEW: parent updater
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -350,7 +351,7 @@ const BankStatusCard = ({
     <div
       className="cursor-pointer"
       onClick={() => {
-        setBreakupReadOnly(false);
+        setBreakupReadOnly(Boolean(readOnly));
         setShowBreakup(true);
       }}
     >
@@ -594,7 +595,7 @@ const BankStatusCard = ({
               size="sm"
               fullWidth
               onClick={() => setExpanded(true)}
-              disabled={readOnly}
+              disabled={readOnly && !allowDetailsInReadOnly}
               iconName="FileText"
             >
               Loan Details
@@ -603,8 +604,10 @@ const BankStatusCard = ({
               size="sm"
               variant="outline"
               fullWidth
-              onClick={() => onUpdateStatus(bank)}
-              disabled={readOnly}
+              onClick={() => {
+                if (typeof onUpdateStatus === "function") onUpdateStatus(bank);
+              }}
+              disabled={readOnly || typeof onUpdateStatus !== "function"}
               iconName="RefreshCw"
             >
               Update Status
@@ -640,6 +643,7 @@ const BankStatusCard = ({
                   .includes(String(inputValue || "").toUpperCase())
               }
               placeholder="Select lender"
+              disabled={readOnly}
             />
           </div>
 
@@ -650,6 +654,7 @@ const BankStatusCard = ({
               <input
                 className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                 value={vehicleMake || ""}
+                readOnly={readOnly}
                 onChange={(e) =>
                   form?.setFieldsValue({ vehicleMake: e.target.value })
                 }
@@ -661,6 +666,7 @@ const BankStatusCard = ({
               <input
                 className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                 value={vehicleModel || ""}
+                readOnly={readOnly}
                 onChange={(e) =>
                   form?.setFieldsValue({ vehicleModel: e.target.value })
                 }
@@ -672,6 +678,7 @@ const BankStatusCard = ({
               <input
                 className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
                 value={vehicleVariant || ""}
+                readOnly={readOnly}
                 onChange={(e) =>
                   form?.setFieldsValue({ vehicleVariant: e.target.value })
                 }
@@ -724,11 +731,13 @@ const BankStatusCard = ({
                 value={clamp(tenureMonths, 12, 120)}
                 onChange={handleTenureSliderChange}
                 className="flex-1"
+                disabled={readOnly}
               />
               <input
                 type="number"
                 className="w-20 bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
                 value={tenureMonths}
+                readOnly={readOnly}
                 onChange={(e) => handleTenureInputChange(e.target.value)}
                 onBlur={handleTenureInputBlur}
               />
@@ -743,6 +752,7 @@ const BankStatusCard = ({
             <input
               className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={interestRate}
+              readOnly={readOnly}
               onChange={(e) => {
                 const val = e.target.value;
                 setInterestRate(val);
@@ -770,6 +780,7 @@ const BankStatusCard = ({
             <input
               className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={processingFee}
+              readOnly={readOnly}
               onChange={(e) => {
                 const val = e.target.value;
                 setProcessingFee(val);
@@ -798,6 +809,7 @@ const BankStatusCard = ({
                     type="number"
                     className="w-24 bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground"
                     value={cibilScore}
+                    readOnly={readOnly}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val === "") {
@@ -882,6 +894,7 @@ const BankStatusCard = ({
             <input
               className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={dsaCode}
+              readOnly={readOnly}
               onChange={(e) => {
                 const value = e.target.value;
                 setDsaCode(value);
@@ -900,6 +913,7 @@ const BankStatusCard = ({
               step="0.01"
               className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
               value={payoutPercent}
+              readOnly={readOnly}
               onChange={(e) => {
                 const val = e.target.value;
                 setPayoutPercent(val);
