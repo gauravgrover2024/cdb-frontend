@@ -1383,6 +1383,20 @@ const yearsFromDateString = (value) => {
   return years >= 0 ? years : null;
 };
 
+const normalizeResidenceYearsValue = (rawValue, dobValue) => {
+  if (!isMeaningfulValue(rawValue)) return undefined;
+  const text = String(rawValue).trim();
+  if (!text) return undefined;
+
+  if (text.toUpperCase() === "BB") {
+    const age = yearsFromDateString(dobValue);
+    return age !== null ? age : undefined;
+  }
+
+  const n = Number(text.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : rawValue;
+};
+
 const isCompanyLikeValue = (value) => {
   const v = String(value || "").trim().toLowerCase();
   if (!v) return false;
@@ -2787,8 +2801,10 @@ const FieldMappingPage = () => {
           doc.co_totalExperience = exp;
         }
         if (isMeaningfulValue(gurYearsResidence)) {
-          const n = Number(String(gurYearsResidence).replace(/[^0-9.-]/g, ""));
-          const yrs = Number.isFinite(n) ? n : gurYearsResidence;
+          const yrs = normalizeResidenceYearsValue(
+            gurYearsResidence,
+            firstMeaningful(doc.co_dob, gurDob, doc.signatory_dob, doc.dob),
+          );
           doc.co_yearsAtCurrentResidence = yrs;
           doc.co_yearsInCurrentResidence = yrs;
         }
@@ -2836,6 +2852,10 @@ const FieldMappingPage = () => {
     // - Company    -> co-applicant co_aadhaar
     {
       const legacyAadhaar = firstMeaningful(
+        getValueFromCaseMerged(merged, "cpv_detail.AADHAAR_NUMBER"),
+        getValueFromCaseMerged(merged, "CPV_DETAIL.AADHAAR_NUMBER"),
+        getValueFromCaseMerged(merged, "cpv_detail.AADHAR_NUMBER"),
+        getValueFromCaseMerged(merged, "CPV_DETAIL.AADHAR_NUMBER"),
         findFirstValueByTail(merged, ["AADHAAR_NUMBER"]),
         findFirstValueByTail(merged, ["AADHAR_NUMBER"]),
       );
@@ -2996,8 +3016,10 @@ const FieldMappingPage = () => {
         doc.yearsInCurrentCity = null;
         doc.yearsInCurrentHouse = null;
         if (isMeaningfulValue(legacyYearsAtResidence)) {
-          const n = Number(String(legacyYearsAtResidence).replace(/[^0-9.-]/g, ""));
-          const yearsValue = Number.isFinite(n) ? n : legacyYearsAtResidence;
+          const yearsValue = normalizeResidenceYearsValue(
+            legacyYearsAtResidence,
+            firstMeaningful(doc.co_dob, doc.signatory_dob, doc.dob, findFirstValueByTail(merged, ["DATE_OF_BIRTH"])),
+          );
           if (!isMeaningfulValue(doc.co_yearsAtCurrentResidence)) {
             doc.co_yearsAtCurrentResidence = yearsValue;
           }
@@ -3006,10 +3028,49 @@ const FieldMappingPage = () => {
           }
         }
       } else if (isMeaningfulValue(legacyYearsAtResidence)) {
-        const n = Number(String(legacyYearsAtResidence).replace(/[^0-9.-]/g, ""));
-        const yearsValue = Number.isFinite(n) ? n : legacyYearsAtResidence;
+        const yearsValue = normalizeResidenceYearsValue(
+          legacyYearsAtResidence,
+          firstMeaningful(doc.dob, findFirstValueByTail(merged, ["DATE_OF_BIRTH"])),
+        );
         doc.yearsInCurrentCity = yearsValue;
         doc.yearsInCurrentHouse = yearsValue;
+      }
+    }
+
+    // Legacy BB (by birth) handling for residence-years fields.
+    // When YEARS_AT_RESIDENCE = "BB", convert to current age from relevant DOB.
+    {
+      const applicantDob = firstMeaningful(doc.dob, findFirstValueByTail(merged, ["DATE_OF_BIRTH"]));
+      const coDob = firstMeaningful(doc.co_dob, doc.signatory_dob, applicantDob);
+      const signatoryDob = firstMeaningful(doc.signatory_dob, doc.co_dob, applicantDob);
+
+      const applicantYears = normalizeResidenceYearsValue(doc.yearsInCurrentCity, applicantDob);
+      const applicantHouseYears = normalizeResidenceYearsValue(doc.yearsInCurrentHouse, applicantDob);
+      if (isMeaningfulValue(applicantYears)) doc.yearsInCurrentCity = applicantYears;
+      if (isMeaningfulValue(applicantHouseYears)) doc.yearsInCurrentHouse = applicantHouseYears;
+
+      const coYears = normalizeResidenceYearsValue(doc.co_yearsAtCurrentResidence, coDob);
+      const coCurrentYears = normalizeResidenceYearsValue(doc.co_yearsInCurrentResidence, coDob);
+      if (isMeaningfulValue(coYears)) doc.co_yearsAtCurrentResidence = coYears;
+      if (isMeaningfulValue(coCurrentYears)) doc.co_yearsInCurrentResidence = coCurrentYears;
+
+      if (Object.prototype.hasOwnProperty.call(doc, "signatory_yearsAtCurrentResidence")) {
+        const signatoryYears = normalizeResidenceYearsValue(
+          doc.signatory_yearsAtCurrentResidence,
+          signatoryDob,
+        );
+        if (isMeaningfulValue(signatoryYears)) {
+          doc.signatory_yearsAtCurrentResidence = signatoryYears;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(doc, "signatory_yearsInCurrentResidence")) {
+        const signatoryCurrentYears = normalizeResidenceYearsValue(
+          doc.signatory_yearsInCurrentResidence,
+          signatoryDob,
+        );
+        if (isMeaningfulValue(signatoryCurrentYears)) {
+          doc.signatory_yearsInCurrentResidence = signatoryCurrentYears;
+        }
       }
     }
 
@@ -3023,6 +3084,10 @@ const FieldMappingPage = () => {
       const individualAadhaar = firstMeaningful(
         doc.aadhaarNumber,
         doc.aadharNumber,
+        getValueFromCaseMerged(merged, "cpv_detail.AADHAAR_NUMBER"),
+        getValueFromCaseMerged(merged, "CPV_DETAIL.AADHAAR_NUMBER"),
+        getValueFromCaseMerged(merged, "cpv_detail.AADHAR_NUMBER"),
+        getValueFromCaseMerged(merged, "CPV_DETAIL.AADHAR_NUMBER"),
         findFirstValueByTail(merged, ["AADHAAR_NUMBER"]),
         findFirstValueByTail(merged, ["AADHAR_NUMBER"]),
       );

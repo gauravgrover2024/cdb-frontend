@@ -233,15 +233,34 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     cityResolver: resolveVehiclePricingCity,
     autofillPricing: true,
     onVehicleSelect: (vehicleData) => {
-      // Auto-populate pricing if needed
-      if (vehicleData && loanType === "New Car") {
-        const fieldsToUpdate = {
-          exShowroomPrice: vehicleData.exShowroom || 0,
-          insuranceCost: vehicleData.insurance || 0,
-          roadTax: vehicleData.rto || 0,
-        };
+      // Auto-populate pricing once, but never override manual edits.
+      if (!vehicleData || loanType !== "New Car") return;
 
-        form.setFieldsValue(fieldsToUpdate);
+      const current = form.getFieldsValue([
+        "exShowroomPrice",
+        "insuranceCost",
+        "roadTax",
+      ]);
+      const candidate = {
+        exShowroomPrice: vehicleData.exShowroom ?? 0,
+        insuranceCost: vehicleData.insurance ?? 0,
+        roadTax: vehicleData.rto ?? 0,
+      };
+      const next = {};
+
+      ["exShowroomPrice", "insuranceCost", "roadTax"].forEach((name) => {
+        const touched = form.isFieldTouched(name);
+        const hasExistingValue =
+          current?.[name] !== undefined &&
+          current?.[name] !== null &&
+          String(current?.[name]).trim() !== "";
+        if (!touched && !hasExistingValue) {
+          next[name] = candidate[name];
+        }
+      });
+
+      if (Object.keys(next).length > 0) {
+        form.setFieldsValue(next);
       }
     },
   });
@@ -1069,7 +1088,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   <Col xs={24}>
                     <Form.Item label="Dealer Address" name="showroomDealerAddress">
                       <Input.TextArea
-                        rows={2}
+                        autoSize={{ minRows: 2, maxRows: 5 }}
                         placeholder="Enter Dealer Address"
                         onChange={(e) =>
                           syncDealerFields({
@@ -1124,7 +1143,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                                   rules={[{ required: true, message: "Enter registration address" }]}
                                 >
                                   <Input.TextArea
-                                    rows={2}
+                                    autoSize={{ minRows: 2, maxRows: 5 }}
                                     placeholder="Enter Registration Address"
                                   />
                                 </Form.Item>

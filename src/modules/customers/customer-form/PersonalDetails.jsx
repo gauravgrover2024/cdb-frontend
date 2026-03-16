@@ -31,6 +31,8 @@ const PersonalDetails = ({
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
   const applicantType = Form.useWatch("applicantType", form);
+  const aadhaarNumberValue = Form.useWatch("aadhaarNumber", form);
+  const aadharNumberValue = Form.useWatch("aadharNumber", form);
   
   // Watch fields for logic
   const pincode = Form.useWatch("pincode", form);
@@ -48,6 +50,16 @@ const PersonalDetails = ({
   const contactPersonMobile = Form.useWatch("contactPersonMobile", form);
   const registrationPincode = Form.useWatch("registrationPincode", form);
   const isCompany = applicantType === "Company";
+
+  useEffect(() => {
+    if (!aadhaarNumberValue && aadharNumberValue) {
+      form.setFieldValue("aadhaarNumber", aadharNumberValue);
+      return;
+    }
+    if (!aadharNumberValue && aadhaarNumberValue) {
+      form.setFieldValue("aadharNumber", aadhaarNumberValue);
+    }
+  }, [aadhaarNumberValue, aadharNumberValue, form]);
 
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -899,6 +911,12 @@ const PersonalDetails = ({
           <Col xs={24} md={8}>
             <Form.Item label="PAN Number" name="panNumber">
               <Input placeholder="ABCDE1234F" />
+            </Form.Item>
+          </Col>
+
+          <Col xs={24} md={8}>
+            <Form.Item label="Aadhaar Number" name="aadhaarNumber">
+              <Input placeholder="1234 5678 9012" maxLength={14} />
             </Form.Item>
           </Col>
 

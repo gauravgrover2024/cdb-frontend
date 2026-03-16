@@ -468,7 +468,7 @@ const VehicleDeliveryStep = ({ form }) => {
               >
                 <Input.TextArea
                   className={textAreaClassName}
-                  rows={2}
+                  autoSize={{ minRows: 2, maxRows: 5 }}
                   onChange={(e) =>
                     syncDealerFields({
                       delivery_dealerAddress: e.target.value || "",

@@ -172,7 +172,7 @@ const AuthorisedSignatorySection = () => {
 
           <Col xs={24} md={16}>
             <Form.Item label="Present / Current Address" name="signatory_address">
-              <Input className={fieldClass} placeholder="House no, Street, Area" />
+              <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="House no, Street, Area" />
             </Form.Item>
           </Col>
 

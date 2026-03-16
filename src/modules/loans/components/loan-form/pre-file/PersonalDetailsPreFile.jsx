@@ -280,7 +280,7 @@ const PersonalDetailsPreFile = () => {
         )}
 
         {/* Row 5: Current Address */}
-        <Col xs={24} md={8}><Form.Item label="Present Address" name="residenceAddress"><TextArea rows={1} placeholder={isCompany ? "Office address" : "Address"} /></Form.Item></Col>
+        <Col xs={24} md={8}><Form.Item label="Present Address" name="residenceAddress"><TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder={isCompany ? "Office address" : "Address"} /></Form.Item></Col>
         <Col xs={24} md={8}><Form.Item label={isCompany ? "Present Pincode" : "Pincode"} name="pincode"><Input maxLength={6} /></Form.Item></Col>
         <Col xs={24} md={8}><Form.Item label={isCompany ? "Present City" : "City"} name="city"><Input suffix={fetchingPincode ? "..." : null} /></Form.Item></Col>
 
@@ -371,7 +371,7 @@ const PersonalDetailsPreFile = () => {
 
         {!sameAsCurrent && (
           <>
-            <Col xs={24} md={8}><Form.Item label="Permanent Address" name="permanentAddress"><TextArea rows={1} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item label="Permanent Address" name="permanentAddress"><TextArea autoSize={{ minRows: 2, maxRows: 5 }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="Permanent Pincode" name="permanentPincode"><Input maxLength={6} suffix={fetchingPermanentPincode ? "..." : null} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item label="Permanent City" name="permanentCity"><Input /></Form.Item></Col>
           </>

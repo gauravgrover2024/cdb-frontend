@@ -88,7 +88,7 @@ const PersonPersonalDetailsBlock = ({ prefix }) => (
 
       <Col span={24}>
         <Form.Item label="Present Address" name={`${prefix}Address`}>
-          <TextArea rows={2} prefix={<HomeOutlined />} />
+          <TextArea autoSize={{ minRows: 2, maxRows: 5 }} prefix={<HomeOutlined />} />
         </Form.Item>
       </Col>
 

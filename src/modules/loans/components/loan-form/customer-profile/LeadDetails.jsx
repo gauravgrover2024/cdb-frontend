@@ -219,7 +219,7 @@ const LeadDetails = () => {
                     </Col>
                     <Col xs={24} md={8}>
                       <Form.Item label="Dealer Address" name="dealerAddress" className="mb-0">
-                        <Input placeholder="Enter dealer address" className="rounded-xl h-10" prefix={<Icon name="MapPin" size={14} className="text-muted-foreground" />} />
+                        <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="Enter dealer address" className="rounded-xl" />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={8}>

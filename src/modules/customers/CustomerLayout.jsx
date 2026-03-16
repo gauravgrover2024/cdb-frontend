@@ -106,10 +106,11 @@ const CustomerLayout = () => {
       }}
     >
       <img
-        src={process.env.PUBLIC_URL + "/ACILLP.svg"}
+        src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
         alt="Logo"
+        className="logo-theme-aware"
         style={{
-          height: 56,
+          height: 44,
           width: "auto",
           objectFit: "contain",
           display: "block",

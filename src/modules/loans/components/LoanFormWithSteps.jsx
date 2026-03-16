@@ -937,6 +937,66 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     if (isCashCase) return ["profile", "prefile", "delivery"];
     return ["profile", "prefile", "approval", "postfile", "delivery", "payout"];
   }, [isCashCase]);
+  const stepperSections = useMemo(
+    () => ({
+      profile: [
+        { id: "lead", label: "Lead Details", visible: true },
+        { id: "vehicle", label: "Vehicle Details", visible: true },
+        // Cash-car profile uses personal details flow; avoid showing finance in hover.
+        { id: "finance", label: "Finance Details", visible: !isCashCase },
+        { id: "personal", label: "Personal Details", visible: true },
+        { id: "employment", label: "Employment Details", visible: !isCashCase },
+        { id: "income", label: "Income Details", visible: !isCashCase },
+        { id: "bank", label: "Bank Details", visible: !isCashCase },
+        { id: "references", label: "References", visible: !isCashCase },
+        { id: "kyc", label: "KYC Details", visible: !isCashCase },
+      ],
+      prefile: [
+        { id: "personal_pre", label: "Personal Details", visible: !isCashCase },
+        { id: "occupational", label: "Occupational Details", visible: !isCashCase },
+        { id: "income_banking", label: "Income & Banking", visible: !isCashCase },
+        { id: "vehicle_loan", label: "Vehicle & Loan", visible: true },
+        { id: "references", label: "References", visible: !isCashCase },
+        { id: "kyc", label: "KYC Details", visible: !isCashCase },
+        { id: "section7", label: "Record Details", visible: !isCashCase },
+        { id: "co_applicant", label: "Co-Applicant", visible: !isCashCase && showPrefileCoApplicant },
+        { id: "guarantor", label: "Guarantor", visible: !isCashCase && showPrefileGuarantor },
+        {
+          id: "auth_signatory",
+          label: "Authorised Signatory",
+          visible: !isCashCase && showPrefileAuthorisedSignatory,
+        },
+        { id: "bulk_loan", label: "Bulk Loan Creation", visible: !isCashCase },
+      ],
+      approval: [
+        { id: "approval-top", label: "Bank Status" },
+        { id: "approval-matrix", label: "Comparison Matrix" },
+        { id: "approval-records", label: "Record Details" },
+      ],
+      postfile: [
+        { id: "postfile_approval", label: "Approval Reconciliation" },
+        { id: "postfile_vehicle", label: "Vehicle Verification" },
+        { id: "postfile_instruments", label: "Instrument Controls" },
+        { id: "postfile_repayment", label: "Repayment Intelligence" },
+        { id: "postfile_docs", label: "Document Management" },
+        { id: "postfile_dispatch", label: "Dispatch & Records" },
+        { id: "postfile_docs_list", label: "Documents Ledger" },
+      ],
+      delivery: [
+        { id: "delivery-details", label: "Delivery Details" },
+        { id: "delivery-insurance", label: "Insurance Details" },
+        { id: "delivery-invoice", label: "Invoice Details" },
+        { id: "delivery-rc", label: "RC Details" },
+      ],
+      payout: [{ id: "payout-top", label: "Payout Details" }],
+    }),
+    [
+      isCashCase,
+      showPrefileAuthorisedSignatory,
+      showPrefileCoApplicant,
+      showPrefileGuarantor,
+    ],
+  );
 
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -2528,67 +2588,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           payout: "Wallet",
         };
 
-        // Accurate section names for each step
-        const stepSections = {
-          profile: [
-            { id: "lead", label: "Lead Details" },
-            { id: "vehicle", label: "Vehicle Details" },
-            { id: "finance", label: "Finance Details" },
-            { id: "personal", label: "Personal Details" },
-            { id: "employment", label: "Employment Details" },
-            { id: "income", label: "Income Details" },
-            { id: "bank", label: "Bank Details" },
-            { id: "references", label: "References" },
-            { id: "kyc", label: "KYC Details" },
-          ],
-          prefile: [
-            { id: "personal_pre", label: "Personal Details", visible: true },
-            { id: "occupational", label: "Occupational Details", visible: true },
-            { id: "income_banking", label: "Income & Banking", visible: true },
-            { id: "vehicle_loan", label: "Vehicle & Loan", visible: true },
-            { id: "references", label: "References", visible: true },
-            { id: "kyc", label: "KYC Details", visible: true },
-            { id: "section7", label: "Record Details", visible: true },
-            { id: "co_applicant", label: "Co-Applicant", visible: showPrefileCoApplicant },
-            { id: "guarantor", label: "Guarantor", visible: showPrefileGuarantor },
-            { id: "auth_signatory", label: "Authorised Signatory", visible: showPrefileAuthorisedSignatory },
-            { id: "bulk_loan", label: "Bulk Loan Creation", visible: true },
-          ],
-          approval: [
-            { id: "approval-top", label: "Bank Status" },
-            { id: "approval-matrix", label: "Comparison Matrix" },
-            { id: "approval-records", label: "Record Details" },
-          ],
-          postfile: [
-            { id: "postfile_approval", label: "Approval Reconciliation" },
-            { id: "postfile_vehicle", label: "Vehicle Verification" },
-            { id: "postfile_instruments", label: "Instrument Controls" },
-            { id: "postfile_repayment", label: "Repayment Intelligence" },
-            { id: "postfile_docs", label: "Document Management" },
-            { id: "postfile_dispatch", label: "Dispatch & Records" },
-            { id: "postfile_docs_list", label: "Documents Ledger" },
-          ],
-          delivery: [
-            { id: "delivery-details", label: "Delivery Details" },
-            { id: "delivery-insurance", label: "Insurance Details" },
-            { id: "delivery-invoice", label: "Invoice Details" },
-            { id: "delivery-rc", label: "RC Details" },
-          ],
-          payout: [
-            { id: "payout-top", label: "Payout Details" },
-          ],
-        };
-
-        const sections = (() => {
-          if (step === "profile" && isCashCase) {
-            return [
-              { id: "lead", label: "Lead Details" },
-              { id: "vehicle", label: "Vehicle Details" },
-              { id: "finance", label: "Finance Details" },
-            ];
-          }
-          return (stepSections[step] || []).filter((section) => section.visible !== false);
-        })();
+        const sections = (stepperSections[step] || []).filter(
+          (section) => section.visible !== false,
+        );
         return (
           <React.Fragment key={step}>
             {index > 0 && <div className="w-px h-6 bg-border/30" />}

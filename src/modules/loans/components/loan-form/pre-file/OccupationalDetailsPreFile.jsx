@@ -323,7 +323,7 @@ const OccupationalDetailsPreFile = () => {
 
                   <Col xs={24} md={16}>
                     <Form.Item label="Company Address" name="employmentAddress">
-                      <Input className="h-10 rounded-lg" placeholder="Full Business Address" />
+                      <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="Full Business Address" />
                     </Form.Item>
                   </Col>
 

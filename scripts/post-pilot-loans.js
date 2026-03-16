@@ -658,8 +658,7 @@ function normalizeNameForMatch(name) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/\band\b/g, "&")
-    .replace(/\s+\d+$/, ""); // remove suffix like " 2", " 3"
+    .replace(/\band\b/g, "&");
   return base;
 }
 
@@ -1238,7 +1237,7 @@ function buildPayload(caseId, caseData, vehicles) {
           city: cleanText(gur.RESI_CITY) || (coPincode ? guessCityFromPincode(coPincode) : guessCityFromAddress(coAddress)),
           currentExperience: numericOrUndefined(gur.YEARS_AT_PROFESSION),
           totalExperience: numericOrUndefined(gur.YEARS_AT_PROFESSION),
-          yearsAtCurrentResidence: numericOrUndefined(gur.YEARS_AT_RESIDENCE),
+          yearsAtCurrentResidence: normalizeResidenceYears(gur.YEARS_AT_RESIDENCE, gur.DATE_OF_BIRTH),
         });
       })()
     : null;
@@ -1317,6 +1316,14 @@ function buildPayload(caseId, caseData, vehicles) {
   const rcRegistrationDate = toDateOnly(invoiceRow.DATE_OF_REGISTRATION || rcReceiptRow.DATE_OF_REGISTRATION || rcs.DATE_OF_REGISTRATION);
   const purposeOfLoan = normalizePurpose(cpv.PURPOSE_OF_LOAN, override.typeOfLoan);
   const payoutPercentage = toNumber(rc.PAYOUT_RATE);
+  const cpvAadhaar = cleanText(
+    cpv.AADHAAR_NUMBER ||
+      cpv.AADHAR_NUMBER ||
+      cpv["cpv_detail.AADHAAR_NUMBER"] ||
+      cpv["cpv_detail.AADHAR_NUMBER"] ||
+      cpv["CPV_DETAIL.AADHAAR_NUMBER"] ||
+      cpv["CPV_DETAIL.AADHAR_NUMBER"],
+  );
   const conflictFlags = detectConflicts(caseData, cpvRows, rcRows);
   const caseIdAliases = uniq([caseId, cpv.CPV_ACCOUNT_NO, cpv.CDB_ACCOUNT_NO, rc.TEMP_CUST_CODE, rcs.TEMP_CUST_CODE].map(stringify));
   const preferredVehicleText = cleanText(rc.MAKE_MODEL || rc.DELIVERED_MAKE_MODEL || cpv.CAR_MODEL);
@@ -1356,7 +1363,7 @@ function buildPayload(caseId, caseData, vehicles) {
     : undefined;
   const coYearsAtCurrentResidence =
     coApplicantSource?.yearsAtCurrentResidence ??
-    numericOrUndefined(cpv.YEARS_AT_RESIDENCE);
+    normalizeResidenceYears(cpv.YEARS_AT_RESIDENCE, coApplicantSource?.dob || auth.DATE_OF_BIRTH_1 || auth.DATE_OF_BIRTH || cpv.DATE_OF_BIRTH);
 
   const payload = {
     customerName,
@@ -1401,21 +1408,21 @@ function buildPayload(caseId, caseData, vehicles) {
     dependents: isCompany ? undefined : numericOrUndefined(cpv.NO_OF_DEPENDANTS),
     education: isCompany ? undefined : normalizeEducation(cpv.EDUCATION),
     houseType: isCompany ? undefined : normalizeHouseType(cpv.RESIDENCE_TYPE),
-    yearsInCurrentCity: isCompany ? undefined : numericOrUndefined(cpv.YEARS_AT_RESIDENCE),
-    yearsInCurrentHouse: isCompany ? undefined : numericOrUndefined(cpv.YEARS_AT_RESIDENCE),
+    yearsInCurrentCity: isCompany ? undefined : normalizeResidenceYears(cpv.YEARS_AT_RESIDENCE, cpv.DATE_OF_BIRTH),
+    yearsInCurrentHouse: isCompany ? undefined : normalizeResidenceYears(cpv.YEARS_AT_RESIDENCE, cpv.DATE_OF_BIRTH),
     identityProofType: isCompany
       ? undefined
-      : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER)
+      : cpvAadhaar
         ? "AADHAAR"
         : inferIdentityProofType(cpv),
     identityProofNumber: isCompany
       ? undefined
-      : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER || cpv.DRIVING_LICENSE || cpv.PASSPORT_NUMBER),
+      : cleanText(cpvAadhaar || cpv.DRIVING_LICENSE || cpv.PASSPORT_NUMBER),
     addressProofType: isCompany ? undefined : "AADHAAR",
-    addressProofNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER),
+    addressProofNumber: isCompany ? undefined : cpvAadhaar,
     addressType: isCompany ? undefined : "residential",
-    aadhaarNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER),
-    aadharNumber: isCompany ? undefined : cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER),
+    aadhaarNumber: isCompany ? undefined : cpvAadhaar,
+    aadharNumber: isCompany ? undefined : cpvAadhaar,
 
     isMSME: isCompany ? "No" : undefined,
     occupationType: isCompany ? companyOccupationType : normalizeOccupationType(cpv.PROFESSION_TYPE),
@@ -1584,7 +1591,7 @@ function buildPayload(caseId, caseData, vehicles) {
     co_gender: coApplicantSource?.gender,
     co_pan: coApplicantSource?.pan,
     co_aadhaar: isCompany
-      ? cleanText(cpv.AADHAAR_NUMBER || cpv.AADHAR_NUMBER) || coApplicantSource?.aadhaar
+      ? cpvAadhaar || coApplicantSource?.aadhaar
       : coApplicantSource?.aadhaar,
     co_motherName: isCompany
       ? (companyCoApplicant?.motherName || legacyMotherName || undefined)
@@ -2987,6 +2994,27 @@ function joinText(...parts) {
 function numericOrUndefined(value) {
   const n = toNumber(value);
   return n || n === 0 ? n : undefined;
+}
+
+function yearsFromDateString(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let years = now.getFullYear() - d.getFullYear();
+  const monthDiff = now.getMonth() - d.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < d.getDate())) years -= 1;
+  return years >= 0 ? years : null;
+}
+
+function normalizeResidenceYears(value, dobValue) {
+  const text = cleanText(value);
+  if (!text) return undefined;
+  if (text.toUpperCase() === "BB") {
+    const age = yearsFromDateString(dobValue);
+    return age !== null ? age : undefined;
+  }
+  return numericOrUndefined(text);
 }
 
 function yearsAgoToSinceYear(value) {

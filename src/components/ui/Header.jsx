@@ -206,11 +206,16 @@ const Header = () => {
             {/* Brand Logo */}
             <button
               type="button"
-              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1.5 py-0.5 transition-colors hover:bg-slate-100/80 dark:bg-white dark:hover:bg-white"
+              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1.5 py-0.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-white/10"
               onClick={() => handleNavigation("/")}
             >
               <img
-                src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
+                src={
+                  process.env.PUBLIC_URL +
+                  (isDarkMode
+                    ? "/acillp-logo-dark.svg"
+                    : "/acillp-logo-without-car.svg")
+                }
                 alt="ACILLP"
                 className="h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105 xl:h-11"
               />
@@ -433,9 +438,14 @@ const Header = () => {
           <div className="flex flex-col h-full bg-gradient-to-b from-white to-muted/20 dark:from-black dark:to-zinc-900/50">
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-border/50">
-              <div className="rounded-lg px-2 py-1 dark:bg-white">
+              <div className="rounded-lg px-2 py-1">
                 <img
-                  src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
+                  src={
+                    process.env.PUBLIC_URL +
+                    (isDarkMode
+                      ? "/acillp-logo-dark.svg"
+                      : "/acillp-logo-without-car.svg")
+                  }
                   alt="ACILLP"
                   className="h-12 w-auto object-contain"
                 />

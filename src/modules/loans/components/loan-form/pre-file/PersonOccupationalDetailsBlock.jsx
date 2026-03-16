@@ -185,7 +185,7 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                   label="Company Address"
                   name={`${prefix}_companyAddress`}
                 >
-                  <TextArea rows={2} />
+                  <TextArea autoSize={{ minRows: 2, maxRows: 5 }} />
                 </Form.Item>
               </Col>
 

@@ -342,8 +342,7 @@ function normalizeNameForMatch(name) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
-    .replace(/\band\b/g, "&")
-    .replace(/\s+\d+$/, "");
+    .replace(/\band\b/g, "&");
 }
 
 function hasTwoCoreSignals(n) {

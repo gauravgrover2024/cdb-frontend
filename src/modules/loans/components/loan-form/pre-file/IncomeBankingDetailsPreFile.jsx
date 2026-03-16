@@ -211,7 +211,8 @@ const IncomeBankingDetailsPreFile = () => {
 
         <Col xs={24} md={6}>
           <Form.Item label="Branch / Address" name="branch">
-            <Input
+            <Input.TextArea
+              autoSize={{ minRows: 2, maxRows: 4 }}
               placeholder="Enter Branch / Address"
               className="rounded-xl border-border"
             />

@@ -238,7 +238,7 @@ const GuarantorSection = () => {
 
         <Col xs={24} md={16}>
           <Form.Item label="Address" name="gu_address">
-            <Input className={fieldClass} placeholder="House no, Street, Area" />
+            <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="House no, Street, Area" />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
@@ -391,7 +391,7 @@ const GuarantorSection = () => {
             </Col>
             <Col xs={24} md={16}>
               <Form.Item label="Company Address" name="gu_companyAddress">
-                <Input className={fieldClass} placeholder="Full Business Address" />
+                <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="Full Business Address" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>

@@ -616,7 +616,7 @@ const PostFileVehicleVerification = ({ form }) => {
                     style={{ marginBottom: 0 }}
                   >
                     <Input.TextArea
-                      rows={2}
+                      autoSize={{ minRows: 2, maxRows: 5 }}
                       placeholder="Enter dealer address"
                       onChange={(e) =>
                         syncDealerFields({

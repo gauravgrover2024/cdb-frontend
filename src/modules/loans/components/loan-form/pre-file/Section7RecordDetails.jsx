@@ -280,7 +280,7 @@ const Section7RecordDetails = () => {
                     name="dealerAddress"
                     rules={[{ required: true, message: 'Required' }]}
                   >
-                    <Input className="h-10 rounded-lg" placeholder="Enter dealer address" />
+                    <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} className="rounded-lg" placeholder="Enter dealer address" />
                   </Form.Item>
                 </Col>
               </>
@@ -291,7 +291,7 @@ const Section7RecordDetails = () => {
                   name="dealerAddress"
                   rules={[{ required: true, message: 'Required' }]}
                 >
-                  <Input className="h-10 rounded-lg" placeholder="Enter full dealer address" />
+                  <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} className="rounded-lg" placeholder="Enter full dealer address" />
                 </Form.Item>
               </Col>
             )}

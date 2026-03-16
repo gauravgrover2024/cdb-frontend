@@ -285,7 +285,7 @@ const CoApplicantSection = () => {
 
         <Col xs={24} md={16}>
           <Form.Item label="Address" name="co_address">
-            <Input className={fieldClass} placeholder="House no, Street, Area" />
+            <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="House no, Street, Area" />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
@@ -317,6 +317,16 @@ const CoApplicantSection = () => {
             <Input className={fieldClass} placeholder="1234 5678 9012" />
           </Form.Item>
         </Col>
+        {isCompanyApplicant && (
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Years at current Residence"
+              name="co_yearsAtCurrentResidence"
+            >
+              <Input className={fieldClass} placeholder="Years" />
+            </Form.Item>
+          </Col>
+        )}
       </Row>
 
       {/* ================= OCCUPATIONAL DETAILS ================= */}
@@ -362,14 +372,6 @@ const CoApplicantSection = () => {
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="Total Exp (Years)" name="co_totalExperience">
-                <Input className={fieldClass} placeholder="Years" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item
-                label="Years at current Residence"
-                name="co_yearsAtCurrentResidence"
-              >
                 <Input className={fieldClass} placeholder="Years" />
               </Form.Item>
             </Col>
@@ -469,7 +471,7 @@ const CoApplicantSection = () => {
             </Col>
             <Col xs={24} md={16}>
               <Form.Item label="Company Address" name="co_companyAddress">
-                <Input className={fieldClass} placeholder="Full Business Address" />
+                <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="Full Business Address" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
