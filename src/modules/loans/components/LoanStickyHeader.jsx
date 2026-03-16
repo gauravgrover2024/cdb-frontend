@@ -70,6 +70,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
   const email = Form.useWatch("email", form);
 
   const approvalStatus = Form.useWatch("approval_status", form);
+  const approvalBanksData = Form.useWatch("approval_banksData", form);
   const approvalBankName = Form.useWatch("approval_bankName", form);
   const approvalLoanAmountApproved = Form.useWatch("approval_loanAmountApproved", form);
   const approvalLoanAmountDisbursed = Form.useWatch("approval_loanAmountDisbursed", form);
@@ -87,8 +88,11 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
   const financeExpectation = Form.useWatch("financeExpectation", form);
   const postfileRoi = Form.useWatch("postfile_roi", form);
   const approvalRoi = Form.useWatch("approval_interestRate", form);
+  const approvalRoiRaw = Form.useWatch("approval_roi", form);
   const approvalTenureMonths = Form.useWatch("approval_tenureMonths", form);
+  const postfileTenureMonths = Form.useWatch("postfile_tenureMonths", form);
   const postfileEmiAmount = Form.useWatch("postfile_emiAmount", form);
+  const approvalEmiAmount = Form.useWatch("approval_emiAmount", form);
 
   const typeOfLoan = Form.useWatch("typeOfLoan", form);
   const caseType = Form.useWatch("caseType", form);
@@ -103,6 +107,15 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
 
   const resolvedLoanKey = String(pick(loanNumber, loanId, title, "__new__"));
   const [snapshot, setSnapshot] = useState({});
+  const primaryBankRow = useMemo(() => {
+    const banks = Array.isArray(approvalBanksData) ? approvalBanksData : [];
+    if (!banks.length) return null;
+    return (
+      banks.find((b) => String(b?.status || "").toLowerCase() === "disbursed") ||
+      banks.find((b) => String(b?.status || "").toLowerCase() === "approved") ||
+      banks[0]
+    );
+  }, [approvalBanksData]);
 
   // Reset snapshot when loan changes
   useEffect(() => {
@@ -118,10 +131,34 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
       email: pick(customerEmail, email, form?.getFieldValue?.("customerEmail"), form?.getFieldValue?.("email")),
       loanRef: pick(loanNumber, loanId, form?.getFieldValue?.("loan_number"), form?.getFieldValue?.("loanId")),
       stage: pick(approvalStatus, activeStep, "Pending"),
-      bank: pick(approvalBankName, form?.getFieldValue?.("approval_bankName")),
-      roi: pick(postfileRoi, approvalRoi, form?.getFieldValue?.("postfile_roi"), form?.getFieldValue?.("approval_interestRate")),
-      tenure: pick(approvalTenureMonths, form?.getFieldValue?.("approval_tenureMonths")),
-      emi: pick(postfileEmiAmount, form?.getFieldValue?.("postfile_emiAmount")),
+      bank: pick(
+        approvalBankName,
+        primaryBankRow?.bankName,
+        form?.getFieldValue?.("approval_bankName"),
+      ),
+      roi: pick(
+        postfileRoi,
+        approvalRoiRaw,
+        approvalRoi,
+        primaryBankRow?.interestRate,
+        form?.getFieldValue?.("postfile_roi"),
+        form?.getFieldValue?.("approval_roi"),
+        form?.getFieldValue?.("approval_interestRate"),
+      ),
+      tenure: pick(
+        postfileTenureMonths,
+        approvalTenureMonths,
+        primaryBankRow?.tenure,
+        form?.getFieldValue?.("postfile_tenureMonths"),
+        form?.getFieldValue?.("approval_tenureMonths"),
+      ),
+      emi: pick(
+        postfileEmiAmount,
+        approvalEmiAmount,
+        primaryBankRow?.emiAmount,
+        form?.getFieldValue?.("postfile_emiAmount"),
+        form?.getFieldValue?.("approval_emiAmount"),
+      ),
       caseType: pick(caseType, typeOfLoan, loanType, form?.getFieldValue?.("caseType"), form?.getFieldValue?.("typeOfLoan"), form?.getFieldValue?.("loanType")),
       vehicleMake: pick(vehicleMake, form?.getFieldValue?.("vehicleMake")),
       vehicleModel: pick(vehicleModel, form?.getFieldValue?.("vehicleModel")),
@@ -145,6 +182,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
         postfileLoanAmountDisbursed,
         postfileLoanAmountApproved,
         approvalLoanAmountDisbursed,
+        primaryBankRow?.loanAmount,
         formLoanAmount,
         form?.getFieldValue?.("postfile_loanAmountDisbursed"),
         form?.getFieldValue?.("postfile_loanAmountApproved"),
@@ -155,6 +193,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
         approvalLoanAmountApproved,
         approvalLoanAmountDisbursed,
         postfileLoanAmountApproved,
+        primaryBankRow?.loanAmount,
         formLoanAmount,
         form?.getFieldValue?.("approval_loanAmountApproved"),
         form?.getFieldValue?.("approval_loanAmountDisbursed"),
@@ -169,6 +208,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
   }, [
     activeStep,
     approvalBankName,
+    approvalBanksData,
     approvalLoanAmountApproved,
     approvalLoanAmountDisbursed,
     approvalBreakupNet,
@@ -181,8 +221,10 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
     postfileDisbursedEw,
     postfileLoanAmountApproved,
     approvalRoi,
+    approvalRoiRaw,
     approvalStatus,
     approvalTenureMonths,
+    postfileTenureMonths,
     caseType,
     customerEmail,
     customerName,
@@ -196,6 +238,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
     loanType,
     mobileNo,
     postfileEmiAmount,
+    approvalEmiAmount,
     formLoanAmount,
     postfileLoanAmountDisbursed,
     postfileRoi,
@@ -208,6 +251,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
     vehicleRegNo,
     vehicleVariant,
     yearOfManufacture,
+    primaryBankRow,
   ]);
 
   // Persist latest known non-empty values; live values always override
@@ -229,7 +273,12 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
   const data = { ...snapshot, ...Object.fromEntries(Object.entries(live).filter(([, v]) => hasValue(v))) };
 
   const normalizedCaseType = String(data.caseType || "").trim().toLowerCase();
-  const isCashCaseByType = normalizedCaseType.includes("cash");
+  // Only pure cash-sale/cash-car cases should hide finance terms.
+  // "Car Cash-in" is a financed flow and must still show Loan Terms.
+  const isCashCaseByType =
+    normalizedCaseType === "cash car" ||
+    normalizedCaseType === "cash sale" ||
+    normalizedCaseType === "cash";
   const isNewCar = data.caseType === "New Car";
   const loanAmount = (() => {
     const disb = asNumber(data.disbursedAmount);
@@ -241,6 +290,14 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
     return strongest || pick(data.disbursedAmount, data.approvedAmount, data.expectedAmount);
   })();
   const loanAmountLabel = hasValue(data.disbursedAmount) || hasValue(data.approvedAmount) ? "Loan Amount" : "Loan Expected";
+  const shouldShowLoanTerms =
+    !isCashCaseByType &&
+    (data.isFinancedCase ||
+      hasValue(data.bank) ||
+      asNumber(loanAmount) > 0 ||
+      hasValue(data.roi) ||
+      hasValue(data.tenure) ||
+      hasValue(data.emi));
 
   const vehicleLine = [data.vehicleMake, data.vehicleModel, isNewCar ? data.vehicleVariant : null]
     .filter((v) => hasValue(v))
@@ -300,7 +357,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
               </p>
             </div>
 
-            {data.isFinancedCase && !isCashCaseByType && (hasValue(data.roi) || hasValue(data.tenure) || hasValue(data.emi)) && (
+            {shouldShowLoanTerms && (
               <>
                 <div className="flex items-center bg-gradient-to-r from-emerald-50/65 to-teal-50/65 px-1.5 dark:from-emerald-950/15 dark:to-teal-950/15">
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100/80 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-300">
