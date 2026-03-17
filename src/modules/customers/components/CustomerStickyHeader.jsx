@@ -3,13 +3,11 @@ import { Tag } from "antd";
 import Icon from "../../../components/AppIcon";
 import { AutoSaveIndicator } from "../../../utils/formDataProtection";
 
-const InfoChip = ({ icon, value, label, colorClass = "bg-muted/20" }) => (
-  <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-border/50 transition-all ${colorClass}`}>
-    <Icon name={icon} size={14} className="text-muted-foreground" />
-    <div className="flex flex-col">
-      <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold leading-none mb-1">{label}</span>
-      <span className="text-xs font-bold text-foreground leading-none">{value || "—"}</span>
-    </div>
+const CompactInfo = ({ icon, label, value }) => (
+  <div className="inline-flex items-center gap-1.5 rounded-md border border-slate-200/70 bg-white/70 px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-900/70">
+    <Icon name={icon} size={12} className="text-slate-500 dark:text-slate-400" />
+    <span className="text-slate-500 dark:text-slate-400">{label}:</span>
+    <span className="font-semibold text-slate-800 dark:text-slate-200">{value || "—"}</span>
   </div>
 );
 
@@ -17,7 +15,6 @@ const CustomerStickyHeader = ({
   headerInfo,
   mode = "Add",
   displayId,
-  customerId,
   onSave,
   onSaveAndExit,
   activeSection,
@@ -28,83 +25,85 @@ const CustomerStickyHeader = ({
   autoSaveStatus = null,
 }) => {
   return (
-    <div ref={innerRef} className="sticky top-16 z-[100] bg-card/80 backdrop-blur-xl border-b border-border shadow-sm border-t-2 border-t-primary">
-      <div className="w-full pt-4 pb-2 px-4 md:px-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          
-          {/* Left: Customer Info */}
-          <div className="flex items-center gap-4 min-w-0">
-
-
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm shrink-0">
-              <Icon name={mode === "Add" ? "UserPlus" : "User"} size={20} />
-            </div>
+    <div
+      ref={innerRef}
+      className="sticky top-16 z-[100] border-b border-slate-200/80 bg-white/95 backdrop-blur-xl dark:border-slate-800 dark:bg-black/90"
+    >
+      <div className="px-3 py-3 md:px-5 md:py-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-sky-50 via-white to-emerald-50 px-3 py-3 shadow-sm dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h1 className="text-base font-bold text-foreground leading-none break-words">
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.24em] text-sky-600 dark:text-sky-400">
+                Customer Form
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-black text-slate-900 dark:text-slate-100">
                   {headerInfo.name || (mode === "Add" ? "New Customer" : "Untitled Profile")}
                 </h1>
-                <Tag 
-                  className={`rounded-full px-2 py-0.5 border-none text-[9px] font-bold uppercase tracking-wider h-4 flex items-center ${
-                    mode === "Add" ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
-                  }`}
-                >
+                <Tag className="m-0 rounded-full border-none bg-sky-500/12 px-2 py-0 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:bg-sky-400/12 dark:text-sky-200">
                   {mode}
                 </Tag>
                 <AutoSaveIndicator status={autoSaveStatus} />
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground leading-none">
-                 <span className="font-medium opacity-70">Customer Master</span>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <CompactInfo icon="Hash" label="ID" value={displayId} />
+                <CompactInfo icon="Phone" label="Mobile" value={headerInfo.mobile} />
+                <CompactInfo icon="MapPin" label="City" value={headerInfo.city} />
+                <CompactInfo icon="CreditCard" label="PAN" value={headerInfo.pan} />
               </div>
             </div>
-          </div>
 
-          {/* Center: Live Data Chips */}
-          <div className="hidden lg:flex items-center gap-2">
-             <InfoChip icon="Phone" label="Mobile" value={headerInfo.mobile} colorClass="bg-blue-500/5 border-blue-500/10" />
-             <InfoChip icon="MapPin" label="City" value={headerInfo.city} colorClass="bg-amber-500/5 border-amber-500/10" />
-             <InfoChip icon="CreditCard" label="PAN" value={headerInfo.pan} colorClass="bg-indigo-500/5 border-indigo-500/10" />
-          </div>
+            <div className="flex items-center gap-2">
+              {saving && (
+                <div className="hidden md:flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300">
+                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                  Saving...
+                </div>
+              )}
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-3">
-             {/* Saving Status Indicator */}
-             {saving && (
-               <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-xl animate-pulse">
-                 <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-spin" />
-                 <span className="text-xs font-semibold text-blue-600">Saving to database...</span>
-               </div>
-             )}
-
-             <button
+              <button
                 type="button"
                 onClick={onSaveAndExit}
-                className="px-5 py-2 rounded-xl border border-border bg-background text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-all flex items-center gap-2 active:scale-95"
-             >
-                <Icon name="ArrowLeft" size={14} />
-                <span>Discard & Exit</span>
-             </button>
-             <button
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <Icon name="ArrowLeft" size={13} />
+                Exit
+              </button>
+              <button
                 type="button"
                 onClick={onSave}
                 disabled={saving}
-                className="px-6 py-2 bg-primary text-white rounded-xl text-xs font-black shadow-lg shadow-primary/20 hover:brightness-110 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50 min-w-[140px] justify-center"
-             >
-                {saving ? (
-                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Icon name="Save" size={14} />
-                )}
-                <span>{saving ? 'Processing...' : (mode === 'Add' ? 'Create Profile' : 'Save Changes')}</span>
-             </button>
+                className="inline-flex min-w-[126px] items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Icon name="Save" size={13} />}
+                {saving ? "Saving" : mode === "Add" ? "Create Profile" : "Save Changes"}
+              </button>
+            </div>
           </div>
-        </div>
 
+          {sectionsConfig.length > 0 && (
+            <div className="mt-3 border-t border-slate-200/70 pt-3 dark:border-slate-800/80">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {sectionsConfig.map((section) => (
+                  <button
+                    key={section.key}
+                    type="button"
+                    onClick={() => onSectionClick?.(section.targetId)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                      activeSection === section.key
+                        ? "border-sky-400 bg-sky-500/15 text-sky-700 dark:border-sky-500 dark:bg-sky-500/20 dark:text-sky-200"
+                        : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    }`}
+                  >
+                    <Icon name={section.icon || "Circle"} size={12} />
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 };

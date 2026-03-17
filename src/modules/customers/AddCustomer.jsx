@@ -13,6 +13,7 @@ import BankDetails from "./customer-form/BankDetails";
 import ReferenceDetails from "./customer-form/ReferenceDetails";
 // import CustomerStepperSidebar from "./CustomerStepperSidebar";
 import CustomerStickyHeader from "./components/CustomerStickyHeader";
+import Icon from "../../components/AppIcon";
 
 const sectionsConfig = [
   {
@@ -366,7 +367,7 @@ const AddCustomer = () => {
 
 
   return (
-    <div className="min-h-screen bg-background pb-10">
+    <div className="min-h-screen bg-muted/20">
       <CustomerStickyHeader
         headerInfo={headerInfo}
         mode="Add"
@@ -381,47 +382,66 @@ const AddCustomer = () => {
         saving={saving}
       />
 
-      <div className="w-full px-4 md:px-8 py-6">
-        {/* Form Content */}
-        <div className="w-full">
-          <Form
-            form={form}
-            layout="vertical"
-            onValuesChange={handleValuesChange}
-            initialValues={{
-              applicantType: "Individual",
-              kycStatus: "In Progress",
-              customerType: "New",
-              extraMobiles: [],
-              businessNature: [],
-              companyType: "",
-            }}
-          >
-            <div id="section-personal" className="mb-12 scroll-mt-[180px]">
-              <PersonalDetails />
-            </div>
+      <div className="flex flex-col md:flex-row gap-0 bg-muted/20 min-h-[calc(100vh-4rem)]">
+        <div className="flex-1 min-w-0 bg-background dark:bg-black md:mb-4 md:mx-4 md:rounded-3xl border-x md:border border-border shadow-sm">
+          <div className="px-3 md:px-8 pt-6 pb-28 md:pb-32 bg-[linear-gradient(180deg,rgba(56,189,248,0.12)_0px,rgba(16,185,129,0.08)_56px,rgba(255,255,255,0)_130px)] dark:bg-[linear-gradient(180deg,rgba(14,116,144,0.22)_0px,rgba(4,120,87,0.14)_56px,rgba(2,6,23,0)_130px)]">
+            <Form
+              form={form}
+              layout="vertical"
+              onValuesChange={handleValuesChange}
+              initialValues={{
+                applicantType: "Individual",
+                kycStatus: "In Progress",
+                customerType: "New",
+                extraMobiles: [],
+                businessNature: [],
+                companyType: "",
+              }}
+            >
+              <div id="section-personal" className="mb-10 scroll-mt-[220px]">
+                <PersonalDetails />
+              </div>
 
-            <div id="section-employment" className="mb-12 scroll-mt-[180px]">
-              <EmploymentDetails />
-            </div>
+              <div id="section-employment" className="mb-10 scroll-mt-[220px]">
+                <EmploymentDetails />
+              </div>
 
-            <div id="section-income" className="mb-12 scroll-mt-[180px]">
-              <IncomeDetails />
-            </div>
+              <div id="section-income" className="mb-10 scroll-mt-[220px]">
+                <IncomeDetails />
+              </div>
 
-            <div id="section-bank" className="mb-12 scroll-mt-[180px]">
-              <BankDetails />
-            </div>
+              <div id="section-bank" className="mb-10 scroll-mt-[220px]">
+                <BankDetails />
+              </div>
 
-            <div id="section-other" className="mb-12 scroll-mt-[180px]">
-              <ReferenceDetails />
-            </div>
+              <div id="section-other" className="mb-10 scroll-mt-[220px]">
+                <ReferenceDetails />
+              </div>
 
-            <div id="section-kyc" className="mb-12 scroll-mt-[180px]">
-              <KycDetails />
-            </div>
-          </Form>
+              <div id="section-kyc" className="mb-6 scroll-mt-[220px]">
+                <KycDetails />
+              </div>
+            </Form>
+          </div>
         </div>
+      </div>
+
+      <div className="fixed bottom-20 md:bottom-24 left-1/2 z-[940] flex w-[calc(100%-1rem)] max-w-[760px] -translate-x-1/2 items-center gap-1.5 overflow-x-auto rounded-2xl border border-border bg-card p-2.5 shadow-elevation-4 backdrop-blur-sm">
+        {sectionsConfig.map((section) => (
+          <button
+            key={section.key}
+            type="button"
+            onClick={() => scrollToSection(section.targetId)}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${
+              activeSection === section.key
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            }`}
+          >
+            <Icon name={section.icon || "Circle"} size={12} />
+            {section.label}
+          </button>
+        ))}
       </div>
     </div>
   );

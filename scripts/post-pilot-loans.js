@@ -261,6 +261,15 @@ async function main() {
         panNumber: body.gu_pan,
         existingId: matched?.gu_id || body.gu_id,
       });
+
+      body.signatory_id = await upsertCustomerRecord({
+        payload: buildSignatoryCustomerPayload(body),
+        name: body.signatory_customerName || (body.signatorySameAsCoApplicant ? body.co_customerName : ""),
+        mobile: body.signatory_primaryMobile || (body.signatorySameAsCoApplicant ? body.co_primaryMobile : ""),
+        panNumber: body.signatory_pan || (body.signatorySameAsCoApplicant ? body.co_pan : ""),
+        existingId: matched?.signatory_id || body.signatory_id,
+        createOnlyWithMobile: false,
+      });
     }
 
     if (matched?._id) {
@@ -429,6 +438,16 @@ async function postCasesStreaming(caseIds, extracted, vehicles, meta = {}) {
           existingId: null,
           strictNameMatch: true,
         });
+
+        body.signatory_id = await upsertCustomerRecord({
+          payload: buildSignatoryCustomerPayload(body),
+          name: body.signatory_customerName || (body.signatorySameAsCoApplicant ? body.co_customerName : ""),
+          mobile: body.signatory_primaryMobile || (body.signatorySameAsCoApplicant ? body.co_primaryMobile : ""),
+          panNumber: body.signatory_pan || (body.signatorySameAsCoApplicant ? body.co_pan : ""),
+          existingId: matched?.signatory_id || body.signatory_id || null,
+          createOnlyWithMobile: false,
+          strictNameMatch: true,
+        });
       }
 
       if (matched?._id) {
@@ -484,8 +503,14 @@ async function backfillCustomersFromLoans() {
   const loans = (Array.isArray(existing?.data) ? existing.data : [])
     .slice()
     .sort((a, b) => {
-      const ta = Date.parse(a?.createdAt || a?.updatedAt || 0) || 0;
-      const tb = Date.parse(b?.createdAt || b?.updatedAt || 0) || 0;
+      const ta = Math.max(
+        Date.parse(a?.updatedAt || "") || 0,
+        Date.parse(a?.createdAt || "") || 0,
+      );
+      const tb = Math.max(
+        Date.parse(b?.updatedAt || "") || 0,
+        Date.parse(b?.createdAt || "") || 0,
+      );
       return ta - tb; // oldest first, latest last (latest data wins)
     });
   const results = [];
@@ -527,10 +552,20 @@ async function backfillCustomersFromLoans() {
         existingId: body.gu_id,
       });
 
+      const signatoryId = await resolver.resolveAndMerge({
+        payload: buildSignatoryCustomerPayload(body),
+        name: body.signatory_customerName || (body.signatorySameAsCoApplicant ? body.co_customerName : ""),
+        mobile: body.signatory_primaryMobile || (body.signatorySameAsCoApplicant ? body.co_primaryMobile : ""),
+        panNumber: body.signatory_pan || (body.signatorySameAsCoApplicant ? body.co_pan : ""),
+        existingId: body.signatory_id,
+        createOnlyWithMobile: false,
+      });
+
       const patch = {};
       if (primaryId && String(primaryId) !== String(body.customerId || "")) patch.customerId = primaryId;
       if (coId && String(coId) !== String(body.co_id || "")) patch.co_id = coId;
       if (guId && String(guId) !== String(body.gu_id || "")) patch.gu_id = guId;
+      if (signatoryId && String(signatoryId) !== String(body.signatory_id || "")) patch.signatory_id = signatoryId;
 
       if (Object.keys(patch).length > 0 && loanRef) {
         await apiPut(`/api/loans/${loanRef}`, patch);
@@ -1793,6 +1828,9 @@ async function findExistingCustomerId({ name, mobile, panNumber, existingId }) {
 }
 
 function buildPrimaryCustomerPayload(body) {
+  const ref1 = body.reference1 || {};
+  const ref2 = body.reference2 || {};
+  const salaryMonthly = body.salaryMonthly || body.monthlySalary || body.monthlyIncome;
   return {
     applicantType: body.applicantType || 'Individual',
     customerName: body.customerName,
@@ -1822,6 +1860,15 @@ function buildPrimaryCustomerPayload(body) {
     houseType: body.houseType,
     occupationType: body.occupationType,
     professionalType: body.professionalType,
+    monthlyIncome: body.monthlyIncome || body.salaryMonthly || body.monthlySalary,
+    salaryMonthly,
+    monthlySalary: body.monthlySalary || body.salaryMonthly || body.monthlyIncome,
+    annualIncome: body.annualIncome,
+    totalIncomeITR: body.totalIncomeITR,
+    annualTurnover: body.annualTurnover,
+    netProfit: body.netProfit,
+    otherIncome: body.otherIncome,
+    otherIncomeSource: body.otherIncomeSource,
     companyType: body.companyType,
     businessNature: body.businessNature,
     designation: body.designation,
@@ -1834,22 +1881,45 @@ function buildPrimaryCustomerPayload(body) {
     employmentCity: body.employmentCity,
     employmentPhone: body.employmentPhone,
     officialEmail: body.officialEmail,
+    companyName: body.companyName,
+    companyAddress: body.companyAddress || body.employmentAddress,
+    companyPincode: body.companyPincode || body.employmentPincode,
+    companyCity: body.companyCity || body.employmentCity,
+    companyPhone: body.companyPhone || body.employmentPhone,
     bankName: body.bankName,
     accountNumber: body.accountNumber,
+    ifscCode: body.ifscCode || body.ifsc,
+    ifsc: body.ifsc || body.ifscCode,
     branch: body.branch,
     accountType: body.accountType,
-    reference1_name: body.reference1_name,
-    reference1_mobile: body.reference1_mobile,
-    reference1_address: body.reference1_address,
-    reference1_pincode: body.reference1_pincode,
-    reference1_city: body.reference1_city,
-    reference1_relation: body.reference1_relation,
-    reference2_name: body.reference2_name,
-    reference2_mobile: body.reference2_mobile,
-    reference2_address: body.reference2_address,
-    reference2_pincode: body.reference2_pincode,
-    reference2_city: body.reference2_city,
-    reference2_relation: body.reference2_relation,
+    reference1_name: body.reference1_name || ref1.name,
+    reference1_mobile: body.reference1_mobile || ref1.mobile,
+    reference1_address: body.reference1_address || ref1.address,
+    reference1_pincode: body.reference1_pincode || ref1.pincode,
+    reference1_city: body.reference1_city || ref1.city,
+    reference1_relation: body.reference1_relation || ref1.relation,
+    reference2_name: body.reference2_name || ref2.name,
+    reference2_mobile: body.reference2_mobile || ref2.mobile,
+    reference2_address: body.reference2_address || ref2.address,
+    reference2_pincode: body.reference2_pincode || ref2.pincode,
+    reference2_city: body.reference2_city || ref2.city,
+    reference2_relation: body.reference2_relation || ref2.relation,
+    reference1: {
+      name: body.reference1_name || ref1.name,
+      mobile: body.reference1_mobile || ref1.mobile,
+      address: body.reference1_address || ref1.address,
+      pincode: body.reference1_pincode || ref1.pincode,
+      city: body.reference1_city || ref1.city,
+      relation: body.reference1_relation || ref1.relation,
+    },
+    reference2: {
+      name: body.reference2_name || ref2.name,
+      mobile: body.reference2_mobile || ref2.mobile,
+      address: body.reference2_address || ref2.address,
+      pincode: body.reference2_pincode || ref2.pincode,
+      city: body.reference2_city || ref2.city,
+      relation: body.reference2_relation || ref2.relation,
+    },
     customerType: body.applicantType,
     loan_notes: body.loan_notes,
   };
@@ -1862,6 +1932,7 @@ function buildCoApplicantCustomerPayload(body) {
     primaryMobile: body.co_primaryMobile,
     motherName: body.co_motherName,
     sdwOf: body.co_fatherName,
+    fatherName: body.co_fatherName,
     gender: body.co_gender,
     dob: body.co_dob,
     maritalStatus: body.co_maritalStatus,
@@ -1873,6 +1944,7 @@ function buildCoApplicantCustomerPayload(body) {
     city: body.co_city,
     panNumber: body.co_pan,
     aadhaarNumber: body.co_aadhaar,
+    aadharNumber: body.co_aadhaar,
     occupationType: body.co_occupation,
     professionalType: body.co_professionalType,
     companyType: body.co_companyType,
@@ -1883,10 +1955,19 @@ function buildCoApplicantCustomerPayload(body) {
     totalExp: body.co_totalExperience,
     totalExperience: body.co_totalExperience,
     companyName: body.co_companyName,
-    employmentAddress: body.co_companyAddress,
-    employmentPincode: body.co_companyPincode,
-    employmentCity: body.co_companyCity,
+    companyAddress: body.co_companyAddress || body.co_address,
+    companyPincode: body.co_companyPincode || body.co_pincode,
+    companyCity: body.co_companyCity || body.co_city,
+    companyPhone: body.co_companyPhone,
+    employmentAddress: body.co_companyAddress || body.co_address,
+    employmentPincode: body.co_companyPincode || body.co_pincode,
+    employmentCity: body.co_companyCity || body.co_city,
     employmentPhone: body.co_companyPhone,
+    monthlyIncome: body.co_monthlySalary || body.co_salaryMonthly,
+    salaryMonthly: body.co_salaryMonthly || body.co_monthlySalary,
+    monthlySalary: body.co_monthlySalary || body.co_salaryMonthly,
+    customerType: "Co-Applicant",
+    loan_notes: body.loan_notes,
   };
 }
 
@@ -1897,6 +1978,7 @@ function buildGuarantorCustomerPayload(body) {
     primaryMobile: body.gu_primaryMobile,
     motherName: body.gu_motherName,
     sdwOf: body.gu_fatherName,
+    fatherName: body.gu_fatherName,
     gender: body.gu_gender,
     dob: body.gu_dob,
     maritalStatus: body.gu_maritalStatus,
@@ -1908,6 +1990,7 @@ function buildGuarantorCustomerPayload(body) {
     city: body.gu_city,
     panNumber: body.gu_pan,
     aadhaarNumber: body.gu_aadhaar,
+    aadharNumber: body.gu_aadhaar,
     occupationType: body.gu_occupation,
     professionalType: body.gu_professionalType,
     companyType: body.gu_companyType,
@@ -1918,10 +2001,36 @@ function buildGuarantorCustomerPayload(body) {
     totalExp: body.gu_totalExperience,
     totalExperience: body.gu_totalExperience,
     companyName: body.gu_companyName,
-    employmentAddress: body.gu_companyAddress,
-    employmentPincode: body.gu_companyPincode,
-    employmentCity: body.gu_companyCity,
+    companyAddress: body.gu_companyAddress || body.gu_address,
+    companyPincode: body.gu_companyPincode || body.gu_pincode,
+    companyCity: body.gu_companyCity || body.gu_city,
+    companyPhone: body.gu_companyPhone,
+    employmentAddress: body.gu_companyAddress || body.gu_address,
+    employmentPincode: body.gu_companyPincode || body.gu_pincode,
+    employmentCity: body.gu_companyCity || body.gu_city,
     employmentPhone: body.gu_companyPhone,
+    customerType: "Guarantor",
+    loan_notes: body.loan_notes,
+  };
+}
+
+function buildSignatoryCustomerPayload(body) {
+  const useCo = !!body.signatorySameAsCoApplicant;
+  return {
+    applicantType: "Individual",
+    customerName: body.signatory_customerName || (useCo ? body.co_customerName : undefined),
+    primaryMobile: body.signatory_primaryMobile || (useCo ? body.co_primaryMobile : undefined),
+    residenceAddress: body.signatory_address || (useCo ? body.co_address : undefined),
+    pincode: body.signatory_pincode || (useCo ? body.co_pincode : undefined),
+    city: body.signatory_city || (useCo ? body.co_city : undefined),
+    dob: body.signatory_dob || (useCo ? body.co_dob : undefined),
+    gender: body.signatory_gender || (useCo ? body.co_gender : undefined),
+    designation: body.signatory_designation || (useCo ? body.co_designation : undefined),
+    panNumber: body.signatory_pan || (useCo ? body.co_pan : undefined),
+    aadhaarNumber: body.signatory_aadhaar || (useCo ? body.co_aadhaar : undefined),
+    aadharNumber: body.signatory_aadhaar || (useCo ? body.co_aadhaar : undefined),
+    customerType: "Authorised Signatory",
+    loan_notes: body.loan_notes,
   };
 }
 
