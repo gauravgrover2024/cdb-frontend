@@ -12,6 +12,42 @@ const FUEL_ORDER = ["All", "Petrol", "Diesel", "CNG", "Electric"];
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
+const toArray = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.results)) return payload.results;
+  return [];
+};
+
+const normalizeVehicleRecord = (vehicle = {}) => {
+  const toNum = (v) => Number(v) || 0;
+  return {
+    ...vehicle,
+    _id: vehicle._id || vehicle.id || vehicle.vehicleId,
+    make: String(vehicle.make || vehicle.brand || vehicle.brandName || "N/A").trim() || "N/A",
+    model: String(vehicle.model || vehicle.modelName || "N/A").trim() || "N/A",
+    variant: String(vehicle.variant || vehicle.variantName || vehicle.name || "N/A").trim() || "N/A",
+    city: String(vehicle.city || vehicle.locationCity || vehicle.showroomCity || "N/A").trim() || "N/A",
+    fuel: String(vehicle.fuel || vehicle.fuelType || "N/A").trim() || "N/A",
+    exShowroom: toNum(vehicle.exShowroom ?? vehicle.ex_showroom ?? vehicle.exShowroomPrice),
+    rto: toNum(vehicle.rto ?? vehicle.roadTax),
+    insurance: toNum(vehicle.insurance),
+    otherCharges: toNum(vehicle.otherCharges ?? vehicle.tcs),
+    onRoadPrice: toNum(vehicle.onRoadPrice ?? vehicle.on_road_price ?? vehicle.netOnRoad ?? vehicle.onRoad),
+  };
+};
+
+const cityMatches = (vehicleCity, selectedCity) => {
+  const city = normalizeText(vehicleCity);
+  const selected = normalizeText(selectedCity);
+  if (!selected) return true;
+  if (city === selected) return true;
+  if (city.includes(selected) || selected.includes(city)) return true;
+  return false;
+};
+
 const getVehicleMake = (vehicle) => vehicle?.make || vehicle?.brand || "";
 const getVehicleModel = (vehicle) => vehicle?.model || "";
 const getVehicleVariant = (vehicle) => vehicle?.variant || "";
@@ -38,7 +74,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const [modelFilter, setModelFilter] = useState("");
   const [fuelFilter, setFuelFilter] = useState("");
   const [variantFilter, setVariantFilter] = useState("");
-  const [cityFilter, setCityFilter] = useState("New Delhi");
+  const [cityFilter, setCityFilter] = useState("");
   const [budgetFilter, setBudgetFilter] = useState("");
   const [brandType, setBrandType] = useState("");
 
@@ -51,7 +87,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     try {
       setLoading(true);
       const res = await vehiclesApi.getAll();
-      const list = Array.isArray(res?.data) ? res.data : [];
+      const list = toArray(res).map(normalizeVehicleRecord);
 
       if (list.length > 0) {
         setVehicles(list);
@@ -147,7 +183,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
   const handleClearFilters = () => {
     setSearchText("");
-    setCityFilter("New Delhi");
+    setCityFilter("");
     setMakeFilter("");
     setModelFilter("");
     setFuelFilter("");
@@ -169,7 +205,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     let filtered = [...vehicles];
 
     if (cityFilter) {
-      filtered = filtered.filter((v) => v.city === cityFilter);
+      filtered = filtered.filter((v) => cityMatches(v.city, cityFilter));
     }
     if (makeFilter) {
       filtered = filtered.filter((v) => v.make === makeFilter);
@@ -412,7 +448,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               <div className="flex flex-wrap gap-2">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-[#262626] text-slate-900 dark:text-slate-50">
                   <Icon name="MapPin" size={14} />
-                  <span>{cityFilter || "New Delhi"}</span>
+                  <span>{cityFilter || "All Cities"}</span>
                 </div>
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-[#262626] text-slate-900 dark:text-slate-50">
                   <Icon name="List" size={14} />
@@ -519,7 +555,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </label>
               <Select
                 placeholder="City"
-                value={cityFilter || "New Delhi"}
+                value={cityFilter || undefined}
                 onChange={(v) => setCityFilter(v || "")}
                 allowClear
                 className="w-full"
