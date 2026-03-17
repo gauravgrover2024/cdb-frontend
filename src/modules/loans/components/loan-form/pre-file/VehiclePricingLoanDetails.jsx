@@ -20,145 +20,14 @@ import { useVehicleData } from "../../../../../hooks/useVehicleData";
 import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 import { lenderHypothecationOptions } from "../../../../../constants/lenderHypothecationOptions";
+import {
+  INDIAN_CITY_OPTIONS,
+  normalizeCityAlias,
+  resolveVehiclePricingCity,
+} from "./registrationCityPricing";
 
 const { Option } = Select;
 const SHOWROOM_AUTOSUGGEST_POPUP_WIDTH = 520;
-
-// Comprehensive list of Indian cities (100+ major cities)
-const INDIAN_CITIES = [
-  // Metro Cities
-  "Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Pune", "Ahmedabad",
-  
-  // Tier 1 Cities
-  "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane", "Bhopal",
-  "Visakhapatnam", "Pimpri-Chinchwad", "Patna", "Vadodara", "Ghaziabad", "Ludhiana",
-  "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot", "Kalyan-Dombivali",
-  
-  // Tier 2 Cities
-  "Vasai-Virar", "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar",
-  "Navi Mumbai", "Allahabad", "Ranchi", "Howrah", "Coimbatore", "Jabalpur",
-  "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur", "Kota",
-  
-  // State Capitals & Important Cities
-  "Chandigarh", "Guwahati", "Thiruvananthapuram", "Solapur", "Hubli-Dharwad",
-  "Tiruchirappalli", "Tiruppur", "Moradabad", "Mysore", "Bareilly", "Gurgaon",
-  "Aligarh", "Jalandhar", "Bhubaneswar", "Salem", "Mira-Bhayandar", "Warangal",
-  "Guntur", "Bhiwandi", "Saharanpur", "Gorakhpur", "Bikaner", "Amravati",
-  "Noida", "Jamshedpur", "Bhilai", "Cuttack", "Firozabad", "Kochi",
-  
-  // Other Major Cities
-  "Dehradun", "Durgapur", "Asansol", "Nanded", "Kolhapur", "Ajmer",
-  "Akola", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri",
-  "Jhansi", "Ulhasnagar", "Jammu", "Sangli-Miraj-Kupwad", "Mangalore",
-  "Erode", "Belgaum", "Ambattur", "Tirunelveli", "Malegaon", "Gaya",
-  "Jalgaon", "Udaipur", "Maheshtala", "Davanagere", "Kozhikode", "Kurnool",
-  "Rajahmundry", "Bokaro", "South Dumdum", "Bellary", "Patiala", "Gopalpur",
-  "Agartala", "Bhagalpur", "Muzaffarnagar", "Bhatpara", "Panihati", "Latur",
-  "Dhule", "Tirupati", "Rohtak", "Korba", "Bhilwara", "Berhampur", "Muzaffarpur",
-  "Ahmednagar", "Mathura", "Kollam", "Avadi", "Kadapa", "Kamarhati",
-  "Sambalpur", "Bilaspur", "Shahjahanpur", "Satara", "Bijapur", "Rampur",
-  "Shimoga", "Chandrapur", "Junagadh", "Thrissur", "Alwar", "Bardhaman",
-  "Kulti", "Kakinada", "Nizamabad", "Parbhani", "Tumkur", "Khammam",
-  "Ozhukarai", "Bihar Sharif", "Panipat", "Darbhanga", "Bally", "Aizawl",
-  "Dewas", "Ichalkaranji", "Karnal", "Bathinda", "Jalna", "Eluru",
-  "Kirari Suleman Nagar", "Barasat", "Purnia", "Satna", "Mau", "Sonipat",
-  "Farrukhabad", "Sagar", "Rourkela", "Durg", "Imphal", "Ratlam",
-  "Hapur", "Arrah", "Karimnagar", "Anantapur", "Etawah", "Ambernath",
-  "North Dumdum", "Bharatpur", "Begusarai", "New Delhi", "Gandhidham",
-  "Baranagar", "Tiruvottiyur", "Puducherry", "Sikar", "Thoothukudi",
-  "Raigarh", "Gonder", "Habra", "Bhusawal", "Orai", "Bahraich",
-  "Vellore", "Mahesana", "Sambalpur", "Raiganj", "Sirsa", "Danapur",
-  "Serampore", "Sultan Pur Majra", "Guna", "Jaunpur", "Panvel", "Shivpuri",
-  "Surendranagar Dudhrej", "Unnao", "Hugli and Chinsurah", "Alappuzha",
-  "Kottayam", "Machilipatnam", "Shimla", "Adoni", "Udupi", "Katihar",
-  "Proddatur", "Mahbubnagar", "Saharsa", "Dibrugarh", "Jorhat", "Hazaribagh"
-];
-
-const CITY_ALIASES = {
-  "new delhi": "Delhi",
-};
-
-const UP_CITY_KEYWORDS = [
-  "noida",
-  "greater noida",
-  "ghaziabad",
-  "lucknow",
-  "kanpur",
-  "agra",
-  "meerut",
-  "varanasi",
-  "prayagraj",
-  "allahabad",
-  "gorakhpur",
-  "bareilly",
-  "aligarh",
-  "mathura",
-  "moradabad",
-  "jhansi",
-  "ayodhya",
-  "gautam buddha nagar",
-];
-
-const HARYANA_CITY_KEYWORDS = [
-  "gurgaon",
-  "gurugram",
-  "faridabad",
-  "sonipat",
-  "panipat",
-  "karnal",
-  "rohtak",
-  "hisar",
-  "ambala",
-  "panchkula",
-  "bhiwani",
-  "rewari",
-  "yamunanagar",
-  "jhajjar",
-  "sirsa",
-  "kurukshetra",
-  "kaithal",
-  "palwal",
-  "mahendragarh",
-  "jind",
-];
-
-const resolveVehiclePricingCity = (rawCity, form) => {
-  const parts = [
-    rawCity,
-    form?.getFieldValue?.("state"),
-    form?.getFieldValue?.("permanentState"),
-    form?.getFieldValue?.("officeState"),
-    form?.getFieldValue?.("employmentState"),
-  ]
-    .map((v) => String(v || "").trim())
-    .filter(Boolean);
-
-  const haystack = parts.join(" ").toLowerCase();
-
-  if (!haystack) return "New-Delhi";
-  if (haystack.includes("delhi")) return "New-Delhi";
-  if (
-    haystack.includes("haryana") ||
-    HARYANA_CITY_KEYWORDS.some((key) => haystack.includes(key))
-  ) {
-    return "Gurgaon";
-  }
-  if (
-    haystack.includes("uttar pradesh") ||
-    /\bup\b/.test(haystack) ||
-    UP_CITY_KEYWORDS.some((key) => haystack.includes(key))
-  ) {
-    return "Noida";
-  }
-  return "New-Delhi";
-};
-
-const normalizeCityAlias = (city) => {
-  const raw = String(city || "").trim();
-  if (!raw) return "";
-  const alias = CITY_ALIASES[raw.toLowerCase()];
-  return alias || raw;
-};
 
 const cleanVariantDisplay = (variant, make, model) => {
   const raw = String(variant || "").trim();
@@ -184,19 +53,6 @@ const cleanVariantDisplay = (variant, make, model) => {
   return cleaned || raw;
 };
 
-const INDIAN_CITY_OPTIONS = (() => {
-  const seen = new Set();
-  const normalized = INDIAN_CITIES.map(normalizeCityAlias).filter(Boolean);
-  const unique = normalized.filter((city) => {
-    const key = city.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return unique
-    .sort((a, b) => a.localeCompare(b))
-    .map((city) => ({ value: city, label: city }));
-})();
 
 /**
  * Section4VehiclePricing

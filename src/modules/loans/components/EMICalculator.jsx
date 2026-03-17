@@ -10,6 +10,10 @@ import { motion, useSpring } from "framer-motion";
 import { quotationsApi } from "../../../api/quotations";
 import { useLocation } from "react-router-dom";
 import { featuresApi } from "../../../api/features";
+import {
+  INDIAN_CITY_OPTIONS,
+  resolveVehiclePricingCity,
+} from "./loan-form/pre-file/registrationCityPricing";
 
 const { Option } = Select;
 
@@ -205,28 +209,30 @@ const EMICalculator = ({
   initialQuotation,
   initialShareView,
 }) => {
+  const EMI_PERF_DEBUG = true;
+  const perfLog = (...args) => {
+    if (!EMI_PERF_DEBUG) return;
+    // Keep logs easy to grep in browser devtools.
+    console.log("[EMI-PERF]", ...args);
+  };
+
   const [vehicles, setVehicles] = useState([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const location = useLocation();
   const fromVariant = location.state?.fromVariant;
   const [featureSearch, setFeatureSearch] = useState("");
 
-  // City + mapping
-  const stateOptions = ["Delhi", "UP", "Haryana"];
-  const cityFallbackMap = {
-    Delhi: "Delhi",
-    UP: "UP",
-    Haryana: "Haryana",
-  };
-
   const [cityInput, setCityInput] = useState("");
-  const cityOptions = useMemo(
-    () =>
-      [...new Set(vehicles.map((v) => v.city).filter(Boolean))]
-        .sort()
-        .map((city) => ({ value: city })),
-    [vehicles],
-  );
+  const [debouncedCityInput, setDebouncedCityInput] = useState("");
+  const cityAutocompleteOptions = useMemo(() => {
+    const typed = String(cityInput || "").trim();
+    if (!typed) return INDIAN_CITY_OPTIONS;
+    const exists = INDIAN_CITY_OPTIONS.some(
+      (opt) => normalizeText(opt.value) === normalizeText(typed),
+    );
+    if (exists) return INDIAN_CITY_OPTIONS;
+    return [{ value: typed, label: typed }, ...INDIAN_CITY_OPTIONS];
+  }, [cityInput]);
 
   const [customerValue, setCustomerValue] = useState(null);
   const [customerKey, setCustomerKey] = useState(0);
@@ -235,6 +241,8 @@ const EMICalculator = ({
   const [selectedMake, setSelectedMake] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedVariant, setSelectedVariant] = useState(null);
+  const [makeOptions, setMakeOptions] = useState([]);
+  const [modelOptions, setModelOptions] = useState([]);
 
   const selectedVehicle = useMemo(
     () =>
@@ -319,19 +327,26 @@ const EMICalculator = ({
 
   useEffect(() => {
     if (fromVariant) return;
-    if (!initialQuotation || !vehicles.length) return;
+    if (!initialQuotation) return;
 
     const q = initialQuotation;
+    const quoteVehicle = q.vehicle || {};
 
-    // Find vehicle by id from quotation
+    if (quoteVehicle.make) setSelectedMake(String(quoteVehicle.make));
+    if (quoteVehicle.model) setSelectedModel(String(quoteVehicle.model));
+    setCityInput(q.cityTyped || "");
+
+    if (!vehicles.length) return;
+
+    // Find vehicle by id/name from quotation
     const v = vehicles.find(
-      (x) => String(x._id) === String(q.vehicle?.vehicleId),
+      (x) =>
+        String(x._id) === String(quoteVehicle.vehicleId) ||
+        (normalizeText(x.make) === normalizeText(quoteVehicle.make) &&
+          normalizeText(x.model) === normalizeText(quoteVehicle.model) &&
+          normalizeText(x.variant) === normalizeText(quoteVehicle.variant)),
     );
     if (!v) return;
-
-    // Set Make and Model
-    setSelectedMake(v.make || "");
-    setSelectedModel(v.model || "");
 
     // Variant
     setSelectedVariant({
@@ -339,16 +354,13 @@ const EMICalculator = ({
       label: `${v.variant} — ${formatINR(v.onRoadPrice)}`,
     });
 
-    // City/color into pricingState & inputs
-    setCityInput(q.cityTyped || "");
-
     setPricingState((prev) => ({
       ...(prev || {}),
       ...(q.pricing || {}),
       city: q.cityTyped || "",
       color: q.pricing?.color || "",
     }));
-  }, [initialQuotation, vehicles]);
+  }, [fromVariant, initialQuotation, vehicles]);
 
   // Populate pricing state from selected vehicle (city-specific pricing row)
   useEffect(() => {
@@ -461,13 +473,34 @@ const EMICalculator = ({
   }, [pricingState, selectedVehicle, downPct]);
 
   useEffect(() => {
-    if (!fromVariant || !vehicles.length) return;
+    if (!fromVariant) return;
 
     const fromMake =
       fromVariant.make || fromVariant.brand || fromVariant.brandName || "";
     const fromModel = fromVariant.model || fromVariant.modelName || "";
     const fromVariantName =
       fromVariant.variant || fromVariant.variantName || fromVariant.name || "";
+
+    if (fromMake) setSelectedMake(fromMake);
+    if (fromModel) setSelectedModel(fromModel);
+
+    const prefillCity = fromVariant.city || "Delhi";
+    setCityInput(prefillCity);
+
+    const fallbackPrice =
+      Number(fromVariant.onRoadPrice || fromVariant.price || 0) || 0;
+    const fallbackDownPayment =
+      Number(fromVariant.defaultDownPayment) ||
+      Math.round(fallbackPrice * 0.1);
+    const fallbackLoan =
+      Number(fromVariant.loanAmount) ||
+      Math.max(0, fallbackPrice - fallbackDownPayment);
+
+    setLoanAmountA(fallbackLoan);
+    setLoanAmountB(fallbackLoan);
+    setDownPct(fallbackPrice ? (fallbackDownPayment / fallbackPrice) * 100 : 10);
+
+    if (!vehicles.length) return;
 
     const v = vehicles.find(
       (x) =>
@@ -478,9 +511,6 @@ const EMICalculator = ({
     );
 
     if (!v) return;
-
-    setSelectedMake(v.make);
-    setSelectedModel(v.model);
 
     setSelectedVariant({
       value: v._id,
@@ -498,8 +528,6 @@ const EMICalculator = ({
     setLoanAmountB(loan);
     setDownPct(price ? (downPayment / price) * 100 : 10);
 
-    const prefillCity = fromVariant.city || "Delhi";
-    setCityInput(prefillCity);
     setPricingState((prev) => ({
       ...(prev || {}),
       vehicleId: v._id,
@@ -576,98 +604,210 @@ const EMICalculator = ({
     }
   }, [initialShareView, initialQuotation]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCityInput(String(cityInput || "").trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [cityInput]);
+
   // Derived backend city used for pricing source selection
   const backendCityKey = useMemo(() => {
-    if (!cityInput) return null;
-    if (stateOptions.includes(cityInput)) {
-      return cityFallbackMap[cityInput] || cityInput;
-    }
-    return cityInput;
-  }, [cityInput]);
+    if (!debouncedCityInput) return null;
+    return resolveVehiclePricingCity(debouncedCityInput);
+  }, [debouncedCityInput]);
 
   useEffect(() => {
     let ignore = false;
 
-    const fetchVehicles = async () => {
+    const fetchMakes = async () => {
+      const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const startedAt = performance.now();
+      perfLog("brand-load:start", {
+        runId,
+        cityInput: String(cityInput || ""),
+        backendCityKey: String(backendCityKey || ""),
+      });
+
+      if (!backendCityKey) {
+        setMakeOptions([]);
+        setModelOptions([]);
+        setVehicles([]);
+        perfLog("brand-load:done", {
+          runId,
+          finalRows: 0,
+          totalMs: Number((performance.now() - startedAt).toFixed(1)),
+        });
+        return;
+      }
+
       setVehiclesLoading(true);
       try {
-        let list = [];
-
-        if (backendCityKey) {
-          try {
-            const cityRes = await vehiclesApi.getAll({ city: backendCityKey });
-            list = toArray(cityRes).map(normalizeVehicleRecord);
-          } catch (cityErr) {
-            // fall back to unfiltered fetch
-          }
-        }
-
-        if (!list.length) {
-          const fallbackRes = await vehiclesApi.getAll();
-          const allVehicles = toArray(fallbackRes).map(normalizeVehicleRecord);
-
-          list = backendCityKey
-            ? allVehicles.filter(
-                (v) => cityMatches(v?.city, cityInput, backendCityKey),
-              )
-            : allVehicles;
-
-          if (!list.length) list = allVehicles;
-        }
-
+        const apiStartedAt = performance.now();
+        const makesRes = await vehiclesApi.getUniqueMakes(backendCityKey);
+        const rawRows = toArray(makesRes);
+        const normalized = rawRows
+          .map((row) => String(row || "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
         if (ignore) return;
-        setVehicles(list);
+
+        setMakeOptions(normalized);
+        setModelOptions([]);
+        setVehicles([]);
+        setSelectedMake("");
+        setSelectedModel("");
+        setSelectedVariant(null);
+        setLoanAmountA(0);
+        setLoanAmountB(0);
+
+        perfLog("brand-load:makes-api", {
+          runId,
+          city: backendCityKey,
+          rows: normalized.length,
+          apiMs: Number((performance.now() - apiStartedAt).toFixed(1)),
+        });
+        perfLog("brand-load:done", {
+          runId,
+          finalRows: normalized.length,
+          totalMs: Number((performance.now() - startedAt).toFixed(1)),
+        });
       } catch (e) {
         if (ignore) return;
+        setMakeOptions([]);
+        setModelOptions([]);
         setVehicles([]);
-        message.error("Failed to load vehicle list for EMI. Please refresh.");
+        perfLog("brand-load:error", {
+          runId,
+          error: e?.message || String(e),
+          totalMs: Number((performance.now() - startedAt).toFixed(1)),
+        });
+        message.error("Failed to load brands for selected city.");
       } finally {
         if (!ignore) setVehiclesLoading(false);
       }
     };
 
-    fetchVehicles();
+    fetchMakes();
     return () => {
       ignore = true;
     };
-  }, [backendCityKey]);
+  }, [backendCityKey, cityInput]);
 
-  // Filter vehicles by backend city key
-  const filteredVehicles = useMemo(
-    () =>
-      backendCityKey
-        ? vehicles.filter(
-            (v) => cityMatches(v.city, cityInput, backendCityKey),
-          )
-        : vehicles,
-    [vehicles, cityInput, backendCityKey],
-  );
+  useEffect(() => {
+    let ignore = false;
 
-  const uniqueMakes = useMemo(
-    () => [...new Set(filteredVehicles.map((v) => v.make))].sort(),
-    [filteredVehicles],
-  );
+    const fetchModels = async () => {
+      if (!selectedMake || !backendCityKey) {
+        setModelOptions([]);
+        setVehicles([]);
+        return;
+      }
+      setVehiclesLoading(true);
+      try {
+        const res = await vehiclesApi.getUniqueModels(selectedMake, backendCityKey);
+        const rows = toArray(res)
+          .map((row) => String(row || "").trim())
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+        if (ignore) return;
+        setModelOptions(rows);
+        setVehicles([]);
+      } catch {
+        if (ignore) return;
+        setModelOptions([]);
+        setVehicles([]);
+      } finally {
+        if (!ignore) setVehiclesLoading(false);
+      }
+    };
 
-  const modelsForMake = useMemo(
-    () => filteredVehicles.filter((v) => v.make === selectedMake),
-    [filteredVehicles, selectedMake],
-  );
+    fetchModels();
+    return () => {
+      ignore = true;
+    };
+  }, [selectedMake, backendCityKey]);
 
-  const uniqueModels = useMemo(
-    () => [...new Set(modelsForMake.map((v) => v.model))].sort(),
-    [modelsForMake],
-  );
+  useEffect(() => {
+    let ignore = false;
 
-  const variantsForModel = useMemo(
-    () =>
-      filteredVehicles.filter(
-        (v) => v.make === selectedMake && v.model === selectedModel,
-      ),
-    [filteredVehicles, selectedMake, selectedModel],
-  );
+    const fetchVariants = async () => {
+      if (!selectedMake || !selectedModel || !backendCityKey) {
+        setVehicles([]);
+        return;
+      }
+      const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      setVehiclesLoading(true);
+      try {
+        const apiStartedAt = performance.now();
+        const res = await vehiclesApi.getVariantsWithPrice(
+          selectedMake,
+          selectedModel,
+          backendCityKey,
+        );
+        const rawRows = toArray(res);
+        const normalizeStartedAt = performance.now();
+        const list = rawRows.map(normalizeVehicleRecord);
+        if (ignore) return;
+        setVehicles(list);
+        perfLog("brand-load:variants-api", {
+          runId,
+          city: backendCityKey,
+          make: selectedMake,
+          model: selectedModel,
+          rows: rawRows.length,
+          apiMs: Number((normalizeStartedAt - apiStartedAt).toFixed(1)),
+          normalizeMs: Number((performance.now() - normalizeStartedAt).toFixed(1)),
+        });
+      } catch (e) {
+        if (ignore) return;
+        setVehicles([]);
+        perfLog("brand-load:variants-api-error", {
+          runId,
+          city: backendCityKey,
+          make: selectedMake,
+          model: selectedModel,
+          error: e?.message || String(e),
+        });
+      } finally {
+        if (!ignore) setVehiclesLoading(false);
+      }
+    };
+
+    fetchVariants();
+    return () => {
+      ignore = true;
+    };
+  }, [selectedMake, selectedModel, backendCityKey]);
+
+  const filteredVehicles = useMemo(() => vehicles, [vehicles]);
+
+  const uniqueMakes = useMemo(() => makeOptions, [makeOptions]);
+
+  useEffect(() => {
+    perfLog("brand-options:ready", {
+      cityInput: String(cityInput || ""),
+      backendCityKey: String(backendCityKey || ""),
+      vehicles: vehicles.length,
+      filteredVehicles: filteredVehicles.length,
+      uniqueMakes: uniqueMakes.length,
+      sampleMakes: uniqueMakes.slice(0, 10),
+    });
+  }, [
+    cityInput,
+    backendCityKey,
+    vehicles.length,
+    filteredVehicles.length,
+    uniqueMakes,
+  ]);
+
+  const uniqueModels = useMemo(() => modelOptions, [modelOptions]);
+
+  const variantsForModel = useMemo(() => vehicles, [vehicles]);
 
   useEffect(() => {
     if (!selectedMake) return;
+    if (!uniqueMakes.length) return;
     if (!uniqueMakes.includes(selectedMake)) {
       setSelectedMake("");
       setSelectedModel("");
@@ -679,6 +819,7 @@ const EMICalculator = ({
 
   useEffect(() => {
     if (!selectedModel) return;
+    if (!uniqueModels.length) return;
     if (!uniqueModels.includes(selectedModel)) {
       setSelectedModel("");
       setSelectedVariant(null);
@@ -1519,10 +1660,7 @@ const EMICalculator = ({
                   <AutoComplete
                     style={{ width: "100%" }}
                     value={cityInput}
-                    options={[
-                      ...stateOptions.map((s) => ({ value: s })),
-                      ...cityOptions,
-                    ]}
+                    options={cityAutocompleteOptions}
                     placeholder="Select city"
                     onChange={(value) => {
                       setCityInput(value);
@@ -1532,7 +1670,7 @@ const EMICalculator = ({
                       }));
                     }}
                     filterOption={(inputValue, option) =>
-                      (option?.value || "")
+                      String(option?.value || "")
                         .toUpperCase()
                         .includes(inputValue.toUpperCase())
                     }

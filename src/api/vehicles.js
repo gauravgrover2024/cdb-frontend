@@ -78,22 +78,25 @@ export const vehiclesApi = {
   },
 
   // Distinct values API
-  getUniqueMakes: async () => {
-    const payload = await apiClient.get("/api/vehicles/distinct/makes");
+  getUniqueMakes: async (city = null) => {
+    const url = city
+      ? `/api/vehicles/distinct/makes?city=${encodeURIComponent(city)}`
+      : "/api/vehicles/distinct/makes";
+    const payload = await apiClient.get(url);
     return withNormalizedData(payload, normalizeArrayData(payload));
   },
 
-  getUniqueModels: async (make) => {
-    const payload = await apiClient.get(
-      `/api/vehicles/distinct/models?make=${encodeURIComponent(make)}`,
-    );
+  getUniqueModels: async (make, city = null) => {
+    let url = `/api/vehicles/distinct/models?make=${encodeURIComponent(make)}`;
+    if (city) url += `&city=${encodeURIComponent(city)}`;
+    const payload = await apiClient.get(url);
     return withNormalizedData(payload, normalizeArrayData(payload));
   },
 
-  getUniqueVariants: async (make, model) => {
-    const payload = await apiClient.get(
-      `/api/vehicles/distinct/variants?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`
-    );
+  getUniqueVariants: async (make, model, city = null) => {
+    let url = `/api/vehicles/distinct/variants?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`;
+    if (city) url += `&city=${encodeURIComponent(city)}`;
+    const payload = await apiClient.get(url);
     return withNormalizedData(payload, normalizeArrayData(payload));
   },
 
