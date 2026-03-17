@@ -4,7 +4,7 @@ import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { customersApi } from "../../../../../api/customers";
 import { loansApi } from "../../../../../api/loans";
-import { uploadSingleFile } from "../../../../../utils/upload";
+import { uploadSingleFile } from "../../../../../api/uploads";
 
 const getTagColor = () =>
   "bg-secondary text-secondary-foreground border-border";

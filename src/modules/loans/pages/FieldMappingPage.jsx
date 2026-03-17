@@ -22,9 +22,12 @@ import {
 } from "@ant-design/icons";
 import softwareSchema from "../schema/loan-module.schema.json";
 import vehicleCleanupIndex from "../data/vehicle_make_model_cleanup.safe_index.json";
+import { submitMappedLoan } from "../../../api/fieldMapping";
+import API_BASE_URL from "../../../config/apiBaseUrl";
 
 const { Text, Title } = Typography;
 const MAX_MATRIX_TARGET_SLOTS = 25;
+const DEFAULT_LIVE_POST_URL = `${API_BASE_URL}/api/loans`;
 const MATRIX_ROLE_OPTIONS = [
   { label: "Mapping", value: "Mapping" },
   ...Array.from({ length: 24 }, (_, i) => ({
@@ -1594,7 +1597,7 @@ const FieldMappingPage = () => {
   const [normalizationField, setNormalizationField] = useState("");
   const [hideMappedFields, setHideMappedFields] = useState(true);
   const [allowSourceReuse, setAllowSourceReuse] = useState(false);
-  const [livePostUrl, setLivePostUrl] = useState("https://cdb-api.vercel.app/api/loans");
+  const [livePostUrl, setLivePostUrl] = useState(DEFAULT_LIVE_POST_URL);
   const [livePostLoading, setLivePostLoading] = useState(false);
   const [livePostStatus, setLivePostStatus] = useState("");
   const [livePostResponse, setLivePostResponse] = useState("");
@@ -1636,7 +1639,7 @@ const FieldMappingPage = () => {
         setAllowSourceReuse(
           typeof draft.allowSourceReuse === "boolean" ? draft.allowSourceReuse : true,
         );
-        setLivePostUrl(draft.livePostUrl || "https://cdb-api.vercel.app/api/loans");
+        setLivePostUrl(draft.livePostUrl || DEFAULT_LIVE_POST_URL);
         setPostedCaseBackendIds(draft.postedCaseBackendIds || {});
         setProfileName(draft.profileName || "");
         setShowLegacyMatrix(
@@ -3873,7 +3876,7 @@ const FieldMappingPage = () => {
       setAllowSourceReuse(
         typeof parsed.allowSourceReuse === "boolean" ? parsed.allowSourceReuse : true,
       );
-      setLivePostUrl(parsed.livePostUrl || "https://cdb-api.vercel.app/api/loans");
+      setLivePostUrl(parsed.livePostUrl || DEFAULT_LIVE_POST_URL);
       setPostedCaseBackendIds(parsed.postedCaseBackendIds || {});
       setProfileName(parsed.profileName || "");
       setShowLegacyMatrix(
@@ -3977,139 +3980,34 @@ const FieldMappingPage = () => {
 
       const knownBackendId = postedCaseBackendIds[caseKey];
       const baseUrl = livePostUrl.replace(/\/+$/, "");
-      const isMongoId = (v) => /^[a-fA-F0-9]{24}$/.test(String(v || ""));
       const payload = { ...selectedMappedPreview };
       // Backend compatibility: many validators still require customerName.
       if (!isMeaningfulValue(payload.customerName) && isMeaningfulValue(payload.companyName)) {
         payload.customerName = payload.companyName;
       }
-      if (payload._id && !isMongoId(payload._id)) {
+      if (payload._id && !/^[a-fA-F0-9]{24}$/.test(String(payload._id || ""))) {
         delete payload._id;
       }
-      const send = async (method, endpointUrl) => {
-        const res = await fetch(endpointUrl, {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-        const text = await res.text();
-        let parsed = text;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          // keep text as-is
-        }
-        return { res, parsed, method, endpointUrl };
-      };
-      const fetchJson = async (endpointUrl) => {
-        const res = await fetch(endpointUrl, { method: "GET" });
-        const text = await res.text();
-        let parsed = text;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          // keep raw text
-        }
-        return { res, parsed };
-      };
-      const extractLoanRows = (parsed) => {
-        if (!parsed) return [];
-        if (Array.isArray(parsed)) return parsed;
-        if (Array.isArray(parsed?.data)) return parsed.data;
-        if (Array.isArray(parsed?.loans)) return parsed.loans;
-        if (Array.isArray(parsed?.results)) return parsed.results;
-        if (Array.isArray(parsed?.items)) return parsed.items;
-        return [];
-      };
-      const resolveExistingBackendIdByCase = async (caseId) => {
-        const candidates = [
-          `${baseUrl}?limit=200&search=${encodeURIComponent(String(caseId))}`,
-          `${baseUrl}?limit=200&caseId=${encodeURIComponent(String(caseId))}`,
-        ];
-        for (const url of candidates) {
-          const probe = await fetchJson(url);
-          if (!probe.res.ok) continue;
-          const rows = extractLoanRows(probe.parsed);
-          if (!rows.length) continue;
-          const match = rows.find((row) => {
-            const meta = row?.__importMeta || row?.importMeta || {};
-            const metaCaseId = String(meta?.caseId || "").trim();
-            const aliases = Array.isArray(meta?.aliases) ? meta.aliases.map(String) : [];
-            return (
-              metaCaseId === String(caseId) ||
-              aliases.includes(String(caseId))
-            );
-          });
-          const backendId = match?._id;
-          if (backendId && isMongoId(backendId)) return String(backendId);
-        }
-        return "";
-      };
+      const { result, matchedBackendId, backendId, staleIdCleared } = await submitMappedLoan({
+        baseUrl,
+        payload,
+        caseId: caseKey,
+        knownBackendId,
+      });
 
-      let resolvedBackendId = isMongoId(knownBackendId) ? knownBackendId : "";
-      if (!resolvedBackendId) {
-        resolvedBackendId = await resolveExistingBackendIdByCase(caseKey);
-        if (resolvedBackendId) {
-          setPostedCaseBackendIds((prev) => ({
-            ...prev,
-            [caseKey]: resolvedBackendId,
-          }));
-        }
-      }
-
-      let result = resolvedBackendId
-        ? await send("PUT", `${baseUrl}/${resolvedBackendId}`)
-        : await send("POST", baseUrl);
-
-      // If update fails validation (400), fetch existing and retry with merged payload.
-      if (resolvedBackendId && !result.res.ok && Number(result.res.status) === 400) {
-        const existing = await fetchJson(`${baseUrl}/${resolvedBackendId}`);
-        if (existing.res.ok && existing.parsed && typeof existing.parsed === "object") {
-          const existingDoc =
-            existing.parsed?.data ||
-            existing.parsed?.loan ||
-            existing.parsed;
-          if (existingDoc && typeof existingDoc === "object") {
-            const mergedPayload = { ...existingDoc, ...payload };
-            delete mergedPayload._id;
-            const retryRes = await fetch(`${baseUrl}/${resolvedBackendId}`, {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(mergedPayload),
-            });
-            const retryText = await retryRes.text();
-            let retryParsed = retryText;
-            try {
-              retryParsed = JSON.parse(retryText);
-            } catch {
-              // keep text
-            }
-            result = {
-              res: retryRes,
-              parsed: retryParsed,
-              method: "PUT",
-              endpointUrl: `${baseUrl}/${resolvedBackendId}`,
-            };
-          }
-        }
-      }
-
-      // Only if linked ID is stale (404), recover by creating a fresh entry.
-      if (
-        resolvedBackendId &&
-        !result.res.ok &&
-        Number(result.res.status) === 404
-      ) {
+      if (staleIdCleared) {
         setPostedCaseBackendIds((prev) => {
           const next = { ...prev };
           delete next[caseKey];
           return next;
         });
-        result = await send("POST", baseUrl);
+      }
+
+      if (matchedBackendId) {
+        setPostedCaseBackendIds((prev) => ({
+          ...prev,
+          [caseKey]: matchedBackendId,
+        }));
       }
 
       setLivePostStatus(`${result.method} ${result.res.status} ${result.res.statusText}`);
@@ -4120,18 +4018,11 @@ const FieldMappingPage = () => {
       );
 
       if (result.res.ok) {
-        if (result.parsed && typeof result.parsed === "object") {
-          const backendId =
-            result.parsed?._id ||
-            result.parsed?.data?._id ||
-            result.parsed?.loan?._id ||
-            null;
-          if (backendId && isMongoId(backendId)) {
-            setPostedCaseBackendIds((prev) => ({
-              ...prev,
-              [caseKey]: String(backendId),
-            }));
-          }
+        if (backendId) {
+          setPostedCaseBackendIds((prev) => ({
+            ...prev,
+            [caseKey]: backendId,
+          }));
         }
         toast.success(
           result.method === "PUT"
