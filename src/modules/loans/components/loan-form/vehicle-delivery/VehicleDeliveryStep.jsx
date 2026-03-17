@@ -3,7 +3,7 @@ import { AutoComplete, DatePicker, Form, Input, Select, Spin, message } from "an
 import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
-import { uploadSingleFile } from "../../../../../utils/upload";
+import { uploadSingleFile } from "../../../../../api/uploads";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../../../constants/irdaiInsuranceCompanies";
 import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 

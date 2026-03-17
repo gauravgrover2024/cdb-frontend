@@ -22,6 +22,8 @@ import {
 } from "@ant-design/icons";
 import softwareSchema from "../schema/loan-module.schema.json";
 import vehicleCleanupIndex from "../data/vehicle_make_model_cleanup.safe_index.json";
+import { submitMappedLoan } from "../../../api/fieldMapping";
+import API_BASE_URL from "../../../config/apiBaseUrl";
 
 const { Text, Title } = Typography;
 const MAX_MATRIX_TARGET_SLOTS = 25;
@@ -1695,7 +1697,7 @@ const FieldMappingPage = () => {
   const [normalizationField, setNormalizationField] = useState("");
   const [hideMappedFields, setHideMappedFields] = useState(true);
   const [allowSourceReuse, setAllowSourceReuse] = useState(false);
-  const [livePostUrl, setLivePostUrl] = useState("https://cdb-api.vercel.app/api/loans");
+  const [livePostUrl, setLivePostUrl] = useState(DEFAULT_LIVE_POST_URL);
   const [livePostLoading, setLivePostLoading] = useState(false);
   const [livePostStatus, setLivePostStatus] = useState("");
   const [livePostResponse, setLivePostResponse] = useState("");
@@ -1737,7 +1739,7 @@ const FieldMappingPage = () => {
         setAllowSourceReuse(
           typeof draft.allowSourceReuse === "boolean" ? draft.allowSourceReuse : true,
         );
-        setLivePostUrl(draft.livePostUrl || "https://cdb-api.vercel.app/api/loans");
+        setLivePostUrl(draft.livePostUrl || DEFAULT_LIVE_POST_URL);
         setPostedCaseBackendIds(draft.postedCaseBackendIds || {});
         setProfileName(draft.profileName || "");
         setShowLegacyMatrix(
@@ -3994,7 +3996,7 @@ const FieldMappingPage = () => {
       setAllowSourceReuse(
         typeof parsed.allowSourceReuse === "boolean" ? parsed.allowSourceReuse : true,
       );
-      setLivePostUrl(parsed.livePostUrl || "https://cdb-api.vercel.app/api/loans");
+      setLivePostUrl(parsed.livePostUrl || DEFAULT_LIVE_POST_URL);
       setPostedCaseBackendIds(parsed.postedCaseBackendIds || {});
       setProfileName(parsed.profileName || "");
       setShowLegacyMatrix(

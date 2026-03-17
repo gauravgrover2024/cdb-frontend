@@ -8,7 +8,7 @@ import {
   FilePdfOutlined, 
   LoadingOutlined 
 } from "@ant-design/icons";
-import { uploadSingleFile } from "../../utils/upload";
+import { uploadSingleFile } from "../../api/uploads";
 
 /**
  * DocumentUpload
