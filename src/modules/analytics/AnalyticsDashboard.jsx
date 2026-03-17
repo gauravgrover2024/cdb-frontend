@@ -90,6 +90,241 @@ const getRangeParams = (preset, customRange) => {
   return params;
 };
 
+const monthKey = (value) => {
+  const d = dayjs(value);
+  if (!d.isValid()) return null;
+  return d.format("YYYY-MM");
+};
+
+const monthLabel = (key) => {
+  const d = dayjs(`${key}-01`);
+  return d.isValid() ? d.format("MMM YYYY") : key;
+};
+
+const stageKey = (stage) => {
+  const s = String(stage || "").toLowerCase();
+  if (s.includes("pre")) return "prefile";
+  if (s.includes("approv")) return "approval";
+  if (s.includes("post")) return "postfile";
+  if (s.includes("deliver")) return "delivery";
+  if (s.includes("payout")) return "payout";
+  return "profile";
+};
+
+const statusKey = (loan) => {
+  const s = String(loan?.status || loan?.approval_status || "").toLowerCase();
+  if (s.includes("disburs")) return "disbursed";
+  if (s.includes("approv")) return "approved";
+  if (s.includes("reject") || s.includes("declin") || s.includes("fail")) return "rejected";
+  if (s.includes("complete") || s.includes("close")) return "completed";
+  return "pending";
+};
+
+const num = (value) => {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const parsed = Number(String(value).replace(/[^\d.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isDisbursed = (loan) =>
+  statusKey(loan) === "disbursed" ||
+  num(loan?.disburse_amount) > 0 ||
+  num(loan?.approval_loanAmountDisbursed) > 0 ||
+  Boolean(loan?.disbursement_date || loan?.approval_disbursedDate || loan?.disburse_date);
+
+const amountValue = (loan) =>
+  num(
+    loan?.disburse_amount ||
+      loan?.approval_loanAmountDisbursed ||
+      loan?.approval_loanAmountApproved ||
+      loan?.loanAmount ||
+      loan?.financeExpectation ||
+      0,
+  );
+
+const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
+  const now = dayjs();
+  let start = now.startOf("month");
+  let end = now.endOf("day");
+  if (rangePreset === "1m") start = now.subtract(1, "month").startOf("day");
+  else if (rangePreset === "3m") start = now.subtract(3, "month").startOf("day");
+  else if (rangePreset === "1y") start = now.subtract(1, "year").startOf("day");
+  else if (rangePreset === "custom" && customRange?.[0] && customRange?.[1]) {
+    start = customRange[0].startOf("day");
+    end = customRange[1].endOf("day");
+  }
+
+  const rows = loans.filter((loan) => {
+    const created = dayjs(loan?.createdAt);
+    return created.isValid() && (created.isAfter(start) || created.isSame(start)) && (created.isBefore(end) || created.isSame(end));
+  });
+
+  const monthBuckets = [];
+  let cursor = start.startOf("month");
+  const endMonth = end.startOf("month");
+  while (cursor.isBefore(endMonth) || cursor.isSame(endMonth)) {
+    monthBuckets.push(cursor.format("YYYY-MM"));
+    cursor = cursor.add(1, "month");
+  }
+
+  const totalLoansTrendMap = new Map(monthBuckets.map((m) => [m, 0]));
+  const disbursedTrendMap = new Map(monthBuckets.map((m) => [m, { amount: 0, count: 0 }]));
+  const stageMap = new Map([["profile", 0], ["prefile", 0], ["approval", 0], ["postfile", 0], ["delivery", 0], ["payout", 0]]);
+  const loanTypeMap = new Map();
+  const bankMap = new Map();
+  const sourceMap = new Map();
+  const dealerMap = new Map();
+  const statusMap = new Map();
+  const vehicleMap = new Map();
+
+  let approvalPendingCount = 0;
+  let approvalPendingAmount = 0;
+  let missingRegCount = 0;
+  let missingDeliveryCount = 0;
+
+  rows.forEach((loan) => {
+    const m = monthKey(loan?.createdAt);
+    if (m && totalLoansTrendMap.has(m)) totalLoansTrendMap.set(m, (totalLoansTrendMap.get(m) || 0) + 1);
+
+    const stg = stageKey(loan?.currentStage);
+    stageMap.set(stg, (stageMap.get(stg) || 0) + 1);
+
+    const st = statusKey(loan);
+    statusMap.set(st, (statusMap.get(st) || 0) + 1);
+
+    const lt = String(loan?.typeOfLoan || loan?.loanType || loan?.caseType || "Unknown");
+    loanTypeMap.set(lt, (loanTypeMap.get(lt) || 0) + 1);
+
+    const bank = String(
+      loan?.approval_bankName ||
+        loan?.postfile_bankName ||
+        loan?.bankName ||
+        (Array.isArray(loan?.approval_banksData) ? loan.approval_banksData[0]?.bankName : "") ||
+        "Unknown",
+    ).trim() || "Unknown";
+    if (!bankMap.has(bank)) bankMap.set(bank, { bankName: bank, total: 0, approved: 0, disbursed: 0, pending: 0, totalLoanAmount: 0 });
+    const bankNode = bankMap.get(bank);
+    bankNode.total += 1;
+    bankNode.totalLoanAmount += amountValue(loan);
+    if (st === "approved") bankNode.approved += 1;
+    if (st === "pending") bankNode.pending += 1;
+    if (isDisbursed(loan)) bankNode.disbursed += 1;
+
+    const srcRaw = String(loan?.approval_loanBookedIn || loan?.recordSource || loan?.source || "").toLowerCase();
+    const src = srcRaw.includes("indirect") ? "Indirect" : srcRaw.includes("direct") ? "Direct" : "Unknown";
+    if (!sourceMap.has(src)) sourceMap.set(src, { source: src, total: 0, approved: 0, disbursed: 0, pending: 0, conversionRate: 0 });
+    const sourceNode = sourceMap.get(src);
+    sourceNode.total += 1;
+    if (st === "approved") sourceNode.approved += 1;
+    if (st === "pending") sourceNode.pending += 1;
+    if (isDisbursed(loan)) sourceNode.disbursed += 1;
+
+    const dealer = String(loan?.dealerName || loan?.showroomDealerName || loan?.showroomName || "Unknown").trim() || "Unknown";
+    if (!dealerMap.has(dealer)) dealerMap.set(dealer, { dealerName: dealer, total: 0, disbursed: 0, totalLoanAmount: 0 });
+    const dealerNode = dealerMap.get(dealer);
+    dealerNode.total += 1;
+    dealerNode.totalLoanAmount += amountValue(loan);
+    if (isDisbursed(loan)) dealerNode.disbursed += 1;
+
+    const vehicle = `${String(loan?.vehicleMake || "Unknown")} | ${String(loan?.vehicleModel || "Unknown")} | ${String(loan?.vehicleVariant || "Unknown")}`;
+    if (!vehicleMap.has(vehicle)) vehicleMap.set(vehicle, { segment: vehicle, total: 0, totalLoanAmount: 0 });
+    const vehicleNode = vehicleMap.get(vehicle);
+    vehicleNode.total += 1;
+    vehicleNode.totalLoanAmount += amountValue(loan);
+
+    const approvedPending =
+      (st === "approved" || num(loan?.approval_loanAmountApproved) > 0) && !isDisbursed(loan);
+    if (approvedPending) {
+      approvalPendingCount += 1;
+      approvalPendingAmount += amountValue(loan);
+    }
+
+    const regNo = String(loan?.rc_redg_no || loan?.registrationNumber || loan?.vehicleRegNo || "").trim();
+    if (!regNo) missingRegCount += 1;
+
+    const hasMissingDelivery = [
+      loan?.invoice_number,
+      loan?.invoice_date,
+      loan?.insurance_policy_number,
+      loan?.insurance_policy_start_date,
+      loan?.insurance_company_name,
+      loan?.rc_redg_no,
+    ].some((v) => v === null || v === undefined || String(v).trim() === "");
+    if ((stg === "delivery" || stg === "payout" || isDisbursed(loan)) && hasMissingDelivery) {
+      missingDeliveryCount += 1;
+    }
+
+    if (isDisbursed(loan)) {
+      const dm = monthKey(loan?.disbursement_date || loan?.approval_disbursedDate || loan?.disburse_date || loan?.createdAt);
+      if (dm && disbursedTrendMap.has(dm)) {
+        const node = disbursedTrendMap.get(dm);
+        node.amount += num(loan?.disburse_amount || loan?.approval_loanAmountDisbursed || amountValue(loan));
+        node.count += 1;
+      }
+    }
+  });
+
+  const totalLoansTrend = monthBuckets.map((bucket) => ({ bucket, label: monthLabel(bucket), value: totalLoansTrendMap.get(bucket) || 0 }));
+  const disbursedAmountTrend = monthBuckets.map((bucket) => ({ bucket, label: monthLabel(bucket), amount: disbursedTrendMap.get(bucket)?.amount || 0, count: disbursedTrendMap.get(bucket)?.count || 0 }));
+  const stageFunnel = Array.from(stageMap.entries()).map(([stage, count]) => ({ stage, count }));
+  const loanTypeMix = Array.from(loanTypeMap.entries()).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+  const bankPipeline = Array.from(bankMap.values()).sort((a, b) => b.total - a.total);
+  const sourcePerformance = Array.from(sourceMap.values()).map((item) => ({ ...item, conversionRate: item.total > 0 ? Number(((item.disbursed / item.total) * 100).toFixed(1)) : 0 })).sort((a, b) => b.total - a.total);
+  const dealerPerformance = Array.from(dealerMap.values()).sort((a, b) => b.total - a.total);
+  const caseStatusDistribution = Array.from(statusMap.entries()).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count);
+  const vehicleSegmentTrends = Array.from(vehicleMap.values()).map((item) => ({ ...item, avgLoanAmount: item.total > 0 ? item.totalLoanAmount / item.total : 0 })).sort((a, b) => b.total - a.total);
+
+  const mobileCount = new Map();
+  rows.forEach((loan) => {
+    const m = String(loan?.primaryMobile || "").replace(/\D/g, "");
+    if (m.length >= 10) mobileCount.set(m, (mobileCount.get(m) || 0) + 1);
+  });
+  const repeatedCaseCount = rows.filter((loan) => mobileCount.get(String(loan?.primaryMobile || "").replace(/\D/g, "")) > 1).length;
+  const repeatedIdentityCount = Array.from(mobileCount.values()).filter((count) => count > 1).length;
+
+  return {
+    timeframe: { range: rangePreset, start: start.toISOString(), end: end.toISOString() },
+    totals: {
+      totalCases: rows.length,
+      totalLoanAmount: rows.reduce((acc, loan) => acc + amountValue(loan), 0),
+      totalDisbursedAmount: rows.reduce((acc, loan) => acc + (isDisbursed(loan) ? num(loan?.disburse_amount || loan?.approval_loanAmountDisbursed || amountValue(loan)) : 0), 0),
+    },
+    widgets: {
+      totalLoansTrend,
+      disbursedAmountTrend,
+      stageFunnel,
+      approvalPendingDisbursal: { count: approvalPendingCount, amount: approvalPendingAmount },
+      missingRegNumber: { count: missingRegCount },
+      missingCriticalDeliveryFields: { count: missingDeliveryCount },
+      loanTypeMix,
+      bankPipeline,
+      sourcePerformance,
+      dealerPerformance,
+      caseStatusDistribution,
+      vehicleSegmentTrends,
+      repeatedCustomers: { repeatedIdentityCount, repeatedCaseCount },
+      bankWiseTotalLoanAmount: bankPipeline
+        .map((row) => ({ bankName: row.bankName, totalLoanAmount: row.totalLoanAmount }))
+        .sort((a, b) => b.totalLoanAmount - a.totalLoanAmount),
+    },
+  };
+};
+
+const fetchAllLoansForFallback = async () => {
+  const all = [];
+  let skip = 0;
+  const limit = 1000;
+  while (true) {
+    const res = await loansApi.getAll({ limit, skip });
+    const rows = Array.isArray(res?.data) ? res.data : [];
+    all.push(...rows);
+    if (!res?.hasMore || rows.length === 0) break;
+    skip += rows.length;
+  }
+  return all;
+};
+
 const TrendBars = ({ points = [], valueKey = "value", tone = "emerald", onSelect }) => {
   const max = Math.max(...points.map((p) => Number(p[valueKey] || 0)), 1);
 
@@ -141,6 +376,7 @@ const AnalyticsDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [overview, setOverview] = useState(null);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillLoading, setDrillLoading] = useState(false);
@@ -186,14 +422,27 @@ const AnalyticsDashboard = () => {
     try {
       setLoading(true);
       setError("");
+      setUsingFallback(false);
       const res = await loansApi.getAnalyticsOverview(queryParams);
       setOverview(res?.data || null);
     } catch (err) {
-      setError(err?.message || "Failed to load analytics");
+      if (Number(err?.status) === 404) {
+        try {
+          const allLoans = await fetchAllLoansForFallback();
+          const fallbackData = buildFallbackOverview(allLoans, rangePreset, customRange);
+          setOverview(fallbackData);
+          setUsingFallback(true);
+          setError("");
+        } catch (fallbackErr) {
+          setError(fallbackErr?.message || "Failed to load analytics");
+        }
+      } else {
+        setError(err?.message || "Failed to load analytics");
+      }
     } finally {
       setLoading(false);
     }
-  }, [queryParams]);
+  }, [customRange, queryParams, rangePreset]);
 
   useEffect(() => {
     fetchOverview();
@@ -352,6 +601,14 @@ const AnalyticsDashboard = () => {
       </section>
 
       {error ? <Alert type="error" message={error} showIcon /> : null}
+      {usingFallback ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="Running on fallback analytics engine"
+          description="Backend analytics endpoints are not live yet, so this view is computed from full loan pages in frontend."
+        />
+      ) : null}
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-sky-50 p-4">
