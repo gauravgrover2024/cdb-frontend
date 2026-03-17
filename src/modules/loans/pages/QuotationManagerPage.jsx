@@ -40,6 +40,28 @@ const QuotationManagerPage = () => {
 
   const navigate = useNavigate();
 
+  const normalizeListResponse = (response) => {
+    const root = response && typeof response === "object" ? response : {};
+    const nested = root.data && typeof root.data === "object" ? root.data : {};
+    const payload =
+      Array.isArray(root.items) || Array.isArray(root.results) || Array.isArray(root.data)
+        ? root
+        : nested;
+
+    const items =
+      (Array.isArray(payload.items) && payload.items) ||
+      (Array.isArray(payload.results) && payload.results) ||
+      (Array.isArray(payload.data) && payload.data) ||
+      [];
+
+    return {
+      items,
+      total: Number(payload.total ?? payload.count ?? items.length) || 0,
+      page: Number(payload.page ?? payload.currentPage ?? 1) || 1,
+      limit: Number(payload.limit ?? payload.pageSize ?? pageSize) || pageSize,
+    };
+  };
+
   const loadData = async (pageOverride, sizeOverride) => {
     setLoading(true);
     try {
@@ -50,19 +72,33 @@ const QuotationManagerPage = () => {
 
       if (statusFilter) params.status = statusFilter;
       if (search) params.q = search;
-      if (dateRange && dateRange.length === 2) {
+
+      const hasValidDateRange =
+        Array.isArray(dateRange) &&
+        dateRange.length === 2 &&
+        dateRange[0]?.isValid?.() &&
+        dateRange[1]?.isValid?.();
+
+      if (hasValidDateRange) {
         params.from = dateRange[0].startOf("day").toISOString();
         params.to = dateRange[1].endOf("day").toISOString();
       }
 
       const res = await quotationsApi.list(params);
-      setItems(res.data.items || []);
-      setTotal(res.data.total || 0);
-      setPage(res.data.page || 1);
-      setPageSize(res.data.limit || params.limit);
+      const normalized = normalizeListResponse(res);
+      setItems(normalized.items);
+      setTotal(normalized.total);
+      setPage(normalized.page);
+      setPageSize(normalized.limit || params.limit);
     } catch (e) {
       console.error(e);
-      message.error("Failed to load quotations.");
+      const errorMsg =
+        e?.payload?.message ||
+        e?.message ||
+        "Failed to load quotations.";
+      message.error(errorMsg);
+      setItems([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
