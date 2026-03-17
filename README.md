@@ -59,7 +59,7 @@ The app will run on `http://localhost:3000` by default.
 Create a `.env` file in this directory:
 
 ```
-REACT_APP_API_URL=http://localhost:5000/api
+VITE_APP_API_BASE_URL=http://localhost:5050
 REACT_APP_ENV=development
 ```
 

@@ -1,29 +1,23 @@
-import axios from "axios";
-
-const API_BASE_URL = "https://cdb-api.vercel.app";
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-});
+import { apiClient } from "./client";
 
 export const quotationsApi = {
   create(payload) {
-    return api.post("/api/quotations", payload);
+    return apiClient.post("/api/quotations", payload);
   },
 
   get(id) {
-    return api.get(`/api/quotations/${id}`);
+    return apiClient.get(`/api/quotations/${id}`);
   },
 
   list(params) {
-    return api.get("/api/quotations", { params });
+    return apiClient.get("/api/quotations", { params });
   },
 
   remove(id) {
-    return api.delete(`/api/quotations/${id}`);
+    return apiClient.delete(`/api/quotations/${id}`);
   },
 
   pdf(id) {
-    return api.get(`/api/quotations/${id}/pdf`, { responseType: "blob" });
+    return apiClient.getBlob(`/api/quotations/${id}/pdf`);
   },
 };
