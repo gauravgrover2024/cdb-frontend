@@ -29,6 +29,7 @@ const { Text, Title } = Typography;
 const MAX_MATRIX_TARGET_SLOTS = 25;
 const BULK_POST_MAX_RETRIES = 2;
 const BULK_POST_INTER_CASE_DELAY_MS = 80;
+const DEFAULT_LIVE_POST_URL = `${String(API_BASE_URL || "https://cdb-api.vercel.app").replace(/\/+$/, "")}/api/loans`;
 const MATRIX_ROLE_OPTIONS = [
   { label: "Mapping", value: "Mapping" },
   ...Array.from({ length: 24 }, (_, i) => ({
