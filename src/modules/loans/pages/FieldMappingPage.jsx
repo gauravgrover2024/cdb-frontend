@@ -27,7 +27,8 @@ import API_BASE_URL from "../../../config/apiBaseUrl";
 
 const { Text, Title } = Typography;
 const MAX_MATRIX_TARGET_SLOTS = 25;
-const DEFAULT_LIVE_POST_URL = `${API_BASE_URL}/api/loans`;
+const BULK_POST_MAX_RETRIES = 2;
+const BULK_POST_INTER_CASE_DELAY_MS = 80;
 const MATRIX_ROLE_OPTIONS = [
   { label: "Mapping", value: "Mapping" },
   ...Array.from({ length: 24 }, (_, i) => ({
@@ -49,6 +50,7 @@ const safeKey = (name = "") =>
     .toLowerCase() || "file";
 
 const digitsOnly = (v) => String(v || "").replace(/\D/g, "").trim();
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const normalizeNameLoose = (value) =>
   String(value || "")
@@ -420,6 +422,104 @@ const detectLegacyInstrumentType = (merged) => {
   });
   if (!counts.size) return "";
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+};
+
+const collectLegacyInstrumentRows = (merged) => {
+  if (!merged || typeof merged !== "object") return [];
+  const rows = [];
+  Object.values(merged).forEach((value) => {
+    const list = Array.isArray(value) ? value : [value];
+    list.forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const keys = Object.keys(row).map((k) => String(k).toUpperCase());
+      const hasInstrumentShape =
+        keys.some((k) => k.includes("INSTRMNT")) ||
+        keys.includes("DRAWN_ON") ||
+        keys.includes("ACCOUNT_NUMBER") ||
+        keys.includes("MICR_CODE");
+      if (hasInstrumentShape) rows.push(row);
+    });
+  });
+  return rows;
+};
+
+const normalizeInstrumentPartyLite = (value) => {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return "";
+  if (text.includes("grntr") || text.includes("guarantor")) return "Guarantor";
+  if (text.includes("co")) return "Co-applicant";
+  return "Applicant";
+};
+
+const buildInstrumentFallbackFromLegacy = (merged, approvalBank = "") => {
+  const rows = collectLegacyInstrumentRows(merged);
+  if (!rows.length) return {};
+
+  const typedRows = rows.map((row) => ({
+    row,
+    type: normalizeLegacyInstrumentType(
+      row.INSTRMNT_TYPE || row.instrmnt_type || row.instrument_type || row.InstrumentType,
+    ),
+  }));
+
+  const chequeRows = typedRows
+    .filter(({ row, type }) => {
+      if (type === "CHEQUE") return true;
+      if (!type) {
+        return !!(row.INSTRMNT_NO || row.instrmnt_no || row.CHEQUE_NO || row.cheque_no);
+      }
+      return false;
+    })
+    .map(({ row }) => row);
+  const siRow = typedRows.find(({ type }) => type === "SI")?.row;
+  const ecsRow = typedRows.find(({ type }) => type === "ECS")?.row;
+  const nachRow = typedRows.find(({ type }) => type === "NACH")?.row;
+
+  const out = {};
+  const resolvedType = siRow
+    ? "SI"
+    : ecsRow
+      ? "ECS"
+      : nachRow
+        ? "NACH"
+        : chequeRows.length
+          ? "Cheque"
+          : "";
+  if (!resolvedType) return out;
+  out.instrumentType = resolvedType;
+
+  if (siRow) {
+    out.si_accountNumber = String(siRow.ACCOUNT_NUMBER || "").trim();
+    out.si_signedBy = normalizeInstrumentPartyLite(siRow.INSTRMNT_BY_BORWR_GRNTR);
+  }
+  if (nachRow) {
+    out.nach_accountNumber = String(nachRow.ACCOUNT_NUMBER || "").trim();
+    out.nach_signedBy = normalizeInstrumentPartyLite(nachRow.INSTRMNT_BY_BORWR_GRNTR);
+  }
+  if (ecsRow) {
+    out.ecs_micrCode = String(ecsRow.MICR_CODE || "").trim();
+    out.ecs_bankName = normalizeBankNameValue(ecsRow.DRAWN_ON);
+    out.ecs_accountNumber = String(ecsRow.ACCOUNT_NUMBER || "").trim();
+    out.ecs_date = String(ecsRow.INSTRMNT_DATE || ecsRow.ENTERED_ON_DATE || "").trim();
+    out.ecs_amount = castNumber(ecsRow.INSTRMNT_AMOUNT, false);
+    out.ecs_tag = String(ecsRow.INSTRMNT_FAVOURING || "").trim();
+    out.ecs_favouring = normalizeBankNameValue(approvalBank);
+    out.ecs_signedBy = normalizeInstrumentPartyLite(ecsRow.INSTRMNT_BY_BORWR_GRNTR);
+  }
+
+  chequeRows.slice(0, 20).forEach((row, index) => {
+    const i = index + 1;
+    out[`cheque_${i}_number`] = String(row.INSTRMNT_NO || row.INSTRMNT_RECPT_ID_NO || "").trim();
+    out[`cheque_${i}_bankName`] = normalizeBankNameValue(row.DRAWN_ON);
+    out[`cheque_${i}_accountNumber`] = String(row.ACCOUNT_NUMBER || "").trim();
+    out[`cheque_${i}_date`] = String(row.INSTRMNT_DATE || row.ENTERED_ON_DATE || "").trim();
+    out[`cheque_${i}_amount`] = castNumber(row.INSTRMNT_AMOUNT, false);
+    out[`cheque_${i}_tag`] = String(row.INSTRMNT_FAVOURING || "").trim();
+    out[`cheque_${i}_favouring`] = normalizeBankNameValue(approvalBank);
+    out[`cheque_${i}_signedBy`] = normalizeInstrumentPartyLite(row.INSTRMNT_BY_BORWR_GRNTR);
+  });
+
+  return out;
 };
 
 const pruneInstrumentPayload = (doc, instrumentType) => {
@@ -2556,6 +2656,26 @@ const FieldMappingPage = () => {
       }
     }
 
+    // Instrument fallback for mapping-driven migration:
+    // Even when only instrumentType is mapped, hydrate cheque/ECS/SI/NACH
+    // fields from RC_INSTRUMENT_DETAIL rows.
+    {
+      const hasAnyInstrumentValue = Object.entries(doc).some(([k, v]) => {
+        if (k === "instrumentType") return isMeaningfulValue(v);
+        if (/^(cheque_\d+_|ecs_|si_|nach_)/.test(k)) return isMeaningfulValue(v);
+        return false;
+      });
+      if (!hasAnyInstrumentValue) {
+        const fallbackInst = buildInstrumentFallbackFromLegacy(
+          merged,
+          firstMeaningful(doc.approval_bankName, doc.bankName, ""),
+        );
+        Object.entries(fallbackInst).forEach(([k, v]) => {
+          if (isMeaningfulValue(v)) doc[k] = v;
+        });
+      }
+    }
+
     // Instrument safety:
     // 1) derive/normalize instrument type
     // 2) keep only that type's fields
@@ -3938,6 +4058,136 @@ const FieldMappingPage = () => {
     return stringifyValue(getValueFromCaseMerged(selectedCaseMerged, selectedSource));
   }, [selectedCaseMerged, selectedSource]);
 
+  const postCaseEntryLive = async ({ caseKey, inputPayload, backendIdCache }) => {
+    const payload = { ...(inputPayload || {}) };
+    const hasCustomerLikeName =
+      isMeaningfulValue(payload?.customerName) ||
+      isMeaningfulValue(payload?.companyName);
+    const missingCore = [];
+    if (!hasCustomerLikeName) missingCore.push("customerName/companyName");
+    if (!isMeaningfulValue(payload?.primaryMobile)) missingCore.push("primaryMobile");
+    if (missingCore.length) {
+      return {
+        ok: false,
+        statusLine: "validation_blocked",
+        responseText: `Missing required fields for backend: ${missingCore.join(", ")}`,
+      };
+    }
+
+    const baseUrl = livePostUrl.replace(/\/+$/, "");
+    const isMongoId = (v) => /^[a-fA-F0-9]{24}$/.test(String(v || ""));
+    if (!isMeaningfulValue(payload.customerName) && isMeaningfulValue(payload.companyName)) {
+      payload.customerName = payload.companyName;
+    }
+    if (payload._id && !isMongoId(payload._id)) delete payload._id;
+
+    const send = async (method, endpointUrl, body) => {
+      const res = await fetch(endpointUrl, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      let parsed = text;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        // keep text
+      }
+      return { res, parsed, method, endpointUrl };
+    };
+    const fetchJson = async (endpointUrl) => {
+      const res = await fetch(endpointUrl, { method: "GET" });
+      const text = await res.text();
+      let parsed = text;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        // keep text
+      }
+      return { res, parsed };
+    };
+    const extractLoanRows = (parsed) => {
+      if (!parsed) return [];
+      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed?.data)) return parsed.data;
+      if (Array.isArray(parsed?.loans)) return parsed.loans;
+      if (Array.isArray(parsed?.results)) return parsed.results;
+      if (Array.isArray(parsed?.items)) return parsed.items;
+      return [];
+    };
+    const resolveExistingBackendIdByCase = async (currentCaseId) => {
+      const candidates = [
+        `${baseUrl}?limit=200&search=${encodeURIComponent(String(currentCaseId))}`,
+        `${baseUrl}?limit=200&caseId=${encodeURIComponent(String(currentCaseId))}`,
+      ];
+      for (const url of candidates) {
+        const probe = await fetchJson(url);
+        if (!probe.res.ok) continue;
+        const rows = extractLoanRows(probe.parsed);
+        if (!rows.length) continue;
+        const match = rows.find((row) => {
+          const meta = row?.__importMeta || row?.importMeta || {};
+          const metaCaseId = String(meta?.caseId || "").trim();
+          const aliases = Array.isArray(meta?.aliases) ? meta.aliases.map(String) : [];
+          return metaCaseId === String(currentCaseId) || aliases.includes(String(currentCaseId));
+        });
+        const backendId = match?._id;
+        if (backendId && isMongoId(backendId)) return String(backendId);
+      }
+      return "";
+    };
+
+    let resolvedBackendId = isMongoId(backendIdCache?.[caseKey]) ? backendIdCache[caseKey] : "";
+    if (!resolvedBackendId) {
+      resolvedBackendId = await resolveExistingBackendIdByCase(caseKey);
+      if (resolvedBackendId) backendIdCache[caseKey] = resolvedBackendId;
+    }
+
+    let result = resolvedBackendId
+      ? await send("PUT", `${baseUrl}/${resolvedBackendId}`, payload)
+      : await send("POST", baseUrl, payload);
+
+    if (resolvedBackendId && !result.res.ok && Number(result.res.status) === 400) {
+      const existing = await fetchJson(`${baseUrl}/${resolvedBackendId}`);
+      if (existing.res.ok && existing.parsed && typeof existing.parsed === "object") {
+        const existingDoc = existing.parsed?.data || existing.parsed?.loan || existing.parsed;
+        if (existingDoc && typeof existingDoc === "object") {
+          const mergedPayload = { ...existingDoc, ...payload };
+          delete mergedPayload._id;
+          result = await send("PUT", `${baseUrl}/${resolvedBackendId}`, mergedPayload);
+        }
+      }
+    }
+
+    if (resolvedBackendId && !result.res.ok && Number(result.res.status) === 404) {
+      delete backendIdCache[caseKey];
+      result = await send("POST", baseUrl, payload);
+    }
+
+    if (result.res.ok && result.parsed && typeof result.parsed === "object") {
+      const backendId =
+        result.parsed?._id ||
+        result.parsed?.data?._id ||
+        result.parsed?.loan?._id ||
+        null;
+      if (backendId && isMongoId(backendId)) {
+        backendIdCache[caseKey] = String(backendId);
+      }
+    }
+
+    return {
+      ok: result.res.ok,
+      statusLine: `${result.method} ${result.res.status} ${result.res.statusText}`,
+      responseText:
+        typeof result.parsed === "string"
+          ? result.parsed
+          : JSON.stringify(result.parsed, null, 2),
+      action: result.method,
+      backendId: backendIdCache[caseKey] || "",
+    };
+  };
+
   const postSelectedEntryLive = async () => {
     if (!selectedMappedPreview) {
       toast.warning("Select a case first to post live.");
@@ -3960,75 +4210,25 @@ const FieldMappingPage = () => {
     setLivePostLoading(true);
     setLivePostStatus("");
     setLivePostResponse("");
-
     try {
-      const hasCustomerLikeName =
-        isMeaningfulValue(selectedMappedPreview?.customerName) ||
-        isMeaningfulValue(selectedMappedPreview?.companyName);
-      const missingCore = [];
-      if (!hasCustomerLikeName) missingCore.push("customerName/companyName");
-      if (!isMeaningfulValue(selectedMappedPreview?.primaryMobile)) {
-        missingCore.push("primaryMobile");
-      }
-      if (missingCore.length) {
-        const msg = `Missing required fields for backend: ${missingCore.join(", ")}`;
-        setLivePostStatus("validation_blocked");
-        setLivePostResponse(msg);
-        toast.error(msg);
-        return;
-      }
-
-      const knownBackendId = postedCaseBackendIds[caseKey];
-      const baseUrl = livePostUrl.replace(/\/+$/, "");
-      const payload = { ...selectedMappedPreview };
-      // Backend compatibility: many validators still require customerName.
-      if (!isMeaningfulValue(payload.customerName) && isMeaningfulValue(payload.companyName)) {
-        payload.customerName = payload.companyName;
-      }
-      if (payload._id && !/^[a-fA-F0-9]{24}$/.test(String(payload._id || ""))) {
-        delete payload._id;
-      }
-      const { result, matchedBackendId, backendId, staleIdCleared } = await submitMappedLoan({
-        baseUrl,
-        payload,
-        caseId: caseKey,
-        knownBackendId,
+      const backendIdCache = { ...postedCaseBackendIds };
+      const result = await postCaseEntryLive({
+        caseKey,
+        inputPayload: selectedMappedPreview,
+        backendIdCache,
       });
 
-      if (staleIdCleared) {
-        setPostedCaseBackendIds((prev) => {
-          const next = { ...prev };
-          delete next[caseKey];
-          return next;
-        });
-      }
+      setPostedCaseBackendIds((prev) => {
+        const next = { ...prev };
+        if (backendIdCache[caseKey]) next[caseKey] = backendIdCache[caseKey];
+        else delete next[caseKey];
+        return next;
+      });
+      setLivePostStatus(result.statusLine);
+      setLivePostResponse(result.responseText);
 
-      if (matchedBackendId) {
-        setPostedCaseBackendIds((prev) => ({
-          ...prev,
-          [caseKey]: matchedBackendId,
-        }));
-      }
-
-      setLivePostStatus(`${result.method} ${result.res.status} ${result.res.statusText}`);
-      setLivePostResponse(
-        typeof result.parsed === "string"
-          ? result.parsed
-          : JSON.stringify(result.parsed, null, 2),
-      );
-
-      if (result.res.ok) {
-        if (backendId) {
-          setPostedCaseBackendIds((prev) => ({
-            ...prev,
-            [caseKey]: backendId,
-          }));
-        }
-        toast.success(
-          result.method === "PUT"
-            ? "Selected entry updated successfully."
-            : "Selected entry created successfully.",
-        );
+      if (result.ok) {
+        toast.success(result.action === "PUT" ? "Selected entry updated successfully." : "Selected entry created successfully.");
       } else {
         toast.error("Backend returned an error. Check response panel.");
       }
@@ -4036,6 +4236,111 @@ const FieldMappingPage = () => {
       setLivePostStatus("request_failed");
       setLivePostResponse(String(e?.message || e));
       toast.error("Failed to reach backend endpoint.");
+    } finally {
+      setLivePostLoading(false);
+    }
+  };
+
+  const postAllEntriesLive = async () => {
+    if (!scopedCanonicalCaseIds.length) {
+      toast.warning("No cases available to post.");
+      return;
+    }
+    if (!livePostUrl.trim()) {
+      toast.warning("Enter backend endpoint URL.");
+      return;
+    }
+    if (/localhost:3000/i.test(livePostUrl.trim())) {
+      toast.warning("This points to frontend dev server. Use backend API URL.");
+      return;
+    }
+
+    setLivePostLoading(true);
+    setLivePostStatus("");
+    setLivePostResponse("");
+
+    try {
+      const backendIdCache = { ...postedCaseBackendIds };
+      const rows = [];
+      const total = scopedCanonicalCaseIds.length;
+      let processed = 0;
+
+      for (const caseKey of scopedCanonicalCaseIds) {
+        processed += 1;
+        setLivePostStatus(`BULK posting ${processed}/${total} (case ${caseKey})...`);
+        const payload = buildMappedLoanDoc(caseKey, {
+          includeAllFields: !postMappedOnly,
+          includeSafetyFallback: false,
+        });
+        let result = null;
+        let lastError = "";
+
+        for (let attempt = 1; attempt <= BULK_POST_MAX_RETRIES + 1; attempt += 1) {
+          try {
+            result = await postCaseEntryLive({
+              caseKey,
+              inputPayload: payload,
+              backendIdCache,
+            });
+            if (result?.ok || attempt > BULK_POST_MAX_RETRIES) break;
+            lastError = result?.responseText || "";
+          } catch (e) {
+            lastError = String(e?.message || e);
+            if (attempt > BULK_POST_MAX_RETRIES) break;
+          }
+          await sleep(300 * attempt);
+        }
+
+        if (!result) {
+          result = {
+            ok: false,
+            action: "-",
+            statusLine: "request_failed",
+            backendId: backendIdCache[caseKey] || "",
+            responseText: lastError || "Unknown error",
+          };
+        }
+
+        rows.push({
+          caseId: caseKey,
+          ok: result.ok,
+          action: result.action || "-",
+          status: result.statusLine,
+          backendId: result.backendId || "",
+          message: result.ok ? "" : result.responseText,
+        });
+
+        if (BULK_POST_INTER_CASE_DELAY_MS > 0) {
+          await sleep(BULK_POST_INTER_CASE_DELAY_MS);
+        }
+      }
+
+      setPostedCaseBackendIds((prev) => {
+        const next = { ...prev };
+        scopedCanonicalCaseIds.forEach((caseKey) => {
+          if (backendIdCache[caseKey]) next[caseKey] = backendIdCache[caseKey];
+          else delete next[caseKey];
+        });
+        return next;
+      });
+
+      const success = rows.filter((x) => x.ok).length;
+      const failed = rows.length - success;
+      const failedCaseIds = rows.filter((x) => !x.ok).map((x) => x.caseId);
+      setLivePostStatus(`BULK done: ${success}/${rows.length} success, ${failed} failed`);
+      setLivePostResponse(
+        JSON.stringify({ total: rows.length, success, failed, failedCaseIds, rows }, null, 2),
+      );
+
+      if (failed) {
+        toast.warning(`Bulk post complete: ${success} success, ${failed} failed.`);
+      } else {
+        toast.success(`Bulk post complete: ${success}/${rows.length} success.`);
+      }
+    } catch (e) {
+      setLivePostStatus("request_failed");
+      setLivePostResponse(String(e?.message || e));
+      toast.error("Failed during bulk post.");
     } finally {
       setLivePostLoading(false);
     }
@@ -4949,7 +5254,7 @@ const FieldMappingPage = () => {
             Posts the currently previewed mapped entry to your backend so you can validate real insertion/validation behavior.
           </Text>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2" style={{ marginTop: 10 }}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2" style={{ marginTop: 10 }}>
           <Input
             className="md:col-span-2"
             placeholder="Backend POST endpoint"
@@ -4958,6 +5263,9 @@ const FieldMappingPage = () => {
           />
           <Button type="primary" loading={livePostLoading} onClick={postSelectedEntryLive}>
             Create/Update Entry
+          </Button>
+          <Button loading={livePostLoading} onClick={postAllEntriesLive}>
+            Post All Cases
           </Button>
         </div>
         <div style={{ marginTop: 10 }}>
@@ -4984,6 +5292,9 @@ const FieldMappingPage = () => {
             </Tag>
             <Tag color={postMappedOnly ? "green" : "default"}>
               Post mapped-only: {postMappedOnly ? "ON" : "OFF"}
+            </Tag>
+            <Tag color="cyan">
+              Bulk scope: {scopedCanonicalCaseIds.length} case(s)
             </Tag>
             <Tag color="geekblue">
               Backend ID:{" "}

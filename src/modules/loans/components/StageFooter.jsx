@@ -205,9 +205,6 @@ const StageFooter = ({
   const [showDisburseModal, setShowDisburseModal] = useState(false);
 
   const isCashCar = isFinanced === "No";
-  const loanType = form?.getFieldValue?.("typeOfLoan") || "";
-  const isRefinanceOrCashIn = loanType === "Refinance" || loanType === "Car Cash-in";
-
   const approvalStatus = form?.getFieldValue?.("approval_status") || "";
   const disburseStatus = form?.getFieldValue?.("disburse_status") || "";
   const disbursementStatus = form?.getFieldValue?.("disbursement_status") || "";
@@ -220,7 +217,6 @@ const StageFooter = ({
     String(disbursementStatus || "").toLowerCase() === "disbursed" ||
     Boolean(approvalDisbursedDate) ||
     Boolean(disbursementDate);
-
   const canDisburse = useMemo(() => {
     return (approvedBanks?.length || 0) > 0;
   }, [approvedBanks]);
@@ -239,17 +235,13 @@ const StageFooter = ({
   };
 
   const actions = useMemo(() => {
-    // Exit button: does not save or discard, just navigates away
+    // Exit button: Save and Exit
     const ExitBtn = (
       <Button
         variant="outline"
         size="sm"
         key="exit-btn"
-        onClick={() => {
-          if (window.confirm('Are you sure you want to exit? Unsaved data will be lost.')) {
-            window.location.href = '/loans';
-          }
-        }}
+        onClick={onSaveAndExit}
         className="border-gray-400 text-gray-500 hover:bg-gray-100"
       >
         <Icon name="LogOut" size={16} style={{ marginRight: 6 }} />
@@ -323,12 +315,10 @@ const StageFooter = ({
               size="sm" 
               onClick={onProcessLoan}
               className={
-                isCashCar
-                  ? "bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-600/30"
-                  : "bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
+                "bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
               }
             >
-              {isCashCar ? "Delivery" : "Process Loan"}
+              Process Loan
               <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
             </Button>
           </>
@@ -339,13 +329,14 @@ const StageFooter = ({
           <>
             {SaveBtn}
             {ExitBtn}
+            {DiscardBtn}
             <Button 
               variant="default" 
               size="sm" 
               onClick={onMoveToApproval}
               className="bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
             >
-              Loan Approval
+              {isCashCar ? "Delivery" : "Loan Approval"}
               <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
             </Button>
           </>
@@ -356,6 +347,7 @@ const StageFooter = ({
           <>
             {SaveBtn}
             {ExitBtn}
+            {DiscardBtn}
             {alreadyDisbursed ? (
               <Button
                 variant="default"
@@ -387,27 +379,16 @@ const StageFooter = ({
           <>
             {SaveBtn}
             {ExitBtn}
-            {isRefinanceOrCashIn ? (
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={onMoveToPayout}
-                className="bg-amber-600 dark:bg-amber-600 hover:bg-amber-700 dark:hover:bg-amber-700 text-white border-none shadow-lg shadow-amber-600/30"
-              >
-                Payout
-                <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
-              </Button>
-            ) : (
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={onMoveToDelivery}
-                className="bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-600/30"
-              >
-                Delivery
-                <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
-              </Button>
-            )}
+            {DiscardBtn}
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={onMoveToDelivery}
+              className="bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-600/30"
+            >
+              Delivery
+              <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
+            </Button>
           </>
         );
 
@@ -469,7 +450,6 @@ const StageFooter = ({
   }, [
     currentStage,
     isCashCar,
-    isRefinanceOrCashIn,
     onPrint,
     onDiscard,
     onProcessLoan,
@@ -481,6 +461,7 @@ const StageFooter = ({
     onMoveToPostFile,
     onCloseLead,
     onClearForm,
+    onSaveAndExit,
     handleDisburseLoan,
     alreadyDisbursed,
   ]);
