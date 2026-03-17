@@ -31,6 +31,7 @@ import {
   ShieldAlert,
   TrendingUp,
   UsersRound,
+  MoreVertical,
 } from "lucide-react";
 import { loansApi } from "../../api/loans";
 import "./AnalyticsDashboard.css";
@@ -685,73 +686,326 @@ const fetchAllLoansForFallback = async () => {
   return all;
 };
 
-const TrendBars = ({ points = [], valueKey = "value", tone = "emerald", onSelect }) => {
-  if (!points.length) {
-    return (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-        No data for selected timeframe
-      </div>
-    );
-  }
+const CHART_PALETTE = [
+  "#4F46E5",
+  "#3B82F6",
+  "#06B6D4",
+  "#10B981",
+  "#22C55E",
+  "#F59E0B",
+  "#F97316",
+  "#EF4444",
+];
+
+const ChartNoData = ({ text = "No data for selected timeframe" }) => (
+  <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+    {text}
+  </div>
+);
+
+const compactNumber = (value) =>
+  new Intl.NumberFormat("en-IN", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(Number(value || 0));
+
+const VerticalBarChart = ({
+  points = [],
+  valueKey = "value",
+  color = "#4F46E5",
+  onSelect,
+}) => {
+  if (!points.length) return <ChartNoData />;
 
   const values = points.map((p) => Number(p[valueKey] || 0));
-  const min = Math.min(...values);
   const max = Math.max(...values, 1);
-  const width = Math.max(260, points.length * 38);
-  const height = 92;
-  const pad = 10;
-  const y = (v) =>
-    max === min
-      ? height / 2
-      : pad + ((max - v) / (max - min)) * (height - pad * 2);
-  const x = (idx) =>
-    points.length <= 1
-      ? width / 2
-      : pad + (idx * (width - pad * 2)) / (points.length - 1);
-  const polyline = points
-    .map((point, idx) => `${x(idx)},${y(Number(point[valueKey] || 0))}`)
-    .join(" ");
-  const toneClass =
-    tone === "amber"
-      ? "text-amber-500"
-      : tone === "indigo"
-        ? "text-indigo-500"
-        : "text-emerald-500";
-  const stroke = tone === "amber" ? "#f59e0b" : tone === "indigo" ? "#6366f1" : "#10b981";
+
+  const width = Math.max(620, points.length * 48 + 90);
+  const height = 240;
+  const m = { top: 14, right: 20, bottom: 36, left: 44 };
+  const chartW = width - m.left - m.right;
+  const chartH = height - m.top - m.bottom;
+  const slot = chartW / points.length;
+  const barW = Math.max(8, Math.min(20, slot * 0.58));
+  const ticks = 4;
 
   return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
-        <svg width={width} height={height} role="img" aria-label="trend chart">
-          <polyline
-            fill="none"
-            stroke={stroke}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={polyline}
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
+      <svg width={width} height={height} role="img" aria-label="bar chart">
+        {Array.from({ length: ticks + 1 }).map((_, idx) => {
+          const y = m.top + (idx / ticks) * chartH;
+          const tickValue = Math.round(((ticks - idx) / ticks) * max);
+          return (
+            <g key={`tick-${idx}`}>
+              <line
+                x1={m.left}
+                x2={width - m.right}
+                y1={y}
+                y2={y}
+                stroke="#E2E8F0"
+                strokeWidth="1"
+              />
+              <text x={m.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#64748B">
+                {compactNumber(tickValue)}
+              </text>
+            </g>
+          );
+        })}
+        {points.map((point, idx) => {
+          const v = Number(point[valueKey] || 0);
+          const h = (v / max) * chartH;
+          const x = m.left + idx * slot + (slot - barW) / 2;
+          const y = m.top + (chartH - h);
+          return (
+            <g key={point.bucket || point.label || idx}>
+              <rect
+                x={x}
+                y={y}
+                width={barW}
+                height={Math.max(2, h)}
+                rx="6"
+                fill={color}
+                opacity="0.9"
+                style={{ cursor: onSelect ? "pointer" : "default" }}
+                onClick={() => onSelect?.(point)}
+              />
+              <text
+                x={x + barW / 2}
+                y={height - 14}
+                textAnchor="middle"
+                fontSize="10"
+                fill="#64748B"
+              >
+                {String(point.label || "").slice(0, 3)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
+
+const AreaLineChart = ({
+  points = [],
+  valueKey = "value",
+  color = "#10B981",
+  onSelect,
+  id = "area-chart",
+}) => {
+  if (!points.length) return <ChartNoData />;
+
+  const values = points.map((p) => Number(p[valueKey] || 0));
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+
+  const width = Math.max(620, points.length * 44 + 90);
+  const height = 240;
+  const m = { top: 14, right: 20, bottom: 36, left: 44 };
+  const chartW = width - m.left - m.right;
+  const chartH = height - m.top - m.bottom;
+  const x = (idx) =>
+    points.length <= 1 ? m.left + chartW / 2 : m.left + (idx / (points.length - 1)) * chartW;
+  const y = (v) => m.top + ((max - v) / Math.max(max - min, 1)) * chartH;
+  const linePath = points
+    .map((point, idx) => `${idx === 0 ? "M" : "L"} ${x(idx)} ${y(Number(point[valueKey] || 0))}`)
+    .join(" ");
+  const areaPath = `${linePath} L ${x(points.length - 1)} ${m.top + chartH} L ${x(0)} ${m.top + chartH} Z`;
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
+      <svg width={width} height={height} role="img" aria-label="area line chart">
+        <defs>
+          <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.30" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {Array.from({ length: 5 }).map((_, idx) => {
+          const gy = m.top + (idx / 4) * chartH;
+          return (
+            <line
+              key={`grid-${idx}`}
+              x1={m.left}
+              x2={width - m.right}
+              y1={gy}
+              y2={gy}
+              stroke="#E2E8F0"
+              strokeWidth="1"
+            />
+          );
+        })}
+        <path d={areaPath} fill={`url(#grad-${id})`} />
+        <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+        {points.map((point, idx) => (
+          <circle
+            key={point.bucket || point.label || idx}
+            cx={x(idx)}
+            cy={y(Number(point[valueKey] || 0))}
+            r="3.2"
+            fill={color}
+            style={{ cursor: onSelect ? "pointer" : "default" }}
+            onClick={() => onSelect?.(point)}
           />
-          {points.map((point, idx) => (
-            <circle
-              key={point.bucket}
-              cx={x(idx)}
-              cy={y(Number(point[valueKey] || 0))}
-              r="3.2"
-              fill={stroke}
+        ))}
+        {points.map((point, idx) => (
+          <text
+            key={`lbl-${point.bucket || idx}`}
+            x={x(idx)}
+            y={height - 14}
+            textAnchor="middle"
+            fontSize="10"
+            fill="#64748B"
+          >
+            {String(point.label || "").slice(0, 3)}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+const FunnelChart = ({ rows = [], onSelect }) => {
+  if (!rows.length) return <ChartNoData />;
+  const stageOrder = ["profile", "prefile", "approval", "postfile", "delivery", "payout"];
+  const ordered = [...rows].sort(
+    (a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage),
+  );
+  const max = Math.max(...ordered.map((r) => Number(r.count || 0)), 1);
+  const width = 520;
+  const rowH = 52;
+  const gap = 6;
+  const height = ordered.length * (rowH + gap) + 8;
+  const centerX = width / 2;
+  const maxW = 420;
+  const minW = 150;
+
+  const toW = (v) => minW + (Number(v || 0) / max) * (maxW - minW);
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
+      <svg width={width} height={height} role="img" aria-label="funnel chart">
+        {ordered.map((row, idx) => {
+          const topW = toW(row.count);
+          const next = ordered[idx + 1];
+          const bottomW = next ? toW(next.count) : Math.max(minW * 0.8, topW * 0.72);
+          const y = 4 + idx * (rowH + gap);
+          const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+          const x1 = centerX - topW / 2;
+          const x2 = centerX + topW / 2;
+          const x3 = centerX + bottomW / 2;
+          const x4 = centerX - bottomW / 2;
+          const points = `${x1},${y} ${x2},${y} ${x3},${y + rowH} ${x4},${y + rowH}`;
+          return (
+            <g key={row.stage}>
+              <polygon
+                points={points}
+                fill={color}
+                opacity="0.88"
+                stroke="#ffffff"
+                strokeWidth="1"
+                style={{ cursor: onSelect ? "pointer" : "default" }}
+                onClick={() => onSelect?.(row)}
+              />
+              <text x={centerX} y={y + rowH / 2 - 3} textAnchor="middle" fontSize="11" fill="#ffffff" fontWeight="700">
+                {String(row.stage || "").toUpperCase()}
+              </text>
+              <text x={centerX} y={y + rowH / 2 + 12} textAnchor="middle" fontSize="11" fill="#ffffff" fontWeight="700">
+                {Number(row.count || 0).toLocaleString("en-IN")}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
+
+const donutArcPath = (cx, cy, rOuter, rInner, start, end) => {
+  const rad = Math.PI / 180;
+  const sx = cx + rOuter * Math.cos(start * rad);
+  const sy = cy + rOuter * Math.sin(start * rad);
+  const ex = cx + rOuter * Math.cos(end * rad);
+  const ey = cy + rOuter * Math.sin(end * rad);
+  const six = cx + rInner * Math.cos(end * rad);
+  const siy = cy + rInner * Math.sin(end * rad);
+  const eix = cx + rInner * Math.cos(start * rad);
+  const eiy = cy + rInner * Math.sin(start * rad);
+  const large = end - start > 180 ? 1 : 0;
+  return [
+    `M ${sx} ${sy}`,
+    `A ${rOuter} ${rOuter} 0 ${large} 1 ${ex} ${ey}`,
+    `L ${six} ${siy}`,
+    `A ${rInner} ${rInner} 0 ${large} 0 ${eix} ${eiy}`,
+    "Z",
+  ].join(" ");
+};
+
+const DonutBreakdown = ({
+  rows = [],
+  labelKey = "label",
+  valueKey = "count",
+  onClick,
+}) => {
+  if (!rows.length) return <ChartNoData text="No segments available" />;
+  const data = rows.slice(0, 6);
+  const total = data.reduce((sum, row) => sum + Number(row[valueKey] || 0), 0) || 1;
+  const cx = 86;
+  const cy = 86;
+  const rOuter = 70;
+  const rInner = 42;
+  let start = -90;
+  const arcs = data.map((row, idx) => {
+    const ratio = Number(row[valueKey] || 0) / total;
+    const sweep = ratio * 360;
+    const end = start + sweep;
+    const arc = {
+      row,
+      path: donutArcPath(cx, cy, rOuter, rInner, start, end),
+      color: CHART_PALETTE[idx % CHART_PALETTE.length],
+      pct: ratio * 100,
+    };
+    start = end;
+    return arc;
+  });
+
+  return (
+    <div className="grid grid-cols-1 gap-2 text-slate-700 dark:text-slate-200 md:grid-cols-[180px_minmax(0,1fr)]">
+      <div className="flex items-center justify-center">
+        <svg width="180" height="180" role="img" aria-label="donut chart">
+          {arcs.map((arc, idx) => (
+            <path
+              key={`arc-${idx}`}
+              d={arc.path}
+              fill={arc.color}
+              opacity="0.9"
+              style={{ cursor: onClick ? "pointer" : "default" }}
+              onClick={() => onClick?.(arc.row)}
             />
           ))}
+          <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fill="#64748B">Total</text>
+          <text x={cx} y={cy + 16} textAnchor="middle" fontSize="18" fill="currentColor" fontWeight="700">
+            {Number(total).toLocaleString("en-IN")}
+          </text>
         </svg>
       </div>
-      <div className="flex gap-1 overflow-x-auto pb-1">
-        {points.slice(-10).map((point) => (
+      <div className="space-y-2">
+        {arcs.map((arc, idx) => (
           <button
-            key={point.bucket}
+            key={`legend-${idx}`}
             type="button"
-            onClick={() => onSelect?.(point)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-left transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+            onClick={() => onClick?.(arc.row)}
+            className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-500/60 dark:hover:bg-blue-950/20"
           >
-            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{point.label}</div>
-            <div className={`text-xs font-bold ${toneClass}`}>{Number(point[valueKey] || 0).toLocaleString("en-IN")}</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: arc.color }} />
+              <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {arc.row[labelKey]}
+              </span>
+            </div>
+            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+              {arc.pct.toFixed(1)}%
+            </span>
           </button>
         ))}
       </div>
@@ -759,28 +1013,80 @@ const TrendBars = ({ points = [], valueKey = "value", tone = "emerald", onSelect
   );
 };
 
-const CompactList = ({ rows = [], labelKey, valueKey, onClick, format = (v) => v }) => {
-  if (!rows.length) {
-    return (
-      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-        No records
-      </div>
-    );
-  }
-
+const HorizontalBarChart = ({
+  rows = [],
+  labelKey,
+  valueKey,
+  onClick,
+  formatValue = (v) => Number(v || 0).toLocaleString("en-IN"),
+}) => {
+  if (!rows.length) return <ChartNoData text="No rows available" />;
+  const top = rows.slice(0, 8);
+  const max = Math.max(...top.map((row) => Number(row[valueKey] || 0)), 1);
   return (
     <div className="space-y-2">
-      {rows.map((row) => (
-        <button
-          key={`${row[labelKey]}-${row[valueKey]}`}
-          type="button"
-          onClick={() => onClick?.(row)}
-          className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-sky-300 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-sky-500/60 dark:hover:bg-sky-950/30"
-        >
-          <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-300">{row[labelKey]}</span>
-          <span className="ml-3 text-sm font-bold text-slate-900 dark:text-slate-100">{format(row[valueKey])}</span>
-        </button>
-      ))}
+      {top.map((row, idx) => {
+        const value = Number(row[valueKey] || 0);
+        const widthPct = (value / max) * 100;
+        return (
+          <button
+            key={`${row[labelKey]}-${idx}`}
+            type="button"
+            onClick={() => onClick?.(row)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-500/60 dark:hover:bg-blue-950/20"
+          >
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">{row[labelKey]}</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{formatValue(value)}</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-2 rounded-full"
+                style={{
+                  width: `${Math.max(5, widthPct)}%`,
+                  background: CHART_PALETTE[idx % CHART_PALETTE.length],
+                }}
+              />
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const polarToCartesian = (cx, cy, r, angleDeg) => {
+  const a = (angleDeg - 90) * (Math.PI / 180);
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+};
+
+const describeArc = (cx, cy, r, startAngle, endAngle) => {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+};
+
+const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
+  const pct = Math.max(0, Math.min(100, Number(value || 0)));
+  const start = -180;
+  const end = 0;
+  const fillEnd = start + (pct / 100) * (end - start);
+  const basePath = describeArc(120, 120, 82, start, end);
+  const fillPath = describeArc(120, 120, 82, start, fillEnd);
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{title}</div>
+      <svg width="240" height="150" viewBox="0 0 240 150" className="mx-auto block text-slate-800 dark:text-slate-200">
+        <path d={basePath} fill="none" stroke="#E2E8F0" strokeWidth="16" strokeLinecap="round" />
+        <path d={fillPath} fill="none" stroke="#4F46E5" strokeWidth="16" strokeLinecap="round" />
+        <text x="120" y="98" textAnchor="middle" fontSize="30" fontWeight="700" fill="currentColor">
+          {pct.toFixed(1)}%
+        </text>
+      </svg>
+      {subtitle ? (
+        <div className="text-center text-xs text-slate-600 dark:text-slate-400">{subtitle}</div>
+      ) : null}
     </div>
   );
 };
@@ -817,6 +1123,13 @@ const WidgetShell = ({ title, subtitle, icon: Icon, color = "slate", children })
           </div>
           {subtitle ? <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">{subtitle}</p> : null}
         </div>
+        <button
+          type="button"
+          className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          aria-label="Widget actions"
+        >
+          <MoreVertical size={14} />
+        </button>
       </div>
       {children}
     </article>
@@ -858,6 +1171,7 @@ const AnalyticsDashboard = () => {
   const [drillLoading, setDrillLoading] = useState(false);
   const [drillRows, setDrillRows] = useState([]);
   const [drillTitle, setDrillTitle] = useState("");
+  const [drillSearch, setDrillSearch] = useState("");
 
   const [customWidgetLoading, setCustomWidgetLoading] = useState(false);
   const [customWidgetData, setCustomWidgetData] = useState([]);
@@ -1036,6 +1350,15 @@ const AnalyticsDashboard = () => {
 
   const widgets = overview?.widgets || {};
   const totals = overview?.totals || {};
+  const completionPct = useMemo(() => {
+    const done = (widgets.caseStatusDistribution || [])
+      .filter((row) =>
+        /(disburs|deliver|paid|closed|complete)/i.test(String(row?.status || "")),
+      )
+      .reduce((sum, row) => sum + Number(row?.count || 0), 0);
+    const total = Number(totals.totalCases || 0);
+    return total > 0 ? (done / total) * 100 : 0;
+  }, [totals.totalCases, widgets.caseStatusDistribution]);
 
   const drillColumns = [
     { title: "Loan ID", dataIndex: "loanId", key: "loanId", width: 140, fixed: "left" },
@@ -1101,6 +1424,29 @@ const AnalyticsDashboard = () => {
       fields.some((field) => String(row?.[field] ?? "").toLowerCase().includes(q)),
     );
   }, [customReportConfig.fields, customReportMeta?.fields, customReportRows, customReportSearch]);
+
+  const filteredDrillRows = useMemo(() => {
+    const q = String(drillSearch || "").trim().toLowerCase();
+    if (!q) return drillRows;
+    return drillRows.filter((row) =>
+      [
+        row.loanId,
+        row.customerName,
+        row.primaryMobile,
+        row.typeOfLoan,
+        row.currentStage,
+        row.status,
+        row.approval_bankName,
+        row.postfile_bankName,
+        row.vehicleMake,
+        row.vehicleModel,
+        row.vehicleVariant,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [drillRows, drillSearch]);
 
   return (
     <main className="analytics-dashboard analytics-tail space-y-4 bg-[#f5f7fb] p-4 md:p-6 dark:bg-[#0b1220]">
@@ -1193,190 +1539,98 @@ const AnalyticsDashboard = () => {
       </section>
 
       <Spin spinning={loading}>
-        <section className="grid grid-cols-1 gap-3 2xl:grid-cols-3">
-          <div className="space-y-3 2xl:col-span-2">
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              <WidgetShell
-                title="Total Loans Trend"
-                subtitle="Click any month to open case-level detail"
-                icon={BarChart3}
-                color="blue"
-              >
-                <TrendBars
-                  points={widgets.totalLoansTrend || []}
-                  valueKey="value"
-                  tone="emerald"
-                  onSelect={(p) =>
-                    openDrilldown({
-                      title: `Loans in ${p.label}`,
-                      widget: "total_loan_trend",
-                      bucket: p.bucket,
-                    })
-                  }
-                />
-              </WidgetShell>
+        <section className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+          <div className="xl:col-span-5">
+            <WidgetShell
+              title="Total Loans Trend"
+              subtitle="Click any month to open case-level detail"
+              icon={BarChart3}
+              color="blue"
+            >
+              <VerticalBarChart
+                points={widgets.totalLoansTrend || []}
+                valueKey="value"
+                color="#4F46E5"
+                onSelect={(p) =>
+                  openDrilldown({
+                    title: `Loans in ${p.label}`,
+                    widget: "total_loan_trend",
+                    bucket: p.bucket,
+                  })
+                }
+              />
+            </WidgetShell>
+          </div>
 
-              <WidgetShell
-                title="Disbursed Amount Trend"
-                subtitle="Month-wise disbursal movement"
-                icon={IndianRupee}
-                color="emerald"
-              >
-                <TrendBars
-                  points={(widgets.disbursedAmountTrend || []).map((item) => ({
-                    ...item,
-                    value: item.amount || 0,
-                  }))}
-                  valueKey="value"
-                  tone="amber"
-                  onSelect={(p) =>
-                    openDrilldown({
-                      title: `Disbursed in ${p.label}`,
-                      widget: "disbursed_amount_trend",
-                      bucket: p.bucket,
-                    })
-                  }
-                />
-              </WidgetShell>
-            </div>
+          <div className="xl:col-span-4">
+            <WidgetShell
+              title="Disbursed Amount Trend"
+              subtitle="Month-wise disbursal movement"
+              icon={IndianRupee}
+              color="emerald"
+            >
+              <AreaLineChart
+                points={(widgets.disbursedAmountTrend || []).map((item) => ({
+                  ...item,
+                  value: item.amount || 0,
+                }))}
+                valueKey="value"
+                color="#10B981"
+                id="disbursed-trend"
+                onSelect={(p) =>
+                  openDrilldown({
+                    title: `Disbursed in ${p.label}`,
+                    widget: "disbursed_amount_trend",
+                    bucket: p.bucket,
+                  })
+                }
+              />
+            </WidgetShell>
+          </div>
 
+          <div className="xl:col-span-3">
+            <WidgetShell
+              title="Business Target"
+              subtitle="Disbursed/Delivered share in selected range"
+              icon={TrendingUp}
+              color="indigo"
+            >
+              <SemiGauge
+                value={completionPct}
+                title="Execution Progress"
+                subtitle={`${Number(totals.totalCases || 0).toLocaleString("en-IN")} total cases in range`}
+              />
+            </WidgetShell>
+          </div>
+
+          <div className="xl:col-span-5">
             <WidgetShell
               title="Stage Funnel"
               subtitle="Pipeline concentration by stage"
               icon={GitBranch}
               color="indigo"
             >
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                {(widgets.stageFunnel || []).map((stage) => (
-                  <button
-                    key={stage.stage}
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: `Stage: ${stage.stage}`,
-                        widget: "stage_funnel",
-                        key: stage.stage,
-                      })
-                    }
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-indigo-500/60 dark:hover:bg-indigo-950/30"
-                  >
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      {stage.stage}
-                    </div>
-                    <div className="text-sm font-black text-slate-900 dark:text-slate-100">
-                      {(stage.count || 0).toLocaleString("en-IN")}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <FunnelChart
+                rows={widgets.stageFunnel || []}
+                onSelect={(stage) =>
+                  openDrilldown({
+                    title: `Stage: ${stage.stage}`,
+                    widget: "stage_funnel",
+                    key: stage.stage,
+                  })
+                }
+              />
             </WidgetShell>
-
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              <WidgetShell
-                title="Quality Alerts"
-                subtitle="Approval pending and critical missing data"
-                icon={AlertTriangle}
-                color="amber"
-              >
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: "Approval Pending Disbursal",
-                        widget: "approval_pending_disbursal",
-                      })
-                    }
-                    className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-left dark:border-amber-900/60 dark:bg-slate-900"
-                  >
-                    <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Pending</div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
-                      {widgets.approvalPendingDisbursal?.count || 0}
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: "Missing RC Registration",
-                        widget: "missing_reg_number",
-                      })
-                    }
-                    className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left dark:border-rose-900/60 dark:bg-slate-900"
-                  >
-                    <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Missing RC</div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
-                      {widgets.missingRegNumber?.count || 0}
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: "Missing Critical Delivery Fields",
-                        widget: "missing_delivery_fields",
-                      })
-                    }
-                    className="rounded-xl border border-orange-300 bg-white px-3 py-2 text-left dark:border-orange-900/60 dark:bg-slate-900"
-                  >
-                    <div className="text-[11px] font-bold uppercase text-orange-700 dark:text-orange-300">Delivery Gaps</div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
-                      {widgets.missingCriticalDeliveryFields?.count || 0}
-                    </div>
-                  </button>
-                </div>
-              </WidgetShell>
-
-              <WidgetShell
-                title="Repeated Customers"
-                subtitle="Identity collision and repeat case flags"
-                icon={UsersRound}
-                color="rose"
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className="rounded-xl border border-rose-300 bg-white p-3 text-left dark:border-rose-900/60 dark:bg-slate-900"
-                    onClick={() =>
-                      openDrilldown({
-                        title: "Repeated Customers (identity collisions)",
-                        widget: "repeated_customers",
-                      })
-                    }
-                  >
-                    <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Identities</div>
-                    <div className="text-xl font-black text-slate-900 dark:text-slate-100">
-                      {widgets.repeatedCustomers?.repeatedIdentityCount || 0}
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-xl border border-fuchsia-300 bg-white p-3 text-left dark:border-fuchsia-900/60 dark:bg-slate-900"
-                    onClick={() =>
-                      openDrilldown({
-                        title: "Repeated Customer Cases",
-                        widget: "repeated_customers",
-                      })
-                    }
-                  >
-                    <div className="text-[11px] font-bold uppercase text-fuchsia-700 dark:text-fuchsia-300">Cases</div>
-                    <div className="text-xl font-black text-slate-900 dark:text-slate-100">
-                      {widgets.repeatedCustomers?.repeatedCaseCount || 0}
-                    </div>
-                  </button>
-                </div>
-              </WidgetShell>
-            </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="xl:col-span-4">
             <WidgetShell
               title="Loan Type Mix"
               subtitle="Distribution by case type"
               icon={CircleDot}
               color="slate"
             >
-              <CompactList
+              <DonutBreakdown
                 rows={widgets.loanTypeMix || []}
                 labelKey="label"
                 valueKey="count"
@@ -1389,14 +1643,38 @@ const AnalyticsDashboard = () => {
                 }
               />
             </WidgetShell>
+          </div>
 
+          <div className="xl:col-span-3">
+            <WidgetShell
+              title="Status Distribution"
+              subtitle="Current lifecycle status split"
+              icon={ShieldAlert}
+              color="slate"
+            >
+              <DonutBreakdown
+                rows={widgets.caseStatusDistribution || []}
+                labelKey="status"
+                valueKey="count"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Status: ${row.status}`,
+                    widget: "case_status_distribution",
+                    key: String(row.status || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+          </div>
+
+          <div className="xl:col-span-6">
             <WidgetShell
               title="Bank Pipeline + Amounts"
               subtitle="Top financed banks by case volume"
               icon={Building2}
               color="slate"
             >
-              <CompactList
+              <HorizontalBarChart
                 rows={(widgets.bankPipeline || []).slice(0, 6)}
                 labelKey="bankName"
                 valueKey="total"
@@ -1409,7 +1687,82 @@ const AnalyticsDashboard = () => {
                 }
               />
             </WidgetShell>
+          </div>
 
+          <div className="xl:col-span-3">
+            <WidgetShell
+              title="Source Performance"
+              subtitle="Direct vs indirect efficiency"
+              icon={SearchCode}
+              color="slate"
+            >
+              <HorizontalBarChart
+                rows={(widgets.sourcePerformance || []).slice(0, 6).map((row) => ({
+                  ...row,
+                  label: `${row.source} (${row.conversionRate || 0}%)`,
+                  total: row.total || 0,
+                }))}
+                labelKey="label"
+                valueKey="total"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Source: ${row.source}`,
+                    widget: "source_performance",
+                    key: String(row.source || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+          </div>
+
+          <div className="xl:col-span-3">
+            <WidgetShell
+              title="Dealer Performance"
+              subtitle="Top dealer contribution"
+              icon={BriefcaseBusiness}
+              color="slate"
+            >
+              <HorizontalBarChart
+                rows={(widgets.dealerPerformance || []).slice(0, 6)}
+                labelKey="dealerName"
+                valueKey="total"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Dealer: ${row.dealerName}`,
+                    widget: "dealer_performance",
+                    key: String(row.dealerName || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+          </div>
+
+          <div className="xl:col-span-5">
+            <WidgetShell
+              title="Vehicle Segment Trends"
+              subtitle="Model/variant concentration"
+              icon={CarFront}
+              color="slate"
+            >
+              <HorizontalBarChart
+                rows={(widgets.vehicleSegmentTrends || []).slice(0, 6).map((row) => ({
+                  ...row,
+                  label: `${row.segment} | Avg ${formatINR(row.avgLoanAmount || 0)}`,
+                }))}
+                labelKey="label"
+                valueKey="total"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Vehicle Segment: ${row.segment}`,
+                    widget: "vehicle_segment",
+                    key: String(row.segment || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+          </div>
+
+          <div className="xl:col-span-4">
             <WidgetShell
               title="Cash Car Pipeline"
               subtitle="Cash-car cases tracked separately from banks"
@@ -1425,16 +1778,18 @@ const AnalyticsDashboard = () => {
                       widget: "cash_car_all",
                     })
                   }
-                  className="flex items-center justify-between rounded-xl border border-amber-300 bg-white px-3 py-2 text-left dark:border-amber-900/60 dark:bg-slate-900"
+                  className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-left transition hover:border-amber-400 hover:shadow-sm dark:border-amber-900/60 dark:bg-slate-900"
                 >
-                  <div>
-                    <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Total</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400">
-                      {formatINR(widgets.cashCarSummary?.amount || 0)}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Total</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">
+                        {formatINR(widgets.cashCarSummary?.amount || 0)}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-lg font-black text-slate-900 dark:text-slate-100">
-                    {Number(widgets.cashCarSummary?.total || 0).toLocaleString("en-IN")}
+                    <div className="text-lg font-black text-slate-900 dark:text-slate-100">
+                      {Number(widgets.cashCarSummary?.total || 0).toLocaleString("en-IN")}
+                    </div>
                   </div>
                 </button>
                 <div className="grid grid-cols-2 gap-2">
@@ -1446,7 +1801,7 @@ const AnalyticsDashboard = () => {
                         widget: "cash_car_delivered",
                       })
                     }
-                    className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-left dark:border-emerald-900/60 dark:bg-slate-900"
+                    className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:shadow-sm dark:border-emerald-900/60 dark:bg-slate-900"
                   >
                     <div className="text-[11px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Delivered</div>
                     <div className="text-base font-black text-slate-900 dark:text-slate-100">
@@ -1461,7 +1816,7 @@ const AnalyticsDashboard = () => {
                         widget: "cash_car_pending_delivery",
                       })
                     }
-                    className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left dark:border-rose-900/60 dark:bg-slate-900"
+                    className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left transition hover:border-rose-400 hover:shadow-sm dark:border-rose-900/60 dark:bg-slate-900"
                   >
                     <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Pending</div>
                     <div className="text-base font-black text-slate-900 dark:text-slate-100">
@@ -1471,104 +1826,103 @@ const AnalyticsDashboard = () => {
                 </div>
               </div>
             </WidgetShell>
+          </div>
 
+          <div className="xl:col-span-3">
             <WidgetShell
-              title="Source Performance"
-              subtitle="Direct vs indirect efficiency"
-              icon={SearchCode}
-              color="slate"
+              title="Repeated Customers"
+              subtitle="Identity collision and repeat case flags"
+              icon={UsersRound}
+              color="rose"
             >
-              <div className="space-y-2">
-                {(widgets.sourcePerformance || []).slice(0, 6).map((row) => (
-                  <button
-                    key={row.source}
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: `Source: ${row.source}`,
-                        widget: "source_performance",
-                        key: String(row.source || "").toLowerCase(),
-                      })
-                    }
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    <div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{row.source}</div>
-                      <div className="text-xs text-slate-600 dark:text-slate-400">Conversion {row.conversionRate || 0}%</div>
-                    </div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{row.total || 0}</div>
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  className="rounded-xl border border-rose-300 bg-white p-3 text-left transition hover:border-rose-400 hover:shadow-sm dark:border-rose-900/60 dark:bg-slate-900"
+                  onClick={() =>
+                    openDrilldown({
+                      title: "Repeated Customers (identity collisions)",
+                      widget: "repeated_customers",
+                    })
+                  }
+                >
+                  <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Identities</div>
+                  <div className="text-xl font-black text-slate-900 dark:text-slate-100">
+                    {widgets.repeatedCustomers?.repeatedIdentityCount || 0}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="rounded-xl border border-fuchsia-300 bg-white p-3 text-left transition hover:border-fuchsia-400 hover:shadow-sm dark:border-fuchsia-900/60 dark:bg-slate-900"
+                  onClick={() =>
+                    openDrilldown({
+                      title: "Repeated Customer Cases",
+                      widget: "repeated_customers",
+                    })
+                  }
+                >
+                  <div className="text-[11px] font-bold uppercase text-fuchsia-700 dark:text-fuchsia-300">Cases</div>
+                  <div className="text-xl font-black text-slate-900 dark:text-slate-100">
+                    {widgets.repeatedCustomers?.repeatedCaseCount || 0}
+                  </div>
+                </button>
               </div>
             </WidgetShell>
+          </div>
 
+          <div className="xl:col-span-12">
             <WidgetShell
-              title="Dealer Performance"
-              subtitle="Top dealer contribution"
-              icon={BriefcaseBusiness}
-              color="slate"
+              title="Quality Alerts"
+              subtitle="Approval pending and critical missing data"
+              icon={AlertTriangle}
+              color="amber"
             >
-              <CompactList
-                rows={(widgets.dealerPerformance || []).slice(0, 6)}
-                labelKey="dealerName"
-                valueKey="total"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Dealer: ${row.dealerName}`,
-                    widget: "dealer_performance",
-                    key: String(row.dealerName || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-
-            <WidgetShell
-              title="Status Distribution"
-              subtitle="Current lifecycle status split"
-              icon={ShieldAlert}
-              color="slate"
-            >
-              <CompactList
-                rows={widgets.caseStatusDistribution || []}
-                labelKey="status"
-                valueKey="count"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Status: ${row.status}`,
-                    widget: "case_status_distribution",
-                    key: String(row.status || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-
-            <WidgetShell
-              title="Vehicle Segment Trends"
-              subtitle="Model/variant concentration"
-              icon={CarFront}
-              color="slate"
-            >
-              <div className="space-y-2">
-                {(widgets.vehicleSegmentTrends || []).slice(0, 6).map((row) => (
-                  <button
-                    key={row.segment}
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: `Vehicle Segment: ${row.segment}`,
-                        widget: "vehicle_segment",
-                        key: String(row.segment || "").toLowerCase(),
-                      })
-                    }
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{row.segment}</div>
-                      <div className="text-xs text-slate-600 dark:text-slate-400">Avg {formatINR(row.avgLoanAmount || 0)}</div>
-                    </div>
-                    <div className="ml-3 text-sm font-bold text-slate-900 dark:text-slate-100">{row.total || 0}</div>
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openDrilldown({
+                      title: "Approval Pending Disbursal",
+                      widget: "approval_pending_disbursal",
+                    })
+                  }
+                  className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-left transition hover:border-amber-400 hover:shadow-sm dark:border-amber-900/60 dark:bg-slate-900"
+                >
+                  <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Pending</div>
+                  <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                    {widgets.approvalPendingDisbursal?.count || 0}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    openDrilldown({
+                      title: "Missing RC Registration",
+                      widget: "missing_reg_number",
+                    })
+                  }
+                  className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left transition hover:border-rose-400 hover:shadow-sm dark:border-rose-900/60 dark:bg-slate-900"
+                >
+                  <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Missing RC</div>
+                  <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                    {widgets.missingRegNumber?.count || 0}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    openDrilldown({
+                      title: "Missing Critical Delivery Fields",
+                      widget: "missing_delivery_fields",
+                    })
+                  }
+                  className="rounded-xl border border-orange-300 bg-white px-3 py-2 text-left transition hover:border-orange-400 hover:shadow-sm dark:border-orange-900/60 dark:bg-slate-900"
+                >
+                  <div className="text-[11px] font-bold uppercase text-orange-700 dark:text-orange-300">Delivery Gaps</div>
+                  <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                    {widgets.missingCriticalDeliveryFields?.count || 0}
+                  </div>
+                </button>
               </div>
             </WidgetShell>
           </div>
@@ -1756,11 +2110,25 @@ const AnalyticsDashboard = () => {
         width={1200}
       >
         <Spin spinning={drillLoading}>
+          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <Input
+              allowClear
+              value={drillSearch}
+              onChange={(e) => setDrillSearch(e.target.value)}
+              placeholder="Search in this drilldown (Loan ID, customer, bank, stage...)"
+              className="w-full md:w-96"
+            />
+            <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <span>Rows: {filteredDrillRows.length}</span>
+              <span className="text-slate-400 dark:text-slate-500">•</span>
+              <span>Total: {drillRows.length}</span>
+            </div>
+          </div>
           <Table
             className="analytics-table"
             rowKey={(row) => row._id || row.loanId}
             columns={drillColumns}
-            dataSource={drillRows}
+            dataSource={filteredDrillRows}
             size="small"
             pagination={{ pageSize: 15, showSizeChanger: true }}
             scroll={{ x: 1300, y: 460 }}
