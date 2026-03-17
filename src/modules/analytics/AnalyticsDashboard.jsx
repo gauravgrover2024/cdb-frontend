@@ -1,19 +1,42 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import {
   Alert,
   Button,
   DatePicker,
+  Input,
   InputNumber,
   Modal,
   Select,
   Spin,
   Table,
-  Tag,
+  Tabs,
 } from "antd";
+import {
+  AlertTriangle,
+  BarChart3,
+  Database,
+  BriefcaseBusiness,
+  Building2,
+  CarFront,
+  ChartNoAxesCombined,
+  CircleDot,
+  Clock3,
+  Filter,
+  GitBranch,
+  IndianRupee,
+  RefreshCcw,
+  SearchCode,
+  ShieldAlert,
+  TrendingUp,
+  UsersRound,
+} from "lucide-react";
 import { loansApi } from "../../api/loans";
+import "./AnalyticsDashboard.css";
 
 const { RangePicker } = DatePicker;
+dayjs.extend(customParseFormat);
 
 const RANGE_OPTIONS = [
   { label: "Month till date", value: "mtd" },
@@ -81,6 +104,11 @@ const REPORT_FIELDS = [
 
 const formatINR = (value) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
 
+const pick = (obj, path) =>
+  String(path || "")
+    .split(".")
+    .reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj);
+
 const getRangeParams = (preset, customRange) => {
   const params = { range: preset };
   if (preset === "custom" && customRange?.[0] && customRange?.[1]) {
@@ -111,6 +139,148 @@ const stageKey = (stage) => {
   return "profile";
 };
 
+const normalizeTypeText = (value) => String(value || "").trim().toLowerCase();
+
+const isCashDeliveryBasedCase = (loan) => {
+  const t = normalizeTypeText(loan?.typeOfLoan || loan?.loanType || loan?.caseType);
+  const financed = normalizeTypeText(loan?.isFinanced);
+  const bankText = normalizeTypeText(
+    loan?.approval_bankName || loan?.postfile_bankName || loan?.bankName,
+  );
+  if (bankText.includes("cash sale bank")) return true;
+  if (t.includes("cash-in") || t.includes("cash in")) return false;
+  if (financed === "no" && !t.includes("refinance")) return true;
+  if (!t) return false;
+  return t === "cash" || t.includes("cash car") || t.includes("cash sale");
+};
+
+const parseMaybeDate = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  if (dayjs.isDayjs(value)) return value.isValid() ? value : null;
+  if (value instanceof Date) {
+    const d = dayjs(value);
+    return d.isValid() ? d : null;
+  }
+  if (typeof value === "number") {
+    const ms = value > 1e12 ? value : value * 1000;
+    const d = dayjs(ms);
+    return d.isValid() ? d : null;
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const native = dayjs(raw);
+  if (native.isValid()) return native;
+
+  const formats = [
+    "DD/MM/YYYY",
+    "D/M/YYYY",
+    "DD-MM-YYYY",
+    "D-M-YYYY",
+    "DD/MM/YY",
+    "D/M/YY",
+    "DD-MM-YY",
+    "D-M-YY",
+    "YYYY/MM/DD",
+    "YYYY-MM-DD",
+    "DD MMM YYYY",
+    "D MMM YYYY",
+    "DD MMM YY",
+    "D MMM YY",
+    "DD-MMM-YYYY",
+    "D-MMM-YYYY",
+    "DD-MMM-YY",
+    "D-MMM-YY",
+    "DD.MM.YYYY",
+    "D.M.YYYY",
+  ];
+  for (const fmt of formats) {
+    const d = dayjs(raw, fmt, true);
+    if (d.isValid()) return d;
+  }
+  return null;
+};
+
+const firstValidDate = (...values) => {
+  for (const value of values) {
+    const d = parseMaybeDate(value);
+    if (d?.isValid()) return d;
+  }
+  return null;
+};
+
+const collectStatusHistoryDates = (loan, statusNeedle) => {
+  const needle = String(statusNeedle || "").toLowerCase();
+  const bankHistory = Array.isArray(loan?.approval_banksData)
+    ? loan.approval_banksData.flatMap((b) =>
+        Array.isArray(b?.statusHistory) ? b.statusHistory : [],
+      )
+    : [];
+  const rootHistory = [
+    ...(Array.isArray(loan?.approval_statusHistory) ? loan.approval_statusHistory : []),
+    ...(Array.isArray(loan?.statusHistory) ? loan.statusHistory : []),
+  ];
+  const all = [...rootHistory, ...bankHistory];
+  const hits = all
+    .filter((entry) =>
+      String(entry?.status || "").toLowerCase().includes(needle),
+    )
+    .map((entry) => entry?.changedAt || entry?.date || entry?.updatedAt)
+    .filter(Boolean);
+  return firstValidDate(...hits);
+};
+
+const getLifecycleDates = (loan) => ({
+  createdAt: firstValidDate(loan?.createdAt),
+  approvedAt: firstValidDate(
+    loan?.approval_approvalDate,
+    loan?.approvalDate,
+    loan?.approvedDate,
+    loan?.approval_date,
+    collectStatusHistoryDates(loan, "approved"),
+    Array.isArray(loan?.approval_banksData)
+      ? loan.approval_banksData[0]?.approvalDate
+      : null,
+  ),
+  disbursedAt: firstValidDate(
+    loan?.disbursement_date,
+    loan?.approval_disbursedDate,
+    loan?.disbursementDate,
+    loan?.disbursedDate,
+    loan?.disburse_date,
+    loan?.disburseDate,
+    collectStatusHistoryDates(loan, "disbursed"),
+    Array.isArray(loan?.approval_banksData)
+      ? loan.approval_banksData[0]?.disbursedDate ||
+          loan.approval_banksData[0]?.disbursalDate
+      : null,
+  ),
+  deliveryAt: firstValidDate(
+    loan?.delivery_done_at,
+    loan?.delivery_date,
+    loan?.deliveryDate,
+    loan?.handoverDate,
+  ),
+  invoiceAt: firstValidDate(
+    loan?.invoice_done_at,
+    loan?.invoice_received_date,
+    loan?.invoice_date,
+    loan?.invoiceDate,
+  ),
+});
+
+const getPrimaryBusinessDate = (loan) => {
+  const { createdAt, approvedAt, disbursedAt, deliveryAt, invoiceAt } = getLifecycleDates(loan);
+  if (isCashDeliveryBasedCase(loan)) return deliveryAt || invoiceAt || approvedAt || createdAt;
+  return disbursedAt || approvedAt || createdAt;
+};
+
+const getDisbursalOrDeliveryDate = (loan) => {
+  const { approvedAt, disbursedAt, deliveryAt, invoiceAt, createdAt } = getLifecycleDates(loan);
+  if (isCashDeliveryBasedCase(loan)) return deliveryAt || invoiceAt || approvedAt || createdAt;
+  return disbursedAt || approvedAt || deliveryAt || invoiceAt || createdAt;
+};
+
 const statusKey = (loan) => {
   const s = String(loan?.status || loan?.approval_status || "").toLowerCase();
   if (s.includes("disburs")) return "disbursed";
@@ -133,6 +303,12 @@ const isDisbursed = (loan) =>
   num(loan?.approval_loanAmountDisbursed) > 0 ||
   Boolean(loan?.disbursement_date || loan?.approval_disbursedDate || loan?.disburse_date);
 
+const isBusinessCompletedCash = (loan) => {
+  if (!isCashDeliveryBasedCase(loan)) return false;
+  const { deliveryAt, invoiceAt } = getLifecycleDates(loan);
+  return Boolean(deliveryAt || invoiceAt);
+};
+
 const amountValue = (loan) =>
   num(
     loan?.disburse_amount ||
@@ -143,7 +319,7 @@ const amountValue = (loan) =>
       0,
   );
 
-const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
+const getRangeWindow = (rangePreset, customRange) => {
   const now = dayjs();
   let start = now.startOf("month");
   let end = now.endOf("day");
@@ -154,11 +330,27 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
     start = customRange[0].startOf("day");
     end = customRange[1].endOf("day");
   }
+  return { start, end };
+};
 
+const isWithinRange = (value, start, end) => {
+  if (!value) return false;
+  return (value.isAfter(start) || value.isSame(start)) && (value.isBefore(end) || value.isSame(end));
+};
+
+const filterLoansByRange = (loans, rangePreset, customRange) => {
+  const { start, end } = getRangeWindow(rangePreset, customRange);
   const rows = loans.filter((loan) => {
-    const created = dayjs(loan?.createdAt);
-    return created.isValid() && (created.isAfter(start) || created.isSame(start)) && (created.isBefore(end) || created.isSame(end));
+    const businessDate = getPrimaryBusinessDate(loan);
+    return isWithinRange(businessDate, start, end);
   });
+  return { rows, start, end };
+};
+
+const keyLower = (value) => String(value || "").trim().toLowerCase();
+
+const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
+  const { rows, start, end } = filterLoansByRange(loans, rangePreset, customRange);
 
   const monthBuckets = [];
   let cursor = start.startOf("month");
@@ -182,9 +374,14 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
   let approvalPendingAmount = 0;
   let missingRegCount = 0;
   let missingDeliveryCount = 0;
+  let cashCarCases = 0;
+  let cashCarDelivered = 0;
+  let cashCarPending = 0;
+  let cashCarAmount = 0;
 
   rows.forEach((loan) => {
-    const m = monthKey(loan?.createdAt);
+    const isCashCar = isCashDeliveryBasedCase(loan);
+    const m = monthKey(getPrimaryBusinessDate(loan));
     if (m && totalLoansTrendMap.has(m)) totalLoansTrendMap.set(m, (totalLoansTrendMap.get(m) || 0) + 1);
 
     const stg = stageKey(loan?.currentStage);
@@ -193,23 +390,30 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
     const st = statusKey(loan);
     statusMap.set(st, (statusMap.get(st) || 0) + 1);
 
-    const lt = String(loan?.typeOfLoan || loan?.loanType || loan?.caseType || "Unknown");
+    const lt = String(loan?.typeOfLoan || loan?.loanType || loan?.caseType || "Unknown").trim() || "Unknown";
     loanTypeMap.set(lt, (loanTypeMap.get(lt) || 0) + 1);
 
-    const bank = String(
-      loan?.approval_bankName ||
-        loan?.postfile_bankName ||
-        loan?.bankName ||
-        (Array.isArray(loan?.approval_banksData) ? loan.approval_banksData[0]?.bankName : "") ||
-        "Unknown",
-    ).trim() || "Unknown";
-    if (!bankMap.has(bank)) bankMap.set(bank, { bankName: bank, total: 0, approved: 0, disbursed: 0, pending: 0, totalLoanAmount: 0 });
-    const bankNode = bankMap.get(bank);
-    bankNode.total += 1;
-    bankNode.totalLoanAmount += amountValue(loan);
-    if (st === "approved") bankNode.approved += 1;
-    if (st === "pending") bankNode.pending += 1;
-    if (isDisbursed(loan)) bankNode.disbursed += 1;
+    if (!isCashCar) {
+      const bank = String(
+        loan?.approval_bankName ||
+          loan?.postfile_bankName ||
+          loan?.bankName ||
+          (Array.isArray(loan?.approval_banksData) ? loan.approval_banksData[0]?.bankName : "") ||
+          "Unknown",
+      ).trim() || "Unknown";
+      if (!bankMap.has(bank)) bankMap.set(bank, { bankName: bank, total: 0, approved: 0, disbursed: 0, pending: 0, totalLoanAmount: 0 });
+      const bankNode = bankMap.get(bank);
+      bankNode.total += 1;
+      bankNode.totalLoanAmount += amountValue(loan);
+      if (st === "approved") bankNode.approved += 1;
+      if (st === "pending") bankNode.pending += 1;
+      if (isDisbursed(loan)) bankNode.disbursed += 1;
+    } else {
+      cashCarCases += 1;
+      cashCarAmount += amountValue(loan);
+      if (isBusinessCompletedCash(loan)) cashCarDelivered += 1;
+      else cashCarPending += 1;
+    }
 
     const srcRaw = String(loan?.approval_loanBookedIn || loan?.recordSource || loan?.source || "").toLowerCase();
     const src = srcRaw.includes("indirect") ? "Indirect" : srcRaw.includes("direct") ? "Direct" : "Unknown";
@@ -234,7 +438,9 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
     vehicleNode.totalLoanAmount += amountValue(loan);
 
     const approvedPending =
-      (st === "approved" || num(loan?.approval_loanAmountApproved) > 0) && !isDisbursed(loan);
+      (st === "approved" || num(loan?.approval_loanAmountApproved) > 0) &&
+      !isDisbursed(loan) &&
+      !isBusinessCompletedCash(loan);
     if (approvedPending) {
       approvalPendingCount += 1;
       approvalPendingAmount += amountValue(loan);
@@ -255,8 +461,8 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       missingDeliveryCount += 1;
     }
 
-    if (isDisbursed(loan)) {
-      const dm = monthKey(loan?.disbursement_date || loan?.approval_disbursedDate || loan?.disburse_date || loan?.createdAt);
+    if (isDisbursed(loan) || isBusinessCompletedCash(loan)) {
+      const dm = monthKey(getDisbursalOrDeliveryDate(loan));
       if (dm && disbursedTrendMap.has(dm)) {
         const node = disbursedTrendMap.get(dm);
         node.amount += num(loan?.disburse_amount || loan?.approval_loanAmountDisbursed || amountValue(loan));
@@ -288,7 +494,14 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
     totals: {
       totalCases: rows.length,
       totalLoanAmount: rows.reduce((acc, loan) => acc + amountValue(loan), 0),
-      totalDisbursedAmount: rows.reduce((acc, loan) => acc + (isDisbursed(loan) ? num(loan?.disburse_amount || loan?.approval_loanAmountDisbursed || amountValue(loan)) : 0), 0),
+      totalDisbursedAmount: rows.reduce(
+        (acc, loan) =>
+          acc +
+          (isDisbursed(loan) || isBusinessCompletedCash(loan)
+            ? num(loan?.disburse_amount || loan?.approval_loanAmountDisbursed || amountValue(loan))
+            : 0),
+        0,
+      ),
     },
     widgets: {
       totalLoansTrend,
@@ -297,6 +510,12 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       approvalPendingDisbursal: { count: approvalPendingCount, amount: approvalPendingAmount },
       missingRegNumber: { count: missingRegCount },
       missingCriticalDeliveryFields: { count: missingDeliveryCount },
+      cashCarSummary: {
+        total: cashCarCases,
+        delivered: cashCarDelivered,
+        pending: cashCarPending,
+        amount: cashCarAmount,
+      },
       loanTypeMix,
       bankPipeline,
       sourcePerformance,
@@ -309,6 +528,147 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
         .sort((a, b) => b.totalLoanAmount - a.totalLoanAmount),
     },
   };
+};
+
+const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, bucket, key }) => {
+  const { rows } = filterLoansByRange(loans, rangePreset, customRange);
+
+  if (!widget) return rows.slice(0, 1000);
+
+  if (widget === "total_loan_trend" && bucket) {
+    return rows.filter((loan) => monthKey(getPrimaryBusinessDate(loan)) === bucket).slice(0, 1000);
+  }
+
+  if (widget === "disbursed_amount_trend" && bucket) {
+    return rows
+      .filter(
+        (loan) =>
+          (isDisbursed(loan) || isBusinessCompletedCash(loan)) &&
+          monthKey(getDisbursalOrDeliveryDate(loan)) === bucket,
+      )
+      .slice(0, 1000);
+  }
+
+  if (widget === "approval_pending_disbursal") {
+    return rows
+      .filter(
+        (loan) =>
+          (statusKey(loan) === "approved" || num(loan?.approval_loanAmountApproved) > 0) &&
+          !isDisbursed(loan) &&
+          !isBusinessCompletedCash(loan),
+      )
+      .slice(0, 1000);
+  }
+
+  if (widget === "missing_reg_number") {
+    return rows
+      .filter((loan) => !String(loan?.rc_redg_no || loan?.registrationNumber || loan?.vehicleRegNo || "").trim())
+      .slice(0, 1000);
+  }
+
+  if (widget === "missing_delivery_fields") {
+    return rows
+      .filter((loan) => {
+        const stg = stageKey(loan?.currentStage);
+        const hasMissingDelivery = [
+          loan?.invoice_number,
+          loan?.invoice_date,
+          loan?.insurance_policy_number,
+          loan?.insurance_policy_start_date,
+          loan?.insurance_company_name,
+          loan?.rc_redg_no,
+        ].some((v) => v === null || v === undefined || String(v).trim() === "");
+        return (stg === "delivery" || stg === "payout" || isDisbursed(loan) || isBusinessCompletedCash(loan)) && hasMissingDelivery;
+      })
+      .slice(0, 1000);
+  }
+
+  if (widget === "loan_type_mix" && key) {
+    return rows
+      .filter((loan) => keyLower(loan?.typeOfLoan || loan?.loanType || loan?.caseType) === keyLower(key))
+      .slice(0, 1000);
+  }
+
+  if (widget === "bank_pipeline" && key) {
+    return rows
+      .filter((loan) => {
+        if (isCashDeliveryBasedCase(loan)) return false;
+        const bank = String(
+          loan?.approval_bankName ||
+            loan?.postfile_bankName ||
+            loan?.bankName ||
+            (Array.isArray(loan?.approval_banksData) ? loan.approval_banksData[0]?.bankName : "") ||
+            "Unknown",
+        ).trim();
+        return keyLower(bank) === keyLower(key);
+      })
+      .slice(0, 1000);
+  }
+
+  if (widget === "cash_car_all") {
+    return rows.filter((loan) => isCashDeliveryBasedCase(loan)).slice(0, 1000);
+  }
+
+  if (widget === "cash_car_delivered") {
+    return rows
+      .filter((loan) => isCashDeliveryBasedCase(loan) && isBusinessCompletedCash(loan))
+      .slice(0, 1000);
+  }
+
+  if (widget === "cash_car_pending_delivery") {
+    return rows
+      .filter((loan) => isCashDeliveryBasedCase(loan) && !isBusinessCompletedCash(loan))
+      .slice(0, 1000);
+  }
+
+  if (widget === "source_performance" && key) {
+    return rows
+      .filter((loan) => {
+        const srcRaw = String(loan?.approval_loanBookedIn || loan?.recordSource || loan?.source || "").toLowerCase();
+        const src = srcRaw.includes("indirect") ? "indirect" : srcRaw.includes("direct") ? "direct" : "unknown";
+        return src === keyLower(key);
+      })
+      .slice(0, 1000);
+  }
+
+  if (widget === "dealer_performance" && key) {
+    return rows
+      .filter((loan) => keyLower(loan?.dealerName || loan?.showroomDealerName || loan?.showroomName || "unknown") === keyLower(key))
+      .slice(0, 1000);
+  }
+
+  if (widget === "case_status_distribution" && key) {
+    return rows.filter((loan) => keyLower(statusKey(loan)) === keyLower(key)).slice(0, 1000);
+  }
+
+  if (widget === "vehicle_segment" && key) {
+    return rows
+      .filter((loan) => {
+        const segment = `${String(loan?.vehicleMake || "Unknown")} | ${String(loan?.vehicleModel || "Unknown")} | ${String(loan?.vehicleVariant || "Unknown")}`;
+        return keyLower(segment) === keyLower(key);
+      })
+      .slice(0, 1000);
+  }
+
+  if (widget === "stage_funnel" && key) {
+    return rows.filter((loan) => stageKey(loan?.currentStage) === keyLower(key)).slice(0, 1000);
+  }
+
+  if (widget === "repeated_customers") {
+    const mobileCount = new Map();
+    rows.forEach((loan) => {
+      const m = String(loan?.primaryMobile || "").replace(/\D/g, "");
+      if (m.length >= 10) mobileCount.set(m, (mobileCount.get(m) || 0) + 1);
+    });
+    return rows
+      .filter((loan) => {
+        const m = String(loan?.primaryMobile || "").replace(/\D/g, "");
+        return mobileCount.get(m) > 1;
+      })
+      .slice(0, 1000);
+  }
+
+  return rows.slice(0, 1000);
 };
 
 const fetchAllLoansForFallback = async () => {
@@ -326,57 +686,173 @@ const fetchAllLoansForFallback = async () => {
 };
 
 const TrendBars = ({ points = [], valueKey = "value", tone = "emerald", onSelect }) => {
-  const max = Math.max(...points.map((p) => Number(p[valueKey] || 0)), 1);
+  if (!points.length) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        No data for selected timeframe
+      </div>
+    );
+  }
+
+  const values = points.map((p) => Number(p[valueKey] || 0));
+  const min = Math.min(...values);
+  const max = Math.max(...values, 1);
+  const width = Math.max(260, points.length * 38);
+  const height = 92;
+  const pad = 10;
+  const y = (v) =>
+    max === min
+      ? height / 2
+      : pad + ((max - v) / (max - min)) * (height - pad * 2);
+  const x = (idx) =>
+    points.length <= 1
+      ? width / 2
+      : pad + (idx * (width - pad * 2)) / (points.length - 1);
+  const polyline = points
+    .map((point, idx) => `${x(idx)},${y(Number(point[valueKey] || 0))}`)
+    .join(" ");
+  const toneClass =
+    tone === "amber"
+      ? "text-amber-500"
+      : tone === "indigo"
+        ? "text-indigo-500"
+        : "text-emerald-500";
+  const stroke = tone === "amber" ? "#f59e0b" : tone === "indigo" ? "#6366f1" : "#10b981";
 
   return (
-    <div className="flex items-end gap-2 overflow-x-auto pb-2">
-      {points.map((point) => {
-        const value = Number(point[valueKey] || 0);
-        const h = Math.max(8, Math.round((value / max) * 124));
-        return (
-          <button
-            type="button"
-            key={point.bucket}
-            onClick={() => onSelect?.(point)}
-            className="group flex min-w-[58px] flex-col items-center gap-2 rounded-xl p-2 transition hover:bg-slate-100"
-          >
-            <div
-              className={`w-8 rounded-t-lg ${tone === "amber" ? "bg-amber-500" : "bg-emerald-500"}`}
-              style={{ height: `${h}px` }}
+    <div className="space-y-2">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
+        <svg width={width} height={height} role="img" aria-label="trend chart">
+          <polyline
+            fill="none"
+            stroke={stroke}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={polyline}
+          />
+          {points.map((point, idx) => (
+            <circle
+              key={point.bucket}
+              cx={x(idx)}
+              cy={y(Number(point[valueKey] || 0))}
+              r="3.2"
+              fill={stroke}
             />
-            <div className="text-[11px] font-semibold text-slate-600">{point.label}</div>
-            <div className="text-[11px] font-bold text-slate-900">{value.toLocaleString("en-IN")}</div>
+          ))}
+        </svg>
+      </div>
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {points.slice(-10).map((point) => (
+          <button
+            key={point.bucket}
+            type="button"
+            onClick={() => onSelect?.(point)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-left transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+          >
+            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{point.label}</div>
+            <div className={`text-xs font-bold ${toneClass}`}>{Number(point[valueKey] || 0).toLocaleString("en-IN")}</div>
           </button>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 };
 
-const CompactList = ({ rows = [], labelKey, valueKey, onClick, format = (v) => v }) => (
-  <div className="space-y-2">
-    {rows.map((row) => (
-      <button
-        key={`${row[labelKey]}-${row[valueKey]}`}
-        type="button"
-        onClick={() => onClick?.(row)}
-        className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left transition hover:border-sky-300 hover:bg-sky-50"
-      >
-        <span className="truncate text-sm font-medium text-slate-700">{row[labelKey]}</span>
-        <span className="ml-3 text-sm font-bold text-slate-900">{format(row[valueKey])}</span>
-      </button>
-    ))}
-  </div>
-);
+const CompactList = ({ rows = [], labelKey, valueKey, onClick, format = (v) => v }) => {
+  if (!rows.length) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        No records
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {rows.map((row) => (
+        <button
+          key={`${row[labelKey]}-${row[valueKey]}`}
+          type="button"
+          onClick={() => onClick?.(row)}
+          className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-sky-300 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-sky-500/60 dark:hover:bg-sky-950/30"
+        >
+          <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-300">{row[labelKey]}</span>
+          <span className="ml-3 text-sm font-bold text-slate-900 dark:text-slate-100">{format(row[valueKey])}</span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const WidgetShell = ({ title, subtitle, icon: Icon, color = "slate", children }) => {
+  const tones = {
+    slate: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    blue: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    emerald: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    amber: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    rose: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    indigo: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+  };
+  const iconTones = {
+    slate: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
+    blue: "bg-sky-100 text-sky-700 dark:bg-sky-900/60 dark:text-sky-300",
+    emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300",
+    amber: "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300",
+    rose: "bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300",
+    indigo: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300",
+  };
+
+  return (
+    <article className={`analytics-widget analytics-widget-${color} rounded-2xl border p-3 shadow-sm transition hover:shadow-md ${tones[color] || tones.slate}`}>
+      <div className="mb-2 flex items-start gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            {Icon ? (
+              <span className={`inline-flex h-6 w-6 items-center justify-center rounded-lg ${iconTones[color] || iconTones.slate}`}>
+                <Icon size={14} />
+              </span>
+            ) : null}
+            <h2 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+          </div>
+          {subtitle ? <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">{subtitle}</p> : null}
+        </div>
+      </div>
+      {children}
+    </article>
+  );
+};
+
+const KpiTile = ({ label, value, subLabel, icon: Icon, tone = "slate" }) => {
+  const tones = {
+    slate: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    blue: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    emerald: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    amber: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    rose: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+  };
+
+  return (
+    <div className={`analytics-kpi analytics-kpi-${tone} rounded-2xl border p-3 shadow-sm ${tones[tone] || tones.slate}`}>
+      <div className="mb-1.5 flex items-center justify-between">
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">{label}</div>
+        {Icon ? <Icon size={16} className="text-slate-600 dark:text-slate-300" /> : null}
+      </div>
+      <div className="text-[1.35rem] font-black tracking-tight text-slate-900 dark:text-slate-100">{value}</div>
+      {subLabel ? <div className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">{subLabel}</div> : null}
+    </div>
+  );
+};
 
 const AnalyticsDashboard = () => {
   const [rangePreset, setRangePreset] = useState("mtd");
   const [customRange, setCustomRange] = useState([dayjs().startOf("month"), dayjs()]);
+  const [allLoans, setAllLoans] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [overview, setOverview] = useState(null);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [usingFallback] = useState(true);
 
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillLoading, setDrillLoading] = useState(false);
@@ -395,6 +871,7 @@ const AnalyticsDashboard = () => {
   const [customReportLoading, setCustomReportLoading] = useState(false);
   const [customReportRows, setCustomReportRows] = useState([]);
   const [customReportMeta, setCustomReportMeta] = useState(null);
+  const [customReportSearch, setCustomReportSearch] = useState("");
   const [customReportConfig, setCustomReportConfig] = useState({
     fields: [
       "loanId",
@@ -413,90 +890,148 @@ const AnalyticsDashboard = () => {
     limit: 300,
   });
 
-  const queryParams = useMemo(
-    () => getRangeParams(rangePreset, customRange),
-    [rangePreset, customRange],
-  );
+  const queryParams = useMemo(() => getRangeParams(rangePreset, customRange), [rangePreset, customRange]);
 
   const fetchOverview = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      setUsingFallback(false);
-      const res = await loansApi.getAnalyticsOverview(queryParams);
-      setOverview(res?.data || null);
+      const loans = await fetchAllLoansForFallback();
+      setAllLoans(loans);
     } catch (err) {
-      if (Number(err?.status) === 404) {
-        try {
-          const allLoans = await fetchAllLoansForFallback();
-          const fallbackData = buildFallbackOverview(allLoans, rangePreset, customRange);
-          setOverview(fallbackData);
-          setUsingFallback(true);
-          setError("");
-        } catch (fallbackErr) {
-          setError(fallbackErr?.message || "Failed to load analytics");
-        }
-      } else {
-        setError(err?.message || "Failed to load analytics");
-      }
+      setError(err?.message || "Failed to load analytics");
     } finally {
       setLoading(false);
     }
-  }, [customRange, queryParams, rangePreset]);
+  }, []);
 
   useEffect(() => {
     fetchOverview();
   }, [fetchOverview]);
 
+  useEffect(() => {
+    if (!allLoans.length) return;
+    setOverview(buildFallbackOverview(allLoans, rangePreset, customRange));
+  }, [allLoans, customRange, rangePreset]);
+
   const runCustomWidget = useCallback(async () => {
     try {
       setCustomWidgetLoading(true);
-      const res = await loansApi.createCustomWidget({
-        ...queryParams,
-        ...customWidgetConfig,
-      });
-      setCustomWidgetData(Array.isArray(res?.data) ? res.data : []);
+      try {
+        const res = await loansApi.createCustomWidget({
+          ...queryParams,
+          ...customWidgetConfig,
+        });
+        setCustomWidgetData(Array.isArray(res?.data) ? res.data : []);
+      } catch {
+        const { rows } = filterLoansByRange(allLoans, rangePreset, customRange);
+        const grouped = new Map();
+        rows.forEach((row) => {
+          let label = "Unknown";
+          if (customWidgetConfig.groupBy === "month") {
+            label = monthLabel(monthKey(getPrimaryBusinessDate(row)) || "");
+          } else if (customWidgetConfig.groupBy === "bank") {
+            label = String(row?.approval_bankName || row?.postfile_bankName || row?.bankName || "Unknown");
+          } else if (customWidgetConfig.groupBy === "source") {
+            const srcRaw = String(row?.approval_loanBookedIn || row?.recordSource || row?.source || "").toLowerCase();
+            label = srcRaw.includes("indirect") ? "Indirect" : srcRaw.includes("direct") ? "Direct" : "Unknown";
+          } else if (customWidgetConfig.groupBy === "loanType") {
+            label = String(row?.typeOfLoan || row?.loanType || row?.caseType || "Unknown");
+          } else if (customWidgetConfig.groupBy === "status") {
+            label = statusKey(row);
+          } else if (customWidgetConfig.groupBy === "stage") {
+            label = stageKey(row?.currentStage);
+          } else if (customWidgetConfig.groupBy === "dealer") {
+            label = String(row?.dealerName || row?.showroomDealerName || row?.showroomName || "Unknown");
+          } else if (customWidgetConfig.groupBy === "vehicleMake") {
+            label = String(row?.vehicleMake || "Unknown");
+          } else if (customWidgetConfig.groupBy === "vehicleModel") {
+            label = String(row?.vehicleModel || "Unknown");
+          }
+
+          if (!grouped.has(label)) grouped.set(label, []);
+          grouped.get(label).push(row);
+        });
+
+        const field = customWidgetConfig.metricField;
+        const metric = customWidgetConfig.metric;
+        const data = Array.from(grouped.entries()).map(([label, list]) => {
+          const values = list.map((r) => num(pick(r, field)));
+          let value = list.length;
+          if (metric === "sum") value = values.reduce((a, b) => a + b, 0);
+          if (metric === "avg") value = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+          return { key: label, label, value };
+        });
+        data.sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
+        setCustomWidgetData(data.slice(0, Number(customWidgetConfig.topN || 12)));
+      }
     } finally {
       setCustomWidgetLoading(false);
     }
-  }, [customWidgetConfig, queryParams]);
+  }, [allLoans, customRange, customWidgetConfig, queryParams, rangePreset]);
 
   const runCustomReport = useCallback(async () => {
     try {
       setCustomReportLoading(true);
-      const res = await loansApi.createCustomReport({
-        ...queryParams,
-        ...customReportConfig,
-      });
-      setCustomReportRows(Array.isArray(res?.data) ? res.data : []);
-      setCustomReportMeta(res?.meta || null);
+      try {
+        const res = await loansApi.createCustomReport({
+          ...queryParams,
+          ...customReportConfig,
+        });
+        setCustomReportRows(Array.isArray(res?.data) ? res.data : []);
+        setCustomReportMeta(res?.meta || null);
+      } catch {
+        const { rows } = filterLoansByRange(allLoans, rangePreset, customRange);
+        const sortField = customReportConfig.sortBy || "updatedAt";
+        const dir = customReportConfig.sortDir === "asc" ? 1 : -1;
+        const normalized = [...rows].sort((a, b) => {
+          const va = pick(a, sortField);
+          const vb = pick(b, sortField);
+          if (va === vb) return 0;
+          if (va === undefined || va === null) return 1;
+          if (vb === undefined || vb === null) return -1;
+          if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+          const da = dayjs(va);
+          const db = dayjs(vb);
+          if (da.isValid() && db.isValid()) return (da.valueOf() - db.valueOf()) * dir;
+          return String(va).localeCompare(String(vb)) * dir;
+        });
+        const limited = normalized.slice(0, Number(customReportConfig.limit || 300));
+        const projected = limited.map((row) => {
+          const obj = {};
+          (customReportConfig.fields || []).forEach((f) => {
+            obj[f] = pick(row, f);
+          });
+          obj.loanId = row.loanId || obj.loanId;
+          obj._id = row._id || obj._id;
+          return obj;
+        });
+        setCustomReportRows(projected);
+        setCustomReportMeta({
+          fields: customReportConfig.fields || [],
+          source: "local-fallback",
+          total: projected.length,
+        });
+      }
     } finally {
       setCustomReportLoading(false);
     }
-  }, [customReportConfig, queryParams]);
+  }, [allLoans, customRange, customReportConfig, queryParams, rangePreset]);
 
   const openDrilldown = useCallback(
-    async ({ title, widget, bucket, key }) => {
-      try {
-        setDrillTitle(title);
-        setDrillOpen(true);
-        setDrillLoading(true);
-        const res = await loansApi.getAnalyticsDrilldown({
-          ...queryParams,
-          widget,
-          bucket,
-          key,
-          limit: 1000,
-          skip: 0,
-        });
-        setDrillRows(Array.isArray(res?.data) ? res.data : []);
-      } catch (err) {
-        setDrillRows([]);
-      } finally {
-        setDrillLoading(false);
-      }
+    ({ title, widget, bucket, key }) => {
+      setDrillTitle(title);
+      setDrillOpen(true);
+      setDrillLoading(true);
+      const rows = buildLocalDrillRows(allLoans, rangePreset, customRange, {
+        widget,
+        bucket,
+        key,
+      });
+      setDrillRows(rows);
+      setDrillLoading(false);
     },
-    [queryParams],
+    [allLoans, customRange, rangePreset],
   );
 
   const widgets = overview?.widgets || {};
@@ -529,11 +1064,13 @@ const AnalyticsDashboard = () => {
         ),
     },
     {
-      title: "Updated",
-      dataIndex: "updatedAt",
-      key: "updatedAt",
+      title: "Business Date",
+      key: "businessDate",
       width: 140,
-      render: (v) => (v ? dayjs(v).format("DD MMM YYYY") : "-"),
+      render: (_, row) => {
+        const d = getPrimaryBusinessDate(row);
+        return d?.isValid() ? d.format("DD MMM YYYY") : "-";
+      },
     },
   ];
 
@@ -556,44 +1093,58 @@ const AnalyticsDashboard = () => {
     [customReportConfig.fields, customReportMeta?.fields],
   );
 
+  const filteredReportRows = useMemo(() => {
+    const q = String(customReportSearch || "").trim().toLowerCase();
+    if (!q) return customReportRows;
+    const fields = customReportMeta?.fields || customReportConfig.fields || [];
+    return customReportRows.filter((row) =>
+      fields.some((field) => String(row?.[field] ?? "").toLowerCase().includes(q)),
+    );
+  }, [customReportConfig.fields, customReportMeta?.fields, customReportRows, customReportSearch]);
+
   return (
-    <main className="space-y-5 p-4 md:p-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <main className="analytics-dashboard analytics-tail space-y-4 bg-[#f5f7fb] p-4 md:p-6 dark:bg-[#0b1220]">
+      <section className="analytics-hero rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.24em] text-sky-700">Analytics</div>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">Loans Intelligence Board</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Unified widgets + reports with click-through case drilldown.
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
+              <ChartNoAxesCombined size={14} />
+              Loans Analytics
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 md:text-3xl">
+              Performance Command Center
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Interactive widgets, drill-down cases and custom reporting in one place.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="analytics-range-wrap flex flex-wrap items-center gap-2">
             {RANGE_OPTIONS.map((option) => (
               <button
-                type="button"
                 key={option.value}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition ${
-                  rangePreset === option.value
-                    ? "border-sky-600 bg-sky-600 text-white"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
-                }`}
+                type="button"
                 onClick={() => setRangePreset(option.value)}
+                className={`analytics-range-btn rounded-xl border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition ${
+                  rangePreset === option.value
+                    ? "is-active border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-500/60"
+                }`}
               >
                 {option.label}
               </button>
             ))}
 
-            {rangePreset === "custom" && (
+            {rangePreset === "custom" ? (
               <RangePicker
                 value={customRange}
-                onChange={(values) => setCustomRange(values || [])}
                 allowClear={false}
-                className="h-9"
+                onChange={(values) => setCustomRange(values || [])}
+                className="h-9 rounded-xl"
               />
-            )}
+            ) : null}
 
-            <Button type="primary" className="h-9" onClick={fetchOverview}>
+            <Button type="primary" icon={<RefreshCcw size={14} />} className="analytics-refresh-btn h-9 rounded-xl !border-blue-600 !bg-blue-600 !text-white hover:!border-blue-700 hover:!bg-blue-700 dark:!border-blue-500 dark:!bg-blue-500 dark:hover:!border-blue-400 dark:hover:!bg-blue-400" onClick={fetchOverview}>
               Refresh
             </Button>
           </div>
@@ -601,431 +1152,603 @@ const AnalyticsDashboard = () => {
       </section>
 
       {error ? <Alert type="error" message={error} showIcon /> : null}
-      {usingFallback ? (
+      {usingFallback && allLoans.length ? (
         <Alert
-          type="warning"
+          type="info"
           showIcon
-          message="Running on fallback analytics engine"
-          description="Backend analytics endpoints are not live yet, so this view is computed from full loan pages in frontend."
+          message={`Live analytics from full dataset (${allLoans.length.toLocaleString("en-IN")} cases)`}
+          description="Date basis: disbursement date for finance cases, delivery date for cash-car cases."
         />
       ) : null}
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-sky-50 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-sky-700">Total Cases</div>
-          <div className="mt-1 text-2xl font-black text-slate-900">{Number(totals.totalCases || 0).toLocaleString("en-IN")}</div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-emerald-50 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-emerald-700">Total Loan Amount</div>
-          <div className="mt-1 text-2xl font-black text-slate-900">{formatINR(totals.totalLoanAmount || 0)}</div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-amber-50 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-amber-700">Disbursed Amount</div>
-          <div className="mt-1 text-2xl font-black text-slate-900">{formatINR(totals.totalDisbursedAmount || 0)}</div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-violet-50 p-4">
-          <div className="text-xs font-bold uppercase tracking-wide text-violet-700">Approval Pending Disbursal</div>
-          <div className="mt-1 text-2xl font-black text-slate-900">{Number(widgets.approvalPendingDisbursal?.count || 0).toLocaleString("en-IN")}</div>
-        </div>
+      <section className="analytics-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiTile
+          label="Total Cases"
+          value={Number(totals.totalCases || 0).toLocaleString("en-IN")}
+          subLabel="In selected timeframe"
+          tone="blue"
+          icon={BriefcaseBusiness}
+        />
+        <KpiTile
+          label="Total Loan Amount"
+          value={formatINR(totals.totalLoanAmount || 0)}
+          subLabel="Sum across filtered loans"
+          tone="emerald"
+          icon={IndianRupee}
+        />
+        <KpiTile
+          label="Disbursed / Delivered"
+          value={formatINR(totals.totalDisbursedAmount || 0)}
+          subLabel="Business-event amount volume"
+          tone="amber"
+          icon={TrendingUp}
+        />
+        <KpiTile
+          label="Pending Disbursal"
+          value={Number(widgets.approvalPendingDisbursal?.count || 0).toLocaleString("en-IN")}
+          subLabel={formatINR(widgets.approvalPendingDisbursal?.amount || 0)}
+          tone="rose"
+          icon={Clock3}
+        />
       </section>
 
       <Spin spinning={loading}>
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">1. Total Loans Trend</h2>
-              <Tag color="blue">Month-wise</Tag>
-            </div>
-            <TrendBars
-              points={widgets.totalLoansTrend || []}
-              valueKey="value"
-              tone="emerald"
-              onSelect={(p) =>
-                openDrilldown({
-                  title: `Loans in ${p.label}`,
-                  widget: "total_loan_trend",
-                  bucket: p.bucket,
-                })
-              }
-            />
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">2. Disbursed Amount Trend</h2>
-              <Tag color="green">Amount</Tag>
-            </div>
-            <TrendBars
-              points={(widgets.disbursedAmountTrend || []).map((item) => ({ ...item, value: item.amount || 0 }))}
-              valueKey="value"
-              tone="amber"
-              onSelect={(p) =>
-                openDrilldown({
-                  title: `Disbursed in ${p.label}`,
-                  widget: "disbursed_amount_trend",
-                  bucket: p.bucket,
-                })
-              }
-            />
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">3. Stage Funnel</h2>
-              <Tag color="purple">Pipeline</Tag>
-            </div>
-            <div className="space-y-2">
-              {(widgets.stageFunnel || []).map((stage) => (
-                <div key={stage.stage} className="flex items-center gap-3">
-                  <div className="w-24 text-xs font-semibold uppercase text-slate-600">{stage.stage}</div>
-                  <div className="h-3 flex-1 rounded-full bg-slate-100">
-                    <div
-                      className="h-3 rounded-full bg-indigo-500"
-                      style={{
-                        width: `${Math.max(
-                          3,
-                          ((stage.count || 0) /
-                            Math.max(...(widgets.stageFunnel || []).map((s) => s.count || 0), 1)) *
-                            100,
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="w-14 text-right text-sm font-bold text-slate-900">{stage.count || 0}</div>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">4 + 7 + 8 Quality Alerts</h2>
-              <Tag color="red">Actionable</Tag>
-            </div>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-              <button
-                type="button"
-                onClick={() =>
-                  openDrilldown({
-                    title: "Approval Pending Disbursal",
-                    widget: "approval_pending_disbursal",
-                  })
-                }
-                className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-left"
+        <section className="grid grid-cols-1 gap-3 2xl:grid-cols-3">
+          <div className="space-y-3 2xl:col-span-2">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+              <WidgetShell
+                title="Total Loans Trend"
+                subtitle="Click any month to open case-level detail"
+                icon={BarChart3}
+                color="blue"
               >
-                <div className="text-xs font-bold uppercase text-amber-700">Pending Disbursal</div>
-                <div className="text-xl font-black text-slate-900">{widgets.approvalPendingDisbursal?.count || 0}</div>
-                <div className="text-xs text-slate-600">{formatINR(widgets.approvalPendingDisbursal?.amount || 0)}</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  openDrilldown({
-                    title: "Missing RC Registration",
-                    widget: "missing_reg_number",
-                  })
-                }
-                className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-left"
-              >
-                <div className="text-xs font-bold uppercase text-rose-700">Missing Reg Number</div>
-                <div className="text-xl font-black text-slate-900">{widgets.missingRegNumber?.count || 0}</div>
-                <div className="text-xs text-slate-600">Cases</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  openDrilldown({
-                    title: "Missing Critical Delivery Fields",
-                    widget: "missing_delivery_fields",
-                  })
-                }
-                className="rounded-xl border border-orange-300 bg-orange-50 p-3 text-left"
-              >
-                <div className="text-xs font-bold uppercase text-orange-700">Missing Delivery Data</div>
-                <div className="text-xl font-black text-slate-900">{widgets.missingCriticalDeliveryFields?.count || 0}</div>
-                <div className="text-xs text-slate-600">Cases</div>
-              </button>
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">10. Loan Type Mix</h2>
-              <Tag color="cyan">Distribution</Tag>
-            </div>
-            <CompactList
-              rows={widgets.loanTypeMix || []}
-              labelKey="label"
-              valueKey="count"
-              onClick={(row) =>
-                openDrilldown({
-                  title: `Loan Type: ${row.label}`,
-                  widget: "loan_type_mix",
-                  key: String(row.label || "").toLowerCase(),
-                })
-              }
-            />
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">11 + Bank Amounts</h2>
-              <Tag color="geekblue">Bank Pipeline</Tag>
-            </div>
-            <CompactList
-              rows={(widgets.bankPipeline || []).slice(0, 10)}
-              labelKey="bankName"
-              valueKey="total"
-              onClick={(row) =>
-                openDrilldown({
-                  title: `Bank: ${row.bankName}`,
-                  widget: "bank_pipeline",
-                  key: String(row.bankName || "").toLowerCase(),
-                })
-              }
-            />
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">13. Source Performance</h2>
-              <Tag color="lime">Direct vs Indirect</Tag>
-            </div>
-            <div className="space-y-2">
-              {(widgets.sourcePerformance || []).map((row) => (
-                <button
-                  type="button"
-                  key={row.source}
-                  onClick={() =>
+                <TrendBars
+                  points={widgets.totalLoansTrend || []}
+                  valueKey="value"
+                  tone="emerald"
+                  onSelect={(p) =>
                     openDrilldown({
-                      title: `Source: ${row.source}`,
-                      widget: "source_performance",
-                      key: String(row.source || "").toLowerCase(),
+                      title: `Loans in ${p.label}`,
+                      widget: "total_loan_trend",
+                      bucket: p.bucket,
                     })
                   }
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left"
+                />
+              </WidgetShell>
+
+              <WidgetShell
+                title="Disbursed Amount Trend"
+                subtitle="Month-wise disbursal movement"
+                icon={IndianRupee}
+                color="emerald"
+              >
+                <TrendBars
+                  points={(widgets.disbursedAmountTrend || []).map((item) => ({
+                    ...item,
+                    value: item.amount || 0,
+                  }))}
+                  valueKey="value"
+                  tone="amber"
+                  onSelect={(p) =>
+                    openDrilldown({
+                      title: `Disbursed in ${p.label}`,
+                      widget: "disbursed_amount_trend",
+                      bucket: p.bucket,
+                    })
+                  }
+                />
+              </WidgetShell>
+            </div>
+
+            <WidgetShell
+              title="Stage Funnel"
+              subtitle="Pipeline concentration by stage"
+              icon={GitBranch}
+              color="indigo"
+            >
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                {(widgets.stageFunnel || []).map((stage) => (
+                  <button
+                    key={stage.stage}
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: `Stage: ${stage.stage}`,
+                        widget: "stage_funnel",
+                        key: stage.stage,
+                      })
+                    }
+                    className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-indigo-500/60 dark:hover:bg-indigo-950/30"
+                  >
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {stage.stage}
+                    </div>
+                    <div className="text-sm font-black text-slate-900 dark:text-slate-100">
+                      {(stage.count || 0).toLocaleString("en-IN")}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </WidgetShell>
+
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+              <WidgetShell
+                title="Quality Alerts"
+                subtitle="Approval pending and critical missing data"
+                icon={AlertTriangle}
+                color="amber"
+              >
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: "Approval Pending Disbursal",
+                        widget: "approval_pending_disbursal",
+                      })
+                    }
+                    className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-left dark:border-amber-900/60 dark:bg-slate-900"
+                  >
+                    <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Pending</div>
+                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                      {widgets.approvalPendingDisbursal?.count || 0}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: "Missing RC Registration",
+                        widget: "missing_reg_number",
+                      })
+                    }
+                    className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left dark:border-rose-900/60 dark:bg-slate-900"
+                  >
+                    <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Missing RC</div>
+                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                      {widgets.missingRegNumber?.count || 0}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: "Missing Critical Delivery Fields",
+                        widget: "missing_delivery_fields",
+                      })
+                    }
+                    className="rounded-xl border border-orange-300 bg-white px-3 py-2 text-left dark:border-orange-900/60 dark:bg-slate-900"
+                  >
+                    <div className="text-[11px] font-bold uppercase text-orange-700 dark:text-orange-300">Delivery Gaps</div>
+                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                      {widgets.missingCriticalDeliveryFields?.count || 0}
+                    </div>
+                  </button>
+                </div>
+              </WidgetShell>
+
+              <WidgetShell
+                title="Repeated Customers"
+                subtitle="Identity collision and repeat case flags"
+                icon={UsersRound}
+                color="rose"
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="rounded-xl border border-rose-300 bg-white p-3 text-left dark:border-rose-900/60 dark:bg-slate-900"
+                    onClick={() =>
+                      openDrilldown({
+                        title: "Repeated Customers (identity collisions)",
+                        widget: "repeated_customers",
+                      })
+                    }
+                  >
+                    <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Identities</div>
+                    <div className="text-xl font-black text-slate-900 dark:text-slate-100">
+                      {widgets.repeatedCustomers?.repeatedIdentityCount || 0}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-xl border border-fuchsia-300 bg-white p-3 text-left dark:border-fuchsia-900/60 dark:bg-slate-900"
+                    onClick={() =>
+                      openDrilldown({
+                        title: "Repeated Customer Cases",
+                        widget: "repeated_customers",
+                      })
+                    }
+                  >
+                    <div className="text-[11px] font-bold uppercase text-fuchsia-700 dark:text-fuchsia-300">Cases</div>
+                    <div className="text-xl font-black text-slate-900 dark:text-slate-100">
+                      {widgets.repeatedCustomers?.repeatedCaseCount || 0}
+                    </div>
+                  </button>
+                </div>
+              </WidgetShell>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <WidgetShell
+              title="Loan Type Mix"
+              subtitle="Distribution by case type"
+              icon={CircleDot}
+              color="slate"
+            >
+              <CompactList
+                rows={widgets.loanTypeMix || []}
+                labelKey="label"
+                valueKey="count"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Loan Type: ${row.label}`,
+                    widget: "loan_type_mix",
+                    key: String(row.label || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+
+            <WidgetShell
+              title="Bank Pipeline + Amounts"
+              subtitle="Top financed banks by case volume"
+              icon={Building2}
+              color="slate"
+            >
+              <CompactList
+                rows={(widgets.bankPipeline || []).slice(0, 6)}
+                labelKey="bankName"
+                valueKey="total"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Bank: ${row.bankName}`,
+                    widget: "bank_pipeline",
+                    key: String(row.bankName || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+
+            <WidgetShell
+              title="Cash Car Pipeline"
+              subtitle="Cash-car cases tracked separately from banks"
+              icon={IndianRupee}
+              color="amber"
+            >
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openDrilldown({
+                      title: "Cash Car Cases",
+                      widget: "cash_car_all",
+                    })
+                  }
+                  className="flex items-center justify-between rounded-xl border border-amber-300 bg-white px-3 py-2 text-left dark:border-amber-900/60 dark:bg-slate-900"
                 >
                   <div>
-                    <div className="text-sm font-bold text-slate-800">{row.source}</div>
-                    <div className="text-xs text-slate-600">Conversion {row.conversionRate || 0}%</div>
+                    <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Total</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      {formatINR(widgets.cashCarSummary?.amount || 0)}
+                    </div>
                   </div>
-                  <div className="text-right text-sm">
-                    <div className="font-bold text-slate-900">{row.total || 0}</div>
-                    <div className="text-xs text-slate-600">Disbursed: {row.disbursed || 0}</div>
+                  <div className="text-lg font-black text-slate-900 dark:text-slate-100">
+                    {Number(widgets.cashCarSummary?.total || 0).toLocaleString("en-IN")}
                   </div>
                 </button>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">14. Dealer / Showroom Performance</h2>
-              <Tag color="magenta">Top Performers</Tag>
-            </div>
-            <CompactList
-              rows={(widgets.dealerPerformance || []).slice(0, 10)}
-              labelKey="dealerName"
-              valueKey="total"
-              onClick={(row) =>
-                openDrilldown({
-                  title: `Dealer: ${row.dealerName}`,
-                  widget: "dealer_performance",
-                  key: String(row.dealerName || "").toLowerCase(),
-                })
-              }
-            />
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">21. Case Status Distribution</h2>
-              <Tag color="gold">Status</Tag>
-            </div>
-            <CompactList
-              rows={widgets.caseStatusDistribution || []}
-              labelKey="status"
-              valueKey="count"
-              onClick={(row) =>
-                openDrilldown({
-                  title: `Status: ${row.status}`,
-                  widget: "case_status_distribution",
-                  key: String(row.status || "").toLowerCase(),
-                })
-              }
-            />
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">23. Vehicle Segment Trends</h2>
-              <Tag color="purple">Make / Model / Variant</Tag>
-            </div>
-            <div className="space-y-2">
-              {(widgets.vehicleSegmentTrends || []).slice(0, 8).map((row) => (
-                <button
-                  type="button"
-                  key={row.segment}
-                  onClick={() =>
-                    openDrilldown({
-                      title: `Vehicle Segment: ${row.segment}`,
-                      widget: "vehicle_segment",
-                      key: String(row.segment || "").toLowerCase(),
-                    })
-                  }
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-slate-900">{row.segment}</div>
-                    <div className="text-xs text-slate-600">Avg loan: {formatINR(row.avgLoanAmount || 0)}</div>
-                  </div>
-                  <div className="ml-3 text-sm font-bold text-slate-900">{row.total || 0}</div>
-                </button>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900">Repeated Customers</h2>
-              <Tag color="red">Deep Check</Tag>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <button
-                type="button"
-                className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-left"
-                onClick={() =>
-                  openDrilldown({
-                    title: "Repeated Customers (identity collisions)",
-                    widget: "repeated_customers",
-                  })
-                }
-              >
-                <div className="text-xs font-bold uppercase text-rose-700">Repeated Identity Keys</div>
-                <div className="mt-1 text-2xl font-black text-slate-900">{widgets.repeatedCustomers?.repeatedIdentityCount || 0}</div>
-              </button>
-
-              <button
-                type="button"
-                className="rounded-xl border border-fuchsia-300 bg-fuchsia-50 p-4 text-left"
-                onClick={() =>
-                  openDrilldown({
-                    title: "Repeated Customer Cases",
-                    widget: "repeated_customers",
-                  })
-                }
-              >
-                <div className="text-xs font-bold uppercase text-fuchsia-700">Repeated Cases</div>
-                <div className="mt-1 text-2xl font-black text-slate-900">{widgets.repeatedCustomers?.repeatedCaseCount || 0}</div>
-              </button>
-            </div>
-          </article>
-        </section>
-
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 text-base font-bold text-slate-900">Custom Widget Builder</div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Select
-                value={customWidgetConfig.metric}
-                options={CUSTOM_WIDGET_METRICS}
-                onChange={(v) => setCustomWidgetConfig((prev) => ({ ...prev, metric: v }))}
-              />
-              <Select
-                value={customWidgetConfig.groupBy}
-                options={CUSTOM_WIDGET_GROUP_BY}
-                onChange={(v) => setCustomWidgetConfig((prev) => ({ ...prev, groupBy: v }))}
-              />
-              <Select
-                value={customWidgetConfig.metricField}
-                options={CUSTOM_WIDGET_FIELDS}
-                onChange={(v) => setCustomWidgetConfig((prev) => ({ ...prev, metricField: v }))}
-              />
-              <InputNumber
-                min={1}
-                max={200}
-                value={customWidgetConfig.topN}
-                onChange={(v) => setCustomWidgetConfig((prev) => ({ ...prev, topN: Number(v || 12) }))}
-                style={{ width: "100%" }}
-              />
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <Button type="primary" loading={customWidgetLoading} onClick={runCustomWidget}>
-                Generate Widget
-              </Button>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              {customWidgetData.map((row) => (
-                <div key={row.key} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
-                  <div className="text-sm font-medium text-slate-700">{row.label}</div>
-                  <div className="text-sm font-bold text-slate-900">{Number(row.value || 0).toLocaleString("en-IN")}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: "Cash Car Delivered",
+                        widget: "cash_car_delivered",
+                      })
+                    }
+                    className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-left dark:border-emerald-900/60 dark:bg-slate-900"
+                  >
+                    <div className="text-[11px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Delivered</div>
+                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                      {Number(widgets.cashCarSummary?.delivered || 0).toLocaleString("en-IN")}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: "Cash Car Pending Delivery",
+                        widget: "cash_car_pending_delivery",
+                      })
+                    }
+                    className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left dark:border-rose-900/60 dark:bg-slate-900"
+                  >
+                    <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Pending</div>
+                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                      {Number(widgets.cashCarSummary?.pending || 0).toLocaleString("en-IN")}
+                    </div>
+                  </button>
                 </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 text-base font-bold text-slate-900">Custom Report Builder</div>
-            <div className="space-y-3">
-              <Select
-                mode="multiple"
-                value={customReportConfig.fields}
-                options={REPORT_FIELDS.map((f) => ({ label: f, value: f }))}
-                onChange={(values) => setCustomReportConfig((prev) => ({ ...prev, fields: values }))}
-                maxTagCount="responsive"
-                placeholder="Select fields"
-              />
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <Select
-                  value={customReportConfig.sortBy}
-                  options={REPORT_FIELDS.map((f) => ({ label: f, value: f }))}
-                  onChange={(v) => setCustomReportConfig((prev) => ({ ...prev, sortBy: v }))}
-                />
-                <Select
-                  value={customReportConfig.sortDir}
-                  options={[
-                    { label: "Descending", value: "desc" },
-                    { label: "Ascending", value: "asc" },
-                  ]}
-                  onChange={(v) => setCustomReportConfig((prev) => ({ ...prev, sortDir: v }))}
-                />
-                <InputNumber
-                  min={10}
-                  max={10000}
-                  value={customReportConfig.limit}
-                  onChange={(v) => setCustomReportConfig((prev) => ({ ...prev, limit: Number(v || 300) }))}
-                  style={{ width: "100%" }}
-                />
               </div>
+            </WidgetShell>
 
-              <Button type="primary" loading={customReportLoading} onClick={runCustomReport}>
-                Generate Report
-              </Button>
-            </div>
-          </article>
+            <WidgetShell
+              title="Source Performance"
+              subtitle="Direct vs indirect efficiency"
+              icon={SearchCode}
+              color="slate"
+            >
+              <div className="space-y-2">
+                {(widgets.sourcePerformance || []).slice(0, 6).map((row) => (
+                  <button
+                    key={row.source}
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: `Source: ${row.source}`,
+                        widget: "source_performance",
+                        key: String(row.source || "").toLowerCase(),
+                      })
+                    }
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{row.source}</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">Conversion {row.conversionRate || 0}%</div>
+                    </div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{row.total || 0}</div>
+                  </button>
+                ))}
+              </div>
+            </WidgetShell>
+
+            <WidgetShell
+              title="Dealer Performance"
+              subtitle="Top dealer contribution"
+              icon={BriefcaseBusiness}
+              color="slate"
+            >
+              <CompactList
+                rows={(widgets.dealerPerformance || []).slice(0, 6)}
+                labelKey="dealerName"
+                valueKey="total"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Dealer: ${row.dealerName}`,
+                    widget: "dealer_performance",
+                    key: String(row.dealerName || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+
+            <WidgetShell
+              title="Status Distribution"
+              subtitle="Current lifecycle status split"
+              icon={ShieldAlert}
+              color="slate"
+            >
+              <CompactList
+                rows={widgets.caseStatusDistribution || []}
+                labelKey="status"
+                valueKey="count"
+                onClick={(row) =>
+                  openDrilldown({
+                    title: `Status: ${row.status}`,
+                    widget: "case_status_distribution",
+                    key: String(row.status || "").toLowerCase(),
+                  })
+                }
+              />
+            </WidgetShell>
+
+            <WidgetShell
+              title="Vehicle Segment Trends"
+              subtitle="Model/variant concentration"
+              icon={CarFront}
+              color="slate"
+            >
+              <div className="space-y-2">
+                {(widgets.vehicleSegmentTrends || []).slice(0, 6).map((row) => (
+                  <button
+                    key={row.segment}
+                    type="button"
+                    onClick={() =>
+                      openDrilldown({
+                        title: `Vehicle Segment: ${row.segment}`,
+                        widget: "vehicle_segment",
+                        key: String(row.segment || "").toLowerCase(),
+                      })
+                    }
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{row.segment}</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">Avg {formatINR(row.avgLoanAmount || 0)}</div>
+                    </div>
+                    <div className="ml-3 text-sm font-bold text-slate-900 dark:text-slate-100">{row.total || 0}</div>
+                  </button>
+                ))}
+              </div>
+            </WidgetShell>
+          </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900">Custom Report Output</h2>
-            <div className="text-xs font-semibold text-slate-600">Rows: {customReportRows.length}</div>
-          </div>
-          <Table
-            rowKey={(row, idx) => row.loanId || row._id || `r-${idx}`}
-            columns={reportColumns}
-            dataSource={customReportRows}
-            size="small"
-            pagination={{ pageSize: 20, showSizeChanger: true }}
-            scroll={{ x: 1400 }}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <Tabs
+            className="analytics-tabs"
+            defaultActiveKey="customWidget"
+            items={[
+              {
+                key: "customWidget",
+                label: (
+                  <span className="flex items-center gap-2">
+                    <Filter size={14} />
+                    Custom Widget
+                  </span>
+                ),
+                children: (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                      <Select
+                        value={customWidgetConfig.metric}
+                        options={CUSTOM_WIDGET_METRICS}
+                        onChange={(v) =>
+                          setCustomWidgetConfig((prev) => ({ ...prev, metric: v }))
+                        }
+                      />
+                      <Select
+                        value={customWidgetConfig.groupBy}
+                        options={CUSTOM_WIDGET_GROUP_BY}
+                        onChange={(v) =>
+                          setCustomWidgetConfig((prev) => ({ ...prev, groupBy: v }))
+                        }
+                      />
+                      <Select
+                        value={customWidgetConfig.metricField}
+                        options={CUSTOM_WIDGET_FIELDS}
+                        onChange={(v) =>
+                          setCustomWidgetConfig((prev) => ({ ...prev, metricField: v }))
+                        }
+                      />
+                      <InputNumber
+                        min={1}
+                        max={200}
+                        value={customWidgetConfig.topN}
+                        onChange={(v) =>
+                          setCustomWidgetConfig((prev) => ({
+                            ...prev,
+                            topN: Number(v || 12),
+                          }))
+                        }
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <Button
+                      type="primary"
+                      className="rounded-xl !border-blue-600 !bg-blue-600 !text-white hover:!border-blue-700 hover:!bg-blue-700 dark:!border-blue-500 dark:!bg-blue-500 dark:hover:!border-blue-400 dark:hover:!bg-blue-400"
+                      loading={customWidgetLoading}
+                      onClick={runCustomWidget}
+                    >
+                      Build Widget
+                    </Button>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                      {customWidgetData.map((row) => (
+                        <div
+                          key={row.key}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
+                        >
+                          <div className="truncate text-xs font-semibold text-slate-600 dark:text-slate-400">
+                            {row.label}
+                          </div>
+                          <div className="text-lg font-black text-slate-900 dark:text-slate-100">
+                            {Number(row.value || 0).toLocaleString("en-IN")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: "customReport",
+                label: (
+                  <span className="flex items-center gap-2">
+                    <Database size={14} />
+                    Custom Report
+                  </span>
+                ),
+                children: (
+                  <div className="space-y-3">
+                    <Select
+                      mode="multiple"
+                      value={customReportConfig.fields}
+                      options={REPORT_FIELDS.map((f) => ({ label: f, value: f }))}
+                      onChange={(values) =>
+                        setCustomReportConfig((prev) => ({ ...prev, fields: values }))
+                      }
+                      maxTagCount="responsive"
+                      placeholder="Select fields for report output"
+                    />
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <Select
+                        value={customReportConfig.sortBy}
+                        options={REPORT_FIELDS.map((f) => ({ label: f, value: f }))}
+                        onChange={(v) =>
+                          setCustomReportConfig((prev) => ({ ...prev, sortBy: v }))
+                        }
+                      />
+                      <Select
+                        value={customReportConfig.sortDir}
+                        options={[
+                          { label: "Descending", value: "desc" },
+                          { label: "Ascending", value: "asc" },
+                        ]}
+                        onChange={(v) =>
+                          setCustomReportConfig((prev) => ({ ...prev, sortDir: v }))
+                        }
+                      />
+                      <InputNumber
+                        min={10}
+                        max={10000}
+                        value={customReportConfig.limit}
+                        onChange={(v) =>
+                          setCustomReportConfig((prev) => ({
+                            ...prev,
+                            limit: Number(v || 300),
+                          }))
+                        }
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                    <Button
+                      type="primary"
+                      className="rounded-xl !border-blue-600 !bg-blue-600 !text-white hover:!border-blue-700 hover:!bg-blue-700 dark:!border-blue-500 dark:!bg-blue-500 dark:hover:!border-blue-400 dark:hover:!bg-blue-400"
+                      loading={customReportLoading}
+                      onClick={runCustomReport}
+                    >
+                      Generate Report
+                    </Button>
+                    <div className="analytics-report-panel rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                      <div className="analytics-report-toolbar mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Report Output</div>
+                        <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
+                          <Input
+                            allowClear
+                            value={customReportSearch}
+                            onChange={(e) => setCustomReportSearch(e.target.value)}
+                            placeholder="Search across generated report rows"
+                            className="analytics-report-search w-full md:w-80"
+                          />
+                          <div className="analytics-report-stats inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            <span>Rows: {filteredReportRows.length}</span>
+                            <span className="text-slate-400 dark:text-slate-500">•</span>
+                            <span>Cols: {(customReportMeta?.fields || customReportConfig.fields || []).length}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Table
+                        className="analytics-table"
+                        rowKey={(row, idx) => row.loanId || row._id || `r-${idx}`}
+                        columns={reportColumns}
+                        dataSource={filteredReportRows}
+                        size="small"
+                        pagination={{ pageSize: 20, showSizeChanger: true }}
+                        rowClassName={(_, index) => (index % 2 ? "analytics-report-row-alt" : "")}
+                        scroll={{ x: 1400 }}
+                      />
+                    </div>
+                  </div>
+                ),
+              },
+            ]}
           />
         </section>
       </Spin>
 
       <Modal
+        className="analytics-modal"
+        wrapClassName="analytics-modal-wrap"
         title={drillTitle}
         open={drillOpen}
         onCancel={() => setDrillOpen(false)}
@@ -1034,6 +1757,7 @@ const AnalyticsDashboard = () => {
       >
         <Spin spinning={drillLoading}>
           <Table
+            className="analytics-table"
             rowKey={(row) => row._id || row.loanId}
             columns={drillColumns}
             dataSource={drillRows}
