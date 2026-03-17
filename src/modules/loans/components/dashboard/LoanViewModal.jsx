@@ -632,7 +632,17 @@ const extractChequeRows = (data) => {
       favouring: data?.[`cheque_${i}_favouring`],
       signedBy: data?.[`cheque_${i}_signedBy`],
     };
-    if (Object.values(row).some((v) => hasValue(v))) rows.push(row);
+    const hasChequeData = [
+      row.number,
+      row.bankName,
+      row.accountNumber,
+      row.date,
+      row.amount,
+      row.tag,
+      row.favouring,
+      row.signedBy,
+    ].some((v) => hasValue(v));
+    if (hasChequeData) rows.push(row);
   }
   return rows;
 };

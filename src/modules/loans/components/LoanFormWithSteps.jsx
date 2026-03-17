@@ -242,6 +242,58 @@ const convertDatesToStringsDeep = (obj) => {
   return obj;
 };
 
+const INSTRUMENT_FIELD_KEYS = [
+  "instrumentType",
+  "si_accountNumber",
+  "si_signedBy",
+  "si_image",
+  "nach_accountNumber",
+  "nach_signedBy",
+  "nach_image",
+  "ecs_micrCode",
+  "ecs_bankName",
+  "ecs_accountNumber",
+  "ecs_date",
+  "ecs_amount",
+  "ecs_tag",
+  "ecs_favouring",
+  "ecs_signedBy",
+  "ecs_image",
+  ...Array.from({ length: 30 }, (_, idx) => idx + 1).flatMap((i) => [
+    `cheque_${i}_number`,
+    `cheque_${i}_bankName`,
+    `cheque_${i}_accountNumber`,
+    `cheque_${i}_date`,
+    `cheque_${i}_amount`,
+    `cheque_${i}_tag`,
+    `cheque_${i}_favouring`,
+    `cheque_${i}_signedBy`,
+    `cheque_${i}_image`,
+  ]),
+];
+
+const hasInstrumentValues = (record) => {
+  if (!record || typeof record !== "object") return false;
+  return INSTRUMENT_FIELD_KEYS.some((key) => {
+    const value = record[key];
+    return value !== undefined && value !== null && String(value).trim() !== "";
+  });
+};
+
+const mergeInstrumentFallback = (payload, loadedLoan) => {
+  if (!loadedLoan || typeof loadedLoan !== "object") return payload;
+  if (hasInstrumentValues(payload)) return payload;
+  if (!hasInstrumentValues(loadedLoan)) return payload;
+
+  const merged = { ...payload };
+  INSTRUMENT_FIELD_KEYS.forEach((key) => {
+    if (merged[key] === undefined && loadedLoan[key] !== undefined) {
+      merged[key] = loadedLoan[key];
+    }
+  });
+  return merged;
+};
+
 const normalizeIdentityValue = (value) =>
   String(value || "")
     .trim()
@@ -637,14 +689,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const loadedLoanRef = React.useRef(null);
 
-  // If financing is set to No, always force delivery step
+  // In cash cases, block only unavailable stages (keep profile/prefile/delivery usable).
   React.useEffect(() => {
     if (
       watchedIsFinanced === "No" &&
-      ["prefile", "approval", "postfile", "payout"].includes(activeStep)
+      ["approval", "postfile", "payout"].includes(activeStep)
     ) {
-      setActiveStep("profile");
+      setActiveStep("delivery");
     }
   }, [watchedIsFinanced, activeStep]);
 
@@ -1065,6 +1118,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         }
 
         if (!mounted) return;
+        loadedLoanRef.current = loan || null;
 
         const hydratedLoan = {
           ...(loan || {}),
@@ -1497,8 +1551,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         approval_banksData: banksData,
       };
 
-      // if new create, backend should set createdAt
-      return payload;
+      return mergeInstrumentFallback(payload, loadedLoanRef.current);
     },
     [activeStep, banksData, form, syncPrimaryApprovalToForm],
   );
@@ -1975,15 +2028,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const handleProcessLoan = async () => {
     const success = await handleSaveLoan(false);
     if (!success) return;
-    
-    if (isCashCase) setActiveStep("delivery");
-    else setActiveStep("prefile");
+
+    setActiveStep("prefile");
   };
 
   const handleMoveToApproval = async () => {
     const success = await handleSaveLoan(false);
     if (!success) return;
-    
+
     if (isCashCase) setActiveStep("delivery");
     else setActiveStep("approval");
   };
@@ -2103,6 +2155,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const handleMoveToDelivery = async () => {
     const success = await handleSaveLoan(false);
     if (success) setActiveStep("delivery");
+  };
+
+  const handleMoveToPostFile = async () => {
+    const success = await handleSaveLoan(false);
+    if (success) setActiveStep("postfile");
+  };
+
+  const handleMoveToPayout = async () => {
+    const success = await handleSaveLoan(false);
+    if (success) setActiveStep("payout");
   };
 
   const handleCloseLead = () => {
@@ -2548,12 +2610,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             onDiscard={handleDiscard}
             onPrint={handlePrint}
             onClearForm={handleClearForm}
-            onProcessLoan={isCashCase ? handleMoveToDelivery : handleProcessLoan}
+            onProcessLoan={handleProcessLoan}
             onMoveToApproval={handleMoveToApproval}
             onDisburseLoan={handleDisburseLoan}
-            onMoveToPostFile={() => setActiveStep("postfile")}
+            onMoveToPostFile={handleMoveToPostFile}
             onMoveToDelivery={handleMoveToDelivery}
-            onMoveToPayout={() => setActiveStep("payout")}
+            onMoveToPayout={handleMoveToPayout}
             onCloseLead={handleCloseLead}
             approvedBanks={banksData.filter((b) => b.status === "Approved")}
             hasDisbursed={banksData.some((b) => b.status === "Disbursed")}
