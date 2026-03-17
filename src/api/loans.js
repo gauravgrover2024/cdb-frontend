@@ -7,6 +7,18 @@ export const loansApi = {
   getDashboardStats: async () => {
     return await apiClient.get("/api/loans/dashboard/stats");
   },
+  getAnalyticsOverview: async (params = {}) => {
+    return await apiClient.get("/api/loans/analytics/overview", { params });
+  },
+  getAnalyticsDrilldown: async (params = {}) => {
+    return await apiClient.get("/api/loans/analytics/drilldown", { params });
+  },
+  createCustomWidget: async (body = {}) => {
+    return await apiClient.post("/api/loans/analytics/custom-widget", body);
+  },
+  createCustomReport: async (body = {}) => {
+    return await apiClient.post("/api/loans/analytics/custom-report", body);
+  },
 
   getById: async (id) => {
     return await apiClient.get(`/api/loans/${id}`);
