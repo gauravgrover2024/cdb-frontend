@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -29,6 +29,8 @@ const { Text, Title } = Typography;
 const MAX_MATRIX_TARGET_SLOTS = 25;
 const BULK_POST_MAX_RETRIES = 2;
 const BULK_POST_INTER_CASE_DELAY_MS = 80;
+const BULK_POST_CONCURRENCY = 6;
+const BULK_POST_PRELOAD_PAGE_SIZE = 250;
 const DEFAULT_LIVE_POST_URL = `${String(API_BASE_URL || "https://cdb-api.vercel.app").replace(/\/+$/, "")}/api/loans`;
 const MATRIX_ROLE_OPTIONS = [
   { label: "Mapping", value: "Mapping" },
@@ -1733,7 +1735,10 @@ const FieldMappingPage = () => {
   const [livePostLoading, setLivePostLoading] = useState(false);
   const [livePostStatus, setLivePostStatus] = useState("");
   const [livePostResponse, setLivePostResponse] = useState("");
+  const [liveBulkPaused, setLiveBulkPaused] = useState(false);
   const [postedCaseBackendIds, setPostedCaseBackendIds] = useState({});
+  const liveBulkPausedRef = useRef(false);
+  const liveBulkPauseWaitersRef = useRef([]);
   const [draftReady, setDraftReady] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showLegacyMatrix, setShowLegacyMatrix] = useState(true);
@@ -1748,6 +1753,15 @@ const FieldMappingPage = () => {
     })),
   );
   const [postMappedOnly, setPostMappedOnly] = useState(true);
+
+  useEffect(() => {
+    liveBulkPausedRef.current = liveBulkPaused;
+    if (!liveBulkPaused && liveBulkPauseWaitersRef.current.length) {
+      const waiters = [...liveBulkPauseWaitersRef.current];
+      liveBulkPauseWaitersRef.current = [];
+      waiters.forEach((resolve) => resolve());
+    }
+  }, [liveBulkPaused]);
 
   useEffect(() => {
     let mounted = true;
@@ -4225,7 +4239,13 @@ const FieldMappingPage = () => {
     return stringifyValue(getValueFromCaseMerged(selectedCaseMerged, selectedSource));
   }, [selectedCaseMerged, selectedSource]);
 
-  const postCaseEntryLive = async ({ caseKey, inputPayload, backendIdCache }) => {
+  const postCaseEntryLive = async ({
+    caseKey,
+    inputPayload,
+    backendIdCache,
+    allowRemoteResolve = true,
+    resolveBackendIdByIdentifiers = null,
+  }) => {
     const payload = { ...(inputPayload || {}) };
     const hasCustomerLikeName =
       isMeaningfulValue(payload?.customerName) ||
@@ -4306,7 +4326,11 @@ const FieldMappingPage = () => {
     };
 
     let resolvedBackendId = isMongoId(backendIdCache?.[caseKey]) ? backendIdCache[caseKey] : "";
-    if (!resolvedBackendId) {
+    if (!resolvedBackendId && typeof resolveBackendIdByIdentifiers === "function") {
+      resolvedBackendId = await resolveBackendIdByIdentifiers(payload, caseKey);
+      if (resolvedBackendId) backendIdCache[caseKey] = resolvedBackendId;
+    }
+    if (!resolvedBackendId && allowRemoteResolve) {
       resolvedBackendId = await resolveExistingBackendIdByCase(caseKey);
       if (resolvedBackendId) backendIdCache[caseKey] = resolvedBackendId;
     }
@@ -4423,64 +4447,212 @@ const FieldMappingPage = () => {
     }
 
     setLivePostLoading(true);
+    setLiveBulkPaused(false);
     setLivePostStatus("");
     setLivePostResponse("");
 
     try {
+      const waitIfPaused = async () => {
+        while (liveBulkPausedRef.current) {
+          await new Promise((resolve) => {
+            liveBulkPauseWaitersRef.current.push(resolve);
+          });
+        }
+      };
+      const normalizeIdentifierValue = (value) =>
+        String(value === undefined || value === null ? "" : value)
+          .trim()
+          .replace(/\s+/g, " ")
+          .toUpperCase();
+      const addIdentifier = (set, prefix, value) => {
+        const normalized = normalizeIdentifierValue(value);
+        if (!normalized) return;
+        set.add(`${prefix}:${normalized}`);
+      };
+      const collectIdentifierKeysFromDoc = (doc, caseIdHint = "") => {
+        const keys = new Set();
+        const row = doc || {};
+        const meta = row?.__importMeta || row?.importMeta || {};
+
+        addIdentifier(keys, "case", caseIdHint);
+        addIdentifier(keys, "case", meta?.caseId);
+        if (Array.isArray(meta?.aliases)) {
+          meta.aliases.forEach((alias) => addIdentifier(keys, "case", alias));
+        }
+        if (Array.isArray(meta?.identifiers)) {
+          meta.identifiers.forEach((identifier) => addIdentifier(keys, "id", identifier));
+        }
+
+        [
+          row.loanId,
+          row.loan_id,
+          row.loanNumber,
+          row.loan_number,
+          row?.loan?.loanId,
+          row?.loan?.loanNumber,
+        ].forEach((value) => addIdentifier(keys, "loan", value));
+
+        [
+          row.temp_cust_code,
+          row.tempCustCode,
+          row?.__importMeta?.tempCustCode,
+          row?.__importMeta?.temp_cust_code,
+        ].forEach((value) => addIdentifier(keys, "temp", value));
+
+        [
+          row.cdb_account_no,
+          row.cdbAccountNo,
+          row?.__importMeta?.cdbAccountNo,
+          row?.__importMeta?.cdb_account_no,
+        ].forEach((value) => addIdentifier(keys, "cdb", value));
+
+        [
+          row.cpv_account_no,
+          row.cpvAccountNo,
+          row?.__importMeta?.cpvAccountNo,
+          row?.__importMeta?.cpv_account_no,
+        ].forEach((value) => addIdentifier(keys, "cpv", value));
+
+        return [...keys];
+      };
+      const extractLoanRows = (parsed) => {
+        if (!parsed) return [];
+        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed?.data)) return parsed.data;
+        if (Array.isArray(parsed?.loans)) return parsed.loans;
+        if (Array.isArray(parsed?.results)) return parsed.results;
+        if (Array.isArray(parsed?.items)) return parsed.items;
+        return [];
+      };
+      const fetchJson = async (endpointUrl) => {
+        const res = await fetch(endpointUrl, { method: "GET" });
+        const text = await res.text();
+        let parsed = text;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          // keep text
+        }
+        return { res, parsed };
+      };
+      const isMongoId = (v) => /^[a-fA-F0-9]{24}$/.test(String(v || ""));
+      const baseUrl = livePostUrl.replace(/\/+$/, "");
       const backendIdCache = { ...postedCaseBackendIds };
-      const rows = [];
+      const backendLookupByIdentifier = new Map();
       const total = scopedCanonicalCaseIds.length;
-      let processed = 0;
-
-      for (const caseKey of scopedCanonicalCaseIds) {
-        processed += 1;
-        setLivePostStatus(`BULK posting ${processed}/${total} (case ${caseKey})...`);
-        const payload = buildMappedLoanDoc(caseKey, {
-          includeAllFields: !postMappedOnly,
-          includeSafetyFallback: false,
-        });
-        let result = null;
-        let lastError = "";
-
-        for (let attempt = 1; attempt <= BULK_POST_MAX_RETRIES + 1; attempt += 1) {
-          try {
-            result = await postCaseEntryLive({
-              caseKey,
-              inputPayload: payload,
-              backendIdCache,
-            });
-            if (result?.ok || attempt > BULK_POST_MAX_RETRIES) break;
-            lastError = result?.responseText || "";
-          } catch (e) {
-            lastError = String(e?.message || e);
-            if (attempt > BULK_POST_MAX_RETRIES) break;
+      const rememberBackendMatch = (doc, backendId, caseIdHint = "") => {
+        if (!isMongoId(backendId)) return;
+        collectIdentifierKeysFromDoc(doc, caseIdHint).forEach((key) => {
+          if (!backendLookupByIdentifier.has(key)) {
+            backendLookupByIdentifier.set(key, String(backendId));
           }
-          await sleep(300 * attempt);
-        }
-
-        if (!result) {
-          result = {
-            ok: false,
-            action: "-",
-            statusLine: "request_failed",
-            backendId: backendIdCache[caseKey] || "",
-            responseText: lastError || "Unknown error",
-          };
-        }
-
-        rows.push({
-          caseId: caseKey,
-          ok: result.ok,
-          action: result.action || "-",
-          status: result.statusLine,
-          backendId: result.backendId || "",
-          message: result.ok ? "" : result.responseText,
         });
-
-        if (BULK_POST_INTER_CASE_DELAY_MS > 0) {
-          await sleep(BULK_POST_INTER_CASE_DELAY_MS);
+      };
+      const resolveBackendIdByIdentifiers = async (doc, caseIdHint = "") => {
+        const keys = collectIdentifierKeysFromDoc(doc, caseIdHint);
+        for (const key of keys) {
+          const hit = backendLookupByIdentifier.get(key);
+          if (hit && isMongoId(hit)) return String(hit);
         }
+        return "";
+      };
+
+      setLivePostStatus("BULK preload: indexing existing backend cases...");
+      let skip = 0;
+      while (true) {
+        await waitIfPaused();
+        const preloadUrl = `${baseUrl}?limit=${BULK_POST_PRELOAD_PAGE_SIZE}&skip=${skip}`;
+        const probe = await fetchJson(preloadUrl);
+        if (!probe.res.ok) {
+          throw new Error(`Preload failed (${probe.res.status}): unable to index existing backend loans`);
+        }
+        const rows = extractLoanRows(probe.parsed);
+        if (!rows.length) break;
+        rows.forEach((row) => {
+          const backendId = row?._id || row?.data?._id || row?.loan?._id || "";
+          if (isMongoId(backendId)) rememberBackendMatch(row, String(backendId));
+        });
+        if (rows.length < BULK_POST_PRELOAD_PAGE_SIZE) break;
+        skip += BULK_POST_PRELOAD_PAGE_SIZE;
       }
+
+      const rowsByIndex = new Map();
+      let nextIndex = 0;
+      let finished = 0;
+      const workerCount = Math.max(1, Math.min(BULK_POST_CONCURRENCY, total));
+      const worker = async () => {
+        while (true) {
+          await waitIfPaused();
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+          if (currentIndex >= total) return;
+
+          const caseKey = scopedCanonicalCaseIds[currentIndex];
+          const payload = buildMappedLoanDoc(caseKey, {
+            includeAllFields: !postMappedOnly,
+            includeSafetyFallback: false,
+          });
+
+          if (!backendIdCache[caseKey]) {
+            const preloadedBackendId = await resolveBackendIdByIdentifiers(payload, caseKey);
+            if (preloadedBackendId) backendIdCache[caseKey] = preloadedBackendId;
+          }
+
+          let result = null;
+          let lastError = "";
+
+          for (let attempt = 1; attempt <= BULK_POST_MAX_RETRIES + 1; attempt += 1) {
+            await waitIfPaused();
+            try {
+              result = await postCaseEntryLive({
+                caseKey,
+                inputPayload: payload,
+                backendIdCache,
+                allowRemoteResolve: false,
+                resolveBackendIdByIdentifiers,
+              });
+              if (result?.ok || attempt > BULK_POST_MAX_RETRIES) break;
+              lastError = result?.responseText || "";
+            } catch (e) {
+              lastError = String(e?.message || e);
+              if (attempt > BULK_POST_MAX_RETRIES) break;
+            }
+            await sleep(300 * attempt);
+          }
+
+          if (!result) {
+            result = {
+              ok: false,
+              action: "-",
+              statusLine: "request_failed",
+              backendId: backendIdCache[caseKey] || "",
+              responseText: lastError || "Unknown error",
+            };
+          }
+
+          if (result.ok && result.backendId) {
+            rememberBackendMatch(payload, result.backendId, caseKey);
+          }
+
+          rowsByIndex.set(currentIndex, {
+            caseId: caseKey,
+            ok: result.ok,
+            action: result.action || "-",
+            status: result.statusLine,
+            backendId: result.backendId || "",
+            message: result.ok ? "" : result.responseText,
+          });
+
+          finished += 1;
+          setLivePostStatus(`BULK posting ${finished}/${total} (workers: ${workerCount})...`);
+          if (BULK_POST_INTER_CASE_DELAY_MS > 0) {
+            await sleep(BULK_POST_INTER_CASE_DELAY_MS);
+          }
+        }
+      };
+
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      const rows = scopedCanonicalCaseIds.map((_, index) => rowsByIndex.get(index)).filter(Boolean);
 
       setPostedCaseBackendIds((prev) => {
         const next = { ...prev };
@@ -4509,6 +4681,7 @@ const FieldMappingPage = () => {
       setLivePostResponse(String(e?.message || e));
       toast.error("Failed during bulk post.");
     } finally {
+      setLiveBulkPaused(false);
       setLivePostLoading(false);
     }
   };
@@ -5421,7 +5594,7 @@ const FieldMappingPage = () => {
             Posts the currently previewed mapped entry to your backend so you can validate real insertion/validation behavior.
           </Text>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2" style={{ marginTop: 10 }}>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-2" style={{ marginTop: 10 }}>
           <Input
             className="md:col-span-2"
             placeholder="Backend POST endpoint"
@@ -5433,6 +5606,13 @@ const FieldMappingPage = () => {
           </Button>
           <Button loading={livePostLoading} onClick={postAllEntriesLive}>
             Post All Cases
+          </Button>
+          <Button
+            disabled={!livePostLoading}
+            type={liveBulkPaused ? "primary" : "default"}
+            onClick={() => setLiveBulkPaused((prev) => !prev)}
+          >
+            {liveBulkPaused ? "Resume Bulk Post" : "Pause Bulk Post"}
           </Button>
         </div>
         <div style={{ marginTop: 10 }}>
@@ -5462,6 +5642,9 @@ const FieldMappingPage = () => {
             </Tag>
             <Tag color="cyan">
               Bulk scope: {scopedCanonicalCaseIds.length} case(s)
+            </Tag>
+            <Tag color={livePostLoading ? (liveBulkPaused ? "gold" : "green") : "default"}>
+              Bulk state: {livePostLoading ? (liveBulkPaused ? "Paused" : "Running") : "Idle"}
             </Tag>
             <Tag color="geekblue">
               Backend ID:{" "}
