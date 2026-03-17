@@ -29,7 +29,10 @@
     "dev": "react-scripts start",
     "build": "CI=false react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "customers:sync:dry": "node scripts/backfill-customers-v2.js",
+    "customers:sync": "ALLOW_CREATE_NEW_CUSTOMERS=true node scripts/backfill-customers-v2.js",
+    "db:indexes:customers": "node scripts/ensure-customer-loan-indexes.js"
   },
   "eslintConfig": {
     "extends": [

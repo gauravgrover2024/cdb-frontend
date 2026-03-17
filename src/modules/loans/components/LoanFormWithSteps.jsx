@@ -1882,6 +1882,77 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         strictNameMatch: true,
       });
 
+      const signatoryPayload = {
+        ...(formValues.signatorySameAsCoApplicant
+          ? {
+              customerName: formValues.co_customerName,
+              primaryMobile: formValues.co_primaryMobile,
+              residenceAddress: formValues.co_address,
+              pincode: formValues.co_pincode,
+              city: formValues.co_city,
+              dob: formValues.co_dob,
+              gender: formValues.co_gender,
+              designation: formValues.co_designation,
+              panNumber: formValues.co_pan,
+              aadhaarNumber: formValues.co_aadhaar,
+              aadharNumber: formValues.co_aadhaar,
+            }
+          : {}),
+        applicantType: "Individual",
+        customerName:
+          formValues.signatory_customerName ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_customerName : undefined),
+        primaryMobile:
+          formValues.signatory_primaryMobile ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_primaryMobile : undefined),
+        residenceAddress:
+          formValues.signatory_address ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_address : undefined),
+        pincode:
+          formValues.signatory_pincode ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_pincode : undefined),
+        city:
+          formValues.signatory_city ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_city : undefined),
+        dob:
+          formValues.signatory_dob ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_dob : undefined),
+        gender:
+          formValues.signatory_gender ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_gender : undefined),
+        designation:
+          formValues.signatory_designation ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_designation : undefined),
+        panNumber:
+          formValues.signatory_pan ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_pan : undefined),
+        aadhaarNumber:
+          formValues.signatory_aadhaar ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_aadhaar : undefined),
+        aadharNumber:
+          formValues.signatory_aadhaar ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_aadhaar : undefined),
+        customerType: "Authorised Signatory",
+        loan_notes: formValues.loan_notes,
+      };
+
+      await upsertCustomerRecord({
+        payload: signatoryPayload,
+        name:
+          formValues.signatory_customerName ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_customerName : undefined),
+        mobile:
+          formValues.signatory_primaryMobile ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_primaryMobile : undefined),
+        panNumber:
+          formValues.signatory_pan ||
+          (formValues.signatorySameAsCoApplicant ? formValues.co_pan : undefined),
+        idFieldName: "signatory_id",
+        createOnlyWithMobile: false,
+        respectCurrentId: false,
+        strictNameMatch: true,
+      });
+
       return primaryCustomerId;
     } catch (e) {
       console.error("Failed to sync customer profile:", e);
@@ -2383,6 +2454,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       <Form.Item name="customerId" hidden />
       <Form.Item name="dsaCode" hidden />
       <Form.Item name="co_id" hidden />
+      <Form.Item name="signatory_id" hidden />
       <Form.Item name="co_currentExperience" hidden />
       <Form.Item name="co_totalExperience" hidden />
       <Form.Item name="co_yearsAtCurrentResidence" hidden />

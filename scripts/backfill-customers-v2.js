@@ -10,7 +10,16 @@ const CUSTOMER_PAGE_SIZE = 500;
 const NAME_FUZZY_THRESHOLD = 0.9;
 const FETCH_RETRIES = 6;
 const FETCH_TIMEOUT_MS = 120000;
-const ALLOW_CREATE_NEW_CUSTOMERS = String(process.env.ALLOW_CREATE_NEW_CUSTOMERS || "false").toLowerCase() === "true";
+const ALLOW_CREATE_NEW_CUSTOMERS = String(process.env.ALLOW_CREATE_NEW_CUSTOMERS || "true").toLowerCase() !== "false";
+
+const firstMeaningful = (...vals) => vals.find((v) => isMeaningful(v));
+const pickReference = (body, key) => body?.[key] || {};
+
+function getLoanRecencyTs(loan) {
+  const updated = Date.parse(loan?.updatedAt || "") || 0;
+  const created = Date.parse(loan?.createdAt || "") || 0;
+  return Math.max(updated, created);
+}
 
 async function main() {
   ensureDir(OUT_DIR);
@@ -25,8 +34,8 @@ async function main() {
   const sortedLoans = loans
     .slice()
     .sort((a, b) => {
-      const ta = Date.parse(a?.createdAt || a?.updatedAt || 0) || 0;
-      const tb = Date.parse(b?.createdAt || b?.updatedAt || 0) || 0;
+      const ta = getLoanRecencyTs(a);
+      const tb = getLoanRecencyTs(b);
       return ta - tb;
     });
 
@@ -94,17 +103,38 @@ async function main() {
       });
       if (gu.unmatched) unmatchedQueue.push({ loanId: row.loanId || loanRef, role: "gu", ...gu.unmatched });
 
+      const signatory = await resolver.resolveAndMerge({
+        role: "signatory",
+        payload: buildSignatoryCustomerPayload(row),
+        name:
+          row.signatory_customerName ||
+          (row.signatorySameAsCoApplicant ? (row.co_customerName || row.co_name) : ""),
+        mobile:
+          row.signatory_primaryMobile ||
+          (row.signatorySameAsCoApplicant ? (row.co_primaryMobile || row.co_mobile) : ""),
+        panNumber:
+          row.signatory_pan ||
+          (row.signatorySameAsCoApplicant ? row.co_pan : ""),
+        aadhaar:
+          row.signatory_aadhaar ||
+          (row.signatorySameAsCoApplicant ? row.co_aadhaar : ""),
+        gst: row.gstNumber || "",
+        existingId: row.signatory_id,
+      });
+      if (signatory.unmatched) unmatchedQueue.push({ loanId: row.loanId || loanRef, role: "signatory", ...signatory.unmatched });
+
       const patch = {};
       const existingPrimary = stringify(row.customerId);
       if (primary.id && stringify(primary.id) !== existingPrimary) patch.customerId = primary.id;
       if (co.id && stringify(co.id) !== stringify(row.co_id)) patch.co_id = co.id;
       if (gu.id && stringify(gu.id) !== stringify(row.gu_id)) patch.gu_id = gu.id;
+      if (signatory.id && stringify(signatory.id) !== stringify(row.signatory_id)) patch.signatory_id = signatory.id;
 
-      if ((patch.co_id || patch.gu_id) && !patch.customerId) {
+      if ((patch.co_id || patch.gu_id || patch.signatory_id) && !patch.customerId) {
         patch.customerId = existingPrimary || primary.id || "";
       }
 
-      if (Object.keys(patch).length > 0 && loanRef && patch.customerId) {
+      if (Object.keys(patch).length > 0 && loanRef) {
         await apiPut(`/api/loans/${loanRef}`, patch);
         results.push({ action: "loan-updated", loanId: row.loanId || loanRef, patchKeys: Object.keys(patch) });
       } else {
@@ -208,7 +238,8 @@ function createResolver(initialCustomers) {
     if (!matched) matched = findBestMatch(idn, customers, aliasMap);
 
     if (!matched) {
-      if (!hasTwoCoreSignals(idn)) {
+      const weakRole = role === "co" || role === "gu" || role === "signatory";
+      if (!hasTwoCoreSignals(idn) && !(weakRole && hasWeakSecondarySignals(idn))) {
         return {
           id: null,
           warn: `${role}: skipped (insufficient identity signals) for "${name || ""}"`,
@@ -353,6 +384,11 @@ function hasTwoCoreSignals(n) {
   return count >= 2;
 }
 
+function hasWeakSecondarySignals(n) {
+  if (!n?.nameCore) return false;
+  return Boolean(n.mobile || n.pan || n.aadhaar || n.gst);
+}
+
 function registerAliases(customer, aliasMap) {
   const id = stringify(customer?._id || customer?.id);
   if (!id) return;
@@ -390,6 +426,9 @@ function isMeaningful(v) {
 }
 
 function buildPrimaryCustomerPayload(body) {
+  const ref1 = pickReference(body, "reference1");
+  const ref2 = pickReference(body, "reference2");
+  const salaryMonthly = firstMeaningful(body.salaryMonthly, body.monthlySalary, body.monthlyIncome);
   return pruneUndefined({
     applicantType: body.applicantType || "Individual",
     customerName: body.customerName,
@@ -433,9 +472,9 @@ function buildPrimaryCustomerPayload(body) {
     sameAsCurrentAddress: body.sameAsCurrentAddress,
     occupationType: body.occupationType,
     professionalType: body.professionalType,
-    monthlyIncome: body.monthlyIncome,
-    salaryMonthly: body.salaryMonthly || body.monthlySalary,
-    monthlySalary: body.monthlySalary || body.salaryMonthly,
+    monthlyIncome: firstMeaningful(body.monthlyIncome, body.salaryMonthly, body.monthlySalary),
+    salaryMonthly,
+    monthlySalary: firstMeaningful(body.monthlySalary, body.salaryMonthly, body.monthlyIncome),
     annualIncome: body.annualIncome,
     totalIncomeITR: body.totalIncomeITR,
     annualTurnover: body.annualTurnover,
@@ -467,18 +506,34 @@ function buildPrimaryCustomerPayload(body) {
     nomineeName: body.nomineeName,
     nomineeDob: body.nomineeDob,
     nomineeRelation: body.nomineeRelation,
-    reference1_name: body.reference1_name,
-    reference1_mobile: body.reference1_mobile,
-    reference1_address: body.reference1_address,
-    reference1_pincode: body.reference1_pincode,
-    reference1_city: body.reference1_city,
-    reference1_relation: body.reference1_relation,
-    reference2_name: body.reference2_name,
-    reference2_mobile: body.reference2_mobile,
-    reference2_address: body.reference2_address,
-    reference2_pincode: body.reference2_pincode,
-    reference2_city: body.reference2_city,
-    reference2_relation: body.reference2_relation,
+    reference1_name: firstMeaningful(body.reference1_name, ref1.name),
+    reference1_mobile: firstMeaningful(body.reference1_mobile, ref1.mobile),
+    reference1_address: firstMeaningful(body.reference1_address, ref1.address),
+    reference1_pincode: firstMeaningful(body.reference1_pincode, ref1.pincode),
+    reference1_city: firstMeaningful(body.reference1_city, ref1.city),
+    reference1_relation: firstMeaningful(body.reference1_relation, ref1.relation),
+    reference2_name: firstMeaningful(body.reference2_name, ref2.name),
+    reference2_mobile: firstMeaningful(body.reference2_mobile, ref2.mobile),
+    reference2_address: firstMeaningful(body.reference2_address, ref2.address),
+    reference2_pincode: firstMeaningful(body.reference2_pincode, ref2.pincode),
+    reference2_city: firstMeaningful(body.reference2_city, ref2.city),
+    reference2_relation: firstMeaningful(body.reference2_relation, ref2.relation),
+    reference1: {
+      name: firstMeaningful(body.reference1_name, ref1.name),
+      mobile: firstMeaningful(body.reference1_mobile, ref1.mobile),
+      address: firstMeaningful(body.reference1_address, ref1.address),
+      pincode: firstMeaningful(body.reference1_pincode, ref1.pincode),
+      city: firstMeaningful(body.reference1_city, ref1.city),
+      relation: firstMeaningful(body.reference1_relation, ref1.relation),
+    },
+    reference2: {
+      name: firstMeaningful(body.reference2_name, ref2.name),
+      mobile: firstMeaningful(body.reference2_mobile, ref2.mobile),
+      address: firstMeaningful(body.reference2_address, ref2.address),
+      pincode: firstMeaningful(body.reference2_pincode, ref2.pincode),
+      city: firstMeaningful(body.reference2_city, ref2.city),
+      relation: firstMeaningful(body.reference2_relation, ref2.relation),
+    },
     bankName: body.bankName,
     accountNumber: body.accountNumber,
     ifscCode: body.ifscCode || body.ifsc,
@@ -523,9 +578,16 @@ function buildCoApplicantCustomerPayload(body) {
     totalExperience: body.co_totalExperience,
     companyName: body.co_companyName,
     companyAddress: body.co_companyAddress || body.co_address,
+    employmentAddress: body.co_companyAddress || body.co_address,
     companyPincode: body.co_companyPincode || body.co_pincode,
+    employmentPincode: body.co_companyPincode || body.co_pincode,
     companyCity: body.co_companyCity || body.co_city,
+    employmentCity: body.co_companyCity || body.co_city,
     companyPhone: body.co_companyPhone,
+    employmentPhone: body.co_companyPhone,
+    monthlyIncome: body.co_monthlySalary || body.co_salaryMonthly,
+    salaryMonthly: body.co_salaryMonthly || body.co_monthlySalary,
+    monthlySalary: body.co_monthlySalary || body.co_salaryMonthly,
     residenceAddress: body.co_address,
     pincode: body.co_pincode,
     city: body.co_city,
@@ -562,9 +624,13 @@ function buildGuarantorCustomerPayload(body) {
     totalExperience: body.gu_totalExperience,
     companyName: body.gu_companyName,
     companyAddress: body.gu_companyAddress || body.gu_address,
+    employmentAddress: body.gu_companyAddress || body.gu_address,
     companyPincode: body.gu_companyPincode || body.gu_pincode,
+    employmentPincode: body.gu_companyPincode || body.gu_pincode,
     companyCity: body.gu_companyCity || body.gu_city,
+    employmentCity: body.gu_companyCity || body.gu_city,
     companyPhone: body.gu_companyPhone,
+    employmentPhone: body.gu_companyPhone,
     residenceAddress: body.gu_address,
     pincode: body.gu_pincode,
     city: body.gu_city,
@@ -572,6 +638,26 @@ function buildGuarantorCustomerPayload(body) {
     aadhaarNumber: body.gu_aadhaar,
     aadharNumber: body.gu_aadhaar,
     customerType: "Guarantor",
+    loan_notes: body.loan_notes,
+  });
+}
+
+function buildSignatoryCustomerPayload(body) {
+  const useCo = !!body.signatorySameAsCoApplicant;
+  return pruneUndefined({
+    applicantType: "Individual",
+    customerName: body.signatory_customerName || (useCo ? (body.co_customerName || body.co_name) : undefined),
+    primaryMobile: body.signatory_primaryMobile || (useCo ? (body.co_primaryMobile || body.co_mobile) : undefined),
+    residenceAddress: body.signatory_address || (useCo ? body.co_address : undefined),
+    pincode: body.signatory_pincode || (useCo ? body.co_pincode : undefined),
+    city: body.signatory_city || (useCo ? body.co_city : undefined),
+    dob: body.signatory_dob || (useCo ? body.co_dob : undefined),
+    designation: body.signatory_designation || (useCo ? body.co_designation : undefined),
+    panNumber: body.signatory_pan || (useCo ? body.co_pan : undefined),
+    aadhaarNumber: body.signatory_aadhaar || (useCo ? body.co_aadhaar : undefined),
+    aadharNumber: body.signatory_aadhaar || (useCo ? body.co_aadhaar : undefined),
+    gender: body.signatory_gender || (useCo ? body.co_gender : undefined),
+    customerType: "Authorised Signatory",
     loan_notes: body.loan_notes,
   });
 }

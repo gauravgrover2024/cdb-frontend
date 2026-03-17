@@ -781,10 +781,16 @@ const listPaneStyle = {
 
 const DEFAULT_IDENTIFIER_HINTS = [
   "CPV_ACCOUNT_NO",
+  "CDB_ACCOUNT_NO",
   "CDB_ACCOUNT_NUMBER",
+  "CDB_AC_NO",
+  "CDB_NO",
   "TEMP_CUST_CODE",
   "cpv_account_no",
+  "cdb_account_no",
   "cdb_account_number",
+  "cdb_ac_no",
+  "cdb_no",
   "temp_cust_code",
   "cpvNo",
   "cdbNo",
@@ -1001,6 +1007,31 @@ const stableStringify = (value) => {
 };
 
 const normalizeMapKey = (value) => String(value ?? "").trim().toLowerCase();
+
+const getIdentifierTailNorm = (path = "") => {
+  const parts = String(path || "").split(".");
+  const tail = parts[parts.length - 1] || path;
+  return normalizeKey(tail);
+};
+
+const isCpvIdentifierPath = (path = "") => {
+  const t = getIdentifierTailNorm(path);
+  return t === "cpvaccountno" || t === "cpvacno" || t === "cpvaccount";
+};
+
+const isStrongIdentifierPath = (path = "") => {
+  const t = getIdentifierTailNorm(path);
+  return (
+    t === "tempcustcode" ||
+    t === "cdbaccountno" ||
+    t === "cdbaccountnumber" ||
+    t === "cdbacno" ||
+    t === "cdbno"
+  );
+};
+
+const isStrictAutoIdentifierPath = (path = "") =>
+  isStrongIdentifierPath(path) || isCpvIdentifierPath(path);
 
 const applyNormalizationRule = (rawValue, rules = {}) => {
   const hasNonEmptyRule =
@@ -1847,11 +1878,20 @@ const FieldMappingPage = () => {
   const selectedIdentifierOptions = useMemo(() => {
     if (!identifierCandidates.length) return [];
 
-    const candidatesByNorm = new Map(
-      identifierCandidates.map((p) => [normalizeKey(p), p]),
-    );
+    const candidatesByTailNorm = new Map();
+    identifierCandidates.forEach((path) => {
+      const tailNorm = getIdentifierTailNorm(path);
+      const prev = candidatesByTailNorm.get(tailNorm);
+      // Prefer simpler/shorter path when multiple candidates map to same identifier tail.
+      if (!prev || String(path).length < String(prev).length) {
+        candidatesByTailNorm.set(tailNorm, path);
+      }
+    });
 
-    const defaults = DEFAULT_IDENTIFIER_HINTS.map((hint) => candidatesByNorm.get(normalizeKey(hint))).filter(Boolean);
+    const defaults = DEFAULT_IDENTIFIER_HINTS
+      .map((hint) => candidatesByTailNorm.get(normalizeKey(hint)))
+      .filter(Boolean)
+      .filter((path) => isStrictAutoIdentifierPath(path));
 
     return [...new Set(defaults)];
   }, [identifierCandidates]);
@@ -1861,8 +1901,26 @@ const FieldMappingPage = () => {
       return { aliasToCanonical: new Map(), caseGroups: new Map() };
     }
 
+    const getRecordIdEntries = (record) =>
+      identifierPaths
+        .map((path) => ({
+          path,
+          value: getValueByPath(record, path),
+        }))
+        .filter(
+          ({ value }) =>
+            value !== undefined &&
+            value !== null &&
+            String(value).trim() !== "",
+        )
+        .map(({ path, value }) => ({
+          path,
+          id: String(value).trim(),
+        }));
+
     const parent = new Map();
     const metaRows = [];
+    const idRankByValue = new Map();
 
     const init = (x) => {
       if (!parent.has(x)) parent.set(x, x);
@@ -1888,23 +1946,78 @@ const FieldMappingPage = () => {
       if (ra !== rb) parent.set(rb, ra);
     };
 
-    importedFiles.forEach((file) => {
+    const setIdRank = (id, rank) => {
+      const prev = idRankByValue.get(id);
+      if (prev === undefined || rank < prev) idRankByValue.set(id, rank);
+    };
+
+    const fileScores = importedFiles.map((file) => {
+      let anyIdRows = 0;
+      let strictIdRows = 0;
       file.records.forEach((record) => {
-        const ids = identifierPaths
-          .map((path) => getValueByPath(record, path))
-          .filter((v) => v !== undefined && v !== null && String(v).trim() !== "")
-          .map((v) => String(v).trim());
+        const idEntries = getRecordIdEntries(record);
+        if (!idEntries.length) return;
+        anyIdRows += 1;
+        if (idEntries.some(({ path }) => isStrictAutoIdentifierPath(path))) {
+          strictIdRows += 1;
+        }
+      });
+      const keyNorm = normalizeKey(file.key || file.name || "");
+      const cpvDetailBonus = keyNorm.includes("cpvdetail") ? 1 : 0;
+      return {
+        key: file.key,
+        anyIdRows,
+        strictIdRows,
+        cpvDetailBonus,
+        totalRows: file.records.length,
+      };
+    });
 
-        if (!ids.length) return;
+    const anchorFileKey = [...fileScores].sort((a, b) => {
+      if (a.cpvDetailBonus !== b.cpvDetailBonus) {
+        return b.cpvDetailBonus - a.cpvDetailBonus;
+      }
+      if (a.strictIdRows !== b.strictIdRows) return b.strictIdRows - a.strictIdRows;
+      if (a.anyIdRows !== b.anyIdRows) return b.anyIdRows - a.anyIdRows;
+      if (a.totalRows !== b.totalRows) return b.totalRows - a.totalRows;
+      return String(a.key || "").localeCompare(String(b.key || ""));
+    })[0]?.key;
 
-        ids.forEach((id) => init(id));
-        for (let i = 1; i < ids.length; i += 1) union(ids[0], ids[i]);
+    const anchorFile = importedFiles.find((f) => f.key === anchorFileKey);
+    if (!anchorFile) {
+      return { aliasToCanonical: new Map(), caseGroups: new Map() };
+    }
 
-        metaRows.push({
-          fileKey: file.key,
-          record,
-          ids,
-        });
+    // Pass 1: build canonical cases from anchor dataset only.
+    anchorFile.records.forEach((record) => {
+      const idEntries = getRecordIdEntries(record);
+      if (!idEntries.length) return;
+
+      idEntries.forEach(({ path, id }) => {
+        init(id);
+        if (isStrongIdentifierPath(path)) setIdRank(id, 0);
+        else if (isCpvIdentifierPath(path)) setIdRank(id, 2);
+        else setIdRank(id, 1);
+      });
+
+      // IMPORTANT:
+      // Do not let CPV identifiers collapse multiple CDB/TEMP cases.
+      // If any non-CPV identifier exists in a row, union only those.
+      // CPV-only rows still union among themselves.
+      const nonCpvIds = idEntries
+        .filter(({ path }) => !isCpvIdentifierPath(path))
+        .map(({ id }) => id);
+      const unionIds = (nonCpvIds.length ? nonCpvIds : idEntries.map(({ id }) => id))
+        .filter(Boolean);
+      const anchor = unionIds[0];
+      if (anchor) {
+        for (let i = 1; i < unionIds.length; i += 1) union(anchor, unionIds[i]);
+      }
+
+      metaRows.push({
+        fileKey: anchorFile.key,
+        record,
+        ids: [...new Set(idEntries.map(({ id }) => id))],
       });
     });
 
@@ -1927,7 +2040,12 @@ const FieldMappingPage = () => {
     const groups = new Map();
 
     byRoot.forEach((group) => {
-      const identifiers = [...group.identifiers].sort((a, b) => a.localeCompare(b));
+      const identifiers = [...group.identifiers].sort((a, b) => {
+        const ar = idRankByValue.get(a) ?? 9;
+        const br = idRankByValue.get(b) ?? 9;
+        if (ar !== br) return ar - br;
+        return a.localeCompare(b);
+      });
       const canonicalId = identifiers[0];
       const row = {
         canonicalId,
@@ -1937,6 +2055,35 @@ const FieldMappingPage = () => {
       groups.set(canonicalId, row);
       identifiers.forEach((id) => aliasMap.set(id, canonicalId));
     });
+
+    // Pass 2: attach non-anchor file records only to existing canonical cases.
+    importedFiles
+      .filter((file) => file.key !== anchorFile.key)
+      .forEach((file) => {
+        file.records.forEach((record) => {
+          const idEntries = getRecordIdEntries(record);
+          if (!idEntries.length) return;
+
+          const matchedCanonical = idEntries
+            .map(({ id }) => aliasMap.get(id))
+            .find(Boolean);
+          if (!matchedCanonical || !groups.has(matchedCanonical)) return;
+
+          const group = groups.get(matchedCanonical);
+          if (!group.recordsByFile[file.key]) group.recordsByFile[file.key] = [];
+          group.recordsByFile[file.key].push(record);
+
+          idEntries.forEach(({ path, id }) => {
+            if (!aliasMap.has(id)) {
+              aliasMap.set(id, matchedCanonical);
+              group.identifiers.push(id);
+            }
+            if (isStrongIdentifierPath(path)) setIdRank(id, 0);
+            else if (isCpvIdentifierPath(path)) setIdRank(id, 2);
+            else setIdRank(id, 1);
+          });
+        });
+      });
 
     return { aliasToCanonical: aliasMap, caseGroups: groups };
   }, [identifierPaths, importedFiles]);
@@ -2350,12 +2497,31 @@ const FieldMappingPage = () => {
   };
 
   const onAutoSelectIdentifiers = () => {
-    if (!selectedIdentifierOptions.length) {
+    const strictAuto = (selectedIdentifierOptions || []).filter((path) =>
+      isStrictAutoIdentifierPath(path),
+    );
+    if (!strictAuto.length) {
       toast.warning("No identifier-like fields detected yet.");
       return;
     }
 
-    setIdentifierPaths(selectedIdentifierOptions);
+    // Keep only strict identifier fields while auto-selecting to avoid noisy case explosion.
+    const strictExisting = (identifierPaths || []).filter((path) =>
+      isStrictAutoIdentifierPath(path),
+    );
+    const merged = [...new Set([...strictExisting, ...strictAuto])];
+    merged.sort((a, b) => {
+      const score = (path) => {
+        if (isStrongIdentifierPath(path)) return 0;
+        if (isCpvIdentifierPath(path)) return 1;
+        return 2;
+      };
+      const sa = score(a);
+      const sb = score(b);
+      if (sa !== sb) return sa - sb;
+      return String(a).localeCompare(String(b));
+    });
+    setIdentifierPaths(merged);
     setSelectedCaseIds([]);
     toast.success("Identifier fields auto-selected.");
   };
