@@ -76,6 +76,33 @@ const serializeDatesToISO = (obj = {}) => {
   return out;
 };
 
+const getLoanDisbursementDate = (loan = {}) => {
+  const candidates = [
+    loan?.approval_disbursedDate,
+    loan?.disbursement_date,
+    loan?.disbursementDate,
+    loan?.disbursedDate,
+    loan?.disburseDate,
+    loan?.postfile_disbursementDate,
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const parsed = dayjs(candidate);
+    if (parsed.isValid()) return parsed;
+  }
+  return null;
+};
+
+const isLegacyNewCarAutoCreateBlocked = (loan = {}) => {
+  const loanType = safeText(loan?.typeOfLoan || loan?.loanType)
+    .trim()
+    .toLowerCase();
+  if (loanType !== "new car") return false;
+  const disbDate = getLoanDisbursementDate(loan);
+  if (!disbDate) return false;
+  return disbDate.year() <= 2025;
+};
+
 const useDebounce = (value, delay = 800) => {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -92,7 +119,7 @@ const fetchDOByLoanId = async (loanId) => {
 };
 
 const saveDOByLoanId = async (loanId, payload) => {
-  await deliveryOrdersApi.update(loanId, payload);
+  return await deliveryOrdersApi.update(loanId, payload);
 };
 
 // -------------------------------------
@@ -111,8 +138,10 @@ const DeliveryOrderForm = () => {
   );
 
   const [hasLoadedDO, setHasLoadedDO] = useState(false);
+  const [hasLoadedLoanContext, setHasLoadedLoanContext] = useState(false);
   const [existingDO, setExistingDO] = useState(null);
   const lastSaveAtRef = useRef(0);
+  const legacyAutoCreateNoticeShownRef = useRef(false);
   const [loanData, setLoanData] = useState(null);
 
   // Load Loan from API (prefill) with localStorage fallback
@@ -158,12 +187,25 @@ const DeliveryOrderForm = () => {
       setLoanData(null);
     };
 
-    load();
+    load().finally(() => {
+      setHasLoadedLoanContext(true);
+    });
   }, [loanId]);
 
   // Load existing DO
   useEffect(() => {
     if (!loanId) return;
+    if (!hasLoadedLoanContext) return;
+
+    if (!loanData) {
+      setHasLoadedDO(true);
+      return;
+    }
+
+    if (isLegacyNewCarAutoCreateBlocked(loanData || {})) {
+      setHasLoadedDO(true);
+      return;
+    }
 
     const load = async () => {
       try {
@@ -186,7 +228,7 @@ const DeliveryOrderForm = () => {
     };
 
     load();
-  }, [loanId, form]);
+  }, [loanId, form, hasLoadedLoanContext, loanData]);
 
   // Prefill defaults ONLY when empty
   useEffect(() => {
@@ -229,10 +271,27 @@ const DeliveryOrderForm = () => {
 
   useEffect(() => {
     if (!loanId) return;
+    if (!hasLoadedLoanContext) return;
     if (!hasLoadedDO) return;
 
     const autosave = async () => {
       try {
+        const hasExistingDODoc = Boolean(
+          existingDO?._id || existingDO?.loanId || existingDO?.do_loanId,
+        );
+        if (!hasExistingDODoc && !loanData) return;
+        const blockLegacyAutoCreate =
+          !hasExistingDODoc && isLegacyNewCarAutoCreateBlocked(loanData || {});
+        if (blockLegacyAutoCreate) {
+          if (!legacyAutoCreateNoticeShownRef.current) {
+            legacyAutoCreateNoticeShownRef.current = true;
+            message.info(
+              "Auto DO creation is paused for New Car loans disbursed in 2025 or earlier.",
+            );
+          }
+          return;
+        }
+
         if (!debouncedValues || typeof debouncedValues !== "object") return;
 
         const values = serializeDatesToISO(debouncedValues);
@@ -252,7 +311,8 @@ const DeliveryOrderForm = () => {
           createdAt: existingDO?.createdAt || new Date().toISOString(),
         };
 
-        await saveDOByLoanId(finalLoanId, payload);
+        const saveRes = await saveDOByLoanId(finalLoanId, payload);
+        if (saveRes?.skipped || saveRes?.data === null) return;
         setExistingDO(payload);
 
         const now = Date.now();
@@ -265,7 +325,7 @@ const DeliveryOrderForm = () => {
     };
 
     autosave();
-  }, [loanId, hasLoadedDO, debouncedValues, existingDO, loanData]);
+  }, [loanId, hasLoadedLoanContext, hasLoadedDO, debouncedValues, existingDO, loanData]);
 
   // Actions
   const handleDiscardAndExit = () => {
@@ -295,7 +355,13 @@ const DeliveryOrderForm = () => {
         createdAt: existingDO?.createdAt || new Date().toISOString(),
       };
 
-      await saveDOByLoanId(finalLoanId, payload);
+      const saveRes = await saveDOByLoanId(finalLoanId, payload);
+      if (saveRes?.skipped || saveRes?.data === null) {
+        message.warning(
+          "DO creation is paused for New Car loans disbursed in 2025 or earlier.",
+        );
+        return;
+      }
       setExistingDO(payload);
 
       message.success("Delivery Order saved successfully ✅");

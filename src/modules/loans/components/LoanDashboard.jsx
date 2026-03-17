@@ -15,6 +15,10 @@ import Icon from "../../../components/AppIcon";
 import { loansApi } from "../../../api/loans";
 import { startNewLoanCase } from "../utils/startNewLoanCase";
 
+// Showroom hydration fires extra per-loan API calls and can slow dashboard loads.
+// Keep disabled by default; backend list payload should provide these fields directly.
+const SHOWROOM_HYDRATION_ENABLED = false;
+
 const PRIMARY_STAT_THEMES = {
   total: {
     card: "from-sky-500 to-indigo-600",
@@ -424,6 +428,7 @@ const LoanDashboard = () => {
 
   const hydrateMissingShowroomFields = useCallback(
     async (rows = []) => {
+      if (!SHOWROOM_HYDRATION_ENABLED) return;
       const candidates = rows
         .filter(
           (loan) =>
@@ -431,7 +436,7 @@ const LoanDashboard = () => {
             !hasMeaningfulText(loan?.delivery_dealerName) &&
             (loan?._id || loan?.loanId),
         )
-        .slice(0, 40);
+        .slice(0, 8);
       if (!candidates.length) return;
 
       const updates = await Promise.all(
@@ -603,7 +608,9 @@ const LoanDashboard = () => {
 
       setLoans(normalizedRows);
       setServerTotal(total);
-      void hydrateMissingShowroomFields(normalizedRows);
+      if (SHOWROOM_HYDRATION_ENABLED) {
+        void hydrateMissingShowroomFields(normalizedRows);
+      }
 
       const payloadSizeBytes = new Blob([JSON.stringify(payload || {})]).size;
       const payloadKB = Number((payloadSizeBytes / 1024).toFixed(1));

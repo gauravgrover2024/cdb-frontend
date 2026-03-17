@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, message } from "antd";
 import { useParams } from "react-router-dom";
+import dayjs from "dayjs";
 import { paymentsApi } from "../../../api/payments";
 import { loansApi } from "../../../api/loans";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
@@ -36,6 +37,31 @@ const getShowroomCommissionDate = (rows = []) => {
   return sorted[0].paymentDate;
 };
 
+const getLoanDisbursementDate = (loan = {}) => {
+  const candidates = [
+    loan?.approval_disbursedDate,
+    loan?.disbursement_date,
+    loan?.disbursementDate,
+    loan?.disbursedDate,
+    loan?.disburseDate,
+    loan?.postfile_disbursementDate,
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const parsed = dayjs(candidate);
+    if (parsed.isValid()) return parsed;
+  }
+  return null;
+};
+
+const shouldBlockLegacyAutoCreate = (loan = {}) => {
+  const loanType = norm(loan?.typeOfLoan || loan?.loanType);
+  if (loanType !== "new car") return false;
+  const disbDate = getLoanDisbursementDate(loan);
+  if (!disbDate) return false;
+  return disbDate.year() <= 2025;
+};
+
 // ---- API helpers (Mongo via Vercel API) ----
 const fetchPaymentByLoanId = async (loanId) => {
   const res = await paymentsApi.getByLoanId(loanId);
@@ -43,7 +69,7 @@ const fetchPaymentByLoanId = async (loanId) => {
 };
 
 const savePaymentByLoanId = async (loanId, payload) => {
-  await paymentsApi.update(loanId, payload);
+  return await paymentsApi.update(loanId, payload);
 };
 
 const useDebounce = (value, delay = 800) => {
@@ -108,10 +134,12 @@ const PaymentForm = () => {
   });
   const [isAutocreditsVerified, setIsAutocreditsVerified] = useState(false);
 
+  const [hasLoadedLoanContext, setHasLoadedLoanContext] = useState(false);
   const [hasLoadedPayments, setHasLoadedPayments] = useState(false);
 
   // Keep latest saved doc in memory (so we don't GET before every autosave)
   const [existingPayment, setExistingPayment] = useState(null);
+  const legacyAutoCreateNoticeShownRef = useRef(false);
 
   // Debounced values (prevents saving on every keystroke)
   const debouncedShowroomRows = useDebounce(showroomRows, 800);
@@ -133,37 +161,65 @@ const PaymentForm = () => {
     if (!loanId) return;
 
     const load = async () => {
+      let resolvedLoan = null;
       try {
         const loanRes = await loansApi.getById(loanId);
-        setLoan(loanRes?.data || null);
+        resolvedLoan = loanRes?.data || null;
+        setLoan(resolvedLoan);
       } catch (err) {
         const savedLoans = JSON.parse(
           localStorage.getItem("savedLoans") || "[]",
         );
         const foundLoan = (savedLoans || []).find((l) => l?.loanId === loanId);
-        setLoan(foundLoan || null);
+        resolvedLoan = foundLoan || null;
+        setLoan(resolvedLoan);
       }
 
-      try {
-        const doRes = await deliveryOrdersApi.getByLoanId(loanId);
-        setDoRec(doRes?.data || null);
-      } catch (err) {
-        const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
-        const foundDO =
-          (savedDOs || []).find((d) => d?.loanId === loanId) ||
-          (savedDOs || []).find((d) => d?.do_loanId === loanId);
-        setDoRec(foundDO || null);
+      if (!resolvedLoan) {
+        setDoRec(null);
+        return;
+      }
+
+      const blockLegacyAutoCreate = shouldBlockLegacyAutoCreate(resolvedLoan || {});
+      if (blockLegacyAutoCreate) {
+        setDoRec(null);
+      } else {
+        try {
+          const doRes = await deliveryOrdersApi.getByLoanId(loanId);
+          setDoRec(doRes?.data || null);
+        } catch (err) {
+          const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
+          const foundDO =
+            (savedDOs || []).find((d) => d?.loanId === loanId) ||
+            (savedDOs || []).find((d) => d?.do_loanId === loanId);
+          setDoRec(foundDO || null);
+        }
       }
     };
 
-    load();
+    load().finally(() => {
+      setHasLoadedLoanContext(true);
+    });
   }, [loanId]);
 
   // Load savedPayments (FULL DOC) from API
   useEffect(() => {
     if (!loanId) return;
+    if (!hasLoadedLoanContext) return;
 
     const load = async () => {
+      if (!loan) {
+        setExistingPayment(null);
+        setHasLoadedPayments(true);
+        return;
+      }
+
+      if (shouldBlockLegacyAutoCreate(loan || {})) {
+        setExistingPayment(null);
+        setHasLoadedPayments(true);
+        return;
+      }
+
       try {
         const found = await fetchPaymentByLoanId(loanId);
 
@@ -202,15 +258,32 @@ const PaymentForm = () => {
     };
 
     load();
-  }, [loanId]);
+  }, [loanId, hasLoadedLoanContext, loan]);
 
   // Autosave (FULL DOC) via API (Debounced + Single Document)
   useEffect(() => {
     if (!loanId) return;
+    if (!hasLoadedLoanContext) return;
     if (!hasLoadedPayments) return;
 
     const autosave = async () => {
       try {
+        const hasExistingPaymentDoc = Boolean(
+          existingPayment?._id || existingPayment?.loanId || existingPayment?.id,
+        );
+        if (!hasExistingPaymentDoc && !loan) return;
+        const blockLegacyAutoCreate =
+          !hasExistingPaymentDoc && shouldBlockLegacyAutoCreate(loan || {});
+        if (blockLegacyAutoCreate) {
+          if (!legacyAutoCreateNoticeShownRef.current) {
+            legacyAutoCreateNoticeShownRef.current = true;
+            message.info(
+              "Auto payment creation is paused for New Car loans disbursed in 2025 or earlier.",
+            );
+          }
+          return;
+        }
+
         const existing = existingPayment || null;
 
         // ---- Commission replicate logic: showroom -> autocredits ----
@@ -265,7 +338,8 @@ const PaymentForm = () => {
           isAutocreditsVerified: debouncedIsAutocreditsVerified,
         };
 
-        await savePaymentByLoanId(loanId, payload);
+        const saveRes = await savePaymentByLoanId(loanId, payload);
+        if (saveRes?.skipped || saveRes?.data === null) return;
 
         // update cache for next autosave
         setExistingPayment(payload);
@@ -285,7 +359,9 @@ const PaymentForm = () => {
     autosave();
   }, [
     loanId,
+    loan,
     hasLoadedPayments,
+    hasLoadedLoanContext,
     doRec,
     existingPayment,
     debouncedShowroomRows,

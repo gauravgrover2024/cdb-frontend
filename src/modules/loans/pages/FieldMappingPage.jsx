@@ -1552,9 +1552,24 @@ const isCompanyLikeValue = (value) => {
   ].some((k) => v.includes(k));
 };
 
+const isIndividualLikeValue = (value) => {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return false;
+  return (
+    v === "individual" ||
+    v === "ind" ||
+    v.includes("individual") ||
+    v.includes("personal")
+  );
+};
+
 const isCompanyProfileDoc = (doc) => {
   if (!doc || typeof doc !== "object") return false;
+  // Explicit individual profile should never be flipped to company just because
+  // an office/company field (e.g. OFF_NAME) contains LLP/PVT text.
+  if (isIndividualLikeValue(doc.applicantType) || isIndividualLikeValue(doc.hireType)) return false;
   if (isCompanyLikeValue(doc.applicantType)) return true;
+  if (isCompanyLikeValue(doc.hireType)) return true;
   if (isCompanyLikeValue(doc.constitutionType)) return true;
   if (isCompanyLikeValue(doc.companyType)) return true;
   if (isCompanyLikeValue(doc.companyName)) return true;
@@ -4263,7 +4278,14 @@ const FieldMappingPage = () => {
 
     const baseUrl = livePostUrl.replace(/\/+$/, "");
     const isMongoId = (v) => /^[a-fA-F0-9]{24}$/.test(String(v || ""));
-    if (!isMeaningfulValue(payload.customerName) && isMeaningfulValue(payload.companyName)) {
+    const individualFlow =
+      isIndividualLikeValue(payload?.applicantType) ||
+      isIndividualLikeValue(payload?.hireType);
+    if (
+      !individualFlow &&
+      !isMeaningfulValue(payload.customerName) &&
+      isMeaningfulValue(payload.companyName)
+    ) {
       payload.customerName = payload.companyName;
     }
     if (payload._id && !isMongoId(payload._id)) delete payload._id;
