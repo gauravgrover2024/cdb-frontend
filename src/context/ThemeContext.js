@@ -7,7 +7,7 @@ export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem("theme");
+    const saved = sessionStorage.getItem("theme");
     return saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches);
   });
 
@@ -15,12 +15,12 @@ export const ThemeProvider = ({ children }) => {
     const root = window.document.documentElement;
     if (isDarkMode) {
       root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
+      sessionStorage.setItem("theme", "dark");
       document.body.style.backgroundColor = "#000000";
       document.body.style.color = "#ffffff";
     } else {
       root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
+      sessionStorage.setItem("theme", "light");
       document.body.style.backgroundColor = "#ffffff";
       document.body.style.color = "#0f1419";
     }

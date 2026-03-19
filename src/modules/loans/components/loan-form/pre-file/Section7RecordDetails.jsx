@@ -164,15 +164,27 @@ const Section7RecordDetails = () => {
           </Form.Item>
         </Col>
 
-        {/* Row 2: Source Name, Reference Name, Reference Number */}
-        {recordSource && (
+        {/* Row 2: Source Name / Dealer Group + Reference */}
+        {recordSource === "Direct" && (
           <Col xs={24} md={8}>
             <Form.Item
-              label={recordSource === "Direct" ? "Source Name" : "Dealer / Channel"}
+              label="Source Name"
               name="sourceName"
               rules={[{ required: true, message: 'Required' }]}
             >
-              {recordSource === "Indirect" ? (
+              <Input placeholder="Enter name" className="h-10 rounded-lg" />
+            </Form.Item>
+          </Col>
+        )}
+
+        {recordSource === "Indirect" && (
+          <>
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Dealer / Channel"
+                name="sourceName"
+                rules={[{ required: true, message: 'Required' }]}
+              >
                 <AutoComplete
                   options={channelOptions}
                   onSearch={searchChannelPartners}
@@ -201,11 +213,33 @@ const Section7RecordDetails = () => {
                 >
                   <Input placeholder="Enter dealer/channel name" className="h-10 rounded-lg" />
                 </AutoComplete>
-              ) : (
-                <Input placeholder="Enter name" className="h-10 rounded-lg" />
-              )}
-            </Form.Item>
-          </Col>
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Dealer Mobile"
+                name="dealerMobile"
+                rules={[{ required: true, message: 'Required' }]}
+              >
+                <Input placeholder="Mobile No." className="h-10 rounded-lg" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item
+                label="Dealer Address"
+                name="dealerAddress"
+                rules={[{ required: true, message: 'Required' }]}
+              >
+                <Input.TextArea
+                  autoSize={{ minRows: 2, maxRows: 5 }}
+                  className="rounded-lg"
+                  placeholder="Enter full dealer address"
+                />
+              </Form.Item>
+            </Col>
+          </>
         )}
 
         <Col xs={24} md={8}>
@@ -228,19 +262,9 @@ const Section7RecordDetails = () => {
           </Form.Item>
         </Col>
 
-        {/* Row 3 (Indirect Flow): Mobile, Payout Choice, Payout %, Address */}
+        {/* Row 3 (Indirect Flow): Payout controls */}
         {recordSource === "Indirect" && (
           <>
-            <Col xs={24} md={6}>
-              <Form.Item
-                label="Dealer Mobile"
-                name="dealerMobile"
-                rules={[{ required: true, message: 'Required' }]}
-              >
-                <Input placeholder="Mobile No." className="h-10 rounded-lg" />
-              </Form.Item>
-            </Col>
-
             <Col xs={24} md={6}>
               <Form.Item
                 label="Payout Applicable"
@@ -265,27 +289,8 @@ const Section7RecordDetails = () => {
                     <Input placeholder="%" className="h-10 rounded-lg" suffix="%" />
                   </Form.Item>
                 </Col>
-                <Col xs={24} md={8}>
-                  <Form.Item
-                    label="Dealer Address"
-                    name="dealerAddress"
-                    rules={[{ required: true, message: 'Required' }]}
-                  >
-                    <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} className="rounded-lg" placeholder="Enter dealer address" />
-                  </Form.Item>
-                </Col>
               </>
-            ) : (
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Dealer Address"
-                  name="dealerAddress"
-                  rules={[{ required: true, message: 'Required' }]}
-                >
-                  <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} className="rounded-lg" placeholder="Enter full dealer address" />
-                </Form.Item>
-              </Col>
-            )}
+            ) : null}
           </>
         )}
 

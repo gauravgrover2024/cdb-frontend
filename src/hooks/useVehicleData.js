@@ -122,7 +122,7 @@ const readVehicleCache = (key, fallback) => {
     if (sessionValue !== null && sessionValue !== undefined) {
       return sessionValue;
     }
-    const localValue = parseCachePayload(localStorage.getItem(key));
+    const localValue = parseCachePayload(sessionStorage.getItem(key));
     if (localValue !== null && localValue !== undefined) {
       // Hydrate session cache for quicker current-tab reads.
       sessionStorage.setItem(
@@ -149,7 +149,7 @@ const writeVehicleCache = (key, value) => {
     // no-op
   }
   try {
-    localStorage.setItem(key, payload);
+    sessionStorage.setItem(key, payload);
   } catch {
     // no-op
   }

@@ -157,9 +157,65 @@ const getNestedReference = (loan, key) => {
   return row && typeof row === "object" ? row : {};
 };
 
+const normalizeIfsc = (value) =>
+  String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 11);
+
+const normalizeBankEntry = (entry = {}) => {
+  const ifscCode = normalizeIfsc(entry?.ifscCode || entry?.ifsc);
+  const accountSinceYears = Number(entry?.accountSinceYears);
+  const openedIn = Number(entry?.openedIn);
+  return {
+    bankName: String(entry?.bankName || "").trim(),
+    accountNumber: String(entry?.accountNumber || "").trim(),
+    ifscCode,
+    ifsc: ifscCode,
+    branch: String(entry?.branch || "").trim(),
+    accountType: String(entry?.accountType || "").trim(),
+    accountSinceYears: Number.isFinite(accountSinceYears) ? accountSinceYears : undefined,
+    openedIn: Number.isFinite(openedIn) ? openedIn : undefined,
+  };
+};
+
+const hasBankEntry = (entry = {}) =>
+  Boolean(
+    String(entry?.bankName || "").trim() ||
+      String(entry?.accountNumber || "").trim() ||
+      normalizeIfsc(entry?.ifscCode || entry?.ifsc) ||
+      String(entry?.branch || "").trim() ||
+      String(entry?.accountType || "").trim(),
+  );
+
+const buildBankDetailsFromLoan = (loan = {}) => {
+  const stored = Array.isArray(loan?.bankDetails) ? loan.bankDetails : [];
+  const primary = normalizeBankEntry({
+    bankName: loan?.bankName,
+    accountNumber: loan?.accountNumber,
+    ifscCode: loan?.ifscCode,
+    ifsc: loan?.ifsc,
+    branch: loan?.branch,
+    accountType: loan?.accountType,
+    accountSinceYears: loan?.accountSinceYears,
+    openedIn: loan?.openedIn,
+  });
+
+  const normalizedStored = stored
+    .map((entry) => normalizeBankEntry(entry))
+    .filter((entry) => hasBankEntry(entry));
+
+  const first = hasBankEntry(primary) ? primary : normalizedStored[0];
+  const additional = normalizedStored.slice(first ? 1 : 0);
+
+  return [first, ...additional].filter((entry) => hasBankEntry(entry)).slice(0, 3);
+};
+
 const buildPrimaryCustomerPayload = (loan) => {
   const reference1 = getNestedReference(loan, "reference1");
   const reference2 = getNestedReference(loan, "reference2");
+  const bankDetails = buildBankDetailsFromLoan(loan);
+  const primaryBank = bankDetails[0] || {};
 
   return pruneUndefined(
     cleanEmptyValues(
@@ -256,14 +312,19 @@ const buildPrimaryCustomerPayload = (loan) => {
         gstDocUrl: loan.gstDocUrl,
         addressProofDocUrl: loan.addressProofDocUrl,
 
-        bankName: loan.bankName,
-        accountNumber: loan.accountNumber,
-        ifscCode: loan.ifscCode,
-        ifsc: loan.ifscCode || loan.ifsc,
-        branch: loan.branch,
-        accountType: loan.accountType,
-        accountSinceYears: loan.accountSinceYears,
-        openedIn: loan.openedIn,
+        bankName: primaryBank.bankName || loan.bankName,
+        accountNumber: primaryBank.accountNumber || loan.accountNumber,
+        ifscCode: primaryBank.ifscCode || loan.ifscCode,
+        ifsc: primaryBank.ifsc || primaryBank.ifscCode || loan.ifscCode || loan.ifsc,
+        branch: primaryBank.branch || loan.branch,
+        accountType: primaryBank.accountType || loan.accountType,
+        accountSinceYears:
+          primaryBank.accountSinceYears !== undefined
+            ? primaryBank.accountSinceYears
+            : loan.accountSinceYears,
+        openedIn:
+          primaryBank.openedIn !== undefined ? primaryBank.openedIn : loan.openedIn,
+        bankDetails,
 
         reference1_name: loan.reference1_name || reference1.name,
         reference1_mobile: loan.reference1_mobile || reference1.mobile,
@@ -337,6 +398,30 @@ const buildCoApplicantCustomerPayload = (loan) =>
         monthlyIncome: firstMeaningful(loan.co_monthlySalary, loan.co_salaryMonthly),
         salaryMonthly: firstMeaningful(loan.co_salaryMonthly, loan.co_monthlySalary),
         monthlySalary: firstMeaningful(loan.co_monthlySalary, loan.co_salaryMonthly),
+        bankName: loan.co_bankName,
+        accountNumber: loan.co_accountNumber,
+        ifscCode: loan.co_ifscCode || loan.co_ifsc,
+        ifsc: loan.co_ifscCode || loan.co_ifsc,
+        branch: loan.co_branch,
+        accountType: loan.co_accountType,
+        bankDetails: hasBankEntry({
+          bankName: loan.co_bankName,
+          accountNumber: loan.co_accountNumber,
+          ifscCode: loan.co_ifscCode || loan.co_ifsc,
+          branch: loan.co_branch,
+          accountType: loan.co_accountType,
+        })
+          ? [
+              normalizeBankEntry({
+                bankName: loan.co_bankName,
+                accountNumber: loan.co_accountNumber,
+                ifscCode: loan.co_ifscCode || loan.co_ifsc,
+                ifsc: loan.co_ifscCode || loan.co_ifsc,
+                branch: loan.co_branch,
+                accountType: loan.co_accountType,
+              }),
+            ]
+          : [],
         customerType: "Co-Applicant",
         loan_notes: loan.loan_notes,
       }),

@@ -3,7 +3,7 @@ import { apiClient } from './client';
 // Fetch all employees/users
 export const getEmployees = async () => {
   try {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const response = await apiClient.get('/api/auth/users', {
       Authorization: `Bearer ${token}`
     });

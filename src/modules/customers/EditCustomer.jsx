@@ -7,6 +7,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { customersApi } from "../../api/customers";
 import Icon from "../../components/AppIcon";
 import { useFormAutoSave } from "../../utils/formDataProtection";
+import {
+  enrichPayloadWithBankDetails,
+  splitBankDetailsForFormValues,
+} from "../../utils/bankDetails";
 
 import PersonalDetails from "./customer-form/PersonalDetails";
 import EmploymentDetails from "./customer-form/EmploymentDetails";
@@ -133,7 +137,7 @@ const EditCustomer = () => {
   const { autoSaveStatus, clearSavedFormData, handleFormValuesChange } = useFormAutoSave(
     'CUSTOMER_FORM_DATA',
     form,
-    true // isEditMode = true, don't restore from localStorage
+    true // isEditMode = true, don't restore from sessionStorage
   );
 
   // Header height (for correct scroll offset)
@@ -245,14 +249,7 @@ const EditCustomer = () => {
           addressProofDocUrl: found.addressProofDocUrl || "",
           totalIncomeITR: found.totalIncomeITR ?? found.itrYears ?? "",
 
-          bankName: found.bankName || "",
-          accountNumber: found.accountNumber || "",
-          ifsc: found.ifsc || found.ifscCode || "",
-          ifscCode: found.ifscCode || found.ifsc || "",
-          branch: found.branch || "",
-          accountSinceYears: found.accountSinceYears ?? "",
-          openedIn: found.openedIn ?? "",
-          accountType: found.accountType || "",
+          ...splitBankDetailsForFormValues(found),
 
           // Support both nested (reference1) and flat (reference1_name) from API
           reference1: found.reference1 || (found.reference1_name != null || found.reference1_mobile != null ? {
@@ -430,7 +427,7 @@ const EditCustomer = () => {
         delete flat.reference2;
       }
 
-      const payload = {
+      let payload = {
         ...flat,
         dob: flat?.dob ? (dayjs.isDayjs(flat.dob) ? flat.dob.format("YYYY-MM-DD") : flat.dob) : "",
         nomineeDob: flat?.nomineeDob
@@ -457,6 +454,7 @@ const EditCustomer = () => {
         aadharNumber: flat?.aadharNumber || flat?.aadhaarNumber || "",
         updatedAt: new Date().toISOString(),
       };
+      payload = enrichPayloadWithBankDetails(payload);
 
       await updateCustomerById(id, payload);
 
@@ -464,8 +462,8 @@ const EditCustomer = () => {
       clearSavedFormData();
 
       // 🔗 IMPORTANT: Clear loan-related caches so linked loans reflect updated customer data
-      localStorage.removeItem('loan_form_draft');
-      localStorage.removeItem('loans_list_cache');
+      sessionStorage.removeItem('loan_form_draft');
+      sessionStorage.removeItem('loans_list_cache');
 
       message.success("Saved ✅");
     } catch (err) {

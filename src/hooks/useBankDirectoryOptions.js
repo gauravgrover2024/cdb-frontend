@@ -62,7 +62,7 @@ const mergeUniqueNames = (base, incoming) => {
 const readPersistedNames = () => {
   try {
     if (typeof window === "undefined") return [];
-    const raw = localStorage.getItem(BANK_DIRECTORY_CACHE_KEY);
+    const raw = sessionStorage.getItem(BANK_DIRECTORY_CACHE_KEY);
     const parsed = JSON.parse(raw || "[]");
     return Array.isArray(parsed) ? parsed.filter(Boolean).map((x) => String(x).trim()).filter(Boolean) : [];
   } catch {
@@ -73,7 +73,7 @@ const readPersistedNames = () => {
 const persistNames = (names) => {
   try {
     if (typeof window === "undefined") return;
-    localStorage.setItem(BANK_DIRECTORY_CACHE_KEY, JSON.stringify(names));
+    sessionStorage.setItem(BANK_DIRECTORY_CACHE_KEY, JSON.stringify(names));
   } catch {
     // ignore storage quota / private mode issues
   }

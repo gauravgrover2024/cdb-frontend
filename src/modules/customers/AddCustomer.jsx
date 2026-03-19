@@ -3,6 +3,7 @@ import { Form, message } from "antd";
 import { useNavigate } from "react-router-dom";
 import { customersApi } from "../../api/customers";
 import dayjs from "dayjs";
+import { enrichPayloadWithBankDetails } from "../../utils/bankDetails";
 
 
 import PersonalDetails from "./customer-form/PersonalDetails";
@@ -62,7 +63,7 @@ const formatDateForApi = (val) => {
 };
 
 const normalizeCustomerPayload = (values = {}, { includeCreatedOn = false } = {}) => {
-  const payload = {
+  let payload = {
     ...values,
     applicantType: values?.applicantType || "Individual",
     dob: formatDateForApi(values?.dob),
@@ -104,6 +105,8 @@ const normalizeCustomerPayload = (values = {}, { includeCreatedOn = false } = {}
       });
   }
 
+  payload = enrichPayloadWithBankDetails(payload);
+
   return payload;
 };
 
@@ -133,7 +136,7 @@ const AddCustomer = () => {
 
   const clearCustomerDraftCache = () => {
     try {
-      localStorage.removeItem("customer_form_draft");
+      sessionStorage.removeItem("customer_form_draft");
     } catch (e) {
       // ignore
     }

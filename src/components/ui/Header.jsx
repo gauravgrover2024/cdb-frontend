@@ -36,7 +36,7 @@ const Header = () => {
   let isSuperadmin = false;
   let userData = null;
   try {
-    userData = JSON.parse(localStorage.getItem("user"));
+    userData = JSON.parse(sessionStorage.getItem("user"));
     isSuperadmin = userData?.role === "superadmin";
   } catch {}
 
@@ -375,7 +375,7 @@ const Header = () => {
                   ],
                   onClick: ({ key }) => {
                     if (key === "logout") {
-                      localStorage.clear();
+                      sessionStorage.clear();
                       navigate("/login");
                     }
                   },
@@ -550,7 +550,7 @@ const Header = () => {
                 </button>
                 <button
                   onClick={() => {
-                    localStorage.clear();
+                    sessionStorage.clear();
                     navigate("/login");
                   }}
                   className="flex items-center justify-center gap-2 h-11 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all text-xs font-black uppercase tracking-wider"

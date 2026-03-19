@@ -3,6 +3,7 @@ import { Form, Input, DatePicker, Select, Row, Col, Tag, Spin, Switch, Radio, In
 import Icon from "../../../components/AppIcon";
 import { customersApi } from "../../../api/customers";
 import dayjs from "dayjs";
+import { splitBankDetailsForFormValues } from "../../../utils/bankDetails";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -395,14 +396,7 @@ const PersonalDetails = ({
         totalIncomeITR: pick(fullCustomer.totalIncomeITR, ""),
         
         // Banking
-        bankName: pick(fullCustomer.bankName, ""),
-        accountNumber: pick(fullCustomer.accountNumber, ""),
-        ifsc: pick(fullCustomer.ifsc, fullCustomer.ifscCode, ""),
-        ifscCode: pick(fullCustomer.ifscCode, fullCustomer.ifsc, ""),
-        branch: pick(fullCustomer.branch, ""),
-        accountType: pick(fullCustomer.accountType, ""),
-        accountSinceYears: pick(fullCustomer.accountSinceYears, ""),
-        openedIn: pick(fullCustomer.openedIn, ""),
+        ...splitBankDetailsForFormValues(fullCustomer),
         docsPreparedBy: pick(fullCustomer.docsPreparedBy, ""),
         
         // KYC

@@ -39,6 +39,13 @@ const getShowroomCommissionDate = (rows = []) => {
 
 const getLoanDisbursementDate = (loan = {}) => {
   const candidates = [
+    loan?.latestBusinessDate,
+    loan?.delivery_date,
+    loan?.deliveryDate,
+    loan?.do_date,
+    loan?.doDate,
+    loan?.invoice_date,
+    loan?.invoiceDate,
     loan?.approval_disbursedDate,
     loan?.disbursement_date,
     loan?.disbursementDate,
@@ -54,12 +61,12 @@ const getLoanDisbursementDate = (loan = {}) => {
   return null;
 };
 
+const LEGACY_CUTOFF = dayjs("2026-02-01T00:00:00.000Z");
+
 const shouldBlockLegacyAutoCreate = (loan = {}) => {
-  const loanType = norm(loan?.typeOfLoan || loan?.loanType);
-  if (loanType !== "new car") return false;
   const disbDate = getLoanDisbursementDate(loan);
   if (!disbDate) return false;
-  return disbDate.year() <= 2025;
+  return disbDate.isBefore(LEGACY_CUTOFF);
 };
 
 // ---- API helpers (Mongo via Vercel API) ----
@@ -156,7 +163,7 @@ const PaymentForm = () => {
   // Avoid toast spam
   const lastSaveAtRef = useRef(0);
 
-  // Load Loan + DO from API (fallback to localStorage if needed)
+  // Load Loan + DO from API (fallback to sessionStorage if needed)
   useEffect(() => {
     if (!loanId) return;
 
@@ -168,7 +175,7 @@ const PaymentForm = () => {
         setLoan(resolvedLoan);
       } catch (err) {
         const savedLoans = JSON.parse(
-          localStorage.getItem("savedLoans") || "[]",
+          sessionStorage.getItem("savedLoans") || "[]",
         );
         const foundLoan = (savedLoans || []).find((l) => l?.loanId === loanId);
         resolvedLoan = foundLoan || null;
@@ -188,7 +195,7 @@ const PaymentForm = () => {
           const doRes = await deliveryOrdersApi.getByLoanId(loanId);
           setDoRec(doRes?.data || null);
         } catch (err) {
-          const savedDOs = JSON.parse(localStorage.getItem("savedDOs") || "[]");
+          const savedDOs = JSON.parse(sessionStorage.getItem("savedDOs") || "[]");
           const foundDO =
             (savedDOs || []).find((d) => d?.loanId === loanId) ||
             (savedDOs || []).find((d) => d?.do_loanId === loanId);
@@ -278,7 +285,7 @@ const PaymentForm = () => {
           if (!legacyAutoCreateNoticeShownRef.current) {
             legacyAutoCreateNoticeShownRef.current = true;
             message.info(
-              "Auto payment creation is paused for New Car loans disbursed in 2025 or earlier.",
+              "Auto payment creation is paused for cases delivered/disbursed before 1 Feb 2026.",
             );
           }
           return;

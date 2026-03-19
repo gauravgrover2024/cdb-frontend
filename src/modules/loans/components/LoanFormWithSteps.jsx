@@ -37,6 +37,10 @@ import LoanStepperSidebar from "./LoanStepperSidebar";
 import Icon from "../../../components/AppIcon";
 import { loansApi } from "../../../api/loans";
 import { customersApi } from "../../../api/customers";
+import {
+  enrichPayloadWithBankDetails,
+  splitBankDetailsForFormValues,
+} from "../../../utils/bankDetails";
 
 // ... (existing imports/code) ...
 
@@ -1329,7 +1333,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               : loan?.companyPartners,
         };
 
-        const fixed = normalizeKnownDateFields(convertAnyDateToDayjsDeep(hydratedLoan));
+        const fixed = normalizeKnownDateFields(
+          convertAnyDateToDayjsDeep({
+            ...hydratedLoan,
+            ...splitBankDetailsForFormValues(hydratedLoan),
+          }),
+        );
         form.setFieldsValue(fixed);
 
 
@@ -1659,8 +1668,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         prefile_sourcePayoutPercentage: sanitized?.prefile_sourcePayoutPercentage ?? undefined,
         approval_banksData: banksData,
       };
-
-      return mergeInstrumentFallback(payload, loadedLoanRef.current);
+      const payloadWithBankDetails = enrichPayloadWithBankDetails(payload);
+      return mergeInstrumentFallback(payloadWithBankDetails, loadedLoanRef.current);
     },
     [activeStep, banksData, form, syncPrimaryApprovalToForm],
   );
@@ -1675,6 +1684,19 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const syncCustomerData = useCallback(async ({ allowCreate = true } = {}) => {
     try {
       const formValues = form.getFieldsValue(true);
+      const bankSyncPayload = enrichPayloadWithBankDetails({
+        bankName: formValues.bankName,
+        accountNumber: formValues.accountNumber,
+        ifscCode: formValues.ifscCode,
+        ifsc: formValues.ifsc,
+        branch: formValues.branch,
+        accountType: formValues.accountType,
+        accountSinceYears: formValues.accountSinceYears,
+        openedIn: formValues.openedIn,
+        bankDetails: formValues.bankDetails,
+        additionalBankDetails: formValues.additionalBankDetails,
+        hasAdditionalBankDetails: formValues.hasAdditionalBankDetails,
+      });
       const hasIdentityPair = ({ normalizedName, normalizedMobile, normalizedPan }) =>
         Boolean(
           (normalizedName && normalizedMobile) ||
@@ -1907,14 +1929,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         gstDocUrl: formValues.gstDocUrl,
         addressProofDocUrl: formValues.addressProofDocUrl,
 
-        bankName: formValues.bankName,
-        accountNumber: formValues.accountNumber,
-        ifscCode: formValues.ifscCode,
-        ifsc: formValues.ifscCode || formValues.ifsc,
-        branch: formValues.branch,
-        accountType: formValues.accountType,
-        accountSinceYears: formValues.accountSinceYears,
-        openedIn: formValues.openedIn,
+        bankName: bankSyncPayload.bankName,
+        accountNumber: bankSyncPayload.accountNumber,
+        ifscCode: bankSyncPayload.ifscCode,
+        ifsc: bankSyncPayload.ifscCode || bankSyncPayload.ifsc,
+        branch: bankSyncPayload.branch,
+        accountType: bankSyncPayload.accountType,
+        accountSinceYears: bankSyncPayload.accountSinceYears,
+        openedIn: bankSyncPayload.openedIn,
+        bankDetails: bankSyncPayload.bankDetails,
 
         reference1_name: formValues.reference1_name || formValues.reference1?.name,
         reference1_mobile: formValues.reference1_mobile || formValues.reference1?.mobile,
@@ -2055,8 +2078,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           clearSavedFormData();
 
           // 🔗 Clear customer-related caches so synced data shows everywhere
-          localStorage.removeItem('customer_form_draft');
-          localStorage.removeItem('customers_list_cache');
+          sessionStorage.removeItem('customer_form_draft');
+          sessionStorage.removeItem('customers_list_cache');
 
           if (!silent && result?.customerLinked?.createdNew) {
             message.success(
@@ -2084,8 +2107,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         clearSavedFormData();
 
         // 🔗 Clear customer-related caches so synced data shows everywhere
-        localStorage.removeItem('customer_form_draft');
-        localStorage.removeItem('customers_list_cache');
+        sessionStorage.removeItem('customer_form_draft');
+        sessionStorage.removeItem('customers_list_cache');
 
         if (shouldExit && !silent) navigate("/loans");
         return true;

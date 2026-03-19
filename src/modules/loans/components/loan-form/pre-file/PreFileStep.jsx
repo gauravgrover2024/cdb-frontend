@@ -4,6 +4,7 @@ import { ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
 import { customersApi } from "../../../../../api/customers";
+import { splitBankDetailsForFormValues } from "../../../../../utils/bankDetails";
 import PreFilePersonalDetails from "./PreFilePersonalDetails.jsx";
 
 const toDayjsSafe = (value) => {
@@ -86,11 +87,21 @@ const PreFileStep = () => {
           isMSME: freshCustomer.isMSME || form.getFieldValue("isMSME"),
           monthlyIncome: freshCustomer.monthlyIncome || form.getFieldValue("monthlyIncome"),
           salaryMonthly: freshCustomer.salaryMonthly || form.getFieldValue("salaryMonthly"),
-          bankName: freshCustomer.bankName || form.getFieldValue("bankName"),
-          accountNumber: freshCustomer.accountNumber || form.getFieldValue("accountNumber"),
-          ifsc: freshCustomer.ifsc || freshCustomer.ifscCode || form.getFieldValue("ifsc"),
-          ifscCode: freshCustomer.ifscCode || freshCustomer.ifsc || form.getFieldValue("ifscCode"),
-          openedIn: freshCustomer.openedIn || form.getFieldValue("openedIn"),
+          ...splitBankDetailsForFormValues({
+            ...form.getFieldsValue([
+              "bankName",
+              "accountNumber",
+              "ifsc",
+              "ifscCode",
+              "branch",
+              "accountType",
+              "accountSinceYears",
+              "openedIn",
+              "additionalBankDetails",
+              "hasAdditionalBankDetails",
+            ]),
+            ...freshCustomer,
+          }),
           hasCoApplicant: freshCustomer.hasCoApplicant ?? form.getFieldValue("hasCoApplicant"),
           hasGuarantor: freshCustomer.hasGuarantor ?? form.getFieldValue("hasGuarantor"),
 
@@ -198,11 +209,7 @@ const PreFileStep = () => {
         isMSME: freshCustomer.isMSME,
         monthlyIncome: freshCustomer.monthlyIncome,
         salaryMonthly: freshCustomer.salaryMonthly,
-        bankName: freshCustomer.bankName,
-        accountNumber: freshCustomer.accountNumber,
-        ifsc: freshCustomer.ifsc || freshCustomer.ifscCode,
-        ifscCode: freshCustomer.ifscCode || freshCustomer.ifsc,
-        openedIn: freshCustomer.openedIn,
+        ...splitBankDetailsForFormValues(freshCustomer),
         hasCoApplicant: freshCustomer.hasCoApplicant,
         hasGuarantor: freshCustomer.hasGuarantor,
         

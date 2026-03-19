@@ -18,9 +18,11 @@ import {
 } from "antd";
 import { CarOutlined } from "@ant-design/icons";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
+import { useVehicleRegistrationLookup } from "../../../../../hooks/useVehicleRegistrationLookup";
 import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 import { lenderHypothecationOptions } from "../../../../../constants/lenderHypothecationOptions";
+import { buildVehicleRecordAutofillPatch } from "../../../../../utils/vehicleRecordAutofill";
 import {
   INDIAN_CITY_OPTIONS,
   normalizeCityAlias,
@@ -125,6 +127,12 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   });
   const { options: showroomOptions, search: searchShowrooms } =
     useShowroomAutoSuggest({ limit: 25, brand: selectedBrandForShowroom });
+  const {
+    options: registrationLookupOptions,
+    loading: registrationLookupLoading,
+    search: searchRegistrationLookup,
+    resolveSelectedRecord: resolveSelectedRegistrationRecord,
+  } = useVehicleRegistrationLookup({ minChars: 2, limit: 20 });
 
   useEffect(() => {
     const make = form.getFieldValue("vehicleMake");
@@ -259,6 +267,15 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
       clearTimeout(timer);
     };
   }, [registrationPincode, form]);
+
+  const handleRegistrationSelect = (_, option) => {
+    const record = resolveSelectedRegistrationRecord(_, option);
+    if (!record) return;
+    const patch = buildVehicleRecordAutofillPatch(record, "vehicleRegNo");
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  };
 
   useEffect(() => {
     if (!isNewCar) return;
@@ -476,6 +493,30 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
         <Col span={isNewCar ? 15 : 24}>
             <Row gutter={[16, 12]}>
               {/* Make / Model / Variant / Fuel — COMMON to all types */}
+              {(isUsedCar || isCashIn || isRefinance) && (
+                <Col xs={24} md={6}>
+                  <Form.Item label="Vehicle Regd Number" name="vehicleRegNo">
+                    <AutoComplete
+                      options={registrationLookupOptions}
+                      onSearch={searchRegistrationLookup}
+                      onSelect={handleRegistrationSelect}
+                      filterOption={false}
+                      allowClear
+                    >
+                      <Input
+                        placeholder="e.g., DL01AB1234 (or last 4 digits)"
+                        suffix={
+                          registrationLookupLoading ? (
+                            <span className="text-[10px] text-muted-foreground animate-pulse">
+                              Searching...
+                            </span>
+                          ) : null
+                        }
+                      />
+                    </AutoComplete>
+                  </Form.Item>
+                </Col>
+              )}
               <Col xs={24} md={6}>
                 <Form.Item label="Make" name="vehicleMake">
                   <Select 
@@ -657,14 +698,6 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Select>
                 </Form.Item>
               </Col>
-
-              {(isUsedCar || isCashIn || isRefinance) && (
-                <Col xs={24} md={8}>
-                  <Form.Item label="Vehicle Regd Number" name="vehicleRegNo">
-                    <Input placeholder="e.g., DL01AB1234" />
-                  </Form.Item>
-                </Col>
-              )}
 
               {(isUsedCar || isCashIn || isRefinance) && (
                 <Col xs={24} md={8}>

@@ -3,9 +3,9 @@
  * Prevents data loss during page refresh and provides auto-save functionality
  * 
  * Features:
- * - Auto-save form data to localStorage periodically
+ * - Auto-save form data to sessionStorage periodically
  * - Warn user before leaving with unsaved changes
- * - Restore form data from localStorage on mount
+ * - Restore form data from sessionStorage on mount
  * - Clear saved data after successful save to server
  */
 
@@ -37,7 +37,7 @@ export const useFormAutoSave = (
   const storageKey = STORAGE_KEYS[formName] || `${formName}_draft`;
 
   /**
-   * Save current form data to localStorage
+   * Save current form data to sessionStorage
    */
   const saveToLocalStorage = React.useCallback((values) => {
     try {
@@ -50,7 +50,7 @@ export const useFormAutoSave = (
         values: stringified,
       };
 
-      localStorage.setItem(storageKey, JSON.stringify(data));
+      sessionStorage.setItem(storageKey, JSON.stringify(data));
       setAutoSaveStatus('saved');
       
       // Clear status after 3 seconds
@@ -69,15 +69,15 @@ export const useFormAutoSave = (
   }, [formName, storageKey, onAutoSave]);
 
   /**
-   * Get saved form data from localStorage
+   * Get saved form data from sessionStorage
    */
   const getSavedFormData = React.useCallback(() => {
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = sessionStorage.getItem(storageKey);
       if (!saved) return null;
 
       const data = JSON.parse(saved);
-      console.log(`📂 Retrieved saved ${formName} from localStorage:`, data);
+      console.log(`📂 Retrieved saved ${formName} from sessionStorage:`, data);
       return data.values || null;
     } catch (err) {
       console.error(`❌ Failed to retrieve ${formName}:`, err);
@@ -86,12 +86,12 @@ export const useFormAutoSave = (
   }, [formName, storageKey]);
 
   /**
-   * Clear saved form data from localStorage
+   * Clear saved form data from sessionStorage
    */
   const clearSavedFormData = React.useCallback(() => {
     try {
-      localStorage.removeItem(storageKey);
-      console.log(`🗑️ Cleared saved ${formName} from localStorage`);
+      sessionStorage.removeItem(storageKey);
+      console.log(`🗑️ Cleared saved ${formName} from sessionStorage`);
       return true;
     } catch (err) {
       console.error(`❌ Failed to clear ${formName}:`, err);
@@ -107,7 +107,7 @@ export const useFormAutoSave = (
     if (!form) return false;
 
     try {
-      const savedDataStr = localStorage.getItem(storageKey);
+      const savedDataStr = sessionStorage.getItem(storageKey);
       if (!savedDataStr) return false;
 
       const savedData = JSON.parse(savedDataStr);

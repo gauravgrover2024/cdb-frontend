@@ -14,7 +14,7 @@ const SuperAdminHub = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const loadData = useCallback(async () => {
     if (!token) {

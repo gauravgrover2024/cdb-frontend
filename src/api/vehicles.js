@@ -1,5 +1,6 @@
 import { apiClient } from "./client";
 import { featuresApi } from "./features";
+import API_BASE_URL from "../config/apiBaseUrl";
 
 const CANDIDATE_ARRAY_KEYS = [
   "data",
@@ -48,6 +49,14 @@ const withNormalizedData = (payload, data) => {
 };
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeRegNo = (value) =>
+  String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const isLocalApiBase = /localhost|127\.0\.0\.1/i.test(String(API_BASE_URL || ""));
+const MASTER_RECORD_FALLBACK_BASES = ["https://cdb-api.vercel.app"];
+const DISTINCT_FALLBACK_BASES = MASTER_RECORD_FALLBACK_BASES;
 const normalizeCityText = (value) =>
   normalizeText(value).replace(/[^a-z0-9]/g, "");
 const parseBooleanFlag = (value) => {
@@ -103,10 +112,98 @@ const uniqueSorted = (items) => {
   return [...uniqueMap.values()].sort((a, b) => a.localeCompare(b));
 };
 
+const searchVehicleRecordsFromAbsoluteBase = async (baseUrl, query, limit = 20) => {
+  const base = String(baseUrl || "").trim().replace(/\/+$/, "");
+  if (!base) return [];
+  const url = `${base}/api/vehicles/records/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`;
+  const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
+  if (!res.ok) {
+    throw new Error(`Vehicle record lookup failed (${res.status}) at ${base}`);
+  }
+  const payload = await res.json();
+  return normalizeArrayData(payload);
+};
+
+const mapLoanToVehicleRecord = (loan = {}) => {
+  const registrationNumber = String(
+    loan?.vehicleRegNo ||
+      loan?.vehicleRegdNumber ||
+      loan?.rc_redg_no ||
+      loan?.registrationNumber ||
+      "",
+  ).trim();
+  const registrationNumberNormalized = normalizeRegNo(registrationNumber);
+  if (!registrationNumberNormalized) return null;
+
+  return {
+    registrationNumber: registrationNumber || registrationNumberNormalized,
+    registrationNumberNormalized,
+    registrationNumberLast4: registrationNumberNormalized.slice(-4),
+    make: String(loan?.vehicleMake || "").trim(),
+    model: String(loan?.vehicleModel || "").trim(),
+    variant: String(loan?.vehicleVariant || "").trim(),
+    yearOfManufacture: String(
+      loan?.yearOfManufacture || loan?.manufacturingYear || loan?.boughtInYear || "",
+    ).trim(),
+    engineNumber: String(loan?.engineNumber || loan?.rc_engine_no || "").trim(),
+    chassisNumber: String(loan?.chassisNumber || loan?.rc_chassis_no || "").trim(),
+    registrationDate: loan?.rc_redg_date || loan?.registrationDate || null,
+    registrationCity: String(loan?.registrationCity || loan?.postfile_regd_city || "").trim(),
+    hypothecation: String(loan?.hypothecationBank || "").trim(),
+  };
+};
+
+const fallbackVehicleRecordsFromLoans = async (query, limit = 20) => {
+  const payload = await apiClient.get(
+    `/api/loans?search=${encodeURIComponent(query)}&limit=${encodeURIComponent(Math.max(limit * 5, 50))}`,
+  );
+  const rawRows = normalizeArrayData(payload);
+  const q = normalizeRegNo(query);
+  const suffix = q.slice(-4);
+
+  const dedup = new Map();
+  for (const loan of rawRows) {
+    const row = mapLoanToVehicleRecord(loan);
+    if (!row) continue;
+    const normalized = row.registrationNumberNormalized;
+    if (!normalized) continue;
+    if (!normalized.includes(q) && !(suffix.length === 4 && normalized.endsWith(suffix))) {
+      continue;
+    }
+    if (!dedup.has(normalized)) dedup.set(normalized, row);
+    if (dedup.size >= limit) break;
+  }
+
+  return [...dedup.values()].slice(0, limit);
+};
+
+const fetchJsonFromAbsoluteBase = async (baseUrl, endpointPath, params = {}) => {
+  const base = String(baseUrl || "").trim().replace(/\/+$/, "");
+  if (!base) return null;
+  const query = new URLSearchParams(
+    Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        acc[key] = String(value);
+      }
+      return acc;
+    }, {}),
+  ).toString();
+  const url = `${base}${endpointPath}${query ? `?${query}` : ""}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status}) for ${url}`);
+  }
+  return res.json();
+};
+
 const FEATURE_ROWS_BY_CITY = new Map();
 const VEHICLE_ROWS_BY_CITY = new Map();
 const VEHICLE_ROWS_FETCHING = new Map();
-const VEHICLE_LIST_LIMIT = 5000;
+const VEHICLE_LIST_LIMIT = 1000;
+const VEHICLE_FALLBACK_MAX_ROWS = 2000;
 
 const normalizeVehicleRecord = (row) => ({
   ...row,
@@ -153,6 +250,9 @@ const fetchVehicleList = async (query) => {
     const fetched = normalizeArrayData(payload);
     if (Array.isArray(fetched)) {
       allRows.push(...fetched);
+      if (allRows.length >= VEHICLE_FALLBACK_MAX_ROWS) {
+        break;
+      }
       const totalFromPayload = Number(payload?.count) || Number(payload?.total) || 0;
       if (totalFromPayload && totalFromPayload <= allRows.length) {
         break;
@@ -410,6 +510,20 @@ export const vehiclesApi = {
     } catch (error) {
       console.error("Primary makes endpoint failed, using fallback", error);
     }
+    if (isLocalApiBase) {
+      for (const base of DISTINCT_FALLBACK_BASES) {
+        try {
+          const payload = await fetchJsonFromAbsoluteBase(base, "/api/vehicles/distinct/makes", {
+            city,
+            includeDiscontinued: includeDiscontinued ? "true" : "false",
+          });
+          const rows = normalizeArrayData(payload);
+          if (rows.length) return withNormalizedData(payload, rows);
+        } catch {
+          // continue fallback chain
+        }
+      }
+    }
     let fallback = await pickVehicleFallback(
       "makes",
       null,
@@ -442,6 +556,21 @@ export const vehiclesApi = {
     } catch (error) {
       console.error("Primary models endpoint failed, using fallback", error);
     }
+    if (isLocalApiBase) {
+      for (const base of DISTINCT_FALLBACK_BASES) {
+        try {
+          const payload = await fetchJsonFromAbsoluteBase(base, "/api/vehicles/distinct/models", {
+            make,
+            city,
+            includeDiscontinued: includeDiscontinued ? "true" : "false",
+          });
+          const rows = normalizeArrayData(payload);
+          if (rows.length) return withNormalizedData(payload, rows);
+        } catch {
+          // continue fallback chain
+        }
+      }
+    }
     let fallback = await pickVehicleFallback(
       "models",
       make,
@@ -473,6 +602,22 @@ export const vehiclesApi = {
       return withNormalizedData(payload, rows);
     } catch (error) {
       console.error("Primary variants endpoint failed, using fallback", error);
+    }
+    if (isLocalApiBase) {
+      for (const base of DISTINCT_FALLBACK_BASES) {
+        try {
+          const payload = await fetchJsonFromAbsoluteBase(base, "/api/vehicles/distinct/variants", {
+            make,
+            model,
+            city,
+            includeDiscontinued: includeDiscontinued ? "true" : "false",
+          });
+          const rows = normalizeArrayData(payload);
+          if (rows.length) return withNormalizedData(payload, rows);
+        } catch {
+          // continue fallback chain
+        }
+      }
     }
     let fallback = await pickVehicleFallback(
       "variants",
@@ -510,6 +655,26 @@ export const vehiclesApi = {
       return withNormalizedData(payload, rows);
     } catch (error) {
       console.error("Primary variants-with-price endpoint failed, using fallback", error);
+    }
+    if (isLocalApiBase) {
+      for (const base of DISTINCT_FALLBACK_BASES) {
+        try {
+          const payload = await fetchJsonFromAbsoluteBase(
+            base,
+            "/api/vehicles/distinct/variants-with-price",
+            {
+              make,
+              model,
+              city,
+              includeDiscontinued: includeDiscontinued ? "true" : "false",
+            },
+          );
+          const rows = normalizeArrayData(payload);
+          if (rows.length) return withNormalizedData(payload, rows);
+        } catch {
+          // continue fallback chain
+        }
+      }
     }
     let fallback = await pickVehicleFallback(
       "variantsWithPrice",
@@ -556,5 +721,54 @@ export const vehiclesApi = {
     if (variant) url += `&variant=${encodeURIComponent(variant)}`;
     const payload = await apiClient.get(url);
     return withNormalizedData(payload, normalizeArrayData(payload));
+  },
+
+  searchMasterRecords: async (query, limit = 20) => {
+    const q = String(query || "").trim();
+    if (!q) return { success: true, data: [] };
+
+    let primaryRows = [];
+    let primaryPayload = null;
+    let primaryError = null;
+
+    try {
+      primaryPayload = await apiClient.get(
+        `/api/vehicles/records/search?q=${encodeURIComponent(q)}&limit=${encodeURIComponent(limit)}`,
+      );
+      primaryRows = normalizeArrayData(primaryPayload);
+      if (primaryRows.length) return withNormalizedData(primaryPayload, primaryRows);
+    } catch (error) {
+      primaryError = error;
+    }
+
+    // Fallback 1: if local API is missing this route, try deployed backend endpoint.
+    if (isLocalApiBase) {
+      for (const base of MASTER_RECORD_FALLBACK_BASES) {
+        try {
+          const rows = await searchVehicleRecordsFromAbsoluteBase(base, q, limit);
+          if (rows.length) {
+            return withNormalizedData({ success: true, source: "remote-fallback" }, rows);
+          }
+        } catch (error) {
+          // continue fallback chain
+        }
+      }
+    }
+
+    // Fallback 2: build candidates from loans search so autosuggest is still usable.
+    try {
+      const rows = await fallbackVehicleRecordsFromLoans(q, limit);
+      if (rows.length) {
+        return withNormalizedData({ success: true, source: "loans-fallback" }, rows);
+      }
+    } catch (error) {
+      // ignore and return primary response shape
+    }
+
+    if (primaryError) {
+      console.error("Vehicle registration master lookup failed", primaryError);
+    }
+
+    return withNormalizedData(primaryPayload || { success: true }, primaryRows);
   },
 };

@@ -27,7 +27,7 @@ const SuperAdminUserManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const loadUsers = useCallback(async (isRefreshing = false) => {
     if (isRefreshing) setRefreshing(true);

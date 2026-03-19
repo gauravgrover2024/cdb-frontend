@@ -4,8 +4,11 @@ import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { uploadSingleFile } from "../../../../../api/uploads";
+import { loansApi } from "../../../../../api/loans";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../../../constants/irdaiInsuranceCompanies";
 import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
+import { useVehicleRegistrationLookup } from "../../../../../hooks/useVehicleRegistrationLookup";
+import { buildVehicleRecordAutofillPatch } from "../../../../../utils/vehicleRecordAutofill";
 
 const inputClassName = "h-10";
 const textAreaClassName = "min-h-[84px]";
@@ -44,14 +47,6 @@ const DateInput = ({ value, onChange, ...props }) => {
       {...props}
     />
   );
-};
-
-const nextStorageNumber = () => {
-  const key = "loan_rc_inv_storage_sequence";
-  const current = Number(localStorage.getItem(key) || 4099);
-  const next = current >= 4100 ? current + 1 : 4100;
-  localStorage.setItem(key, String(next));
-  return String(next);
 };
 
 const POLICY_DURATION_OPTIONS = [
@@ -200,6 +195,13 @@ const VehicleDeliveryStep = ({ form }) => {
 
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [uploadingRc, setUploadingRc] = useState(false);
+  const rcInvReservationInFlightRef = React.useRef(false);
+  const {
+    options: registrationLookupOptions,
+    loading: registrationLookupLoading,
+    search: searchRegistrationLookup,
+    resolveSelectedRecord: resolveSelectedRegistrationRecord,
+  } = useVehicleRegistrationLookup({ minChars: 2, limit: 20 });
 
   const loanType =
     Form.useWatch("typeOfLoan", form) || form.getFieldValue("typeOfLoan");
@@ -248,6 +250,15 @@ const VehicleDeliveryStep = ({ form }) => {
     });
   };
 
+  const handleRegistrationSelect = (_, option) => {
+    const record = resolveSelectedRegistrationRecord(_, option);
+    if (!record) return;
+    const patch = buildVehicleRecordAutofillPatch(record, "rc_redg_no");
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  };
+
   // Pre-fill dealer details from vehicle verification
   useEffect(() => {
     const dealerName = form.getFieldValue("showroomDealerName");
@@ -262,27 +273,60 @@ const VehicleDeliveryStep = ({ form }) => {
     }
   }, [form]);
 
-  // Initialize defaults only for genuinely new loans.
+  // Initialize static defaults only for genuinely new loans.
   useEffect(() => {
-    const isEditRoute =
-      typeof window !== "undefined" &&
-      /\/loans\/edit\//.test(window.location.pathname);
-    const isExistingLoan = Boolean(loanIdValue || loanNumber || createdAt);
     const patch = {};
 
     if (!form.getFieldValue("insurance_by")) {
       patch.insurance_by = "Autocredits India LLP";
     }
-    if (
-      !isEditRoute &&
-      !isExistingLoan &&
-      !form.getFieldValue("rc_inv_storage_number")
-    ) {
-      patch.rc_inv_storage_number = nextStorageNumber();
-    }
     if (Object.keys(patch).length) {
       form.setFieldsValue(patch);
     }
+  }, [form, loanIdValue, loanNumber, createdAt]);
+
+  // Reserve RC/INV storage number via backend atomic counter.
+  useEffect(() => {
+    const isEditRoute =
+      typeof window !== "undefined" &&
+      /\/loans\/edit\//.test(window.location.pathname);
+    const isExistingLoan = Boolean(loanIdValue || loanNumber || createdAt);
+    if (isEditRoute || isExistingLoan) return;
+    if (form.getFieldValue("rc_inv_storage_number")) return;
+    if (rcInvReservationInFlightRef.current) return;
+
+    let cancelled = false;
+    rcInvReservationInFlightRef.current = true;
+
+    const reserveRcInvNumber = async () => {
+      try {
+        const response = await loansApi.getNextRcInvStorageNumber();
+        const nextValue =
+          response?.data?.rcInvStorageNumber ||
+          response?.rcInvStorageNumber ||
+          response?.data?.value ||
+          "";
+
+        if (cancelled) return;
+        if (!nextValue) throw new Error("Counter service returned empty value");
+        if (!form.getFieldValue("rc_inv_storage_number")) {
+          form.setFieldValue("rc_inv_storage_number", String(nextValue));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          message.error(
+            error?.message || "Failed to reserve RC/INV storage number",
+          );
+        }
+      } finally {
+        rcInvReservationInFlightRef.current = false;
+      }
+    };
+
+    void reserveRcInvNumber();
+    return () => {
+      cancelled = true;
+    };
   }, [form, loanIdValue, loanNumber, createdAt]);
 
   // Sync local file state to the form (URL String only)
@@ -681,7 +725,25 @@ const VehicleDeliveryStep = ({ form }) => {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Form.Item label="Regd No" name="rc_redg_no" className="mb-0">
-              <Input className={inputClassName} placeholder="e.g., DL01AB1234" />
+              <AutoComplete
+                options={registrationLookupOptions}
+                onSearch={searchRegistrationLookup}
+                onSelect={handleRegistrationSelect}
+                filterOption={false}
+                allowClear
+              >
+                <Input
+                  className={inputClassName}
+                  placeholder="e.g., DL01AB1234 (or last 4 digits)"
+                  suffix={
+                    registrationLookupLoading ? (
+                      <span className="text-[10px] text-muted-foreground animate-pulse">
+                        Searching...
+                      </span>
+                    ) : null
+                  }
+                />
+              </AutoComplete>
             </Form.Item>
 
             <Form.Item

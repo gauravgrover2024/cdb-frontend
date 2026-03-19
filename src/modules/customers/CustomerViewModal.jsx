@@ -7,6 +7,7 @@ import Icon from "../../components/AppIcon";
 import LoansDataGrid from "../loans/components/dashboard/LoansDataGrid";
 import LoanViewModal from "../loans/components/dashboard/LoanViewModal";
 import DashboardNotesModal from "../loans/components/dashboard/DashboardNotesModal";
+import { buildBankDetailsFromFormValues } from "../../utils/bankDetails";
 
 const hasValue = (v) =>
   v !== undefined &&
@@ -1197,6 +1198,11 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
     );
   }, [c]);
 
+  const customerBankDetails = useMemo(
+    () => buildBankDetailsFromFormValues(c || {}),
+    [c],
+  );
+
   if (!c) return null;
 
   const tabs = [
@@ -1377,18 +1383,36 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
         {activeTab === "banking" && (
           <div className="space-y-4">
             <SectionCard tone="banking" title="Banking Details" icon="Building2">
-              <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
-                <div>
-                  <LabeledValueIf label="IFSC" value={c.ifsc || c.ifscCode} mono />
-                  <LabeledValueIf label="Bank Name" value={c.bankName} />
-                  <LabeledValueIf label="Branch / Address" value={c.branch} />
-                  <LabeledValueIf label="Applicant Account Number" value={c.accountNumber} mono />
-                </div>
-                <div>
-                  <LabeledValueIf label="Account Since (Years)" value={c.accountSinceYears} />
-                  <LabeledValueIf label="Opened In" value={c.openedIn} />
-                  <LabeledValueIf label="Account Type" value={c.accountType} />
-                </div>
+              <div className="space-y-4">
+                {customerBankDetails.length === 0 && (
+                  <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                    No banking details available.
+                  </div>
+                )}
+
+                {customerBankDetails.map((bank, index) => (
+                  <div
+                    key={`customer-bank-${index + 1}`}
+                    className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950"
+                  >
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                      Bank {index + 1}
+                    </div>
+                    <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
+                      <div>
+                        <LabeledValueIf label="IFSC" value={bank.ifsc || bank.ifscCode} mono />
+                        <LabeledValueIf label="Bank Name" value={bank.bankName} />
+                        <LabeledValueIf label="Branch / Address" value={bank.branch} />
+                        <LabeledValueIf label="Applicant Account Number" value={bank.accountNumber} mono />
+                      </div>
+                      <div>
+                        <LabeledValueIf label="Account Since (Years)" value={bank.accountSinceYears} />
+                        <LabeledValueIf label="Opened In" value={bank.openedIn} />
+                        <LabeledValueIf label="Account Type" value={bank.accountType} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </SectionCard>
 

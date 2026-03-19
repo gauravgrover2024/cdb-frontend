@@ -28,8 +28,8 @@ const Signup = ({ onSignup }) => {
     try {
       const res = await signup(form.name, form.email, form.password, form.role);
       if (res.success && res.data.token) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data));
+        sessionStorage.setItem('token', res.data.token);
+        sessionStorage.setItem('user', JSON.stringify(res.data));
         if (onSignup) onSignup(res.data);
       } else {
         setError('Registration failed');

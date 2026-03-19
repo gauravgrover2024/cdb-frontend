@@ -1599,7 +1599,7 @@ const getMappingNoteKey = (sourcePath, targetField, role) =>
 
 const readSavedProfiles = () => {
   try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    const raw = sessionStorage.getItem(PROFILE_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -1609,12 +1609,12 @@ const readSavedProfiles = () => {
 };
 
 const writeSavedProfiles = (profiles) => {
-  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+  sessionStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
 };
 
 const readWorkingDraft = () => {
   try {
-    const raw = localStorage.getItem(WORK_DRAFT_STORAGE_KEY);
+    const raw = sessionStorage.getItem(WORK_DRAFT_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : null;
@@ -1624,7 +1624,7 @@ const readWorkingDraft = () => {
 };
 
 const writeWorkingDraft = (draft) => {
-  localStorage.setItem(WORK_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  sessionStorage.setItem(WORK_DRAFT_STORAGE_KEY, JSON.stringify(draft));
 };
 
 const openDraftDb = () =>
@@ -1671,7 +1671,7 @@ const writeWorkingDraftToDb = async (draft) => {
       req.onerror = () => reject(req.error || new Error("IndexedDB write failed"));
     });
   } catch {
-    // Ignore, localStorage fallback still exists.
+    // Ignore, sessionStorage fallback still exists.
   }
 };
 
@@ -1860,7 +1860,7 @@ const FieldMappingPage = () => {
     const timer = setTimeout(() => {
       writeWorkingDraftToDb(draft);
       try {
-        // Keep a lightweight localStorage backup for quick restore.
+        // Keep a lightweight sessionStorage backup for quick restore.
         const lite = { ...draft, importedFiles: [] };
         writeWorkingDraft(lite);
       } catch {

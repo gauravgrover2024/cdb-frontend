@@ -20,8 +20,8 @@ const Login = ({ onLogin }) => {
     try {
       const res = await login(email, password);
       if (res.success && res.data.token) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data));
+        sessionStorage.setItem('token', res.data.token);
+        sessionStorage.setItem('user', JSON.stringify(res.data));
         if (onLogin) onLogin(res.data);
       } else {
         setError('Login failed');

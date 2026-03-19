@@ -78,6 +78,13 @@ const serializeDatesToISO = (obj = {}) => {
 
 const getLoanDisbursementDate = (loan = {}) => {
   const candidates = [
+    loan?.latestBusinessDate,
+    loan?.delivery_date,
+    loan?.deliveryDate,
+    loan?.do_date,
+    loan?.doDate,
+    loan?.invoice_date,
+    loan?.invoiceDate,
     loan?.approval_disbursedDate,
     loan?.disbursement_date,
     loan?.disbursementDate,
@@ -93,6 +100,8 @@ const getLoanDisbursementDate = (loan = {}) => {
   return null;
 };
 
+const LEGACY_CUTOFF = dayjs("2026-02-01T00:00:00.000Z");
+
 const isLegacyNewCarAutoCreateBlocked = (loan = {}) => {
   const loanType = safeText(loan?.typeOfLoan || loan?.loanType)
     .trim()
@@ -100,7 +109,7 @@ const isLegacyNewCarAutoCreateBlocked = (loan = {}) => {
   if (loanType !== "new car") return false;
   const disbDate = getLoanDisbursementDate(loan);
   if (!disbDate) return false;
-  return disbDate.year() <= 2025;
+  return disbDate.isBefore(LEGACY_CUTOFF);
 };
 
 const useDebounce = (value, delay = 800) => {
@@ -144,7 +153,7 @@ const DeliveryOrderForm = () => {
   const legacyAutoCreateNoticeShownRef = useRef(false);
   const [loanData, setLoanData] = useState(null);
 
-  // Load Loan from API (prefill) with localStorage fallback
+  // Load Loan from API (prefill) with sessionStorage fallback
   useEffect(() => {
     if (!loanId) return;
 
@@ -159,7 +168,7 @@ const DeliveryOrderForm = () => {
         // ignore and fall back
       }
 
-      const editingLoanRaw = localStorage.getItem("editingLoan");
+      const editingLoanRaw = sessionStorage.getItem("editingLoan");
       if (editingLoanRaw) {
         try {
           const parsed = JSON.parse(editingLoanRaw);
@@ -170,7 +179,7 @@ const DeliveryOrderForm = () => {
         }
       }
 
-      const savedLoansRaw = localStorage.getItem("savedLoans");
+      const savedLoansRaw = sessionStorage.getItem("savedLoans");
       if (savedLoansRaw && loanId) {
         try {
           const saved = JSON.parse(savedLoansRaw || "[]");
@@ -286,7 +295,7 @@ const DeliveryOrderForm = () => {
           if (!legacyAutoCreateNoticeShownRef.current) {
             legacyAutoCreateNoticeShownRef.current = true;
             message.info(
-              "Auto DO creation is paused for New Car loans disbursed in 2025 or earlier.",
+              "Auto DO creation is paused for New Car loans delivered/disbursed before 1 Feb 2026.",
             );
           }
           return;
@@ -358,7 +367,7 @@ const DeliveryOrderForm = () => {
       const saveRes = await saveDOByLoanId(finalLoanId, payload);
       if (saveRes?.skipped || saveRes?.data === null) {
         message.warning(
-          "DO creation is paused for New Car loans disbursed in 2025 or earlier.",
+          "DO creation is paused for New Car loans delivered/disbursed before 1 Feb 2026.",
         );
         return;
       }

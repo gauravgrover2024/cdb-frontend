@@ -39,6 +39,10 @@ export const loansApi = {
   disburse: async (id, data) => {
     return await apiClient.post(`/api/loans/${id}/disburse`, data);
   },
+
+  getNextRcInvStorageNumber: async () => {
+    return await apiClient.get("/api/loans/counters/rc-inv/next");
+  },
 };
 
 export const disburseLoan = async (id, data) => {

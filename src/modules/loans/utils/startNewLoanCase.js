@@ -1,6 +1,6 @@
 export const startNewLoanCase = (navigate, source = "ui") => {
   try {
-    localStorage.removeItem("loan_form_draft");
+    sessionStorage.removeItem("loan_form_draft");
   } catch {
     // no-op
   }

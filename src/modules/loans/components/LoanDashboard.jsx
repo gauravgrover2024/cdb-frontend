@@ -856,9 +856,22 @@ const LoanDashboard = () => {
   }, [normalizeLoan, page, pageSize, filters.searchQuery]);
 
   useEffect(() => {
+    const rawQuery = String(filters.searchQuery || "");
+    const trimmedQuery = rawQuery.trim();
+
+    // Start server search from first 2 typed characters only.
+    if (!trimmedQuery) {
+      setDebouncedSearchQuery("");
+      return undefined;
+    }
+    if (trimmedQuery.length < 2) {
+      setDebouncedSearchQuery("");
+      return undefined;
+    }
+
     const handle = setTimeout(() => {
-      setDebouncedSearchQuery(filters.searchQuery || "");
-    }, 600);
+      setDebouncedSearchQuery(rawQuery);
+    }, 180);
     return () => clearTimeout(handle);
   }, [filters.searchQuery]);
 
