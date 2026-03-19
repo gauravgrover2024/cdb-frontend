@@ -909,6 +909,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   useEffect(() => {
     if (isEditMode || !freshLoanToken) return;
 
+    const now = dayjs();
     form.resetFields();
     setBanksData([]);
     setActiveStep("profile");
@@ -918,6 +919,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     form.setFieldsValue({
       isFinanced: "Yes",
       currentStage: "profile",
+      leadDate: now,
+      leadTime: now,
     });
   }, [isEditMode, freshLoanToken, form, clearSavedFormData]);
 
