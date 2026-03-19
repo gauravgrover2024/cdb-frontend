@@ -672,11 +672,13 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
   return rows.slice(0, 1000);
 };
 
+const FALLBACK_MAX_LOANS = 5000;
+
 const fetchAllLoansForFallback = async () => {
   const all = [];
   let skip = 0;
   const limit = 1000;
-  while (true) {
+  while (all.length < FALLBACK_MAX_LOANS) {
     const res = await loansApi.getAll({ limit, skip });
     const rows = Array.isArray(res?.data) ? res.data : [];
     all.push(...rows);
@@ -687,7 +689,7 @@ const fetchAllLoansForFallback = async () => {
 };
 
 const CHART_PALETTE = [
-  "#4F46E5",
+  "#1d9bf0",
   "#3B82F6",
   "#06B6D4",
   "#10B981",
@@ -698,7 +700,7 @@ const CHART_PALETTE = [
 ];
 
 const ChartNoData = ({ text = "No data for selected timeframe" }) => (
-  <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+  <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm font-medium text-muted-foreground">
     {text}
   </div>
 );
@@ -730,7 +732,7 @@ const VerticalBarChart = ({
   const ticks = 4;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
+    <div className="overflow-x-auto rounded-xl border border-border bg-card px-2 py-2">
       <svg width={width} height={height} role="img" aria-label="bar chart">
         {Array.from({ length: ticks + 1 }).map((_, idx) => {
           const y = m.top + (idx / ticks) * chartH;
@@ -813,7 +815,7 @@ const AreaLineChart = ({
   const areaPath = `${linePath} L ${x(points.length - 1)} ${m.top + chartH} L ${x(0)} ${m.top + chartH} Z`;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
+    <div className="overflow-x-auto rounded-xl border border-border bg-card px-2 py-2">
       <svg width={width} height={height} role="img" aria-label="area line chart">
         <defs>
           <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -883,7 +885,7 @@ const FunnelChart = ({ rows = [], onSelect }) => {
   const toW = (v) => minW + (Number(v || 0) / max) * (maxW - minW);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-2 dark:border-slate-700 dark:bg-slate-900">
+    <div className="overflow-x-auto rounded-xl border border-border bg-card px-2 py-2">
       <svg width={width} height={height} role="img" aria-label="funnel chart">
         {ordered.map((row, idx) => {
           const topW = toW(row.count);
@@ -970,7 +972,7 @@ const DonutBreakdown = ({
   });
 
   return (
-    <div className="grid grid-cols-1 gap-2 text-slate-700 dark:text-slate-200 md:grid-cols-[180px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-2 text-foreground md:grid-cols-[180px_minmax(0,1fr)]">
       <div className="flex items-center justify-center">
         <svg width="180" height="180" role="img" aria-label="donut chart">
           {arcs.map((arc, idx) => (
@@ -995,15 +997,15 @@ const DonutBreakdown = ({
             key={`legend-${idx}`}
             type="button"
             onClick={() => onClick?.(arc.row)}
-            className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-500/60 dark:hover:bg-blue-950/20"
+            className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-2.5 py-2 text-left transition hover:border-primary/40 hover:bg-primary/5"
           >
             <div className="flex min-w-0 items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: arc.color }} />
-              <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <span className="truncate text-xs font-semibold text-foreground">
                 {arc.row[labelKey]}
               </span>
             </div>
-            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+            <span className="text-xs font-bold text-foreground">
               {arc.pct.toFixed(1)}%
             </span>
           </button>
@@ -1033,13 +1035,13 @@ const HorizontalBarChart = ({
             key={`${row[labelKey]}-${idx}`}
             type="button"
             onClick={() => onClick?.(row)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-500/60 dark:hover:bg-blue-950/20"
+            className="w-full rounded-lg border border-border bg-card px-2.5 py-2 text-left transition hover:border-primary/40 hover:bg-primary/5"
           >
             <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">{row[labelKey]}</span>
-              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{formatValue(value)}</span>
+              <span className="truncate text-xs font-semibold text-foreground">{row[labelKey]}</span>
+              <span className="text-xs font-bold text-foreground">{formatValue(value)}</span>
             </div>
-            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800">
+            <div className="h-2 rounded-full bg-muted">
               <div
                 className="h-2 rounded-full"
                 style={{
@@ -1075,17 +1077,17 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
   const basePath = describeArc(120, 120, 82, start, end);
   const fillPath = describeArc(120, 120, 82, start, fillEnd);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{title}</div>
-      <svg width="240" height="150" viewBox="0 0 240 150" className="mx-auto block text-slate-800 dark:text-slate-200">
-        <path d={basePath} fill="none" stroke="#E2E8F0" strokeWidth="16" strokeLinecap="round" />
-        <path d={fillPath} fill="none" stroke="#4F46E5" strokeWidth="16" strokeLinecap="round" />
-        <text x="120" y="98" textAnchor="middle" fontSize="30" fontWeight="700" fill="currentColor">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-6">
+      <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</div>
+      <svg width="240" height="150" viewBox="0 0 240 150" className="mx-auto block text-foreground">
+        <path d={basePath} fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="14" strokeLinecap="round" />
+        <path d={fillPath} fill="none" stroke="#1d9bf0" strokeWidth="14" strokeLinecap="round" />
+        <text x="120" y="100" textAnchor="middle" fontSize="32" fontWeight="700" fill="currentColor" className="text-foreground">
           {pct.toFixed(1)}%
         </text>
       </svg>
       {subtitle ? (
-        <div className="text-center text-xs text-slate-600 dark:text-slate-400">{subtitle}</div>
+        <div className="mt-2 text-center text-xs font-medium text-muted-foreground">{subtitle}</div>
       ) : null}
     </div>
   );
@@ -1093,66 +1095,85 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
 
 const WidgetShell = ({ title, subtitle, icon: Icon, color = "slate", children }) => {
   const tones = {
-    slate: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    blue: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    emerald: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    amber: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    rose: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    indigo: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    slate: "border-border bg-card",
+    blue: "border-primary/30 bg-card",
+    emerald: "border-emerald-500/30 bg-card dark:border-emerald-500/20",
+    amber: "border-amber-500/30 bg-card dark:border-amber-500/20",
+    rose: "border-rose-500/30 bg-card dark:border-rose-500/20",
+    indigo: "border-primary/30 bg-card",
   };
   const iconTones = {
-    slate: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-    blue: "bg-sky-100 text-sky-700 dark:bg-sky-900/60 dark:text-sky-300",
-    emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300",
-    amber: "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300",
-    rose: "bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300",
-    indigo: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300",
+    slate: "bg-muted text-muted-foreground",
+    blue: "bg-primary/10 text-primary",
+    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    indigo: "bg-primary/10 text-primary",
   };
 
   return (
-    <article className={`analytics-widget analytics-widget-${color} rounded-2xl border p-3 shadow-sm transition hover:shadow-md ${tones[color] || tones.slate}`}>
-      <div className="mb-2 flex items-start gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+    <article className={`analytics-widget analytics-widget-${color} relative overflow-hidden rounded-xl border p-6 transition-all duration-300 hover:shadow-lg hover:border-primary/20 ${tones[color] || tones.slate}`}>
+      <div className="mb-5 flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3">
             {Icon ? (
-              <span className={`inline-flex h-6 w-6 items-center justify-center rounded-lg ${iconTones[color] || iconTones.slate}`}>
-                <Icon size={14} />
+              <span className={`inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${iconTones[color] || iconTones.slate}`}>
+                <Icon size={18} strokeWidth={2} />
               </span>
             ) : null}
-            <h2 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h2>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-bold text-foreground">{title}</h2>
+              {subtitle ? <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">{subtitle}</p> : null}
+            </div>
           </div>
-          {subtitle ? <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">{subtitle}</p> : null}
         </div>
         <button
           type="button"
-          className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
           aria-label="Widget actions"
         >
-          <MoreVertical size={14} />
+          <MoreVertical size={16} />
         </button>
       </div>
-      {children}
+      <div className="rounded-lg">{children}</div>
     </article>
   );
 };
 
-const KpiTile = ({ label, value, subLabel, icon: Icon, tone = "slate" }) => {
+const KpiTile = ({ label, value, subLabel, icon: Icon, tone = "slate", loading = false }) => {
   const tones = {
-    slate: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    blue: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    emerald: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    amber: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
-    rose: "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+    slate: "border-border bg-card",
+    blue: "border-primary/30 bg-card",
+    emerald: "border-emerald-500/30 bg-card dark:border-emerald-500/20",
+    amber: "border-amber-500/30 bg-card dark:border-amber-500/20",
+    rose: "border-rose-500/30 bg-card dark:border-rose-500/20",
+  };
+  const iconTones = {
+    slate: "bg-muted text-muted-foreground",
+    blue: "bg-primary/10 text-primary",
+    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
   };
 
   return (
-    <div className={`analytics-kpi analytics-kpi-${tone} rounded-2xl border p-3 shadow-sm ${tones[tone] || tones.slate}`}>
-      <div className="mb-1.5 flex items-center justify-between">
-        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600 dark:text-slate-400">{label}</div>
-        {Icon ? <Icon size={16} className="text-slate-600 dark:text-slate-300" /> : null}
+    <div className={`analytics-kpi analytics-kpi-${tone} group relative overflow-hidden rounded-xl border p-4 transition-all duration-300 hover:shadow-lg hover:border-primary/20 ${tones[tone] || tones.slate}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+          <div className="mt-1 flex flex-col gap-0.5">
+            <div className="text-xl font-bold tracking-tight text-foreground tabular-nums md:text-2xl">
+              {loading ? "—" : value}
+            </div>
+            {subLabel && !loading ? <div className="text-[11px] font-medium text-muted-foreground line-clamp-2">{subLabel}</div> : null}
+          </div>
+        </div>
+        {Icon ? (
+          <span className={`flex-shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-300 group-hover:scale-105 ${iconTones[tone] || iconTones.slate}`}>
+            <Icon size={18} strokeWidth={2} />
+          </span>
+        ) : null}
       </div>
-      <div className="text-[1.35rem] font-black tracking-tight text-slate-900 dark:text-slate-100">{value}</div>
-      {subLabel ? <div className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400">{subLabel}</div> : null}
     </div>
   );
 };
@@ -1160,12 +1181,9 @@ const KpiTile = ({ label, value, subLabel, icon: Icon, tone = "slate" }) => {
 const AnalyticsDashboard = () => {
   const [rangePreset, setRangePreset] = useState("mtd");
   const [customRange, setCustomRange] = useState([dayjs().startOf("month"), dayjs()]);
-  const [allLoans, setAllLoans] = useState([]);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [overview, setOverview] = useState(null);
-  const [usingFallback] = useState(true);
 
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillLoading, setDrillLoading] = useState(false);
@@ -1206,146 +1224,122 @@ const AnalyticsDashboard = () => {
 
   const queryParams = useMemo(() => getRangeParams(rangePreset, customRange), [rangePreset, customRange]);
 
+  const ANALYTICS_TIMEOUT_MS = 20000;
+
+  const isConnectionError = (e) => {
+    const msg = String(e?.message || "").toLowerCase();
+    return (
+      msg.includes("failed to fetch") ||
+      msg.includes("network") ||
+      msg.includes("connection refused") ||
+      msg.includes("connection reset")
+    );
+  };
+
   const fetchOverview = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
-      setError("");
-      const loans = await fetchAllLoansForFallback();
-      setAllLoans(loans);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timeout")), ANALYTICS_TIMEOUT_MS),
+      );
+      const res = await Promise.race([
+        loansApi.getAnalyticsOverview(queryParams),
+        timeoutPromise,
+      ]);
+      setOverview(res?.data || null);
     } catch (err) {
-      setError(err?.message || "Failed to load analytics");
+      const connectionDown = isConnectionError(err);
+      if (connectionDown) {
+        setError(
+          "Backend server is not running. Start it with: cd cdb-api && npm run dev",
+        );
+        setOverview(null);
+      } else {
+        console.warn("[AnalyticsDashboard] API failed, using fallback:", err?.message);
+        setError("");
+        try {
+          const loans = await fetchAllLoansForFallback();
+          const fallback = buildFallbackOverview(loans, rangePreset, customRange);
+          setOverview(fallback);
+        } catch (fallbackErr) {
+          console.error("[AnalyticsDashboard] Fallback also failed:", fallbackErr);
+          setError(
+            err?.message ||
+              "Failed to load analytics. Ensure the backend is running (npm run dev in cdb-api).",
+          );
+          setOverview(null);
+        }
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [queryParams, rangePreset, customRange]);
 
   useEffect(() => {
     fetchOverview();
   }, [fetchOverview]);
 
-  useEffect(() => {
-    if (!allLoans.length) return;
-    setOverview(buildFallbackOverview(allLoans, rangePreset, customRange));
-  }, [allLoans, customRange, rangePreset]);
-
   const runCustomWidget = useCallback(async () => {
     try {
       setCustomWidgetLoading(true);
-      try {
-        const res = await loansApi.createCustomWidget({
-          ...queryParams,
-          ...customWidgetConfig,
-        });
-        setCustomWidgetData(Array.isArray(res?.data) ? res.data : []);
-      } catch {
-        const { rows } = filterLoansByRange(allLoans, rangePreset, customRange);
-        const grouped = new Map();
-        rows.forEach((row) => {
-          let label = "Unknown";
-          if (customWidgetConfig.groupBy === "month") {
-            label = monthLabel(monthKey(getPrimaryBusinessDate(row)) || "");
-          } else if (customWidgetConfig.groupBy === "bank") {
-            label = String(row?.approval_bankName || row?.postfile_bankName || row?.bankName || "Unknown");
-          } else if (customWidgetConfig.groupBy === "source") {
-            const srcRaw = String(row?.approval_loanBookedIn || row?.recordSource || row?.source || "").toLowerCase();
-            label = srcRaw.includes("indirect") ? "Indirect" : srcRaw.includes("direct") ? "Direct" : "Unknown";
-          } else if (customWidgetConfig.groupBy === "loanType") {
-            label = String(row?.typeOfLoan || row?.loanType || row?.caseType || "Unknown");
-          } else if (customWidgetConfig.groupBy === "status") {
-            label = statusKey(row);
-          } else if (customWidgetConfig.groupBy === "stage") {
-            label = stageKey(row?.currentStage);
-          } else if (customWidgetConfig.groupBy === "dealer") {
-            label = String(row?.dealerName || row?.showroomDealerName || row?.showroomName || "Unknown");
-          } else if (customWidgetConfig.groupBy === "vehicleMake") {
-            label = String(row?.vehicleMake || "Unknown");
-          } else if (customWidgetConfig.groupBy === "vehicleModel") {
-            label = String(row?.vehicleModel || "Unknown");
-          }
-
-          if (!grouped.has(label)) grouped.set(label, []);
-          grouped.get(label).push(row);
-        });
-
-        const field = customWidgetConfig.metricField;
-        const metric = customWidgetConfig.metric;
-        const data = Array.from(grouped.entries()).map(([label, list]) => {
-          const values = list.map((r) => num(pick(r, field)));
-          let value = list.length;
-          if (metric === "sum") value = values.reduce((a, b) => a + b, 0);
-          if (metric === "avg") value = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-          return { key: label, label, value };
-        });
-        data.sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
-        setCustomWidgetData(data.slice(0, Number(customWidgetConfig.topN || 12)));
-      }
+      setError("");
+      const res = await loansApi.createCustomWidget({
+        ...queryParams,
+        ...customWidgetConfig,
+      });
+      setCustomWidgetData(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      console.error("[Analytics] Custom widget error:", err);
+      setError(err?.message || "Failed to generate custom widget");
+      setCustomWidgetData([]);
     } finally {
       setCustomWidgetLoading(false);
     }
-  }, [allLoans, customRange, customWidgetConfig, queryParams, rangePreset]);
+  }, [queryParams, customWidgetConfig]);
 
   const runCustomReport = useCallback(async () => {
     try {
       setCustomReportLoading(true);
-      try {
-        const res = await loansApi.createCustomReport({
-          ...queryParams,
-          ...customReportConfig,
-        });
-        setCustomReportRows(Array.isArray(res?.data) ? res.data : []);
-        setCustomReportMeta(res?.meta || null);
-      } catch {
-        const { rows } = filterLoansByRange(allLoans, rangePreset, customRange);
-        const sortField = customReportConfig.sortBy || "updatedAt";
-        const dir = customReportConfig.sortDir === "asc" ? 1 : -1;
-        const normalized = [...rows].sort((a, b) => {
-          const va = pick(a, sortField);
-          const vb = pick(b, sortField);
-          if (va === vb) return 0;
-          if (va === undefined || va === null) return 1;
-          if (vb === undefined || vb === null) return -1;
-          if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
-          const da = dayjs(va);
-          const db = dayjs(vb);
-          if (da.isValid() && db.isValid()) return (da.valueOf() - db.valueOf()) * dir;
-          return String(va).localeCompare(String(vb)) * dir;
-        });
-        const limited = normalized.slice(0, Number(customReportConfig.limit || 300));
-        const projected = limited.map((row) => {
-          const obj = {};
-          (customReportConfig.fields || []).forEach((f) => {
-            obj[f] = pick(row, f);
-          });
-          obj.loanId = row.loanId || obj.loanId;
-          obj._id = row._id || obj._id;
-          return obj;
-        });
-        setCustomReportRows(projected);
-        setCustomReportMeta({
-          fields: customReportConfig.fields || [],
-          source: "local-fallback",
-          total: projected.length,
-        });
-      }
+      setError("");
+      const res = await loansApi.createCustomReport({
+        ...queryParams,
+        ...customReportConfig,
+      });
+      setCustomReportRows(Array.isArray(res?.data) ? res.data : []);
+      setCustomReportMeta(res?.meta || null);
+    } catch (err) {
+      console.error("[Analytics] Custom report error:", err);
+      setError(err?.message || "Failed to generate custom report");
+      setCustomReportRows([]);
+      setCustomReportMeta(null);
     } finally {
       setCustomReportLoading(false);
     }
-  }, [allLoans, customRange, customReportConfig, queryParams, rangePreset]);
+  }, [queryParams, customReportConfig]);
 
   const openDrilldown = useCallback(
-    ({ title, widget, bucket, key }) => {
+    async ({ title, widget, bucket, key }) => {
       setDrillTitle(title);
       setDrillOpen(true);
       setDrillLoading(true);
-      const rows = buildLocalDrillRows(allLoans, rangePreset, customRange, {
-        widget,
-        bucket,
-        key,
-      });
-      setDrillRows(rows);
-      setDrillLoading(false);
+      try {
+        const res = await loansApi.getAnalyticsDrilldown({
+          ...queryParams,
+          widget,
+          bucket,
+          key,
+        });
+        setDrillRows(Array.isArray(res?.data) ? res.data : []);
+      } catch (err) {
+        console.error("[Analytics] Drilldown error:", err);
+        setError(err?.message || "Failed to load drilldown");
+        setDrillRows([]);
+      } finally {
+        setDrillLoading(false);
+      }
     },
-    [allLoans, customRange, rangePreset],
+    [queryParams],
   );
 
   const widgets = overview?.widgets || {};
@@ -1449,71 +1443,90 @@ const AnalyticsDashboard = () => {
   }, [drillRows, drillSearch]);
 
   return (
-    <main className="analytics-dashboard analytics-tail space-y-4 bg-[#f5f7fb] p-4 md:p-6 dark:bg-[#0b1220]">
-      <section className="analytics-hero rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
-              <ChartNoAxesCombined size={14} />
-              Loans Analytics
+    <main className="analytics-dashboard analytics-tail min-h-screen bg-background overflow-x-hidden">
+      <div className="app-max-wrap w-full max-w-[100%] py-6 space-y-6">
+        {/* Hero: Company-branded header */}
+        <section className="analytics-hero relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_4px_24px_-8px_rgba(15,23,42,0.12)] dark:shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4)]">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/[0.03] pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary/5 blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative z-10 p-6 md:p-8">
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <ChartNoAxesCombined size={22} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                      AutoCredits India LLP
+                    </span>
+                  </div>
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-[1.75rem]">
+                  Analytics Dashboard
+                </h1>
+                <p className="max-w-xl text-sm font-medium text-muted-foreground leading-relaxed">
+                  Real-time loan performance insights, pipeline analytics, and custom reporting — all in one command center.
+                </p>
+              </div>
+
+              <div className="analytics-range-wrap flex flex-wrap items-center gap-2">
+                {RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setRangePreset(option.value)}
+                    className={`analytics-range-btn rounded-xl border px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
+                      rangePreset === option.value
+                        ? "is-active border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                        : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+
+                {rangePreset === "custom" ? (
+                  <RangePicker
+                    value={customRange}
+                    allowClear={false}
+                    onChange={(values) => setCustomRange(values || [])}
+                    className="analytics-date-picker h-10 rounded-xl"
+                  />
+                ) : null}
+
+                <Button
+                  type="primary"
+                  icon={<RefreshCcw size={14} />}
+                  className="analytics-refresh-btn h-10 rounded-xl !border-primary !bg-primary !text-primary-foreground shadow-md hover:!opacity-90"
+                  onClick={fetchOverview}
+                >
+                  Refresh
+                </Button>
+              </div>
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 md:text-3xl">
-              Performance Command Center
-            </h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Interactive widgets, drill-down cases and custom reporting in one place.
-            </p>
           </div>
+        </section>
 
-          <div className="analytics-range-wrap flex flex-wrap items-center gap-2">
-            {RANGE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setRangePreset(option.value)}
-                className={`analytics-range-btn rounded-xl border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition ${
-                  rangePreset === option.value
-                    ? "is-active border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-500/60"
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
+        {error ? (
+          <Alert
+            type="error"
+            message={error}
+            showIcon
+            className="analytics-alert rounded-xl border-border"
+          />
+        ) : null}
 
-            {rangePreset === "custom" ? (
-              <RangePicker
-                value={customRange}
-                allowClear={false}
-                onChange={(values) => setCustomRange(values || [])}
-                className="h-9 rounded-xl"
-              />
-            ) : null}
-
-            <Button type="primary" icon={<RefreshCcw size={14} />} className="analytics-refresh-btn h-9 rounded-xl !border-blue-600 !bg-blue-600 !text-white hover:!border-blue-700 hover:!bg-blue-700 dark:!border-blue-500 dark:!bg-blue-500 dark:hover:!border-blue-400 dark:hover:!bg-blue-400" onClick={fetchOverview}>
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {error ? <Alert type="error" message={error} showIcon /> : null}
-      {usingFallback && allLoans.length ? (
-        <Alert
-          type="info"
-          showIcon
-          message={`Live analytics from full dataset (${allLoans.length.toLocaleString("en-IN")} cases)`}
-          description="Date basis: disbursement date for finance cases, delivery date for cash-car cases."
-        />
-      ) : null}
-
-      <section className="analytics-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div>
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted-foreground">Key Metrics</h2>
+          <section className="analytics-kpi-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiTile
           label="Total Cases"
           value={Number(totals.totalCases || 0).toLocaleString("en-IN")}
           subLabel="In selected timeframe"
           tone="blue"
           icon={BriefcaseBusiness}
+          loading={loading}
         />
         <KpiTile
           label="Total Loan Amount"
@@ -1521,6 +1534,7 @@ const AnalyticsDashboard = () => {
           subLabel="Sum across filtered loans"
           tone="emerald"
           icon={IndianRupee}
+          loading={loading}
         />
         <KpiTile
           label="Disbursed / Delivered"
@@ -1528,6 +1542,7 @@ const AnalyticsDashboard = () => {
           subLabel="Business-event amount volume"
           tone="amber"
           icon={TrendingUp}
+          loading={loading}
         />
         <KpiTile
           label="Pending Disbursal"
@@ -1535,11 +1550,20 @@ const AnalyticsDashboard = () => {
           subLabel={formatINR(widgets.approvalPendingDisbursal?.amount || 0)}
           tone="rose"
           icon={Clock3}
+          loading={loading}
         />
       </section>
+        </div>
 
-      <Spin spinning={loading}>
-        <section className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+      <div>
+        <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted-foreground">Charts & Insights</h2>
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+          {loading ? (
+            <div className="col-span-full rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+              Loading analytics...
+            </div>
+          ) : (
+            <>
           <div className="xl:col-span-5">
             <WidgetShell
               title="Total Loans Trend"
@@ -1550,7 +1574,7 @@ const AnalyticsDashboard = () => {
               <VerticalBarChart
                 points={widgets.totalLoansTrend || []}
                 valueKey="value"
-                color="#4F46E5"
+                color="#1d9bf0"
                 onSelect={(p) =>
                   openDrilldown({
                     title: `Loans in ${p.label}`,
@@ -1575,7 +1599,7 @@ const AnalyticsDashboard = () => {
                   value: item.amount || 0,
                 }))}
                 valueKey="value"
-                color="#10B981"
+                color="#059669"
                 id="disbursed-trend"
                 onSelect={(p) =>
                   openDrilldown({
@@ -1778,16 +1802,16 @@ const AnalyticsDashboard = () => {
                       widget: "cash_car_all",
                     })
                   }
-                  className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-left transition hover:border-amber-400 hover:shadow-sm dark:border-amber-900/60 dark:bg-slate-900"
+                  className="rounded-xl border border-amber-500/30 bg-card px-3 py-2 text-left transition hover:border-amber-500/50 hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Total</div>
-                      <div className="text-xs text-slate-600 dark:text-slate-400">
+                      <div className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400">Total</div>
+                      <div className="text-xs text-muted-foreground">
                         {formatINR(widgets.cashCarSummary?.amount || 0)}
                       </div>
                     </div>
-                    <div className="text-lg font-black text-slate-900 dark:text-slate-100">
+                    <div className="text-lg font-black text-foreground">
                       {Number(widgets.cashCarSummary?.total || 0).toLocaleString("en-IN")}
                     </div>
                   </div>
@@ -1801,10 +1825,10 @@ const AnalyticsDashboard = () => {
                         widget: "cash_car_delivered",
                       })
                     }
-                    className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:shadow-sm dark:border-emerald-900/60 dark:bg-slate-900"
+                    className="rounded-xl border border-emerald-500/30 bg-card px-3 py-2 text-left transition hover:border-emerald-500/50 hover:shadow-sm"
                   >
-                    <div className="text-[11px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Delivered</div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                    <div className="text-[11px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Delivered</div>
+                    <div className="text-base font-black text-foreground">
                       {Number(widgets.cashCarSummary?.delivered || 0).toLocaleString("en-IN")}
                     </div>
                   </button>
@@ -1816,10 +1840,10 @@ const AnalyticsDashboard = () => {
                         widget: "cash_car_pending_delivery",
                       })
                     }
-                    className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left transition hover:border-rose-400 hover:shadow-sm dark:border-rose-900/60 dark:bg-slate-900"
+                    className="rounded-xl border border-rose-500/30 bg-card px-3 py-2 text-left transition hover:border-rose-500/50 hover:shadow-sm"
                   >
-                    <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Pending</div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                    <div className="text-[11px] font-bold uppercase text-rose-600 dark:text-rose-400">Pending</div>
+                    <div className="text-base font-black text-foreground">
                       {Number(widgets.cashCarSummary?.pending || 0).toLocaleString("en-IN")}
                     </div>
                   </button>
@@ -1838,7 +1862,7 @@ const AnalyticsDashboard = () => {
               <div className="grid grid-cols-1 gap-2">
                 <button
                   type="button"
-                  className="rounded-xl border border-rose-300 bg-white p-3 text-left transition hover:border-rose-400 hover:shadow-sm dark:border-rose-900/60 dark:bg-slate-900"
+                  className="rounded-xl border border-rose-500/30 bg-card p-3 text-left transition hover:border-rose-500/50 hover:shadow-sm"
                   onClick={() =>
                     openDrilldown({
                       title: "Repeated Customers (identity collisions)",
@@ -1846,14 +1870,14 @@ const AnalyticsDashboard = () => {
                     })
                   }
                 >
-                  <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Identities</div>
-                  <div className="text-xl font-black text-slate-900 dark:text-slate-100">
+                  <div className="text-[11px] font-bold uppercase text-rose-600 dark:text-rose-400">Identities</div>
+                  <div className="text-xl font-black text-foreground">
                     {widgets.repeatedCustomers?.repeatedIdentityCount || 0}
                   </div>
                 </button>
                 <button
                   type="button"
-                  className="rounded-xl border border-fuchsia-300 bg-white p-3 text-left transition hover:border-fuchsia-400 hover:shadow-sm dark:border-fuchsia-900/60 dark:bg-slate-900"
+                  className="rounded-xl border border-fuchsia-500/30 bg-card p-3 text-left transition hover:border-fuchsia-500/50 hover:shadow-sm"
                   onClick={() =>
                     openDrilldown({
                       title: "Repeated Customer Cases",
@@ -1861,8 +1885,8 @@ const AnalyticsDashboard = () => {
                     })
                   }
                 >
-                  <div className="text-[11px] font-bold uppercase text-fuchsia-700 dark:text-fuchsia-300">Cases</div>
-                  <div className="text-xl font-black text-slate-900 dark:text-slate-100">
+                  <div className="text-[11px] font-bold uppercase text-fuchsia-600 dark:text-fuchsia-400">Cases</div>
+                  <div className="text-xl font-black text-foreground">
                     {widgets.repeatedCustomers?.repeatedCaseCount || 0}
                   </div>
                 </button>
@@ -1886,10 +1910,10 @@ const AnalyticsDashboard = () => {
                       widget: "approval_pending_disbursal",
                     })
                   }
-                  className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-left transition hover:border-amber-400 hover:shadow-sm dark:border-amber-900/60 dark:bg-slate-900"
+                  className="rounded-xl border border-amber-500/30 bg-card px-3 py-2 text-left transition hover:border-amber-500/50 hover:shadow-sm"
                 >
-                  <div className="text-[11px] font-bold uppercase text-amber-700 dark:text-amber-300">Pending</div>
-                  <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                  <div className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400">Pending</div>
+                  <div className="text-base font-black text-foreground">
                     {widgets.approvalPendingDisbursal?.count || 0}
                   </div>
                 </button>
@@ -1901,10 +1925,10 @@ const AnalyticsDashboard = () => {
                       widget: "missing_reg_number",
                     })
                   }
-                  className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-left transition hover:border-rose-400 hover:shadow-sm dark:border-rose-900/60 dark:bg-slate-900"
+                  className="rounded-xl border border-rose-500/30 bg-card px-3 py-2 text-left transition hover:border-rose-500/50 hover:shadow-sm"
                 >
-                  <div className="text-[11px] font-bold uppercase text-rose-700 dark:text-rose-300">Missing RC</div>
-                  <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                  <div className="text-[11px] font-bold uppercase text-rose-600 dark:text-rose-400">Missing RC</div>
+                  <div className="text-base font-black text-foreground">
                     {widgets.missingRegNumber?.count || 0}
                   </div>
                 </button>
@@ -1916,19 +1940,21 @@ const AnalyticsDashboard = () => {
                       widget: "missing_delivery_fields",
                     })
                   }
-                  className="rounded-xl border border-orange-300 bg-white px-3 py-2 text-left transition hover:border-orange-400 hover:shadow-sm dark:border-orange-900/60 dark:bg-slate-900"
+                  className="rounded-xl border border-orange-500/30 bg-card px-3 py-2 text-left transition hover:border-orange-500/50 hover:shadow-sm"
                 >
-                  <div className="text-[11px] font-bold uppercase text-orange-700 dark:text-orange-300">Delivery Gaps</div>
-                  <div className="text-base font-black text-slate-900 dark:text-slate-100">
+                  <div className="text-[11px] font-bold uppercase text-orange-600 dark:text-orange-400">Delivery Gaps</div>
+                  <div className="text-base font-black text-foreground">
                     {widgets.missingCriticalDeliveryFields?.count || 0}
                   </div>
                 </button>
               </div>
             </WidgetShell>
           </div>
+            </>
+          )}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm">
           <Tabs
             className="analytics-tabs"
             defaultActiveKey="customWidget"
@@ -1980,7 +2006,7 @@ const AnalyticsDashboard = () => {
                     </div>
                     <Button
                       type="primary"
-                      className="rounded-xl !border-blue-600 !bg-blue-600 !text-white hover:!border-blue-700 hover:!bg-blue-700 dark:!border-blue-500 dark:!bg-blue-500 dark:hover:!border-blue-400 dark:hover:!bg-blue-400"
+                      className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
                       loading={customWidgetLoading}
                       onClick={runCustomWidget}
                     >
@@ -1990,12 +2016,12 @@ const AnalyticsDashboard = () => {
                       {customWidgetData.map((row) => (
                         <div
                           key={row.key}
-                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
+                          className="rounded-xl border border-border bg-muted/50 px-3 py-2"
                         >
-                          <div className="truncate text-xs font-semibold text-slate-600 dark:text-slate-400">
+                          <div className="truncate text-xs font-semibold text-muted-foreground">
                             {row.label}
                           </div>
-                          <div className="text-lg font-black text-slate-900 dark:text-slate-100">
+                          <div className="text-lg font-black text-foreground">
                             {Number(row.value || 0).toLocaleString("en-IN")}
                           </div>
                         </div>
@@ -2057,15 +2083,15 @@ const AnalyticsDashboard = () => {
                     </div>
                     <Button
                       type="primary"
-                      className="rounded-xl !border-blue-600 !bg-blue-600 !text-white hover:!border-blue-700 hover:!bg-blue-700 dark:!border-blue-500 dark:!bg-blue-500 dark:hover:!border-blue-400 dark:hover:!bg-blue-400"
+                      className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
                       loading={customReportLoading}
                       onClick={runCustomReport}
                     >
                       Generate Report
                     </Button>
-                    <div className="analytics-report-panel rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="analytics-report-panel rounded-xl border border-border bg-card p-3">
                       <div className="analytics-report-toolbar mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Report Output</div>
+                        <div className="text-sm font-bold text-foreground">Report Output</div>
                         <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
                           <Input
                             allowClear
@@ -2074,9 +2100,9 @@ const AnalyticsDashboard = () => {
                             placeholder="Search across generated report rows"
                             className="analytics-report-search w-full md:w-80"
                           />
-                          <div className="analytics-report-stats inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          <div className="analytics-report-stats inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
                             <span>Rows: {filteredReportRows.length}</span>
-                            <span className="text-slate-400 dark:text-slate-500">•</span>
+                            <span className="text-muted-foreground">•</span>
                             <span>Cols: {(customReportMeta?.fields || customReportConfig.fields || []).length}</span>
                           </div>
                         </div>
@@ -2098,7 +2124,8 @@ const AnalyticsDashboard = () => {
             ]}
           />
         </section>
-      </Spin>
+      </div>
+      </div>
 
       <Modal
         className="analytics-modal"
@@ -2118,9 +2145,9 @@ const AnalyticsDashboard = () => {
               placeholder="Search in this drilldown (Loan ID, customer, bank, stage...)"
               className="w-full md:w-96"
             />
-            <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
               <span>Rows: {filteredDrillRows.length}</span>
-              <span className="text-slate-400 dark:text-slate-500">•</span>
+              <span className="text-muted-foreground">•</span>
               <span>Total: {drillRows.length}</span>
             </div>
           </div>
