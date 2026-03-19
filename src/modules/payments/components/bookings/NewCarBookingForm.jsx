@@ -10,6 +10,7 @@ import {
   Radio,
   Divider,
   Button,
+  Checkbox,
 } from "antd";
 import {
   UserOutlined,
@@ -39,6 +40,8 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
+    showDiscontinuedCars,
+    setShowDiscontinuedCars,
   } = useVehicleData(form, {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
@@ -239,6 +242,16 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                     </Option>
                   ))}
                 </Select>
+              </Form.Item>
+              <Form.Item label={null}>
+                <Checkbox
+                  checked={showDiscontinuedCars}
+                  onChange={(event) =>
+                    setShowDiscontinuedCars(event?.target?.checked)
+                  }
+                >
+                  Show discontinued cars
+                </Checkbox>
               </Form.Item>
               <Form.Item label="Colour" name="vehicleColor">
                 <Input placeholder="White, Grey, etc." />

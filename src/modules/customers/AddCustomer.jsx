@@ -61,6 +61,52 @@ const formatDateForApi = (val) => {
   return d.isValid() ? d.format("YYYY-MM-DD") : "";
 };
 
+const normalizeCustomerPayload = (values = {}, { includeCreatedOn = false } = {}) => {
+  const payload = {
+    ...values,
+    applicantType: values?.applicantType || "Individual",
+    dob: formatDateForApi(values?.dob),
+    nomineeDob: formatDateForApi(values?.nomineeDob),
+    identityProofExpiry: formatDateForApi(values?.identityProofExpiry),
+    co_dob: formatDateForApi(values?.co_dob),
+    signatory_dob: formatDateForApi(values?.signatory_dob),
+    companyType: Array.isArray(values?.companyType) ? values.companyType[0] || "" : values?.companyType || "",
+    businessNature: Array.isArray(values?.businessNature)
+      ? values.businessNature
+      : (values?.businessNature ? [values.businessNature] : []),
+    customerType: values?.customerType || "New",
+    kycStatus: values?.kycStatus || "In Progress",
+    ifsc: values?.ifsc || values?.ifscCode || "",
+    ifscCode: values?.ifscCode || values?.ifsc || "",
+    aadhaarNumber: values?.aadhaarNumber || values?.aadharNumber || "",
+    aadharNumber: values?.aadharNumber || values?.aadhaarNumber || "",
+    reference1_name: values?.reference1_name || values?.reference1?.name || "",
+    reference1_mobile: values?.reference1_mobile || values?.reference1?.mobile || "",
+    reference1_address: values?.reference1_address || values?.reference1?.address || "",
+    reference1_pincode: values?.reference1_pincode || values?.reference1?.pincode || "",
+    reference1_city: values?.reference1_city || values?.reference1?.city || "",
+    reference1_relation: values?.reference1_relation || values?.reference1?.relation || "",
+    reference2_name: values?.reference2_name || values?.reference2?.name || "",
+    reference2_mobile: values?.reference2_mobile || values?.reference2?.mobile || "",
+    reference2_address: values?.reference2_address || values?.reference2?.address || "",
+    reference2_pincode: values?.reference2_pincode || values?.reference2?.pincode || "",
+    reference2_city: values?.reference2_city || values?.reference2?.city || "",
+    reference2_relation: values?.reference2_relation || values?.reference2?.relation || "",
+  };
+
+  if (includeCreatedOn) {
+    payload.createdOn =
+      values?.createdOn ||
+      new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+  }
+
+  return payload;
+};
+
 const AddCustomer = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
@@ -192,27 +238,7 @@ const AddCustomer = () => {
     creatingRef.current = true;
 
     try {
-      // ✅ Properly format the payload for initial creation too
-    const payload = {
-      ...initialData,
-      applicantType: initialData?.applicantType || "Individual",
-      dob: formatDateForApi(initialData?.dob),
-      nomineeDob: formatDateForApi(initialData?.nomineeDob),
-      // companyType is single-select in UI; businessNature stays multi-select
-      companyType: Array.isArray(initialData?.companyType) 
-        ? initialData.companyType[0] || "" 
-        : initialData?.companyType || "",
-      businessNature: Array.isArray(initialData?.businessNature)
-        ? initialData.businessNature
-        : (initialData?.businessNature ? [initialData.businessNature] : []),
-        customerType: "New",
-        kycStatus: initialData.kycStatus || "In Progress",
-        createdOn: new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-      };
+      const payload = normalizeCustomerPayload(initialData, { includeCreatedOn: true });
 
       const data = await customersApi.create(payload);
 
@@ -254,31 +280,7 @@ const AddCustomer = () => {
     const id = await createCustomerIfNeeded(values, { silent });
     if (!id) return; // createCustomerIfNeeded already handles its own errors or navigation
 
-    const payload = {
-      ...values,
-
-      // ✅ convert dayjs values safely
-      dob: formatDateForApi(values?.dob),
-      nomineeDob: formatDateForApi(values?.nomineeDob),
-
-      // companyType is single-select in UI; businessNature stays multi-select
-      companyType: Array.isArray(values?.companyType) 
-        ? values.companyType[0] || "" 
-        : values?.companyType || "",
-      businessNature: Array.isArray(values?.businessNature)
-        ? values.businessNature
-        : (values?.businessNature ? [values.businessNature] : []),
-
-      customerType: "New",
-      kycStatus: values?.kycStatus || "In Progress",
-      createdOn:
-        values?.createdOn ||
-        new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-    };
+    const payload = normalizeCustomerPayload(values, { includeCreatedOn: true });
 
     await customersApi.update(id, payload);
 
@@ -396,6 +398,9 @@ const AddCustomer = () => {
                 extraMobiles: [],
                 businessNature: [],
                 companyType: "",
+                companyPartners: [],
+                hasCoApplicant: false,
+                hasGuarantor: false,
               }}
             >
               <div id="section-personal" className="mb-10 scroll-mt-[220px]">

@@ -130,6 +130,44 @@ const DATE_FIELD_NAMES = new Set([
   "disbursement_date",
 ]);
 
+const STEP_OPEN_DEFAULT_FIELDS = {
+  profile: [
+    { name: "leadDate", type: "dayjs" },
+    { name: "leadTime", type: "dayjs" },
+  ],
+  prefile: [
+    { name: "receivingDate", type: "dayjs" },
+    { name: "receivingTime", type: "dayjs" },
+  ],
+  approval: [{ name: "approval_approvalDate", type: "dayjs" }],
+  postfile: [
+    { name: "postfile_approvalDate", type: "iso-date" },
+    { name: "dispatch_date", type: "iso-date" },
+    { name: "dispatch_time", type: "hhmm" },
+    { name: "disbursement_date", type: "iso-date" },
+    { name: "disbursement_time", type: "hhmm" },
+  ],
+  delivery: [
+    { name: "delivery_date", type: "iso-date" },
+    { name: "insurance_policy_start_date", type: "iso-date" },
+    { name: "invoice_date", type: "iso-date" },
+    { name: "invoice_received_date", type: "iso-date" },
+    { name: "rc_redg_date", type: "iso-date" },
+    { name: "rc_received_date", type: "iso-date" },
+  ],
+};
+
+const hasMeaningfulValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (dayjs.isDayjs(value)) return value.isValid();
+  if (value instanceof Date) return !Number.isNaN(value.getTime());
+  if (typeof value === "string") return value.trim() !== "";
+  if (typeof value === "object" && (value?.$date || value?.date || value?.value)) {
+    return hasMeaningfulValue(value?.$date || value?.date || value?.value);
+  }
+  return true;
+};
+
 const normalizeLoanTypeLabel = (value) => {
   const text = String(value || "").trim().toLowerCase();
   if (!text) return value;
@@ -685,11 +723,20 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedGuAddressProofDocUrl = Form.useWatch("gu_addressProofDocUrl", form);
   const watchedDeliveryInvoiceFile = Form.useWatch("delivery_invoiceFile", form);
   const watchedDeliveryRcFile = Form.useWatch("delivery_rcFile", form);
+  const watchedLeadDate = Form.useWatch("leadDate", form);
+  const watchedLeadTime = Form.useWatch("leadTime", form);
   const [activeStep, setActiveStep] = useState("profile");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
   const loadedLoanRef = React.useRef(null);
+  const stepDefaultsInitializedRef = React.useRef(new Set());
+  const stepDefaultsReadyRef = React.useRef(!isEditMode);
+
+  useEffect(() => {
+    stepDefaultsInitializedRef.current = new Set();
+    stepDefaultsReadyRef.current = !isEditMode;
+  }, [isEditMode, loanIdFromRoute, freshLoanToken]);
 
   // In cash cases, block only unavailable stages (keep profile/prefile/delivery usable).
   React.useEffect(() => {
@@ -700,6 +747,62 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       setActiveStep("delivery");
     }
   }, [watchedIsFinanced, activeStep]);
+
+  // Auto-fill operational date/time fields when each step is opened the first time.
+  useEffect(() => {
+    if (!stepDefaultsReadyRef.current) return;
+    if (stepDefaultsInitializedRef.current.has(activeStep)) return;
+
+    const fields = STEP_OPEN_DEFAULT_FIELDS[activeStep] || [];
+    if (!fields.length) {
+      stepDefaultsInitializedRef.current.add(activeStep);
+      return;
+    }
+
+    const now = dayjs();
+    const patch = {};
+
+    fields.forEach(({ name, type }) => {
+      const existingValue = form.getFieldValue(name);
+      if (hasMeaningfulValue(existingValue)) return;
+
+      if (type === "dayjs") {
+        patch[name] = now;
+        return;
+      }
+      if (type === "iso-date") {
+        patch[name] = now.format("YYYY-MM-DD");
+        return;
+      }
+      if (type === "hhmm") {
+        patch[name] = now.format("HH:mm");
+      }
+    });
+
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+    stepDefaultsInitializedRef.current.add(activeStep);
+  }, [activeStep, form]);
+
+  // Safety bootstrap for brand-new loans:
+  // if lead date/time are empty (e.g. after reset/restore), auto-fill unless user already touched them.
+  useEffect(() => {
+    if (isEditMode) return;
+    if (activeStep !== "profile") return;
+
+    const leadDateTouched = form.isFieldTouched("leadDate");
+    const leadTimeTouched = form.isFieldTouched("leadTime");
+
+    const now = dayjs();
+    const patch = {};
+    if (!hasMeaningfulValue(watchedLeadDate) && !leadDateTouched) patch.leadDate = now;
+    if (!hasMeaningfulValue(watchedLeadTime) && !leadTimeTouched) patch.leadTime = now;
+
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  }, [isEditMode, activeStep, form, watchedLeadDate, watchedLeadTime]);
 
   // Notes Modal Component
   const NotesModal = ({ open, onClose }) => {
@@ -809,6 +912,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     form.resetFields();
     setBanksData([]);
     setActiveStep("profile");
+    stepDefaultsInitializedRef.current = new Set();
+    stepDefaultsReadyRef.current = true;
     clearSavedFormData();
     form.setFieldsValue({
       isFinanced: "Yes",
@@ -1266,6 +1371,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         alert("Failed to load loan ❌");
       } finally {
         if (mounted) setLoading(false);
+        stepDefaultsReadyRef.current = true;
       }
     };
 
@@ -1563,15 +1669,66 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   /* =========================================================
      SYNC HELPERS (Map Loan Form -> Customer Schema)
      ========================================================= */
-  const syncCustomerData = useCallback(async (silent) => {
+  const syncCustomerData = useCallback(async ({ allowCreate = true } = {}) => {
     try {
       const formValues = form.getFieldsValue(true);
+      const hasIdentityPair = ({ normalizedName, normalizedMobile, normalizedPan }) =>
+        Boolean(
+          (normalizedName && normalizedMobile) ||
+            (normalizedName && normalizedPan) ||
+            (normalizedPan && normalizedMobile),
+        );
+
+      const isIdentityPairMatch = ({
+        normalizedName,
+        normalizedMobile,
+        normalizedPan,
+        customer,
+        strictNameMatch = false,
+      }) => {
+        const customerMobile = normalizePhoneValue(customer?.primaryMobile);
+        const customerPan = normalizeIdentityValue(customer?.panNumber).toUpperCase();
+        const customerName = normalizeIdentityValue(customer?.customerName);
+
+        if (strictNameMatch && normalizedName && customerName && customerName !== normalizedName) {
+          return false;
+        }
+
+        const nameMobileMatch = Boolean(
+          normalizedName &&
+            customerName &&
+            normalizedName === customerName &&
+            normalizedMobile &&
+            customerMobile &&
+            normalizedMobile === customerMobile,
+        );
+        const namePanMatch = Boolean(
+          normalizedName &&
+            customerName &&
+            normalizedName === customerName &&
+            normalizedPan &&
+            customerPan &&
+            normalizedPan === customerPan,
+        );
+        const panMobileMatch = Boolean(
+          normalizedPan &&
+            customerPan &&
+            normalizedPan === customerPan &&
+            normalizedMobile &&
+            customerMobile &&
+            normalizedMobile === customerMobile,
+        );
+
+        return nameMobileMatch || namePanMatch || panMobileMatch;
+      };
+
       const findExistingCustomerId = async ({ name, mobile, panNumber, existingId, respectExistingId = true, strictNameMatch = false }) => {
         if (respectExistingId && existingId) return existingId;
 
         const normalizedName = normalizeIdentityValue(name);
         const normalizedMobile = normalizePhoneValue(mobile);
         const normalizedPan = normalizeIdentityValue(panNumber).toUpperCase();
+        if (!hasIdentityPair({ normalizedName, normalizedMobile, normalizedPan })) return null;
 
         const queries = [];
         if (normalizedMobile.length >= 10) queries.push(normalizedMobile);
@@ -1582,22 +1739,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           try {
             const res = await customersApi.search(query);
             const matches = Array.isArray(res?.data) ? res.data : [];
-            const matched = matches.find((customer) => {
-              const customerMobile = normalizePhoneValue(customer.primaryMobile);
-              const customerPan = normalizeIdentityValue(customer.panNumber).toUpperCase();
-              const customerName = normalizeIdentityValue(customer.customerName);
-
-              if (strictNameMatch && normalizedName && customerName && customerName !== normalizedName) {
-                return false;
-              }
-              if (normalizedMobile && customerMobile && customerMobile === normalizedMobile) {
-                return strictNameMatch ? customerName === normalizedName : true;
-              }
-              if (normalizedPan && customerPan && customerPan === normalizedPan) {
-                return strictNameMatch ? customerName === normalizedName : true;
-              }
-              return normalizedName && customerName === normalizedName;
-            });
+            const matched = matches.find((customer) =>
+              isIdentityPairMatch({
+                normalizedName,
+                normalizedMobile,
+                normalizedPan,
+                customer,
+                strictNameMatch,
+              }),
+            );
 
             if (matched?._id || matched?.id) {
               return matched._id || matched.id;
@@ -1616,15 +1766,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         mobile,
         panNumber,
         idFieldName,
-        createOnlyWithMobile = true,
         respectCurrentId = true,
         strictNameMatch = false,
       }) => {
         const currentId = form.getFieldValue(idFieldName);
+        const normalizedName = normalizeIdentityValue(name);
         const normalizedMobile = normalizePhoneValue(mobile);
+        const normalizedPan = normalizeIdentityValue(panNumber).toUpperCase();
 
-        if (!name) return currentId || null;
-        if (createOnlyWithMobile && normalizedMobile.length < 10 && !currentId) return null;
+        if (!hasIdentityPair({ normalizedName, normalizedMobile, normalizedPan }) && !currentId) return null;
 
         const cleanData = convertDatesToStringsDeep(cleanEmptyValues(payload));
 
@@ -1648,6 +1798,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           }
           return matchedId;
         }
+
+        if (!allowCreate || !normalizedName) return currentId || null;
 
         const res = await customersApi.create(cleanData);
         const newId = res?.data?._id || res?.data?.id || res?._id || res?.id;
@@ -1794,164 +1946,51 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         idFieldName: "customerId",
       });
 
-      const coApplicantPayload = {
-        applicantType: "Individual",
-        customerName: formValues.co_customerName,
-        primaryMobile: formValues.co_primaryMobile,
-        motherName: formValues.co_motherName,
-        sdwOf: formValues.co_fatherName,
-        gender: formValues.co_gender,
-        dob: formValues.co_dob,
-        maritalStatus: formValues.co_maritalStatus,
-        dependents: formValues.co_dependents,
-        education: formValues.co_education,
-        houseType: formValues.co_houseType,
-        residenceAddress: formValues.co_address,
-        pincode: formValues.co_pincode,
-        city: formValues.co_city,
-        panNumber: formValues.co_pan,
-        aadhaarNumber: formValues.co_aadhaar,
-        occupationType: formValues.co_occupation,
-        professionalType: formValues.co_professionalType,
-        companyType: formValues.co_companyType,
-        businessNature: formValues.co_businessNature,
-        designation: formValues.co_designation,
-        currentExp: formValues.co_currentExperience,
-        experienceCurrent: formValues.co_currentExperience,
-        totalExp: formValues.co_totalExperience,
-        totalExperience: formValues.co_totalExperience,
-        companyName: formValues.co_companyName,
-        employmentAddress: formValues.co_companyAddress,
-        employmentPincode: formValues.co_companyPincode,
-        employmentCity: formValues.co_companyCity,
-        employmentPhone: formValues.co_companyPhone,
-        isMSME: formValues.co_isMSME,
-      };
+      if (formValues.hasCoApplicant) {
+        const coApplicantPayload = {
+          applicantType: "Individual",
+          customerName: formValues.co_customerName,
+          primaryMobile: formValues.co_primaryMobile,
+          motherName: formValues.co_motherName,
+          sdwOf: formValues.co_fatherName,
+          gender: formValues.co_gender,
+          dob: formValues.co_dob,
+          maritalStatus: formValues.co_maritalStatus,
+          dependents: formValues.co_dependents,
+          education: formValues.co_education,
+          houseType: formValues.co_houseType,
+          residenceAddress: formValues.co_address,
+          pincode: formValues.co_pincode,
+          city: formValues.co_city,
+          panNumber: formValues.co_pan,
+          aadhaarNumber: formValues.co_aadhaar,
+          occupationType: formValues.co_occupation,
+          professionalType: formValues.co_professionalType,
+          companyType: formValues.co_companyType,
+          businessNature: formValues.co_businessNature,
+          designation: formValues.co_designation,
+          currentExp: formValues.co_currentExperience,
+          experienceCurrent: formValues.co_currentExperience,
+          totalExp: formValues.co_totalExperience,
+          totalExperience: formValues.co_totalExperience,
+          companyName: formValues.co_companyName,
+          employmentAddress: formValues.co_companyAddress,
+          employmentPincode: formValues.co_companyPincode,
+          employmentCity: formValues.co_companyCity,
+          employmentPhone: formValues.co_companyPhone,
+          isMSME: formValues.co_isMSME,
+        };
 
-      await upsertCustomerRecord({
-        payload: coApplicantPayload,
-        name: formValues.co_customerName,
-        mobile: formValues.co_primaryMobile,
-        panNumber: formValues.co_pan,
-        idFieldName: "co_id",
-        respectCurrentId: false,
-        strictNameMatch: true,
-      });
-
-      const guarantorPayload = {
-        applicantType: "Individual",
-        customerName: formValues.gu_customerName,
-        primaryMobile: formValues.gu_primaryMobile,
-        motherName: formValues.gu_motherName,
-        sdwOf: formValues.gu_fatherName,
-        gender: formValues.gu_gender,
-        dob: formValues.gu_dob,
-        maritalStatus: formValues.gu_maritalStatus,
-        dependents: formValues.gu_dependents,
-        education: formValues.gu_education,
-        houseType: formValues.gu_houseType,
-        residenceAddress: formValues.gu_address,
-        pincode: formValues.gu_pincode,
-        city: formValues.gu_city,
-        panNumber: formValues.gu_pan,
-        aadhaarNumber: formValues.gu_aadhaar,
-        occupationType: formValues.gu_occupation,
-        professionalType: formValues.gu_professionalType,
-        companyType: formValues.gu_companyType,
-        businessNature: formValues.gu_businessNature,
-        designation: formValues.gu_designation,
-        currentExp: formValues.gu_currentExperience,
-        experienceCurrent: formValues.gu_currentExperience,
-        totalExp: formValues.gu_totalExperience,
-        totalExperience: formValues.gu_totalExperience,
-        companyName: formValues.gu_companyName,
-        employmentAddress: formValues.gu_companyAddress,
-        employmentPincode: formValues.gu_companyPincode,
-        employmentCity: formValues.gu_companyCity,
-        employmentPhone: formValues.gu_companyPhone,
-        isMSME: formValues.gu_isMSME,
-      };
-
-      await upsertCustomerRecord({
-        payload: guarantorPayload,
-        name: formValues.gu_customerName,
-        mobile: formValues.gu_primaryMobile,
-        panNumber: formValues.gu_pan,
-        idFieldName: "gu_id",
-        respectCurrentId: false,
-        strictNameMatch: true,
-      });
-
-      const signatoryPayload = {
-        ...(formValues.signatorySameAsCoApplicant
-          ? {
-              customerName: formValues.co_customerName,
-              primaryMobile: formValues.co_primaryMobile,
-              residenceAddress: formValues.co_address,
-              pincode: formValues.co_pincode,
-              city: formValues.co_city,
-              dob: formValues.co_dob,
-              gender: formValues.co_gender,
-              designation: formValues.co_designation,
-              panNumber: formValues.co_pan,
-              aadhaarNumber: formValues.co_aadhaar,
-              aadharNumber: formValues.co_aadhaar,
-            }
-          : {}),
-        applicantType: "Individual",
-        customerName:
-          formValues.signatory_customerName ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_customerName : undefined),
-        primaryMobile:
-          formValues.signatory_primaryMobile ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_primaryMobile : undefined),
-        residenceAddress:
-          formValues.signatory_address ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_address : undefined),
-        pincode:
-          formValues.signatory_pincode ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_pincode : undefined),
-        city:
-          formValues.signatory_city ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_city : undefined),
-        dob:
-          formValues.signatory_dob ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_dob : undefined),
-        gender:
-          formValues.signatory_gender ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_gender : undefined),
-        designation:
-          formValues.signatory_designation ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_designation : undefined),
-        panNumber:
-          formValues.signatory_pan ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_pan : undefined),
-        aadhaarNumber:
-          formValues.signatory_aadhaar ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_aadhaar : undefined),
-        aadharNumber:
-          formValues.signatory_aadhaar ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_aadhaar : undefined),
-        customerType: "Authorised Signatory",
-        loan_notes: formValues.loan_notes,
-      };
-
-      await upsertCustomerRecord({
-        payload: signatoryPayload,
-        name:
-          formValues.signatory_customerName ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_customerName : undefined),
-        mobile:
-          formValues.signatory_primaryMobile ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_primaryMobile : undefined),
-        panNumber:
-          formValues.signatory_pan ||
-          (formValues.signatorySameAsCoApplicant ? formValues.co_pan : undefined),
-        idFieldName: "signatory_id",
-        createOnlyWithMobile: false,
-        respectCurrentId: false,
-        strictNameMatch: true,
-      });
+        await upsertCustomerRecord({
+          payload: coApplicantPayload,
+          name: formValues.co_customerName,
+          mobile: formValues.co_primaryMobile,
+          panNumber: formValues.co_pan,
+          idFieldName: "co_id",
+          respectCurrentId: false,
+          strictNameMatch: true,
+        });
+      }
 
       return primaryCustomerId;
     } catch (e) {
@@ -1967,7 +2006,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         if (!silent) setSaving(true);
 
         // 1. Sync Customer (Create/Update) - OPTIONAL, backend will auto-create if needed
-        const syncedCustomerId = await syncCustomerData(silent);
+        const syncedCustomerId = await syncCustomerData({
+          silent,
+          // Prevent background/edit saves from re-creating deleted or stale customer rows.
+          allowCreate: !isEditMode && !silent,
+        });
         const effectiveCustomerId = form.getFieldValue("customerId") || syncedCustomerId;
         
         // Set customerId if we have one from sync

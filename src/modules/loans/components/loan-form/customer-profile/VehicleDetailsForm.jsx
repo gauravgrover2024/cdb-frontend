@@ -1,5 +1,5 @@
 import React from "react";
-import { Form, Select, Row, Col, Segmented, Spin } from "antd";
+import { Form, Select, Row, Col, Segmented, Spin, Checkbox } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
 
@@ -16,6 +16,8 @@ const VehicleDetailsForm = () => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
+    showDiscontinuedCars,
+    setShowDiscontinuedCars,
   } = useVehicleData(form, {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
@@ -227,6 +229,18 @@ const VehicleDetailsForm = () => {
                   </Select.Option>
                 ))}
               </Select>
+            </Form.Item>
+          </Col>
+          <Col xs={24}>
+            <Form.Item className="mb-0">
+              <Checkbox
+                checked={showDiscontinuedCars}
+                onChange={(event) =>
+                  setShowDiscontinuedCars(event?.target?.checked)
+                }
+              >
+                Show discontinued cars
+              </Checkbox>
             </Form.Item>
           </Col>
         </Row>

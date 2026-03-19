@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { message } from "antd";
 import { vehiclesApi } from "../api/vehicles";
-import { featuresApi } from "../api/features";
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const stripLeadingPhrase = (text, phrase) => {
@@ -45,6 +44,117 @@ const toVariantDisplayMap = (rawVariants, selectedMake, selectedModel) => {
   return { labels, rawByDisplay: map };
 };
 
+const parseBooleanFlag = (value) => {
+  const raw = String(value ?? "").trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+};
+
+const hasDiscontinuedDate = (value) => {
+  if (value === undefined || value === null) return false;
+  const raw = String(value).trim();
+  if (!raw) return false;
+  return raw.toLowerCase() !== "null";
+};
+
+const isVehicleRowDiscontinued = (row) =>
+  parseBooleanFlag(row?.is_discontinued ?? row?.isDiscontinued) ||
+  hasDiscontinuedDate(row?.discontinued_date ?? row?.discontinuedDate);
+
+const filterRowsByDiscontinuedPreference = (rows, includeDiscontinued) => {
+  if (!Array.isArray(rows)) return [];
+  if (includeDiscontinued) return rows;
+  return rows.filter((row) => !isVehicleRowDiscontinued(row));
+};
+
+const normalizeVehicleToken = (value) =>
+  String(value || "").trim().toLowerCase();
+
+const toMasterRows = (rows) => {
+  if (!Array.isArray(rows)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const makeValue = String(row?.make || row?.brand || "").trim();
+    const modelValue = String(row?.model || "").trim();
+    const variantValue = String(row?.variant || "").trim();
+    if (!makeValue) continue;
+    const key = `${normalizeVehicleToken(makeValue)}|${normalizeVehicleToken(
+      modelValue,
+    )}|${normalizeVehicleToken(variantValue)}|${
+      isVehicleRowDiscontinued(row) ? "discontinued" : "active"
+    }`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      make: makeValue,
+      model: modelValue,
+      variant: variantValue,
+      is_discontinued: row?.is_discontinued,
+      isDiscontinued: row?.isDiscontinued,
+      discontinued_date: row?.discontinued_date,
+      discontinuedDate: row?.discontinuedDate,
+    });
+  }
+  return out;
+};
+
+const VEHICLE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
+const parseCachePayload = (raw) => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.__codexCache === true) {
+      const ts = Number(parsed.ts) || 0;
+      if (Date.now() - ts > VEHICLE_CACHE_TTL_MS) return null;
+      return parsed.value;
+    }
+    // Backward compatibility with pre-envelope cache payloads.
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const readVehicleCache = (key, fallback) => {
+  try {
+    const sessionValue = parseCachePayload(sessionStorage.getItem(key));
+    if (sessionValue !== null && sessionValue !== undefined) {
+      return sessionValue;
+    }
+    const localValue = parseCachePayload(localStorage.getItem(key));
+    if (localValue !== null && localValue !== undefined) {
+      // Hydrate session cache for quicker current-tab reads.
+      sessionStorage.setItem(
+        key,
+        JSON.stringify({ __codexCache: true, ts: Date.now(), value: localValue }),
+      );
+      return localValue;
+    }
+    return fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeVehicleCache = (key, value) => {
+  const payload = JSON.stringify({
+    __codexCache: true,
+    ts: Date.now(),
+    value,
+  });
+  try {
+    sessionStorage.setItem(key, payload);
+  } catch {
+    // no-op
+  }
+  try {
+    localStorage.setItem(key, payload);
+  } catch {
+    // no-op
+  }
+};
+
 
 /**
  * useVehicleData Hook
@@ -78,31 +188,14 @@ export const useVehicleData = (form, options = {}) => {
     cityResolver = null,
     autofillPricing = false,
     onVehicleSelect,
+    initialShowDiscontinued = false,
   } = options;
 
   const normalize = (v) => String(v || "").trim().toLowerCase();
-  const MODELS_CACHE_KEY = "vehicle_models_by_make_cache_v1";
-  const VARIANTS_CACHE_KEY = "vehicle_variants_by_make_model_cache_v2";
-  const MAKES_CACHE_KEY = "vehicle_makes_cache_v1";
-  const MASTER_ROWS_CACHE_KEY = "vehicle_master_rows_cache_v1";
-
-  const readCache = (key, fallback) => {
-    try {
-      const raw = sessionStorage.getItem(key);
-      if (!raw) return fallback;
-      return JSON.parse(raw);
-    } catch {
-      return fallback;
-    }
-  };
-
-  const writeCache = (key, value) => {
-    try {
-      sessionStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // no-op
-    }
-  };
+  const MODELS_CACHE_KEY = "vehicle_models_by_make_cache_v2";
+  const VARIANTS_CACHE_KEY = "vehicle_variants_by_make_model_cache_v3";
+  const MAKES_CACHE_KEY = "vehicle_makes_cache_v2";
+  const MASTER_ROWS_CACHE_KEY = "vehicle_master_rows_cache_v2";
   const toLabelList = (items, keys = []) => {
     if (!Array.isArray(items)) return [];
     const values = items
@@ -118,27 +211,6 @@ export const useVehicleData = (form, options = {}) => {
       .filter(Boolean);
     return [...new Set(values)].sort((a, b) => a.localeCompare(b));
   };
-  const toMasterRows = (rows) => {
-    if (!Array.isArray(rows)) return [];
-    const out = [];
-    const seen = new Set();
-    for (const row of rows) {
-      const makeValue = String(row?.make || row?.brand || "").trim();
-      const modelValue = String(row?.model || "").trim();
-      const variantValue = String(row?.variant || "").trim();
-      if (!makeValue) continue;
-      const key = `${normalize(makeValue)}|${normalize(modelValue)}|${normalize(variantValue)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({
-        make: makeValue,
-        model: modelValue,
-        variant: variantValue,
-      });
-    }
-    return out;
-  };
-
   const isVehicleNotFoundError = (error) => {
     const raw = String(error?.message || "").toLowerCase();
     return (
@@ -154,17 +226,21 @@ export const useVehicleData = (form, options = {}) => {
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [showDiscontinuedCars, setShowDiscontinuedCars] = useState(
+    Boolean(initialShowDiscontinued),
+  );
+  const discontinuedModeKey = showDiscontinuedCars ? "all" : "active";
 
   // Cache to avoid redundant API calls
   const cacheRef = useRef({
-    makes: null,
+    makesByMode: {},
     modelsByMake: {},
     variantsByMakeModel: {},
     variantRawByDisplayByMakeModel: {},
     featureRows: null,
   });
   const inFlightRef = useRef({
-    makes: null,
+    makesByMode: {},
     modelsByMake: {},
     variantsByMakeModel: {},
     masterRows: null,
@@ -174,7 +250,7 @@ export const useVehicleData = (form, options = {}) => {
     if (Array.isArray(cacheRef.current.featureRows) && cacheRef.current.featureRows.length) {
       return cacheRef.current.featureRows;
     }
-    const cachedRows = readCache(MASTER_ROWS_CACHE_KEY, []);
+    const cachedRows = readVehicleCache(MASTER_ROWS_CACHE_KEY, []);
     if (Array.isArray(cachedRows) && cachedRows.length) {
       cacheRef.current.featureRows = cachedRows;
       return cachedRows;
@@ -185,10 +261,10 @@ export const useVehicleData = (form, options = {}) => {
 
     inFlightRef.current.masterRows = (async () => {
       try {
-        const featuresRes = await featuresApi.getVariantsWithPrice();
-        const rows = toMasterRows(Array.isArray(featuresRes?.data) ? featuresRes.data : []);
+        const vehiclesRes = await vehiclesApi.getAll({ limit: 5000 });
+        const rows = toMasterRows(Array.isArray(vehiclesRes?.data) ? vehiclesRes.data : []);
         cacheRef.current.featureRows = rows;
-        writeCache(MASTER_ROWS_CACHE_KEY, rows);
+        writeVehicleCache(MASTER_ROWS_CACHE_KEY, rows);
         return rows;
       } catch {
         return [];
@@ -210,49 +286,60 @@ export const useVehicleData = (form, options = {}) => {
      FETCH UNIQUE MAKES
   ========================= */
   const fetchMakes = useCallback(async () => {
-    if (Array.isArray(cacheRef.current.makes) && cacheRef.current.makes.length) {
-      setMakes(cacheRef.current.makes);
+    const modeCacheKey = discontinuedModeKey;
+    if (
+      Array.isArray(cacheRef.current.makesByMode[modeCacheKey]) &&
+      cacheRef.current.makesByMode[modeCacheKey].length
+    ) {
+      setMakes(cacheRef.current.makesByMode[modeCacheKey]);
       return;
     }
-    const cachedMakes = readCache(MAKES_CACHE_KEY, []);
+    const cachedMakesMap = readVehicleCache(MAKES_CACHE_KEY, {});
+    const cachedMakes = cachedMakesMap?.[modeCacheKey];
     if (Array.isArray(cachedMakes) && cachedMakes.length) {
-      cacheRef.current.makes = cachedMakes;
+      cacheRef.current.makesByMode[modeCacheKey] = cachedMakes;
       setMakes(cachedMakes);
       return;
     }
-    if (inFlightRef.current.makes) {
-      await inFlightRef.current.makes;
+    if (inFlightRef.current.makesByMode[modeCacheKey]) {
+      await inFlightRef.current.makesByMode[modeCacheKey];
       return;
     }
 
     try {
       setLoading(true);
       // Fast path: lightweight distinct endpoint
-      inFlightRef.current.makes = vehiclesApi.getUniqueMakes();
-      const res = await inFlightRef.current.makes;
+      inFlightRef.current.makesByMode[modeCacheKey] = vehiclesApi.getUniqueMakes(
+        null,
+        showDiscontinuedCars,
+      );
+      const res = await inFlightRef.current.makesByMode[modeCacheKey];
       let makesList = toLabelList(res?.data, ["make", "name", "label"]);
-
-      // Background warm-up of master rows for fallback
-      void loadMasterRows();
 
       // Fallback only if distinct endpoint is empty
       if (!makesList.length) {
         const masterRows = await loadMasterRows();
-        makesList = toLabelList(masterRows, ["make"]);
+        const filteredRows = filterRowsByDiscontinuedPreference(
+          masterRows,
+          showDiscontinuedCars,
+        );
+        makesList = toLabelList(filteredRows, ["make"]);
       }
 
-      cacheRef.current.makes = makesList;
-      writeCache(MAKES_CACHE_KEY, makesList);
+      cacheRef.current.makesByMode[modeCacheKey] = makesList;
+      const existing = readVehicleCache(MAKES_CACHE_KEY, {});
+      existing[modeCacheKey] = makesList;
+      writeVehicleCache(MAKES_CACHE_KEY, existing);
       setMakes(makesList);
     } catch (error) {
       console.error("Failed to load makes:", error);
       message.error("Failed to load vehicle makes");
       setMakes([]);
     } finally {
-      inFlightRef.current.makes = null;
+      inFlightRef.current.makesByMode[modeCacheKey] = null;
       setLoading(false);
     }
-  }, [loadMasterRows]);
+  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars]);
 
 
   /* =========================
@@ -264,12 +351,12 @@ export const useVehicleData = (form, options = {}) => {
       return;
     }
 
-    const cacheKey = selectedMake;
+    const cacheKey = `${discontinuedModeKey}|${selectedMake}`;
     if (cacheRef.current.modelsByMake[cacheKey]) {
       setModels(cacheRef.current.modelsByMake[cacheKey]);
       return;
     }
-    const cachedModelsMap = readCache(MODELS_CACHE_KEY, {});
+    const cachedModelsMap = readVehicleCache(MODELS_CACHE_KEY, {});
     if (Array.isArray(cachedModelsMap?.[cacheKey]) && cachedModelsMap[cacheKey].length) {
       cacheRef.current.modelsByMake[cacheKey] = cachedModelsMap[cacheKey];
       setModels(cachedModelsMap[cacheKey]);
@@ -283,7 +370,11 @@ export const useVehicleData = (form, options = {}) => {
     try {
       setLoading(true);
       // Fast path: lightweight distinct endpoint
-      inFlightRef.current.modelsByMake[cacheKey] = vehiclesApi.getUniqueModels(selectedMake);
+      inFlightRef.current.modelsByMake[cacheKey] = vehiclesApi.getUniqueModels(
+        selectedMake,
+        null,
+        showDiscontinuedCars,
+      );
       const res = await inFlightRef.current.modelsByMake[cacheKey];
       let modelsList = toLabelList(res?.data, ["model", "name", "label"]);
 
@@ -291,16 +382,20 @@ export const useVehicleData = (form, options = {}) => {
       if (!modelsList.length) {
         const masterRows = await loadMasterRows();
         const targetMake = normalize(selectedMake);
+        const filteredRows = filterRowsByDiscontinuedPreference(
+          masterRows,
+          showDiscontinuedCars,
+        );
         modelsList = toLabelList(
-          masterRows.filter((r) => normalize(r?.make || r?.brand) === targetMake),
+          filteredRows.filter((r) => normalize(r?.make || r?.brand) === targetMake),
           ["model"],
         );
       }
 
       cacheRef.current.modelsByMake[cacheKey] = modelsList;
-      const existing = readCache(MODELS_CACHE_KEY, {});
+      const existing = readVehicleCache(MODELS_CACHE_KEY, {});
       existing[cacheKey] = modelsList;
-      writeCache(MODELS_CACHE_KEY, existing);
+      writeVehicleCache(MODELS_CACHE_KEY, existing);
       setModels(modelsList);
     } catch (error) {
       console.error("Failed to load models:", error);
@@ -310,7 +405,7 @@ export const useVehicleData = (form, options = {}) => {
       inFlightRef.current.modelsByMake[cacheKey] = null;
       setLoading(false);
     }
-  }, [loadMasterRows]);
+  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars]);
 
 
   /* =========================
@@ -322,12 +417,12 @@ export const useVehicleData = (form, options = {}) => {
       return;
     }
 
-    const cacheKey = `${selectedMake}|${selectedModel}`;
+    const cacheKey = `${discontinuedModeKey}|${selectedMake}|${selectedModel}`;
     if (Array.isArray(cacheRef.current.variantsByMakeModel[cacheKey])) {
       setVariants(cacheRef.current.variantsByMakeModel[cacheKey]);
       return;
     }
-    const cachedVariantsMap = readCache(VARIANTS_CACHE_KEY, {});
+    const cachedVariantsMap = readVehicleCache(VARIANTS_CACHE_KEY, {});
     const cachedEntry = cachedVariantsMap?.[cacheKey];
     if (Array.isArray(cachedEntry) && cachedEntry.length) {
       cacheRef.current.variantsByMakeModel[cacheKey] = cachedEntry;
@@ -348,7 +443,13 @@ export const useVehicleData = (form, options = {}) => {
     try {
       setLoading(true);
       // Fast path: lightweight distinct endpoint
-      inFlightRef.current.variantsByMakeModel[cacheKey] = vehiclesApi.getUniqueVariants(selectedMake, selectedModel);
+      inFlightRef.current.variantsByMakeModel[cacheKey] =
+        vehiclesApi.getUniqueVariants(
+          selectedMake,
+          selectedModel,
+          null,
+          showDiscontinuedCars,
+        );
       const res = await inFlightRef.current.variantsByMakeModel[cacheKey];
       let variantsListRaw = toLabelList(res?.data, ["variant", "name", "label"]);
 
@@ -357,8 +458,12 @@ export const useVehicleData = (form, options = {}) => {
         const masterRows = await loadMasterRows();
         const targetMake = normalize(selectedMake);
         const targetModel = normalize(selectedModel);
+        const filteredRows = filterRowsByDiscontinuedPreference(
+          masterRows,
+          showDiscontinuedCars,
+        );
         variantsListRaw = toLabelList(
-          masterRows.filter(
+          filteredRows.filter(
             (r) =>
               normalize(r?.make || r?.brand) === targetMake &&
               normalize(r?.model) === targetModel,
@@ -373,9 +478,9 @@ export const useVehicleData = (form, options = {}) => {
       );
       cacheRef.current.variantsByMakeModel[cacheKey] = labels;
       cacheRef.current.variantRawByDisplayByMakeModel[cacheKey] = rawByDisplay;
-      const existing = readCache(VARIANTS_CACHE_KEY, {});
+      const existing = readVehicleCache(VARIANTS_CACHE_KEY, {});
       existing[cacheKey] = { labels, rawByDisplay };
-      writeCache(VARIANTS_CACHE_KEY, existing);
+      writeVehicleCache(VARIANTS_CACHE_KEY, existing);
       setVariants(labels);
     } catch (error) {
       console.error("Failed to load variants:", error);
@@ -385,7 +490,7 @@ export const useVehicleData = (form, options = {}) => {
       inFlightRef.current.variantsByMakeModel[cacheKey] = null;
       setLoading(false);
     }
-  }, [loadMasterRows]);
+  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars]);
 
 
 
@@ -401,7 +506,7 @@ export const useVehicleData = (form, options = {}) => {
       }
 
       try {
-        const cacheKey = `${selectedMake}|${selectedModel}`;
+    const cacheKey = `${discontinuedModeKey}|${selectedMake}|${selectedModel}`;
         const rawByDisplay = cacheRef.current.variantRawByDisplayByMakeModel?.[cacheKey] || {};
         const resolvedVariant = rawByDisplay[selectedVariant] || selectedVariant;
         const resolvedCity = cityResolver
@@ -414,20 +519,6 @@ export const useVehicleData = (form, options = {}) => {
           null,
           resolvedCity || null,
         );
-        const normalizedResolvedCity = String(resolvedCity || "").trim().toLowerCase();
-        const shouldTryDelhiFallback =
-          (!response?.success || !response?.data) &&
-          normalizedResolvedCity &&
-          normalizedResolvedCity !== "new-delhi";
-        if (shouldTryDelhiFallback) {
-          response = await vehiclesApi.getByDetails(
-            selectedMake,
-            selectedModel,
-            resolvedVariant,
-            null,
-            "New-Delhi",
-          );
-        }
         if (response.success && response.data) {
           const vehicleData = response.data;
           setSelectedVehicle(vehicleData);
@@ -467,7 +558,7 @@ export const useVehicleData = (form, options = {}) => {
         setSelectedVehicle(null);
       }
     },
-    [autofillPricing, onVehicleSelect, cityResolver, form],
+    [autofillPricing, onVehicleSelect, cityResolver, form, discontinuedModeKey],
   );
 
   const canLookupVehicleDetails = useCallback(
@@ -501,15 +592,20 @@ export const useVehicleData = (form, options = {}) => {
         if (response.success) {
           message.success(`"${value}" added to vehicle master data`);
 
-          // Invalidate cache for relevant data
+          // Invalidate cached make/model/variant lists across both active/all modes.
+          cacheRef.current.makesByMode = {};
+          cacheRef.current.modelsByMake = {};
+          cacheRef.current.variantsByMakeModel = {};
+          cacheRef.current.variantRawByDisplayByMakeModel = {};
+          writeVehicleCache(MAKES_CACHE_KEY, {});
+          writeVehicleCache(MODELS_CACHE_KEY, {});
+          writeVehicleCache(VARIANTS_CACHE_KEY, {});
+
           if (field === "make") {
-            cacheRef.current.makes = null;
             await fetchMakes();
           } else if (field === "model" && make) {
-            delete cacheRef.current.modelsByMake[make];
             await fetchModels(make);
           } else if (field === "variant" && make && model) {
-            delete cacheRef.current.variantsByMakeModel[`${make}|${model}`];
             await fetchVariants(make, model);
           }
 
@@ -660,11 +756,14 @@ export const useVehicleData = (form, options = {}) => {
     // Cache control
     clearCache: () => {
       cacheRef.current = {
-        makes: null,
+        makesByMode: {},
         modelsByMake: {},
         variantsByMakeModel: {},
         variantRawByDisplayByMakeModel: {},
+        featureRows: null,
       };
     },
+    showDiscontinuedCars,
+    setShowDiscontinuedCars,
   };
 };

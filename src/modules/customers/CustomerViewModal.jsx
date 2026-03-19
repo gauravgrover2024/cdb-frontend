@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Tag } from "antd";
 import dayjs from "dayjs";
+import { loansApi } from "../../api/loans";
 import Icon from "../../components/AppIcon";
 
 const hasValue = (v) =>
@@ -31,6 +32,113 @@ const asMoney = (v) => {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(n);
+};
+
+const asYesNo = (value) => {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  if (!hasValue(value)) return "—";
+  return asText(value);
+};
+
+const normalizeIdentityValue = (value) =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const normalizePhoneValue = (value) => {
+  const digits = String(value || "").replace(/\D+/g, "");
+  if (!digits) return "";
+  return digits.length > 10 ? digits.slice(-10) : digits;
+};
+
+const normalizePanValue = (value) =>
+  String(value || "")
+    .replace(/\s+/g, "")
+    .trim()
+    .toUpperCase();
+
+const getLoanId = (loan) =>
+  String(loan?._id || loan?.loanId || loan?.loan_number || loan?.id || "").trim();
+
+const toLoanRows = (response) => {
+  const direct = Array.isArray(response) ? response : [];
+  if (direct.length) return direct;
+
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.loans)) return response.loans;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.results)) return response.results;
+  return [];
+};
+
+const hasCustomerIdentityMatch = (loan, customer) => {
+  const customerName = normalizeIdentityValue(customer?.customerName);
+  const customerMobile = normalizePhoneValue(customer?.primaryMobile);
+  const customerPan = normalizePanValue(customer?.panNumber);
+
+  const loanName = normalizeIdentityValue(loan?.customerName || loan?.applicantName);
+  const loanMobile = normalizePhoneValue(loan?.primaryMobile || loan?.mobile || loan?.phone);
+  const loanPan = normalizePanValue(loan?.panNumber || loan?.pan);
+  const customerDbId = String(customer?._id || customer?.id || "").trim();
+  const linkedCustomerId = String(loan?.customerId || "").trim();
+
+  if (customerDbId && linkedCustomerId && customerDbId === linkedCustomerId) {
+    return true;
+  }
+
+  const nameMobileMatch = Boolean(
+    customerName && loanName && customerName === loanName && customerMobile && loanMobile && customerMobile === loanMobile,
+  );
+  const namePanMatch = Boolean(
+    customerName && loanName && customerName === loanName && customerPan && loanPan && customerPan === loanPan,
+  );
+  const panMobileMatch = Boolean(
+    customerPan && loanPan && customerPan === loanPan && customerMobile && loanMobile && customerMobile === loanMobile,
+  );
+
+  return nameMobileMatch || namePanMatch || panMobileMatch;
+};
+
+const matchesLoanSearch = (loan, query) => {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+
+  const fields = [
+    loan?.loanId,
+    loan?.loan_number,
+    loan?.customerName,
+    loan?.primaryMobile,
+    loan?.typeOfLoan,
+    loan?.loanType,
+    loan?.currentStage,
+    loan?.status,
+    loan?.approval_status,
+    loan?.approval_bankName,
+    loan?.bankName,
+    loan?.vehicleMake,
+    loan?.vehicleModel,
+    loan?.vehicleVariant,
+  ];
+
+  return fields.some((field) => String(field || "").toLowerCase().includes(q));
+};
+
+const formatLoanVehicle = (loan) =>
+  [loan?.vehicleMake, loan?.vehicleModel, loan?.vehicleVariant]
+    .filter((item) => hasValue(item))
+    .join(" ") || "—";
+
+const formatCompanyPartners = (partners) => {
+  if (!Array.isArray(partners) || !partners.length) return "—";
+  const names = partners
+    .map((partner) => {
+      if (!partner || typeof partner !== "object") return String(partner || "").trim();
+      return String(partner.name || partner.partnerName || partner.fullName || "").trim();
+    })
+    .filter(Boolean);
+  return names.length ? names.join(", ") : "—";
 };
 
 const getKycClasses = (status) => {
@@ -72,7 +180,7 @@ const sectionTone = {
 
 const LabeledValue = ({ label, value, mono = false }) => (
   <div className="flex items-start gap-3 py-1.5">
-    <div className="w-[150px] shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+    <div className="w-[170px] shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
       {label}
     </div>
     <div className={`min-w-0 flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100 ${mono ? "font-mono" : ""}`}>
@@ -113,6 +221,10 @@ const TabButton = ({ active, onClick, icon, label }) => (
 
 const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
   const [activeTab, setActiveTab] = useState("profile");
+  const [linkedLoans, setLinkedLoans] = useState([]);
+  const [linkedLoanSearch, setLinkedLoanSearch] = useState("");
+  const [linkedLoansLoading, setLinkedLoansLoading] = useState(false);
+  const [linkedLoansError, setLinkedLoansError] = useState("");
 
   const c = useMemo(() => {
     if (!customer) return null;
@@ -150,6 +262,123 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
     };
   }, [customer]);
 
+  useEffect(() => {
+    if (!open || !c) return;
+
+    let cancelled = false;
+
+    const loadLinkedLoans = async () => {
+      setActiveTab("profile");
+      setLinkedLoanSearch("");
+      setLinkedLoans(Array.isArray(c.linkedLoans) ? c.linkedLoans : []);
+      setLinkedLoansError("");
+
+      const customerName = String(c.customerName || "").trim();
+      const customerMobile = normalizePhoneValue(c.primaryMobile);
+      const customerDbId = String(c._id || c.id || "").trim();
+
+      if (!customerName && !customerMobile && !customerDbId) return;
+
+      setLinkedLoansLoading(true);
+      try {
+        const PAGE_SIZE = 250;
+        const MAX_PAGES = 12;
+
+        const queryList = [];
+        if (customerDbId) {
+          queryList.push({
+            customerId: customerDbId,
+            limit: PAGE_SIZE,
+            sortBy: "updatedAt",
+            sortOrder: "desc",
+          });
+        }
+        if (customerName.length >= 2) {
+          queryList.push({
+            search: customerName,
+            limit: PAGE_SIZE,
+            sortBy: "updatedAt",
+            sortOrder: "desc",
+          });
+        }
+        if (customerMobile.length >= 10) {
+          queryList.push({
+            search: customerMobile,
+            limit: PAGE_SIZE,
+            sortBy: "updatedAt",
+            sortOrder: "desc",
+          });
+        }
+
+        const merged = new Map();
+        const ingest = (rows) => {
+          rows.forEach((loan) => {
+            const id = getLoanId(loan);
+            if (!id) return;
+            if (!merged.has(id)) merged.set(id, loan);
+          });
+        };
+
+        ingest(Array.isArray(c.linkedLoans) ? c.linkedLoans : []);
+
+        for (const query of queryList) {
+          let skip = 0;
+          let pages = 0;
+          while (pages < MAX_PAGES) {
+            const response = await loansApi.getAll({ ...query, skip });
+            const rows = toLoanRows(response);
+            if (!rows.length) break;
+
+            ingest(rows);
+
+            const total = Number(
+              response?.count ?? response?.total ?? response?.pagination?.total,
+            );
+            const hasMore = Boolean(response?.hasMore ?? response?.pagination?.hasMore);
+
+            skip += rows.length;
+            pages += 1;
+
+            if (!hasMore && (!Number.isFinite(total) || skip >= total) && rows.length < PAGE_SIZE) {
+              break;
+            }
+          }
+        }
+
+        if (cancelled) return;
+
+        const strictMatches = [...merged.values()]
+          .filter((loan) => hasCustomerIdentityMatch(loan, c))
+          .sort((a, b) => {
+            const aTs = Math.max(Date.parse(a?.updatedAt || "") || 0, Date.parse(a?.createdAt || "") || 0);
+            const bTs = Math.max(Date.parse(b?.updatedAt || "") || 0, Date.parse(b?.createdAt || "") || 0);
+            return bTs - aTs;
+          });
+
+        setLinkedLoans(strictMatches);
+      } catch (error) {
+        if (!cancelled) {
+          setLinkedLoansError(error?.message || "Failed to load linked loans");
+        }
+      } finally {
+        if (!cancelled) {
+          setLinkedLoansLoading(false);
+        }
+      }
+    };
+
+    loadLinkedLoans();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, c]);
+
+  const filteredLinkedLoans = useMemo(
+    () => linkedLoans.filter((loan) => matchesLoanSearch(loan, linkedLoanSearch)),
+    [linkedLoans, linkedLoanSearch],
+  );
+
   if (!c) return null;
 
   const tabs = [
@@ -157,7 +386,7 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
     { key: "employment", label: "Employment", icon: "Briefcase" },
     { key: "banking", label: "Banking & KYC", icon: "Shield" },
     { key: "references", label: "References", icon: "Users" },
-    ...(c.linkedLoans.length > 0 ? [{ key: "loans", label: "Linked Loans", icon: "FileStack" }] : []),
+    { key: "loans", label: "Linked Loans", icon: "FileStack" },
   ];
 
   return (
@@ -165,7 +394,7 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
       open={open}
       onCancel={onClose}
       footer={null}
-      width={1180}
+      width={1240}
       centered
       destroyOnHidden
       className="theme-modal"
@@ -237,18 +466,27 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="profile" title="Personal Details" icon="User">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Mobile" value={asText(c.primaryMobile)} mono />
+                  <LabeledValue label="Applicant Type" value={asText(c.applicantType)} />
+                  <LabeledValue label="Primary Mobile" value={asText(c.primaryMobile)} mono />
                   <LabeledValue label="Secondary Mobile" value={asText(c.secondaryMobile)} mono />
+                  <LabeledValue label="Whatsapp" value={asText(c.whatsappNumber)} mono />
+                  <LabeledValue label="Extra Mobiles" value={asText(c.extraMobiles)} mono />
                   <LabeledValue label="Email" value={asText(c.email || c.emailAddress)} />
                   <LabeledValue label="Date of Birth" value={asDate(c.dob)} />
                   <LabeledValue label="Gender" value={asText(c.gender)} />
+                  <LabeledValue label="Contact Person" value={asText(c.contactPersonName)} />
+                  <LabeledValue label="Contact Person Mobile" value={asText(c.contactPersonMobile)} mono />
                 </div>
                 <div>
                   <LabeledValue label="Father / Spouse" value={asText(c.sdwOf || c.fatherName)} />
                   <LabeledValue label="Mother" value={asText(c.motherName)} />
                   <LabeledValue label="Marital Status" value={asText(c.maritalStatus)} />
                   <LabeledValue label="Education" value={asText(c.education)} />
+                  <LabeledValue label="Education (Other)" value={asText(c.educationOther)} />
                   <LabeledValue label="Dependents" value={asText(c.dependents)} />
+                  <LabeledValue label="Has Co-Applicant" value={asYesNo(c.hasCoApplicant)} />
+                  <LabeledValue label="Has Guarantor" value={asYesNo(c.hasGuarantor)} />
+                  <LabeledValue label="Same As Current Address" value={asYesNo(c.sameAsCurrentAddress)} />
                 </div>
               </div>
             </SectionCard>
@@ -256,14 +494,22 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="profile" title="Address Details" icon="MapPin">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Current Address" value={asText(c.residenceAddress)} />
+                  <LabeledValue label="Current Address" value={asText(c.residenceAddress || c.currentAddress)} />
                   <LabeledValue label="City" value={asText(c.city)} />
+                  <LabeledValue label="State" value={asText(c.state)} />
                   <LabeledValue label="Pincode" value={asText(c.pincode)} mono />
+                  <LabeledValue label="House Type" value={asText(c.houseType)} />
+                  <LabeledValue label="Years In Current House" value={asText(c.yearsInCurrentHouse)} />
+                  <LabeledValue label="Years In Current City" value={asText(c.yearsInCurrentCity)} />
+                  <LabeledValue label="Address Type" value={asText(c.addressType)} />
                 </div>
                 <div>
                   <LabeledValue label="Permanent Address" value={asText(c.permanentAddress)} />
                   <LabeledValue label="Permanent City" value={asText(c.permanentCity)} />
                   <LabeledValue label="Permanent PIN" value={asText(c.permanentPincode)} mono />
+                  <LabeledValue label="Registration Address" value={asText(c.registrationAddress)} />
+                  <LabeledValue label="Registration City" value={asText(c.registrationCity)} />
+                  <LabeledValue label="Registration PIN" value={asText(c.registrationPincode)} mono />
                 </div>
               </div>
             </SectionCard>
@@ -272,21 +518,46 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
 
         {activeTab === "employment" && (
           <div className="space-y-4">
-            <SectionCard tone="employment" title="Employment & Income" icon="Briefcase">
+            <SectionCard tone="employment" title="Employment Details" icon="Briefcase">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Occupation" value={asText(c.occupationType)} />
+                  <LabeledValue label="Occupation Type" value={asText(c.occupationType)} />
+                  <LabeledValue label="Employment Type" value={asText(c.employmentType)} />
+                  <LabeledValue label="Professional Type" value={asText(c.professionalType)} />
                   <LabeledValue label="Company / Business" value={asText(c.companyName)} />
                   <LabeledValue label="Designation" value={asText(c.designation)} />
-                  <LabeledValue label="Office Address" value={asText(c.employmentAddress || c.companyAddress)} />
-                  <LabeledValue label="Office City" value={asText(c.employmentCity || c.companyCity)} />
+                  <LabeledValue label="Company Type" value={asText(c.companyType)} />
+                  <LabeledValue label="Business Nature" value={asText(c.businessNature)} />
+                  <LabeledValue label="Company Partners" value={formatCompanyPartners(c.companyPartners)} />
+                  <LabeledValue label="Incorporation Year" value={asText(c.incorporationYear)} />
+                  <LabeledValue label="MSME" value={asYesNo(c.isMSME)} />
                 </div>
                 <div>
-                  <LabeledValue label="Monthly Salary" value={asMoney(c.salaryMonthly || c.monthlyIncome)} />
-                  <LabeledValue label="Annual Income" value={asMoney(c.annualIncome || c.itrYears)} />
-                  <LabeledValue label="Total ITR Income" value={asMoney(c.totalIncomeITR)} />
-                  <LabeledValue label="Business Nature" value={asText(c.businessNature)} />
-                  <LabeledValue label="Incorporation Year" value={asText(c.incorporationYear)} />
+                  <LabeledValue label="Current Experience" value={asText(c.experienceCurrent || c.currentExp)} />
+                  <LabeledValue label="Total Experience" value={asText(c.totalExperience || c.totalExp)} />
+                  <LabeledValue label="Employment Address" value={asText(c.employmentAddress || c.companyAddress)} />
+                  <LabeledValue label="Employment City" value={asText(c.employmentCity || c.companyCity)} />
+                  <LabeledValue label="Employment PIN" value={asText(c.employmentPincode || c.companyPincode)} mono />
+                  <LabeledValue label="Employment Phone" value={asText(c.employmentPhone || c.companyPhone)} mono />
+                  <LabeledValue label="Official Email" value={asText(c.officialEmail)} />
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard tone="employment" title="Income Details" icon="Wallet">
+              <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
+                <div>
+                  <LabeledValue label="Monthly Income" value={asMoney(c.monthlyIncome)} />
+                  <LabeledValue label="Salary Monthly" value={asMoney(c.salaryMonthly)} />
+                  <LabeledValue label="Monthly Salary" value={asMoney(c.monthlySalary)} />
+                  <LabeledValue label="Annual Income" value={asMoney(c.annualIncome)} />
+                </div>
+                <div>
+                  <LabeledValue label="Total ITR Income" value={asMoney(c.totalIncomeITR || c.itrYears)} />
+                  <LabeledValue label="Annual Turnover" value={asMoney(c.annualTurnover)} />
+                  <LabeledValue label="Net Profit" value={asMoney(c.netProfit)} />
+                  <LabeledValue label="Other Income" value={asMoney(c.otherIncome)} />
+                  <LabeledValue label="Other Income Source" value={asText(c.otherIncomeSource)} />
                 </div>
               </div>
             </SectionCard>
@@ -301,25 +572,32 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
                   <LabeledValue label="Bank Name" value={asText(c.bankName)} />
                   <LabeledValue label="Account Number" value={asText(c.accountNumber)} mono />
                   <LabeledValue label="IFSC" value={asText(c.ifsc || c.ifscCode)} mono />
+                  <LabeledValue label="Branch" value={asText(c.branch)} />
                 </div>
                 <div>
                   <LabeledValue label="Account Type" value={asText(c.accountType)} />
-                  <LabeledValue label="Branch" value={asText(c.branch)} />
                   <LabeledValue label="Account Since (Years)" value={asText(c.accountSinceYears)} />
+                  <LabeledValue label="Opened In" value={asText(c.openedIn)} />
                 </div>
               </div>
             </SectionCard>
 
-            <SectionCard tone="banking" title="KYC & Nominee" icon="ShieldCheck">
+            <SectionCard tone="banking" title="KYC, Proofs & Nominee" icon="ShieldCheck">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
                   <LabeledValue label="PAN" value={asText(c.panNumber)} mono />
                   <LabeledValue label="Aadhaar" value={asText(c.aadhaarNumber)} mono />
                   <LabeledValue label="Passport" value={asText(c.passportNumber)} mono />
                   <LabeledValue label="DL Number" value={asText(c.dlNumber)} mono />
+                  <LabeledValue label="GST Number" value={asText(c.gstNumber)} mono />
+                  <LabeledValue label="Voter ID" value={asText(c.voterId)} mono />
                 </div>
                 <div>
-                  <LabeledValue label="GST Number" value={asText(c.gstNumber)} mono />
+                  <LabeledValue label="Identity Proof Type" value={asText(c.identityProofType)} />
+                  <LabeledValue label="Identity Proof Number" value={asText(c.identityProofNumber)} />
+                  <LabeledValue label="Identity Proof Expiry" value={asDate(c.identityProofExpiry)} />
+                  <LabeledValue label="Address Proof Type" value={asText(c.addressProofType)} />
+                  <LabeledValue label="Address Proof Number" value={asText(c.addressProofNumber)} />
                   <LabeledValue label="Nominee Name" value={asText(c.nomineeName)} />
                   <LabeledValue label="Nominee Relation" value={asText(c.nomineeRelation)} />
                   <LabeledValue label="Nominee DOB" value={asDate(c.nomineeDob)} />
@@ -365,22 +643,81 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
 
         {activeTab === "loans" && (
           <div className="space-y-3">
-            {c.linkedLoans.map((loan) => (
-              <SectionCard key={loan._id || loan.loanId} tone="loans" title={`Loan ${asText(loan.loanId)}`} icon="FileStack">
-                <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
-                  <div>
-                    <LabeledValue label="Status" value={asText(loan.status)} />
-                    <LabeledValue label="Stage" value={asText(loan.currentStage || loan.loanType)} />
-                    <LabeledValue label="Type" value={asText(loan.loanType)} />
-                  </div>
-                  <div>
-                    <LabeledValue label="Loan Amount" value={asMoney(loan.loanAmount || loan.approval_loanAmountApproved)} />
-                    <LabeledValue label="Tenure" value={hasValue(loan.tenure) ? `${loan.tenure} months` : "—"} />
-                    <LabeledValue label="Created" value={asDate(loan.createdAt)} />
-                  </div>
+            <SectionCard tone="loans" title="Linked Loans" icon="FileStack">
+              <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="text-xs text-slate-600 dark:text-slate-300">
+                  {linkedLoansLoading
+                    ? "Loading linked loans..."
+                    : `${filteredLinkedLoans.length} loan${filteredLinkedLoans.length === 1 ? "" : "s"} shown`}
                 </div>
-              </SectionCard>
-            ))}
+                <div className="relative w-full md:max-w-xs">
+                  <Icon
+                    name="Search"
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    value={linkedLoanSearch}
+                    onChange={(e) => setLinkedLoanSearch(e.target.value)}
+                    placeholder="Search linked loans..."
+                    className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  />
+                </div>
+              </div>
+
+              {linkedLoansError && (
+                <div className="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+                  {linkedLoansError}
+                </div>
+              )}
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                <table className="min-w-full divide-y divide-slate-200 text-xs dark:divide-slate-800">
+                  <thead className="bg-slate-50 dark:bg-slate-900/70">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Loan ID</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Customer</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Mobile</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Type</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Stage</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Status</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Bank</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Amount</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Vehicle</th>
+                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
+                    {filteredLinkedLoans.map((loan) => (
+                      <tr key={getLoanId(loan) || `${loan.loanId}-${loan.createdAt}`}>
+                        <td className="px-3 py-2 font-semibold text-slate-900 dark:text-slate-100">
+                          {asText(loan.loan_number || loan.loanId)}
+                        </td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.customerName)}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.primaryMobile)}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.typeOfLoan || loan.loanType)}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.currentStage)}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.status || loan.approval_status)}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.approval_bankName || loan.bankName)}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">
+                          {asMoney(loan.approval_loanAmountDisbursed || loan.approval_loanAmountApproved || loan.loanAmount || loan.financeExpectation)}
+                        </td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{formatLoanVehicle(loan)}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asDate(loan.createdAt)}</td>
+                      </tr>
+                    ))}
+                    {!linkedLoansLoading && filteredLinkedLoans.length === 0 && (
+                      <tr>
+                        <td colSpan={10} className="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                          No linked loans found for this customer.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
           </div>
         )}
       </div>

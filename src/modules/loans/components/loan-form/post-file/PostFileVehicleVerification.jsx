@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AutoComplete, Form, Input, InputNumber, Select } from "antd";
+import { AutoComplete, Checkbox, Form, Input, InputNumber, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { formatINR } from "../../../../../utils/currency";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
@@ -165,6 +165,8 @@ const PostFileVehicleVerification = ({ form }) => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
+    showDiscontinuedCars,
+    setShowDiscontinuedCars,
   } = useVehicleData(form, {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
@@ -438,7 +440,18 @@ const PostFileVehicleVerification = ({ form }) => {
                 {vehicleFuelType ? ` • ${vehicleFuelType}` : ""}
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div>
+                <Form.Item style={{ marginBottom: 12 }}>
+                  <Checkbox
+                    checked={showDiscontinuedCars}
+                    onChange={(event) =>
+                      setShowDiscontinuedCars(event?.target?.checked)
+                    }
+                  >
+                    Show discontinued cars
+                  </Checkbox>
+                </Form.Item>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                 <Form.Item label="Make" name="vehicleMake" style={{ marginBottom: 0 }}>
                   <Select
                     placeholder="Select Make"
@@ -522,6 +535,7 @@ const PostFileVehicleVerification = ({ form }) => {
                     <Option value="Electric">Electric</Option>
                   </Select>
                 </Form.Item>
+              </div>
               </div>
             )}
           </div>

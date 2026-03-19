@@ -1,11 +1,32 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Form, Input, DatePicker, Select, Row, Col, Tag, Spin, Switch, Radio } from "antd";
+import { Form, Input, DatePicker, Select, Row, Col, Tag, Spin, Switch, Radio, InputNumber } from "antd";
 import Icon from "../../../components/AppIcon";
 import { customersApi } from "../../../api/customers";
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
 const { Option } = Select;
+const ADDRESS_TYPE_OPTIONS = [
+  { label: "Owned", value: "Owned" },
+  { label: "Parental", value: "Parental" },
+  { label: "Rented", value: "Rented" },
+  { label: "Company Provided", value: "Company Provided" },
+];
+const IDENTITY_OPTIONS = [
+  { label: "PAN", value: "PAN" },
+  { label: "AADHAAR", value: "AADHAAR" },
+  { label: "PASSPORT", value: "PASSPORT" },
+  { label: "DRIVING LICENSE", value: "DRIVING_LICENSE" },
+  { label: "VOTER ID", value: "VOTER_ID" },
+];
+const ADDRESS_PROOF_OPTIONS = [
+  { label: "Aadhaar", value: "AADHAAR" },
+  { label: "Passport", value: "PASSPORT" },
+  { label: "Driving License", value: "DRIVING_LICENSE" },
+  { label: "Voter ID", value: "VOTER_ID" },
+  { label: "Utility Bill", value: "UTILITY_BILL" },
+  { label: "Rent Agreement", value: "RENT_AGREEMENT" },
+];
 
 const toDayjsSafe = (val) => {
   if (!val) return undefined;
@@ -38,7 +59,6 @@ const PersonalDetails = ({
   const pincode = Form.useWatch("pincode", form);
   const permanentPincode = Form.useWatch("permanentPincode", form);
   const education = Form.useWatch("education", form);
-  const yearsInCurrentHouse = Form.useWatch("yearsInCurrentHouse", form);
   const sameAsCurrentAddress = Form.useWatch("sameAsCurrentAddress", form);
   const registerSameAsAadhaar = Form.useWatch("registerSameAsAadhaar", form);
   const registerSameAsPermanent = Form.useWatch("registerSameAsPermanent", form);
@@ -49,6 +69,7 @@ const PersonalDetails = ({
   const officialEmail = Form.useWatch("officialEmail", form);
   const contactPersonMobile = Form.useWatch("contactPersonMobile", form);
   const registrationPincode = Form.useWatch("registrationPincode", form);
+  const identityProofType = Form.useWatch("identityProofType", form);
   const isCompany = applicantType === "Company";
 
   useEffect(() => {
@@ -293,8 +314,10 @@ const PersonalDetails = ({
 
       const fullValues = {
         ...baseValues,
+        customerIdDisplay: pick(fullCustomer.customerId, fullCustomer.customerIdDisplay, ""),
         applicantType: pick(fullCustomer.applicantType, fullCustomer.customerType, ""),
         sdwOf: pick(fullCustomer.sdwOf, fullCustomer.fatherName, ""),
+        fatherName: pick(fullCustomer.fatherName, fullCustomer.sdwOf, ""),
         gender: pick(fullCustomer.gender, ""),
         dob: toDayjsSafe(fullCustomer.dob),
         motherName: pick(fullCustomer.motherName, ""),
@@ -304,6 +327,7 @@ const PersonalDetails = ({
         yearsInCurrentHouse: pick(fullCustomer.yearsInCurrentHouse, ""),
         yearsInCurrentCity: pick(fullCustomer.yearsInCurrentCity, ""),
         houseType: pick(fullCustomer.houseType, ""),
+        addressType: pick(fullCustomer.addressType, ""),
         education: pick(fullCustomer.education, ""),
         educationOther: pick(fullCustomer.educationOther, ""),
         maritalStatus: pick(fullCustomer.maritalStatus, ""),
@@ -317,6 +341,13 @@ const PersonalDetails = ({
         permanentAddress: pick(fullCustomer.permanentAddress, ""),
         permanentPincode: pick(fullCustomer.permanentPincode, ""),
         permanentCity: pick(fullCustomer.permanentCity, ""),
+        identityProofType: pick(fullCustomer.identityProofType, ""),
+        identityProofNumber: pick(fullCustomer.identityProofNumber, ""),
+        identityProofExpiry: toDayjsSafe(fullCustomer.identityProofExpiry),
+        addressProofType: pick(fullCustomer.addressProofType, ""),
+        addressProofNumber: pick(fullCustomer.addressProofNumber, ""),
+        hasCoApplicant: pick(fullCustomer.hasCoApplicant, false),
+        hasGuarantor: pick(fullCustomer.hasGuarantor, false),
         nomineeName: pick(fullCustomer.nomineeName, ""),
         nomineeDob: toDayjsSafe(fullCustomer.nomineeDob),
         nomineeRelation: pick(fullCustomer.nomineeRelation, ""),
@@ -327,6 +358,7 @@ const PersonalDetails = ({
         professionalType: pick(fullCustomer.professionalType, ""),
         companyName: pick(fullCustomer.companyName, ""),
         designation: pick(fullCustomer.designation, ""),
+        companyPartners: Array.isArray(fullCustomer.companyPartners) ? fullCustomer.companyPartners : [],
         companyType: normalizeCompanyType(fullCustomer.companyType),
         businessNature: normalizeBusinessNature(fullCustomer.businessNature),
         experienceCurrent: pick(fullCustomer.experienceCurrent, fullCustomer.currentExp, ""),
@@ -371,6 +403,7 @@ const PersonalDetails = ({
         accountType: pick(fullCustomer.accountType, ""),
         accountSinceYears: pick(fullCustomer.accountSinceYears, ""),
         openedIn: pick(fullCustomer.openedIn, ""),
+        docsPreparedBy: pick(fullCustomer.docsPreparedBy, ""),
         
         // KYC
         panNumber: pick(fullCustomer.panNumber, ""),
@@ -519,8 +552,10 @@ const PersonalDetails = ({
                                 #{c.displayId || c._id.slice(-6).toUpperCase()}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                              <span className="font-semibold">{c.primaryMobile}</span>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span className="font-semibold">{c.primaryMobile || "No Mobile"}</span>
+                              <span className="w-1 h-1 rounded-full bg-border" />
+                              <span className="font-semibold">{c.panNumber || "No PAN"}</span>
                               {c.city && (
                                 <>
                                   <span className="w-1 h-1 rounded-full bg-border" />
@@ -865,15 +900,17 @@ const PersonalDetails = ({
                                 #{c.displayId || c._id.slice(-6).toUpperCase()}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                              <span className="font-semibold">{c.primaryMobile}</span>
-                              {c.city && (
-                                <>
-                                  <span className="w-1 h-1 rounded-full bg-border" />
-                                  <span>{c.city}</span>
-                                </>
-                              )}
-                            </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span className="font-semibold">{c.primaryMobile || "No Mobile"}</span>
+                            <span className="w-1 h-1 rounded-full bg-border" />
+                            <span className="font-semibold">{c.panNumber || "No PAN"}</span>
+                            {c.city && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-border" />
+                                <span>{c.city}</span>
+                              </>
+                            )}
+                          </div>
                           </button>
                         ))}
                       </div>
@@ -1154,14 +1191,16 @@ const PersonalDetails = ({
                                 #{c.displayId || c._id.slice(-6).toUpperCase()}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                             <span className="font-semibold">{c.primaryMobile}</span>
-                             {c.city && (
-                                <>
-                                    <span className="w-1 h-1 rounded-full bg-border" />
-                                    <span>{c.city}</span>
-                                </>
-                             )}
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span className="font-semibold">{c.primaryMobile || "No Mobile"}</span>
+                            <span className="w-1 h-1 rounded-full bg-border" />
+                            <span className="font-semibold">{c.panNumber || "No PAN"}</span>
+                            {c.city && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-border" />
+                                <span>{c.city}</span>
+                              </>
+                            )}
                           </div>
                         </button>
                       ))}
@@ -1263,23 +1302,14 @@ const PersonalDetails = ({
         {showCreditFields && !isCompany && (
           <>
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Staying since (Year)">
-                <div className="flex w-full">
-                  <Form.Item name="yearsInCurrentHouse" noStyle>
-                    <Input className="flex-[0.6] rounded-r-none" placeholder="Ex: 2016" maxLength={4} />
-                  </Form.Item>
-                  <Input 
-                     className="flex-[0.4] rounded-l-none border-l-0 text-primary font-bold bg-primary/5" 
-                     value={(() => {
-                        if (!yearsInCurrentHouse) return "";
-                        const y = parseInt(yearsInCurrentHouse, 10);
-                        if (isNaN(y) || y < 1900 || y > new Date().getFullYear()) return "";
-                        return `${new Date().getFullYear() - y} Years`;
-                     })()} 
-                     readOnly 
-                     placeholder="Total"
-                  />
-                </div>
+              <Form.Item label="Years at current City" name="yearsInCurrentCity">
+                <InputNumber min={0} className="w-full" placeholder="Years" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8} className="mt-4">
+              <Form.Item label="Years at current Residence" name="yearsInCurrentHouse">
+                <InputNumber min={0} className="w-full" placeholder="Years" />
               </Form.Item>
             </Col>
 
@@ -1330,6 +1360,44 @@ const PersonalDetails = ({
             <Col xs={24} md={8} className="mt-4">
               <Form.Item label="Dependents" name="dependents">
                 <Input placeholder="Number Of Dependents" />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8} className="mt-4">
+              <Form.Item label="Address Type" name="addressType">
+                <Select options={ADDRESS_TYPE_OPTIONS} placeholder="Select address type" allowClear />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8} className="mt-4">
+              <Form.Item label="Identity Proof" name="identityProofType">
+                <Select options={IDENTITY_OPTIONS} placeholder="Select identity proof" allowClear />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8} className="mt-4">
+              <Form.Item label="Identity Proof Number" name="identityProofNumber">
+                <Input placeholder="Enter identity proof number" />
+              </Form.Item>
+            </Col>
+
+            {(identityProofType === "PASSPORT" || identityProofType === "DRIVING_LICENSE") && (
+              <Col xs={24} md={8} className="mt-4">
+                <Form.Item label="Identity Proof Expiry" name="identityProofExpiry">
+                  <DatePicker className="w-full" format="DD-MM-YYYY" />
+                </Form.Item>
+              </Col>
+            )}
+
+            <Col xs={24} md={8} className="mt-4">
+              <Form.Item label="Address Proof (type)" name="addressProofType">
+                <Select options={ADDRESS_PROOF_OPTIONS} placeholder="Select address proof type" allowClear />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8} className="mt-4">
+              <Form.Item label="Address Proof Number" name="addressProofNumber">
+                <Input placeholder="Enter address proof number" />
               </Form.Item>
             </Col>
           </>
@@ -1452,6 +1520,22 @@ const PersonalDetails = ({
             <Col xs={24} md={8}>
               <Form.Item label="Permanent City" name="permanentCity">
                 <Input placeholder="City (Auto-Filled)" />
+              </Form.Item>
+            </Col>
+          </>
+        )}
+
+        {showCreditFields && (
+          <>
+            <Col xs={24} md={8}>
+              <Form.Item label="Is Co-Applicant Applicable" name="hasCoApplicant" valuePropName="checked">
+                <Switch disabled={isCompany} />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <Form.Item label="Is Guarantor Applicable" name="hasGuarantor" valuePropName="checked">
+                <Switch />
               </Form.Item>
             </Col>
           </>

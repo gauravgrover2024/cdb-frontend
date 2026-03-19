@@ -133,7 +133,7 @@ export const resolveVehiclePricingCity = (rawCity, formOrContext = null) => {
     return "Noida";
   }
 
-  return "New-Delhi";
+  return city || null;
 };
 
 export const INDIAN_CITY_OPTIONS = (() => {

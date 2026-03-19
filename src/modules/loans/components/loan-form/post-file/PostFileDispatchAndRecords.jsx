@@ -5,7 +5,6 @@ import { getEmployees } from "../../../../../api/employees";
 import dayjs from "dayjs";
 
 const PostFileDispatchAndRecords = ({ form }) => {
-  const loanId = Form.useWatch("loanId", form);
   const loanNumber = Form.useWatch("loan_number", form);
   const dispatchDate = Form.useWatch("dispatch_date", form);
   const dispatchTime = Form.useWatch("dispatch_time", form);
@@ -41,7 +40,7 @@ const PostFileDispatchAndRecords = ({ form }) => {
     return match ? match[1] : "";
   };
 
-  // Initialize data and defaults
+  // Load autosuggest data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -55,23 +54,7 @@ const PostFileDispatchAndRecords = ({ form }) => {
     };
 
     fetchData();
-
-    // Default dates logic
-    const alreadyInitialized = form.getFieldValue("__dispatchInitialized");
-    const hasImportedDates =
-      Boolean(form.getFieldValue("dispatch_date")) ||
-      Boolean(form.getFieldValue("disbursement_date")) ||
-      Boolean(loanId);
-
-    if (!alreadyInitialized && !hasImportedDates) {
-      const now = new Date();
-      form.setFieldsValue({
-        disbursement_date: now.toISOString().split("T")[0],
-        disbursement_time: now.toTimeString().slice(0, 5),
-        __dispatchInitialized: true,
-      });
-    }
-  }, [form, loanId]);
+  }, []);
 
   const FieldShell = ({ label, children }) => (
     <div className="space-y-1">

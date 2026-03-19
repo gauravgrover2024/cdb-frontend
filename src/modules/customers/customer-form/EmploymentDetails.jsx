@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Form, Input, Select, AutoComplete, Row, Col, Tag, Spin } from "antd";
+import { Form, Input, Select, AutoComplete, Row, Col, Tag, Spin, Button } from "antd";
 import Icon from "../../../components/AppIcon";
 import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } from "../../../constants/employmentOptions";
 
@@ -214,6 +214,22 @@ const EmploymentDetails = () => {
           </Form.Item>
         </Col>
 
+        {(occupation === "Self Employed Professional" || (isCompany && occupation === "Self Employed Professional")) && (
+          <Col xs={24} md={8} className="mt-4">
+            <Form.Item label="Professional Type" name="professionalType">
+              <Select placeholder="Select professional type" allowClear>
+                <Option value="Doctor">Doctor</Option>
+                <Option value="CA">CA</Option>
+                <Option value="CS">CS</Option>
+                <Option value="Consultant">Consultant</Option>
+                <Option value="Architect">Architect</Option>
+                <Option value="Lawyer">Lawyer</Option>
+                <Option value="Other">Other</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        )}
+
         {!isCompany && occupation === "Salaried" && (
           <Col xs={24} md={8} className="mt-4">
             <Form.Item label="Monthly Net Salary" name="salaryMonthly">
@@ -233,21 +249,17 @@ const EmploymentDetails = () => {
           </Col>
         )}
 
-        {isCompany && (
-          <>
-            <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Business Since / Current Vintage (Years)" name="experienceCurrent">
-                <Input placeholder="Years" />
-              </Form.Item>
-            </Col>
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item label={isCompany ? "Business Since / Current Vintage (Years)" : "Current Exp (Years)"} name="experienceCurrent">
+            <Input placeholder="Years" />
+          </Form.Item>
+        </Col>
 
-            <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Total Exp (Years)" name="totalExperience">
-                <Input placeholder="Years" />
-              </Form.Item>
-            </Col>
-          </>
-        )}
+        <Col xs={24} md={8} className="mt-4">
+          <Form.Item label="Total Exp (Years)" name="totalExperience">
+            <Input placeholder="Years" />
+          </Form.Item>
+        </Col>
 
         {/* --- GROUP 3: Contact Details --- */}
         {!isCompany && (
@@ -286,7 +298,78 @@ const EmploymentDetails = () => {
                 />
               </Form.Item>
             </Col>
+
+            <Col xs={24} md={8} className="mt-4">
+              <Form.Item
+                label="Official Email ID"
+                name="officialEmail"
+                rules={[{ type: "email", message: "Enter a valid email" }]}
+              >
+                <Input placeholder="email@company.com" />
+              </Form.Item>
+            </Col>
           </>
+        )}
+
+        {isCompany && (
+          <Col xs={24}>
+            <div className="section-divider" />
+            <div className="mb-3 text-[13px] font-black uppercase tracking-widest text-foreground">
+              Partners / Directors Details
+            </div>
+            <Form.List name="companyPartners">
+              {(fields, { add, remove }) => (
+                <div className="space-y-3">
+                  {fields.map((field) => (
+                    <div
+                      key={field.key}
+                      className="grid grid-cols-1 md:grid-cols-12 gap-3 rounded-xl border border-border bg-foreground/[0.02] p-3"
+                    >
+                      <div className="md:col-span-4">
+                        <Form.Item {...field} label="Name" name={[field.name, "name"]} className="mb-0">
+                          <Input placeholder="Partner / Director name" />
+                        </Form.Item>
+                      </div>
+                      <div className="md:col-span-3">
+                        <Form.Item {...field} label="PAN No." name={[field.name, "panNumber"]} className="mb-0">
+                          <Input placeholder="PAN Number" />
+                        </Form.Item>
+                      </div>
+                      <div className="md:col-span-3">
+                        <Form.Item {...field} label="Contact" name={[field.name, "contactNumber"]} className="mb-0">
+                          <Input placeholder="Mobile Number" />
+                        </Form.Item>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Form.Item {...field} label="Date of Birth" name={[field.name, "dateOfBirth"]} className="mb-0">
+                          <Input type="date" />
+                        </Form.Item>
+                      </div>
+                      <div className="md:col-span-12 flex justify-end">
+                        <Button type="text" danger onClick={() => remove(field.name)}>
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Button
+                    type="dashed"
+                    onClick={() =>
+                      add({
+                        name: "",
+                        panNumber: "",
+                        contactNumber: "",
+                        dateOfBirth: "",
+                      })
+                    }
+                  >
+                    Add Partner / Director
+                  </Button>
+                </div>
+              )}
+            </Form.List>
+          </Col>
         )}
       </Row>
     </div>

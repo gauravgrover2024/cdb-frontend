@@ -629,22 +629,10 @@ const EMICalculator = ({
         backendCityKey: String(backendCityKey || ""),
       });
 
-      if (!backendCityKey) {
-        setMakeOptions([]);
-        setModelOptions([]);
-        setVehicles([]);
-        perfLog("brand-load:done", {
-          runId,
-          finalRows: 0,
-          totalMs: Number((performance.now() - startedAt).toFixed(1)),
-        });
-        return;
-      }
-
       setVehiclesLoading(true);
       try {
         const apiStartedAt = performance.now();
-        const makesRes = await vehiclesApi.getUniqueMakes(backendCityKey);
+        const makesRes = await vehiclesApi.getUniqueMakes(backendCityKey || null);
         const rawRows = toArray(makesRes);
         const normalized = rawRows
           .map((row) => String(row || "").trim())
@@ -698,14 +686,14 @@ const EMICalculator = ({
     let ignore = false;
 
     const fetchModels = async () => {
-      if (!selectedMake || !backendCityKey) {
+      if (!selectedMake) {
         setModelOptions([]);
         setVehicles([]);
         return;
       }
       setVehiclesLoading(true);
       try {
-        const res = await vehiclesApi.getUniqueModels(selectedMake, backendCityKey);
+        const res = await vehiclesApi.getUniqueModels(selectedMake, backendCityKey || null);
         const rows = toArray(res)
           .map((row) => String(row || "").trim())
           .filter(Boolean)
@@ -732,7 +720,7 @@ const EMICalculator = ({
     let ignore = false;
 
     const fetchVariants = async () => {
-      if (!selectedMake || !selectedModel || !backendCityKey) {
+      if (!selectedMake || !selectedModel) {
         setVehicles([]);
         return;
       }
@@ -743,7 +731,7 @@ const EMICalculator = ({
         const res = await vehiclesApi.getVariantsWithPrice(
           selectedMake,
           selectedModel,
-          backendCityKey,
+          backendCityKey || null,
         );
         const rawRows = toArray(res);
         const normalizeStartedAt = performance.now();

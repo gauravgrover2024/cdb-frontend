@@ -14,6 +14,7 @@ const BankDetails = () => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
   const ifsc = Form.useWatch("ifsc", form);
+  const accountSinceYears = Form.useWatch("accountSinceYears", form);
   const [loadingIfsc, setLoadingIfsc] = useState(false);
   const { options: bankDirectoryOptions } = useBankDirectoryOptions();
 
@@ -49,6 +50,16 @@ const BankDetails = () => {
     };
   }, [ifsc, form, showBank]);
 
+  useEffect(() => {
+    if (!showBank) return;
+    if (typeof accountSinceYears === "number" && accountSinceYears >= 0) {
+      const currentYear = new Date().getFullYear();
+      form.setFieldsValue({ openedIn: currentYear - accountSinceYears });
+      return;
+    }
+    form.setFieldsValue({ openedIn: undefined });
+  }, [accountSinceYears, form, showBank]);
+
   if (!showBank) {
     return null;
   }
@@ -71,6 +82,9 @@ const BankDetails = () => {
 
       {/* FORM FIELDS */}
       <Row gutter={[16, 16]}>
+        <Form.Item name="ifscCode" hidden>
+          <Input />
+        </Form.Item>
 
          {/* IFSC */}
         <Col xs={24} md={8}>
@@ -145,6 +159,12 @@ const BankDetails = () => {
               options={accountTypeOptions}
               className="rounded-xl border-border w-full placeholder:font-normal"
             />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={8}>
+          <Form.Item label="Opened In" name="openedIn">
+            <Input placeholder="Auto-filled year" disabled className="rounded-xl border-border placeholder:font-normal" />
           </Form.Item>
         </Col>
       </Row>

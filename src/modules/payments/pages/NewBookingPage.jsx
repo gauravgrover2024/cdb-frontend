@@ -10,6 +10,7 @@ import {
   Select,
   Button,
   message,
+  Checkbox,
 } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
@@ -36,6 +37,8 @@ const NewBookingPage = () => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
+    showDiscontinuedCars,
+    setShowDiscontinuedCars,
   } = useVehicleData(form, {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
@@ -235,6 +238,16 @@ const NewBookingPage = () => {
                     </Option>
                   ))}
                 </Select>
+              </Form.Item>
+              <Form.Item label={null}>
+                <Checkbox
+                  checked={showDiscontinuedCars}
+                  onChange={(event) =>
+                    setShowDiscontinuedCars(event?.target?.checked)
+                  }
+                >
+                  Show discontinued cars
+                </Checkbox>
               </Form.Item>
               <Form.Item label="Color" name="vehicleColor">
                 <Input />

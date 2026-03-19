@@ -1,5 +1,4 @@
 import React, { useEffect } from "react";
-import dayjs from "dayjs";
 import {
   Form,
   Input,
@@ -32,19 +31,6 @@ const LeadDetails = () => {
   const sourceDetails = Form.useWatch("sourceDetails", form);
   const { options: channelOptions, search: searchChannelPartners, getByName } =
     useChannelPartnerAutoSuggest({ limit: 25 });
-
-  // Set default date and time
-  useEffect(() => {
-    const currentLeadDate = form.getFieldValue("leadDate");
-    const currentLeadTime = form.getFieldValue("leadTime");
-    
-    if (!currentLeadDate) {
-      form.setFieldValue("leadDate", dayjs());
-    }
-    if (!currentLeadTime) {
-      form.setFieldValue("leadTime", dayjs());
-    }
-  }, [form]);
 
   // Normalize applicant category for legacy/company-like values
   useEffect(() => {

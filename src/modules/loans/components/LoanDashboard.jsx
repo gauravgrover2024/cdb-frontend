@@ -92,9 +92,7 @@ const MetricCard = ({
       </div>
 
       {isActive && (
-        <div className="absolute right-2 top-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
-          
-        </div>
+        <div className="absolute right-2 top-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white"></div>
       )}
     </button>
   );
@@ -163,8 +161,13 @@ const LoanDashboard = () => {
   };
 
   const hasMeaningfulText = useCallback((value) => {
-    const t = String(value ?? "").trim().toLowerCase();
-    return !!t && !["n/a", "na", "not set", "unknown", "-", "null", "undefined"].includes(t);
+    const t = String(value ?? "")
+      .trim()
+      .toLowerCase();
+    return (
+      !!t &&
+      !["n/a", "na", "not set", "unknown", "-", "null", "undefined"].includes(t)
+    );
   }, []);
 
   const firstMeaningfulText = useCallback(
@@ -183,7 +186,9 @@ const LoanDashboard = () => {
 
   const matchesDashboardSearch = useCallback(
     (loan, query) => {
-      const rawQuery = String(query ?? "").trim().toLowerCase();
+      const rawQuery = String(query ?? "")
+        .trim()
+        .toLowerCase();
       if (!rawQuery) return true;
       const normalizedQuery = normalizeSearchToken(rawQuery);
 
@@ -217,28 +222,102 @@ const LoanDashboard = () => {
       const showroomDealerName = firstMeaningfulText(
         loan?.showroomDealerName,
         loan?.delivery_dealerName,
+        loan?.dealerName,
+        loan?.paymentFavouring,
+        loan?.loanPaymentFavouring,
+        loan?.loan_payment_favouring,
+        loan?.payment_favouring,
+        loan?.payment_favouring_at_despatch,
+        loan?.payment_favouring_at_booking,
+        loan?.paymentFavouringAtDespatch,
+        loan?.PAYMENT_FAVOURING_AT_DESPATCH,
+        loan?.PAYMENT_FAVOURING_AT_BOOKING,
         loan?.postFile?.showroomDealerName,
         loan?.postfile?.showroomDealerName,
+        loan?.postFile?.[0]?.showroomDealerName,
+        loan?.postfile?.[0]?.showroomDealerName,
+        loan?.postFile?.[0]?.showroomName,
+        loan?.postfile?.[0]?.showroomName,
+        loan?.postFile?.showroomName,
+        loan?.postfile?.showroomName,
+        loan?.postFile?.paymentFavouring,
+        loan?.postfile?.paymentFavouring,
+        loan?.postFile?.[0]?.paymentFavouring,
+        loan?.postfile?.[0]?.paymentFavouring,
+        loan?.postFile?.[0]?.PAYMENT_FAVOURING_AT_DESPATCH,
+        loan?.postFile?.[0]?.PAYMENT_FAVOURING_AT_BOOKING,
+        loan?.postfile?.[0]?.PAYMENT_FAVOURING_AT_DESPATCH,
+        loan?.postfile?.[0]?.PAYMENT_FAVOURING_AT_BOOKING,
+        loan?.postFile?.payment_favouring_at_despatch,
+        loan?.postFile?.payment_favouring_at_booking,
+        loan?.postfile?.payment_favouring_at_despatch,
+        loan?.postfile?.payment_favouring_at_booking,
         loan?.postFileVehicleVerification?.showroomDealerName,
+        loan?.postfileVehicleVerification?.showroomDealerName,
+        loan?.postfile_vehicle_verification?.showroomDealerName,
+        loan?.post_file_vehicle_verification?.showroomDealerName,
+        loan?.postFileVehicleVerification?.PAYMENT_FAVOURING_AT_DESPATCH,
+        loan?.postfileVehicleVerification?.PAYMENT_FAVOURING_AT_DESPATCH,
+        loan?.postfileVehicleVerification?.PAYMENT_FAVOURING_AT_BOOKING,
+        loan?.postfile_vehicle_verification?.PAYMENT_FAVOURING_AT_DESPATCH,
+        loan?.postfile_vehicle_verification?.PAYMENT_FAVOURING_AT_BOOKING,
+        loan?.post_file_vehicle_verification?.PAYMENT_FAVOURING_AT_DESPATCH,
+        loan?.post_file_vehicle_verification?.PAYMENT_FAVOURING_AT_BOOKING,
         loan?.vehicleVerification?.showroomDealerName,
+        loan?.vehicle_verification?.showroomDealerName,
         loan?.postFileVehicle?.showroomDealerName,
+        loan?.postFileVehicle?.[0]?.showroomDealerName,
         loan?.postfile_showroomDealerName,
+        loan?.showroom_dealer_name,
+        loan?.postfile_showroom_dealer_name,
+        loan?.postfile_showroom_dealerName,
         loan?.showroomName,
         loan?.showroom,
         loan?.showroom_name,
+        loan?.SHOWROOM_NAME,
+        loan?.SHOWROOM_DEALER_NAME,
+        loan?.DEALERSHIP_NAME,
+        loan?.DEALER_NAME,
+        loan?.SHOWROOM,
       );
       const deliveryDealerName = firstMeaningfulText(
         loan?.delivery_dealerName,
         loan?.showroomDealerName,
+        loan?.dealerName,
+        loan?.postFile?.dealerName,
+        loan?.postfile?.dealerName,
+        loan?.postFileVehicle?.dealerName,
+        loan?.postFileVehicle?.[0]?.dealerName,
+        loan?.postfileVehicleVerification?.dealerName,
+        loan?.postfile_vehicle_verification?.dealerName,
+        loan?.vehicleVerification?.dealerName,
+        loan?.vehicle_verification?.dealerName,
         loan?.postFile?.delivery_dealerName,
         loan?.postfile?.delivery_dealerName,
+        loan?.postFile?.[0]?.delivery_dealerName,
+        loan?.postfile?.[0]?.delivery_dealerName,
         loan?.postFileVehicleVerification?.delivery_dealerName,
+        loan?.postfileVehicleVerification?.delivery_dealerName,
+        loan?.postfile_vehicle_verification?.delivery_dealerName,
+        loan?.post_file_vehicle_verification?.delivery_dealerName,
         loan?.vehicleVerification?.delivery_dealerName,
+        loan?.vehicle_verification?.delivery_dealerName,
         loan?.postFileVehicle?.delivery_dealerName,
+        loan?.postFileVehicle?.[0]?.delivery_dealerName,
         loan?.postfile_showroomDealerName,
+        loan?.delivery_dealer_name,
+        loan?.postfile_delivery_dealer_name,
+        loan?.delivery_dealer,
+        loan?.dealership_name,
         loan?.showroomName,
         loan?.showroom,
         loan?.showroom_name,
+        loan?.showroom_dealer_name,
+        loan?.dealerName,
+        loan?.DEALERSHIP_NAME,
+        loan?.DEALER_NAME,
+        loan?.SHOWROOM,
+        loan?.SHOWROOM_NAME,
       );
       return {
         showroomDealerName,
@@ -250,178 +329,192 @@ const LoanDashboard = () => {
 
   const normalizeLoan = useCallback(
     (loan) => {
-      const showroomFields = extractShowroomFields(loan);
+      const showroomFields = {
+        showroomDealerName:
+          loan?.showroomDealerName ||
+          loan?.SHOWROOM_DEALER_NAME ||
+          loan?.showroom_dealer_name ||
+          "",
+        delivery_dealerName:
+          loan?.delivery_dealerName || loan?.delivery_dealer_name || "",
+      };
       return {
         ...loan,
-      loanId:
-        loan?.loan_number ||
-        loan?.loanNumber ||
-        loan?.loan_no ||
-        loan?.loanId ||
-        loan?.caseId ||
-        loan?._id ||
-        "",
-      loan_number:
-        loan?.loan_number ||
-        loan?.loanNumber ||
-        loan?.loan_no ||
-        loan?.loanId ||
-        "",
-      _id: loan?._id,
-      aging: loan?.aging ?? calculateAging(loan?.createdAt),
-      status:
-        loan?.approval_status ||
-        loan?.approvalStatus ||
-        loan?.status ||
-        loan?.loanStatus ||
-        "New",
-      currentStage:
-        loan?.currentStage || loan?.stage || loan?.workflowStage || "profile",
-      loanAmount:
-        loan?.approval_loanAmountApproved ||
-        loan?.approval_loanAmountDisbursed ||
-        loan?.loanAmount ||
-        loan?.financeExpectation ||
-        0,
-      postfile_emiAmount:
-        loan?.postfile_emiAmount ||
-        loan?.emiAmount ||
-        loan?.monthlyEmi ||
-        loan?.approval_emiAmount ||
-        loan?.approval_emi ||
-        0,
+        loanId:
+          loan?.loan_number ||
+          loan?.loanNumber ||
+          loan?.loan_no ||
+          loan?.loanId ||
+          loan?.caseId ||
+          loan?._id ||
+          "",
+        loan_number:
+          loan?.loan_number ||
+          loan?.loanNumber ||
+          loan?.loan_no ||
+          loan?.loanId ||
+          "",
+        _id: loan?._id,
+        aging: loan?.aging ?? calculateAging(loan?.createdAt),
+        status:
+          loan?.approval_status ||
+          loan?.approvalStatus ||
+          loan?.status ||
+          loan?.loanStatus ||
+          "New",
+        currentStage:
+          loan?.currentStage || loan?.stage || loan?.workflowStage || "profile",
+        loanAmount:
+          loan?.approval_loanAmountApproved ||
+          loan?.approval_loanAmountDisbursed ||
+          loan?.loanAmount ||
+          loan?.financeExpectation ||
+          0,
+        postfile_emiAmount:
+          loan?.postfile_emiAmount ||
+          loan?.emiAmount ||
+          loan?.monthlyEmi ||
+          loan?.approval_emiAmount ||
+          loan?.approval_emi ||
+          0,
 
-      bankName: loan?.approval_bankName || loan?.bankName || null,
+        bankName: loan?.approval_bankName || loan?.bankName || null,
 
-      customerName:
-        loan?.customerName ||
-        loan?.applicant_name ||
-        loan?.applicantName ||
-        loan?.leadName ||
-        "Unknown",
-      primaryMobile:
-        loan?.primaryMobile ||
-        loan?.mobile ||
-        loan?.phone ||
-        loan?.phoneNumber ||
-        "N/A",
-      email: loan?.email || loan?.emailId || "",
-      city: loan?.city || loan?.permanentCity || "N/A",
-      pincode: loan?.pincode || loan?.permanentPincode || "",
-      residenceAddress:
-        loan?.residenceAddress || loan?.currentAddress || loan?.address || "",
-      permanentAddress: loan?.permanentAddress || "",
+        customerName:
+          loan?.customerName ||
+          loan?.applicant_name ||
+          loan?.applicantName ||
+          loan?.leadName ||
+          "Unknown",
+        primaryMobile:
+          loan?.primaryMobile ||
+          loan?.mobile ||
+          loan?.phone ||
+          loan?.phoneNumber ||
+          "N/A",
+        email: loan?.email || loan?.emailId || "",
+        city: loan?.city || loan?.permanentCity || "N/A",
+        pincode: loan?.pincode || loan?.permanentPincode || "",
+        residenceAddress:
+          loan?.residenceAddress || loan?.currentAddress || loan?.address || "",
+        permanentAddress: loan?.permanentAddress || "",
 
-      source:
-        loan?.source || loan?.sourcingChannel || loan?.recordSource || "N/A",
-      sourceName:
-        loan?.sourceName ||
-        loan?.source_name ||
-        loan?.showroomName ||
-        loan?.showroom ||
-        loan?.showroom_name ||
-        "",
-      dealerName:
-        loan?.dealerName ||
-        loan?.showroomName ||
-        loan?.showroom ||
-        loan?.showroom_name ||
-        loan?.branchName ||
-        "",
-      // Post-file / delivery showroom data used by dashboard card display
-      showroomDealerName: showroomFields.showroomDealerName,
-      delivery_dealerName: showroomFields.delivery_dealerName,
-      dealerContactPerson:
-        loan?.dealerContactPerson ||
-        loan?.showroomContactPerson ||
-        loan?.dealer_contact_person ||
-        "",
+        source:
+          loan?.source || loan?.sourcingChannel || loan?.recordSource || "N/A",
+        sourceName: firstMeaningfulText(
+          loan?.sourceName,
+          loan?.source_name,
+          showroomFields.showroomDealerName,
+          showroomFields.delivery_dealerName,
+          loan?.showroomName,
+          loan?.showroom,
+          loan?.showroom_name,
+          "",
+        ),
+        dealerName:
+          showroomFields.showroomDealerName ||
+          showroomFields.delivery_dealerName ||
+          loan?.dealerName ||
+          loan?.showroomName ||
+          loan?.showroom ||
+          loan?.showroom_name ||
+          loan?.branchName ||
+          "",
+        // Post-file / delivery showroom data used by dashboard card display
+        showroomDealerName:
+          loan?.showroomDealerName || showroomFields.showroomDealerName || "",
+        delivery_dealerName: showroomFields.delivery_dealerName,
+        dealerContactPerson:
+          loan?.dealerContactPerson ||
+          loan?.showroomContactPerson ||
+          loan?.dealer_contact_person ||
+          "",
 
-      vehicleMake: loan?.vehicleMake || loan?.make || "",
-      vehicleModel: loan?.vehicleModel || loan?.model || "",
-      vehicleVariant: loan?.vehicleVariant || loan?.variant || "",
-      vehicleRegNo:
-        loan?.vehicleRegNo ||
-        loan?.vehicleRegdNumber ||
-        loan?.rc_redg_no ||
-        loan?.registrationNumber ||
-        loan?.vehicleNumber ||
-        loan?.regNo ||
-        "",
-      registrationNumber:
-        loan?.registrationNumber ||
-        loan?.vehicleRegNo ||
-        loan?.vehicleNumber ||
-        loan?.rc_redg_no ||
-        loan?.regNo ||
-        "",
-      typeOfLoan: loan?.typeOfLoan || loan?.loanType || "",
-      registrationCity: loan?.registrationCity || "",
-      postfile_regd_city:
-        loan?.postfile_regd_city || loan?.registrationCity || "",
-      rc_redg_no:
-        loan?.rc_redg_no ||
-        loan?.vehicleRegNo ||
-        loan?.vehicleRegdNumber ||
-        loan?.registrationNumber ||
-        "",
+        vehicleMake: loan?.vehicleMake || loan?.make || "",
+        vehicleModel: loan?.vehicleModel || loan?.model || "",
+        vehicleVariant: loan?.vehicleVariant || loan?.variant || "",
+        vehicleRegNo:
+          loan?.vehicleRegNo ||
+          loan?.vehicleRegdNumber ||
+          loan?.rc_redg_no ||
+          loan?.registrationNumber ||
+          loan?.vehicleNumber ||
+          loan?.regNo ||
+          "",
+        registrationNumber:
+          loan?.registrationNumber ||
+          loan?.vehicleRegNo ||
+          loan?.vehicleNumber ||
+          loan?.rc_redg_no ||
+          loan?.regNo ||
+          "",
+        typeOfLoan: loan?.typeOfLoan || loan?.loanType || "",
+        registrationCity: loan?.registrationCity || "",
+        postfile_regd_city:
+          loan?.postfile_regd_city || loan?.registrationCity || "",
+        rc_redg_no:
+          loan?.rc_redg_no ||
+          loan?.vehicleRegNo ||
+          loan?.vehicleRegdNumber ||
+          loan?.registrationNumber ||
+          "",
 
-      approval_loanAmountApproved:
-        loan?.approval_loanAmountApproved || loan?.loanAmount || 0,
-      approval_loanAmountDisbursed: loan?.approval_loanAmountDisbursed || 0,
-      approval_bankName: loan?.approval_bankName || loan?.bankName || "N/A",
-      approval_banksData: loan?.approval_banksData || [],
-      approval_roi: loan?.approval_roi || loan?.roi || null,
-      approval_tenureMonths:
-        loan?.approval_tenureMonths ||
-        loan?.loanTenureMonths ||
-        loan?.tenure ||
-        null,
-      approval_approvalDate: loan?.approval_approvalDate || null,
-      approval_disbursedDate:
-        loan?.approval_disbursedDate ||
-        loan?.disbursement_date ||
-        loan?.disbursementDate ||
-        loan?.disbursedDate ||
-        null,
-      disbursement_date:
-        loan?.disbursement_date ||
-        loan?.approval_disbursedDate ||
-        loan?.disbursementDate ||
-        loan?.disbursedDate ||
-        null,
-      dispatch_date: loan?.dispatch_date || loan?.dispatchDate || null,
-      delivery_date:
-        loan?.delivery_date ||
-        loan?.deliveryDate ||
-        loan?.delivery_done_at ||
-        loan?.vehicleDeliveryDate ||
-        null,
-      postfile_maturityDate:
-        loan?.postfile_maturityDate ||
-        loan?.postfile_maturity_date ||
-        loan?.maturityDate ||
-        null,
-      postfile_firstEmiDate:
-        loan?.postfile_firstEmiDate ||
-        loan?.postfile_first_emi_date ||
-        loan?.firstEmiDate ||
-        null,
-      postfile_currentOutstanding:
-        loan?.postfile_currentOutstanding ||
-        loan?.postfile_current_outstanding ||
-        loan?.currentOutstanding ||
-        loan?.livePrincipalOutstanding ||
-        loan?.principalOutstanding ||
-        null,
+        approval_loanAmountApproved:
+          loan?.approval_loanAmountApproved || loan?.loanAmount || 0,
+        approval_loanAmountDisbursed: loan?.approval_loanAmountDisbursed || 0,
+        approval_bankName: loan?.approval_bankName || loan?.bankName || "N/A",
+        approval_banksData: loan?.approval_banksData || [],
+        approval_roi: loan?.approval_roi || loan?.roi || null,
+        approval_tenureMonths:
+          loan?.approval_tenureMonths ||
+          loan?.loanTenureMonths ||
+          loan?.tenure ||
+          null,
+        approval_approvalDate: loan?.approval_approvalDate || null,
+        approval_disbursedDate:
+          loan?.approval_disbursedDate ||
+          loan?.disbursement_date ||
+          loan?.disbursementDate ||
+          loan?.disbursedDate ||
+          null,
+        disbursement_date:
+          loan?.disbursement_date ||
+          loan?.approval_disbursedDate ||
+          loan?.disbursementDate ||
+          loan?.disbursedDate ||
+          null,
+        dispatch_date: loan?.dispatch_date || loan?.dispatchDate || null,
+        delivery_date:
+          loan?.delivery_date ||
+          loan?.deliveryDate ||
+          loan?.delivery_done_at ||
+          loan?.vehicleDeliveryDate ||
+          null,
+        postfile_maturityDate:
+          loan?.postfile_maturityDate ||
+          loan?.postfile_maturity_date ||
+          loan?.maturityDate ||
+          null,
+        postfile_firstEmiDate:
+          loan?.postfile_firstEmiDate ||
+          loan?.postfile_first_emi_date ||
+          loan?.firstEmiDate ||
+          null,
+        postfile_currentOutstanding:
+          loan?.postfile_currentOutstanding ||
+          loan?.postfile_current_outstanding ||
+          loan?.currentOutstanding ||
+          loan?.livePrincipalOutstanding ||
+          loan?.principalOutstanding ||
+          null,
 
-      reference1:
-        typeof loan?.reference1 === "string"
-          ? { name: loan.reference1 }
-          : loan?.reference1 || { name: loan?.referenceName || "" },
-      createdAt: loan?.createdAt || loan?.receivingDate || null,
-      updatedAt: loan?.updatedAt || null,
-    };
+        reference1:
+          typeof loan?.reference1 === "string"
+            ? { name: loan.reference1 }
+            : loan?.reference1 || { name: loan?.referenceName || "" },
+        createdAt: loan?.createdAt || loan?.receivingDate || null,
+        updatedAt: loan?.updatedAt || null,
+      };
     },
     [extractShowroomFields],
   );
@@ -669,61 +762,71 @@ const LoanDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [normalizeLoan, page, pageSize, debouncedSearchQuery, sortConfig, hydrateMissingShowroomFields]);
+  }, [
+    normalizeLoan,
+    page,
+    pageSize,
+    debouncedSearchQuery,
+    sortConfig,
+    hydrateMissingShowroomFields,
+  ]);
 
-  const fetchDashboardStats = useCallback(async ({ force = false } = {}) => {
-    try {
-      if (!force) {
-        try {
-          const raw = sessionStorage.getItem(STATS_CACHE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            const age = Date.now() - Number(parsed?.ts || 0);
-            if (age >= 0 && age < STATS_TTL_MS && parsed?.data) {
-              setStatsData(parsed.data);
-              console.info("[LoansDashboard] stats fetch", {
-                clientMs: 0,
-                serverMs: null,
-                total: Number(parsed?.data?.total) || 0,
-                rowsScanned: 0,
-                fromCache: true,
-              });
-              return;
-            }
-          }
-        } catch (_) {}
-      }
-
-      const startedAt = performance.now();
-      const payload = await loansApi.getDashboardStats();
-      const stats = {
-        total: Number(payload?.total) || 0,
-        pending: Number(payload?.pending) || 0,
-        approvedToday: Number(payload?.approvedToday) || 0,
-        disbursed: Number(payload?.disbursed) || 0,
-        totalBookValue: Number(payload?.totalBookValue) || 0,
-        emiCapturedCount: Number(payload?.emiCapturedCount) || 0,
-        regNoCapturedCount: Number(payload?.regNoCapturedCount) || 0,
-      };
-      setStatsData(stats);
+  const fetchDashboardStats = useCallback(
+    async ({ force = false } = {}) => {
       try {
-        sessionStorage.setItem(
-          STATS_CACHE_KEY,
-          JSON.stringify({ data: stats, ts: Date.now() }),
-        );
-      } catch (_) {}
-      const clientMs = Math.round(performance.now() - startedAt);
-      console.info("[LoansDashboard] stats fetch", {
-        clientMs,
-        serverMs: Number(payload?.meta?.queryMs) || null,
-        total: Number(payload?.total) || 0,
-        rowsScanned: Number(payload?.meta?.rowsScanned) || 0,
-        fromCache: false,
-      });
-    } catch (e) {
-      console.error("Fetch Dashboard Stats Error:", e);
-    }
-  }, [STATS_TTL_MS]);
+        if (!force) {
+          try {
+            const raw = sessionStorage.getItem(STATS_CACHE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              const age = Date.now() - Number(parsed?.ts || 0);
+              if (age >= 0 && age < STATS_TTL_MS && parsed?.data) {
+                setStatsData(parsed.data);
+                console.info("[LoansDashboard] stats fetch", {
+                  clientMs: 0,
+                  serverMs: null,
+                  total: Number(parsed?.data?.total) || 0,
+                  rowsScanned: 0,
+                  fromCache: true,
+                });
+                return;
+              }
+            }
+          } catch (_) {}
+        }
+
+        const startedAt = performance.now();
+        const payload = await loansApi.getDashboardStats();
+        const stats = {
+          total: Number(payload?.total) || 0,
+          pending: Number(payload?.pending) || 0,
+          approvedToday: Number(payload?.approvedToday) || 0,
+          disbursed: Number(payload?.disbursed) || 0,
+          totalBookValue: Number(payload?.totalBookValue) || 0,
+          emiCapturedCount: Number(payload?.emiCapturedCount) || 0,
+          regNoCapturedCount: Number(payload?.regNoCapturedCount) || 0,
+        };
+        setStatsData(stats);
+        try {
+          sessionStorage.setItem(
+            STATS_CACHE_KEY,
+            JSON.stringify({ data: stats, ts: Date.now() }),
+          );
+        } catch (_) {}
+        const clientMs = Math.round(performance.now() - startedAt);
+        console.info("[LoansDashboard] stats fetch", {
+          clientMs,
+          serverMs: Number(payload?.meta?.queryMs) || null,
+          total: Number(payload?.total) || 0,
+          rowsScanned: Number(payload?.meta?.rowsScanned) || 0,
+          fromCache: false,
+        });
+      } catch (e) {
+        console.error("Fetch Dashboard Stats Error:", e);
+      }
+    },
+    [STATS_TTL_MS],
+  );
 
   useEffect(() => {
     fetchLoans();
@@ -1087,7 +1190,9 @@ const LoanDashboard = () => {
     ? filteredLoans.length
     : Number(serverTotal) || filteredLoans.length;
   const searchMode = Boolean(filters.searchQuery?.trim());
-  const effectiveTotalCountForGrid = searchMode ? filteredLoans.length : totalCountForGrid;
+  const effectiveTotalCountForGrid = searchMode
+    ? filteredLoans.length
+    : totalCountForGrid;
 
   return (
     <div className="h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-b from-sky-50 via-white to-white p-4 md:p-6 dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">

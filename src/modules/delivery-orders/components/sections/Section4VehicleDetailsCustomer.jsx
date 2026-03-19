@@ -12,6 +12,7 @@ import {
   Button,
   Spin,
   Tag,
+  Checkbox,
 } from "antd";
 import {
   CarOutlined,
@@ -133,6 +134,8 @@ const Section4VehicleDetailsCustomer = () => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
+    showDiscontinuedCars,
+    setShowDiscontinuedCars,
   } = useVehicleData(form, {
     makeFieldName: "do_vehicleMake",
     modelFieldName: "do_vehicleModel",
@@ -590,6 +593,18 @@ const Section4VehicleDetailsCustomer = () => {
                   </Select>
                 </Form.Item>
               </InlineField>
+            </Col>
+            <Col xs={24}>
+              <Form.Item style={{ marginBottom: 6 }}>
+                <Checkbox
+                  checked={showDiscontinuedCars}
+                  onChange={(event) =>
+                    setShowDiscontinuedCars(event?.target?.checked)
+                  }
+                >
+                  Show discontinued cars
+                </Checkbox>
+              </Form.Item>
             </Col>
 
             <Col xs={24} md={8}>

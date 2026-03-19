@@ -64,15 +64,6 @@ const Section7RecordDetails = () => {
     fetchEmployees();
   }, []);
 
-  // ✅ Default Receiving Date & Time = NOW (only if empty)
-  useEffect(() => {
-    const receivingDate = form.getFieldValue("receivingDate");
-    const receivingTime = form.getFieldValue("receivingTime");
-
-    if (!receivingDate) form.setFieldsValue({ receivingDate: dayjs() });
-    if (!receivingTime) form.setFieldsValue({ receivingTime: dayjs() });
-  }, [form]);
-
   // ✅ Auto-sync recordSource from LeadDetails.source
   useEffect(() => {
     if (!leadSource) return;

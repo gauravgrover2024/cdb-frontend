@@ -51,6 +51,12 @@ const PreFileStep = () => {
           yearsInCurrentHouse: freshCustomer.yearsInCurrentHouse || form.getFieldValue("yearsInCurrentHouse"),
           yearsInCurrentCity: freshCustomer.yearsInCurrentCity || form.getFieldValue("yearsInCurrentCity"),
           houseType: freshCustomer.houseType || form.getFieldValue("houseType"),
+          addressType: freshCustomer.addressType || form.getFieldValue("addressType"),
+          identityProofType: freshCustomer.identityProofType || form.getFieldValue("identityProofType"),
+          identityProofNumber: freshCustomer.identityProofNumber || form.getFieldValue("identityProofNumber"),
+          identityProofExpiry: freshCustomer.identityProofExpiry ? toDayjsSafe(freshCustomer.identityProofExpiry) : form.getFieldValue("identityProofExpiry"),
+          addressProofType: freshCustomer.addressProofType || form.getFieldValue("addressProofType"),
+          addressProofNumber: freshCustomer.addressProofNumber || form.getFieldValue("addressProofNumber"),
           permanentAddress: freshCustomer.permanentAddress || form.getFieldValue("permanentAddress"),
           permanentPincode: freshCustomer.permanentPincode || form.getFieldValue("permanentPincode"),
           permanentCity: freshCustomer.permanentCity || form.getFieldValue("permanentCity"),
@@ -69,6 +75,9 @@ const PreFileStep = () => {
           businessNature:
             freshCustomer.businessNature ??
             form.getFieldValue("businessNature"),
+          companyPartners: Array.isArray(freshCustomer.companyPartners)
+            ? freshCustomer.companyPartners
+            : form.getFieldValue("companyPartners"),
           companyName: freshCustomer.companyName || form.getFieldValue("companyName"),
           designation: freshCustomer.designation || form.getFieldValue("designation"),
           incorporationYear: freshCustomer.incorporationYear || form.getFieldValue("incorporationYear"),
@@ -79,7 +88,11 @@ const PreFileStep = () => {
           salaryMonthly: freshCustomer.salaryMonthly || form.getFieldValue("salaryMonthly"),
           bankName: freshCustomer.bankName || form.getFieldValue("bankName"),
           accountNumber: freshCustomer.accountNumber || form.getFieldValue("accountNumber"),
-          ifscCode: freshCustomer.ifscCode || form.getFieldValue("ifscCode"),
+          ifsc: freshCustomer.ifsc || freshCustomer.ifscCode || form.getFieldValue("ifsc"),
+          ifscCode: freshCustomer.ifscCode || freshCustomer.ifsc || form.getFieldValue("ifscCode"),
+          openedIn: freshCustomer.openedIn || form.getFieldValue("openedIn"),
+          hasCoApplicant: freshCustomer.hasCoApplicant ?? form.getFieldValue("hasCoApplicant"),
+          hasGuarantor: freshCustomer.hasGuarantor ?? form.getFieldValue("hasGuarantor"),
 
           // Sync Documents
           aadhaarCardDocUrl: freshCustomer.aadhaarCardDocUrl || form.getFieldValue("aadhaarCardDocUrl"),
@@ -154,6 +167,12 @@ const PreFileStep = () => {
         yearsInCurrentHouse: freshCustomer.yearsInCurrentHouse,
         yearsInCurrentCity: freshCustomer.yearsInCurrentCity,
         houseType: freshCustomer.houseType,
+        addressType: freshCustomer.addressType,
+        identityProofType: freshCustomer.identityProofType,
+        identityProofNumber: freshCustomer.identityProofNumber,
+        identityProofExpiry: toDayjsSafe(freshCustomer.identityProofExpiry),
+        addressProofType: freshCustomer.addressProofType,
+        addressProofNumber: freshCustomer.addressProofNumber,
         permanentAddress: freshCustomer.permanentAddress,
         permanentPincode: freshCustomer.permanentPincode,
         permanentCity: freshCustomer.permanentCity,
@@ -170,6 +189,7 @@ const PreFileStep = () => {
         professionalType: freshCustomer.professionalType,
         companyType: freshCustomer.companyType,
         businessNature: freshCustomer.businessNature,
+        companyPartners: Array.isArray(freshCustomer.companyPartners) ? freshCustomer.companyPartners : [],
         companyName: freshCustomer.companyName,
         designation: freshCustomer.designation,
         incorporationYear: freshCustomer.incorporationYear,
@@ -180,7 +200,11 @@ const PreFileStep = () => {
         salaryMonthly: freshCustomer.salaryMonthly,
         bankName: freshCustomer.bankName,
         accountNumber: freshCustomer.accountNumber,
-        ifscCode: freshCustomer.ifscCode,
+        ifsc: freshCustomer.ifsc || freshCustomer.ifscCode,
+        ifscCode: freshCustomer.ifscCode || freshCustomer.ifsc,
+        openedIn: freshCustomer.openedIn,
+        hasCoApplicant: freshCustomer.hasCoApplicant,
+        hasGuarantor: freshCustomer.hasGuarantor,
         
         // Sync Documents
         aadhaarCardDocUrl: freshCustomer.aadhaarCardDocUrl,

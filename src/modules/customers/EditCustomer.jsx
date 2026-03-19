@@ -179,14 +179,22 @@ const EditCustomer = () => {
         // Patch dates into dayjs
         form.setFieldsValue({
           applicantType,
+          customerIdDisplay: found.customerId || found.customerIdDisplay || "",
           customerName: found.customerName || "",
           sdwOf: found.sdwOf || "",
+          fatherName: found.fatherName || found.sdwOf || "",
           gender: found.gender || "",
           dob: found.dob ? dayjs(found.dob) : null,
           motherName: found.motherName || "",
           residenceAddress: found.residenceAddress || "",
           pincode: found.pincode || "",
           city: found.city || "",
+          addressType: found.addressType || "",
+          identityProofType: found.identityProofType || "",
+          identityProofNumber: found.identityProofNumber || "",
+          identityProofExpiry: found.identityProofExpiry ? dayjs(found.identityProofExpiry) : null,
+          addressProofType: found.addressProofType || "",
+          addressProofNumber: found.addressProofNumber || "",
           contactPersonName: found.contactPersonName || "",
           contactPersonMobile: found.contactPersonMobile || "",
           sameAsCurrentAddress: found.sameAsCurrentAddress ?? false,
@@ -194,19 +202,26 @@ const EditCustomer = () => {
           permanentPincode: found.permanentPincode || "",
           permanentCity: found.permanentCity || "",
           yearsInCurrentHouse: found.yearsInCurrentHouse || "",
+          yearsInCurrentCity: found.yearsInCurrentCity || "",
           houseType: found.houseType || "",
           education: found.education || "",
+          educationOther: found.educationOther || "",
           maritalStatus: found.maritalStatus || "",
           dependents: found.dependents || "",
+          hasCoApplicant: found.hasCoApplicant ?? false,
+          hasGuarantor: found.hasGuarantor ?? false,
           primaryMobile: found.primaryMobile || "",
           extraMobiles: Array.isArray(found.extraMobiles) ? found.extraMobiles : [],
           email: found.email || "",
+          docsPreparedBy: found.docsPreparedBy || "",
           nomineeName: found.nomineeName || "",
           nomineeDob: found.nomineeDob ? dayjs(found.nomineeDob) : null,
           nomineeRelation: found.nomineeRelation || "",
 
           occupationType: found.occupationType || "",
+          professionalType: found.professionalType || "",
           companyName: found.companyName || "",
+          companyPartners: Array.isArray(found.companyPartners) ? found.companyPartners : [],
           isMSME: found.isMSME || "",
           companyType: Array.isArray(found.companyType) ? found.companyType[0] : (found.companyType || ""),
           businessNature: Array.isArray(found.businessNature)
@@ -218,6 +233,7 @@ const EditCustomer = () => {
           employmentPincode: found.employmentPincode || "",
           employmentCity: found.employmentCity || "",
           employmentPhone: found.employmentPhone || "",
+          officialEmail: found.officialEmail || "",
           salaryMonthly: found.salaryMonthly || "",
           designation: found.designation || "",
           incorporationYear: found.incorporationYear || "",
@@ -231,9 +247,11 @@ const EditCustomer = () => {
 
           bankName: found.bankName || "",
           accountNumber: found.accountNumber || "",
-          ifsc: found.ifsc || "",
+          ifsc: found.ifsc || found.ifscCode || "",
+          ifscCode: found.ifscCode || found.ifsc || "",
           branch: found.branch || "",
           accountSinceYears: found.accountSinceYears ?? "",
+          openedIn: found.openedIn ?? "",
           accountType: found.accountType || "",
 
           // Support both nested (reference1) and flat (reference1_name) from API
@@ -254,7 +272,8 @@ const EditCustomer = () => {
             relation: found.reference2_relation || "",
           } : null),
 
-          aadhaarNumber: found.aadhaarNumber || "",
+          aadhaarNumber: found.aadhaarNumber || found.aadharNumber || "",
+          aadharNumber: found.aadharNumber || found.aadhaarNumber || "",
           aadhaarCardDocUrl: found.aadhaarCardDocUrl || "",
           passportNumber: found.passportNumber || "",
           passportDocUrl: found.passportDocUrl || "",
@@ -262,6 +281,25 @@ const EditCustomer = () => {
           gstDocUrl: found.gstDocUrl || "",
           dlNumber: found.dlNumber || "",
           dlDocUrl: found.dlDocUrl || "",
+          registerSameAsAadhaar: found.registerSameAsAadhaar || "",
+          registerSameAsPermanent: found.registerSameAsPermanent || "",
+          registrationAddress: found.registrationAddress || "",
+          registrationPincode: found.registrationPincode || "",
+          registrationCity: found.registrationCity || "",
+          co_customerName: found.co_customerName || "",
+          co_primaryMobile: found.co_primaryMobile || "",
+          co_pan: found.co_pan || "",
+          co_dob: found.co_dob ? dayjs(found.co_dob) : null,
+          co_address: found.co_address || "",
+          signatory_customerName: found.signatory_customerName || "",
+          signatory_primaryMobile: found.signatory_primaryMobile || "",
+          signatory_dob: found.signatory_dob ? dayjs(found.signatory_dob) : null,
+          signatory_address: found.signatory_address || "",
+          signatory_pincode: found.signatory_pincode || "",
+          signatory_city: found.signatory_city || "",
+          signatory_designation: found.signatory_designation || "",
+          signatory_pan: found.signatory_pan || "",
+          signatory_aadhaar: found.signatory_aadhaar || "",
         });
 
         setHeaderInfo({
@@ -398,6 +436,13 @@ const EditCustomer = () => {
         nomineeDob: flat?.nomineeDob
           ? (dayjs.isDayjs(flat.nomineeDob) ? flat.nomineeDob.format("YYYY-MM-DD") : flat.nomineeDob)
           : "",
+        identityProofExpiry: flat?.identityProofExpiry
+          ? (dayjs.isDayjs(flat.identityProofExpiry) ? flat.identityProofExpiry.format("YYYY-MM-DD") : flat.identityProofExpiry)
+          : "",
+        co_dob: flat?.co_dob ? (dayjs.isDayjs(flat.co_dob) ? flat.co_dob.format("YYYY-MM-DD") : flat.co_dob) : "",
+        signatory_dob: flat?.signatory_dob
+          ? (dayjs.isDayjs(flat.signatory_dob) ? flat.signatory_dob.format("YYYY-MM-DD") : flat.signatory_dob)
+          : "",
         // companyType is single-select in UI; businessNature stays multi-select
         companyType: Array.isArray(flat?.companyType) 
           ? flat.companyType[0] || "" 
@@ -405,6 +450,11 @@ const EditCustomer = () => {
         businessNature: Array.isArray(flat?.businessNature)
           ? flat.businessNature
           : (flat?.businessNature ? [flat.businessNature] : []),
+        companyPartners: Array.isArray(flat?.companyPartners) ? flat.companyPartners : [],
+        ifsc: flat?.ifsc || flat?.ifscCode || "",
+        ifscCode: flat?.ifscCode || flat?.ifsc || "",
+        aadhaarNumber: flat?.aadhaarNumber || flat?.aadharNumber || "",
+        aadharNumber: flat?.aadharNumber || flat?.aadhaarNumber || "",
         updatedAt: new Date().toISOString(),
       };
 

@@ -135,6 +135,7 @@ const isMeaningfulValue = (v) =>
   v !== undefined &&
   v !== null &&
   !(typeof v === "string" && v.trim() === "");
+const cleanText = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
 const getValueFromCaseMerged = (merged, sourcePath) => {
   if (!merged || !sourcePath) return undefined;
@@ -1572,8 +1573,17 @@ const isCompanyProfileDoc = (doc) => {
   if (isCompanyLikeValue(doc.hireType)) return true;
   if (isCompanyLikeValue(doc.constitutionType)) return true;
   if (isCompanyLikeValue(doc.companyType)) return true;
-  if (isCompanyLikeValue(doc.companyName)) return true;
-  if (isCompanyLikeValue(doc.customerName)) return true;
+
+  const customerName = String(doc.customerName || "").trim();
+  const companyName = String(doc.companyName || "").trim();
+
+  // When both names exist and differ, do not infer company from suffixes like "LLP".
+  if (isMeaningfulValue(customerName) && isMeaningfulValue(companyName)) {
+    if (customerName.toLowerCase() !== companyName.toLowerCase()) return false;
+  }
+
+  if (isCompanyLikeValue(companyName)) return true;
+  if (!isMeaningfulValue(companyName) && isCompanyLikeValue(customerName)) return true;
   return false;
 };
 
@@ -2828,6 +2838,8 @@ const FieldMappingPage = () => {
     }
 
     // Optional backend safety fallback for mandatory fields when legacy keys vary.
+    const companyCase = isCompanyProfileDoc(doc);
+
     if (includeSafetyFallback) {
       if (!isMeaningfulValue(doc.customerName)) {
         const fallbackName = findFirstValueByTail(merged, [
@@ -2839,7 +2851,21 @@ const FieldMappingPage = () => {
         ]);
         if (isMeaningfulValue(fallbackName)) doc.customerName = String(fallbackName).trim();
       }
-      if (!isMeaningfulValue(doc.primaryMobile)) {
+      if (companyCase) {
+        if (!isMeaningfulValue(doc.co_primaryMobile)) {
+          const fallbackMobile = findFirstValueByTail(merged, [
+            "PRIMARY_MOBILE",
+            "primary_mobile",
+            "MOBILE",
+            "mobile",
+            "RESI_PHONE1",
+            "PHONE",
+          ]);
+          if (isMeaningfulValue(fallbackMobile)) {
+            doc.co_primaryMobile = String(fallbackMobile).trim();
+          }
+        }
+      } else if (!isMeaningfulValue(doc.primaryMobile)) {
         const fallbackMobile = findFirstValueByTail(merged, [
           "PRIMARY_MOBILE",
           "primary_mobile",
@@ -2848,7 +2874,9 @@ const FieldMappingPage = () => {
           "RESI_PHONE1",
           "PHONE",
         ]);
-        if (isMeaningfulValue(fallbackMobile)) doc.primaryMobile = String(fallbackMobile).trim();
+        if (isMeaningfulValue(fallbackMobile)) {
+          doc.primaryMobile = String(fallbackMobile).trim();
+        }
       }
     }
 
@@ -2889,8 +2917,6 @@ const FieldMappingPage = () => {
       }
     }
     pruneEmptyChequeRows(doc);
-
-    const companyCase = isCompanyProfileDoc(doc);
 
     // Office-address routing from legacy:
     // cpv_detail.OFF_ADD1 + OFF_ADD2 + OFF_PIN
@@ -2962,17 +2988,23 @@ const FieldMappingPage = () => {
       }
     }
 
-    // Company auth-signatory routing:
-    // auth_signatory.NAME/PHONE/AUTH_AADHAAR_NUMBER feed both Co-applicant and Signatory.
-    if (companyCase) {
+      // Company auth-signatory routing:
+      // auth_signatory.NAME/PHONE/AUTH_AADHAAR_NUMBER feed both Co-applicant and Signatory.
+      if (companyCase) {
       const authName = firstMeaningful(
         findFirstValueByTail(merged, ["NAME"]),
         findFirstValueByTail(merged, ["NAME_1"]),
         "",
       );
       const authPhone = firstMeaningful(
+        getValueFromCaseMerged(merged, "auth_signatory.PHONE"),
         findFirstValueByTail(merged, ["PHONE"]),
         findFirstValueByTail(merged, ["PHONE_1"]),
+        "",
+      );
+      const authMobile = firstMeaningful(
+        getValueFromCaseMerged(merged, "auth_signatory.MOBILE"),
+        findFirstValueByTail(merged, ["MOBILE"]),
         "",
       );
       const authAadhaar = firstMeaningful(
@@ -2997,18 +3029,33 @@ const FieldMappingPage = () => {
         doc.co_aadhaar = String(authAadhaar).trim();
         doc.signatory_aadhaar = String(authAadhaar).trim();
       }
-      if (isMeaningfulValue(authDob)) {
-        doc.co_dob = isMeaningfulValue(doc.co_dob) ? doc.co_dob : String(authDob).trim();
-        doc.signatory_dob = isMeaningfulValue(doc.signatory_dob)
-          ? doc.signatory_dob
-          : String(authDob).trim();
-      }
+        if (isMeaningfulValue(authDob)) {
+          doc.co_dob = isMeaningfulValue(doc.co_dob) ? doc.co_dob : String(authDob).trim();
+          doc.signatory_dob = isMeaningfulValue(doc.signatory_dob)
+            ? doc.signatory_dob
+            : String(authDob).trim();
+        }
+        if (!isMeaningfulValue(doc.contactPersonMobile)) {
+          const authFallbackMobile = cleanText(firstMeaningful(authPhone, authMobile, ""));
+          const contactPersonMobile = firstMeaningful(
+            doc.co_primaryMobile,
+            authFallbackMobile,
+            doc.primaryMobile,
+          );
+          if (isMeaningfulValue(contactPersonMobile)) {
+            const schemaNode = softwareSchema?.properties?.contactPersonMobile;
+            doc.contactPersonMobile = castBySchemaType(
+              String(contactPersonMobile).trim(),
+              schemaNode,
+            );
+          }
+        }
 
-      // Designation rule for company cases.
-      const companyTypeForDesignation = firstMeaningful(doc.companyType, doc.co_companyType, "");
-      const forcedDesignation = defaultCompanyDesignation(companyTypeForDesignation);
-      doc.co_designation = forcedDesignation;
-      doc.signatory_designation = forcedDesignation;
+        // Designation rule for company cases.
+        const companyTypeForDesignation = firstMeaningful(doc.companyType, doc.co_companyType, "");
+        const forcedDesignation = defaultCompanyDesignation(companyTypeForDesignation);
+        doc.co_designation = forcedDesignation;
+        doc.signatory_designation = forcedDesignation;
     }
 
     // Guarantor -> Co-applicant routing (legacy rule):

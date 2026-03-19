@@ -14,6 +14,7 @@ import {
   Tag,
   AutoComplete,
   Skeleton,
+  Checkbox,
 } from "antd";
 import { CarOutlined } from "@ant-design/icons";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
@@ -81,6 +82,8 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
+    showDiscontinuedCars,
+    setShowDiscontinuedCars,
   } = useVehicleData(form, {
     makeFieldName: "vehicleMake",
     modelFieldName: "vehicleModel",
@@ -609,6 +612,18 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                     <Select.Option value="Hybrid">Hybrid</Select.Option>
                     <Select.Option value="Electric">Electric</Select.Option>
                   </Select>
+                </Form.Item>
+              </Col>
+              <Col xs={24}>
+                <Form.Item className="mb-1">
+                  <Checkbox
+                    checked={showDiscontinuedCars}
+                    onChange={(event) =>
+                      setShowDiscontinuedCars(event?.target?.checked)
+                    }
+                  >
+                    Show discontinued cars
+                  </Checkbox>
                 </Form.Item>
               </Col>
               {(loadingMakes || loadingModels || loadingVariants) && (
