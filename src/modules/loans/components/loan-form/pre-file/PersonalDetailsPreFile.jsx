@@ -230,6 +230,13 @@ const PersonalDetailsPreFile = () => {
     }
   }, [isCompany, primaryMobile, employmentPhone, form]);
 
+  useEffect(() => {
+    const current = form.getFieldValue("sameAsCurrentAddress");
+    if (current === undefined || current === null || current === "") {
+      form.setFieldValue("sameAsCurrentAddress", true);
+    }
+  }, [form]);
+
   return (
     <div style={{ background: "var(--card)", padding: 20, borderRadius: 12, border: "2px solid var(--border)", marginBottom: 24 }}>
       <Space className="section-header" style={{ marginBottom: 20 }}>

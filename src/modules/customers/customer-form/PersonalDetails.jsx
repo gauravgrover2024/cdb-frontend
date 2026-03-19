@@ -49,6 +49,7 @@ const PersonalDetails = ({
   prefillMode = "all",
   showApplicantType = true,
   cashMinimalMode = false,
+  loanProfileMode = false,
 }) => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
@@ -220,6 +221,13 @@ const PersonalDetails = ({
       });
     }
   }, [cashMinimalMode, isCompany, registerSameAsAadhaar, registerSameAsPermanent, form]);
+
+  useEffect(() => {
+    const current = form.getFieldValue("sameAsCurrentAddress");
+    if (current === undefined || current === null || current === "") {
+      form.setFieldValue("sameAsCurrentAddress", true);
+    }
+  }, [form]);
 
   /* Customer Search Logic with race condition handling */
   const fetchCustomers = useCallback(async (q) => {
@@ -469,7 +477,7 @@ const PersonalDetails = ({
   const showCreditFields = isFinanced !== "No";
   const isCashIndividualMinimal = cashMinimalMode && !isCompany;
 
-  if (cashMinimalMode && isCompany) {
+  if (cashMinimalMode && isCompany && !loanProfileMode) {
     return (
       <div
         id="section-personal"
@@ -1357,43 +1365,47 @@ const PersonalDetails = ({
               </Form.Item>
             </Col>
 
-            <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Address Type" name="addressType">
-                <Select options={ADDRESS_TYPE_OPTIONS} placeholder="Select address type" allowClear />
-              </Form.Item>
-            </Col>
+            {!loanProfileMode && (
+              <>
+                <Col xs={24} md={8} className="mt-4">
+                  <Form.Item label="Address Type" name="addressType">
+                    <Select options={ADDRESS_TYPE_OPTIONS} placeholder="Select address type" allowClear />
+                  </Form.Item>
+                </Col>
 
-            <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Identity Proof" name="identityProofType">
-                <Select options={IDENTITY_OPTIONS} placeholder="Select identity proof" allowClear />
-              </Form.Item>
-            </Col>
+                <Col xs={24} md={8} className="mt-4">
+                  <Form.Item label="Identity Proof" name="identityProofType">
+                    <Select options={IDENTITY_OPTIONS} placeholder="Select identity proof" allowClear />
+                  </Form.Item>
+                </Col>
 
-            <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Identity Proof Number" name="identityProofNumber">
-                <Input placeholder="Enter identity proof number" />
-              </Form.Item>
-            </Col>
+                <Col xs={24} md={8} className="mt-4">
+                  <Form.Item label="Identity Proof Number" name="identityProofNumber">
+                    <Input placeholder="Enter identity proof number" />
+                  </Form.Item>
+                </Col>
 
-            {(identityProofType === "PASSPORT" || identityProofType === "DRIVING_LICENSE") && (
-              <Col xs={24} md={8} className="mt-4">
-                <Form.Item label="Identity Proof Expiry" name="identityProofExpiry">
-                  <DatePicker className="w-full" format="DD-MM-YYYY" />
-                </Form.Item>
-              </Col>
+                {(identityProofType === "PASSPORT" || identityProofType === "DRIVING_LICENSE") && (
+                  <Col xs={24} md={8} className="mt-4">
+                    <Form.Item label="Identity Proof Expiry" name="identityProofExpiry">
+                      <DatePicker className="w-full" format="DD-MM-YYYY" />
+                    </Form.Item>
+                  </Col>
+                )}
+
+                <Col xs={24} md={8} className="mt-4">
+                  <Form.Item label="Address Proof (type)" name="addressProofType">
+                    <Select options={ADDRESS_PROOF_OPTIONS} placeholder="Select address proof type" allowClear />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={8} className="mt-4">
+                  <Form.Item label="Address Proof Number" name="addressProofNumber">
+                    <Input placeholder="Enter address proof number" />
+                  </Form.Item>
+                </Col>
+              </>
             )}
-
-            <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Address Proof (type)" name="addressProofType">
-                <Select options={ADDRESS_PROOF_OPTIONS} placeholder="Select address proof type" allowClear />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Address Proof Number" name="addressProofNumber">
-                <Input placeholder="Enter address proof number" />
-              </Form.Item>
-            </Col>
           </>
         )}
 
@@ -1519,7 +1531,7 @@ const PersonalDetails = ({
           </>
         )}
 
-        {showCreditFields && (
+        {showCreditFields && !loanProfileMode && (
           <>
             <Col xs={24} md={8}>
               <Form.Item label="Is Co-Applicant Applicable" name="hasCoApplicant" valuePropName="checked">
@@ -1535,7 +1547,7 @@ const PersonalDetails = ({
           </>
         )}
 
-        {isCompany && !cashMinimalMode && (
+        {isCompany && (
           <>
             <Col xs={24} md={24}>
               <div className="section-divider" />

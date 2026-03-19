@@ -13,6 +13,7 @@ const PersonalDetailsWithSearch = ({
       prefillMode={prefillMode}
       showApplicantType={false}
       cashMinimalMode={cashMinimalMode}
+      loanProfileMode={true}
     />
   );
 };

@@ -5,6 +5,14 @@ import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } f
 
 const { TextArea } = Input;
 const { Option } = Select;
+const normalizeMultiTags = (values) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  );
 
 const EmploymentDetails = () => {
   const form = Form.useFormInstance();
@@ -203,13 +211,16 @@ const EmploymentDetails = () => {
         <Col xs={24} md={8} className="mt-4">
           <Form.Item label="Nature of Business" name="businessNature">
             <Select
-              mode="multiple"
+              mode="tags"
               placeholder="Select business nature(s)"
               allowClear
               showSearch
               optionFilterProp="label"
               options={businessNatureOptions}
-              onChange={(value) => form.setFieldsValue({ businessNature: value })}
+              tokenSeparators={[","]}
+              onChange={(value) =>
+                form.setFieldsValue({ businessNature: normalizeMultiTags(value) })
+              }
             />
           </Form.Item>
         </Col>

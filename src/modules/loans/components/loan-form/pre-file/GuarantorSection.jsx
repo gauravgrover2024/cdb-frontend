@@ -21,6 +21,14 @@ import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
 const { Option } = Select;
+const normalizeMultiTags = (values) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  );
 const normalizeOccupationForUI = (value) => {
   const text = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
   if (!text) return "";
@@ -343,13 +351,17 @@ const GuarantorSection = () => {
           <Col xs={24} md={8}>
             <Form.Item label="Nature of Business" name="gu_businessNature">
               <Select
-                mode="multiple"
+                mode="tags"
                 className="w-full"
                 placeholder="Select or type multiple business types"
                 allowClear
                 showSearch
                 optionFilterProp="label"
                 options={businessNatureOptions}
+                tokenSeparators={[","]}
+                onChange={(value) =>
+                  form.setFieldsValue({ gu_businessNature: normalizeMultiTags(value) })
+                }
               />
             </Form.Item>
           </Col>

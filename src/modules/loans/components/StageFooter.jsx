@@ -468,7 +468,7 @@ const StageFooter = ({
 
   return (
     <>
-      <div className="sticky bottom-0 z-[900] border-t border-border bg-card/98 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-0 right-0 z-[930] border-t border-border bg-card/98 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
         <div className="w-full px-4 md:px-6 py-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             {/* Left side - Optional info or empty */}

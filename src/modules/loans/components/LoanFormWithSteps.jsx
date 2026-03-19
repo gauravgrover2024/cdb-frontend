@@ -2731,7 +2731,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           <div className="flex-1 overflow-y-auto no-scrollbar">
             <div
               className={`px-3 md:px-8 bg-[linear-gradient(180deg,rgba(56,189,248,0.12)_0px,rgba(16,185,129,0.08)_56px,rgba(255,255,255,0)_130px)] dark:bg-[linear-gradient(180deg,rgba(14,116,144,0.22)_0px,rgba(4,120,87,0.14)_56px,rgba(2,6,23,0)_130px)] ${
-                activeStep === "prefile" ? "pt-14 pb-4 md:pt-16 md:pb-6" : "pt-14 pb-10 md:pt-16 md:pb-14"
+                activeStep === "prefile" ? "pt-14 pb-28 md:pt-16 md:pb-32" : "pt-14 pb-32 md:pt-16 md:pb-36"
               }`}
             >
               <div className="w-full space-y-1">

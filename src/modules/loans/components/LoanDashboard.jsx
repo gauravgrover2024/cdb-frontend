@@ -100,7 +100,7 @@ const MetricCard = ({
 
 const LoanDashboard = () => {
   const navigate = useNavigate();
-  const PAGE1_CACHE_KEY = "loans_dashboard_page1_cache_v1";
+  const PAGE1_CACHE_KEY = "loans_dashboard_page1_cache_v2";
   const STATS_CACHE_KEY = "loans_dashboard_stats_cache_v1";
   const STATS_TTL_MS = 2 * 60 * 1000;
   const formatCrores = (amount) => {
@@ -512,6 +512,22 @@ const LoanDashboard = () => {
           typeof loan?.reference1 === "string"
             ? { name: loan.reference1 }
             : loan?.reference1 || { name: loan?.referenceName || "" },
+        leadDate:
+          loan?.leadDate ||
+          loan?.lead_date ||
+          loan?.leadDetails?.leadDate ||
+          loan?.lead_details?.leadDate ||
+          loan?.profile?.leadDate ||
+          loan?.receivingDate ||
+          null,
+        lead_date:
+          loan?.lead_date ||
+          loan?.leadDate ||
+          loan?.leadDetails?.leadDate ||
+          loan?.lead_details?.leadDate ||
+          loan?.profile?.leadDate ||
+          loan?.receivingDate ||
+          null,
         createdAt: loan?.createdAt || loan?.receivingDate || null,
         updatedAt: loan?.updatedAt || null,
       };
@@ -630,7 +646,7 @@ const LoanDashboard = () => {
           case "createdAt":
           default:
             return {
-              sortBy: "latestBusiness",
+              sortBy: "createdAt",
               sortDir: cfg?.direction || "desc",
             };
         }
@@ -712,7 +728,7 @@ const LoanDashboard = () => {
       const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
       const nextPage = page + 1;
       if (nextPage <= totalPages) {
-        const nextKey = `${searchKey}|${nextPage}|${pageSize}`;
+        const nextKey = `${searchKey}|${nextPage}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
         if (!pageCacheRef.current.has(nextKey)) {
           loansApi
             .getAll({
@@ -720,8 +736,8 @@ const LoanDashboard = () => {
               page: nextPage,
               limit: pageSize,
               search: debouncedSearchQuery?.trim() || "",
-              sortBy: "latestBusiness",
-              sortDir: "desc",
+              sortBy: apiSort.sortBy,
+              sortDir: apiSort.sortDir,
             })
             .then((nextPayload) => {
               const nextRows = extractRows(nextPayload).map(normalizeLoan);
@@ -1103,7 +1119,7 @@ const LoanDashboard = () => {
   };
 
   const filteredLoans = useMemo(() => {
-    return loans.filter((loan) => {
+    const filtered = loans.filter((loan) => {
       if (filters.searchQuery?.trim()) {
         const matchFound = matchesDashboardSearch(loan, filters.searchQuery);
         if (!matchFound) return false;
@@ -1178,7 +1194,131 @@ const LoanDashboard = () => {
 
       return true;
     });
-  }, [loans, filters, matchesDashboardSearch]);
+    if (sortConfig?.key !== "createdAt") return filtered;
+
+    const dir = sortConfig?.direction === "asc" ? 1 : -1;
+    const parseDateLike = (value) => {
+      if (value == null || value === "") return null;
+      if (value instanceof Date) {
+        const ts = value.getTime();
+        return Number.isFinite(ts) ? ts : null;
+      }
+      if (typeof value === "number") {
+        if (!Number.isFinite(value)) return null;
+        return value > 1e12 ? value : value * 1000;
+      }
+      if (typeof value === "object") {
+        if (typeof value?.toDate === "function") {
+          const d = value.toDate();
+          return parseDateLike(d);
+        }
+        if (typeof value?.valueOf === "function") {
+          const maybe = value.valueOf();
+          if (typeof maybe === "number" && Number.isFinite(maybe) && maybe > 0) {
+            return maybe > 1e12 ? maybe : maybe * 1000;
+          }
+        }
+        const nested =
+          value?.$date ??
+          value?.date ??
+          value?.value ??
+          value?._seconds ??
+          value?.seconds ??
+          null;
+        return parseDateLike(nested);
+      }
+      if (typeof value === "string") {
+        const raw = value.trim();
+        if (!raw) return null;
+        const dmY = raw.match(
+          /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
+        );
+        if (dmY) {
+          const dd = dmY[1].padStart(2, "0");
+          const mm = dmY[2].padStart(2, "0");
+          const yyyy = dmY[3].length === 2 ? `20${dmY[3]}` : dmY[3];
+          const hh = (dmY[4] || "00").padStart(2, "0");
+          const min = (dmY[5] || "00").padStart(2, "0");
+          const ss = (dmY[6] || "00").padStart(2, "0");
+          const isoLike = `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}`;
+          const ts = Date.parse(isoLike);
+          if (Number.isFinite(ts)) return ts;
+        }
+        const ts = Date.parse(raw);
+        return Number.isFinite(ts) ? ts : null;
+      }
+      return null;
+    };
+    const toTs = (...values) => {
+      for (const value of values) {
+        const ts = parseDateLike(value);
+        if (Number.isFinite(ts) && ts > 0) return ts;
+      }
+      return 0;
+    };
+    const isDisbursedOrDelivered = (loan) => {
+      const statusText = String(
+        loan?.status || loan?.approval_status || loan?.loanStatus || "",
+      ).toLowerCase();
+      const hasDisbursed =
+        statusText.includes("disburs") ||
+        Boolean(
+          loan?.disbursement_date ||
+            loan?.approval_disbursedDate ||
+            loan?.disbursementDate ||
+            loan?.disbursedDate,
+        );
+      const hasDelivered =
+        statusText.includes("delivered") ||
+        Boolean(
+          loan?.delivery_date ||
+            loan?.deliveryDate ||
+            loan?.delivery_done_at ||
+            loan?.vehicleDeliveryDate,
+        );
+      return hasDisbursed || hasDelivered;
+    };
+    const leadTs = (loan) =>
+      toTs(
+        loan?.leadDate,
+        loan?.lead_date,
+        loan?.leadDetails?.leadDate,
+        loan?.lead_details?.leadDate,
+        loan?.profile?.leadDate,
+        loan?.receivingDate,
+        loan?.createdAt,
+        loan?.updatedAt,
+      );
+    const openSortTs = (loan) => leadTs(loan);
+    const closedSortTs = (loan) =>
+      Math.max(
+        leadTs(loan),
+        toTs(loan?.createdAt, loan?.updatedAt),
+      );
+    const tieBreak = (a, b) =>
+      String(a?.loanId || a?._id || "").localeCompare(
+        String(b?.loanId || b?._id || ""),
+      );
+    const compareBy = (resolver) => (a, b) => {
+      const delta = resolver(a) - resolver(b);
+      if (delta !== 0) return delta * dir;
+      return tieBreak(a, b) * dir;
+    };
+
+    const openCases = [];
+    const closedCases = [];
+    for (const loan of filtered) {
+      if (isDisbursedOrDelivered(loan)) {
+        closedCases.push(loan);
+      } else {
+        openCases.push(loan);
+      }
+    }
+
+    openCases.sort(compareBy(openSortTs));
+    closedCases.sort(compareBy(closedSortTs));
+    return [...openCases, ...closedCases];
+  }, [loans, filters, matchesDashboardSearch, sortConfig?.key, sortConfig?.direction]);
 
   useEffect(() => {
     setPage(1);
