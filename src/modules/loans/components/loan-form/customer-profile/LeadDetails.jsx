@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import dayjs from "dayjs";
 import {
   Form,
   Input,
@@ -144,11 +145,11 @@ const LeadDetails = () => {
                 Primary Lead Information
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Form.Item label="Lead Date" name="leadDate" className="mb-0">
+                <Form.Item label="Lead Date" name="leadDate" className="mb-0" initialValue={dayjs()}>
                   <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" className="rounded-xl h-10" />
                 </Form.Item>
 
-                <Form.Item label="Lead Time" name="leadTime" className="mb-0">
+                <Form.Item label="Lead Time" name="leadTime" className="mb-0" initialValue={dayjs()}>
                   <TimePicker style={{ width: "100%" }} format="HH:mm" className="rounded-xl h-10" />
                 </Form.Item>
 
