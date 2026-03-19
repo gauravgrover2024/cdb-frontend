@@ -1,8 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Tag } from "antd";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { message, Modal, Tag } from "antd";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { loansApi } from "../../api/loans";
 import Icon from "../../components/AppIcon";
+import LoansDataGrid from "../loans/components/dashboard/LoansDataGrid";
+import LoanViewModal from "../loans/components/dashboard/LoanViewModal";
+import DashboardNotesModal from "../loans/components/dashboard/DashboardNotesModal";
 
 const hasValue = (v) =>
   v !== undefined &&
@@ -73,6 +77,279 @@ const toLoanRows = (response) => {
   return [];
 };
 
+const hasMeaningfulValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  return true;
+};
+
+const scoreLoanRichness = (loan) => {
+  if (!loan || typeof loan !== "object") return 0;
+  return Object.values(loan).reduce(
+    (count, value) => (hasMeaningfulValue(value) ? count + 1 : count),
+    0,
+  );
+};
+
+const mergeLoanRecord = (existing, incoming) => {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+
+  const merged = { ...existing };
+  Object.entries(incoming).forEach(([key, value]) => {
+    if (!hasMeaningfulValue(value)) return;
+    merged[key] = value;
+  });
+  return merged;
+};
+
+const firstMeaningfulText = (...values) => {
+  for (const value of values) {
+    if (!hasMeaningfulValue(value)) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return "";
+};
+
+const normalizeLinkedLoanForGrid = (loan) => {
+  const normalizedLoanId = String(
+    loan?.loan_number ||
+      loan?.loanNumber ||
+      loan?.loan_no ||
+      loan?.loanId ||
+      loan?.caseId ||
+      loan?._id ||
+      "",
+  ).trim();
+
+  const typeOfLoan = firstMeaningfulText(
+    loan?.typeOfLoan,
+    loan?.loanType,
+    loan?.caseType,
+    loan?.loan_type,
+  );
+
+  const approvalBank = firstMeaningfulText(
+    loan?.approval_bankName,
+    loan?.bankName,
+    loan?.approval_banksData?.[0]?.bankName,
+    loan?.approval_banksData?.[0]?.name,
+  );
+
+  const approvalAmountApproved =
+    loan?.approval_loanAmountApproved ??
+    loan?.approval_banksData?.[0]?.loanAmount ??
+    loan?.loanAmount ??
+    loan?.financeExpectation ??
+    0;
+
+  const approvalAmountDisbursed =
+    loan?.approval_loanAmountDisbursed ??
+    loan?.disbursedAmount ??
+    loan?.approval_banksData?.[0]?.disbursedAmount ??
+    0;
+
+  const emiAmount =
+    loan?.postfile_emiAmount ??
+    loan?.emiAmount ??
+    loan?.approval_banksData?.[0]?.emiAmount ??
+    loan?.approval_banksData?.[0]?.emi ??
+    0;
+
+  const isFinancedRaw = loan?.isFinanced ?? loan?.isFinanceRequired;
+  const inferredIsFinanced = (() => {
+    if (isFinancedRaw !== undefined && isFinancedRaw !== null && String(isFinancedRaw).trim() !== "") {
+      return isFinancedRaw;
+    }
+    if (String(typeOfLoan).toLowerCase().includes("cash")) return "No";
+    if (
+      hasMeaningfulValue(approvalBank) ||
+      Number(approvalAmountApproved || 0) > 0 ||
+      Number(approvalAmountDisbursed || 0) > 0
+    ) {
+      return "Yes";
+    }
+    return "";
+  })();
+
+  return {
+    ...loan,
+    loanId: normalizedLoanId,
+    loan_number: firstMeaningfulText(loan?.loan_number, normalizedLoanId),
+    typeOfLoan,
+    customerName: firstMeaningfulText(
+      loan?.customerName,
+      loan?.applicant_name,
+      loan?.applicantName,
+      loan?.leadName,
+      "Unknown",
+    ),
+    primaryMobile: firstMeaningfulText(
+      loan?.primaryMobile,
+      loan?.mobile,
+      loan?.phone,
+      loan?.phoneNumber,
+    ),
+    approval_bankName: approvalBank,
+    bankName: firstMeaningfulText(loan?.bankName, approvalBank),
+    approval_loanAmountApproved: approvalAmountApproved,
+    approval_loanAmountDisbursed: approvalAmountDisbursed,
+    postfile_emiAmount: emiAmount,
+    vehicleMake: firstMeaningfulText(loan?.vehicleMake, loan?.make),
+    vehicleModel: firstMeaningfulText(loan?.vehicleModel, loan?.model),
+    vehicleVariant: firstMeaningfulText(loan?.vehicleVariant, loan?.variant),
+    vehicleRegNo: firstMeaningfulText(
+      loan?.vehicleRegNo,
+      loan?.vehicleRegdNumber,
+      loan?.registrationNumber,
+      loan?.vehicleNumber,
+      loan?.rc_redg_no,
+      loan?.regNo,
+    ),
+    registrationNumber: firstMeaningfulText(
+      loan?.registrationNumber,
+      loan?.vehicleRegNo,
+      loan?.vehicleNumber,
+      loan?.rc_redg_no,
+      loan?.regNo,
+    ),
+    registrationCity: firstMeaningfulText(
+      loan?.registrationCity,
+      loan?.postfile_regd_city,
+      loan?.city,
+    ),
+    postfile_regd_city: firstMeaningfulText(
+      loan?.postfile_regd_city,
+      loan?.registrationCity,
+      loan?.city,
+    ),
+    rc_redg_no: firstMeaningfulText(
+      loan?.rc_redg_no,
+      loan?.vehicleRegNo,
+      loan?.vehicleRegdNumber,
+      loan?.registrationNumber,
+      loan?.regNo,
+    ),
+    source: firstMeaningfulText(
+      loan?.source,
+      loan?.sourcingChannel,
+      loan?.recordSource,
+    ),
+    sourceName: firstMeaningfulText(
+      loan?.sourceName,
+      loan?.source_name,
+      loan?.dealerName,
+      loan?.showroomDealerName,
+      loan?.delivery_dealerName,
+      loan?.showroomName,
+      loan?.showroom,
+      loan?.showroom_name,
+      loan?.paymentFavouring,
+      loan?.loanPaymentFavouring,
+      loan?.loan_payment_favouring,
+    ),
+    dealerName: firstMeaningfulText(
+      loan?.dealerName,
+      loan?.showroomDealerName,
+      loan?.delivery_dealerName,
+      loan?.showroomName,
+      loan?.showroom,
+      loan?.showroom_name,
+    ),
+    showroomDealerName: firstMeaningfulText(
+      loan?.showroomDealerName,
+      loan?.delivery_dealerName,
+      loan?.dealerName,
+      loan?.showroomName,
+      loan?.showroom,
+      loan?.showroom_name,
+      loan?.paymentFavouring,
+      loan?.loanPaymentFavouring,
+      loan?.loan_payment_favouring,
+    ),
+    delivery_dealerName: firstMeaningfulText(
+      loan?.delivery_dealerName,
+      loan?.showroomDealerName,
+      loan?.dealerName,
+      loan?.showroomName,
+      loan?.showroom,
+      loan?.showroom_name,
+    ),
+    approval_disbursedDate: firstMeaningfulText(
+      loan?.approval_disbursedDate,
+      loan?.disbursement_date,
+      loan?.disbursementDate,
+      loan?.disbursedDate,
+    ),
+    disbursement_date: firstMeaningfulText(
+      loan?.disbursement_date,
+      loan?.approval_disbursedDate,
+      loan?.disbursementDate,
+      loan?.disbursedDate,
+    ),
+    dispatch_date: firstMeaningfulText(loan?.dispatch_date, loan?.dispatchDate),
+    delivery_date: firstMeaningfulText(
+      loan?.delivery_date,
+      loan?.deliveryDate,
+      loan?.delivery_done_at,
+      loan?.vehicleDeliveryDate,
+    ),
+    status: firstMeaningfulText(
+      loan?.approval_status,
+      loan?.approvalStatus,
+      loan?.status,
+      loan?.loanStatus,
+      "New",
+    ),
+    currentStage: firstMeaningfulText(
+      loan?.currentStage,
+      loan?.stage,
+      loan?.workflowStage,
+      "profile",
+    ),
+    residenceAddress: firstMeaningfulText(
+      loan?.residenceAddress,
+      loan?.currentAddress,
+      loan?.address,
+    ),
+    permanentAddress: firstMeaningfulText(loan?.permanentAddress),
+    city: firstMeaningfulText(loan?.city, loan?.permanentCity),
+    pincode: firstMeaningfulText(loan?.pincode, loan?.permanentPincode),
+    postfile_currentOutstanding:
+      loan?.postfile_currentOutstanding ??
+      loan?.postfile_current_outstanding ??
+      loan?.currentOutstanding ??
+      loan?.livePrincipalOutstanding ??
+      loan?.principalOutstanding ??
+      null,
+    approval_roi: loan?.approval_roi ?? loan?.roi ?? null,
+    approval_tenureMonths:
+      loan?.approval_tenureMonths ?? loan?.loanTenureMonths ?? loan?.tenure ?? null,
+    isFinanced: inferredIsFinanced,
+    createdAt: loan?.createdAt || loan?.receivingDate || null,
+    updatedAt: loan?.updatedAt || null,
+  };
+};
+
+const needsLinkedLoanHydration = (loan) => {
+  const hasBank = hasMeaningfulValue(
+    loan?.approval_bankName || loan?.approval_banksData?.[0]?.bankName || loan?.bankName,
+  );
+  const hasVehicle = hasMeaningfulValue(
+    loan?.vehicleVariant || loan?.vehicleModel || loan?.vehicleMake,
+  );
+  const hasFinance = hasMeaningfulValue(
+    loan?.approval_loanAmountApproved || loan?.approval_loanAmountDisbursed || loan?.loanAmount,
+  );
+  const hasSource = hasMeaningfulValue(
+    loan?.sourceName || loan?.dealerName || loan?.showroomDealerName,
+  );
+  return !(hasBank && hasVehicle && hasFinance && hasSource);
+};
+
 const hasCustomerIdentityMatch = (loan, customer) => {
   const customerName = normalizeIdentityValue(customer?.customerName);
   const customerMobile = normalizePhoneValue(customer?.primaryMobile);
@@ -125,20 +402,91 @@ const matchesLoanSearch = (loan, query) => {
   return fields.some((field) => String(field || "").toLowerCase().includes(q));
 };
 
-const formatLoanVehicle = (loan) =>
+const parseAmount = (value) => {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const cleaned = String(value).replace(/[^\d.-]/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const pickAmountForSort = (loan) =>
+  parseAmount(
+    loan?.approval_loanAmountDisbursed ||
+      loan?.approval_loanAmountApproved ||
+      loan?.loanAmount ||
+      loan?.financeExpectation ||
+      loan?.approval_banksData?.[0]?.loanAmount,
+  );
+
+const pickEmiForSort = (loan) =>
+  parseAmount(
+    loan?.postfile_emiAmount ||
+      loan?.emiAmount ||
+      loan?.approval_banksData?.[0]?.emiAmount ||
+      loan?.approval_banksData?.[0]?.emi,
+  );
+
+const pickVehicleForSort = (loan) =>
   [loan?.vehicleMake, loan?.vehicleModel, loan?.vehicleVariant]
     .filter((item) => hasValue(item))
-    .join(" ") || "—";
+    .join(" ")
+    .trim();
 
-const formatCompanyPartners = (partners) => {
-  if (!Array.isArray(partners) || !partners.length) return "—";
-  const names = partners
-    .map((partner) => {
-      if (!partner || typeof partner !== "object") return String(partner || "").trim();
-      return String(partner.name || partner.partnerName || partner.fullName || "").trim();
-    })
-    .filter(Boolean);
-  return names.length ? names.join(", ") : "—";
+const getLoanRowId = (loan) =>
+  String(loan?.loanId || loan?.loan_number || loan?._id || "").trim();
+
+const compareText = (a, b) =>
+  String(a || "").localeCompare(String(b || ""), undefined, {
+    sensitivity: "base",
+    numeric: true,
+  });
+
+const calculateAgingDays = (dateValue) => {
+  if (!dateValue) return 0;
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return 0;
+  const now = new Date();
+  const diff = Math.abs(now.getTime() - d.getTime());
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const sortLinkedLoans = (rows, sortConfig) => {
+  const key = sortConfig?.key || "createdAt";
+  const direction = sortConfig?.direction === "asc" ? 1 : -1;
+
+  return [...rows].sort((a, b) => {
+    if (key === "loanAmount") {
+      return (pickAmountForSort(a) - pickAmountForSort(b)) * direction;
+    }
+    if (key === "emi") {
+      return (pickEmiForSort(a) - pickEmiForSort(b)) * direction;
+    }
+    if (key === "aging") {
+      return (
+        (calculateAgingDays(a?.createdAt) - calculateAgingDays(b?.createdAt)) *
+        direction
+      );
+    }
+    if (key === "customer") {
+      return compareText(a?.customerName, b?.customerName) * direction;
+    }
+    if (key === "vehicle") {
+      return (
+        compareText(pickVehicleForSort(a), pickVehicleForSort(b)) * direction
+      );
+    }
+
+    const aTs = Math.max(
+      Date.parse(a?.updatedAt || "") || 0,
+      Date.parse(a?.createdAt || "") || 0,
+    );
+    const bTs = Math.max(
+      Date.parse(b?.updatedAt || "") || 0,
+      Date.parse(b?.createdAt || "") || 0,
+    );
+    return (aTs - bTs) * direction;
+  });
 };
 
 const getKycClasses = (status) => {
@@ -189,6 +537,31 @@ const LabeledValue = ({ label, value, mono = false }) => (
   </div>
 );
 
+const hasDisplayValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.some((entry) => hasDisplayValue(entry));
+  if (typeof value === "object") {
+    return Object.values(value).some((entry) => hasDisplayValue(entry));
+  }
+  return true;
+};
+
+const LabeledValueIf = ({ label, value, mono = false, format = "text" }) => {
+  if (!hasDisplayValue(value)) return null;
+
+  const renderedValue =
+    format === "date"
+      ? asDate(value)
+      : format === "money"
+        ? asMoney(value)
+        : format === "yesno"
+          ? asYesNo(value)
+          : asText(value);
+
+  return <LabeledValue label={label} value={renderedValue} mono={mono} />;
+};
+
 const SectionCard = ({ tone = "profile", title, icon, children }) => {
   const t = sectionTone[tone] || sectionTone.profile;
   return (
@@ -220,11 +593,30 @@ const TabButton = ({ active, onClick, icon, label }) => (
 );
 
 const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
+  const navigate = useNavigate();
+  const userRole = "admin";
+
   const [activeTab, setActiveTab] = useState("profile");
+  const [viewLoan, setViewLoan] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [initialViewTab, setInitialViewTab] = useState(null);
+  const [notesLoan, setNotesLoan] = useState(null);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+
   const [linkedLoans, setLinkedLoans] = useState([]);
   const [linkedLoanSearch, setLinkedLoanSearch] = useState("");
   const [linkedLoansLoading, setLinkedLoansLoading] = useState(false);
   const [linkedLoansError, setLinkedLoansError] = useState("");
+  const [linkedLoansReloadKey, setLinkedLoansReloadKey] = useState(0);
+
+  const [linkedLoansPage, setLinkedLoansPage] = useState(1);
+  const linkedLoansPageSize = 25;
+  const [linkedLoansSortConfig, setLinkedLoansSortConfig] = useState({
+    key: "createdAt",
+    direction: "desc",
+  });
+  const [selectedLinkedLoanIds, setSelectedLinkedLoanIds] = useState([]);
+  const linkedLoanHydrationCacheRef = useRef(new Map());
 
   const c = useMemo(() => {
     if (!customer) return null;
@@ -262,48 +654,157 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
     };
   }, [customer]);
 
+  const customerIdentityKey = useMemo(
+    () => String(c?._id || c?.id || c?.customerId || c?.customerName || ""),
+    [c],
+  );
+
+  useEffect(() => {
+    if (!open || !c) return;
+    setActiveTab("profile");
+    setLinkedLoanSearch("");
+    setLinkedLoansPage(1);
+    setLinkedLoansSortConfig({
+      key: "createdAt",
+      direction: "desc",
+    });
+    setSelectedLinkedLoanIds([]);
+    setLinkedLoansError("");
+  }, [open, customerIdentityKey, c]);
+
+  useEffect(() => {
+    if (open) return;
+    setIsViewModalOpen(false);
+    setViewLoan(null);
+    setInitialViewTab(null);
+    setIsNotesModalOpen(false);
+    setNotesLoan(null);
+  }, [open]);
+
+  const refreshLinkedLoans = useCallback(() => {
+    setLinkedLoansReloadKey((prev) => prev + 1);
+  }, []);
+
+  const hydrateLinkedLoansById = useCallback(async (rows = []) => {
+    if (!Array.isArray(rows) || !rows.length) return;
+
+    const candidates = rows
+      .filter((loan) => {
+        const id = String(loan?._id || loan?.loanId || loan?.loan_number || "").trim();
+        return id && needsLinkedLoanHydration(loan);
+      })
+      .slice(0, 20);
+
+    if (!candidates.length) return;
+
+    const updates = await Promise.all(
+      candidates.map(async (loan) => {
+        const lookupIds = Array.from(
+          new Set(
+            [loan?._id, loan?.loanId, loan?.loan_number]
+              .map((id) => String(id || "").trim())
+              .filter(Boolean),
+          ),
+        );
+        if (!lookupIds.length) return null;
+
+        for (const lookupId of lookupIds) {
+          const cacheHit = linkedLoanHydrationCacheRef.current.get(lookupId);
+          if (cacheHit) {
+            return {
+              key: getLoanId(loan) || lookupId,
+              patch: normalizeLinkedLoanForGrid(cacheHit),
+            };
+          }
+
+          try {
+            const res = await loansApi.getById(lookupId);
+            const body = res?.data ?? res;
+            const fetched = body?.data ?? body?.loan ?? body;
+            if (!fetched || typeof fetched !== "object") continue;
+            lookupIds.forEach((id) => linkedLoanHydrationCacheRef.current.set(id, fetched));
+            return {
+              key: getLoanId(loan) || getLoanId(fetched) || lookupId,
+              patch: normalizeLinkedLoanForGrid(fetched),
+            };
+          } catch {
+            // try the next identifier for this loan
+          }
+        }
+
+        return null;
+      }),
+    );
+
+    const patchMap = new Map(updates.filter(Boolean).map((item) => [item.key, item.patch]));
+    if (!patchMap.size) return;
+
+    setLinkedLoans((prev) =>
+      (prev || []).map((loan) => {
+        const key = getLoanId(loan);
+        const patch = patchMap.get(key);
+        if (!patch) return loan;
+        return mergeLoanRecord(loan, patch);
+      }),
+    );
+  }, []);
+
   useEffect(() => {
     if (!open || !c) return;
 
     let cancelled = false;
 
     const loadLinkedLoans = async () => {
-      setActiveTab("profile");
-      setLinkedLoanSearch("");
-      setLinkedLoans(Array.isArray(c.linkedLoans) ? c.linkedLoans : []);
+      const cachedLinkedLoans = Array.isArray(c.linkedLoans) ? c.linkedLoans : [];
+      setLinkedLoans(cachedLinkedLoans);
       setLinkedLoansError("");
 
       const customerName = String(c.customerName || "").trim();
       const customerMobile = normalizePhoneValue(c.primaryMobile);
-      const customerDbId = String(c._id || c.id || "").trim();
+      const customerPan = normalizePanValue(c.panNumber);
+      const customerIdRef = String(c._id || c.id || c.customerId || "").trim();
 
-      if (!customerName && !customerMobile && !customerDbId) return;
+      if (!customerName && !customerMobile && !customerPan && !customerIdRef) {
+        return;
+      }
 
       setLinkedLoansLoading(true);
       try {
         const PAGE_SIZE = 250;
-        const MAX_PAGES = 12;
+        const MAX_PAGES_PRIMARY = 2;
+        const MAX_PAGES_FALLBACK = 1;
+        const REQUEST_TIMEOUT_MS = 12000;
+        const FAST_PATH_MIN_LIMIT = 50;
 
-        const queryList = [];
-        if (customerDbId) {
-          queryList.push({
-            customerId: customerDbId,
+        const primaryQuery = customerIdRef
+          ? {
+            customerId: customerIdRef,
             limit: PAGE_SIZE,
             sortBy: "updatedAt",
             sortOrder: "desc",
-          });
-        }
+          }
+          : null;
+
+        const fallbackQueries = [];
         if (customerName.length >= 2) {
-          queryList.push({
-            search: customerName,
+          fallbackQueries.push({
+            customerName,
             limit: PAGE_SIZE,
             sortBy: "updatedAt",
             sortOrder: "desc",
           });
         }
         if (customerMobile.length >= 10) {
-          queryList.push({
-            search: customerMobile,
+          fallbackQueries.push({
+            primaryMobile: customerMobile,
+            limit: PAGE_SIZE,
+            sortBy: "updatedAt",
+            sortOrder: "desc",
+          });
+        }
+        if (customerPan.length >= 10) {
+          fallbackQueries.push({
+            panNumber: customerPan,
             limit: PAGE_SIZE,
             sortBy: "updatedAt",
             sortOrder: "desc",
@@ -312,24 +813,56 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
 
         const merged = new Map();
         const ingest = (rows) => {
+          let progress = 0;
           rows.forEach((loan) => {
             const id = getLoanId(loan);
             if (!id) return;
-            if (!merged.has(id)) merged.set(id, loan);
+            const existing = merged.get(id);
+            const beforeScore = scoreLoanRichness(existing);
+            const combined = mergeLoanRecord(existing, loan);
+            const afterScore = scoreLoanRichness(combined);
+            merged.set(id, combined);
+
+            if (!existing || afterScore > beforeScore) {
+              progress += 1;
+            }
           });
+          return progress;
         };
 
-        ingest(Array.isArray(c.linkedLoans) ? c.linkedLoans : []);
+        ingest(cachedLinkedLoans);
 
-        for (const query of queryList) {
+        const linkedLoanIdRefs = Array.from(
+          new Set(
+            cachedLinkedLoans
+              .map((loan) =>
+                String(loan?._id || loan?.loanId || loan?.loan_number || "").trim(),
+              )
+              .filter(Boolean),
+          ),
+        ).slice(0, 500);
+
+        const loadPagedQuery = async (query, maxPages) => {
+          if (!query) return;
           let skip = 0;
           let pages = 0;
-          while (pages < MAX_PAGES) {
-            const response = await loansApi.getAll({ ...query, skip });
+          while (pages < maxPages) {
+            let timeoutId;
+            const response = await Promise.race([
+              loansApi.getAll({ ...query, skip }),
+              new Promise((_, reject) => {
+                timeoutId = setTimeout(
+                  () => reject(new Error("Linked loans request timed out")),
+                  REQUEST_TIMEOUT_MS,
+                );
+              }),
+            ]).finally(() => {
+              if (timeoutId) clearTimeout(timeoutId);
+            });
             const rows = toLoanRows(response);
             if (!rows.length) break;
 
-            ingest(rows);
+            const progress = ingest(rows);
 
             const total = Number(
               response?.count ?? response?.total ?? response?.pagination?.total,
@@ -339,9 +872,46 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             skip += rows.length;
             pages += 1;
 
-            if (!hasMore && (!Number.isFinite(total) || skip >= total) && rows.length < PAGE_SIZE) {
+            // Stop early when API returns fewer rows than requested or no new unique rows.
+            // This prevents long loading loops on APIs that over-report totals or repeat pages.
+            if (rows.length < PAGE_SIZE || progress === 0) {
               break;
             }
+
+            if (!hasMore && (!Number.isFinite(total) || skip >= total)) {
+              break;
+            }
+          }
+        };
+
+        // Fast path: if customer already carries linked loan ids, fetch all in one indexed query
+        // and skip expensive count-driven pagination.
+        const beforeFastPathSize = merged.size;
+        if (linkedLoanIdRefs.length) {
+          await loadPagedQuery(
+            {
+              view: "dashboard",
+              loanIds: linkedLoanIdRefs.join(","),
+              noCount: true,
+              limit: Math.max(FAST_PATH_MIN_LIMIT, linkedLoanIdRefs.length),
+              sortBy: "updatedAt",
+              sortOrder: "desc",
+            },
+            1,
+          );
+        }
+        const hasFastPathRows = merged.size > beforeFastPathSize;
+
+        // If fast path already returned rows, don't block modal with slower fallback scans.
+        if (primaryQuery && !hasFastPathRows) {
+          await loadPagedQuery(primaryQuery, MAX_PAGES_PRIMARY);
+        }
+
+        // Fallback identity lookups are expensive; run them only when customerId query
+        // doesn't return any rows and we still need to find legacy unlinked loans.
+        if (!merged.size) {
+          for (const query of fallbackQueries) {
+            await loadPagedQuery(query, MAX_PAGES_FALLBACK);
           }
         }
 
@@ -350,15 +920,33 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
         const strictMatches = [...merged.values()]
           .filter((loan) => hasCustomerIdentityMatch(loan, c))
           .sort((a, b) => {
-            const aTs = Math.max(Date.parse(a?.updatedAt || "") || 0, Date.parse(a?.createdAt || "") || 0);
-            const bTs = Math.max(Date.parse(b?.updatedAt || "") || 0, Date.parse(b?.createdAt || "") || 0);
+            const aTs = Math.max(
+              Date.parse(a?.updatedAt || "") || 0,
+              Date.parse(a?.createdAt || "") || 0,
+            );
+            const bTs = Math.max(
+              Date.parse(b?.updatedAt || "") || 0,
+              Date.parse(b?.createdAt || "") || 0,
+            );
             return bTs - aTs;
           });
 
-        setLinkedLoans(strictMatches);
+        const normalized = strictMatches.map((loan) => normalizeLinkedLoanForGrid(loan));
+        setLinkedLoans(normalized);
+        void hydrateLinkedLoansById(normalized);
       } catch (error) {
         if (!cancelled) {
-          setLinkedLoansError(error?.message || "Failed to load linked loans");
+          const hasFallbackRows = cachedLinkedLoans.length > 0;
+          setLinkedLoansError(
+            hasFallbackRows ? "" : error?.message || "Failed to load linked loans",
+          );
+          if (hasFallbackRows) {
+            const normalizedFallback = cachedLinkedLoans.map((loan) =>
+              normalizeLinkedLoanForGrid(loan),
+            );
+            setLinkedLoans(normalizedFallback);
+            void hydrateLinkedLoansById(normalizedFallback);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -372,12 +960,242 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
     return () => {
       cancelled = true;
     };
-  }, [open, c]);
+  }, [open, c, linkedLoansReloadKey, hydrateLinkedLoansById]);
+
+  const normalizedLinkedLoans = useMemo(
+    () =>
+      linkedLoans.map((loan, index) => {
+        const normalized = normalizeLinkedLoanForGrid(loan);
+        const rowId = getLoanRowId(loan) || `linked-loan-${index + 1}`;
+        return {
+          ...normalized,
+          loanId: normalized?.loanId || normalized?.loan_number || normalized?._id || rowId,
+        };
+      }),
+    [linkedLoans],
+  );
 
   const filteredLinkedLoans = useMemo(
-    () => linkedLoans.filter((loan) => matchesLoanSearch(loan, linkedLoanSearch)),
-    [linkedLoans, linkedLoanSearch],
+    () =>
+      normalizedLinkedLoans.filter((loan) =>
+        matchesLoanSearch(loan, linkedLoanSearch),
+      ),
+    [normalizedLinkedLoans, linkedLoanSearch],
   );
+
+  const sortedLinkedLoans = useMemo(
+    () => sortLinkedLoans(filteredLinkedLoans, linkedLoansSortConfig),
+    [filteredLinkedLoans, linkedLoansSortConfig],
+  );
+
+  const linkedLoansTotalCount = sortedLinkedLoans.length;
+  const linkedLoansTotalPages = Math.max(
+    1,
+    Math.ceil(linkedLoansTotalCount / linkedLoansPageSize),
+  );
+
+  useEffect(() => {
+    if (linkedLoansPage > linkedLoansTotalPages) {
+      setLinkedLoansPage(linkedLoansTotalPages);
+    }
+  }, [linkedLoansPage, linkedLoansTotalPages]);
+
+  useEffect(() => {
+    setLinkedLoansPage(1);
+    setSelectedLinkedLoanIds([]);
+  }, [linkedLoanSearch, linkedLoansSortConfig.key, linkedLoansSortConfig.direction]);
+
+  const pagedLinkedLoans = useMemo(() => {
+    const start = (linkedLoansPage - 1) * linkedLoansPageSize;
+    return sortedLinkedLoans.slice(start, start + linkedLoansPageSize);
+  }, [sortedLinkedLoans, linkedLoansPage, linkedLoansPageSize]);
+
+  const handleSelectLoan = useCallback((loanId, checked) => {
+    const id = String(loanId || "").trim();
+    if (!id) return;
+    setSelectedLinkedLoanIds((prev) => {
+      if (checked) return Array.from(new Set([...prev, id]));
+      return prev.filter((item) => item !== id);
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(
+    (checked) => {
+      if (!checked) {
+        setSelectedLinkedLoanIds([]);
+        return;
+      }
+      const ids = pagedLinkedLoans
+        .map((loan) => String(loan?.loanId || "").trim())
+        .filter(Boolean);
+      setSelectedLinkedLoanIds(ids);
+    },
+    [pagedLinkedLoans],
+  );
+
+  const handleLoanClick = useCallback(
+    (loan, mode) => {
+      if (mode === "edit") {
+        navigate(`/loans/edit/${loan?._id || loan?.loanId}`);
+        return;
+      }
+      if (mode === "approval") {
+        setInitialViewTab("approval");
+        setViewLoan(loan);
+        setIsViewModalOpen(true);
+        return;
+      }
+      setInitialViewTab(null);
+      setViewLoan(loan);
+      setIsViewModalOpen(true);
+    },
+    [navigate],
+  );
+
+  const handleBulkAction = useCallback(
+    async (action) => {
+      switch (action) {
+        case "export":
+          message.success(`Exporting ${selectedLinkedLoanIds.length} cases...`);
+          break;
+        case "dispatch":
+          message.info(`Dispatching ${selectedLinkedLoanIds.length} cases...`);
+          break;
+        case "approve":
+          message.success(`Approving ${selectedLinkedLoanIds.length} cases...`);
+          refreshLinkedLoans();
+          break;
+        case "delete":
+          if (!selectedLinkedLoanIds.length) return;
+          if (
+            !window.confirm(
+              `Are you sure you want to delete ${selectedLinkedLoanIds.length} cases?`,
+            )
+          ) {
+            return;
+          }
+          try {
+            message.loading({ content: "Deleting...", key: "customer_bulk_delete" });
+            await Promise.all(
+              selectedLinkedLoanIds.map((loanId) => loansApi.delete(loanId)),
+            );
+            message.success({
+              content: "Deleted successfully",
+              key: "customer_bulk_delete",
+            });
+            setSelectedLinkedLoanIds([]);
+            refreshLinkedLoans();
+          } catch (error) {
+            message.error({
+              content: "Failed to delete some cases",
+              key: "customer_bulk_delete",
+            });
+          }
+          break;
+        default:
+          break;
+      }
+    },
+    [selectedLinkedLoanIds, refreshLinkedLoans],
+  );
+
+  const handleDeleteLoan = useCallback(
+    async (loan) => {
+      if (!loan) return;
+      const id = loan?._id || loan?.loanId;
+      if (!id) return;
+      if (!window.confirm(`Delete ${loan?.loan_number || loan?.loanId}?`)) return;
+      try {
+        await loansApi.delete(id);
+        message.success("Loan deleted successfully.");
+        refreshLinkedLoans();
+      } catch (error) {
+        message.error(error?.message || "Failed to delete loan.");
+      }
+    },
+    [refreshLinkedLoans],
+  );
+
+  const handleUpdateStatus = useCallback((loan) => {
+    setInitialViewTab("approval");
+    setViewLoan(loan);
+    setIsViewModalOpen(true);
+  }, []);
+
+  const handleShowOtherBanks = useCallback((loan) => {
+    setInitialViewTab("approval");
+    setViewLoan(loan);
+    setIsViewModalOpen(true);
+  }, []);
+
+  const handleNotesClick = useCallback((loan) => {
+    setNotesLoan(loan);
+    setIsNotesModalOpen(true);
+  }, []);
+
+  const handleShareLoan = useCallback((loan) => {
+    const loanId = loan?._id || loan?.loanId;
+    if (!loanId) {
+      message.warning("Loan ID not found.");
+      return;
+    }
+    const base = window.location.pathname.split("/loans")[0] || "";
+    const url = `${window.location.origin}${base}/loans/edit/${loanId}`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(url)
+        .then(() => message.success("Loan link copied to clipboard."))
+        .catch(() => message.error("Could not copy link."));
+      return;
+    }
+    message.info(`Copy link: ${url}`);
+  }, []);
+
+  const handleLinkedLoansPageChange = useCallback((nextPage) => {
+    setLinkedLoansPage(nextPage);
+    setSelectedLinkedLoanIds([]);
+  }, []);
+
+  const handleLinkedLoansSortChange = useCallback((nextSort) => {
+    setLinkedLoansSortConfig((prev) =>
+      typeof nextSort === "function" ? nextSort(prev) : nextSort,
+    );
+  }, []);
+
+  const handleLinkedLoansRefresh = useCallback(() => {
+    refreshLinkedLoans();
+  }, [refreshLinkedLoans]);
+
+  const handleNotesRefresh = useCallback(() => {
+    refreshLinkedLoans();
+  }, [refreshLinkedLoans]);
+
+  const handleLinkedLoansSelectionChange = useCallback((ids) => {
+    setSelectedLinkedLoanIds(Array.isArray(ids) ? ids : []);
+  }, []);
+
+  const linkedLoansCountLabel = linkedLoansLoading
+    ? linkedLoansTotalCount > 0
+      ? "Refreshing linked loans..."
+      : "Loading linked loans..."
+    : `${linkedLoansTotalCount} loan${linkedLoansTotalCount === 1 ? "" : "s"} shown`;
+
+  const linkedLoansSearchPlaceholder =
+    "Search linked loans by loan id, customer, mobile, bank, status...";
+
+  const linkedGridLoading = linkedLoansLoading && linkedLoansTotalCount === 0;
+
+  const isCompanyCustomer = useMemo(() => {
+    const applicantType = String(
+      c?.applicantType || c?.customerType || "",
+    ).toLowerCase();
+    return (
+      applicantType.includes("company") ||
+      applicantType.includes("corporate") ||
+      hasDisplayValue(c?.companyType) ||
+      hasDisplayValue(c?.gstNumber)
+    );
+  }, [c]);
 
   if (!c) return null;
 
@@ -390,65 +1208,66 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
   ];
 
   return (
-    <Modal
-      open={open}
-      onCancel={onClose}
-      footer={null}
-      width={1240}
-      centered
-      destroyOnHidden
-      className="theme-modal"
-      styles={{ body: { padding: 0 } }}
-    >
-      <div className="border-b border-slate-200/70 bg-gradient-to-r from-sky-50 via-white to-emerald-50 px-6 py-5 dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <div className="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-sky-600 dark:text-sky-400">
-              Customer View
+    <>
+      <Modal
+        open={open}
+        onCancel={onClose}
+        footer={null}
+        width={1240}
+        centered
+        destroyOnHidden
+        className="theme-modal"
+        styles={{ body: { padding: 0 } }}
+      >
+        <div className="border-b border-slate-200/70 bg-gradient-to-r from-sky-50 via-white to-emerald-50 px-6 py-5 dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-sky-600 dark:text-sky-400">
+                Customer View
+              </div>
+              <h2 className="truncate text-2xl font-black text-slate-900 dark:text-slate-100">
+                {c.customerName || "Untitled Customer"}
+              </h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Tag className="m-0 rounded-full border-none bg-slate-500/12 px-2 py-0 text-[10px] font-bold uppercase text-slate-700 dark:bg-slate-400/12 dark:text-slate-200">
+                  {c.customerType || "New"}
+                </Tag>
+                <Tag className={`m-0 rounded-full border px-2 py-0 text-[10px] font-bold uppercase ${getKycClasses(c.kycStatus)}`}>
+                  {c.kycStatus || "Unknown"}
+                </Tag>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  ID: <span className="font-semibold text-slate-700 dark:text-slate-200">{asText(c.customerId)}</span>
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Created: <span className="font-semibold text-slate-700 dark:text-slate-200">{asDate(c.createdAt || c.createdOn)}</span>
+                </span>
+              </div>
             </div>
-            <h2 className="truncate text-2xl font-black text-slate-900 dark:text-slate-100">
-              {c.customerName || "Untitled Customer"}
-            </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Tag className="m-0 rounded-full border-none bg-slate-500/12 px-2 py-0 text-[10px] font-bold uppercase text-slate-700 dark:bg-slate-400/12 dark:text-slate-200">
-                {c.customerType || "New"}
-              </Tag>
-              <Tag className={`m-0 rounded-full border px-2 py-0 text-[10px] font-bold uppercase ${getKycClasses(c.kycStatus)}`}>
-                {c.kycStatus || "Unknown"}
-              </Tag>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                ID: <span className="font-semibold text-slate-700 dark:text-slate-200">{asText(c.customerId)}</span>
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Created: <span className="font-semibold text-slate-700 dark:text-slate-200">{asDate(c.createdAt || c.createdOn)}</span>
-              </span>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {typeof onEdit === "function" && (
+            <div className="flex items-center gap-2">
+              {typeof onEdit === "function" && (
+                <button
+                  type="button"
+                  onClick={() => onEdit?.()}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-100 px-2.5 text-[11px] font-semibold text-sky-800 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
+                >
+                  <Icon name="Pencil" size={12} />
+                  Open Customer
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => onEdit?.()}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-100 px-2.5 text-[11px] font-semibold text-sky-800 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
+                onClick={onClose}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted"
+                aria-label="Close"
               >
-                <Icon name="Pencil" size={12} />
-                Open Customer
+                <Icon name="X" size={15} />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-muted"
-              aria-label="Close"
-            >
-              <Icon name="X" size={15} />
-            </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-h-[72vh] overflow-y-auto px-6 py-5 bg-background">
+        <div className="max-h-[72vh] overflow-y-auto bg-background px-6 py-5">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {tabs.map((tab) => (
             <TabButton
@@ -466,27 +1285,34 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="profile" title="Personal Details" icon="User">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Applicant Type" value={asText(c.applicantType)} />
-                  <LabeledValue label="Primary Mobile" value={asText(c.primaryMobile)} mono />
-                  <LabeledValue label="Secondary Mobile" value={asText(c.secondaryMobile)} mono />
-                  <LabeledValue label="Whatsapp" value={asText(c.whatsappNumber)} mono />
-                  <LabeledValue label="Extra Mobiles" value={asText(c.extraMobiles)} mono />
-                  <LabeledValue label="Email" value={asText(c.email || c.emailAddress)} />
-                  <LabeledValue label="Date of Birth" value={asDate(c.dob)} />
-                  <LabeledValue label="Gender" value={asText(c.gender)} />
-                  <LabeledValue label="Contact Person" value={asText(c.contactPersonName)} />
-                  <LabeledValue label="Contact Person Mobile" value={asText(c.contactPersonMobile)} mono />
+                  <LabeledValueIf label="Applicant Type" value={c.applicantType || c.customerType} />
+                  <LabeledValueIf label="Primary Mobile" value={c.primaryMobile} mono />
+                  <LabeledValueIf label="Extra Mobiles" value={c.extraMobiles} mono />
+                  <LabeledValueIf label="Email" value={c.email || c.emailAddress} />
+                  <LabeledValueIf
+                    label={isCompanyCustomer ? "Date of Incorporation" : "Date of Birth"}
+                    value={c.dob}
+                    format="date"
+                  />
+                  {!isCompanyCustomer && <LabeledValueIf label="Gender" value={c.gender} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Marital Status" value={c.maritalStatus} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Mother's Name" value={c.motherName} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Father / Husband Name" value={c.sdwOf || c.fatherName} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Dependents" value={c.dependents} />}
+                  <LabeledValueIf label="Education" value={c.education} />
                 </div>
                 <div>
-                  <LabeledValue label="Father / Spouse" value={asText(c.sdwOf || c.fatherName)} />
-                  <LabeledValue label="Mother" value={asText(c.motherName)} />
-                  <LabeledValue label="Marital Status" value={asText(c.maritalStatus)} />
-                  <LabeledValue label="Education" value={asText(c.education)} />
-                  <LabeledValue label="Education (Other)" value={asText(c.educationOther)} />
-                  <LabeledValue label="Dependents" value={asText(c.dependents)} />
-                  <LabeledValue label="Has Co-Applicant" value={asYesNo(c.hasCoApplicant)} />
-                  <LabeledValue label="Has Guarantor" value={asYesNo(c.hasGuarantor)} />
-                  <LabeledValue label="Same As Current Address" value={asYesNo(c.sameAsCurrentAddress)} />
+                  {!isCompanyCustomer && <LabeledValueIf label="House Type" value={c.houseType} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Address Type" value={c.addressType} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Identity Proof Type" value={c.identityProofType} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Identity Proof Number" value={c.identityProofNumber} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Address Proof Type" value={c.addressProofType} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Address Proof Number" value={c.addressProofNumber} />}
+                  {isCompanyCustomer && <LabeledValueIf label="Contact Person Name" value={c.contactPersonName} />}
+                  {isCompanyCustomer && <LabeledValueIf label="Contact Person Mobile" value={c.contactPersonMobile} mono />}
+                  <LabeledValueIf label="PAN" value={c.panNumber} mono />
+                  {!isCompanyCustomer && <LabeledValueIf label="Aadhaar" value={c.aadhaarNumber || c.aadharNumber} mono />}
+                  {isCompanyCustomer && <LabeledValueIf label="GST Number" value={c.gstNumber} mono />}
                 </div>
               </div>
             </SectionCard>
@@ -494,22 +1320,17 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="profile" title="Address Details" icon="MapPin">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Current Address" value={asText(c.residenceAddress || c.currentAddress)} />
-                  <LabeledValue label="City" value={asText(c.city)} />
-                  <LabeledValue label="State" value={asText(c.state)} />
-                  <LabeledValue label="Pincode" value={asText(c.pincode)} mono />
-                  <LabeledValue label="House Type" value={asText(c.houseType)} />
-                  <LabeledValue label="Years In Current House" value={asText(c.yearsInCurrentHouse)} />
-                  <LabeledValue label="Years In Current City" value={asText(c.yearsInCurrentCity)} />
-                  <LabeledValue label="Address Type" value={asText(c.addressType)} />
+                  <LabeledValueIf label="Present Address" value={c.residenceAddress || c.currentAddress} />
+                  <LabeledValueIf label="Present Pincode" value={c.pincode} mono />
+                  <LabeledValueIf label="Present City" value={c.city} />
+                  <LabeledValueIf label="Years in Current City" value={c.yearsInCurrentCity} />
+                  <LabeledValueIf label="Years in Current Residence" value={c.yearsInCurrentHouse} />
                 </div>
                 <div>
-                  <LabeledValue label="Permanent Address" value={asText(c.permanentAddress)} />
-                  <LabeledValue label="Permanent City" value={asText(c.permanentCity)} />
-                  <LabeledValue label="Permanent PIN" value={asText(c.permanentPincode)} mono />
-                  <LabeledValue label="Registration Address" value={asText(c.registrationAddress)} />
-                  <LabeledValue label="Registration City" value={asText(c.registrationCity)} />
-                  <LabeledValue label="Registration PIN" value={asText(c.registrationPincode)} mono />
+                  <LabeledValueIf label="Permanent Same as Current" value={c.sameAsCurrentAddress} format="yesno" />
+                  <LabeledValueIf label="Permanent Address" value={c.permanentAddress} />
+                  <LabeledValueIf label="Permanent Pincode" value={c.permanentPincode} mono />
+                  <LabeledValueIf label="Permanent City" value={c.permanentCity} />
                 </div>
               </div>
             </SectionCard>
@@ -521,43 +1342,32 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="employment" title="Employment Details" icon="Briefcase">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Occupation Type" value={asText(c.occupationType)} />
-                  <LabeledValue label="Employment Type" value={asText(c.employmentType)} />
-                  <LabeledValue label="Professional Type" value={asText(c.professionalType)} />
-                  <LabeledValue label="Company / Business" value={asText(c.companyName)} />
-                  <LabeledValue label="Designation" value={asText(c.designation)} />
-                  <LabeledValue label="Company Type" value={asText(c.companyType)} />
-                  <LabeledValue label="Business Nature" value={asText(c.businessNature)} />
-                  <LabeledValue label="Company Partners" value={formatCompanyPartners(c.companyPartners)} />
-                  <LabeledValue label="Incorporation Year" value={asText(c.incorporationYear)} />
-                  <LabeledValue label="MSME" value={asYesNo(c.isMSME)} />
+                  <LabeledValueIf label="Occupation" value={c.occupationType} />
+                  <LabeledValueIf label="Is MSME" value={c.isMSME} format="yesno" />
+                  <LabeledValueIf label="Professional Type" value={c.professionalType} />
+                  <LabeledValueIf label="Company Type" value={c.companyType} />
+                  <LabeledValueIf label="Business Nature" value={c.businessNature} />
+                  <LabeledValueIf label="Current Experience" value={c.experienceCurrent || c.currentExp} />
+                  <LabeledValueIf label="Total Experience" value={c.totalExperience || c.totalExp} />
+                  <LabeledValueIf label="Designation" value={c.designation} />
                 </div>
                 <div>
-                  <LabeledValue label="Current Experience" value={asText(c.experienceCurrent || c.currentExp)} />
-                  <LabeledValue label="Total Experience" value={asText(c.totalExperience || c.totalExp)} />
-                  <LabeledValue label="Employment Address" value={asText(c.employmentAddress || c.companyAddress)} />
-                  <LabeledValue label="Employment City" value={asText(c.employmentCity || c.companyCity)} />
-                  <LabeledValue label="Employment PIN" value={asText(c.employmentPincode || c.companyPincode)} mono />
-                  <LabeledValue label="Employment Phone" value={asText(c.employmentPhone || c.companyPhone)} mono />
-                  <LabeledValue label="Official Email" value={asText(c.officialEmail)} />
+                  <LabeledValueIf label="Company Name" value={c.companyName} />
+                  <LabeledValueIf label="Employment Address" value={c.employmentAddress || c.companyAddress} />
+                  <LabeledValueIf label="Employment Pincode" value={c.employmentPincode || c.companyPincode} mono />
+                  <LabeledValueIf label="Employment City" value={c.employmentCity || c.companyCity} />
+                  <LabeledValueIf label="Employment Phone" value={c.employmentPhone || c.companyPhone} mono />
+                  <LabeledValueIf label="Official Email" value={c.officialEmail} />
                 </div>
               </div>
             </SectionCard>
 
             <SectionCard tone="employment" title="Income Details" icon="Wallet">
-              <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-6 md:grid-cols-1">
                 <div>
-                  <LabeledValue label="Monthly Income" value={asMoney(c.monthlyIncome)} />
-                  <LabeledValue label="Salary Monthly" value={asMoney(c.salaryMonthly)} />
-                  <LabeledValue label="Monthly Salary" value={asMoney(c.monthlySalary)} />
-                  <LabeledValue label="Annual Income" value={asMoney(c.annualIncome)} />
-                </div>
-                <div>
-                  <LabeledValue label="Total ITR Income" value={asMoney(c.totalIncomeITR || c.itrYears)} />
-                  <LabeledValue label="Annual Turnover" value={asMoney(c.annualTurnover)} />
-                  <LabeledValue label="Net Profit" value={asMoney(c.netProfit)} />
-                  <LabeledValue label="Other Income" value={asMoney(c.otherIncome)} />
-                  <LabeledValue label="Other Income Source" value={asText(c.otherIncomeSource)} />
+                  <LabeledValueIf label="Total Income (ITR)" value={c.totalIncomeITR || c.itrYears} format="money" />
+                  <LabeledValueIf label="Monthly Income" value={c.monthlyIncome} format="money" />
+                  <LabeledValueIf label="Monthly Salary" value={c.salaryMonthly} format="money" />
                 </div>
               </div>
             </SectionCard>
@@ -569,38 +1379,31 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="banking" title="Banking Details" icon="Building2">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Bank Name" value={asText(c.bankName)} />
-                  <LabeledValue label="Account Number" value={asText(c.accountNumber)} mono />
-                  <LabeledValue label="IFSC" value={asText(c.ifsc || c.ifscCode)} mono />
-                  <LabeledValue label="Branch" value={asText(c.branch)} />
+                  <LabeledValueIf label="IFSC" value={c.ifsc || c.ifscCode} mono />
+                  <LabeledValueIf label="Bank Name" value={c.bankName} />
+                  <LabeledValueIf label="Branch / Address" value={c.branch} />
+                  <LabeledValueIf label="Applicant Account Number" value={c.accountNumber} mono />
                 </div>
                 <div>
-                  <LabeledValue label="Account Type" value={asText(c.accountType)} />
-                  <LabeledValue label="Account Since (Years)" value={asText(c.accountSinceYears)} />
-                  <LabeledValue label="Opened In" value={asText(c.openedIn)} />
+                  <LabeledValueIf label="Account Since (Years)" value={c.accountSinceYears} />
+                  <LabeledValueIf label="Opened In" value={c.openedIn} />
+                  <LabeledValueIf label="Account Type" value={c.accountType} />
                 </div>
               </div>
             </SectionCard>
 
-            <SectionCard tone="banking" title="KYC, Proofs & Nominee" icon="ShieldCheck">
+            <SectionCard tone="banking" title="KYC & Proofs" icon="ShieldCheck">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="PAN" value={asText(c.panNumber)} mono />
-                  <LabeledValue label="Aadhaar" value={asText(c.aadhaarNumber)} mono />
-                  <LabeledValue label="Passport" value={asText(c.passportNumber)} mono />
-                  <LabeledValue label="DL Number" value={asText(c.dlNumber)} mono />
-                  <LabeledValue label="GST Number" value={asText(c.gstNumber)} mono />
-                  <LabeledValue label="Voter ID" value={asText(c.voterId)} mono />
+                  <LabeledValueIf label="PAN" value={c.panNumber} mono />
+                  {!isCompanyCustomer && <LabeledValueIf label="Aadhaar" value={c.aadhaarNumber || c.aadharNumber} mono />}
+                  {isCompanyCustomer && <LabeledValueIf label="GST Number" value={c.gstNumber} mono />}
                 </div>
                 <div>
-                  <LabeledValue label="Identity Proof Type" value={asText(c.identityProofType)} />
-                  <LabeledValue label="Identity Proof Number" value={asText(c.identityProofNumber)} />
-                  <LabeledValue label="Identity Proof Expiry" value={asDate(c.identityProofExpiry)} />
-                  <LabeledValue label="Address Proof Type" value={asText(c.addressProofType)} />
-                  <LabeledValue label="Address Proof Number" value={asText(c.addressProofNumber)} />
-                  <LabeledValue label="Nominee Name" value={asText(c.nomineeName)} />
-                  <LabeledValue label="Nominee Relation" value={asText(c.nomineeRelation)} />
-                  <LabeledValue label="Nominee DOB" value={asDate(c.nomineeDob)} />
+                  {!isCompanyCustomer && <LabeledValueIf label="Identity Proof Type" value={c.identityProofType} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Identity Proof Number" value={c.identityProofNumber} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Address Proof Type" value={c.addressProofType} />}
+                  {!isCompanyCustomer && <LabeledValueIf label="Address Proof Number" value={c.addressProofNumber} />}
                 </div>
               </div>
             </SectionCard>
@@ -612,14 +1415,14 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="references" title="Reference 1" icon="UserCheck">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Name" value={asText(c.reference1?.name || c.reference1_name)} />
-                  <LabeledValue label="Mobile" value={asText(c.reference1?.mobile || c.reference1_mobile)} mono />
-                  <LabeledValue label="Relation" value={asText(c.reference1?.relation || c.reference1_relation)} />
+                  <LabeledValueIf label="Reference 1 Name" value={c.reference1?.name || c.reference1_name} />
+                  <LabeledValueIf label="Reference 1 Mobile" value={c.reference1?.mobile || c.reference1_mobile} mono />
+                  <LabeledValueIf label="Reference 1 Relation" value={c.reference1?.relation || c.reference1_relation} />
                 </div>
                 <div>
-                  <LabeledValue label="Address" value={asText(c.reference1?.address || c.reference1_address)} />
-                  <LabeledValue label="City" value={asText(c.reference1?.city || c.reference1_city)} />
-                  <LabeledValue label="Pincode" value={asText(c.reference1?.pincode || c.reference1_pincode)} mono />
+                  <LabeledValueIf label="Reference 1 Address" value={c.reference1?.address || c.reference1_address} />
+                  <LabeledValueIf label="Reference 1 City" value={c.reference1?.city || c.reference1_city} />
+                  <LabeledValueIf label="Reference 1 Pincode" value={c.reference1?.pincode || c.reference1_pincode} mono />
                 </div>
               </div>
             </SectionCard>
@@ -627,14 +1430,14 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="references" title="Reference 2" icon="Users">
               <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2">
                 <div>
-                  <LabeledValue label="Name" value={asText(c.reference2?.name || c.reference2_name)} />
-                  <LabeledValue label="Mobile" value={asText(c.reference2?.mobile || c.reference2_mobile)} mono />
-                  <LabeledValue label="Relation" value={asText(c.reference2?.relation || c.reference2_relation)} />
+                  <LabeledValueIf label="Reference 2 Name" value={c.reference2?.name || c.reference2_name} />
+                  <LabeledValueIf label="Reference 2 Mobile" value={c.reference2?.mobile || c.reference2_mobile} mono />
+                  <LabeledValueIf label="Reference 2 Relation" value={c.reference2?.relation || c.reference2_relation} />
                 </div>
                 <div>
-                  <LabeledValue label="Address" value={asText(c.reference2?.address || c.reference2_address)} />
-                  <LabeledValue label="City" value={asText(c.reference2?.city || c.reference2_city)} />
-                  <LabeledValue label="Pincode" value={asText(c.reference2?.pincode || c.reference2_pincode)} mono />
+                  <LabeledValueIf label="Reference 2 Address" value={c.reference2?.address || c.reference2_address} />
+                  <LabeledValueIf label="Reference 2 City" value={c.reference2?.city || c.reference2_city} />
+                  <LabeledValueIf label="Reference 2 Pincode" value={c.reference2?.pincode || c.reference2_pincode} mono />
                 </div>
               </div>
             </SectionCard>
@@ -646,9 +1449,7 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
             <SectionCard tone="loans" title="Linked Loans" icon="FileStack">
               <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div className="text-xs text-slate-600 dark:text-slate-300">
-                  {linkedLoansLoading
-                    ? "Loading linked loans..."
-                    : `${filteredLinkedLoans.length} loan${filteredLinkedLoans.length === 1 ? "" : "s"} shown`}
+                  {linkedLoansCountLabel}
                 </div>
                 <div className="relative w-full md:max-w-xs">
                   <Icon
@@ -660,7 +1461,7 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
                     type="text"
                     value={linkedLoanSearch}
                     onChange={(e) => setLinkedLoanSearch(e.target.value)}
-                    placeholder="Search linked loans..."
+                    placeholder={linkedLoansSearchPlaceholder}
                     className="h-9 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                   />
                 </div>
@@ -672,56 +1473,63 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
                 </div>
               )}
 
-              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-                <table className="min-w-full divide-y divide-slate-200 text-xs dark:divide-slate-800">
-                  <thead className="bg-slate-50 dark:bg-slate-900/70">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Loan ID</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Customer</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Mobile</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Type</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Stage</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Status</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Bank</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Amount</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Vehicle</th>
-                      <th className="px-3 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Created</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white dark:divide-slate-800 dark:bg-slate-950">
-                    {filteredLinkedLoans.map((loan) => (
-                      <tr key={getLoanId(loan) || `${loan.loanId}-${loan.createdAt}`}>
-                        <td className="px-3 py-2 font-semibold text-slate-900 dark:text-slate-100">
-                          {asText(loan.loan_number || loan.loanId)}
-                        </td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.customerName)}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.primaryMobile)}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.typeOfLoan || loan.loanType)}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.currentStage)}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.status || loan.approval_status)}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asText(loan.approval_bankName || loan.bankName)}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">
-                          {asMoney(loan.approval_loanAmountDisbursed || loan.approval_loanAmountApproved || loan.loanAmount || loan.financeExpectation)}
-                        </td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{formatLoanVehicle(loan)}</td>
-                        <td className="px-3 py-2 text-slate-700 dark:text-slate-200">{asDate(loan.createdAt)}</td>
-                      </tr>
-                    ))}
-                    {!linkedLoansLoading && filteredLinkedLoans.length === 0 && (
-                      <tr>
-                        <td colSpan={10} className="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                          No linked loans found for this customer.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="h-[62vh] min-h-[420px] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+                <LoansDataGrid
+                  loans={pagedLinkedLoans}
+                  totalCount={linkedLoansTotalCount}
+                  currentPage={linkedLoansPage}
+                  pageSize={linkedLoansPageSize}
+                  onPageChange={handleLinkedLoansPageChange}
+                  sortConfig={linkedLoansSortConfig}
+                  onSortChange={handleLinkedLoansSortChange}
+                  selectedLoans={selectedLinkedLoanIds}
+                  onSelectLoan={handleSelectLoan}
+                  onSelectAll={handleSelectAll}
+                  onSelectionChange={handleLinkedLoansSelectionChange}
+                  onLoanClick={handleLoanClick}
+                  onBulkAction={handleBulkAction}
+                  onDeleteLoan={handleDeleteLoan}
+                  onUpdateStatus={handleUpdateStatus}
+                  onShareLoan={handleShareLoan}
+                  onShowOtherBanks={handleShowOtherBanks}
+                  onRefreshLoans={handleLinkedLoansRefresh}
+                  onNotesClick={handleNotesClick}
+                  userRole={userRole}
+                  loading={linkedGridLoading}
+                />
               </div>
             </SectionCard>
           </div>
         )}
-      </div>
-    </Modal>
+        </div>
+      </Modal>
+
+      <LoanViewModal
+        open={isViewModalOpen}
+        loan={viewLoan}
+        initialTab={initialViewTab}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setViewLoan(null);
+          setInitialViewTab(null);
+        }}
+        onEdit={() => {
+          if (viewLoan) {
+            navigate(`/loans/edit/${viewLoan._id || viewLoan.loanId}`);
+          }
+        }}
+      />
+
+      <DashboardNotesModal
+        open={isNotesModalOpen}
+        loan={notesLoan}
+        onClose={() => {
+          setIsNotesModalOpen(false);
+          setNotesLoan(null);
+        }}
+        onRefresh={handleNotesRefresh}
+      />
+    </>
   );
 };
 
