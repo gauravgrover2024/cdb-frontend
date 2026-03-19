@@ -37,7 +37,7 @@ function HeaderWrapper() {
   return (
     <>
       <Header />
-      <div className="min-h-[calc(100vh-4rem)] bg-background">
+      <div className="min-h-[calc(100vh-4rem)] bg-background overflow-x-hidden px-4 md:px-6 lg:px-8">
         <Outlet />
       </div>
     </>
