@@ -100,7 +100,7 @@ const MetricCard = ({
 
 const LoanDashboard = () => {
   const navigate = useNavigate();
-  const PAGE1_CACHE_KEY = "loans_dashboard_page1_cache_v2";
+  const PAGE1_CACHE_KEY = "loans_dashboard_page1_cache_v3";
   const STATS_CACHE_KEY = "loans_dashboard_stats_cache_v1";
   const STATS_TTL_MS = 2 * 60 * 1000;
   const formatCrores = (amount) => {
@@ -616,6 +616,7 @@ const LoanDashboard = () => {
 
     try {
       const searchKey = (debouncedSearchQuery || "").trim().toLowerCase();
+      const isLatestLeadMode = sortConfig?.key === "createdAt";
       const mapSortToApi = (cfg) => {
         switch (cfg?.key) {
           case "loanAmount":
@@ -646,13 +647,12 @@ const LoanDashboard = () => {
           case "createdAt":
           default:
             return {
-              sortBy: "createdAt",
+              sortBy: "leadDate",
               sortDir: cfg?.direction || "desc",
             };
         }
       };
       const apiSort = mapSortToApi(sortConfig);
-      const isSearchMode = Boolean(searchKey);
       const cacheKey = `${searchKey}|${page}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
       const cached = pageCacheRef.current.get(cacheKey);
       if (cached) {
@@ -663,17 +663,26 @@ const LoanDashboard = () => {
       }
 
       const startedAt = performance.now();
+      const effectivePage = page;
+      const effectiveLimit = pageSize;
+      let payload = null;
+      let rows = [];
       const apiStartAt = performance.now();
-      const payload = await loansApi.getAll({
-        view: "dashboard",
-        page,
-        limit: pageSize,
+      const requestParams = {
+        page: effectivePage,
+        limit: effectiveLimit,
         search: debouncedSearchQuery?.trim() || "",
         sortBy: apiSort.sortBy,
         sortDir: apiSort.sortDir,
+      };
+      if (!isLatestLeadMode) {
+        requestParams.view = "dashboard";
+      }
+      payload = await loansApi.getAll({
+        ...requestParams,
       });
+      rows = extractRows(payload);
       const apiMs = Math.round(performance.now() - apiStartAt);
-      let rows = extractRows(payload);
       const normalizeStartAt = performance.now();
       let normalizedRows = rows.map(normalizeLoan);
       normalizedRows = normalizedRows.map((loan) => {
@@ -683,26 +692,12 @@ const LoanDashboard = () => {
         return cached ? { ...loan, ...cached } : loan;
       });
       const normalizeMs = Math.round(performance.now() - normalizeStartAt);
-      let total = extractTotal(payload);
+      const total = extractTotal(payload);
 
-      // Fallback for partial queries (e.g. "5588" for "UP16BV5588"):
-      // if backend search returns no rows, fetch a larger window and rely on client-side matching.
-      if (isSearchMode && normalizedRows.length === 0) {
-        const fallbackPayload = await loansApi.getAll({
-          view: "dashboard",
-          page: 1,
-          limit: 5000,
-          search: "",
-          sortBy: apiSort.sortBy,
-          sortDir: apiSort.sortDir,
-        });
-        rows = extractRows(fallbackPayload);
-        normalizedRows = rows.map(normalizeLoan);
-        total = normalizedRows.length;
-      }
+      const pageRows = normalizedRows;
 
       pageCacheRef.current.set(cacheKey, {
-        rows: normalizedRows,
+        rows: pageRows,
         total,
         ts: Date.now(),
       });
@@ -710,15 +705,15 @@ const LoanDashboard = () => {
         try {
           sessionStorage.setItem(
             PAGE1_CACHE_KEY,
-            JSON.stringify({ rows: normalizedRows, total, ts: Date.now() }),
+            JSON.stringify({ rows: pageRows, total, ts: Date.now() }),
           );
         } catch (_) {}
       }
 
-      setLoans(normalizedRows);
+      setLoans(pageRows);
       setServerTotal(total);
       if (SHOWROOM_HYDRATION_ENABLED) {
-        void hydrateMissingShowroomFields(normalizedRows);
+        void hydrateMissingShowroomFields(pageRows);
       }
 
       const payloadSizeBytes = new Blob([JSON.stringify(payload || {})]).size;
@@ -732,7 +727,7 @@ const LoanDashboard = () => {
         if (!pageCacheRef.current.has(nextKey)) {
           loansApi
             .getAll({
-              view: "dashboard",
+              ...(isLatestLeadMode ? {} : { view: "dashboard" }),
               page: nextPage,
               limit: pageSize,
               search: debouncedSearchQuery?.trim() || "",
@@ -764,7 +759,7 @@ const LoanDashboard = () => {
           serverMs,
           page,
           pageSize,
-          rows: rows.length,
+          rows: pageRows.length,
           total,
           search: debouncedSearchQuery?.trim() || "",
           sortBy: payload?.meta?.sortBy || apiSort.sortBy,
@@ -1256,45 +1251,15 @@ const LoanDashboard = () => {
       }
       return 0;
     };
-    const isDisbursedOrDelivered = (loan) => {
-      const statusText = String(
-        loan?.status || loan?.approval_status || loan?.loanStatus || "",
-      ).toLowerCase();
-      const hasDisbursed =
-        statusText.includes("disburs") ||
-        Boolean(
-          loan?.disbursement_date ||
-            loan?.approval_disbursedDate ||
-            loan?.disbursementDate ||
-            loan?.disbursedDate,
-        );
-      const hasDelivered =
-        statusText.includes("delivered") ||
-        Boolean(
-          loan?.delivery_date ||
-            loan?.deliveryDate ||
-            loan?.delivery_done_at ||
-            loan?.vehicleDeliveryDate,
-        );
-      return hasDisbursed || hasDelivered;
-    };
-    const leadTs = (loan) =>
-      toTs(
+    const leadTs = (loan) => {
+      return toTs(
         loan?.leadDate,
         loan?.lead_date,
         loan?.leadDetails?.leadDate,
         loan?.lead_details?.leadDate,
         loan?.profile?.leadDate,
-        loan?.receivingDate,
-        loan?.createdAt,
-        loan?.updatedAt,
       );
-    const openSortTs = (loan) => leadTs(loan);
-    const closedSortTs = (loan) =>
-      Math.max(
-        leadTs(loan),
-        toTs(loan?.createdAt, loan?.updatedAt),
-      );
+    };
     const tieBreak = (a, b) =>
       String(a?.loanId || a?._id || "").localeCompare(
         String(b?.loanId || b?._id || ""),
@@ -1305,19 +1270,7 @@ const LoanDashboard = () => {
       return tieBreak(a, b) * dir;
     };
 
-    const openCases = [];
-    const closedCases = [];
-    for (const loan of filtered) {
-      if (isDisbursedOrDelivered(loan)) {
-        closedCases.push(loan);
-      } else {
-        openCases.push(loan);
-      }
-    }
-
-    openCases.sort(compareBy(openSortTs));
-    closedCases.sort(compareBy(closedSortTs));
-    return [...openCases, ...closedCases];
+    return [...filtered].sort(compareBy(leadTs));
   }, [loans, filters, matchesDashboardSearch, sortConfig?.key, sortConfig?.direction]);
 
   useEffect(() => {
