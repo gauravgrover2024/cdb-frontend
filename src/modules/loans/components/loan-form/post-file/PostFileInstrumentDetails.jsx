@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { AutoComplete, DatePicker, Form, Input, InputNumber, message, Select, Tooltip, Upload } from "antd";
+import { AutoComplete, DatePicker, Form, Input, InputNumber, Select, Tooltip } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
+import DocumentUpload from "../../../../../components/ui/DocumentUpload";
 import { formatINR, formatINRInput, parseINRInput } from "../../../../../utils/currency";
 import { lookupMicrDetails, normalizeMicr } from "../../../../../utils/ifscLookup";
 import dayjs from "dayjs";
@@ -30,77 +31,6 @@ const INSTRUMENT_TYPE_OPTIONS = [
 ];
 
 const MANDATE_SIGNED_BY_OPTIONS = ["Applicant", "Co-applicant", "Guarantor"];
-
-// Image Upload Component
-const ImageUpload = ({ value, onChange, label = "Upload Image" }) => {
-  const [imageUrl, setImageUrl] = useState(value);
-
-  const handleChange = (info) => {
-    if (info.file.status === 'uploading') {
-      return;
-    }
-    if (info.file.status === 'done') {
-      // Get this url from response in real world
-      const reader = new FileReader();
-      reader.addEventListener('load', () => {
-        const url = reader.result;
-        setImageUrl(url);
-        onChange?.(url);
-      });
-      reader.readAsDataURL(info.file.originFileObj);
-    }
-  };
-
-  const beforeUpload = (file) => {
-    const isImage = file.type.startsWith('image/');
-    if (!isImage) {
-      message.error('You can only upload image files!');
-      return false;
-    }
-    const isLt5M = file.size / 1024 / 1024 < 5;
-    if (!isLt5M) {
-      message.error('Image must be smaller than 5MB!');
-      return false;
-    }
-    return false; // Prevent auto upload, handle manually
-  };
-
-  const uploadButton = (
-    <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-border rounded-xl hover:border-primary transition-colors cursor-pointer bg-muted/30 hover:bg-primary/5">
-      <Icon name={imageUrl ? "CheckCircle2" : "Upload"} size={24} className={imageUrl ? "text-success mb-2" : "text-muted-foreground mb-2"} />
-      <span className="text-xs font-semibold text-muted-foreground">
-        {imageUrl ? "Image Uploaded" : label}
-      </span>
-    </div>
-  );
-
-  return (
-    <Upload
-      name="image"
-      listType="picture-card"
-      className="instrument-image-uploader"
-      showUploadList={false}
-      beforeUpload={beforeUpload}
-      onChange={handleChange}
-      customRequest={({ file, onSuccess }) => {
-        setTimeout(() => {
-          onSuccess("ok");
-        }, 0);
-      }}
-    >
-      {imageUrl ? (
-        <div className="relative w-full h-full group">
-          <img src={imageUrl} alt="instrument" className="w-full h-full object-cover rounded-lg" />
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-            <span className="text-white text-xs font-semibold">Change Image</span>
-          </div>
-        </div>
-      ) : (
-        uploadButton
-      )}
-    </Upload>
-  );
-};
 
 const ChequeHeader = ({ id, index, isExpanded, onToggle, onDelete, onCopy, isFirst, form }) => {
   const number = Form.useWatch(`cheque_${id}_number`, form);
@@ -493,7 +423,11 @@ const PostFileInstrumentDetails = ({ form }) => {
                           <span className="text-xs font-medium text-muted-foreground">Document Verification</span>
                         </div>
                         <Form.Item name={`cheque_${cheque.id}_image`} className="mb-0">
-                          <ImageUpload label="Upload Cheque Image" />
+                          <DocumentUpload
+                            uploadTitle="Upload Cheque Image"
+                            viewerTitle="Post-File Document Viewer"
+                            docTag="Cheque Image"
+                          />
                         </Form.Item>
                       </div>
                     </div>
@@ -598,7 +532,11 @@ const PostFileInstrumentDetails = ({ form }) => {
                   <span className="text-xs font-medium text-muted-foreground">Document Verification</span>
                 </div>
                 <Form.Item name="ecs_image" className="mb-0">
-                  <ImageUpload label="Upload ECS Form" />
+                  <DocumentUpload
+                    uploadTitle="Upload ECS Form"
+                    viewerTitle="Post-File Document Viewer"
+                    docTag="ECS Form"
+                  />
                 </Form.Item>
               </div>
             </div>
@@ -717,7 +655,11 @@ const PostFileInstrumentDetails = ({ form }) => {
                           <span className="text-xs font-medium text-muted-foreground">Document Verification</span>
                         </div>
                         <Form.Item name={`cheque_${cheque.id}_image`} className="mb-0">
-                          <ImageUpload label="Upload Cheque Image" />
+                          <DocumentUpload
+                            uploadTitle="Upload Cheque Image"
+                            viewerTitle="Post-File Document Viewer"
+                            docTag="Cheque Image"
+                          />
                         </Form.Item>
                       </div>
                     </div>
@@ -781,12 +723,14 @@ const PostFileInstrumentDetails = ({ form }) => {
                   name={resolvedInstrumentType === "NACH" ? "nach_image" : "si_image"}
                   className="mb-0"
                 >
-                  <ImageUpload
-                    label={
+                  <DocumentUpload
+                    uploadTitle={
                       resolvedInstrumentType === "NACH"
                         ? "Upload NACH / E-mandate Document"
                         : "Upload SI Document"
                     }
+                    viewerTitle="Post-File Document Viewer"
+                    docTag={resolvedInstrumentType === "NACH" ? "NACH Document" : "SI Document"}
                   />
                 </Form.Item>
               </div>

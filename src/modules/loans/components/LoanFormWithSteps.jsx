@@ -2556,7 +2556,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const HiddenFields = () => (
     <>
       <Form.Item name="loanId" hidden />
-      <Form.Item name="loan_number" hidden />
       <Form.Item name="customerId" hidden />
       <Form.Item name="dsaCode" hidden />
       <Form.Item name="co_id" hidden />

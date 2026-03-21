@@ -1,4 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
 import Icon from "../../../components/AppIcon";
 import Button from "../../../components/ui/Button";
 
@@ -17,6 +19,12 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
 
   const [remarks, setRemarks] = useState("");
 
+  const disbursementDayjs = useMemo(() => {
+    if (!disbursementDate) return null;
+    const parsed = dayjs(disbursementDate);
+    return parsed.isValid() ? parsed : null;
+  }, [disbursementDate]);
+
   const formatMoney = (v) => {
     const num = Number(v || 0);
     if (!Number.isFinite(num)) return "—";
@@ -26,10 +34,6 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
   const handleDisburse = () => {
     if (!selectedBankId || !disbursementDate) {
       alert("Please select a bank and disbursement date");
-      return;
-    }
-    if (!remarks || remarks.trim() === "") {
-      alert("Please enter disbursement remarks");
       return;
     }
     onDisburse?.(selectedBankId, disbursementDate, remarks);
@@ -107,35 +111,28 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
             <label htmlFor="disbursement-date" className="text-xs font-medium text-muted-foreground mb-2 block">
               Disbursement Date
             </label>
-              <div className="relative">
-                <Icon
-                  name="Calendar"
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                />
-                <input
-                  id="disbursement-date"
-                  name="disbursement-date"
-                  type="date"
-                  className="w-full border border-border rounded-xl pl-10 pr-3 py-2.5 text-sm bg-background text-foreground"
-                  value={disbursementDate}
-                  onChange={(e) => setDisbursementDate(e.target.value)}
-                  autoComplete="off"
-                />
-              </div>
+            <DatePicker
+              id="disbursement-date"
+              className="w-full"
+              format="DD-MM-YYYY"
+              value={disbursementDayjs}
+              onChange={(date) =>
+                setDisbursementDate(date ? date.format("YYYY-MM-DD") : "")
+              }
+            />
           </div>
 
-          {/* Remarks - Mandatory */}
+          {/* Remarks - Optional */}
           <div>
             <label htmlFor="disbursement-remarks" className="text-xs font-medium text-muted-foreground mb-2 block">
-              Remarks <span className="text-red-500">*</span>
+              Remarks (optional)
             </label>
             <textarea
               id="disbursement-remarks"
               name="disbursement-remarks"
               rows="3"
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background resize-none"
-              placeholder="Enter disbursement remarks (mandatory)"
+              placeholder="Enter disbursement remarks"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               autoComplete="off"
@@ -168,7 +165,7 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
             variant="default"
             size="sm"
             onClick={handleDisburse}
-            disabled={!selectedBankId || !disbursementDate || !remarks.trim()}
+            disabled={!selectedBankId || !disbursementDate}
             className="bg-amber-600 dark:bg-amber-600 hover:bg-amber-700 dark:hover:bg-amber-700 text-white shadow-lg shadow-amber-600/30"
           >
             <Icon name="CreditCard" size={16} style={{ marginRight: 6 }} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
@@ -74,7 +74,9 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isFetchingDocs, setIsFetchingDocs] = useState(false);
   const [didHydrateFromForm, setDidHydrateFromForm] = useState(false);
-  const [lastPersistedSignature, setLastPersistedSignature] = useState("");
+  const lastPersistedSignatureRef = useRef("");
+  const lastHydratedSignatureRef = useRef("");
+  const lastFormSyncSignatureRef = useRef("");
 
   const customerId = Form.useWatch("customerId", form);
   const watchedPostFileDocuments = Form.useWatch("postfile_documents", form);
@@ -294,6 +296,11 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       ? watchedPostFileTags
       : [];
     const mergedDocs = mergeDocuments(existingDocs, buildPreFileDocuments());
+    const incomingSignature = `${docsSignature(mergedDocs)}|${tagsSignature(existingTags)}`;
+
+    if (didHydrateFromForm && incomingSignature === lastHydratedSignatureRef.current) {
+      return;
+    }
 
     setDocuments((prev) =>
       docsSignature(mergedDocs) !== docsSignature(prev) ? mergedDocs : prev,
@@ -302,10 +309,10 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       tagsSignature(existingTags) !== tagsSignature(prev) ? existingTags : prev,
     );
     if (!didHydrateFromForm) {
-      setLastPersistedSignature(
-        `${docsSignature(mergedDocs)}|${tagsSignature(existingTags)}`,
-      );
+      lastPersistedSignatureRef.current = incomingSignature;
     }
+    lastHydratedSignatureRef.current = incomingSignature;
+    lastFormSyncSignatureRef.current = incomingSignature;
     setDidHydrateFromForm(true);
   }, [
     watchedPostFileDocuments,
@@ -320,11 +327,14 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   // Keep form in sync once initial hydration has happened.
   useEffect(() => {
     if (!didHydrateFromForm) return;
+    const nextSignature = `${docsSignature(documents)}|${tagsSignature(tags)}`;
+    if (lastFormSyncSignatureRef.current === nextSignature) return;
+    lastFormSyncSignatureRef.current = nextSignature;
     form.setFieldsValue({
       postfile_documents: documents,
       postfile_tags: tags,
     });
-  }, [didHydrateFromForm, documents, tags, form]);
+  }, [didHydrateFromForm, documents, tags, form, docsSignature, tagsSignature]);
 
   const availableTags = isCompany
     ? SUGGESTED_TAGS
@@ -498,7 +508,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       documentCount: Number(tag?.documentCount) || 0,
     }));
     const persistSignature = `${docsSignature(persistableDocs)}|${tagsSignature(persistableTags)}`;
-    if (persistSignature === lastPersistedSignature) return;
+    if (persistSignature === lastPersistedSignatureRef.current) return;
 
     const timer = setTimeout(async () => {
       try {
@@ -506,7 +516,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
           postfile_documents: persistableDocs,
           postfile_tags: persistableTags,
         });
-        setLastPersistedSignature(persistSignature);
+        lastPersistedSignatureRef.current = persistSignature;
       } catch (error) {
         console.error("Failed to auto-persist post-file documents:", error);
       }
@@ -521,7 +531,6 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
     tags,
     docsSignature,
     tagsSignature,
-    lastPersistedSignature,
   ]);
 
   const formatFileSize = (bytes) => {
@@ -586,12 +595,18 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       return acc;
     }, {});
 
-    setTags((prev) =>
-      prev.map((tag) => ({
-        ...tag,
-        documentCount: counts[tag.name] || 0,
-      })),
-    );
+    setTags((prev) => {
+      let changed = false;
+      const next = prev.map((tag) => {
+        const nextCount = counts[tag.name] || 0;
+        if ((Number(tag.documentCount) || 0) !== nextCount) {
+          changed = true;
+          return { ...tag, documentCount: nextCount };
+        }
+        return tag;
+      });
+      return changed ? next : prev;
+    });
   }, [documents]);
 
   return (
