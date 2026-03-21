@@ -15,6 +15,7 @@ import Icon from "../AppIcon";
 import { Badge as AntBadge } from "antd";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
+import { FEATURE_ACCESS } from "../../hooks/useRBAC";
 import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -74,7 +75,6 @@ const Header = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const { user: userData, logout } = useAuth();
 
-  const isSuperadmin = userData?.role === "superadmin";
   const roleMeta = ROLE_META[userData?.role] || ROLE_META.staff;
 
   useEffect(() => {
@@ -98,60 +98,84 @@ const Header = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [profileOpen]);
 
-  const navigationGroups = [
+  const userRole = userData?.role;
+
+  // Helper: check if current user can access a given roles array
+  // Empty array = any authenticated user can access
+  const canAccess = (roles) => {
+    if (!roles || roles.length === 0) return true;
+    return roles.includes(userRole);
+  };
+
+  const allNavigationGroups = [
     {
       label: "Analytics",
       path: "/analytics",
       icon: <Icon name="BarChart3" size={18} />,
+      roles: FEATURE_ACCESS.ANALYTICS,
     },
     {
       label: "Customers",
       icon: <Icon name="Users" size={18} />,
+      roles: FEATURE_ACCESS.CUSTOMERS,
       children: [
-        { label: "Dashboard",         path: "/customers",     desc: "View all customer records" },
-        { label: "New Registration",  path: "/customers/new", desc: "Register a new client"      },
+        { label: "Dashboard",         path: "/customers",     desc: "View all customer records", roles: FEATURE_ACCESS.CUSTOMERS },
+        { label: "New Registration",  path: "/customers/new", desc: "Register a new client",      roles: FEATURE_ACCESS.CUSTOMERS },
       ],
     },
     {
       label: "Loans",
       icon: <Icon name="Wallet" size={18} />,
+      roles: FEATURE_ACCESS.LOANS,
       children: [
-        { label: "Loan Dashboard",   path: "/loans",     desc: "Lifecycle management" },
-        { label: "New Application",  path: "/loans/new", desc: "Start a new loan file" },
+        { label: "Loan Dashboard",   path: "/loans",     desc: "Lifecycle management",  roles: FEATURE_ACCESS.LOANS },
+        { label: "New Application",  path: "/loans/new", desc: "Start a new loan file", roles: FEATURE_ACCESS.LOANS },
       ],
     },
     {
       label: "Tools",
       icon: <Icon name="Wrench" size={18} />,
+      roles: FEATURE_ACCESS.TOOLS,
       children: [
-        { label: "EMI Calculator",     path: "/loans/emi-calculator", desc: "Calculate loan EMI"       },
-        { label: "Quotations",         path: "/loans/quotations",     desc: "Manage vehicle quotes"    },
-        { label: "Features Catalog",   path: "/loans/features",       desc: "Compare variant features" },
-        { label: "Vehicle Price List", path: "/vehicles/price-list",  desc: "Browse pricing catalog"   },
+        { label: "EMI Calculator",     path: "/loans/emi-calculator", desc: "Calculate loan EMI",       roles: FEATURE_ACCESS.TOOLS },
+        { label: "Quotations",         path: "/loans/quotations",     desc: "Manage vehicle quotes",    roles: FEATURE_ACCESS.TOOLS },
+        { label: "Features Catalog",   path: "/loans/features",       desc: "Compare variant features", roles: FEATURE_ACCESS.TOOLS },
+        { label: "Vehicle Price List", path: "/vehicles/price-list",  desc: "Browse pricing catalog",   roles: FEATURE_ACCESS.TOOLS },
       ],
     },
     {
       label: "Finance",
       icon: <Icon name="Coins" size={18} />,
+      roles: [...new Set([...FEATURE_ACCESS.PAYOUTS, ...FEATURE_ACCESS.DELIVERY_ORDERS, ...FEATURE_ACCESS.PAYMENTS])],
       children: [
-        { label: "Receivables",     path: "/payouts/receivables", desc: "Track incoming funds"   },
-        { label: "Delivery Orders", path: "/delivery-orders",     desc: "Manage DO dispatch"     },
-        { label: "Payments",        path: "/payments",            desc: "Process installments"   },
+        { label: "Receivables",     path: "/payouts/receivables", desc: "Track incoming funds",   roles: FEATURE_ACCESS.PAYOUTS },
+        { label: "Delivery Orders", path: "/delivery-orders",     desc: "Manage DO dispatch",     roles: FEATURE_ACCESS.DELIVERY_ORDERS },
+        { label: "Payments",        path: "/payments",            desc: "Process installments",   roles: FEATURE_ACCESS.PAYMENTS },
       ],
     },
-    ...(isSuperadmin
-      ? [{
-          label: "Control Panel",
-          icon: <Icon name="ShieldCheck" size={18} />,
-          children: [
-            { label: "User Management", path: "/superadmin/users",     desc: "Manage user roles & access" },
-            { label: "Showrooms",       path: "/superadmin/showrooms", desc: "Manage all showrooms"       },
-            { label: "Channels",        path: "/superadmin/channels",  desc: "Manage partner channels"    },
-            { label: "Banks",           path: "/superadmin/banks",     desc: "Configure finance partners" },
-          ],
-        }]
-      : []),
+    {
+      label: "Control Panel",
+      icon: <Icon name="ShieldCheck" size={18} />,
+      roles: FEATURE_ACCESS.SUPERADMIN_USERS,
+      children: [
+        { label: "User Management", path: "/superadmin/users",     desc: "Manage user roles & access", roles: FEATURE_ACCESS.SUPERADMIN_USERS },
+        { label: "Showrooms",       path: "/superadmin/showrooms", desc: "Manage all showrooms",       roles: FEATURE_ACCESS.SUPERADMIN_SHOWROOMS },
+        { label: "Channels",        path: "/superadmin/channels",  desc: "Manage partner channels",    roles: FEATURE_ACCESS.SUPERADMIN_CHANNELS },
+        { label: "Banks",           path: "/superadmin/banks",     desc: "Configure finance partners", roles: FEATURE_ACCESS.SUPERADMIN_BANKS },
+      ],
+    },
   ];
+
+  // Filter navigation: hide groups/items the current user cannot access
+  const navigationGroups = allNavigationGroups
+    .filter((group) => canAccess(group.roles))
+    .map((group) => {
+      if (!group.children) return group;
+      const visibleChildren = group.children.filter((child) => canAccess(child.roles));
+      if (visibleChildren.length === 0) return null;
+      return { ...group, children: visibleChildren };
+    })
+    .filter(Boolean);
 
   const isActive = (path) => location?.pathname === path;
   const isGroupActive = (children) => children?.some((child) => isActive(child.path));

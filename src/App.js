@@ -28,6 +28,7 @@ import QuotationManagerPage from "./modules/loans/pages/QuotationManagerPage";
 import FeaturesPage from "./modules/loans/pages/FeaturesPage";
 import FieldMappingPage from "./modules/loans/pages/FieldMappingPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { FEATURE_ACCESS } from "./hooks/useRBAC";
 import SuperadminUsersPage from "./pages/superadmin/SuperadminUsersPage";
 import SuperadminShowroomsPage from "./pages/superadmin/SuperadminShowroomsPage";
 import DetailedShowroomViewPage from "./pages/superadmin/DetailedShowroomViewPage";
@@ -52,6 +53,11 @@ function HeaderWrapper() {
   );
 }
 
+// Helper: wrap element with role check (empty roles = any authenticated user)
+const R = (roles, element) => (
+  <ProtectedRoute requiredRoles={roles} element={element} />
+);
+
 function App() {
   return (
     <ThemeProvider>
@@ -61,120 +67,59 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<Signup />} />
 
-        {/* Main App Routes */}
-        <Route path="/" element={<HeaderWrapper />}>
+        {/* ── ALL routes below require authentication ── */}
+        <Route path="/" element={<ProtectedRoute element={<HeaderWrapper />} />}>
           {/* Default */}
-          <Route index element={<AnalyticsDashboard />} />
-          <Route path="analytics" element={<AnalyticsDashboard />} />
+          <Route index element={R(FEATURE_ACCESS.ANALYTICS, <AnalyticsDashboard />)} />
+          <Route path="analytics" element={R(FEATURE_ACCESS.ANALYTICS, <AnalyticsDashboard />)} />
 
           {/* Customers */}
-          <Route path="customers" element={<CustomerDashboard />} />
-          <Route path="customers/new" element={<AddCustomer />} />
-          <Route path="customers/edit/:id" element={<EditCustomer />} />
+          <Route path="customers" element={R(FEATURE_ACCESS.CUSTOMERS, <CustomerDashboard />)} />
+          <Route path="customers/new" element={R(FEATURE_ACCESS.CUSTOMERS, <AddCustomer />)} />
+          <Route path="customers/edit/:id" element={R(FEATURE_ACCESS.CUSTOMERS, <EditCustomer />)} />
 
           {/* Loans */}
-          <Route path="loans" element={<LoanDashboard />} />
-          <Route path="loans/new" element={<LoanFormWithSteps />} />
-          <Route path="loans/emi-calculator" element={<EMICalculatorPage />} />
-          <Route path="loans/edit/:id" element={<LoanFormWithSteps />} />
-          <Route path="loans/pendency" element={<PendencyTracker />} />
-          <Route path="loans/quotations" element={<QuotationManagerPage />} />
-          <Route path="loans/features" element={<FeaturesPage />} />
-          <Route path="loans/field-mapping" element={<FieldMappingPage />} />
+          <Route path="loans" element={R(FEATURE_ACCESS.LOANS, <LoanDashboard />)} />
+          <Route path="loans/new" element={R(FEATURE_ACCESS.LOANS, <LoanFormWithSteps />)} />
+          <Route path="loans/edit/:id" element={R(FEATURE_ACCESS.LOANS, <LoanFormWithSteps />)} />
+          <Route path="loans/pendency" element={R(FEATURE_ACCESS.PENDENCY, <PendencyTracker />)} />
 
-          {/* Payouts */}
-          <Route
-            path="payouts/receivables"
-            element={<PayoutReceivablesDashboard />}
-          />
-          <Route
-            path="payouts/payables"
-            element={<PayoutPayablesDashboard />}
-          />
+          {/* Tools */}
+          <Route path="loans/emi-calculator" element={R(FEATURE_ACCESS.TOOLS, <EMICalculatorPage />)} />
+          <Route path="loans/quotations" element={R(FEATURE_ACCESS.TOOLS, <QuotationManagerPage />)} />
+          <Route path="loans/features" element={R(FEATURE_ACCESS.TOOLS, <FeaturesPage />)} />
+          <Route path="loans/field-mapping" element={R(FEATURE_ACCESS.FIELD_MAPPING, <FieldMappingPage />)} />
 
-          {/* Delivery Orders */}
-          <Route path="delivery-orders" element={<DeliveryOrderDashboard />} />
-          <Route path="delivery-orders/new" element={<DeliveryOrderForm />} />
-          <Route
-            path="delivery-orders/:loanId"
-            element={<DeliveryOrderForm />}
-          />
+          {/* Payouts — admin/superadmin only */}
+          <Route path="payouts/receivables" element={R(FEATURE_ACCESS.PAYOUTS, <PayoutReceivablesDashboard />)} />
+          <Route path="payouts/payables" element={R(FEATURE_ACCESS.PAYOUTS, <PayoutPayablesDashboard />)} />
+
+          {/* Delivery Orders — admin/superadmin only */}
+          <Route path="delivery-orders" element={R(FEATURE_ACCESS.DELIVERY_ORDERS, <DeliveryOrderDashboard />)} />
+          <Route path="delivery-orders/new" element={R(FEATURE_ACCESS.DELIVERY_ORDERS, <DeliveryOrderForm />)} />
+          <Route path="delivery-orders/:loanId" element={R(FEATURE_ACCESS.DELIVERY_ORDERS, <DeliveryOrderForm />)} />
 
           {/* Payments + Bookings */}
-          <Route path="payments" element={<PaymentsDashboard />} />
-          <Route path="payments/:loanId" element={<PaymentForm />} />
-          <Route path="payments/bookings/new" element={<NewBookingPage />} />
-          <Route
-            path="payments/bookings/:bookingId"
-            element={<BookingDetailPage />}
-          />
-          <Route
-            path="payments/bookings/edit/:bookingId"
-            element={<NewBookingPage />}
-          />
+          <Route path="payments" element={R(FEATURE_ACCESS.PAYMENTS, <PaymentsDashboard />)} />
+          <Route path="payments/:loanId" element={R(FEATURE_ACCESS.PAYMENTS, <PaymentForm />)} />
+          <Route path="payments/bookings/new" element={R(FEATURE_ACCESS.PAYMENTS, <NewBookingPage />)} />
+          <Route path="payments/bookings/:bookingId" element={R(FEATURE_ACCESS.PAYMENTS, <BookingDetailPage />)} />
+          <Route path="payments/bookings/edit/:bookingId" element={R(FEATURE_ACCESS.PAYMENTS, <NewBookingPage />)} />
 
-          {/* Vehicles */}
-          <Route path="vehicles" element={<VehicleMaster />} />
-          <Route path="vehicles/price-list" element={<VehiclePriceList />} />
+          {/* Vehicles — admin/superadmin only */}
+          <Route path="vehicles" element={R(FEATURE_ACCESS.VEHICLES, <VehicleMaster />)} />
+          <Route path="vehicles/price-list" element={R(FEATURE_ACCESS.TOOLS, <VehiclePriceList />)} />
 
-          {/* Profile */}
+          {/* Profile — any authenticated user */}
           <Route path="profile" element={<ProfilePage />} />
 
           {/* Superadmin */}
-          <Route
-            path="superadmin/users"
-            element={
-              <ProtectedRoute
-                requiredRoles={["superadmin"]}
-                element={<SuperadminUsersPage />}
-              />
-            }
-          />
-          <Route
-            path="superadmin/showrooms"
-            element={
-              <ProtectedRoute
-                requiredRoles={["superadmin"]}
-                element={<SuperadminShowroomsPage />}
-              />
-            }
-          />
-          <Route
-            path="superadmin/showrooms/:id"
-            element={
-              <ProtectedRoute
-                requiredRoles={["superadmin"]}
-                element={<DetailedShowroomViewPage />}
-              />
-            }
-          />
-          <Route
-            path="superadmin/channels"
-            element={
-              <ProtectedRoute
-                requiredRoles={["superadmin"]}
-                element={<SuperadminChannelsPage />}
-              />
-            }
-          />
-          <Route
-            path="superadmin/banks"
-            element={
-              <ProtectedRoute
-                requiredRoles={["superadmin"]}
-                element={<SuperadminBanksPage />}
-              />
-            }
-          />
-          <Route
-            path="superadmin/banks/:id"
-            element={
-              <ProtectedRoute
-                requiredRoles={["superadmin"]}
-                element={<DetailedBankViewPage />}
-              />
-            }
-          />
+          <Route path="superadmin/users" element={R(FEATURE_ACCESS.SUPERADMIN_USERS, <SuperadminUsersPage />)} />
+          <Route path="superadmin/showrooms" element={R(FEATURE_ACCESS.SUPERADMIN_SHOWROOMS, <SuperadminShowroomsPage />)} />
+          <Route path="superadmin/showrooms/:id" element={R(FEATURE_ACCESS.SUPERADMIN_SHOWROOMS, <DetailedShowroomViewPage />)} />
+          <Route path="superadmin/channels" element={R(FEATURE_ACCESS.SUPERADMIN_CHANNELS, <SuperadminChannelsPage />)} />
+          <Route path="superadmin/banks" element={R(FEATURE_ACCESS.SUPERADMIN_BANKS, <SuperadminBanksPage />)} />
+          <Route path="superadmin/banks/:id" element={R(FEATURE_ACCESS.SUPERADMIN_BANKS, <DetailedBankViewPage />)} />
         </Route>
       </Routes>
       </AuthProvider>
