@@ -100,7 +100,7 @@ const MetricCard = ({
 
 const LoanDashboard = () => {
   const navigate = useNavigate();
-  const PAGE1_CACHE_KEY = "loans_dashboard_page1_cache_v3";
+  const PAGE1_CACHE_KEY = "loans_dashboard_page1_cache_v4";
   const STATS_CACHE_KEY = "loans_dashboard_stats_cache_v1";
   const STATS_TTL_MS = 2 * 60 * 1000;
   const formatCrores = (amount) => {
@@ -145,7 +145,7 @@ const LoanDashboard = () => {
     emiCapturedCount: 0,
     regNoCapturedCount: 0,
   });
-  const pageSize = 75;
+  const pageSize = 30;
   const pageCacheRef = useRef(new Map());
   const showroomHydrationCacheRef = useRef(new Map());
   const showroomHydrationInFlightRef = useRef(new Set());
