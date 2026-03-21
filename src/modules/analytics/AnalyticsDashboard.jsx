@@ -31,7 +31,6 @@ import {
   ShieldAlert,
   TrendingUp,
   UsersRound,
-  MoreVertical,
 } from "lucide-react";
 import { loansApi } from "../../api/loans";
 import "./AnalyticsDashboard.css";
@@ -744,10 +743,10 @@ const VerticalBarChart = ({
                 x2={width - m.right}
                 y1={y}
                 y2={y}
-                stroke="#E2E8F0"
+                stroke="var(--border)"
                 strokeWidth="1"
               />
-              <text x={m.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#64748B">
+              <text x={m.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--muted-foreground)">
                 {compactNumber(tickValue)}
               </text>
             </g>
@@ -776,7 +775,7 @@ const VerticalBarChart = ({
                 y={height - 14}
                 textAnchor="middle"
                 fontSize="10"
-                fill="#64748B"
+                fill="var(--muted-foreground)"
               >
                 {String(point.label || "").slice(0, 3)}
               </text>
@@ -832,7 +831,7 @@ const AreaLineChart = ({
               x2={width - m.right}
               y1={gy}
               y2={gy}
-              stroke="#E2E8F0"
+              stroke="var(--border)"
               strokeWidth="1"
             />
           );
@@ -857,7 +856,7 @@ const AreaLineChart = ({
             y={height - 14}
             textAnchor="middle"
             fontSize="10"
-            fill="#64748B"
+            fill="var(--muted-foreground)"
           >
             {String(point.label || "").slice(0, 3)}
           </text>
@@ -904,7 +903,7 @@ const FunnelChart = ({ rows = [], onSelect }) => {
                 points={points}
                 fill={color}
                 opacity="0.88"
-                stroke="#ffffff"
+                stroke="var(--background)"
                 strokeWidth="1"
                 style={{ cursor: onSelect ? "pointer" : "default" }}
                 onClick={() => onSelect?.(row)}
@@ -985,7 +984,7 @@ const DonutBreakdown = ({
               onClick={() => onClick?.(arc.row)}
             />
           ))}
-          <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fill="#64748B">Total</text>
+          <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fill="var(--muted-foreground)">Total</text>
           <text x={cx} y={cy + 16} textAnchor="middle" fontSize="18" fill="currentColor" fontWeight="700">
             {Number(total).toLocaleString("en-IN")}
           </text>
@@ -1127,13 +1126,6 @@ const WidgetShell = ({ title, subtitle, icon: Icon, color = "slate", children })
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-          aria-label="Widget actions"
-        >
-          <MoreVertical size={16} />
-        </button>
       </div>
       <div className="rounded-lg">{children}</div>
     </article>
@@ -1175,10 +1167,14 @@ const KpiTile = ({ label, value, subLabel, icon: Icon, tone = "slate", loading =
           </div>
           <div className="mt-1 flex flex-col gap-0.5">
             <div className={`text-xl font-black tracking-tight tabular-nums md:text-2xl ${valueTone}`}>
-              {loading ? "—" : value}
+              {loading ? (
+                <span className="inline-block h-7 w-20 animate-pulse rounded-md bg-white/20" />
+              ) : value}
             </div>
             {subLabel && !loading ? (
               <div className={`text-[11px] font-medium line-clamp-2 ${subTone}`}>{subLabel}</div>
+            ) : loading ? (
+              <span className="mt-1 inline-block h-3 w-24 animate-pulse rounded bg-white/20" />
             ) : null}
           </div>
         </div>
@@ -1196,6 +1192,7 @@ const AnalyticsDashboard = () => {
   const [rangePreset, setRangePreset] = useState("mtd");
   const [customRange, setCustomRange] = useState([dayjs().startOf("month"), dayjs()]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [overview, setOverview] = useState(null);
 
@@ -1204,6 +1201,7 @@ const AnalyticsDashboard = () => {
   const [drillRows, setDrillRows] = useState([]);
   const [drillTitle, setDrillTitle] = useState("");
   const [drillSearch, setDrillSearch] = useState("");
+  const [drillError, setDrillError] = useState("");
 
   const [customWidgetLoading, setCustomWidgetLoading] = useState(false);
   const [customWidgetData, setCustomWidgetData] = useState([]);
@@ -1257,6 +1255,8 @@ const AnalyticsDashboard = () => {
     );
   };
 
+  const ANALYTICS_SS_PREFIX = "analytics_cache_v1_";
+
   const fetchOverview = useCallback(async () => {
     const queryKey = JSON.stringify(queryParams || {});
     const now = Date.now();
@@ -1276,7 +1276,22 @@ const AnalyticsDashboard = () => {
       activeOverviewRequestRef.current.abort();
     }
 
-    setLoading(true);
+    // Show last-known result immediately so the page isn't blank while fetching
+    try {
+      const cached = sessionStorage.getItem(ANALYTICS_SS_PREFIX + queryKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setOverview(parsed);
+        setLoading(false); // show cached data without spinner
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+        setRefreshing(false);
+      }
+    } catch {
+      setLoading(true);
+      setRefreshing(false);
+    }
     setError("");
     const runOverviewRequest = async (timeoutMs) => {
       const controller = new AbortController();
@@ -1314,7 +1329,13 @@ const AnalyticsDashboard = () => {
         // One automatic retry with extended timeout to reduce false timeout failures.
         res = await runOverviewRequest(ANALYTICS_RETRY_TIMEOUT_MS);
       }
-      setOverview(res?.data || null);
+      const freshData = res?.data || null;
+      if (freshData) {
+        try {
+          sessionStorage.setItem(ANALYTICS_SS_PREFIX + queryKey, JSON.stringify(freshData));
+        } catch { /* storage quota exceeded — ignore */ }
+      }
+      setOverview(freshData);
     } catch (err) {
       const connectionDown = isConnectionError(err);
       if (connectionDown) {
@@ -1353,6 +1374,7 @@ const AnalyticsDashboard = () => {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [queryParams, rangePreset, customRange]);
 
@@ -1403,6 +1425,9 @@ const AnalyticsDashboard = () => {
       setDrillTitle(title);
       setDrillOpen(true);
       setDrillLoading(true);
+      setDrillSearch(""); // clear previous search so results aren't filtered out
+      setDrillRows([]);
+      setDrillError("");
       try {
         const res = await loansApi.getAnalyticsDrilldown({
           ...queryParams,
@@ -1413,7 +1438,7 @@ const AnalyticsDashboard = () => {
         setDrillRows(Array.isArray(res?.data) ? res.data : []);
       } catch (err) {
         console.error("[Analytics] Drilldown error:", err);
-        setError(err?.message || "Failed to load drilldown");
+        setDrillError(err?.message || "Failed to load drilldown data");
         setDrillRows([]);
       } finally {
         setDrillLoading(false);
@@ -1575,9 +1600,15 @@ const AnalyticsDashboard = () => {
                   />
                 ) : null}
 
+                {refreshing && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                    Updating
+                  </span>
+                )}
                 <Button
                   type="primary"
-                  icon={<RefreshCcw size={14} />}
+                  icon={<RefreshCcw size={14} className={refreshing ? "animate-spin" : ""} />}
                   className="analytics-refresh-btn h-9 rounded-lg !border-primary !bg-primary !text-primary-foreground shadow-md hover:!opacity-90"
                   onClick={fetchOverview}
                 >
@@ -1639,9 +1670,13 @@ const AnalyticsDashboard = () => {
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted-foreground">Charts & Insights</h2>
         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
           {loading ? (
-            <div className="col-span-full rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-              Loading analytics...
-            </div>
+            <>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className={`${[5,4,3,5,4,3][i] === 5 ? "xl:col-span-5" : [5,4,3,5,4,3][i] === 4 ? "xl:col-span-4" : "xl:col-span-3"} animate-pulse`}>
+                  <div className="h-64 rounded-xl border border-border bg-muted/40" />
+                </div>
+              ))}
+            </>
           ) : (
             <>
           <div className="xl:col-span-5">
@@ -2212,11 +2247,19 @@ const AnalyticsDashboard = () => {
         wrapClassName="analytics-modal-wrap"
         title={drillTitle}
         open={drillOpen}
-        onCancel={() => setDrillOpen(false)}
+        onCancel={() => { setDrillOpen(false); setDrillError(""); }}
         footer={null}
         width={1200}
       >
         <Spin spinning={drillLoading}>
+          {drillError ? (
+            <Alert
+              type="error"
+              message={drillError}
+              showIcon
+              className="mb-3 rounded-xl"
+            />
+          ) : null}
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <Input
               allowClear
@@ -2231,15 +2274,21 @@ const AnalyticsDashboard = () => {
               <span>Total: {drillRows.length}</span>
             </div>
           </div>
-          <Table
-            className="analytics-table"
-            rowKey={(row) => row._id || row.loanId}
-            columns={drillColumns}
-            dataSource={filteredDrillRows}
-            size="small"
-            pagination={{ pageSize: 15, showSizeChanger: true }}
-            scroll={{ x: 1300, y: 460 }}
-          />
+          {!drillLoading && !drillError && drillRows.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-muted/30 py-10 text-center text-sm text-muted-foreground">
+              No records found for the selected filter and date range.
+            </div>
+          ) : (
+            <Table
+              className="analytics-table"
+              rowKey={(row) => row._id || row.loanId}
+              columns={drillColumns}
+              dataSource={filteredDrillRows}
+              size="small"
+              pagination={{ pageSize: 15, showSizeChanger: true }}
+              scroll={{ x: 1300, y: 460 }}
+            />
+          )}
         </Spin>
       </Modal>
     </main>
