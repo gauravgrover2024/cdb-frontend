@@ -28,10 +28,15 @@
   position: relative;
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  min-height: 128px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .analytics-dashboard .analytics-kpi:hover {
-  transform: translateY(-2px);
+  transform: none;
 }
 
 .analytics-dashboard .analytics-widget {
@@ -39,24 +44,48 @@
   overflow: hidden;
   border-radius: 0.75rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 14px -12px rgba(15, 23, 42, 0.25);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .analytics-dashboard .analytics-widget:hover {
-  transform: translateY(-2px);
+  transform: none;
+  box-shadow: 0 12px 30px -20px rgba(15, 23, 42, 0.35);
 }
 
 .analytics-dashboard .analytics-widget svg {
   max-width: 100%;
 }
 
+.analytics-dashboard .analytics-widget h2 {
+  letter-spacing: 0.01em;
+}
+
+.analytics-dashboard .analytics-widget > .rounded-lg {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.analytics-dashboard .analytics-widget .text-xs {
+  line-height: 1.35;
+}
+
 .analytics-dashboard .analytics-report-panel {
   transition: box-shadow 0.2s ease;
   overflow-x: auto;
   padding-inline: 8px;
+  border-radius: 12px;
 }
 
 .analytics-dashboard .analytics-widget .overflow-x-auto {
   padding-inline: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
 }
 
 .analytics-dashboard .analytics-report-toolbar {
@@ -74,6 +103,7 @@
   font-weight: 700 !important;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  background: color-mix(in srgb, var(--muted) 70%, transparent) !important;
 }
 
 .analytics-dashboard .analytics-table .ant-table-tbody > tr.ant-table-row:hover > td {
@@ -92,6 +122,11 @@
   padding: 8px 14px !important;
   border-radius: 10px 10px 0 0;
   font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.analytics-dashboard .analytics-tabs .ant-tabs-tab:hover {
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
 }
 
 .analytics-dashboard .analytics-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
@@ -107,6 +142,10 @@
   box-shadow: 0 2px 8px -2px rgba(29, 155, 240, 0.4);
 }
 
+.analytics-dashboard .analytics-range-btn {
+  min-height: 40px;
+}
+
 /* Date picker in analytics */
 .analytics-dashboard .analytics-date-picker .ant-picker-input > input {
   font-size: 13px;
@@ -116,6 +155,7 @@
 .analytics-modal-wrap .ant-modal-content {
   border-radius: 1rem;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .analytics-modal-wrap .ant-modal-header {
@@ -136,6 +176,29 @@
 
 .dark .analytics-dashboard .analytics-table .ant-table-tbody > tr.ant-table-row:hover > td {
   background: rgba(29, 155, 240, 0.08) !important;
+}
+
+.dark .analytics-dashboard .analytics-widget {
+  box-shadow: 0 6px 24px -18px rgba(0, 0, 0, 0.75);
+}
+
+.dark .analytics-dashboard .analytics-widget:hover {
+  box-shadow: 0 16px 36px -24px rgba(0, 0, 0, 0.85);
+}
+
+@media (max-width: 768px) {
+  .analytics-dashboard .analytics-widget {
+    border-radius: 0.7rem;
+  }
+
+  .analytics-dashboard .analytics-kpi-grid .analytics-kpi {
+    border-radius: 0.7rem;
+  }
+
+  .analytics-dashboard .analytics-range-btn {
+    padding-inline: 12px !important;
+    font-size: 11px !important;
+  }
 }
 
 .dark .analytics-dashboard .analytics-report-toolbar {

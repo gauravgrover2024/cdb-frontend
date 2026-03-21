@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import {
@@ -1142,30 +1142,44 @@ const WidgetShell = ({ title, subtitle, icon: Icon, color = "slate", children })
 
 const KpiTile = ({ label, value, subLabel, icon: Icon, tone = "slate", loading = false }) => {
   const tones = {
-    slate: "border-border bg-card",
-    blue: "border-primary/30 bg-card",
-    emerald: "border-emerald-500/30 bg-card dark:border-emerald-500/20",
-    amber: "border-amber-500/30 bg-card dark:border-amber-500/20",
-    rose: "border-rose-500/30 bg-card dark:border-rose-500/20",
+    slate: "border-slate-300/30 bg-gradient-to-br from-slate-700 to-slate-900",
+    blue: "border-sky-300/30 bg-gradient-to-br from-sky-500 to-indigo-600",
+    emerald: "border-emerald-300/30 bg-gradient-to-br from-emerald-500 to-green-600",
+    amber: "border-amber-300/30 bg-gradient-to-br from-amber-500 to-orange-600",
+    rose: "border-rose-300/30 bg-gradient-to-br from-rose-500 to-pink-600",
   };
   const iconTones = {
-    slate: "bg-muted text-muted-foreground",
-    blue: "bg-primary/10 text-primary",
-    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    slate: "bg-white/20 text-white",
+    blue: "bg-white/20 text-white",
+    emerald: "bg-white/20 text-white",
+    amber: "bg-white/20 text-white",
+    rose: "bg-white/20 text-white",
   };
+  const accentTones = {
+    slate: "text-slate-100",
+    blue: "text-sky-100",
+    emerald: "text-emerald-100",
+    amber: "text-amber-100",
+    rose: "text-rose-100",
+  };
+  const valueTone = "text-white";
+  const subTone = "text-white/80";
 
   return (
     <div className={`analytics-kpi analytics-kpi-${tone} group relative overflow-hidden rounded-xl border p-4 transition-all duration-300 hover:shadow-lg hover:border-primary/20 ${tones[tone] || tones.slate}`}>
+      <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+          <div className={`text-[10px] font-bold uppercase tracking-wider ${accentTones[tone] || accentTones.slate}`}>
+            {label}
+          </div>
           <div className="mt-1 flex flex-col gap-0.5">
-            <div className="text-xl font-bold tracking-tight text-foreground tabular-nums md:text-2xl">
+            <div className={`text-xl font-black tracking-tight tabular-nums md:text-2xl ${valueTone}`}>
               {loading ? "—" : value}
             </div>
-            {subLabel && !loading ? <div className="text-[11px] font-medium text-muted-foreground line-clamp-2">{subLabel}</div> : null}
+            {subLabel && !loading ? (
+              <div className={`text-[11px] font-medium line-clamp-2 ${subTone}`}>{subLabel}</div>
+            ) : null}
           </div>
         </div>
         {Icon ? (
@@ -1223,8 +1237,15 @@ const AnalyticsDashboard = () => {
   });
 
   const queryParams = useMemo(() => getRangeParams(rangePreset, customRange), [rangePreset, customRange]);
+  const activeOverviewRequestRef = useRef(null);
+  const lastOverviewQueryKeyRef = useRef("");
+  const lastOverviewFetchAtRef = useRef(0);
 
-  const ANALYTICS_TIMEOUT_MS = 20000;
+  // Backend analytics endpoint uses Mongo maxTimeMS(45s). If the frontend times out earlier,
+  // it triggers an expensive fallback fetch of thousands of loans, making the page slower.
+  // This value is intentionally higher than 20s to avoid that.
+  const ANALYTICS_TIMEOUT_MS = 60000;
+  const ANALYTICS_RETRY_TIMEOUT_MS = 120000;
 
   const isConnectionError = (e) => {
     const msg = String(e?.message || "").toLowerCase();
@@ -1237,26 +1258,85 @@ const AnalyticsDashboard = () => {
   };
 
   const fetchOverview = useCallback(async () => {
+    const queryKey = JSON.stringify(queryParams || {});
+    const now = Date.now();
+
+    // In dev (StrictMode/Fast Refresh), effect can run twice quickly with same params.
+    if (
+      queryKey === lastOverviewQueryKeyRef.current &&
+      now - lastOverviewFetchAtRef.current < 900
+    ) {
+      return;
+    }
+
+    lastOverviewQueryKeyRef.current = queryKey;
+    lastOverviewFetchAtRef.current = now;
+
+    if (activeOverviewRequestRef.current) {
+      activeOverviewRequestRef.current.abort();
+    }
+
     setLoading(true);
     setError("");
+    const runOverviewRequest = async (timeoutMs) => {
+      const controller = new AbortController();
+      activeOverviewRequestRef.current = controller;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await loansApi.getAnalyticsOverview(queryParams, {
+          signal: controller.signal,
+        });
+        return res;
+      } finally {
+        clearTimeout(timeoutId);
+        if (activeOverviewRequestRef.current === controller) {
+          activeOverviewRequestRef.current = null;
+        }
+      }
+    };
+
     try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timeout")), ANALYTICS_TIMEOUT_MS),
-      );
-      const res = await Promise.race([
-        loansApi.getAnalyticsOverview(queryParams),
-        timeoutPromise,
-      ]);
+      let res;
+      try {
+        res = await runOverviewRequest(ANALYTICS_TIMEOUT_MS);
+      } catch (firstErr) {
+        const firstMsg = String(firstErr?.message || "").toLowerCase();
+        const firstTimedOut =
+          firstErr?.name === "AbortError" ||
+          firstMsg.includes("aborted") ||
+          firstMsg.includes("timeout") ||
+          firstMsg.includes("request timeout");
+
+        if (!firstTimedOut) {
+          throw firstErr;
+        }
+
+        // One automatic retry with extended timeout to reduce false timeout failures.
+        res = await runOverviewRequest(ANALYTICS_RETRY_TIMEOUT_MS);
+      }
       setOverview(res?.data || null);
     } catch (err) {
       const connectionDown = isConnectionError(err);
       if (connectionDown) {
-        setError(
-          "Backend server is not running. Start it with: cd cdb-api && npm run dev",
-        );
+        setError("Backend server is not running. Start it with: cd cdb-api && npm run dev");
         setOverview(null);
       } else {
-        console.warn("[AnalyticsDashboard] API failed, using fallback:", err?.message);
+        const errMsg = String(err?.message || "").toLowerCase();
+        const isTimeout =
+          err?.name === "AbortError" ||
+          errMsg.includes("aborted") ||
+          errMsg.includes("timeout") ||
+          errMsg.includes("request timeout");
+
+        // If we timed out, do not run fallback. Fallback fetches thousands of loans and is
+        // almost always slower than letting the backend finish its work.
+        if (isTimeout) {
+          setError("Analytics request timed out. Please try again.");
+          setOverview(null);
+          return;
+        }
+
+        // Backend responded but analytics failed; fall back to client-side computation.
         setError("");
         try {
           const loans = await fetchAllLoansForFallback();
@@ -1449,34 +1529,34 @@ const AnalyticsDashboard = () => {
         <section className="analytics-hero relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_4px_24px_-8px_rgba(15,23,42,0.12)] dark:shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4)]">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/[0.03] pointer-events-none" />
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary/5 blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="relative z-10 p-6 md:p-8">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <ChartNoAxesCombined size={22} strokeWidth={2} />
+          <div className="relative z-10 p-4 md:p-5">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <ChartNoAxesCombined size={18} strokeWidth={2} />
                   </div>
                   <div>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
                       AutoCredits India LLP
                     </span>
                   </div>
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-[1.75rem]">
+                <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
                   Analytics Dashboard
                 </h1>
-                <p className="max-w-xl text-sm font-medium text-muted-foreground leading-relaxed">
+                <p className="max-w-2xl text-xs font-medium text-muted-foreground leading-relaxed md:text-sm">
                   Real-time loan performance insights, pipeline analytics, and custom reporting — all in one command center.
                 </p>
               </div>
 
-              <div className="analytics-range-wrap flex flex-wrap items-center gap-2">
+              <div className="analytics-range-wrap flex w-full flex-wrap items-center gap-1.5 md:gap-2 xl:w-auto xl:justify-end">
                 {RANGE_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => setRangePreset(option.value)}
-                    className={`analytics-range-btn rounded-xl border px-4 py-2.5 text-xs font-semibold transition-all duration-200 ${
+                    className={`analytics-range-btn rounded-lg border px-3 py-2 text-[11px] font-semibold transition-all duration-200 ${
                       rangePreset === option.value
                         ? "is-active border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
                         : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5"
@@ -1498,7 +1578,7 @@ const AnalyticsDashboard = () => {
                 <Button
                   type="primary"
                   icon={<RefreshCcw size={14} />}
-                  className="analytics-refresh-btn h-10 rounded-xl !border-primary !bg-primary !text-primary-foreground shadow-md hover:!opacity-90"
+                  className="analytics-refresh-btn h-9 rounded-lg !border-primary !bg-primary !text-primary-foreground shadow-md hover:!opacity-90"
                   onClick={fetchOverview}
                 >
                   Refresh

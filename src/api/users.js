@@ -11,3 +11,26 @@ export const updateUserRole = async (userId, role, token) => {
     token ? { Authorization: `Bearer ${token}` } : undefined
   );
 };
+
+export const approveUser = async (userId, status, token) => {
+  return apiClient.put(
+    `/api/auth/user/${userId}/approve`,
+    { status },
+    token ? { Authorization: `Bearer ${token}` } : undefined
+  );
+};
+
+export const deactivateUser = async (userId, token) => {
+  return apiClient.put(
+    `/api/auth/user/${userId}/deactivate`,
+    {},
+    token ? { Authorization: `Bearer ${token}` } : undefined
+  );
+};
+
+export const deleteUser = async (userId, token) => {
+  return apiClient.delete(
+    `/api/auth/user/${userId}`,
+    token ? { Authorization: `Bearer ${token}` } : undefined
+  );
+};
