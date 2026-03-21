@@ -22,6 +22,7 @@ import AnalyticsDashboard from "./modules/analytics/AnalyticsDashboard";
 import LoginPage from "./modules/auth/LoginPage";
 import Signup from "./modules/auth/Signup";
 import { ThemeProvider } from "./context/ThemeContext";
+import { AuthProvider } from "./context/AuthContext";
 import "./App.css";
 import QuotationManagerPage from "./modules/loans/pages/QuotationManagerPage";
 import FeaturesPage from "./modules/loans/pages/FeaturesPage";
@@ -33,6 +34,7 @@ import DetailedShowroomViewPage from "./pages/superadmin/DetailedShowroomViewPag
 import SuperadminChannelsPage from "./pages/superadmin/SuperadminChannelsPage";
 import SuperadminBanksPage from "./pages/superadmin/SuperadminBanksPage";
 import DetailedBankViewPage from "./pages/superadmin/DetailedBankViewPage";
+import ProfilePage from "./pages/ProfilePage";
 
 // NEW: booking pages
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
@@ -53,6 +55,7 @@ function HeaderWrapper() {
 function App() {
   return (
     <ThemeProvider>
+      <AuthProvider>
       <Routes>
         {/* Public Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -114,6 +117,9 @@ function App() {
           <Route path="vehicles" element={<VehicleMaster />} />
           <Route path="vehicles/price-list" element={<VehiclePriceList />} />
 
+          {/* Profile */}
+          <Route path="profile" element={<ProfilePage />} />
+
           {/* Superadmin */}
           <Route
             path="superadmin/users"
@@ -171,6 +177,7 @@ function App() {
           />
         </Route>
       </Routes>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

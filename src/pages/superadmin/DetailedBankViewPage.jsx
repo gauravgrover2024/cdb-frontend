@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Button, Input, message, Spin, Card, Row, Col, Divider, Tag } from "antd";
-import { ArrowLeft } from "lucide-react";
+import { message, Spin } from "antd";
+import { ArrowLeft, Pencil, Save, X, Landmark, MapPin, Phone, Clock, Building2 } from "lucide-react";
 import { banksApi } from "../../api/banks";
 import BankLogoBadge from "../../components/banks/BankLogoBadge";
 
@@ -38,13 +38,9 @@ const getDisplayBankName = (bank) =>
 
 const formatDate = (value) => {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString();
+  return new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-/**
- * Detailed Bank View Page
- * Displays all bank directory fields with edit capability
- */
 const DetailedBankViewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -67,18 +63,14 @@ const DetailedBankViewPage = () => {
     active: true,
   });
 
-  useEffect(() => {
-    loadBank();
-  }, [id]);
+  const update = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
+
+  useEffect(() => { loadBank(); }, [id]);
 
   const loadBank = async () => {
     setLoading(true);
     try {
-      const res = await banksApi.getAll({
-        id,
-        limit: 1,
-        fields: "detail",
-      });
+      const res = await banksApi.getAll({ id, limit: 1, fields: "detail" });
       const bank = Array.isArray(res?.data) ? res.data[0] : null;
       if (bank) {
         setBank(bank);
@@ -93,7 +85,6 @@ const DetailedBankViewPage = () => {
         }
       }
     } catch (error) {
-      console.error("Error loading bank:", error);
       if (fallbackBankFromList) {
         setBank(fallbackBankFromList);
         setFormData(fallbackBankFromList);
@@ -110,7 +101,6 @@ const DetailedBankViewPage = () => {
       message.error("Bank name and IFSC are required");
       return;
     }
-
     setSaving(true);
     try {
       await banksApi.update(bank._id, formData);
@@ -118,7 +108,6 @@ const DetailedBankViewPage = () => {
       setBank(formData);
       setEditing(false);
     } catch (error) {
-      console.error("Error saving bank:", error);
       message.error(error?.message || "Failed to save bank");
     } finally {
       setSaving(false);
@@ -126,220 +115,221 @@ const DetailedBankViewPage = () => {
   };
 
   if (loading) {
-    return <Spin className="flex items-center justify-center py-20" />;
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Spin size="large" />
+          <p className="text-sm text-muted-foreground">Loading bank details…</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!bank) {
-    return null;
-  }
+  if (!bank) return null;
+
   const displayName = getDisplayBankName(formData);
+  const isActive = formData.active !== false;
+
+  const ViewField = ({ value, mono }) => (
+    <div className={`min-h-[38px] rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground/90 ${mono ? "font-mono tracking-wide" : ""}`}>
+      {value || <span className="text-muted-foreground/40">—</span>}
+    </div>
+  );
+
+  const EditField = ({ field, value, mono, placeholder, uppercase }) => (
+    <input
+      type="text"
+      value={value ?? ""}
+      placeholder={placeholder}
+      onChange={(e) => update(field, uppercase ? e.target.value.toUpperCase() : e.target.value)}
+      className={`w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 ${mono ? "font-mono tracking-wide" : ""}`}
+    />
+  );
+
+  const FieldRow = ({ label, field, mono, placeholder, uppercase, fullWidth }) => (
+    <div className={fullWidth ? "col-span-2 sm:col-span-2" : ""}>
+      <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">{label}</label>
+      {editing ? (
+        <EditField field={field} value={formData[field]} mono={mono} placeholder={placeholder} uppercase={uppercase} />
+      ) : (
+        <ViewField value={formData[field]} mono={mono} />
+      )}
+    </div>
+  );
+
+  const SectionHeader = ({ icon: Icon, title }) => (
+    <div className="col-span-2 flex items-center gap-2 border-t border-border pt-4">
+      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted">
+        <Icon size={13} className="text-muted-foreground" />
+      </div>
+      <h4 className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">{title}</h4>
+    </div>
+  );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-6 pb-10">
+      {/* Top Navigation */}
       <div className="flex items-center gap-3">
-        <Button type="text" icon={<ArrowLeft size={20} />} onClick={() => navigate(-1)} />
-        <h2 className="text-2xl font-black text-foreground">Bank Profile</h2>
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground/80 shadow-sm transition hover:bg-muted"
+        >
+          <ArrowLeft size={15} />
+          Back
+        </button>
+        <div className="h-4 w-px bg-border" />
+        <span className="text-sm text-muted-foreground">Banks</span>
+        <span className="text-sm text-muted-foreground/50">/</span>
+        <span className="text-sm font-medium text-foreground line-clamp-1">{displayName}</span>
       </div>
 
-      <Card className="rounded-2xl border border-border shadow-sm">
-        <div className="space-y-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      {/* Main Card */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        {/* Hero Banner */}
+        <div className="border-b border-border bg-gradient-to-r from-indigo-50 via-card to-card px-6 py-5 dark:from-indigo-950/20">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <BankLogoBadge bankName={displayName} size={52} />
               <div>
-                <h3 className="text-2xl font-black text-foreground">{displayName}</h3>
-                <p className="text-xs font-semibold tracking-wide text-muted-foreground">
-                  IFSC: {formData.ifsc || "Unavailable"}
-                </p>
+                <h2 className="text-xl font-black text-foreground">{displayName}</h2>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-medium text-foreground/80">
+                    {formData.ifsc || "No IFSC"}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      isActive
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-500"}`} />
+                    {isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="flex gap-2">
+
+            <div className="flex items-center gap-2">
               {!editing ? (
-                <Button type="primary" onClick={() => setEditing(true)}>
+                <button
+                  onClick={() => setEditing(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                >
+                  <Pencil size={14} />
                   Edit Profile
-                </Button>
+                </button>
               ) : (
                 <>
-                  <Button type="primary" loading={saving} onClick={handleSave}>
-                    Save
-                  </Button>
-                  <Button onClick={() => { setEditing(false); setFormData(bank); }}>
+                  <button
+                    onClick={() => { setEditing(false); setFormData(bank); }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground/80 transition hover:bg-muted"
+                  >
+                    <X size={14} />
                     Cancel
-                  </Button>
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    <Save size={14} />
+                    {saving ? "Saving…" : "Save Changes"}
+                  </button>
                 </>
               )}
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-border bg-muted/25 px-4 py-3">
-              <p className="text-xs text-muted-foreground">Current Status</p>
-              <Tag color={formData.active ? "green" : "red"} className="mt-1">
-                {formData.active ? "Active" : "Inactive"}
-              </Tag>
-            </div>
-            <div className="rounded-xl border border-border bg-muted/25 px-4 py-3">
-              <p className="text-xs text-muted-foreground">Last Verified</p>
-              <p className="text-sm font-semibold text-foreground">{formatDate(bank.lastVerifiedAt)}</p>
-            </div>
-            <div className="rounded-xl border border-border bg-muted/25 px-4 py-3">
-              <p className="text-xs text-muted-foreground">Created On</p>
-              <p className="text-sm font-semibold text-foreground">{formatDate(bank.createdAt)}</p>
-            </div>
+        {/* Metric Tiles */}
+        <div className="grid grid-cols-3 gap-px bg-border">
+          <div className="bg-card px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</p>
+            <span
+              className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                isActive
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-500"}`} />
+              {isActive ? "Active" : "Inactive"}
+            </span>
           </div>
+          <div className="bg-card px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last Verified</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{formatDate(bank.lastVerifiedAt)}</p>
+          </div>
+          <div className="bg-card px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Created On</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">{formatDate(bank.createdAt)}</p>
+          </div>
+        </div>
 
-          <Divider className="my-1" />
-
-          <Row gutter={[16, 16]}>
-            <Col span={24}>
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
-                Identity
-              </h4>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Bank Name</label>
-              {editing ? (
-                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm font-semibold">
-                  {displayName}
-                </div>
-              )}
-            </Col>
-            <Col xs={24} md={12}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">IFSC Code</label>
-              {editing ? (
-                <Input
-                  value={formData.ifsc}
-                  onChange={(e) => setFormData({ ...formData, ifsc: e.target.value.toUpperCase() })}
-                />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 font-mono text-sm">
-                  {formData.ifsc || "—"}
-                </div>
-              )}
-            </Col>
-            <Col xs={24} md={12}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">MICR Code</label>
-              {editing ? (
-                <Input value={formData.micr || ""} onChange={(e) => setFormData({ ...formData, micr: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 font-mono text-sm">
-                  {formData.micr || "—"}
-                </div>
-              )}
-            </Col>
-            <Col xs={24} md={12}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Status</label>
+        {/* Fields */}
+        <div className="px-6 py-6">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+            <SectionHeader icon={Landmark} title="Identity" />
+            <FieldRow label="Bank Name" field="name" placeholder="e.g. HDFC Bank" />
+            <FieldRow label="IFSC Code" field="ifsc" mono uppercase placeholder="e.g. HDFC0001234" />
+            <FieldRow label="MICR Code" field="micr" mono placeholder="9-digit MICR" />
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Status</label>
               {editing ? (
                 <select
                   value={formData.active ? "Active" : "Inactive"}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.value === "Active" })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  onChange={(e) => update("active", e.target.value === "Active")}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
                 >
                   <option>Active</option>
                   <option>Inactive</option>
                 </select>
               ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">
+                <div className="min-h-[38px] rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground/90">
                   {formData.active ? "Active" : "Inactive"}
                 </div>
               )}
-            </Col>
+            </div>
 
-            <Col span={24} className="pt-2">
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
-                Branch & Location
-              </h4>
-            </Col>
-            <Col xs={24} md={12}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Branch</label>
-              {editing ? (
-                <Input value={formData.branch || ""} onChange={(e) => setFormData({ ...formData, branch: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">{formData.branch || "—"}</div>
-              )}
-            </Col>
-            <Col xs={24} md={12}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Address</label>
-              {editing ? (
-                <Input value={formData.address || ""} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">{formData.address || "—"}</div>
-              )}
-            </Col>
-            <Col xs={24} md={8}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">City</label>
-              {editing ? (
-                <Input value={formData.city || ""} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">{formData.city || "—"}</div>
-              )}
-            </Col>
-            <Col xs={24} md={8}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">State</label>
-              {editing ? (
-                <Input value={formData.state || ""} onChange={(e) => setFormData({ ...formData, state: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">{formData.state || "—"}</div>
-              )}
-            </Col>
-            <Col xs={24} md={8}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">District</label>
-              {editing ? (
-                <Input value={formData.district || ""} onChange={(e) => setFormData({ ...formData, district: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">{formData.district || "—"}</div>
-              )}
-            </Col>
+            <SectionHeader icon={Building2} title="Branch & Location" />
+            <FieldRow label="Branch Name" field="branch" placeholder="Branch name" />
+            <FieldRow label="Address" field="address" placeholder="Street address" />
+            <FieldRow label="City" field="city" placeholder="City" />
+            <FieldRow label="District" field="district" placeholder="District" />
+            <FieldRow label="State" field="state" placeholder="State" fullWidth />
 
-            <Col span={24} className="pt-2">
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
-                Contact
-              </h4>
-            </Col>
-            <Col xs={24}>
-              <label className="mb-1 block text-xs font-semibold text-muted-foreground">Contact Number</label>
-              {editing ? (
-                <Input value={formData.contact || ""} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} />
-              ) : (
-                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm">{formData.contact || "—"}</div>
-              )}
-            </Col>
+            <SectionHeader icon={Phone} title="Contact" />
+            <FieldRow label="Contact Number" field="contact" placeholder="Phone number" fullWidth />
 
-            <Col span={24} className="pt-2">
-              <h4 className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
-                Metadata
-              </h4>
-            </Col>
-            <Col xs={24} md={6}>
-              <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">Created</p>
-                <p className="text-sm font-semibold">{formatDate(bank.createdAt)}</p>
+            <SectionHeader icon={Clock} title="Metadata" />
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Created</label>
+              <div className="min-h-[38px] rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground/70">
+                {formatDate(bank.createdAt)}
               </div>
-            </Col>
-            <Col xs={24} md={6}>
-              <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">Updated</p>
-                <p className="text-sm font-semibold">{formatDate(bank.updatedAt)}</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Last Updated</label>
+              <div className="min-h-[38px] rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground/70">
+                {formatDate(bank.updatedAt)}
               </div>
-            </Col>
-            <Col xs={24} md={6}>
-              <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">Last Verified</p>
-                <p className="text-sm font-semibold">{formatDate(bank.lastVerifiedAt)}</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Last Verified</label>
+              <div className="min-h-[38px] rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground/70">
+                {formatDate(bank.lastVerifiedAt)}
               </div>
-            </Col>
-            <Col xs={24} md={6}>
-              <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-                <p className="text-[11px] text-muted-foreground">Record ID</p>
-                <p className="truncate font-mono text-sm">{String(bank._id || "—")}</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Record ID</label>
+              <div className="min-h-[38px] truncate rounded-lg border border-border bg-muted/30 px-3 py-2 font-mono text-xs text-muted-foreground/70">
+                {String(bank._id || "—")}
               </div>
-            </Col>
-          </Row>
+            </div>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

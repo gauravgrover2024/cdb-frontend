@@ -4,49 +4,99 @@ import {
   Menu,
   X,
   ChevronDown,
-  User,
   Sun,
   Moon,
   LogOut,
   Settings,
   Bell,
+  UserCircle2,
 } from "lucide-react";
 import Icon from "../AppIcon";
-import { Dropdown, Avatar, Badge as AntBadge } from "antd";
+import { Badge as AntBadge } from "antd";
 import { useTheme } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
 import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const nameToHue = (name) => {
+  const str = String(name || "?");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % 360;
+};
+
+const getInitials = (name) => {
+  const str = String(name || "").trim();
+  if (!str) return "?";
+  const parts = str.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return str.slice(0, 2).toUpperCase();
+};
+
+const ROLE_META = {
+  superadmin: { label: "Superadmin", color: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" },
+  admin:       { label: "Admin",      color: "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300" },
+  staff:       { label: "Staff",      color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  user:        { label: "User",       color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
+  demo:        { label: "Demo",       color: "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300" },
+};
+
+// Initials avatar — used in header button and mobile footer
+const UserAvatar = ({ name, size = 32 }) => {
+  const hue = nameToHue(name);
+  const initials = getInitials(name);
+  return (
+    <div
+      className="flex flex-shrink-0 items-center justify-center rounded-full font-bold text-white shadow-sm select-none"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.38,
+        backgroundColor: `hsl(${hue}, 55%, 46%)`,
+      }}
+    >
+      {initials}
+    </div>
+  );
+};
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { isDarkMode, toggleTheme } = useTheme();
+  const { user: userData, logout } = useAuth();
 
-  // Handle scroll effect for glassmorphism
+  const isSuperadmin = userData?.role === "superadmin";
+  const roleMeta = ROLE_META[userData?.role] || ROLE_META.staff;
+
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Prevent background scroll when mobile sidebar is open.
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, [mobileMenuOpen]);
 
-  // Determine if user is superadmin
-  let isSuperadmin = false;
-  let userData = null;
-  try {
-    userData = JSON.parse(sessionStorage.getItem("user"));
-    isSuperadmin = userData?.role === "superadmin";
-  } catch {}
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handler = (e) => {
+      if (!e.target.closest("[data-profile-menu]")) setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [profileOpen]);
 
   const navigationGroups = [
     {
@@ -58,151 +108,64 @@ const Header = () => {
       label: "Customers",
       icon: <Icon name="Users" size={18} />,
       children: [
-        {
-          label: "Dashboard",
-          path: "/customers",
-          desc: "View all customer records",
-        },
-        {
-          label: "New Registration",
-          path: "/customers/new",
-          desc: "Register a new client",
-        },
+        { label: "Dashboard",         path: "/customers",     desc: "View all customer records" },
+        { label: "New Registration",  path: "/customers/new", desc: "Register a new client"      },
       ],
     },
     {
       label: "Loans",
       icon: <Icon name="Wallet" size={18} />,
-      path: "/loans",
       children: [
-        {
-          label: "Loan Dashboard",
-          path: "/loans",
-          desc: "Lifecycle management",
-        },
-        {
-          label: "New Application",
-          path: "/loans/new",
-          desc: "Start a new loan file",
-        },
+        { label: "Loan Dashboard",   path: "/loans",     desc: "Lifecycle management" },
+        { label: "New Application",  path: "/loans/new", desc: "Start a new loan file" },
       ],
     },
     {
       label: "Tools",
       icon: <Icon name="Wrench" size={18} />,
       children: [
-        {
-          label: "EMI Calculator",
-          path: "/loans/emi-calculator",
-          desc: "Calculate loan EMI",
-        },
-        {
-          label: "Quotations",
-          path: "/loans/quotations",
-          desc: "Manage vehicle quotes",
-        },
-        {
-          label: "Features Catalog",
-          path: "/loans/features",
-          desc: "Compare variant features",
-        },
-        {
-          label: "Vehicle Price List",
-          path: "/vehicles/price-list",
-          desc: "Browse pricing catalog",
-        },
+        { label: "EMI Calculator",     path: "/loans/emi-calculator", desc: "Calculate loan EMI"       },
+        { label: "Quotations",         path: "/loans/quotations",     desc: "Manage vehicle quotes"    },
+        { label: "Features Catalog",   path: "/loans/features",       desc: "Compare variant features" },
+        { label: "Vehicle Price List", path: "/vehicles/price-list",  desc: "Browse pricing catalog"   },
       ],
     },
     {
       label: "Finance",
       icon: <Icon name="Coins" size={18} />,
       children: [
-        {
-          label: "Receivables",
-          path: "/payouts/receivables",
-          desc: "Track incoming funds",
-        },
-        {
-          label: "Delivery Orders",
-          path: "/delivery-orders",
-          desc: "Manage DO dispatch",
-        },
-        {
-          label: "Payments",
-          path: "/payments",
-          desc: "Process installments",
-        },
+        { label: "Receivables",     path: "/payouts/receivables", desc: "Track incoming funds"   },
+        { label: "Delivery Orders", path: "/delivery-orders",     desc: "Manage DO dispatch"     },
+        { label: "Payments",        path: "/payments",            desc: "Process installments"   },
       ],
     },
     ...(isSuperadmin
-      ? [
-          {
-            label: "Control Panel",
-            icon: <Icon name="ShieldCheck" size={18} />,
-            children: [
-              {
-                label: "User Management",
-                path: "/superadmin/users",
-                desc: "Manage user roles & access",
-              },
-              {
-                label: "Showrooms",
-                path: "/superadmin/showrooms",
-                desc: "Manage all showrooms",
-              },
-              {
-                label: "Channels",
-                path: "/superadmin/channels",
-                desc: "Manage partner channels",
-              },
-              {
-                label: "Banks",
-                path: "/superadmin/banks",
-                desc: "Configure finance partners",
-              },
-            ],
-          },
-        ]
+      ? [{
+          label: "Control Panel",
+          icon: <Icon name="ShieldCheck" size={18} />,
+          children: [
+            { label: "User Management", path: "/superadmin/users",     desc: "Manage user roles & access" },
+            { label: "Showrooms",       path: "/superadmin/showrooms", desc: "Manage all showrooms"       },
+            { label: "Channels",        path: "/superadmin/channels",  desc: "Manage partner channels"    },
+            { label: "Banks",           path: "/superadmin/banks",     desc: "Configure finance partners" },
+          ],
+        }]
       : []),
   ];
 
   const isActive = (path) => location?.pathname === path;
-  const isGroupActive = (children) =>
-    children?.some((child) => isActive(child.path));
+  const isGroupActive = (children) => children?.some((child) => isActive(child.path));
 
   const groupAccent = (label) => {
     const map = {
-      Analytics: {
-        icon: "bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 dark:from-sky-500/20 dark:to-indigo-500/20 dark:text-sky-300",
-        dot: "bg-sky-500 dark:bg-sky-400",
-      },
-      Customers: {
-        icon: "bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700 dark:from-emerald-500/20 dark:to-teal-500/20 dark:text-emerald-300",
-        dot: "bg-emerald-500 dark:bg-emerald-400",
-      },
-      Loans: {
-        icon: "bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-700 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:text-violet-300",
-        dot: "bg-violet-500 dark:bg-violet-400",
-      },
-      Vehicles: {
-        icon: "bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 dark:from-amber-500/20 dark:to-orange-500/20 dark:text-amber-300",
-        dot: "bg-amber-500 dark:bg-amber-400",
-      },
-      Finance: {
-        icon: "bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-700 dark:from-cyan-500/20 dark:to-blue-500/20 dark:text-cyan-300",
-        dot: "bg-cyan-500 dark:bg-cyan-400",
-      },
-      "Control Panel": {
-        icon: "bg-gradient-to-br from-slate-200 to-slate-100 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",
-        dot: "bg-slate-500 dark:bg-slate-300",
-      },
+      Analytics:       { icon: "bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 dark:from-sky-500/20 dark:to-indigo-500/20 dark:text-sky-300",     dot: "bg-sky-500 dark:bg-sky-400"     },
+      Customers:       { icon: "bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700 dark:from-emerald-500/20 dark:to-teal-500/20 dark:text-emerald-300", dot: "bg-emerald-500 dark:bg-emerald-400" },
+      Loans:           { icon: "bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-700 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:text-violet-300", dot: "bg-violet-500 dark:bg-violet-400" },
+      Tools:           { icon: "bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 dark:from-amber-500/20 dark:to-orange-500/20 dark:text-amber-300", dot: "bg-amber-500 dark:bg-amber-400"   },
+      Finance:         { icon: "bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-700 dark:from-cyan-500/20 dark:to-blue-500/20 dark:text-cyan-300",         dot: "bg-cyan-500 dark:bg-cyan-400"     },
+      "Control Panel": { icon: "bg-gradient-to-br from-slate-200 to-slate-100 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",   dot: "bg-slate-500 dark:bg-slate-300"   },
     };
-    return (
-      map[label] || {
-        icon: "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",
-        dot: "bg-sky-500 dark:bg-sky-400",
-      }
-    );
+    return map[label] || { icon: "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300", dot: "bg-sky-500 dark:bg-sky-400" };
   };
 
   const handleNavigation = (path) => {
@@ -213,6 +176,12 @@ const Header = () => {
     }
     navigate(path);
     setMobileMenuOpen(false);
+    setProfileOpen(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
   };
 
   return (
@@ -233,9 +202,7 @@ const Header = () => {
               onClick={() => handleNavigation("/")}
             >
               <img
-                src={
-                  process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"
-                }
+                src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
                 alt="ACILLP"
                 className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105 md:h-8 xl:h-11"
               />
@@ -256,18 +223,11 @@ const Header = () => {
                               : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
                           }`}
                         >
-                          <span
-                            className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${
-                              accent.icon
-                            }`}
-                          >
+                          <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}>
                             {group.icon}
                           </span>
                           {group.label}
-                          <ChevronDown
-                            size={14}
-                            className="opacity-60 transition-transform duration-300 group-hover/nav:rotate-180"
-                          />
+                          <ChevronDown size={14} className="opacity-60 transition-transform duration-300 group-hover/nav:rotate-180" />
                         </button>
 
                         {/* Dropdown */}
@@ -290,20 +250,10 @@ const Header = () => {
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[13px] font-bold tracking-tight">
-                                    {child.label}
-                                  </span>
-                                  <span
-                                    className={`h-1.5 w-1.5 rounded-full ${accent.dot} transition-all ${
-                                      isActive(child.path)
-                                        ? "opacity-100"
-                                        : "opacity-0 group-hover/item:opacity-45"
-                                    }`}
-                                  />
+                                  <span className="text-[13px] font-bold tracking-tight">{child.label}</span>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${accent.dot} transition-all ${isActive(child.path) ? "opacity-100" : "opacity-0 group-hover/item:opacity-45"}`} />
                                 </div>
-                                <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                  {child.desc}
-                                </span>
+                                <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">{child.desc}</span>
                               </button>
                             ))}
                           </div>
@@ -318,11 +268,7 @@ const Header = () => {
                             : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
                         }`}
                       >
-                        <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${
-                            accent.icon
-                          }`}
-                        >
+                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}>
                           {group.icon}
                         </span>
                         {group.label}
@@ -335,12 +281,14 @@ const Header = () => {
 
             {/* Right: Actions */}
             <div className="relative z-[1] ml-auto flex items-center gap-1.5 sm:gap-3">
+              {/* Notification bell */}
               <div className="relative hidden sm:flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-emerald-100 text-slate-600 transition-colors hover:from-sky-200 hover:to-emerald-200 hover:text-slate-900 dark:from-sky-500/20 dark:to-emerald-500/20 dark:text-slate-200 dark:hover:from-sky-500/30 dark:hover:to-emerald-500/30 xl:h-10 xl:w-10">
                 <AntBadge dot color="#1d9bf0" offset={[-1, 2]}>
                   <Bell size={18} />
                 </AntBadge>
               </div>
 
+              {/* Theme toggle */}
               <button
                 onClick={toggleTheme}
                 className={`hidden h-10 w-10 items-center justify-center rounded-lg transition-all duration-300 sm:flex ${
@@ -352,77 +300,79 @@ const Header = () => {
                 {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
               </button>
 
-              {/* Profile Dropdown */}
-              <div className="hidden sm:block">
-              <Dropdown
-                menu={{
-                  items: [
-                    {
-                      key: "user-info",
-                      label: (
-                        <div className="px-4 py-3 min-w-[200px] border-b border-border/40 mb-2">
-                          <div className="text-[13px] font-black text-foreground uppercase tracking-tight">
-                            {userData?.name || "Administrator"}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground font-medium">
-                            {userData?.email || "system@acillp.com"}
-                          </div>
-                          <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">
-                            {userData?.role || "Staff"} Access
-                          </div>
-                        </div>
-                      ),
-                    },
-                    {
-                      key: "settings",
-                      label: (
-                        <div className="flex items-center gap-3 px-1 py-1 font-semibold text-[13px]">
-                          <Settings size={16} className="opacity-60" />
-                          Settings
-                        </div>
-                      ),
-                    },
-                    { type: "divider" },
-                    {
-                      key: "logout",
-                      danger: true,
-                      label: (
-                        <div className="flex items-center gap-3 px-1 py-1 font-bold text-[13px]">
-                          <LogOut size={16} />
-                          Sign Out
-                        </div>
-                      ),
-                    },
-                  ],
-                  onClick: ({ key }) => {
-                    if (key === "logout") {
-                      sessionStorage.clear();
-                      navigate("/login");
-                    }
-                  },
-                }}
-                trigger={["click"]}
-                placement="bottomRight"
-                overlayClassName="header-profile-dropdown"
-              >
+              {/* Profile Dropdown — custom */}
+              <div className="relative hidden sm:block" data-profile-menu>
+                {/* Trigger button */}
                 <button
                   type="button"
+                  onClick={() => setProfileOpen((o) => !o)}
                   className="group/profile flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-slate-100 to-slate-50 px-1.5 pr-2.5 transition-colors hover:from-slate-200 hover:to-slate-100 dark:from-white/[0.08] dark:to-white/[0.04] dark:hover:from-white/[0.12] dark:hover:to-white/[0.08]"
                 >
                   <div className="relative">
-                    <Avatar
-                      className="bg-primary text-primary-foreground transition-all duration-300 shadow-sm"
-                      size={30}
-                      icon={<User size={16} />}
-                    />
-                    <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-success dark:border-black" />
+                    <UserAvatar name={userData?.name} size={30} />
+                    <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 dark:border-black" />
                   </div>
                   <ChevronDown
                     size={13}
-                    className="hidden text-muted-foreground transition-colors group-hover/profile:text-foreground sm:block"
+                    className={`hidden text-muted-foreground transition-transform duration-200 group-hover/profile:text-foreground sm:block ${profileOpen ? "rotate-180" : ""}`}
                   />
                 </button>
-              </Dropdown>
+
+                {/* Dropdown panel */}
+                {profileOpen && (
+                  <div className="absolute right-0 top-full z-50 mt-2.5 w-72 origin-top-right">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl ring-1 ring-black/5 dark:border-slate-800 dark:bg-[#0a0a0a]">
+                      {/* User identity block */}
+                      <div className="flex items-start gap-3.5 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+                        <div className="relative mt-0.5 flex-shrink-0">
+                          <UserAvatar name={userData?.name} size={44} />
+                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 dark:border-[#0a0a0a]" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14px] font-black text-slate-900 dark:text-white">
+                            {userData?.name || "Administrator"}
+                          </p>
+                          <p className="truncate text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {userData?.email || "—"}
+                          </p>
+                          <span className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${roleMeta.color}`}>
+                            {roleMeta.label}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Menu items */}
+                      <div className="p-1.5">
+                        <button
+                          onClick={() => handleNavigation("/profile")}
+                          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900"
+                        >
+                          <UserCircle2 size={16} className="text-slate-400 dark:text-slate-500" />
+                          My Profile
+                        </button>
+                        <button
+                          onClick={() => handleNavigation("/settings")}
+                          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900"
+                        >
+                          <Settings size={16} className="text-slate-400 dark:text-slate-500" />
+                          Settings
+                        </button>
+                      </div>
+
+                      <div className="mx-3 border-t border-slate-100 dark:border-slate-800" />
+
+                      <div className="p-1.5">
+                        <button
+                          onClick={handleLogout}
+                          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-bold text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                        >
+                          <LogOut size={16} />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Mobile Menu Trigger */}
@@ -462,9 +412,7 @@ const Header = () => {
             <div className="p-6 flex items-center justify-between border-b border-border/50">
               <div className="rounded-lg px-2 py-1">
                 <img
-                  src={
-                    process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"
-                  }
+                  src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
                   alt="ACILLP"
                   className="h-12 w-auto object-contain"
                 />
@@ -486,26 +434,20 @@ const Header = () => {
                       <div>
                         <div className="px-4 py-3 flex items-center gap-3 text-muted-foreground">
                           <span className="opacity-50">{group.icon}</span>
-                          <span className="text-xs font-black uppercase tracking-[0.2em]">
-                            {group.label}
-                          </span>
+                          <span className="text-xs font-black uppercase tracking-[0.2em]">{group.label}</span>
                         </div>
                         <div className="space-y-1 ml-4 pl-4 border-l-2 border-border/40">
                           {group.children.map((child) => (
                             <button
                               key={child.path}
                               onClick={() => handleNavigation(child.path)}
-                              className={`w-full text-left flex flex-col py-3 px-4 rounded-xl transition-all duration-200
-                                ${
-                                  isActive(child.path)
-                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                    : "text-foreground hover:bg-muted"
-                                }
-                              `}
+                              className={`w-full text-left flex flex-col py-3 px-4 rounded-xl transition-all duration-200 ${
+                                isActive(child.path)
+                                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                  : "text-foreground hover:bg-muted"
+                              }`}
                             >
-                              <span className="text-sm font-bold tracking-tight">
-                                {child.label}
-                              </span>
+                              <span className="text-sm font-bold tracking-tight">{child.label}</span>
                               {!isActive(child.path) && (
                                 <span className="text-[10px] text-muted-foreground font-medium opacity-60 mt-1 uppercase tracking-wider">
                                   {child.desc?.split(" ").slice(0, 2).join(" ")}
@@ -518,22 +460,16 @@ const Header = () => {
                     ) : (
                       <button
                         onClick={() => handleNavigation(group.path)}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 font-bold
-                          ${
-                            isActive(group.path)
-                              ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                              : "text-foreground hover:bg-muted"
-                          }
-                        `}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 font-bold ${
+                          isActive(group.path)
+                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                            : "text-foreground hover:bg-muted"
+                        }`}
                       >
-                        <span
-                          className={`opacity-60 ${isActive(group.path) ? "text-white" : ""}`}
-                        >
+                        <span className={`opacity-60 ${isActive(group.path) ? "text-white" : ""}`}>
                           {group.icon}
                         </span>
-                        <span className="text-sm tracking-tight">
-                          {group.label}
-                        </span>
+                        <span className="text-sm tracking-tight">{group.label}</span>
                       </button>
                     )}
                   </div>
@@ -542,40 +478,48 @@ const Header = () => {
             </div>
 
             {/* Footer / User Info */}
-            <div className="p-6 border-t border-border/50 bg-white dark:bg-black/50">
-              <div className="flex items-center gap-4 mb-6 px-1">
-                <Avatar
-                  className="bg-primary text-primary-foreground ring-4 ring-primary/10"
-                  size={48}
-                  icon={<User size={24} />}
-                />
-                <div className="flex flex-col overflow-hidden">
-                  <span className="text-sm font-black text-foreground truncate">
+            <div className="p-5 border-t border-border/50 bg-white dark:bg-black/50">
+              {/* User card */}
+              <div className="flex items-center gap-3.5 mb-4 rounded-xl bg-muted/40 px-4 py-3 dark:bg-white/[0.05]">
+                <div className="relative flex-shrink-0">
+                  <UserAvatar name={userData?.name} size={44} />
+                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 dark:border-black" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-foreground">
                     {userData?.name || "Staff User"}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground font-medium truncate opacity-70">
-                    Control Panel Operator
+                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground mt-0.5">
+                    {userData?.email || "—"}
+                  </p>
+                  <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${roleMeta.color}`}>
+                    {roleMeta.label}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              {/* Action buttons */}
+              <div className="grid grid-cols-3 gap-2">
                 <button
-                  onClick={toggleTheme}
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-muted text-foreground hover:text-primary transition-colors text-xs font-bold"
+                  onClick={() => handleNavigation("/profile")}
+                  className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-muted text-foreground hover:bg-muted/80 transition-colors"
                 >
-                  {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                  {isDarkMode ? "Light" : "Dark"}
+                  <UserCircle2 size={16} className="opacity-60" />
+                  <span className="text-[10px] font-bold opacity-70">Profile</span>
                 </button>
                 <button
-                  onClick={() => {
-                    sessionStorage.clear();
-                    navigate("/login");
-                  }}
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all text-xs font-black uppercase tracking-wider"
+                  onClick={toggleTheme}
+                  className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-muted text-foreground hover:text-primary transition-colors"
+                >
+                  {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+                  <span className="text-[10px] font-bold opacity-70">{isDarkMode ? "Light" : "Dark"}</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
                 >
                   <LogOut size={16} />
-                  Quit
+                  <span className="text-[10px] font-black uppercase tracking-wide">Quit</span>
                 </button>
               </div>
             </div>

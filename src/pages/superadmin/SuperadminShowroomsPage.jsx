@@ -1,39 +1,28 @@
 import React, { useState, useEffect } from "react";
-import { Button, Input, message, Table, Space, Modal } from "antd";
-import { Plus, Eye } from "lucide-react";
+import { message, Table, Modal } from "antd";
+import { Eye, Trash2, Search, Store, MapPin, Percent, CheckCircle2, SlidersHorizontal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { showroomsApi } from "../../api/showrooms";
 
-/**
- * Superadmin page: Manage all showrooms
- * Features: Create, Edit, Delete, View all showrooms
- */
 const SuperadminShowroomsPage = () => {
   const navigate = useNavigate();
   const [showrooms, setShowrooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchInputText, setSearchInputText] = useState("");
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 20,
-    total: 0,
-  });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [searchTimeout, setSearchTimeout] = useState(null);
   const [activeStatFilter, setActiveStatFilter] = useState("all");
+
   const stats = {
     totalShowrooms: pagination.total || 0,
     activeOnPage: showrooms.filter((s) => String(s?.status || "Active") === "Active").length,
-    uniqueCitiesOnPage: new Set(
-      showrooms.map((s) => String(s?.city || "").trim()).filter(Boolean),
-    ).size,
+    uniqueCitiesOnPage: new Set(showrooms.map((s) => String(s?.city || "").trim()).filter(Boolean)).size,
     avgCommissionOnPage:
       showrooms.length > 0
-        ? (
-            showrooms.reduce((sum, s) => sum + (Number(s?.commissionRate) || 0), 0) /
-            showrooms.length
-          ).toFixed(1)
+        ? (showrooms.reduce((sum, s) => sum + (Number(s?.commissionRate) || 0), 0) / showrooms.length).toFixed(1)
         : "0.0",
   };
+
   const filteredShowrooms = showrooms.filter((s) => {
     if (activeStatFilter === "active") return String(s?.status || "Active") === "Active";
     if (activeStatFilter === "city") return Boolean(String(s?.city || "").trim());
@@ -48,7 +37,6 @@ const SuperadminShowroomsPage = () => {
     return { data, total };
   };
 
-  // Load showrooms with pagination
   const loadShowrooms = async (page = 1, search = "") => {
     setLoading(true);
     try {
@@ -58,7 +46,6 @@ const SuperadminShowroomsPage = () => {
       setShowrooms(Array.isArray(data) ? data : []);
       setPagination({ current: page, pageSize: 20, total });
     } catch (error) {
-      console.error("Error loading showrooms:", error);
       message.error("Failed to load showrooms");
     } finally {
       setLoading(false);
@@ -68,25 +55,16 @@ const SuperadminShowroomsPage = () => {
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchInputText(value);
-
-    // Clear existing timeout
     if (searchTimeout) clearTimeout(searchTimeout);
-
-    // Debounce search - 300ms delay
-    const timeout = setTimeout(() => {
-      loadShowrooms(1, value);
-    }, 300);
+    const timeout = setTimeout(() => loadShowrooms(1, value), 300);
     setSearchTimeout(timeout);
   };
 
   useEffect(() => {
     loadShowrooms(1, "");
-    return () => {
-      if (searchTimeout) clearTimeout(searchTimeout);
-    };
+    return () => { if (searchTimeout) clearTimeout(searchTimeout); };
   }, []);
 
-  // Handle delete
   const handleDelete = (id) => {
     Modal.confirm({
       title: "Delete Showroom",
@@ -99,144 +77,184 @@ const SuperadminShowroomsPage = () => {
           message.success("Deleted successfully");
           loadShowrooms(pagination.current, searchInputText);
         } catch (error) {
-          console.error("Error deleting showroom:", error);
           message.error(error?.message || "Failed to delete");
         }
       },
     });
   };
 
+  const STAT_CARDS = [
+    { key: "all", label: "Total Showrooms", value: stats.totalShowrooms, icon: Store,
+      activeClass: "border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30",
+      iconClass: "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400",
+      valueClass: "text-foreground" },
+    { key: "active", label: "Active", value: stats.activeOnPage, icon: CheckCircle2,
+      activeClass: "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30",
+      iconClass: "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400",
+      valueClass: "text-emerald-600 dark:text-emerald-400" },
+    { key: "city", label: "Cities Covered", value: stats.uniqueCitiesOnPage, icon: MapPin,
+      activeClass: "border-sky-400 bg-sky-50 dark:bg-sky-950/30",
+      iconClass: "bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400",
+      valueClass: "text-sky-600 dark:text-sky-400" },
+    { key: "commission", label: "Avg Commission", value: `${stats.avgCommissionOnPage}%`, icon: Percent,
+      activeClass: "border-violet-400 bg-violet-50 dark:bg-violet-950/30",
+      iconClass: "bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400",
+      valueClass: "text-violet-600 dark:text-violet-400" },
+  ];
+
   const columns = [
     {
-      title: "Showroom Name",
-      dataIndex: "name",
-      key: "name",
-      width: "18%",
-    },
-    {
-      title: "Contact Person",
-      dataIndex: "contactPerson",
-      key: "contactPerson",
-      width: "15%",
-    },
-    {
-      title: "Mobile",
-      dataIndex: "mobile",
-      key: "mobile",
-      width: "12%",
-    },
-    {
-      title: "City",
-      dataIndex: "city",
-      key: "city",
-      width: "12%",
-    },
-    {
-      title: "GST Number",
-      dataIndex: "gstNumber",
-      key: "gstNumber",
-      width: "15%",
-      render: (text) => text || "—",
-    },
-    {
-      title: "Commission Rate",
-      dataIndex: "commissionRate",
-      key: "commissionRate",
-      width: "12%",
-      render: (text) => `${text || 0}%`,
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      width: "16%",
+      title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Showroom</span>,
+      key: "showroom", width: "26%",
       render: (_, record) => (
-        <Space size="small">
-          <Button
-            type="primary"
-            size="small"
-            icon={<Eye size={14} />}
+        <div>
+          <p className="font-semibold text-foreground">{record.name || "—"}</p>
+          {record.city && (
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/70">
+              <MapPin size={11} />{record.city}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</span>,
+      key: "contact", width: "22%",
+      render: (_, record) => (
+        <div>
+          <p className="text-sm text-foreground/90">{record.contactPerson || "—"}</p>
+          {record.mobile && <p className="mt-0.5 text-xs text-muted-foreground/70">{record.mobile}</p>}
+        </div>
+      ),
+    },
+    {
+      title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">GST</span>,
+      dataIndex: "gstNumber", key: "gstNumber", width: "18%",
+      render: (text) => <span className="font-mono text-xs text-muted-foreground">{text || "—"}</span>,
+    },
+    {
+      title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission</span>,
+      dataIndex: "commissionRate", key: "commissionRate", width: "12%",
+      render: (text) => (
+        <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+          {text || 0}%
+        </span>
+      ),
+    },
+    {
+      title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</span>,
+      dataIndex: "status", key: "status", width: "12%",
+      render: (text) => {
+        const isActive = String(text || "Active") === "Active";
+        return (
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+            isActive
+              ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-700"
+              : "bg-muted text-muted-foreground ring-1 ring-border"
+          }`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
+            {text || "Active"}
+          </span>
+        );
+      },
+    },
+    {
+      title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</span>,
+      key: "actions", width: "10%",
+      render: (_, record) => (
+        <div className="flex items-center gap-1.5">
+          <button
             onClick={() => navigate(`/superadmin/showrooms/${record._id}`)}
+            className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:ring-indigo-700 dark:hover:bg-indigo-950/60"
           >
-            View
-          </Button>
-          <Button
-            danger
-            size="small"
+            <Eye size={12} />View
+          </button>
+          <button
             onClick={() => handleDelete(record._id)}
+            className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 ring-1 ring-red-200 transition hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-700 dark:hover:bg-red-950/60"
           >
-            Delete
-          </Button>
-        </Space>
+            <Trash2 size={12} />Delete
+          </button>
+        </div>
       ),
     },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-lg font-black text-foreground">Showroom Management</h2>
-      </div>
-
-      <Input
-        placeholder="Search by name or city..."
-        value={searchInputText}
-        onChange={handleSearchChange}
-        className="w-full"
-      />
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <button
-          type="button"
-          onClick={() => setActiveStatFilter("all")}
-          className={`rounded-xl border p-3 text-left ${activeStatFilter === "all" ? "border-primary bg-primary/5" : "border-border bg-card"}`}
-        >
-          <p className="text-xs text-muted-foreground">Total Showrooms</p>
-          <p className="text-2xl font-black text-foreground">{stats.totalShowrooms}</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveStatFilter("active")}
-          className={`rounded-xl border p-3 text-left ${activeStatFilter === "active" ? "border-emerald-500 bg-emerald-50/60" : "border-border bg-card"}`}
-        >
-          <p className="text-xs text-muted-foreground">Active (This Page)</p>
-          <p className="text-2xl font-black text-emerald-600">{stats.activeOnPage}</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveStatFilter("city")}
-          className={`rounded-xl border p-3 text-left ${activeStatFilter === "city" ? "border-sky-500 bg-sky-50/60" : "border-border bg-card"}`}
-        >
-          <p className="text-xs text-muted-foreground">Cities Covered</p>
-          <p className="text-2xl font-black text-sky-600">{stats.uniqueCitiesOnPage}</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveStatFilter("commission")}
-          className={`rounded-xl border p-3 text-left ${activeStatFilter === "commission" ? "border-violet-500 bg-violet-50/60" : "border-border bg-card"}`}
-        >
-          <p className="text-xs text-muted-foreground">Avg Commission</p>
-          <p className="text-2xl font-black text-violet-600">{stats.avgCommissionOnPage}%</p>
-        </button>
-        <div className="rounded-xl border border-border bg-card p-3">
-          <p className="text-xs text-muted-foreground">Active Filter</p>
-          <p className="text-sm font-bold text-foreground capitalize">{activeStatFilter}</p>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
+            <Store size={20} className="text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Showroom Management</h2>
+            <p className="text-sm text-muted-foreground">View and manage all registered showrooms</p>
+          </div>
+        </div>
+        <div className="relative w-full sm:w-72">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
+          <input
+            type="text"
+            placeholder="Search by name or city…"
+            value={searchInputText}
+            onChange={handleSearchChange}
+            className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground/50 shadow-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+          />
         </div>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={filteredShowrooms}
-        loading={loading}
-        rowKey="_id"
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: pagination.total,
-          onChange: (page) => loadShowrooms(page, searchInputText),
-        }}
-      />
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {STAT_CARDS.map((card) => {
+          const Icon = card.icon;
+          const isActive = activeStatFilter === card.key;
+          return (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => setActiveStatFilter(card.key)}
+              className={`group rounded-xl border p-4 text-left shadow-sm transition-all hover:shadow-md ${
+                isActive ? card.activeClass : "border-border bg-card hover:border-foreground/20"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{card.label}</p>
+                <div className={`rounded-lg p-1.5 ${card.iconClass}`}>
+                  <Icon size={14} />
+                </div>
+              </div>
+              <p className={`mt-2 text-2xl font-black ${isActive ? card.valueClass : "text-foreground"}`}>
+                {card.value}
+              </p>
+              {isActive && (
+                <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-muted-foreground/70">
+                  <SlidersHorizontal size={10} />Filter active
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* No modal needed - using detail page for view/edit */}
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <Table
+          columns={columns}
+          dataSource={filteredShowrooms}
+          loading={loading}
+          rowKey="_id"
+          rowClassName="hover:bg-muted/30 transition-colors"
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            onChange: (page) => loadShowrooms(page, searchInputText),
+            className: "px-4 pb-2",
+          }}
+          scroll={{ x: 900 }}
+        />
+      </div>
     </div>
   );
 };
