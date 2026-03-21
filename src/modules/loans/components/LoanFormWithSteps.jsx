@@ -752,8 +752,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedGuPassportDocUrl = Form.useWatch("gu_passportDocUrl", form);
   const watchedGuDlDocUrl = Form.useWatch("gu_dlDocUrl", form);
   const watchedGuAddressProofDocUrl = Form.useWatch("gu_addressProofDocUrl", form);
-  const watchedDeliveryInvoiceFile = Form.useWatch("delivery_invoiceFile", form);
-  const watchedDeliveryRcFile = Form.useWatch("delivery_rcFile", form);
   const watchedLeadDate = Form.useWatch("leadDate", form);
   const watchedLeadTime = Form.useWatch("leadTime", form);
   const [activeStep, setActiveStep] = useState("profile");
@@ -1454,7 +1452,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     requestedRouteStep,
   ]);
 
-  // Persist KYC + delivery docs immediately on edit mode so refresh doesn't lose uploads.
+  // Persist KYC docs immediately on edit mode so refresh doesn't lose uploads.
   useEffect(() => {
     const effectiveLoanId = loanIdFromRoute || form.getFieldValue("loanId");
     if (!isEditMode || !effectiveLoanId) return;
@@ -1476,8 +1474,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       gu_passportDocUrl: watchedGuPassportDocUrl || "",
       gu_dlDocUrl: watchedGuDlDocUrl || "",
       gu_addressProofDocUrl: watchedGuAddressProofDocUrl || "",
-      delivery_invoiceFile: watchedDeliveryInvoiceFile || "",
-      delivery_rcFile: watchedDeliveryRcFile || "",
     };
 
     const signature = JSON.stringify(docPatch);
@@ -1493,7 +1489,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         await loansApi.update(effectiveLoanId, docPatch);
         docAutoSaveSignatureRef.current = signature;
       } catch (error) {
-        console.error("Failed to auto-persist KYC/Delivery documents:", error);
+        console.error("Failed to auto-persist KYC documents:", error);
       }
     }, 700);
 
@@ -1518,8 +1514,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     watchedGuPassportDocUrl,
     watchedGuDlDocUrl,
     watchedGuAddressProofDocUrl,
-    watchedDeliveryInvoiceFile,
-    watchedDeliveryRcFile,
   ]);
 
   // keep banksData mirrored in form for persistence

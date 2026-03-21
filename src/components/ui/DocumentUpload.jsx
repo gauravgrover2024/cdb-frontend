@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Upload, Image, Button, Tooltip, message } from "antd";
+import { Upload, Button, Tooltip, message } from "antd";
 import { 
   CloudUploadOutlined, 
   DeleteOutlined, 
@@ -9,6 +9,7 @@ import {
   LoadingOutlined 
 } from "@ant-design/icons";
 import { uploadSingleFile } from "../../api/uploads";
+import LoanDocumentViewerModal from "../../modules/loans/components/shared/LoanDocumentViewerModal";
 
 /**
  * DocumentUpload
@@ -111,8 +112,7 @@ const DocumentUpload = ({ value, onChange, folder = "documents", className }) =>
                   className="bg-white/90 border-none text-gray-700 hover:text-primary hover:bg-white"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (isPdf) window.open(value, "_blank");
-                    else setPreviewOpen(true);
+                    setPreviewOpen(true);
                   }}
                 />
               </Tooltip>
@@ -131,18 +131,24 @@ const DocumentUpload = ({ value, onChange, folder = "documents", className }) =>
         </div>
       </Upload>
 
-      {/* Image Lightbox */}
-      {!isPdf && value && (
-        <div style={{ display: 'none' }}>
-          <Image
-            preview={{
-              visible: previewOpen,
-              onVisibleChange: (vis) => setPreviewOpen(vis),
-              src: value,
-            }}
-          />
-        </div>
-      )}
+      <LoanDocumentViewerModal
+        open={Boolean(previewOpen && value)}
+        title="Post-File Document Viewer"
+        documents={
+          value
+            ? [
+                {
+                  id: "document_upload_preview",
+                  name: "Uploaded Document",
+                  tag: isPdf ? "PDF" : "Image",
+                  url: value,
+                },
+              ]
+            : []
+        }
+        onClose={() => setPreviewOpen(false)}
+        showThumbnailRail={false}
+      />
     </div>
   );
 };

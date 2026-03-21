@@ -124,7 +124,17 @@ export const loansApi = {
   },
 
   getNextRcInvStorageNumber: async () => {
-    return await apiClient.get("/api/loans/counters/rc-inv/next");
+    const endpoint = "/api/loans/counters/rc-inv/next";
+    try {
+      return await apiClient.get(endpoint);
+    } catch (error) {
+      if (!shouldUseFallback(error)) throw error;
+      const res = await fetch(`${BREAKUP_FIELDS_FALLBACK_BASE}${endpoint}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      return await parseFallbackResponse(res);
+    }
   },
 };
 

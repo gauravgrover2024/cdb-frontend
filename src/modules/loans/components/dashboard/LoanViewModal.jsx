@@ -539,12 +539,17 @@ const buildRepaymentViewerValues = (loanData = {}) => {
   setFallback("postfile_maturityDate", [
     "postfile_maturityDate",
     "postfile_maturity_date",
+    "postfile_maturity",
     "postfile_loanMaturityDate",
     "loanMaturityDate",
+    "loan_maturity_date",
     "approval_maturityDate",
     "approval_maturity_date",
+    "approval_loanMaturityDate",
+    "approval_loan_maturity_date",
     "maturityDate",
     "maturity_date",
+    "maturity",
   ]);
   setFallback("postfile_bankName", ["approval_bankName"]);
 
@@ -578,6 +583,24 @@ const buildRepaymentViewerValues = (loanData = {}) => {
     }
     if (!hasValue(mapped.postfile_bankName) && hasValue(primaryBank.bankName)) {
       mapped.postfile_bankName = primaryBank.bankName;
+    }
+    if (!hasValue(mapped.postfile_maturityDate)) {
+      mapped.postfile_maturityDate = firstFilled(
+        primaryBank.maturityDate,
+        primaryBank.maturity_date,
+        primaryBank.loanMaturityDate,
+        primaryBank.loan_maturity_date,
+      );
+    }
+  }
+
+  if (!hasValue(mapped.postfile_maturityDate)) {
+    const firstEmi = dayjs(mapped.postfile_firstEmiDate);
+    const tenure = Number(mapped.postfile_tenureMonths);
+    if (firstEmi.isValid() && Number.isFinite(tenure) && tenure > 0) {
+      mapped.postfile_maturityDate = firstEmi
+        .add(Math.max(0, tenure - 1), "month")
+        .format("YYYY-MM-DD");
     }
   }
 
@@ -1151,9 +1174,11 @@ const getStageSubTabs = (stage, data, context = {}) => {
         key: "po_reconcile",
         label: "Reconciliation",
         icon: "Stamp",
-        render: (loanData) => (
-          <SplitSectionFields
-            data={loanData}
+        render: (loanData) => {
+          const repaymentViewData = buildRepaymentViewerValues(loanData);
+          return (
+            <SplitSectionFields
+              data={repaymentViewData}
             leftTitle="Approval vs Disbursement"
             rightTitle="EMI & Tenure Setup"
             leftFields={[
@@ -1171,14 +1196,15 @@ const getStageSubTabs = (stage, data, context = {}) => {
               { key: "postfile_emiPlan", label: "EMI Plan", paths: ["postfile_emiPlan"] },
               { key: "postfile_tenureMonths", label: "Tenure (Months)", paths: ["postfile_tenureMonths"] },
               { key: "postfile_firstEmiDate", label: "1st EMI Date", paths: ["postfile_firstEmiDate"], format: "date" },
-              { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate"], format: "date" },
+              { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate", "postfile_maturity_date", "postfile_maturity", "postfile_loanMaturityDate", "loanMaturityDate", "loan_maturity_date", "approval_maturityDate", "approval_maturity_date", "approval_loanMaturityDate", "approval_loan_maturity_date", "maturityDate", "maturity_date", "maturity"], format: "date", hideIfEmpty: false },
               { key: "postfile_emiAmount", label: "EMI Amount", paths: ["postfile_emiAmount"], format: "money" },
               { key: "postfile_processingFees", label: "Processing Fees", paths: ["postfile_processingFees"], format: "money" },
             ]}
             leftTone="amber"
             rightTone="emerald"
           />
-        ),
+          );
+        },
         fields: [
           { key: "postfile_bankName", label: "Post-File Bank", paths: ["postfile_bankName"] },
           { key: "postfile_approvalDate", label: "Approval Date", paths: ["postfile_approvalDate"], format: "date" },
@@ -1197,7 +1223,7 @@ const getStageSubTabs = (stage, data, context = {}) => {
           { key: "postfile_emiPlan", label: "EMI Plan", paths: ["postfile_emiPlan"] },
           { key: "postfile_tenureMonths", label: "Tenure (Months)", paths: ["postfile_tenureMonths"] },
           { key: "postfile_firstEmiDate", label: "1st EMI Date", paths: ["postfile_firstEmiDate"], format: "date" },
-          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate"], format: "date" },
+          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate", "postfile_maturity_date", "postfile_maturity", "postfile_loanMaturityDate", "loanMaturityDate", "loan_maturity_date", "approval_maturityDate", "approval_maturity_date", "approval_loanMaturityDate", "approval_loan_maturity_date", "maturityDate", "maturity_date", "maturity"], format: "date", hideIfEmpty: false },
           { key: "postfile_emiAmount", label: "EMI Amount", paths: ["postfile_emiAmount"], format: "money" },
         ],
       },
@@ -1409,7 +1435,7 @@ const getStageSubTabs = (stage, data, context = {}) => {
           { key: "postfile_tenureMonths", label: "Tenure", paths: ["postfile_tenureMonths"] },
           { key: "postfile_emiAmount", label: "EMI", paths: ["postfile_emiAmount"], format: "money" },
           { key: "postfile_firstEmiDate", label: "1st EMI Date", paths: ["postfile_firstEmiDate"], format: "date" },
-          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate"], format: "date" },
+          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate", "postfile_maturity_date", "postfile_maturity", "postfile_loanMaturityDate", "loanMaturityDate", "loan_maturity_date", "approval_maturityDate", "approval_maturity_date", "approval_loanMaturityDate", "approval_loan_maturity_date", "maturityDate", "maturity_date", "maturity"], format: "date", hideIfEmpty: false },
           { key: "postfile_currentOutstanding", label: "Current Outstanding", paths: ["postfile_currentOutstanding"], format: "money" },
           { key: "postfile_perDayInterest", label: "Per Day Interest", paths: ["postfile_perDayInterest"], format: "money" },
         ],
