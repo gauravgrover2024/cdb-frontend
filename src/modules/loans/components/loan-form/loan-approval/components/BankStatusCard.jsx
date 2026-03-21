@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import ReactDOM from "react-dom";
 import { AutoComplete, Modal, Select, Timeline } from "antd";
 import Icon from "../../../../../../components/AppIcon";
 import Button from "../../../../../../components/ui/Button";
 import { lenderHypothecationOptions } from "../../../../../../constants/lenderHypothecationOptions";
+import {
+  DEFAULT_LOAN_BREAKUP_FIELDS,
+  DEFAULT_LOAN_BREAKUP_FIELD_KEYS,
+  normalizeLoanBreakupCustomFields,
+  sumLoanBreakupCustomFields,
+  toLoanBreakupNumber,
+} from "../../shared/loanBreakupFields";
 
 const BANK_LOGO_DOMAIN_MAP = {
   hdfc: "hdfcbank.com",
@@ -252,6 +260,9 @@ const BankStatusCard = ({
   onUpdateStatus,
   onBankNameChange,
   onDeleteBank,
+  breakupFieldDefinitions = DEFAULT_LOAN_BREAKUP_FIELDS,
+  onCreateBreakupField,
+  onDeleteBreakupField,
   readOnly = false,
   allowDetailsInReadOnly = false,
   onBankUpdate, // NEW: parent updater
@@ -274,6 +285,12 @@ const BankStatusCard = ({
 
   const [extendedWarrantyFinance, setExtendedWarrantyFinance] = useState(
     bank.breakupEwFinance ?? ""
+  );
+  const [customBreakupFields, setCustomBreakupFields] = useState(() =>
+    normalizeLoanBreakupCustomFields(
+      bank?.breakupCustomFields || [],
+      breakupFieldDefinitions,
+    ),
   );
 
   // vehicle + price + rate/fee/tenure + extra fields
@@ -305,10 +322,15 @@ const BankStatusCard = ({
   const [payoutPercent, setPayoutPercent] = useState(bank.payoutPercent || "");
 
   const netFromBreakup = parseInr(netLoanApproved);
+  const customBreakupTotal = useMemo(
+    () => sumLoanBreakupCustomFields(customBreakupFields),
+    [customBreakupFields],
+  );
   const addOnTotal =
     parseInr(creditAssuredFinance) +
     parseInr(insuranceFinance) +
-    parseInr(extendedWarrantyFinance);
+    parseInr(extendedWarrantyFinance) +
+    customBreakupTotal;
   const loanAmountFromBank = parseInr(bank.loanAmount);
   const approvedFromForm = parseInr(form?.getFieldValue?.("approval_loanAmountApproved"));
   const disbursedFromForm = parseInr(form?.getFieldValue?.("approval_loanAmountDisbursed"));
@@ -416,12 +438,20 @@ const BankStatusCard = ({
     setCreditAssuredFinance(breakupCredit);
     setInsuranceFinance(breakupInsurance);
     setExtendedWarrantyFinance(breakupEw);
+    setCustomBreakupFields(
+      normalizeLoanBreakupCustomFields(
+        bank?.breakupCustomFields || [],
+        breakupFieldDefinitions,
+      ),
+    );
   }, [
     bank.breakupNetLoanApproved,
     bank.breakupCreditAssured,
     bank.breakupInsuranceFinance,
     bank.breakupEwFinance,
+    bank.breakupCustomFields,
     bank.loanAmount,
+    breakupFieldDefinitions,
     form,
   ]);
 
@@ -1009,21 +1039,28 @@ const BankStatusCard = ({
       )}
 
       {/* Popup for breakup */}
-      {showBreakup && (
-        <LoanBreakupPopup
-          netLoanApproved={netLoanApproved}
-          creditAssuredFinance={creditAssuredFinance}
-          insuranceFinance={insuranceFinance}
-          extendedWarrantyFinance={extendedWarrantyFinance}
-          setNetLoanApproved={setNetLoanApproved}
-          setCreditAssuredFinance={setCreditAssuredFinance}
-          setInsuranceFinance={setInsuranceFinance}
-          setExtendedWarrantyFinance={setExtendedWarrantyFinance}
-          readOnly={breakupReadOnly}
-          onClose={() => setShowBreakup(false)}
-          onBankUpdate={onBankUpdate} // NEW
-        />
-      )}
+      {showBreakup &&
+        ReactDOM.createPortal(
+          <LoanBreakupPopup
+            netLoanApproved={netLoanApproved}
+            creditAssuredFinance={creditAssuredFinance}
+            insuranceFinance={insuranceFinance}
+            extendedWarrantyFinance={extendedWarrantyFinance}
+            customBreakupFields={customBreakupFields}
+            setCustomBreakupFields={setCustomBreakupFields}
+            breakupFieldDefinitions={breakupFieldDefinitions}
+            onCreateBreakupField={onCreateBreakupField}
+            onDeleteBreakupField={onDeleteBreakupField}
+            setNetLoanApproved={setNetLoanApproved}
+            setCreditAssuredFinance={setCreditAssuredFinance}
+            setInsuranceFinance={setInsuranceFinance}
+            setExtendedWarrantyFinance={setExtendedWarrantyFinance}
+            readOnly={breakupReadOnly}
+            onClose={() => setShowBreakup(false)}
+            onBankUpdate={onBankUpdate}
+          />,
+          document.body,
+        )}
 
       <Modal
         title="Status Timeline"
@@ -1098,200 +1135,431 @@ const LoanBreakupPopup = ({
   creditAssuredFinance,
   insuranceFinance,
   extendedWarrantyFinance,
+  customBreakupFields = [],
+  setCustomBreakupFields,
+  breakupFieldDefinitions = DEFAULT_LOAN_BREAKUP_FIELDS,
+  onCreateBreakupField,
+  onDeleteBreakupField,
   setNetLoanApproved,
   setCreditAssuredFinance,
   setInsuranceFinance,
   setExtendedWarrantyFinance,
   readOnly,
   onClose,
-  onBankUpdate, // NEW
+  onBankUpdate,
 }) => {
-  const recomputeTotal = (n, c, i, e) =>
-    parseInr(n) + parseInr(c) + parseInr(i) + parseInr(e);
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [showAddFieldInput, setShowAddFieldInput] = useState(false);
+  const [creatingField, setCreatingField] = useState(false);
+  const [deletingFieldKey, setDeletingFieldKey] = useState("");
+  const [activeInputKey, setActiveInputKey] = useState("");
+  const [fieldError, setFieldError] = useState("");
 
-  const toNum = (v) => (v === "" || v == null ? 0 : Number(v));
+  const toNum = (v) => toLoanBreakupNumber(v);
+  const sanitizeAmountInput = (raw) =>
+    String(raw ?? "").replace(/[^0-9.]/g, "");
+  const formatAmountInput = (value) => formatInr(toNum(value));
+  const rawAmountInput = (value) => {
+    const numeric = toNum(value);
+    return numeric > 0 ? String(Math.round(numeric)) : "";
+  };
+  const [localNetLoanApproved, setLocalNetLoanApproved] = useState(
+    toNum(netLoanApproved),
+  );
+  const [localCreditAssuredFinance, setLocalCreditAssuredFinance] = useState(
+    toNum(creditAssuredFinance),
+  );
+  const [localInsuranceFinance, setLocalInsuranceFinance] = useState(
+    toNum(insuranceFinance),
+  );
+  const [localExtendedWarrantyFinance, setLocalExtendedWarrantyFinance] =
+    useState(toNum(extendedWarrantyFinance));
+  const [localCustomBreakupFields, setLocalCustomBreakupFields] = useState(() =>
+    normalizeLoanBreakupCustomFields(customBreakupFields, breakupFieldDefinitions),
+  );
+
+  const normalizedCustom = useMemo(
+    () =>
+      normalizeLoanBreakupCustomFields(
+        localCustomBreakupFields,
+        breakupFieldDefinitions,
+      ),
+    [localCustomBreakupFields, breakupFieldDefinitions],
+  );
+  const customRows = useMemo(
+    () =>
+      (breakupFieldDefinitions || []).filter(
+        (field) => !DEFAULT_LOAN_BREAKUP_FIELD_KEYS.has(String(field?.key || "")),
+      ),
+    [breakupFieldDefinitions],
+  );
+  const customMap = useMemo(
+    () => new Map(normalizedCustom.map((row) => [row.key, row])),
+    [normalizedCustom],
+  );
+
+  const recomputeTotal = (n, c, i, e, custom = normalizedCustom) =>
+    parseInr(n) +
+    parseInr(c) +
+    parseInr(i) +
+    parseInr(e) +
+    sumLoanBreakupCustomFields(custom);
+
+  const syncBankPatch = (nextState = {}) => {
+    const nextNet = toNum(nextState.netLoanApproved ?? netLoanApproved);
+    const nextCredit = toNum(nextState.creditAssuredFinance ?? creditAssuredFinance);
+    const nextIns = toNum(nextState.insuranceFinance ?? insuranceFinance);
+    const nextEw = toNum(nextState.extendedWarrantyFinance ?? extendedWarrantyFinance);
+    const nextCustom = normalizeLoanBreakupCustomFields(
+      nextState.customBreakupFields ?? normalizedCustom,
+      breakupFieldDefinitions,
+    );
+    const total = recomputeTotal(nextNet, nextCredit, nextIns, nextEw, nextCustom);
+    onBankUpdate &&
+      onBankUpdate({
+        loanAmount: total,
+        breakupNetLoanApproved: nextNet,
+        breakupCreditAssured: nextCredit,
+        breakupInsuranceFinance: nextIns,
+        breakupEwFinance: nextEw,
+        breakupCustomFields: nextCustom,
+      });
+  };
 
   const handleChangeAndUpdate = (field, value) => {
     if (readOnly) return;
 
     if (field === "netLoanApproved") {
-      const nextNet = toNum(value);
-      const total = recomputeTotal(
-        nextNet,
-        creditAssuredFinance,
-        insuranceFinance,
-        extendedWarrantyFinance
-      );
-      setNetLoanApproved(nextNet);
-      onBankUpdate &&
-        onBankUpdate({
-          loanAmount: total,
-          breakupNetLoanApproved: nextNet,
-          breakupCreditAssured: creditAssuredFinance,
-          breakupInsuranceFinance: insuranceFinance,
-          breakupEwFinance: extendedWarrantyFinance,
-        });
+      setLocalNetLoanApproved(toNum(value));
     }
     if (field === "creditAssuredFinance") {
-      const nextCredit = toNum(value);
-      const total = recomputeTotal(
-        netLoanApproved,
-        nextCredit,
-        insuranceFinance,
-        extendedWarrantyFinance
-      );
-      setCreditAssuredFinance(nextCredit);
-      onBankUpdate &&
-        onBankUpdate({
-          loanAmount: total,
-          breakupNetLoanApproved: netLoanApproved,
-          breakupCreditAssured: nextCredit,
-          breakupInsuranceFinance: insuranceFinance,
-          breakupEwFinance: extendedWarrantyFinance,
-        });
+      setLocalCreditAssuredFinance(toNum(value));
     }
     if (field === "insuranceFinance") {
-      const nextIns = toNum(value);
-      const total = recomputeTotal(
-        netLoanApproved,
-        creditAssuredFinance,
-        nextIns,
-        extendedWarrantyFinance
-      );
-      setInsuranceFinance(nextIns);
-      onBankUpdate &&
-        onBankUpdate({
-          loanAmount: total,
-          breakupNetLoanApproved: netLoanApproved,
-          breakupCreditAssured: creditAssuredFinance,
-          breakupInsuranceFinance: nextIns,
-          breakupEwFinance: extendedWarrantyFinance,
-        });
+      setLocalInsuranceFinance(toNum(value));
     }
     if (field === "extendedWarrantyFinance") {
-      const nextEw = toNum(value);
-      const total = recomputeTotal(
-        netLoanApproved,
-        creditAssuredFinance,
-        insuranceFinance,
-        nextEw
-      );
-      setExtendedWarrantyFinance(nextEw);
-      onBankUpdate &&
-        onBankUpdate({
-          loanAmount: total,
-          breakupNetLoanApproved: netLoanApproved,
-          breakupCreditAssured: creditAssuredFinance,
-          breakupInsuranceFinance: insuranceFinance,
-          breakupEwFinance: nextEw,
-        });
+      setLocalExtendedWarrantyFinance(toNum(value));
     }
   };
 
+  const handleCustomFieldValueChange = (field, rawValue) => {
+    if (readOnly) return;
+    const key = String(field?.key || "").trim();
+    if (!key) return;
+    const nextValue = toNum(rawValue);
+    const existing = normalizedCustom.find((row) => row.key === key);
+    const nextCustom = normalizeLoanBreakupCustomFields(
+      [
+        ...normalizedCustom.filter((row) => row.key !== key),
+        {
+          key,
+          label: field?.label || existing?.label || key,
+          value: nextValue,
+        },
+      ],
+      breakupFieldDefinitions,
+    );
+    setLocalCustomBreakupFields(nextCustom);
+  };
+
+  const handleAddNewField = async () => {
+    if (readOnly || !onCreateBreakupField) return;
+    const cleaned = String(newFieldLabel || "").trim();
+    if (!cleaned) {
+      setFieldError("Enter a field name.");
+      return;
+    }
+    setCreatingField(true);
+    setFieldError("");
+    try {
+      const created = await onCreateBreakupField(cleaned);
+      const key = String(created?.key || "").trim();
+      if (key) {
+        const label = String(created?.label || cleaned).trim();
+        const nextCustom = normalizeLoanBreakupCustomFields(
+          [...normalizedCustom, { key, label, value: 0 }],
+          breakupFieldDefinitions,
+        );
+        setLocalCustomBreakupFields(nextCustom);
+      }
+      setNewFieldLabel("");
+      setShowAddFieldInput(false);
+    } catch (error) {
+      setFieldError(
+        error?.message || "Unable to add this field right now. Please retry.",
+      );
+    } finally {
+      setCreatingField(false);
+    }
+  };
+
+  const handleDeleteCustomField = async (field) => {
+    const key = String(field?.key || "").trim();
+    if (!key || !onDeleteBreakupField || readOnly) return;
+    setDeletingFieldKey(key);
+    setFieldError("");
+    try {
+      await onDeleteBreakupField(key);
+      const nextCustom = normalizeLoanBreakupCustomFields(
+        normalizedCustom.filter((row) => row.key !== key),
+        breakupFieldDefinitions,
+      );
+      setLocalCustomBreakupFields(nextCustom);
+    } catch (error) {
+      setFieldError(
+        error?.message ||
+          "This field cannot be deleted because data exists in one or more loan cases.",
+      );
+    } finally {
+      setDeletingFieldKey("");
+    }
+  };
+
+  const commitPopupChanges = () => {
+    setNetLoanApproved(localNetLoanApproved);
+    setCreditAssuredFinance(localCreditAssuredFinance);
+    setInsuranceFinance(localInsuranceFinance);
+    setExtendedWarrantyFinance(localExtendedWarrantyFinance);
+    setCustomBreakupFields(normalizedCustom);
+    syncBankPatch({
+      netLoanApproved: localNetLoanApproved,
+      creditAssuredFinance: localCreditAssuredFinance,
+      insuranceFinance: localInsuranceFinance,
+      extendedWarrantyFinance: localExtendedWarrantyFinance,
+      customBreakupFields: normalizedCustom,
+    });
+  };
+
+  const handlePopupClose = () => {
+    commitPopupChanges();
+    onClose();
+  };
+
   const total = recomputeTotal(
-    netLoanApproved,
-    creditAssuredFinance,
-    insuranceFinance,
-    extendedWarrantyFinance
+    localNetLoanApproved,
+    localCreditAssuredFinance,
+    localInsuranceFinance,
+    localExtendedWarrantyFinance,
+    normalizedCustom,
   );
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-lg border border-border shadow-elevation-4 w-full max-w-md">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Icon name="IndianRupee" size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">
-              Loan Amount Breakdown
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-300/25 backdrop-blur-sm p-3">
+      <div className="w-full max-w-lg overflow-hidden rounded-[18px] border border-border/70 bg-gradient-to-b from-white/95 via-slate-50/90 to-white/95 shadow-[0_20px_70px_-40px_rgba(15,23,42,0.55)] font-sans dark:from-card dark:via-card dark:to-background">
+        <div className="flex items-center justify-between border-b border-border/70 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+              <Icon name="IndianRupee" size={14} />
             </span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Loan Breakup
+              </p>
+              <h3 className="text-sm font-semibold text-foreground">
+                Loan Amount Breakdown
+              </h3>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted">
-            <Icon name="X" size={18} />
+          <button
+            onClick={handlePopupClose}
+            className="rounded-lg border border-border/70 bg-background/70 p-1.5 text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <Icon name="X" size={16} />
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground">
-              Net Loan Amount Approved
-            </label>
-            <input
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
-              value={readOnly ? formatInr(netLoanApproved) : netLoanApproved}
-              readOnly={readOnly}
-              onChange={(e) => {
-                // Remove commas for input
-                const raw = e.target.value.replace(/,/g, "");
-                handleChangeAndUpdate("netLoanApproved", raw);
-              }}
-              placeholder="Enter amount"
-              inputMode="numeric"
-            />
+        <div className="space-y-2.5 px-4 py-3">
+          <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+              Running Total
+            </p>
+            <p className="mt-0.5 text-lg font-semibold text-foreground">
+              ₹ {formatInr(total)}
+            </p>
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">
-              Credit Assured Finance
-            </label>
-            <input
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
-              value={readOnly ? formatInr(creditAssuredFinance) : creditAssuredFinance}
-              readOnly={readOnly}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/,/g, "");
-                handleChangeAndUpdate("creditAssuredFinance", raw);
-              }}
-              placeholder="Enter amount"
-              inputMode="numeric"
-            />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {[
+              {
+                key: "netLoanApproved",
+                label: "Net Loan Amount Approved",
+                value: localNetLoanApproved,
+                onChange: (raw) => handleChangeAndUpdate("netLoanApproved", raw),
+              },
+              {
+                key: "creditAssuredFinance",
+                label: "Credit Assured Finance",
+                value: localCreditAssuredFinance,
+                onChange: (raw) =>
+                  handleChangeAndUpdate("creditAssuredFinance", raw),
+              },
+              {
+                key: "insuranceFinance",
+                label: "Insurance Finance",
+                value: localInsuranceFinance,
+                onChange: (raw) => handleChangeAndUpdate("insuranceFinance", raw),
+              },
+              {
+                key: "extendedWarrantyFinance",
+                label: "Extended Warranty Finance",
+                value: localExtendedWarrantyFinance,
+                onChange: (raw) =>
+                  handleChangeAndUpdate("extendedWarrantyFinance", raw),
+              },
+            ].map((field) => (
+              <div
+                key={field.key}
+                className="rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
+              >
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  {field.label}
+                </label>
+                <div className="relative mt-1">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    ₹
+                  </span>
+                  <input
+                    className="w-full rounded-md border border-border bg-card py-1.5 pl-6 pr-2.5 text-right text-sm font-medium text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/55"
+                    value={
+                      activeInputKey === field.key
+                        ? rawAmountInput(field.value)
+                        : formatAmountInput(field.value)
+                    }
+                    readOnly={readOnly}
+                    onChange={(e) => field.onChange(sanitizeAmountInput(e.target.value))}
+                    onFocus={() => setActiveInputKey(field.key)}
+                    onBlur={() =>
+                      setActiveInputKey((curr) => (curr === field.key ? "" : curr))
+                    }
+                    placeholder="0"
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">
-              Insurance Finance
-            </label>
-            <input
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
-              value={readOnly ? formatInr(insuranceFinance) : insuranceFinance}
-              readOnly={readOnly}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/,/g, "");
-                handleChangeAndUpdate("insuranceFinance", raw);
-              }}
-              placeholder="Enter amount"
-              inputMode="numeric"
-            />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {customRows.map((field) => {
+            const value = customMap.get(field.key)?.value ?? 0;
+            return (
+              <div
+                key={field.key}
+                className="rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    {field.label}
+                  </label>
+                  {Boolean(field?.canDelete) ? (
+                    <button
+                      type="button"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
+                      onClick={() => handleDeleteCustomField(field)}
+                      disabled={deletingFieldKey === field.key}
+                      title="Delete this custom field"
+                    >
+                      <Icon name="X" size={12} />
+                    </button>
+                  ) : null}
+                </div>
+                <div className="relative mt-1">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    ₹
+                  </span>
+                  <input
+                    className="w-full rounded-md border border-border bg-card py-1.5 pl-6 pr-2.5 text-right text-sm font-medium text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/55"
+                    value={
+                      activeInputKey === field.key
+                        ? rawAmountInput(value)
+                        : formatAmountInput(value)
+                    }
+                    readOnly={readOnly}
+                    onChange={(e) =>
+                      handleCustomFieldValueChange(
+                        field,
+                        sanitizeAmountInput(e.target.value),
+                      )
+                    }
+                    onFocus={() => setActiveInputKey(field.key)}
+                    onBlur={() =>
+                      setActiveInputKey((curr) =>
+                        curr === field.key ? "" : curr,
+                      )
+                    }
+                    placeholder="0"
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
+            );
+          })}
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">
-              Extended Warranty Finance
-            </label>
-            <input
-              className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground text-right"
-              value={readOnly ? formatInr(extendedWarrantyFinance) : extendedWarrantyFinance}
-              readOnly={readOnly}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/,/g, "");
-                handleChangeAndUpdate("extendedWarrantyFinance", raw);
-              }}
-              placeholder="Enter amount"
-              inputMode="numeric"
-            />
-          </div>
+          {!readOnly && (
+            <div className="space-y-1.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+                  Add New Component Field
+                </span>
+                {!showAddFieldInput && (
+                  <button
+                    type="button"
+                    className="rounded-md border border-primary/25 bg-card px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
+                    onClick={() => {
+                      setShowAddFieldInput(true);
+                      setFieldError("");
+                    }}
+                  >
+                    + Add Field
+                  </button>
+                )}
+              </div>
+              {showAddFieldInput && (
+                <div className="space-y-2">
+                  <input
+                    className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-foreground outline-none transition-colors focus:border-primary/55"
+                    placeholder="e.g. Accessory Finance"
+                    value={newFieldLabel}
+                    onChange={(e) => setNewFieldLabel(e.target.value)}
+                  />
+                  {fieldError ? (
+                    <p className="text-[11px] text-red-500">{fieldError}</p>
+                  ) : null}
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowAddFieldInput(false);
+                        setNewFieldLabel("");
+                        setFieldError("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleAddNewField} disabled={creatingField}>
+                      {creatingField ? "Adding..." : "Save Field"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
-            <span className="text-xs text-muted-foreground">
+          <div className="mt-1 flex items-center justify-between rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Total Loan Amount
             </span>
-            <span className="text-sm font-semibold">
+            <span className="text-base font-semibold text-primary">
               ₹ {formatInr(total)}
             </span>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <div className="flex justify-end gap-2 border-t border-border/70 bg-background/70 px-4 py-2.5">
+          <Button variant="outline" size="sm" onClick={handlePopupClose}>
             Close
           </Button>
         </div>

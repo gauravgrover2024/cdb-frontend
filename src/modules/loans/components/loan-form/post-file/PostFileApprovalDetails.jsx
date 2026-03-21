@@ -4,8 +4,17 @@ import { AutoComplete, DatePicker, Form, InputNumber, Radio, Select } from "antd
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { formatINR } from "../../../../../utils/currency";
+import { loansApi } from "../../../../../api/loans";
 import dayjs from "dayjs";
 import { lenderHypothecationOptions } from "../../../../../constants/lenderHypothecationOptions";
+import {
+  DEFAULT_LOAN_BREAKUP_FIELDS,
+  DEFAULT_LOAN_BREAKUP_FIELD_KEYS,
+  buildLoanBreakupFieldDefinitions,
+  normalizeLoanBreakupCustomFields,
+  sumLoanBreakupCustomFields,
+  toLoanBreakupNumber,
+} from "../shared/loanBreakupFields";
 
 const calculateEmi = (principal, annualRate, tenureMonths, type = "Reducing") => {
   const P = Number(String(principal).replace(/[^0-9.]/g, "")) || 0;
@@ -40,6 +49,66 @@ const asDayjs = (value) => {
 const PostFileApprovalDetails = ({ form }) => {
   const [showBreakupPopup, setShowBreakupPopup] = useState(false);
   const [showDisbursalPopup, setShowDisbursalPopup] = useState(false);
+  const [breakupFieldDefs, setBreakupFieldDefs] = useState(DEFAULT_LOAN_BREAKUP_FIELDS);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadBreakupFields = async () => {
+      try {
+        const response = await loansApi.getBreakupFields();
+        const payload = response?.data ?? response;
+        const defs = buildLoanBreakupFieldDefinitions(payload?.data || payload || []);
+        if (mounted && defs.length) {
+          setBreakupFieldDefs(defs);
+        }
+      } catch (_) {
+        if (mounted) {
+          setBreakupFieldDefs(DEFAULT_LOAN_BREAKUP_FIELDS);
+        }
+      }
+    };
+    loadBreakupFields();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleCreateBreakupField = useCallback(async (label) => {
+    const cleaned = String(label || "").trim();
+    if (!cleaned) return null;
+    const response = await loansApi.createBreakupField({ label: cleaned });
+    const payload = response?.data ?? response;
+    const created = payload?.data || null;
+    setBreakupFieldDefs((prev) =>
+      buildLoanBreakupFieldDefinitions([...(prev || []), ...(created ? [created] : [])]),
+    );
+    return created;
+  }, []);
+
+  const handleDeleteBreakupField = useCallback(
+    async (fieldKey) => {
+      const safeKey = String(fieldKey || "").trim();
+      if (!safeKey) return false;
+      await loansApi.deleteBreakupField(safeKey);
+      setBreakupFieldDefs((prev) =>
+        buildLoanBreakupFieldDefinitions(
+          (prev || []).filter((field) => String(field?.key || "").trim() !== safeKey),
+        ),
+      );
+
+      const stripDeleted = (rows = []) =>
+        (Array.isArray(rows) ? rows : []).filter(
+          (row) => String(row?.key || "").trim() !== safeKey,
+        );
+
+      form.setFieldsValue({
+        approval_breakup_custom: stripDeleted(form.getFieldValue("approval_breakup_custom")),
+        postfile_disbursed_custom: stripDeleted(form.getFieldValue("postfile_disbursed_custom")),
+      });
+      return true;
+    },
+    [form],
+  );
   
   // Watch checkbox state from form to ensure persistence
   const isSameAsApproved = Form.useWatch("postfile_sameAsApproved", form);
@@ -91,9 +160,27 @@ const PostFileApprovalDetails = ({ form }) => {
     Form.useWatch("postfile_disbursedInsurance", form) || 0
   );
   const disbursedEw = Number(Form.useWatch("postfile_disbursedEw", form) || 0);
+  const watchedApprovalCustomBreakup = Form.useWatch("approval_breakup_custom", form) || [];
+  const watchedDisbursedCustomBreakup = Form.useWatch("postfile_disbursed_custom", form) || [];
+  const approvalCustomBreakup = useMemo(
+    () => normalizeLoanBreakupCustomFields(watchedApprovalCustomBreakup, breakupFieldDefs),
+    [watchedApprovalCustomBreakup, breakupFieldDefs],
+  );
+  const disbursedCustomBreakup = useMemo(
+    () => normalizeLoanBreakupCustomFields(watchedDisbursedCustomBreakup, breakupFieldDefs),
+    [watchedDisbursedCustomBreakup, breakupFieldDefs],
+  );
+  const approvalCustomTotal = useMemo(
+    () => sumLoanBreakupCustomFields(approvalCustomBreakup),
+    [approvalCustomBreakup],
+  );
+  const disbursedCustomTotal = useMemo(
+    () => sumLoanBreakupCustomFields(disbursedCustomBreakup),
+    [disbursedCustomBreakup],
+  );
 
   const disbursalTotal =
-    disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw;
+    disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw + disbursedCustomTotal;
 
   const toNumSafe = (val) => Number(String(val ?? "").replace(/[^0-9.-]/g, "")) || 0;
   const approvalBreakup = useMemo(() => {
@@ -101,15 +188,15 @@ const PostFileApprovalDetails = ({ form }) => {
     const credit = toNumSafe(form.getFieldValue("approval_breakup_creditAssured"));
     const insurance = toNumSafe(form.getFieldValue("approval_breakup_insuranceFinance"));
     const ew = toNumSafe(form.getFieldValue("approval_breakup_ewFinance"));
-    const addOns = credit + insurance + ew;
+    const addOns = credit + insurance + ew + approvalCustomTotal;
     const approvedBase = Math.max(
       toNumSafe(approvalLoanApproved),
       toNumSafe(approvalLoanDisbursed),
       0
     );
     const net = rawNet > 0 ? rawNet : approvedBase;
-    return { net, credit, insurance, ew, addOns, total: net + addOns };
-  }, [form, approvalLoanApproved, approvalLoanDisbursed]);
+    return { net, credit, insurance, ew, custom: approvalCustomBreakup, addOns, total: net + addOns };
+  }, [form, approvalLoanApproved, approvalLoanDisbursed, approvalCustomBreakup, approvalCustomTotal]);
   const approvalBreakupTotal = approvalBreakup.total;
 
   const formatDateForInput = (dateStr) => {
@@ -225,7 +312,12 @@ const PostFileApprovalDetails = ({ form }) => {
     const appCredit = toNum(approvalBreakup.credit);
     const appInsurance = toNum(approvalBreakup.insurance);
     const appEw = toNum(approvalBreakup.ew);
-    const breakupTotal = appNet + appCredit + appInsurance + appEw;
+    const appCustom = normalizeLoanBreakupCustomFields(
+      approvalBreakup.custom || [],
+      breakupFieldDefs,
+    );
+    const appCustomTotal = sumLoanBreakupCustomFields(appCustom);
+    const breakupTotal = appNet + appCredit + appInsurance + appEw + appCustomTotal;
     const approvedTotal = toNum(approvalLoanApproved);
 
     let patch = {};
@@ -239,6 +331,7 @@ const PostFileApprovalDetails = ({ form }) => {
         postfile_disbursedCreditAssured: appCredit,
         postfile_disbursedInsurance: appInsurance,
         postfile_disbursedEw: appEw,
+        postfile_disbursed_custom: appCustom,
       };
     } else {
       patch = {
@@ -246,6 +339,7 @@ const PostFileApprovalDetails = ({ form }) => {
         postfile_disbursedCreditAssured: 0,
         postfile_disbursedInsurance: 0,
         postfile_disbursedEw: 0,
+        postfile_disbursed_custom: appCustom.map((row) => ({ ...row, value: 0 })),
       };
     }
 
@@ -255,7 +349,8 @@ const PostFileApprovalDetails = ({ form }) => {
       toNum(patch.postfile_disbursedLoan) +
       toNum(patch.postfile_disbursedCreditAssured) +
       toNum(patch.postfile_disbursedInsurance) +
-      toNum(patch.postfile_disbursedEw);
+      toNum(patch.postfile_disbursedEw) +
+      sumLoanBreakupCustomFields(patch.postfile_disbursed_custom || []);
 
     const calculatedEmi = calculateEmi(
       totalDisbursed,
@@ -276,6 +371,7 @@ const PostFileApprovalDetails = ({ form }) => {
     postfileRoi,
     postfileTenure,
     postfileRoiType,
+    breakupFieldDefs,
     form,
     setFieldsIfChanged,
   ]);
@@ -299,7 +395,7 @@ const PostFileApprovalDetails = ({ form }) => {
   }, [postfileFirstEmiDate, postfileTenure, approvalTenureMonths, form]);
 
   const netLoanForDisbursal =
-    disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw;
+    disbursedLoan + disbursedCredit + disbursedInsurance + disbursedEw + disbursedCustomTotal;
 
   const displayedApprovedAmount = Number(
     (approvalBreakupTotal > 0
@@ -711,6 +807,7 @@ const PostFileApprovalDetails = ({ form }) => {
       <Form.Item name="postfile_disbursedCreditAssured" hidden><input /></Form.Item>
       <Form.Item name="postfile_disbursedInsurance" hidden><input /></Form.Item>
       <Form.Item name="postfile_disbursedEw" hidden><input /></Form.Item>
+      <Form.Item name="postfile_disbursed_custom" hidden />
 
       {/* Render popups using Portal */}
       {showBreakupPopup &&
@@ -720,6 +817,7 @@ const PostFileApprovalDetails = ({ form }) => {
             creditAssuredFinance={approvalBreakup.credit}
             insuranceFinance={approvalBreakup.insurance}
             extendedWarrantyFinance={approvalBreakup.ew}
+            customBreakupFields={approvalCustomBreakup}
             onClose={() => setShowBreakupPopup(false)}
           />,
           document.body
@@ -729,6 +827,9 @@ const PostFileApprovalDetails = ({ form }) => {
         ReactDOM.createPortal(
           <DisbursalBreakupPopup
             form={form}
+            breakupFieldDefinitions={breakupFieldDefs}
+            onCreateBreakupField={handleCreateBreakupField}
+            onDeleteBreakupField={handleDeleteBreakupField}
             onClose={() => setShowDisbursalPopup(false)}
           />,
           document.body
@@ -742,43 +843,71 @@ const LoanBreakupPopup = ({
   creditAssuredFinance,
   insuranceFinance,
   extendedWarrantyFinance,
+  customBreakupFields = [],
   onClose,
 }) => {
+  const normalizedCustom = normalizeLoanBreakupCustomFields(customBreakupFields);
+  const customTotal = sumLoanBreakupCustomFields(normalizedCustom);
   const total =
     Number(netLoanApproved || 0) +
     Number(creditAssuredFinance || 0) +
     Number(insuranceFinance || 0) +
-    Number(extendedWarrantyFinance || 0);
+    Number(extendedWarrantyFinance || 0) +
+    customTotal;
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/55 backdrop-blur-[1px] p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Icon name="IndianRupee" size={18} className="text-primary" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Loan Amount Breakdown (Approved)
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-300/25 backdrop-blur-sm p-3">
+      <div className="w-full max-w-lg overflow-hidden rounded-[18px] border border-border/70 bg-gradient-to-b from-white/95 via-slate-50/90 to-white/95 shadow-[0_20px_70px_-40px_rgba(15,23,42,0.55)] font-sans dark:from-card dark:via-card dark:to-background">
+        <div className="flex items-center justify-between border-b border-border/70 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+              <Icon name="IndianRupee" size={14} />
             </span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Loan Breakup
+              </p>
+              <h3 className="text-sm font-semibold text-foreground">
+                Approved Amount Breakdown
+              </h3>
+            </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted transition-colors">
-            <Icon name="X" size={18} />
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border/70 bg-background/70 p-1.5 text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <Icon name="X" size={16} />
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
-          <Row label="Net Loan Amount Approved" value={netLoanApproved} />
-          <Row label="Credit Assured Finance" value={creditAssuredFinance} />
-          <Row label="Insurance Finance" value={insuranceFinance} />
-          <Row
-            label="Extended Warranty Finance"
-            value={extendedWarrantyFinance}
-          />
+        <div className="space-y-2.5 px-4 py-3">
+          <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+              Total Approved
+            </p>
+            <p className="mt-0.5 text-lg font-semibold text-foreground">
+              {formatINR(total)}
+            </p>
+          </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
-            <span className="text-xs text-muted-foreground">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Row label="Net Loan Amount Approved" value={netLoanApproved} />
+            <Row label="Credit Assured Finance" value={creditAssuredFinance} />
+            <Row label="Insurance Finance" value={insuranceFinance} />
+            <Row
+              label="Extended Warranty Finance"
+              value={extendedWarrantyFinance}
+            />
+            {normalizedCustom.map((row) => (
+              <Row key={row.key} label={row.label} value={row.value} />
+            ))}
+          </div>
+
+          <div className="mt-1 flex items-center justify-between rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Total Loan Amount
             </span>
-            <span className="text-sm font-semibold font-mono">
+            <span className="text-base font-semibold text-primary">
               {formatINR(total)}
             </span>
           </div>
@@ -789,15 +918,21 @@ const LoanBreakupPopup = ({
 };
 
 const Row = ({ label, value }) => (
-  <div>
-    <label className="text-xs text-muted-foreground">{label}</label>
-    <div className="w-full mt-1 border rounded-md px-3 py-2 text-sm bg-muted/40">
+  <div className="rounded-lg border border-border/70 bg-background/80 px-2.5 py-2">
+    <label className="text-[11px] font-medium text-muted-foreground">{label}</label>
+    <div className="mt-1 w-full rounded-md border border-border bg-card py-1.5 px-2.5 text-right text-sm font-medium text-foreground">
       {formatINR(value)}
     </div>
   </div>
 );
 
-const DisbursalBreakupPopup = ({ form, onClose }) => {
+const DisbursalBreakupPopup = ({
+  form,
+  breakupFieldDefinitions = DEFAULT_LOAN_BREAKUP_FIELDS,
+  onCreateBreakupField,
+  onDeleteBreakupField,
+  onClose,
+}) => {
   const [net, setNet] = useState(
     form.getFieldValue("postfile_disbursedLoan") || ""
   );
@@ -810,9 +945,117 @@ const DisbursalBreakupPopup = ({ form, onClose }) => {
   const [ew, setEw] = useState(
     form.getFieldValue("postfile_disbursedEw") || ""
   );
+  const [customBreakupFields, setCustomBreakupFields] = useState(() =>
+    normalizeLoanBreakupCustomFields(
+      form.getFieldValue("postfile_disbursed_custom") || [],
+      breakupFieldDefinitions,
+    ),
+  );
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [showAddFieldInput, setShowAddFieldInput] = useState(false);
+  const [creatingField, setCreatingField] = useState(false);
+  const [deletingFieldKey, setDeletingFieldKey] = useState("");
+  const [activeInputKey, setActiveInputKey] = useState("");
+  const [fieldError, setFieldError] = useState("");
 
-  const toNum = (v) => Number(v || 0);
-  const total = toNum(net) + toNum(credit) + toNum(insurance) + toNum(ew);
+  const toNum = (v) => toLoanBreakupNumber(v);
+  const sanitizeAmountInput = (raw) =>
+    String(raw ?? "").replace(/[^0-9.]/g, "");
+  const formatAmountInput = (value) =>
+    toNum(value).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  const rawAmountInput = (value) => {
+    const numeric = toNum(value);
+    return numeric > 0 ? String(Math.round(numeric)) : "";
+  };
+  const normalizedCustom = useMemo(
+    () => normalizeLoanBreakupCustomFields(customBreakupFields, breakupFieldDefinitions),
+    [customBreakupFields, breakupFieldDefinitions],
+  );
+  const customMap = useMemo(
+    () => new Map(normalizedCustom.map((row) => [row.key, row])),
+    [normalizedCustom],
+  );
+  const customRows = useMemo(
+    () =>
+      (breakupFieldDefinitions || []).filter(
+        (field) => !DEFAULT_LOAN_BREAKUP_FIELD_KEYS.has(String(field?.key || "")),
+      ),
+    [breakupFieldDefinitions],
+  );
+  const total =
+    toNum(net) +
+    toNum(credit) +
+    toNum(insurance) +
+    toNum(ew) +
+    sumLoanBreakupCustomFields(normalizedCustom);
+
+  const handleCustomFieldValueChange = (field, rawValue) => {
+    const key = String(field?.key || "").trim();
+    if (!key) return;
+    const nextValue = toNum(rawValue);
+    const nextCustom = normalizeLoanBreakupCustomFields(
+      [
+        ...normalizedCustom.filter((row) => row.key !== key),
+        { key, label: field?.label || key, value: nextValue },
+      ],
+      breakupFieldDefinitions,
+    );
+    setCustomBreakupFields(nextCustom);
+  };
+
+  const handleAddNewField = async () => {
+    const cleaned = String(newFieldLabel || "").trim();
+    if (!cleaned || !onCreateBreakupField) {
+      setFieldError("Enter a field name.");
+      return;
+    }
+    setCreatingField(true);
+    setFieldError("");
+    try {
+      const created = await onCreateBreakupField(cleaned);
+      const key = String(created?.key || "").trim();
+      if (key) {
+        const nextCustom = normalizeLoanBreakupCustomFields(
+          [...normalizedCustom, { key, label: created?.label || cleaned, value: 0 }],
+          breakupFieldDefinitions,
+        );
+        setCustomBreakupFields(nextCustom);
+      }
+      setNewFieldLabel("");
+      setShowAddFieldInput(false);
+    } catch (error) {
+      setFieldError(
+        error?.message || "Unable to add this field right now. Please retry.",
+      );
+    } finally {
+      setCreatingField(false);
+    }
+  };
+
+  const handleDeleteCustomField = async (field) => {
+    const key = String(field?.key || "").trim();
+    if (!key || !onDeleteBreakupField) return;
+    setDeletingFieldKey(key);
+    setFieldError("");
+    try {
+      await onDeleteBreakupField(key);
+      setCustomBreakupFields((prev) =>
+        normalizeLoanBreakupCustomFields(
+          (Array.isArray(prev) ? prev : []).filter(
+            (row) => String(row?.key || "").trim() !== key,
+          ),
+          breakupFieldDefinitions,
+        ),
+      );
+    } catch (error) {
+      setFieldError(
+        error?.message ||
+          "This field cannot be deleted because data exists in one or more loan cases.",
+      );
+    } finally {
+      setDeletingFieldKey("");
+    }
+  };
 
   const handleSave = () => {
     form.setFieldsValue({
@@ -820,90 +1063,224 @@ const DisbursalBreakupPopup = ({ form, onClose }) => {
       postfile_disbursedCreditAssured: toNum(credit),
       postfile_disbursedInsurance: toNum(insurance),
       postfile_disbursedEw: toNum(ew),
+      postfile_disbursed_custom: normalizedCustom,
+      postfile_disbursedLoanTotal: total,
       postfile_loanAmountDisbursed: total, // Sync total
     });
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/55 backdrop-blur-[1px] p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
-          <div className="flex items-center gap-2">
-            <Icon name="Calculator" size={18} className="text-primary" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Net Loan Disbursal Breakup
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-300/25 backdrop-blur-sm p-3">
+      <div className="w-full max-w-lg overflow-hidden rounded-[18px] border border-border/70 bg-gradient-to-b from-white/95 via-slate-50/90 to-white/95 shadow-[0_20px_70px_-40px_rgba(15,23,42,0.55)] font-sans dark:from-card dark:via-card dark:to-background">
+        <div className="flex items-center justify-between border-b border-border/70 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+              <Icon name="Calculator" size={14} />
             </span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Loan Breakup
+              </p>
+              <h3 className="text-sm font-semibold text-foreground">
+                Net Loan Disbursal Breakdown
+              </h3>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <Icon name="X" size={18} className="text-muted-foreground" />
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border/70 bg-background/70 p-1.5 text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <Icon name="X" size={16} className="text-muted-foreground" />
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground font-medium">
-              Loan Amount (Disbursed)
-            </label>
-            <input
-              type="number"
-              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-              value={net}
-              onChange={(e) => setNet(e.target.value)}
-              placeholder="0"
-            />
+        <div className="space-y-2.5 px-4 py-3">
+          <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+              Running Total
+            </p>
+            <p className="mt-0.5 text-lg font-semibold text-foreground">
+              {formatINR(total)}
+            </p>
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground font-medium">
-              Credit Assured Finance
-            </label>
-            <input
-              type="number"
-              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-              value={credit}
-              onChange={(e) => setCredit(e.target.value)}
-              placeholder="0"
-            />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {[
+              {
+                key: "disbursedLoan",
+                label: "Loan Amount (Disbursed)",
+                value: net,
+                onChange: (raw) => setNet(toNum(raw)),
+              },
+              {
+                key: "creditAssuredFinance",
+                label: "Credit Assured Finance",
+                value: credit,
+                onChange: (raw) => setCredit(toNum(raw)),
+              },
+              {
+                key: "insuranceFinance",
+                label: "Insurance Finance",
+                value: insurance,
+                onChange: (raw) => setInsurance(toNum(raw)),
+              },
+              {
+                key: "extendedWarrantyFinance",
+                label: "Extended Warranty Finance",
+                value: ew,
+                onChange: (raw) => setEw(toNum(raw)),
+              },
+            ].map((field) => (
+              <div
+                key={field.key}
+                className="rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
+              >
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  {field.label}
+                </label>
+                <div className="relative mt-1">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    ₹
+                  </span>
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-border bg-card py-1.5 pl-6 pr-2.5 text-right text-sm font-medium text-foreground outline-none transition-colors focus:border-primary/55"
+                    value={
+                      activeInputKey === field.key
+                        ? rawAmountInput(field.value)
+                        : formatAmountInput(field.value)
+                    }
+                    onChange={(e) => field.onChange(sanitizeAmountInput(e.target.value))}
+                    onFocus={() => setActiveInputKey(field.key)}
+                    onBlur={() =>
+                      setActiveInputKey((curr) => (curr === field.key ? "" : curr))
+                    }
+                    placeholder="0"
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground font-medium">
-              Insurance Finance
-            </label>
-            <input
-              type="number"
-              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-              value={insurance}
-              onChange={(e) => setInsurance(e.target.value)}
-              placeholder="0"
-            />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {customRows.map((field) => {
+            const value = customMap.get(field.key)?.value ?? 0;
+            return (
+              <div
+                key={field.key}
+                className="rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    {field.label}
+                  </label>
+                  {Boolean(field?.canDelete) ? (
+                    <button
+                      type="button"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
+                      onClick={() => handleDeleteCustomField(field)}
+                      disabled={deletingFieldKey === field.key}
+                      title="Delete this custom field"
+                    >
+                      <Icon name="X" size={12} />
+                    </button>
+                  ) : null}
+                </div>
+                <div className="relative mt-1">
+                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    ₹
+                  </span>
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-border bg-card py-1.5 pl-6 pr-2.5 text-right text-sm font-medium text-foreground outline-none transition-colors focus:border-primary/55"
+                    value={
+                      activeInputKey === field.key
+                        ? rawAmountInput(value)
+                        : formatAmountInput(value)
+                    }
+                    onChange={(e) =>
+                      handleCustomFieldValueChange(
+                        field,
+                        sanitizeAmountInput(e.target.value),
+                      )
+                    }
+                    onFocus={() => setActiveInputKey(field.key)}
+                    onBlur={() =>
+                      setActiveInputKey((curr) =>
+                        curr === field.key ? "" : curr,
+                      )
+                    }
+                    placeholder="0"
+                    inputMode="numeric"
+                  />
+                </div>
+              </div>
+            );
+          })}
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground font-medium">
-              Extended Warranty Finance
-            </label>
-            <input
-              type="number"
-              className="w-full mt-1 border border-border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-              value={ew}
-              onChange={(e) => setEw(e.target.value)}
-              placeholder="0"
-            />
+          <div className="space-y-1.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+                Add New Component Field
+              </span>
+              {!showAddFieldInput && (
+                <button
+                  type="button"
+                  className="rounded-md border border-primary/25 bg-card px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
+                  onClick={() => {
+                    setShowAddFieldInput(true);
+                    setFieldError("");
+                  }}
+                >
+                  + Add Field
+                </button>
+              )}
+            </div>
+            {showAddFieldInput && (
+              <div className="space-y-2">
+                <input
+                  className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-foreground outline-none transition-colors focus:border-primary/55"
+                  placeholder="e.g. Accessory Finance"
+                  value={newFieldLabel}
+                  onChange={(e) => setNewFieldLabel(e.target.value)}
+                />
+                {fieldError ? (
+                  <p className="text-[11px] text-red-500">{fieldError}</p>
+                ) : null}
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowAddFieldInput(false);
+                      setNewFieldLabel("");
+                      setFieldError("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleAddNewField} disabled={creatingField}>
+                    {creatingField ? "Adding..." : "Save Field"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex justify-between items-center pt-3 mt-1 border-t border-border bg-muted/30 px-3 py-2 rounded-md">
-            <span className="text-xs text-muted-foreground font-semibold">
+          <div className="mt-1 flex items-center justify-between rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Total Loan Amount
             </span>
-            <span className="text-base font-bold font-mono text-primary">
+            <span className="text-base font-semibold text-primary">
               {formatINR(total)}
             </span>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+        <div className="flex justify-end gap-2 border-t border-border/70 bg-background/70 px-4 py-2.5">
           <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
           </Button>

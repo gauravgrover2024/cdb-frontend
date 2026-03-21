@@ -1,5 +1,7 @@
 // src/modules/loans/components/loan-form/loan-approval/components/StatusUpdateModal.jsx
 import React, { useState } from "react";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
 import Icon from "../../../../../../components/AppIcon";
 import Button from "../../../../../../components/ui/Button";
 import Input from "../../../../../../components/ui/Input";
@@ -100,6 +102,12 @@ const resolveTimelineDate = (event, bank) => {
     bank?.lastUpdated ||
     null
   );
+};
+
+const toDayjsValue = (value) => {
+  if (!value) return null;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
 };
 
 const StatusUpdateModal = ({ bank, onClose, onSave }) => {
@@ -267,39 +275,69 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
               />
 
               {status === "Approved" && (
-                <Input
-                  label="Approval Date"
-                  type="date"
-                  value={formData.approvalDate}
-                  onChange={(e) =>
-                    handleInputChange("approvalDate", e?.target?.value)
-                  }
-                  description="Select the approval date"
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none text-foreground">
+                    Approval Date
+                  </label>
+                  <DatePicker
+                    className="w-full"
+                    format="DD-MM-YYYY"
+                    value={toDayjsValue(formData.approvalDate)}
+                    onChange={(date) =>
+                      handleInputChange(
+                        "approvalDate",
+                        date ? date.format("YYYY-MM-DD") : "",
+                      )
+                    }
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Select the approval date
+                  </p>
+                </div>
               )}
 
               {status === "Rejected" && (
-                <Input
-                  label="Rejection Date"
-                  type="date"
-                  value={formData.rejectionDate}
-                  onChange={(e) =>
-                    handleInputChange("rejectionDate", e?.target?.value)
-                  }
-                  description="Select the rejection date"
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none text-foreground">
+                    Rejection Date
+                  </label>
+                  <DatePicker
+                    className="w-full"
+                    format="DD-MM-YYYY"
+                    value={toDayjsValue(formData.rejectionDate)}
+                    onChange={(date) =>
+                      handleInputChange(
+                        "rejectionDate",
+                        date ? date.format("YYYY-MM-DD") : "",
+                      )
+                    }
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Select the rejection date
+                  </p>
+                </div>
               )}
 
               {status === "Disbursed" && (
-                <Input
-                  label="Disbursal Date"
-                  type="date"
-                  value={formData.disbursalDate}
-                  onChange={(e) =>
-                    handleInputChange("disbursalDate", e?.target?.value)
-                  }
-                  description="Select the disbursal date"
-                />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none text-foreground">
+                    Disbursal Date
+                  </label>
+                  <DatePicker
+                    className="w-full"
+                    format="DD-MM-YYYY"
+                    value={toDayjsValue(formData.disbursalDate)}
+                    onChange={(date) =>
+                      handleInputChange(
+                        "disbursalDate",
+                        date ? date.format("YYYY-MM-DD") : "",
+                      )
+                    }
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Select the disbursal date
+                  </p>
+                </div>
               )}
             </div>
 

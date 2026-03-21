@@ -539,12 +539,17 @@ const buildRepaymentViewerValues = (loanData = {}) => {
   setFallback("postfile_maturityDate", [
     "postfile_maturityDate",
     "postfile_maturity_date",
+    "postfile_maturity",
     "postfile_loanMaturityDate",
     "loanMaturityDate",
+    "loan_maturity_date",
     "approval_maturityDate",
     "approval_maturity_date",
+    "approval_loanMaturityDate",
+    "approval_loan_maturity_date",
     "maturityDate",
     "maturity_date",
+    "maturity",
   ]);
   setFallback("postfile_bankName", ["approval_bankName"]);
 
@@ -578,6 +583,24 @@ const buildRepaymentViewerValues = (loanData = {}) => {
     }
     if (!hasValue(mapped.postfile_bankName) && hasValue(primaryBank.bankName)) {
       mapped.postfile_bankName = primaryBank.bankName;
+    }
+    if (!hasValue(mapped.postfile_maturityDate)) {
+      mapped.postfile_maturityDate = firstFilled(
+        primaryBank.maturityDate,
+        primaryBank.maturity_date,
+        primaryBank.loanMaturityDate,
+        primaryBank.loan_maturity_date,
+      );
+    }
+  }
+
+  if (!hasValue(mapped.postfile_maturityDate)) {
+    const firstEmi = dayjs(mapped.postfile_firstEmiDate);
+    const tenure = Number(mapped.postfile_tenureMonths);
+    if (firstEmi.isValid() && Number.isFinite(tenure) && tenure > 0) {
+      mapped.postfile_maturityDate = firstEmi
+        .add(Math.max(0, tenure - 1), "month")
+        .format("YYYY-MM-DD");
     }
   }
 
@@ -679,6 +702,8 @@ const initialToStage = {
   prefile: "prefile",
   approval: "approval",
   postfile: "postfile",
+  postfile_repayment: "postfile",
+  po_repayment_intelligence: "postfile",
   delivery: "delivery",
   payout: "postfile",
 };
@@ -1149,9 +1174,11 @@ const getStageSubTabs = (stage, data, context = {}) => {
         key: "po_reconcile",
         label: "Reconciliation",
         icon: "Stamp",
-        render: (loanData) => (
-          <SplitSectionFields
-            data={loanData}
+        render: (loanData) => {
+          const repaymentViewData = buildRepaymentViewerValues(loanData);
+          return (
+            <SplitSectionFields
+              data={repaymentViewData}
             leftTitle="Approval vs Disbursement"
             rightTitle="EMI & Tenure Setup"
             leftFields={[
@@ -1169,14 +1196,15 @@ const getStageSubTabs = (stage, data, context = {}) => {
               { key: "postfile_emiPlan", label: "EMI Plan", paths: ["postfile_emiPlan"] },
               { key: "postfile_tenureMonths", label: "Tenure (Months)", paths: ["postfile_tenureMonths"] },
               { key: "postfile_firstEmiDate", label: "1st EMI Date", paths: ["postfile_firstEmiDate"], format: "date" },
-              { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate"], format: "date" },
+              { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate", "postfile_maturity_date", "postfile_maturity", "postfile_loanMaturityDate", "loanMaturityDate", "loan_maturity_date", "approval_maturityDate", "approval_maturity_date", "approval_loanMaturityDate", "approval_loan_maturity_date", "maturityDate", "maturity_date", "maturity"], format: "date", hideIfEmpty: false },
               { key: "postfile_emiAmount", label: "EMI Amount", paths: ["postfile_emiAmount"], format: "money" },
               { key: "postfile_processingFees", label: "Processing Fees", paths: ["postfile_processingFees"], format: "money" },
             ]}
             leftTone="amber"
             rightTone="emerald"
           />
-        ),
+          );
+        },
         fields: [
           { key: "postfile_bankName", label: "Post-File Bank", paths: ["postfile_bankName"] },
           { key: "postfile_approvalDate", label: "Approval Date", paths: ["postfile_approvalDate"], format: "date" },
@@ -1195,7 +1223,7 @@ const getStageSubTabs = (stage, data, context = {}) => {
           { key: "postfile_emiPlan", label: "EMI Plan", paths: ["postfile_emiPlan"] },
           { key: "postfile_tenureMonths", label: "Tenure (Months)", paths: ["postfile_tenureMonths"] },
           { key: "postfile_firstEmiDate", label: "1st EMI Date", paths: ["postfile_firstEmiDate"], format: "date" },
-          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate"], format: "date" },
+          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate", "postfile_maturity_date", "postfile_maturity", "postfile_loanMaturityDate", "loanMaturityDate", "loan_maturity_date", "approval_maturityDate", "approval_maturity_date", "approval_loanMaturityDate", "approval_loan_maturity_date", "maturityDate", "maturity_date", "maturity"], format: "date", hideIfEmpty: false },
           { key: "postfile_emiAmount", label: "EMI Amount", paths: ["postfile_emiAmount"], format: "money" },
         ],
       },
@@ -1407,7 +1435,7 @@ const getStageSubTabs = (stage, data, context = {}) => {
           { key: "postfile_tenureMonths", label: "Tenure", paths: ["postfile_tenureMonths"] },
           { key: "postfile_emiAmount", label: "EMI", paths: ["postfile_emiAmount"], format: "money" },
           { key: "postfile_firstEmiDate", label: "1st EMI Date", paths: ["postfile_firstEmiDate"], format: "date" },
-          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate"], format: "date" },
+          { key: "postfile_maturityDate", label: "Maturity Date", paths: ["postfile_maturityDate", "postfile_maturity_date", "postfile_maturity", "postfile_loanMaturityDate", "loanMaturityDate", "loan_maturity_date", "approval_maturityDate", "approval_maturity_date", "approval_loanMaturityDate", "approval_loan_maturity_date", "maturityDate", "maturity_date", "maturity"], format: "date", hideIfEmpty: false },
           { key: "postfile_currentOutstanding", label: "Current Outstanding", paths: ["postfile_currentOutstanding"], format: "money" },
           { key: "postfile_perDayInterest", label: "Per Day Interest", paths: ["postfile_perDayInterest"], format: "money" },
         ],
@@ -1515,6 +1543,8 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
 
   const loanId = loan?._id || loan?.loanId;
   const data = useMemo(() => fullLoan || loan || {}, [fullLoan, loan]);
+  const requestedInitialTab = String(initialTab || "").toLowerCase();
+  const forceRepaymentTab = open && requestedInitialTab === "po_repayment_intelligence";
 
   useEffect(() => {
     if (!open || !loanId) {
@@ -1551,9 +1581,16 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
 
   useEffect(() => {
     if (!open) return;
-    const stage = initialToStage[String(initialTab || "").toLowerCase()] || "prefile";
+    const stage = initialToStage[requestedInitialTab] || "prefile";
     setActiveStage(stage);
-  }, [open, initialTab]);
+  }, [open, requestedInitialTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (requestedInitialTab === "po_repayment_intelligence") {
+      setActiveSubTab("po_repayment_intelligence");
+    }
+  }, [open, requestedInitialTab]);
 
   useEffect(() => {
     if (!open || !data || typeof data !== "object") return;
@@ -1575,7 +1612,9 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
 
   const visibleStageKeys = useMemo(() => {
     if (isFinancedNoCase(data)) {
-      return ["prefile", "delivery"];
+      return forceRepaymentTab
+        ? ["prefile", "postfile", "delivery"]
+        : ["prefile", "delivery"];
     }
 
     const keys = Object.keys(STAGE_META).filter((stageKey) => {
@@ -1583,8 +1622,11 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
       return tabs.some((tab) => tabHasData(tab, data, tabContext));
     });
 
+    if (forceRepaymentTab && !keys.includes("postfile")) {
+      return [...keys, "postfile"];
+    }
     return keys.length ? keys : ["prefile"];
-  }, [data, tabContext]);
+  }, [data, tabContext, forceRepaymentTab]);
 
   useEffect(() => {
     if (!open) return;
@@ -1599,8 +1641,24 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
   );
 
   const stageSubTabs = useMemo(
-    () => stageSubTabsAll.filter((tab) => tabHasData(tab, data, tabContext)),
-    [stageSubTabsAll, data, tabContext],
+    () => {
+      const filtered = stageSubTabsAll.filter((tab) =>
+        tabHasData(tab, data, tabContext),
+      );
+      if (forceRepaymentTab && activeStage === "postfile") {
+        const repaymentTab = stageSubTabsAll.find(
+          (tab) => tab?.key === "po_repayment_intelligence",
+        );
+        if (
+          repaymentTab &&
+          !filtered.some((tab) => tab?.key === "po_repayment_intelligence")
+        ) {
+          return [...filtered, repaymentTab];
+        }
+      }
+      return filtered;
+    },
+    [stageSubTabsAll, data, tabContext, forceRepaymentTab, activeStage],
   );
 
   useEffect(() => {
@@ -1608,10 +1666,20 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
       setActiveSubTab("");
       return;
     }
+    if (
+      forceRepaymentTab &&
+      activeStage === "postfile" &&
+      stageSubTabs.some((tab) => tab.key === "po_repayment_intelligence")
+    ) {
+      if (activeSubTab !== "po_repayment_intelligence") {
+        setActiveSubTab("po_repayment_intelligence");
+      }
+      return;
+    }
     if (!stageSubTabs.some((tab) => tab.key === activeSubTab)) {
       setActiveSubTab(stageSubTabs[0].key);
     }
-  }, [stageSubTabs, activeSubTab]);
+  }, [stageSubTabs, activeSubTab, forceRepaymentTab, activeStage]);
 
   const activeSubTabData = useMemo(
     () => stageSubTabs.find((tab) => tab.key === activeSubTab) || stageSubTabs[0],

@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { customersApi } from "../../../../../api/customers";
 import { loansApi } from "../../../../../api/loans";
 import { uploadSingleFile } from "../../../../../api/uploads";
+import LoanDocumentViewerModal from "../../shared/LoanDocumentViewerModal";
+import LoanDocumentUploadModal from "../../shared/LoanDocumentUploadModal";
 
 const getTagColor = () =>
   "bg-secondary text-secondary-foreground border-border";
@@ -58,6 +60,12 @@ const getStableDocId = (doc, fallback = "") =>
       "",
   );
 
+const getDocDisplayLabel = (doc, index = -1) => {
+  const tag = String(doc?.tag || "").trim();
+  if (tag) return tag;
+  return index >= 0 ? `Document ${index + 1}` : "Document";
+};
+
 const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   const [documents, setDocuments] = useState([]);
   const [tags, setTags] = useState([]);
@@ -66,7 +74,9 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isFetchingDocs, setIsFetchingDocs] = useState(false);
   const [didHydrateFromForm, setDidHydrateFromForm] = useState(false);
-  const [lastPersistedSignature, setLastPersistedSignature] = useState("");
+  const lastPersistedSignatureRef = useRef("");
+  const lastHydratedSignatureRef = useRef("");
+  const lastFormSyncSignatureRef = useRef("");
 
   const customerId = Form.useWatch("customerId", form);
   const watchedPostFileDocuments = Form.useWatch("postfile_documents", form);
@@ -286,6 +296,11 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       ? watchedPostFileTags
       : [];
     const mergedDocs = mergeDocuments(existingDocs, buildPreFileDocuments());
+    const incomingSignature = `${docsSignature(mergedDocs)}|${tagsSignature(existingTags)}`;
+
+    if (didHydrateFromForm && incomingSignature === lastHydratedSignatureRef.current) {
+      return;
+    }
 
     setDocuments((prev) =>
       docsSignature(mergedDocs) !== docsSignature(prev) ? mergedDocs : prev,
@@ -294,10 +309,10 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       tagsSignature(existingTags) !== tagsSignature(prev) ? existingTags : prev,
     );
     if (!didHydrateFromForm) {
-      setLastPersistedSignature(
-        `${docsSignature(mergedDocs)}|${tagsSignature(existingTags)}`,
-      );
+      lastPersistedSignatureRef.current = incomingSignature;
     }
+    lastHydratedSignatureRef.current = incomingSignature;
+    lastFormSyncSignatureRef.current = incomingSignature;
     setDidHydrateFromForm(true);
   }, [
     watchedPostFileDocuments,
@@ -312,11 +327,14 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   // Keep form in sync once initial hydration has happened.
   useEffect(() => {
     if (!didHydrateFromForm) return;
+    const nextSignature = `${docsSignature(documents)}|${tagsSignature(tags)}`;
+    if (lastFormSyncSignatureRef.current === nextSignature) return;
+    lastFormSyncSignatureRef.current = nextSignature;
     form.setFieldsValue({
       postfile_documents: documents,
       postfile_tags: tags,
     });
-  }, [didHydrateFromForm, documents, tags, form]);
+  }, [didHydrateFromForm, documents, tags, form, docsSignature, tagsSignature]);
 
   const availableTags = isCompany
     ? SUGGESTED_TAGS
@@ -404,6 +422,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       if (newDocs.length > 0) {
         setDocuments((prev) => [...prev, ...newDocs]);
       }
+      setShowUploadModal(false);
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -489,7 +508,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       documentCount: Number(tag?.documentCount) || 0,
     }));
     const persistSignature = `${docsSignature(persistableDocs)}|${tagsSignature(persistableTags)}`;
-    if (persistSignature === lastPersistedSignature) return;
+    if (persistSignature === lastPersistedSignatureRef.current) return;
 
     const timer = setTimeout(async () => {
       try {
@@ -497,7 +516,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
           postfile_documents: persistableDocs,
           postfile_tags: persistableTags,
         });
-        setLastPersistedSignature(persistSignature);
+        lastPersistedSignatureRef.current = persistSignature;
       } catch (error) {
         console.error("Failed to auto-persist post-file documents:", error);
       }
@@ -512,7 +531,6 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
     tags,
     docsSignature,
     tagsSignature,
-    lastPersistedSignature,
   ]);
 
   const formatFileSize = (bytes) => {
@@ -526,6 +544,13 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   // 🎨 Dynamic Tag Colors (Using Global Helper)
   const [viewDocument, setViewDocument] = useState(null);
   const [showAllDocumentsModal, setShowAllDocumentsModal] = useState(false);
+  const viewerIndex = useMemo(() => {
+    if (!viewDocument) return 0;
+    const idx = documents.findIndex(
+      (doc) => getStableDocId(doc) === getStableDocId(viewDocument),
+    );
+    return idx >= 0 ? idx : 0;
+  }, [documents, viewDocument]);
 
   // Removed inner getTagColor definition
 
@@ -570,12 +595,18 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
       return acc;
     }, {});
 
-    setTags((prev) =>
-      prev.map((tag) => ({
-        ...tag,
-        documentCount: counts[tag.name] || 0,
-      })),
-    );
+    setTags((prev) => {
+      let changed = false;
+      const next = prev.map((tag) => {
+        const nextCount = counts[tag.name] || 0;
+        if ((Number(tag.documentCount) || 0) !== nextCount) {
+          changed = true;
+          return { ...tag, documentCount: nextCount };
+        }
+        return tag;
+      });
+      return changed ? next : prev;
+    });
   }, [documents]);
 
   return (
@@ -802,7 +833,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
                   doc.format !== "pdf" ? (
                     <img
                       src={doc.url}
-                      alt={doc.name}
+                      alt={getDocDisplayLabel(doc, index)}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -835,15 +866,12 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h4 className="truncate text-sm font-semibold text-foreground md:text-base">
-                            {doc.tag || doc.name}
+                            {getDocDisplayLabel(doc, index)}
                           </h4>
                           <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                             {doc.format || "file"}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Original file: {doc.name}
-                        </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                           <span className="rounded-full bg-muted/60 px-2.5 py-1">{doc.size}</span>
                           <span className="rounded-full bg-muted/60 px-2.5 py-1">{doc.uploadedBy}</span>
@@ -902,7 +930,9 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
                         onClick={() => {
                           const link = document.createElement("a");
                           link.href = doc.url;
-                          link.download = doc.name;
+                          link.download = getDocDisplayLabel(doc, index)
+                            .replace(/\s+/g, "_")
+                            .toLowerCase();
                           link.click();
                         }}
                         className="h-10 rounded-xl border-sky-200 bg-sky-50 px-4 text-sky-700 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-500/10 dark:text-sky-200 dark:hover:bg-sky-500/15"
@@ -989,11 +1019,13 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
         </div>
 
         {viewDocument && (
-          <DocumentViewerModal
-            document={viewDocument}
-            allDocuments={documents}
+          <LoanDocumentViewerModal
+            open={Boolean(viewDocument)}
+            title="Post-File Document Viewer"
+            documents={documents}
+            currentIndex={viewerIndex}
+            onIndexChange={(idx) => setViewDocument(documents[idx])}
             onClose={() => setViewDocument(null)}
-            onNavigate={(doc) => setViewDocument(doc)}
           />
         )}
 
@@ -1037,7 +1069,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
                         {doc.url ? (
                           <img
                             src={doc.url}
-                            alt={doc.name}
+                            alt={getDocDisplayLabel(doc, index)}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -1050,7 +1082,7 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
                       </div>
                       <div className="bg-card p-3.5">
                         <p className="truncate text-sm font-semibold text-foreground">
-                          {doc.tag || doc.name}
+                          {getDocDisplayLabel(doc, index)}
                         </p>
                         {doc.tag && (
                           <div className="mt-2">
@@ -1092,11 +1124,14 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
         )}
 
         {showUploadModal && (
-          <UploadDocumentsModal
+          <LoanDocumentUploadModal
+            open={showUploadModal}
+            title="Upload Documents"
             onUpload={uploadDocuments}
             onClose={() => setShowUploadModal(false)}
             uploading={uploading}
             progress={uploadProgress}
+            multiple
           />
         )}
 
@@ -1205,120 +1240,6 @@ const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
       >
         Tag
       </button>
-    </div>
-  );
-};
-
-const DocumentViewerModal = ({
-  document,
-  allDocuments,
-  onClose,
-  onNavigate,
-}) => {
-  const currentIndex = allDocuments.findIndex((d) => d.id === document.id);
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < allDocuments.length - 1;
-
-  const handlePrev = useCallback(() => {
-    if (hasPrev) {
-      onNavigate(allDocuments[currentIndex - 1]);
-    }
-  }, [hasPrev, onNavigate, allDocuments, currentIndex]);
-
-  const handleNext = useCallback(() => {
-    if (hasNext) {
-      onNavigate(allDocuments[currentIndex + 1]);
-    }
-  }, [hasNext, onNavigate, allDocuments, currentIndex]);
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === "ArrowLeft") handlePrev();
-    if (e.key === "ArrowRight") handleNext();
-    if (e.key === "Escape") onClose();
-  }, [handlePrev, handleNext, onClose]);
-
-  React.useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
-
-  return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4">
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-border bg-card shadow-elevation-4">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
-              <Icon name="Eye" size={18} />
-            </div>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              {document.tag || document.name}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              ({currentIndex + 1} of {allDocuments.length})
-            </span>
-          </div>
-          <button onClick={onClose} className="rounded-xl p-2 hover:bg-muted">
-            <Icon name="X" size={18} />
-          </button>
-        </div>
-
-        <div className="relative flex flex-1 items-center justify-center overflow-auto bg-muted/20 p-4">
-          {/* Previous Button */}
-          {hasPrev && (
-            <button
-              onClick={handlePrev}
-              className="absolute left-4 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card shadow-lg hover:bg-muted"
-            >
-              <Icon name="ChevronLeft" size={20} className="text-primary" />
-            </button>
-          )}
-
-          {/* Image */}
-          <img
-            src={document.url}
-            alt={document.name}
-            className="max-w-full max-h-full object-contain"
-          />
-
-          {/* Next Button */}
-          {hasNext && (
-            <button
-              onClick={handleNext}
-              className="absolute right-4 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card shadow-lg hover:bg-muted"
-            >
-              <Icon name="ChevronRight" size={20} className="text-primary" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between border-t border-border px-5 py-4">
-          <div className="text-xs text-muted-foreground">
-            {document.size} • Uploaded by {document.uploadedBy}
-            {document.tag && (
-              <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full border border-primary/20">
-                <Icon name="Tag" size={10} />
-                {document.tag}
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              iconName="Download"
-              iconPosition="left"
-              size="sm"
-              onClick={() => {
-                const link = document.createElement("a");
-                link.href = document.url;
-                link.download = document.name;
-                link.click();
-              }}
-            >
-              Download
-            </Button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
@@ -1473,179 +1394,6 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
             className="rounded-xl"
           >
             Add {selectedTags.length} Tag{selectedTags.length !== 1 ? "s" : ""}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const UploadDocumentsModal = ({ onUpload, onClose, uploading, progress }) => {
-  const [selectedFiles, setSelectedFiles] = useState([]);
-
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles([...selectedFiles, ...files]);
-  };
-
-  const removeFile = (index) => {
-    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
-  };
-
-  const handleUpload = () => {
-    if (selectedFiles.length > 0) {
-      onUpload(selectedFiles);
-      // Don't close immediately if we want to show progress, 
-      // but current logic in parent doesn't close modal automatically on success.
-      // We can let parent close it or close it here.
-      // Since parent function is async and we want to show progress, we rely on parent not closing it yet?
-      // Actually previous logic closed it immediately: onClose().
-      // Let's create a wrapper or just wait? 
-      // The parent handles logic. We just trigger onUpload.
-      // If we want to show progress IN the modal, we shouldn't close it.
-      // But the previous implementation called onClose() immediately.
-      // Let's modify behavior: if uploading, don't close.
-      
-      // WAIT, the 'onUpload' in parent is async now. 
-      // But we passed reference. Calling it just starts it.
-      // We should probably remove onClose() here and let parent close it, OR 
-      // update this component to wait.
-      // For simplicity in this refactor, let's keep it simple:
-      // We'll trust the parent to handle the async operation visual feedback 
-      // BUT, the parent uses state variables. 
-      // If we close the modal, the modal unmounts.
-      // If we want to show 'uploading...' inside this modal, we MUST NOT close it.
-    }
-  };
-
-  // Effect to close modal when upload finishes if it was uploading
-  useEffect(() => {
-     if (!uploading && progress === 100) {
-         onClose();
-     }
-  }, [uploading, progress, onClose]);
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
-  return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="pointer-events-auto w-full max-w-2xl rounded-[28px] border border-border bg-card shadow-elevation-4">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
-              <Icon name="Upload" size={18} />
-            </div>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              {uploading ? "Uploading..." : "Upload Documents"}
-            </span>
-          </div>
-          {!uploading && (
-            <button onClick={onClose} className="rounded-xl p-2 hover:bg-muted">
-                <Icon name="X" size={18} />
-            </button>
-          )}
-        </div>
-
-        <div className="space-y-4 p-5">
-          {/* File Upload Area */}
-          {!uploading && (
-              <div className="rounded-[24px] border-2 border-dashed border-rose-200/80 bg-gradient-to-br from-white via-rose-50/60 to-orange-50/40 p-8 text-center transition-colors hover:border-rose-300 dark:border-rose-900/60 dark:from-white/5 dark:via-rose-500/5 dark:to-orange-500/5">
-                <input
-                  type="file"
-                  id="fileUpload"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx"
-                />
-                <label
-                  htmlFor="fileUpload"
-                  className="cursor-pointer flex flex-col items-center"
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
-                    <Icon name="Upload" size={24} />
-                  </div>
-                  <p className="text-sm font-medium text-foreground mb-1">
-                    Click to upload or drag and drop
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    PDF, DOC, DOCX, PNG, JPG (max 10MB each)
-                  </p>
-                </label>
-              </div>
-          )}
-
-          {/* Progress Bar */}
-          {uploading && (
-              <div className="py-8 text-center space-y-3">
-                  <div className="mx-auto mb-3 flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
-                    <Icon name="Upload" size={24} />
-                  </div>
-                  <p className="font-medium">Uploading {selectedFiles.length} files...</p>
-                  <div className="w-full bg-muted rounded-full h-2.5 dark:bg-gray-700 max-w-xs mx-auto">
-                    <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{progress}% Complete</p>
-              </div>
-          )}
-
-          {/* Selected Files List */}
-          {selectedFiles.length > 0 && !uploading && (
-            <div>
-              <h4 className="text-xs font-semibold text-foreground mb-2">
-                Selected Files ({selectedFiles.length})
-              </h4>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {selectedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between rounded-2xl border border-border bg-muted/30 p-3"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <Icon
-                        name="File"
-                        size={18}
-                        className="text-primary flex-shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(file.size)}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeFile(index)}
-                      className="p-1.5 rounded-lg hover:bg-error/10 hover:text-error flex-shrink-0"
-                    >
-                      <Icon name="Trash2" size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={uploading} className="rounded-xl">
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleUpload}
-            disabled={selectedFiles.length === 0 || uploading}
-            className="rounded-xl"
-          >
-            {uploading ? "Uploading..." : `Upload ${selectedFiles.length} File${selectedFiles.length !== 1 ? "s" : ""}`}
           </Button>
         </div>
       </div>

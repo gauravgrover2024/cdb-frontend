@@ -2,35 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Spin } from "antd";
 import Icon from "../../../../components/AppIcon";
 import { loansApi } from "../../../../api/loans";
-
-const KEY_LABELS = {
-  aadhaarCardDocUrl: "Aadhaar Card",
-  panCardDocUrl: "PAN Card",
-  passportDocUrl: "Passport",
-  dlDocUrl: "Driving License",
-  addressProofDocUrl: "Address Proof",
-  gstDocUrl: "GST Certificate",
-  co_aadhaarCardDocUrl: "Co-Applicant Aadhaar",
-  co_panCardDocUrl: "Co-Applicant PAN",
-  co_passportDocUrl: "Co-Applicant Passport",
-  co_dlDocUrl: "Co-Applicant Driving License",
-  co_addressProofDocUrl: "Co-Applicant Address Proof",
-  gu_aadhaarCardDocUrl: "Guarantor Aadhaar",
-  gu_panCardDocUrl: "Guarantor PAN",
-  gu_passportDocUrl: "Guarantor Passport",
-  gu_dlDocUrl: "Guarantor Driving License",
-  gu_addressProofDocUrl: "Guarantor Address Proof",
-  delivery_invoiceFile: "Delivery Invoice",
-  delivery_rcFile: "Delivery RC Copy",
-  vehiclePhotoUrl: "Vehicle Photo",
-  vehicleRCUrl: "Vehicle RC",
-  insurancePolicyUrl: "Insurance Policy",
-  hypothecationDocUrl: "Hypothecation Document",
-  photoUrl: "Customer Photo",
-  signatureUrl: "Customer Signature",
-  postfile_documents: "Post-File Document",
-  postfile_documents_ledger: "Post-File Ledger Document",
-};
+import LoanDocumentViewerModal from "../shared/LoanDocumentViewerModal";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -80,19 +52,6 @@ const looksLikeUrl = (v) => {
 const isImageUrl = (url = "") => /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(url) || url.startsWith("data:image/");
 const isPdfUrl = (url = "") => /\.pdf(\?|#|$)/i.test(url) || url.startsWith("data:application/pdf");
 
-const formatLabelFromPath = (path = "") =>
-  String(path)
-    .split(".")
-    .filter(Boolean)
-    .map((segment) =>
-      segment
-        .replace(/\[(\d+)\]/g, " $1")
-        .replace(/_/g, " ")
-        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-        .trim(),
-    )
-    .join(" > ");
-
 const getSourceFromPath = (path = "") => {
   const p = String(path).toLowerCase();
   if (p.includes("co_") || p.includes("coapplicant")) return "Co-Applicant";
@@ -108,19 +67,11 @@ const getSourceFromPath = (path = "") => {
   return "Other Documents";
 };
 
-const normalizeDocName = (path, rawName, url) => {
-  if (hasValue(rawName)) return String(rawName);
-  const key = String(path).split(".").pop();
-  if (KEY_LABELS[key]) return KEY_LABELS[key];
-  const fromUrl = String(url || "").split("/").pop();
-  return decodeURIComponent(fromUrl || formatLabelFromPath(path) || "Document");
-};
-
 const getDocFilterType = (doc = {}) => {
   const source = String(doc.source || "").toLowerCase();
   const path = String(doc.path || "").toLowerCase();
-  const name = String(doc.name || "").toLowerCase();
-  const hay = `${source} ${path} ${name}`;
+  const tag = String(doc.tag || "").toLowerCase();
+  const hay = `${source} ${path} ${tag}`;
 
   const isRc = hay.includes("rc_") || hay.includes("vehicle rc") || hay.includes(" rc ");
   if (isRc) return "rc";
@@ -136,20 +87,23 @@ const getDocFilterType = (doc = {}) => {
   return "all";
 };
 
-const getDocTagText = (doc = {}) => (hasValue(doc.tag) ? String(doc.tag) : "Untagged");
+const getDocTagText = (doc = {}, index = -1) => {
+  const tag = String(doc?.tag || "").trim();
+  if (tag) return tag;
+  return index >= 0 ? `Document ${index + 1}` : "Document";
+};
 
 const extractAllDocuments = (loan) => {
   if (!loan || typeof loan !== "object") return [];
   const found = [];
 
-  const pushDoc = ({ path, url, tag, name, source }) => {
+  const pushDoc = ({ path, url, tag, source }) => {
     if (!looksLikeUrl(url)) return;
     found.push({
       id: `${path}:${url}`,
       path,
       url,
       tag: hasValue(tag) ? String(tag) : "",
-      name: normalizeDocName(path, name, url),
       source: source || getSourceFromPath(path),
       isImage: isImageUrl(url),
       isPdf: isPdfUrl(url),
@@ -164,7 +118,6 @@ const extractAllDocuments = (loan) => {
         path,
         url: value,
         tag: parent?.tag || parent?.label || parent?.documentTag,
-        name: parent?.name || parent?.fileName || parent?.filename || parent?.title,
       });
       return;
     }
@@ -181,7 +134,6 @@ const extractAllDocuments = (loan) => {
           path,
           url: objectUrl,
           tag: value.tag || value.label || value.documentTag,
-          name: value.name || value.fileName || value.filename || value.title,
           source: value.source,
         });
       }
@@ -202,7 +154,6 @@ const extractAllDocuments = (loan) => {
     }
     const existing = seenByUrl.get(doc.url);
     if (!existing.tag && doc.tag) existing.tag = doc.tag;
-    if (existing.name === "Document" && doc.name !== "Document") existing.name = doc.name;
     if (existing.source === "Other Documents" && doc.source !== "Other Documents") existing.source = doc.source;
   });
 
@@ -214,9 +165,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(-1);
   const [activeFilter, setActiveFilter] = useState("all");
-  const [showThumbRail, setShowThumbRail] = useState(false);
   const groupScrollRefs = useRef({});
-  const thumbHideTimerRef = useRef(null);
 
   useEffect(() => {
     setLocalLoan(loan || null);
@@ -254,19 +203,8 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
     if (!open) {
       setViewerIndex(-1);
       setActiveFilter("all");
-      setShowThumbRail(false);
-      if (thumbHideTimerRef.current) {
-        clearTimeout(thumbHideTimerRef.current);
-        thumbHideTimerRef.current = null;
-      }
     }
   }, [open]);
-
-  useEffect(() => {
-    return () => {
-      if (thumbHideTimerRef.current) clearTimeout(thumbHideTimerRef.current);
-    };
-  }, []);
 
   const allDocs = useMemo(() => extractAllDocuments(localLoan), [localLoan]);
   const filteredDocs = useMemo(() => {
@@ -306,23 +244,13 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
 
   const closeViewer = () => setViewerIndex(-1);
 
-  const goPrev = () => {
-    if (!filteredDocs.length) return;
-    setViewerIndex((prev) => (prev <= 0 ? filteredDocs.length - 1 : prev - 1));
-  };
-
-  const goNext = () => {
-    if (!filteredDocs.length) return;
-    setViewerIndex((prev) => (prev >= filteredDocs.length - 1 ? 0 : prev + 1));
-  };
-
   const handleDownloadAll = () => {
     if (!filteredDocs.length) return;
     filteredDocs.forEach((doc, index) => {
       setTimeout(() => {
         const link = document.createElement("a");
         link.href = doc.url;
-        link.download = doc.name || `document_${index + 1}`;
+        link.download = getDocTagText(doc, index).replace(/\s+/g, "_").toLowerCase();
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         document.body.appendChild(link);
@@ -330,26 +258,6 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
         document.body.removeChild(link);
       }, index * 180);
     });
-  };
-
-  const revealThumbRail = () => {
-    if (thumbHideTimerRef.current) {
-      clearTimeout(thumbHideTimerRef.current);
-      thumbHideTimerRef.current = null;
-    }
-    setShowThumbRail(true);
-  };
-
-  const scheduleHideThumbRail = () => {
-    if (thumbHideTimerRef.current) clearTimeout(thumbHideTimerRef.current);
-    thumbHideTimerRef.current = setTimeout(() => setShowThumbRail(false), 550);
-  };
-
-  const handleViewerMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const nearBottom = rect.bottom - e.clientY <= 140;
-    if (nearBottom) revealThumbRail();
-    else scheduleHideThumbRail();
   };
 
   const setGroupRef = (source) => (node) => {
@@ -501,7 +409,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
                           }}
                         >
                           {doc.isImage ? (
-                            <img src={doc.url} alt={doc.name} className="h-full w-full object-cover transition duration-300 hover:scale-[1.03]" />
+                            <img src={doc.url} alt={getDocTagText(doc)} className="h-full w-full object-cover transition duration-300 hover:scale-[1.03]" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                               <Icon name={doc.isPdf ? "FileText" : "File"} size={24} />
@@ -526,7 +434,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
                               <Icon name="Download" size={13} />
                             </a>
                           </div>
-                          <p className="line-clamp-2 min-h-[30px] text-[11px] text-muted-foreground">{formatLabelFromPath(doc.path)}</p>
+                          <p className="line-clamp-2 min-h-[30px] text-[11px] text-muted-foreground">{doc.source || "Document"}</p>
                         </div>
                       </article>
                     ))}
@@ -541,128 +449,16 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
           Includes all files found across this loan: Profile KYC, Co-Applicant, Guarantor, Post-File Instruments, Document Management, Delivery RC/Invoice, and other uploaded document URLs.
         </div>
         {viewerDoc && (
-          <div className="absolute inset-0 z-[5] flex flex-col bg-white/95 backdrop-blur-sm dark:bg-card/95">
-            <div className="flex items-center justify-between border-b border-border/70 px-5 py-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-foreground">{getDocTagText(viewerDoc)}</p>
-                  <span className="inline-flex rounded-full border border-border bg-background/70 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                    {viewerDoc.source}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Document {viewerIndex + 1} of {filteredDocs.length}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={viewerDoc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background/90 px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted"
-                >
-                  <Icon name="Download" size={13} />
-                  Download
-                </a>
-                <button
-                  type="button"
-                  onClick={closeViewer}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/90 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                >
-                  <Icon name="X" size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div
-              className="relative min-h-0 flex-1 px-5 py-4"
-              onMouseMove={handleViewerMouseMove}
-              onMouseLeave={scheduleHideThumbRail}
-            >
-              <button
-                type="button"
-                onClick={goPrev}
-                className="absolute left-8 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border bg-background/95 p-2.5 text-foreground shadow-lg transition hover:bg-muted"
-                title="Previous"
-              >
-                <Icon name="ChevronLeft" size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={goNext}
-                className="absolute right-8 top-1/2 z-10 -translate-y-1/2 rounded-full border border-border bg-background/95 p-2.5 text-foreground shadow-lg transition hover:bg-muted"
-                title="Next"
-              >
-                <Icon name="ChevronRight" size={18} />
-              </button>
-
-              <div className="h-full overflow-hidden rounded-2xl border border-border/70 bg-background shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
-                {viewerDoc.isImage ? (
-                  <img src={viewerDoc.url} alt={viewerDoc.name} className="h-full w-full object-contain" />
-                ) : (
-                  <iframe
-                    title={viewerDoc.name}
-                    src={viewerDoc.url}
-                    className="h-full w-full"
-                    loading="lazy"
-                  />
-                )}
-              </div>
-
-              <div
-                className={`pointer-events-none absolute inset-x-6 bottom-4 z-20 transition-all duration-200 ${
-                  showThumbRail ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-                }`}
-              >
-                <div
-                  className="pointer-events-auto rounded-xl border border-border/70 bg-background/92 p-2 shadow-xl backdrop-blur-sm"
-                  onMouseEnter={revealThumbRail}
-                  onMouseLeave={scheduleHideThumbRail}
-                >
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {filteredDocs.map((doc, idx) => (
-                      <div
-                        key={doc.id}
-                        className={`relative w-[120px] shrink-0 rounded-lg border p-1.5 transition ${
-                          idx === viewerIndex
-                            ? "border-primary bg-primary/5 ring-1 ring-primary/25"
-                            : "border-border bg-card/70"
-                        }`}
-                        title={getDocTagText(doc)}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setViewerIndex(idx)}
-                          className="h-16 w-full overflow-hidden rounded-md border border-border/50 bg-muted"
-                        >
-                          {doc.isImage ? (
-                            <img src={doc.url} alt={doc.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground">
-                              <Icon name={doc.isPdf ? "FileText" : "File"} size={17} />
-                            </div>
-                          )}
-                        </button>
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download
-                          className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background/95 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                          title="Download"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Icon name="Download" size={11} />
-                        </a>
-                        <p className="mt-1.5 truncate text-[10px] font-semibold text-foreground">{getDocTagText(doc)}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <LoanDocumentViewerModal
+            open={Boolean(viewerDoc)}
+            title="Post-File Document Viewer"
+            subtitle={`${displayName} · ${displayId}`}
+            documents={filteredDocs}
+            currentIndex={viewerIndex}
+            onIndexChange={setViewerIndex}
+            onClose={closeViewer}
+            showThumbnailRail
+          />
         )}
       </div>
     </div>

@@ -2,10 +2,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Form } from "antd";
 import { apiClient } from "../../../../../api/client";
+import { loansApi } from "../../../../../api/loans";
 
 import Button from "../../../../../components/ui/Button";
 import Icon from "../../../../../components/AppIcon";
 import dayjs from "dayjs";
+import {
+  DEFAULT_LOAN_BREAKUP_FIELDS,
+  buildLoanBreakupFieldDefinitions,
+} from "../shared/loanBreakupFields";
 
 import BankStatusCard from "./components/BankStatusCard";
 import ComparisonMatrix from "./components/ComparisonMatrix";
@@ -258,8 +263,64 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [breakupFieldDefs, setBreakupFieldDefs] = useState(DEFAULT_LOAN_BREAKUP_FIELDS);
   const saveTimeoutRef = useRef(null);
   const fetchedLoanIdRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadBreakupFields = async () => {
+      try {
+        const response = await loansApi.getBreakupFields();
+        const payload = response?.data ?? response;
+        const defs = buildLoanBreakupFieldDefinitions(payload?.data || payload || []);
+        if (mounted && defs.length) {
+          setBreakupFieldDefs(defs);
+        }
+      } catch (error) {
+        if (mounted) {
+          setBreakupFieldDefs(DEFAULT_LOAN_BREAKUP_FIELDS);
+        }
+      }
+    };
+    loadBreakupFields();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleCreateBreakupField = async (label) => {
+    const cleaned = String(label || "").trim();
+    if (!cleaned) return null;
+    const response = await loansApi.createBreakupField({ label: cleaned });
+    const payload = response?.data ?? response;
+    const created = payload?.data || null;
+    setBreakupFieldDefs((prev) =>
+      buildLoanBreakupFieldDefinitions([...(prev || []), ...(created ? [created] : [])]),
+    );
+    return created;
+  };
+
+  const handleDeleteBreakupField = async (fieldKey) => {
+    const safeKey = String(fieldKey || "").trim();
+    if (!safeKey) return false;
+    await loansApi.deleteBreakupField(safeKey);
+    setBreakupFieldDefs((prev) =>
+      buildLoanBreakupFieldDefinitions(
+        (prev || []).filter((field) => String(field?.key || "").trim() !== safeKey),
+      ),
+    );
+    setBanksData((prev) =>
+      (Array.isArray(prev) ? prev : []).map((bank) => ({
+        ...bank,
+        breakupCustomFields: (Array.isArray(bank?.breakupCustomFields)
+          ? bank.breakupCustomFields
+          : []
+        ).filter((row) => String(row?.key || "").trim() !== safeKey),
+      })),
+    );
+    return true;
+  };
 
   // Fetch banks data on component mount
   useEffect(() => {
@@ -584,6 +645,9 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
                   <BankStatusCard
                     bank={bankWithLiveVehicle(bank)}
                     form={form}
+                    breakupFieldDefinitions={breakupFieldDefs}
+                    onCreateBreakupField={handleCreateBreakupField}
+                    onDeleteBreakupField={handleDeleteBreakupField}
                     readOnly={false}
                     onUpdateStatus={(b) => {
                       setSelectedBank(b);
