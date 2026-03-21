@@ -679,6 +679,8 @@ const initialToStage = {
   prefile: "prefile",
   approval: "approval",
   postfile: "postfile",
+  postfile_repayment: "postfile",
+  po_repayment_intelligence: "postfile",
   delivery: "delivery",
   payout: "postfile",
 };
@@ -1515,6 +1517,8 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
 
   const loanId = loan?._id || loan?.loanId;
   const data = useMemo(() => fullLoan || loan || {}, [fullLoan, loan]);
+  const requestedInitialTab = String(initialTab || "").toLowerCase();
+  const forceRepaymentTab = open && requestedInitialTab === "po_repayment_intelligence";
 
   useEffect(() => {
     if (!open || !loanId) {
@@ -1551,9 +1555,16 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
 
   useEffect(() => {
     if (!open) return;
-    const stage = initialToStage[String(initialTab || "").toLowerCase()] || "prefile";
+    const stage = initialToStage[requestedInitialTab] || "prefile";
     setActiveStage(stage);
-  }, [open, initialTab]);
+  }, [open, requestedInitialTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (requestedInitialTab === "po_repayment_intelligence") {
+      setActiveSubTab("po_repayment_intelligence");
+    }
+  }, [open, requestedInitialTab]);
 
   useEffect(() => {
     if (!open || !data || typeof data !== "object") return;
@@ -1575,7 +1586,9 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
 
   const visibleStageKeys = useMemo(() => {
     if (isFinancedNoCase(data)) {
-      return ["prefile", "delivery"];
+      return forceRepaymentTab
+        ? ["prefile", "postfile", "delivery"]
+        : ["prefile", "delivery"];
     }
 
     const keys = Object.keys(STAGE_META).filter((stageKey) => {
@@ -1583,8 +1596,11 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
       return tabs.some((tab) => tabHasData(tab, data, tabContext));
     });
 
+    if (forceRepaymentTab && !keys.includes("postfile")) {
+      return [...keys, "postfile"];
+    }
     return keys.length ? keys : ["prefile"];
-  }, [data, tabContext]);
+  }, [data, tabContext, forceRepaymentTab]);
 
   useEffect(() => {
     if (!open) return;
@@ -1599,8 +1615,24 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
   );
 
   const stageSubTabs = useMemo(
-    () => stageSubTabsAll.filter((tab) => tabHasData(tab, data, tabContext)),
-    [stageSubTabsAll, data, tabContext],
+    () => {
+      const filtered = stageSubTabsAll.filter((tab) =>
+        tabHasData(tab, data, tabContext),
+      );
+      if (forceRepaymentTab && activeStage === "postfile") {
+        const repaymentTab = stageSubTabsAll.find(
+          (tab) => tab?.key === "po_repayment_intelligence",
+        );
+        if (
+          repaymentTab &&
+          !filtered.some((tab) => tab?.key === "po_repayment_intelligence")
+        ) {
+          return [...filtered, repaymentTab];
+        }
+      }
+      return filtered;
+    },
+    [stageSubTabsAll, data, tabContext, forceRepaymentTab, activeStage],
   );
 
   useEffect(() => {
@@ -1608,10 +1640,20 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
       setActiveSubTab("");
       return;
     }
+    if (
+      forceRepaymentTab &&
+      activeStage === "postfile" &&
+      stageSubTabs.some((tab) => tab.key === "po_repayment_intelligence")
+    ) {
+      if (activeSubTab !== "po_repayment_intelligence") {
+        setActiveSubTab("po_repayment_intelligence");
+      }
+      return;
+    }
     if (!stageSubTabs.some((tab) => tab.key === activeSubTab)) {
       setActiveSubTab(stageSubTabs[0].key);
     }
-  }, [stageSubTabs, activeSubTab]);
+  }, [stageSubTabs, activeSubTab, forceRepaymentTab, activeStage]);
 
   const activeSubTabData = useMemo(
     () => stageSubTabs.find((tab) => tab.key === activeSubTab) || stageSubTabs[0],

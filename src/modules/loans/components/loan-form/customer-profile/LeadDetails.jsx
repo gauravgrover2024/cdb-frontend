@@ -223,12 +223,32 @@ const LeadDetails = () => {
                 )}
 
                 {source === "Direct" && (
-                  <Col xs={24} md={12}>
+                  <Col xs={24} md={8}>
                     <Form.Item label="Direct Reference / Source Name" name="sourceDetails" className="mb-0">
                       <Input placeholder="e.g. Friend, Social Media, etc." className="rounded-xl h-10" prefix={<Icon name="User" size={14} className="text-muted-foreground" />} />
                     </Form.Item>
                   </Col>
                 )}
+
+                <Col xs={24} md={8}>
+                  <Form.Item label="Reference Name" name="referenceName" className="mb-0">
+                    <Input
+                      placeholder="Enter reference name"
+                      className="rounded-xl h-10"
+                      prefix={<Icon name="UserRound" size={14} className="text-muted-foreground" />}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={8}>
+                  <Form.Item label="Reference Number" name="referenceNumber" className="mb-0">
+                    <Input
+                      placeholder="Enter mobile number"
+                      className="rounded-xl h-10"
+                      prefix={<Icon name="Phone" size={14} className="text-muted-foreground" />}
+                    />
+                  </Form.Item>
+                </Col>
               </Row>
             </div>
           </Col>

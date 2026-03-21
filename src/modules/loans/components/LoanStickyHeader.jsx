@@ -6,6 +6,10 @@ import Icon from "../../../components/AppIcon";
 import { AutoSaveIndicator } from "../../../utils/formDataProtection";
 import NotesModal from "./NotesModal";
 import LoanDocumentsModal from "./dashboard/LoanDocumentsModal";
+import {
+  normalizeLoanBreakupCustomFields,
+  sumLoanBreakupCustomFields,
+} from "./loan-form/shared/loanBreakupFields";
 
 const hasValue = (v) =>
   v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "");
@@ -78,12 +82,14 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
   const approvalBreakupCredit = Form.useWatch("approval_breakup_creditAssured", form);
   const approvalBreakupInsurance = Form.useWatch("approval_breakup_insuranceFinance", form);
   const approvalBreakupEw = Form.useWatch("approval_breakup_ewFinance", form);
+  const approvalBreakupCustom = Form.useWatch("approval_breakup_custom", form);
   const postfileLoanAmountApproved = Form.useWatch("postfile_loanAmountApproved", form);
   const postfileLoanAmountDisbursed = Form.useWatch("postfile_loanAmountDisbursed", form);
   const postfileDisbursedLoan = Form.useWatch("postfile_disbursedLoan", form);
   const postfileDisbursedCredit = Form.useWatch("postfile_disbursedCreditAssured", form);
   const postfileDisbursedInsurance = Form.useWatch("postfile_disbursedInsurance", form);
   const postfileDisbursedEw = Form.useWatch("postfile_disbursedEw", form);
+  const postfileDisbursedCustom = Form.useWatch("postfile_disbursed_custom", form);
   const formLoanAmount = Form.useWatch("loanAmount", form);
   const financeExpectation = Form.useWatch("financeExpectation", form);
   const postfileRoi = Form.useWatch("postfile_roi", form);
@@ -172,12 +178,22 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
         asNumber(approvalBreakupNet ?? form?.getFieldValue?.("approval_breakup_netLoanApproved")) +
         asNumber(approvalBreakupCredit ?? form?.getFieldValue?.("approval_breakup_creditAssured")) +
         asNumber(approvalBreakupInsurance ?? form?.getFieldValue?.("approval_breakup_insuranceFinance")) +
-        asNumber(approvalBreakupEw ?? form?.getFieldValue?.("approval_breakup_ewFinance")),
+        asNumber(approvalBreakupEw ?? form?.getFieldValue?.("approval_breakup_ewFinance")) +
+        sumLoanBreakupCustomFields(
+          normalizeLoanBreakupCustomFields(
+            approvalBreakupCustom ?? form?.getFieldValue?.("approval_breakup_custom") ?? [],
+          ),
+        ),
       postfileDisbursedBreakupTotal:
         asNumber(postfileDisbursedLoan ?? form?.getFieldValue?.("postfile_disbursedLoan")) +
         asNumber(postfileDisbursedCredit ?? form?.getFieldValue?.("postfile_disbursedCreditAssured")) +
         asNumber(postfileDisbursedInsurance ?? form?.getFieldValue?.("postfile_disbursedInsurance")) +
-        asNumber(postfileDisbursedEw ?? form?.getFieldValue?.("postfile_disbursedEw")),
+        asNumber(postfileDisbursedEw ?? form?.getFieldValue?.("postfile_disbursedEw")) +
+        sumLoanBreakupCustomFields(
+          normalizeLoanBreakupCustomFields(
+            postfileDisbursedCustom ?? form?.getFieldValue?.("postfile_disbursed_custom") ?? [],
+          ),
+        ),
       disbursedAmount: pick(
         postfileLoanAmountDisbursed,
         postfileLoanAmountApproved,
@@ -215,10 +231,12 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
     approvalBreakupCredit,
     approvalBreakupInsurance,
     approvalBreakupEw,
+    approvalBreakupCustom,
     postfileDisbursedLoan,
     postfileDisbursedCredit,
     postfileDisbursedInsurance,
     postfileDisbursedEw,
+    postfileDisbursedCustom,
     postfileLoanAmountApproved,
     approvalRoi,
     approvalRoiRaw,

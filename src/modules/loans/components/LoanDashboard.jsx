@@ -1007,6 +1007,10 @@ const LoanDashboard = () => {
       setInitialViewTab("approval");
       setViewLoan(loan);
       setIsViewModalOpen(true);
+    } else if (mode === "repayment") {
+      setInitialViewTab("po_repayment_intelligence");
+      setViewLoan(loan);
+      setIsViewModalOpen(true);
     }
   };
 
@@ -1091,26 +1095,22 @@ const LoanDashboard = () => {
     navigate(`/loans/edit/${loan?._id || loan?.loanId}`);
   };
 
-  const handleShareLoan = (loan) => {
-    const loanId = loan?._id || loan?.loanId;
-    if (!loanId) {
+  const handleOpenRepaymentIntelligence = (loan) => {
+    handleLoanClick(loan, "repayment");
+  };
+
+  const handleOpenLoanDeliverySection = (loan, sectionId) => {
+    const targetId = loan?._id || loan?.loanId || loan?.loan_number;
+    if (!targetId) {
       message.warning("Loan ID not found.");
       return;
     }
-    const base = window.location.pathname.split("/loans")[0] || "";
-    const url = `${window.location.origin}${base}/loans/edit/${loanId}`;
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard
-        .writeText(url)
-        .then(() => {
-          message.success("Loan link copied to clipboard.");
-        })
-        .catch(() => {
-          message.error("Could not copy link.");
-        });
-    } else {
-      message.info(`Copy link: ${url}`);
-    }
+    const query = new URLSearchParams({
+      step: "delivery",
+      section: sectionId || "delivery-rc",
+      focus: String(Date.now()),
+    });
+    navigate(`/loans/edit/${targetId}?${query.toString()}`);
   };
 
   const filteredLoans = useMemo(() => {
@@ -1432,7 +1432,8 @@ const LoanDashboard = () => {
               onDeleteLoan={handleDeleteLoan}
               onUpdateStatus={handleUpdateStatus}
               onUploadDocuments={handleUploadDocuments}
-              onShareLoan={handleShareLoan}
+              onOpenRepaymentIntelligence={handleOpenRepaymentIntelligence}
+              onOpenLoanDeliverySection={handleOpenLoanDeliverySection}
               onRefreshLoans={refreshDashboard}
               onAddLoan={() => handleQuickAction("new-case")}
               onShowOtherBanks={handleShowOtherBanks}
