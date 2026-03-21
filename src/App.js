@@ -19,14 +19,20 @@ import PaymentForm from "./modules/payments/components/PaymentsForm";
 import VehicleMaster from "./modules/vehicles/VehicleMaster";
 import VehiclePriceList from "./modules/vehicles/VehiclePriceList";
 import AnalyticsDashboard from "./modules/analytics/AnalyticsDashboard";
-import Login from "./modules/auth/Login";
+import LoginPage from "./modules/auth/LoginPage";
 import Signup from "./modules/auth/Signup";
-import SuperAdminHub from "./modules/superadmin/SuperAdminHub";
 import { ThemeProvider } from "./context/ThemeContext";
 import "./App.css";
 import QuotationManagerPage from "./modules/loans/pages/QuotationManagerPage";
 import FeaturesPage from "./modules/loans/pages/FeaturesPage";
 import FieldMappingPage from "./modules/loans/pages/FieldMappingPage";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import SuperadminUsersPage from "./pages/superadmin/SuperadminUsersPage";
+import SuperadminShowroomsPage from "./pages/superadmin/SuperadminShowroomsPage";
+import DetailedShowroomViewPage from "./pages/superadmin/DetailedShowroomViewPage";
+import SuperadminChannelsPage from "./pages/superadmin/SuperadminChannelsPage";
+import SuperadminBanksPage from "./pages/superadmin/SuperadminBanksPage";
+import DetailedBankViewPage from "./pages/superadmin/DetailedBankViewPage";
 
 // NEW: booking pages
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
@@ -37,7 +43,7 @@ function HeaderWrapper() {
   return (
     <>
       <Header />
-      <div className="min-h-[calc(100vh-4rem)] bg-background overflow-x-hidden px-4 md:px-6 lg:px-8">
+      <div className="min-h-[calc(100vh-4rem)] bg-background overflow-x-hidden px-4 pt-3 md:px-6 md:pt-4 lg:px-8">
         <Outlet />
       </div>
     </>
@@ -49,13 +55,11 @@ function App() {
     <ThemeProvider>
       <Routes>
         {/* Public Auth Routes */}
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<Signup />} />
 
         {/* Main App Routes */}
         <Route path="/" element={<HeaderWrapper />}>
-          <Route path="superadmin/users" element={<SuperAdminHub />} />
-
           {/* Default */}
           <Route index element={<AnalyticsDashboard />} />
           <Route path="analytics" element={<AnalyticsDashboard />} />
@@ -109,6 +113,62 @@ function App() {
           {/* Vehicles */}
           <Route path="vehicles" element={<VehicleMaster />} />
           <Route path="vehicles/price-list" element={<VehiclePriceList />} />
+
+          {/* Superadmin */}
+          <Route
+            path="superadmin/users"
+            element={
+              <ProtectedRoute
+                requiredRoles={["superadmin"]}
+                element={<SuperadminUsersPage />}
+              />
+            }
+          />
+          <Route
+            path="superadmin/showrooms"
+            element={
+              <ProtectedRoute
+                requiredRoles={["superadmin"]}
+                element={<SuperadminShowroomsPage />}
+              />
+            }
+          />
+          <Route
+            path="superadmin/showrooms/:id"
+            element={
+              <ProtectedRoute
+                requiredRoles={["superadmin"]}
+                element={<DetailedShowroomViewPage />}
+              />
+            }
+          />
+          <Route
+            path="superadmin/channels"
+            element={
+              <ProtectedRoute
+                requiredRoles={["superadmin"]}
+                element={<SuperadminChannelsPage />}
+              />
+            }
+          />
+          <Route
+            path="superadmin/banks"
+            element={
+              <ProtectedRoute
+                requiredRoles={["superadmin"]}
+                element={<SuperadminBanksPage />}
+              />
+            }
+          />
+          <Route
+            path="superadmin/banks/:id"
+            element={
+              <ProtectedRoute
+                requiredRoles={["superadmin"]}
+                element={<DetailedBankViewPage />}
+              />
+            }
+          />
         </Route>
       </Routes>
     </ThemeProvider>

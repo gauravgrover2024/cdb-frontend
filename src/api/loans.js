@@ -7,11 +7,11 @@ export const loansApi = {
   getDashboardStats: async () => {
     return await apiClient.get("/api/loans/dashboard/stats");
   },
-  getAnalyticsOverview: async (params = {}) => {
-    return await apiClient.get("/api/loans/analytics/overview", { params });
+  getAnalyticsOverview: async (params = {}, options = {}) => {
+    return await apiClient.get("/api/loans/analytics/overview", { params, ...options });
   },
-  getAnalyticsDrilldown: async (params = {}) => {
-    return await apiClient.get("/api/loans/analytics/drilldown", { params });
+  getAnalyticsDrilldown: async (params = {}, options = {}) => {
+    return await apiClient.get("/api/loans/analytics/drilldown", { params, ...options });
   },
   createCustomWidget: async (body = {}) => {
     return await apiClient.post("/api/loans/analytics/custom-widget", body);

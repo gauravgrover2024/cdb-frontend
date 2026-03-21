@@ -52,4 +52,14 @@ export const showroomsApi = {
   getStats: async (id) => {
     return await apiClient.get(`/api/showrooms/${id}/stats`);
   },
+
+  // Get showrooms with pagination and search (list view - safe fields only)
+  getPaginated: async (skip = 0, limit = 50, search = "") => {
+    return await apiClient.get("/api/showrooms", { params: { skip, limit, q: search, fields: 'list' } });
+  },
+
+  // Get showrooms with all fields for detail view
+  getDetail: async (skip = 0, limit = 50, search = "") => {
+    return await apiClient.get("/api/showrooms", { params: { skip, limit, q: search, fields: 'detail' } });
+  },
 };

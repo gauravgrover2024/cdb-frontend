@@ -32,6 +32,14 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Prevent background scroll when mobile sidebar is open.
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
   // Determine if user is superadmin
   let isSuperadmin = false;
   let userData = null;
@@ -77,31 +85,26 @@ const Header = () => {
           path: "/loans/new",
           desc: "Start a new loan file",
         },
+      ],
+    },
+    {
+      label: "Tools",
+      icon: <Icon name="Wrench" size={18} />,
+      children: [
         {
           label: "EMI Calculator",
           path: "/loans/emi-calculator",
           desc: "Calculate loan EMI",
         },
         {
-          label: "Quotation manager",
+          label: "Quotations",
           path: "/loans/quotations",
-          desc: "Saved loan quotations",
-        }, // ← add this line
-        {
-          label: "Variant Features", // ← new
-          path: "/loans/features", // ← points to FeaturesPage
-          desc: "Compare variant features", // short description
+          desc: "Manage vehicle quotes",
         },
-      ],
-    },
-    {
-      label: "Vehicles",
-      icon: <Icon name="Car" size={18} />,
-      children: [
         {
-          label: "Vehicle Inventory",
-          path: "/vehicles",
-          desc: "Master vehicle records",
+          label: "Features Catalog",
+          path: "/loans/features",
+          desc: "Compare variant features",
         },
         {
           label: "Vehicle Price List",
@@ -120,24 +123,44 @@ const Header = () => {
           desc: "Track incoming funds",
         },
         {
-          label: "Payables",
-          path: "/payouts/payables",
-          desc: "Track outgoing payouts",
-        },
-        {
           label: "Delivery Orders",
           path: "/delivery-orders",
           desc: "Manage DO dispatch",
         },
-        { label: "Payments", path: "/payments", desc: "Process installments" },
+        {
+          label: "Payments",
+          path: "/payments",
+          desc: "Process installments",
+        },
       ],
     },
     ...(isSuperadmin
       ? [
           {
             label: "Control Panel",
-            path: "/superadmin/users",
             icon: <Icon name="ShieldCheck" size={18} />,
+            children: [
+              {
+                label: "User Management",
+                path: "/superadmin/users",
+                desc: "Manage user roles & access",
+              },
+              {
+                label: "Showrooms",
+                path: "/superadmin/showrooms",
+                desc: "Manage all showrooms",
+              },
+              {
+                label: "Channels",
+                path: "/superadmin/channels",
+                desc: "Manage partner channels",
+              },
+              {
+                label: "Banks",
+                path: "/superadmin/banks",
+                desc: "Configure finance partners",
+              },
+            ],
           },
         ]
       : []),
@@ -197,7 +220,7 @@ const Header = () => {
       <header className="sticky top-0 z-[1000] py-0">
         <div className="app-max-wrap w-full">
           <div
-            className={`relative flex h-14 items-center gap-2.5 rounded-2xl px-2.5 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-colors duration-300 ${
+            className={`relative flex h-12 items-center gap-2 rounded-2xl px-2 md:h-14 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-colors duration-300 ${
               scrolled
                 ? "bg-white/86 dark:bg-black/96 backdrop-blur-xl"
                 : "bg-white/95 dark:bg-black"
@@ -206,18 +229,15 @@ const Header = () => {
             {/* Brand Logo */}
             <button
               type="button"
-              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1.5 py-0.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-white/10"
+              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1 py-0.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-white/10"
               onClick={() => handleNavigation("/")}
             >
               <img
                 src={
-                  process.env.PUBLIC_URL +
-                  (isDarkMode
-                    ? "/acillp-logo-dark.svg"
-                    : "/acillp-logo-without-car.svg")
+                  process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"
                 }
                 alt="ACILLP"
-                className="h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105 xl:h-11"
+                className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105 md:h-8 xl:h-11"
               />
             </button>
 
@@ -314,7 +334,7 @@ const Header = () => {
             </nav>
 
             {/* Right: Actions */}
-            <div className="relative z-[1] flex items-center gap-2 sm:gap-3">
+            <div className="relative z-[1] ml-auto flex items-center gap-1.5 sm:gap-3">
               <div className="relative hidden sm:flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-emerald-100 text-slate-600 transition-colors hover:from-sky-200 hover:to-emerald-200 hover:text-slate-900 dark:from-sky-500/20 dark:to-emerald-500/20 dark:text-slate-200 dark:hover:from-sky-500/30 dark:hover:to-emerald-500/30 xl:h-10 xl:w-10">
                 <AntBadge dot color="#1d9bf0" offset={[-1, 2]}>
                   <Bell size={18} />
@@ -333,6 +353,7 @@ const Header = () => {
               </button>
 
               {/* Profile Dropdown */}
+              <div className="hidden sm:block">
               <Dropdown
                 menu={{
                   items: [
@@ -402,13 +423,14 @@ const Header = () => {
                   />
                 </button>
               </Dropdown>
+              </div>
 
               {/* Mobile Menu Trigger */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-100 to-blue-100 text-slate-700 transition-all hover:from-cyan-200 hover:to-blue-200 hover:text-sky-600 active:scale-95 dark:from-white/[0.08] dark:to-white/[0.04] dark:text-slate-100 dark:hover:from-white/[0.14] dark:hover:to-white/[0.08] dark:hover:text-sky-300 lg:hidden"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-100 to-blue-100 text-slate-700 transition-all hover:from-cyan-200 hover:to-blue-200 hover:text-sky-600 active:scale-95 dark:from-white/[0.08] dark:to-white/[0.04] dark:text-slate-100 dark:hover:from-white/[0.14] dark:hover:to-white/[0.08] dark:hover:text-sky-300 md:h-10 md:w-10 lg:hidden"
               >
-                <Menu size={22} />
+                <Menu size={20} />
               </button>
             </div>
           </div>
@@ -431,7 +453,7 @@ const Header = () => {
 
         {/* Sidebar Content */}
         <div
-          className={`absolute top-0 right-0 bottom-0 w-[300px] bg-white dark:bg-black shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+          className={`absolute top-0 right-0 bottom-0 w-full max-w-[340px] bg-white dark:bg-black shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
             mobileMenuOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -441,10 +463,7 @@ const Header = () => {
               <div className="rounded-lg px-2 py-1">
                 <img
                   src={
-                    process.env.PUBLIC_URL +
-                    (isDarkMode
-                      ? "/acillp-logo-dark.svg"
-                      : "/acillp-logo-without-car.svg")
+                    process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"
                   }
                   alt="ACILLP"
                   className="h-12 w-auto object-contain"

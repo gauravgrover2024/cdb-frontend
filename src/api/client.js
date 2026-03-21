@@ -4,7 +4,6 @@ import API_BASE_URL from "../config/apiBaseUrl";
 // 1) explicit env override
 // 2) deployed backend fallback
 
-console.log("API_BASE_URL at runtime:", API_BASE_URL);
 
 const buildUrl = (endpoint, params = {}) => {
   const query = buildQuery(params);
@@ -19,9 +18,22 @@ const buildUrl = (endpoint, params = {}) => {
 
 const getHeaders = (options) => {
   const base = { "Content-Type": "application/json" };
-  if (options && options.Authorization) {
+  
+  // Try to get token from sessionStorage
+  let token = null;
+  try {
+    token = sessionStorage.getItem("token");
+  } catch (e) {
+    console.warn("Could not access sessionStorage:", e);
+  }
+  
+  // Use token from sessionStorage or from options.Authorization
+  if (token) {
+    base["Authorization"] = `Bearer ${token}`;
+  } else if (options && options.Authorization) {
     base["Authorization"] = options.Authorization;
   }
+  
   return base;
 };
 
@@ -72,6 +84,9 @@ export const apiClient = {
     if (body !== undefined) {
       requestInit.body = JSON.stringify(body);
     }
+    if (options?.signal) {
+      requestInit.signal = options.signal;
+    }
 
     const res = await fetch(url, requestInit);
     return handleResponse(res);
@@ -83,54 +98,28 @@ export const apiClient = {
     const res = await fetch(url, {
       method: "GET",
       headers: getHeaders(options),
+      signal: options?.signal,
     });
     return handleResponse(res);
   },
 
   post: async (endpoint, body, options) => {
-    // 🌐 LOG NETWORK REQUEST
-    console.log(`\n🌐 API POST REQUEST: ${endpoint}`);
-    console.log("  URL:", `${API_BASE_URL}${endpoint}`);
-    console.log("  Body Size:", JSON.stringify(body).length, "bytes");
-    console.log("  Field Count:", Object.keys(body || {}).length);
-    console.log("  Sample Fields:", {
-      customerName: body?.customerName,
-      primaryMobile: body?.primaryMobile,
-      vehicleModel: body?.vehicleModel,
-      isFinanced: body?.isFinanced,
-    });
 
-    const startTime = Date.now();
     const res = await fetch(buildUrl(endpoint), {
       method: "POST",
       headers: getHeaders(options),
       body: JSON.stringify(body),
     });
-    const duration = Date.now() - startTime;
-
-    console.log(
-      `✅ Response received in ${duration}ms - Status: ${res.status}\n`,
-    );
     return handleResponse(res);
   },
 
   put: async (endpoint, body, options) => {
-    console.log(`\n🌐 API PUT REQUEST: ${endpoint}`);
-    console.log("  URL:", `${API_BASE_URL}${endpoint}`);
-    console.log("  Body Size:", JSON.stringify(body).length, "bytes");
-    console.log("  Field Count:", Object.keys(body || {}).length);
 
-    const startTime = Date.now();
     const res = await fetch(buildUrl(endpoint), {
       method: "PUT",
       headers: getHeaders(options),
       body: JSON.stringify(body),
     });
-    const duration = Date.now() - startTime;
-
-    console.log(
-      `✅ Response received in ${duration}ms - Status: ${res.status}\n`,
-    );
     return handleResponse(res);
   },
 
