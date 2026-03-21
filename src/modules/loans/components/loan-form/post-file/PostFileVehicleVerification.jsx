@@ -124,9 +124,6 @@ const PostFileVehicleVerification = ({ form }) => {
     Boolean(cinNumber) ||
     Boolean(businessName);
 
-  const approvalBankId = Form.useWatch("approval_bankId", form);
-  const approvalBanksDataRaw = Form.useWatch("approval_banksData", form);
-
   const vehicleMakeRaw = Form.useWatch("vehicleMake", form);
   const typeOfLoanRaw = Form.useWatch("typeOfLoan", form);
   const loanTypeRaw = Form.useWatch("loanType", form);
@@ -149,7 +146,15 @@ const PostFileVehicleVerification = ({ form }) => {
   const permanentCity = Form.useWatch("permanentCity", form);
 
   const showroomDealerNameRaw = Form.useWatch("showroomDealerName", form);
-  const deliveryDealerName = Form.useWatch("delivery_dealerName", form);
+  const showroomDealerContactPerson = Form.useWatch(
+    "showroomDealerContactPerson",
+    form,
+  );
+  const showroomDealerContactNumber = Form.useWatch(
+    "showroomDealerContactNumber",
+    form,
+  );
+  const showroomDealerAddress = Form.useWatch("showroomDealerAddress", form);
 
   const exShowroomPriceRaw = Form.useWatch("exShowroomPrice", form);
   const insuranceCostRaw = Form.useWatch("insuranceCost", form);
@@ -175,49 +180,24 @@ const PostFileVehicleVerification = ({ form }) => {
     onVehicleSelect: () => {},
   });
 
-  const primaryBank = useMemo(() => {
-    const approvalBanksData = Array.isArray(approvalBanksDataRaw)
-      ? approvalBanksDataRaw
-      : [];
-    if (!Array.isArray(approvalBanksData) || approvalBanksData.length === 0) {
-      return null;
-    }
-    const selected = approvalBanksData.find(
-      (b) => String(b?.id ?? "") === String(approvalBankId ?? ""),
-    );
-    if (selected) return selected;
-    return (
-      approvalBanksData.find((b) => b?.status === "Disbursed") ||
-      approvalBanksData.find((b) => b?.status === "Approved") ||
-      approvalBanksData[0]
-    );
-  }, [approvalBanksDataRaw, approvalBankId]);
-
-  const bankVehicle = primaryBank?.vehicle || {};
-
   const vehicleMake = firstFilled(
     vehicleMakeRaw,
-    primaryBank?.vehicleMake,
-    bankVehicle?.make,
+    form.getFieldValue("vehicleMake"),
     "",
   );
   const vehicleModel = firstFilled(
     vehicleModelRaw,
-    primaryBank?.vehicleModel,
-    bankVehicle?.model,
+    form.getFieldValue("vehicleModel"),
     "",
   );
   const vehicleVariant = firstFilled(
     vehicleVariantRaw,
-    primaryBank?.vehicleVariant,
-    bankVehicle?.variant,
+    form.getFieldValue("vehicleVariant"),
     "",
   );
   const vehicleFuelType = firstFilled(
     vehicleFuelTypeRaw,
-    primaryBank?.vehicleFuelType,
-    bankVehicle?.fuel,
-    bankVehicle?.fuel_type,
+    form.getFieldValue("vehicleFuelType"),
     "",
   );
 
@@ -239,7 +219,7 @@ const PostFileVehicleVerification = ({ form }) => {
 
   const showroomDealerName = firstFilled(
     showroomDealerNameRaw,
-    deliveryDealerName,
+    form.getFieldValue("showroomDealerName"),
     "",
   );
   const normalizedLoanType = String(
@@ -276,37 +256,32 @@ const PostFileVehicleVerification = ({ form }) => {
 
   const exShowroomPrice = firstFilled(
     exShowroomPriceRaw,
-    primaryBank?.exShowroomPrice,
-    bankVehicle?.exShowroomPrice,
-    bankVehicle?.exShowroom,
+    form.getFieldValue("exShowroomPrice"),
     0,
   );
   const insuranceCost = firstFilled(
     insuranceCostRaw,
-    primaryBank?.insuranceCost,
-    primaryBank?.insurance,
+    form.getFieldValue("insuranceCost"),
     0,
   );
   const roadTax = firstFilled(
     roadTaxRaw,
-    primaryBank?.roadTax,
-    primaryBank?.rto,
+    form.getFieldValue("roadTax"),
     0,
   );
   const accessoriesAmount = firstFilled(
     accessoriesAmountRaw,
-    primaryBank?.accessoriesAmount,
-    primaryBank?.accessories,
+    form.getFieldValue("accessoriesAmount"),
     0,
   );
   const dealerDiscount = firstFilled(
     dealerDiscountRaw,
-    primaryBank?.dealerDiscount,
+    form.getFieldValue("dealerDiscount"),
     0,
   );
   const manufacturerDiscount = firstFilled(
     manufacturerDiscountRaw,
-    primaryBank?.manufacturerDiscount,
+    form.getFieldValue("manufacturerDiscount"),
     0,
   );
 
@@ -359,25 +334,6 @@ const PostFileVehicleVerification = ({ form }) => {
     watchedPostfileRegdCity,
     city,
     permanentCity,
-    setFieldsIfChanged,
-  ]);
-
-  useEffect(() => {
-    const patch = {};
-    if (!vehicleMakeRaw && vehicleMake) patch.vehicleMake = vehicleMake;
-    if (!vehicleModelRaw && vehicleModel) patch.vehicleModel = vehicleModel;
-    if (!vehicleVariantRaw && vehicleVariant) patch.vehicleVariant = vehicleVariant;
-    if (!vehicleFuelTypeRaw && vehicleFuelType) patch.vehicleFuelType = vehicleFuelType;
-    if (Object.keys(patch).length) setFieldsIfChanged(patch);
-  }, [
-    vehicleMakeRaw,
-    vehicleModelRaw,
-    vehicleVariantRaw,
-    vehicleFuelTypeRaw,
-    vehicleMake,
-    vehicleModel,
-    vehicleVariant,
-    vehicleFuelType,
     setFieldsIfChanged,
   ]);
 
@@ -562,22 +518,22 @@ const PostFileVehicleVerification = ({ form }) => {
                 </div>
                 {isNewCarCase &&
                 (firstFilled(
-                  form.getFieldValue("showroomDealerContactPerson"),
+                  showroomDealerContactPerson,
                   "",
                 ) ||
-                firstFilled(form.getFieldValue("showroomDealerContactNumber"), "")) ? (
+                firstFilled(showroomDealerContactNumber, "")) ? (
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {form.getFieldValue("showroomDealerContactPerson")}
-                    {form.getFieldValue("showroomDealerContactPerson") &&
-                    form.getFieldValue("showroomDealerContactNumber")
+                    {showroomDealerContactPerson}
+                    {showroomDealerContactPerson &&
+                    showroomDealerContactNumber
                       ? " • "
                       : ""}
-                    {form.getFieldValue("showroomDealerContactNumber")}
+                    {showroomDealerContactNumber}
                   </div>
                 ) : null}
-                {isNewCarCase && form.getFieldValue("showroomDealerAddress") && (
+                {isNewCarCase && showroomDealerAddress && (
                   <div className="mt-1 text-xs text-muted-foreground/90">
-                    {form.getFieldValue("showroomDealerAddress")}
+                    {showroomDealerAddress}
                   </div>
                 )}
               </>

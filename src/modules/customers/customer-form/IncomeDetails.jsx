@@ -52,7 +52,11 @@ const IncomeDetails = () => {
 
              <div className="flex-none pt-1">
                <Form.Item name="panCardDocUrl" style={{ marginBottom: 0 }}>
-                  <DocumentUpload />
+                  <DocumentUpload
+                    uploadTitle="Upload PAN Card"
+                    viewerTitle="Post-File Document Viewer"
+                    docTag="PAN Card"
+                  />
                </Form.Item>
              </div>
            </div>

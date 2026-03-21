@@ -41,6 +41,11 @@ import {
   enrichPayloadWithBankDetails,
   splitBankDetailsForFormValues,
 } from "../../../utils/bankDetails";
+import {
+  normalizeLoanBreakupCustomFields,
+  sumLoanBreakupCustomFields,
+  toLoanBreakupNumber,
+} from "./loan-form/shared/loanBreakupFields";
 
 // ... (existing imports/code) ...
 
@@ -687,6 +692,29 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     () => new URLSearchParams(location.search).get("fresh"),
     [location.search],
   );
+  const requestedRouteStep = useMemo(
+    () =>
+      String(new URLSearchParams(location.search).get("step") || "")
+        .trim()
+        .toLowerCase(),
+    [location.search],
+  );
+  const requestedRouteSection = useMemo(
+    () => String(new URLSearchParams(location.search).get("section") || "").trim(),
+    [location.search],
+  );
+  const isValidRequestedRouteStep = useMemo(
+    () =>
+      [
+        "profile",
+        "prefile",
+        "approval",
+        "postfile",
+        "delivery",
+        "payout",
+      ].includes(requestedRouteStep),
+    [requestedRouteStep],
+  );
 
   const isEditMode = useMemo(() => {
     return Boolean(mode === "edit" || loanIdFromRoute);
@@ -708,7 +736,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedHasCoApplicant = Form.useWatch("hasCoApplicant", form);
   const watchedHasGuarantor = Form.useWatch("hasGuarantor", form);
   const watchedApplicantType = Form.useWatch("applicantType", form);
-  const watchedApprovalBankName = Form.useWatch("approval_bankName", form);
   const watchedAadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
   const watchedPanCardDocUrl = Form.useWatch("panCardDocUrl", form);
   const watchedPassportDocUrl = Form.useWatch("passportDocUrl", form);
@@ -725,8 +752,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedGuPassportDocUrl = Form.useWatch("gu_passportDocUrl", form);
   const watchedGuDlDocUrl = Form.useWatch("gu_dlDocUrl", form);
   const watchedGuAddressProofDocUrl = Form.useWatch("gu_addressProofDocUrl", form);
-  const watchedDeliveryInvoiceFile = Form.useWatch("delivery_invoiceFile", form);
-  const watchedDeliveryRcFile = Form.useWatch("delivery_rcFile", form);
   const watchedLeadDate = Form.useWatch("leadDate", form);
   const watchedLeadTime = Form.useWatch("leadTime", form);
   const [activeStep, setActiveStep] = useState("profile");
@@ -751,6 +776,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       setActiveStep("delivery");
     }
   }, [watchedIsFinanced, activeStep]);
+
+  useEffect(() => {
+    if (!isValidRequestedRouteStep) return;
+    setActiveStep(requestedRouteStep);
+  }, [isValidRequestedRouteStep, requestedRouteStep]);
 
   // Auto-fill operational date/time fields when each step is opened the first time.
   useEffect(() => {
@@ -925,20 +955,23 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       currentStage: "profile",
       leadDate: now,
       leadTime: now,
+      approval_bankName: "",
+      approval_banksData: [],
     });
   }, [isEditMode, freshLoanToken, form, clearSavedFormData]);
 
   const resolveBankAmounts = useCallback((bank = {}, context = {}) => {
-    const toNum = (val) => {
-      const n = Number(String(val ?? "").replace(/[^0-9.]/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    };
+    const toNum = (val) => toLoanBreakupNumber(val);
 
     const net = toNum(bank?.breakupNetLoanApproved);
     const credit = toNum(bank?.breakupCreditAssured);
     const ins = toNum(bank?.breakupInsuranceFinance);
     const ew = toNum(bank?.breakupEwFinance);
-    const addOns = credit + ins + ew;
+    const customFields = normalizeLoanBreakupCustomFields(
+      bank?.breakupCustomFields || context?.approval_breakup_custom || [],
+    );
+    const customTotal = sumLoanBreakupCustomFields(customFields);
+    const addOns = credit + ins + ew + customTotal;
 
     const bankLoan = toNum(bank?.loanAmount);
     const bankDisbursed = toNum(bank?.disbursedAmount);
@@ -957,6 +990,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       credit,
       ins,
       ew,
+      customFields,
+      customTotal,
     };
   }, []);
 
@@ -1031,6 +1066,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       breakupCreditAssured: toNum(values?.approval_breakup_creditAssured),
       breakupInsuranceFinance: toNum(values?.approval_breakup_insuranceFinance),
       breakupEwFinance: toNum(values?.approval_breakup_ewFinance),
+      breakupCustomFields: normalizeLoanBreakupCustomFields(
+        values?.approval_breakup_custom || [],
+      ),
       payoutPercent: values?.payoutPercentage ?? "",
       vehicle: {},
       statusHistory,
@@ -1362,6 +1400,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             hydrated.breakupCreditAssured = amt.credit;
             hydrated.breakupInsuranceFinance = amt.ins;
             hydrated.breakupEwFinance = amt.ew;
+            hydrated.breakupCustomFields = amt.customFields;
             hydrated.loanAmount = amt.derivedTotal || amt.derivedApproved;
             hydrated.disbursedAmount = amt.derivedDisbursed;
             hydrated.tenure = Number(hydrated.tenure) || Number(loan.approval_tenureMonths) || Number(loan.postfile_tenureMonths) || "";
@@ -1375,7 +1414,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           }
         }
 
-        if (loan?.currentStage) {
+        if (isValidRequestedRouteStep) {
+          setActiveStep(requestedRouteStep);
+        } else if (loan?.currentStage) {
           setActiveStep(loan.currentStage);
         }
       } catch (e) {
@@ -1392,9 +1433,26 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     return () => {
       mounted = false;
     };
-  }, [isEditMode, loanIdFromRoute, fetchLoanById, form, initialData, buildAutoBankCardFromApproval, normalizeApprovalSequence, resolveBankAmounts]);
+  }, [isEditMode, loanIdFromRoute, fetchLoanById, form, initialData, buildAutoBankCardFromApproval, normalizeApprovalSequence, resolveBankAmounts, isValidRequestedRouteStep, requestedRouteStep]);
 
-  // Persist KYC + delivery docs immediately on edit mode so refresh doesn't lose uploads.
+  useEffect(() => {
+    if (!requestedRouteSection) return;
+    if (isValidRequestedRouteStep && activeStep !== requestedRouteStep) return;
+    const timer = setTimeout(() => {
+      const target = document.getElementById(requestedRouteSection);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [
+    requestedRouteSection,
+    activeStep,
+    isValidRequestedRouteStep,
+    requestedRouteStep,
+  ]);
+
+  // Persist KYC docs immediately on edit mode so refresh doesn't lose uploads.
   useEffect(() => {
     const effectiveLoanId = loanIdFromRoute || form.getFieldValue("loanId");
     if (!isEditMode || !effectiveLoanId) return;
@@ -1416,8 +1474,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       gu_passportDocUrl: watchedGuPassportDocUrl || "",
       gu_dlDocUrl: watchedGuDlDocUrl || "",
       gu_addressProofDocUrl: watchedGuAddressProofDocUrl || "",
-      delivery_invoiceFile: watchedDeliveryInvoiceFile || "",
-      delivery_rcFile: watchedDeliveryRcFile || "",
     };
 
     const signature = JSON.stringify(docPatch);
@@ -1433,7 +1489,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         await loansApi.update(effectiveLoanId, docPatch);
         docAutoSaveSignatureRef.current = signature;
       } catch (error) {
-        console.error("Failed to auto-persist KYC/Delivery documents:", error);
+        console.error("Failed to auto-persist KYC documents:", error);
       }
     }, 700);
 
@@ -1458,34 +1514,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     watchedGuPassportDocUrl,
     watchedGuDlDocUrl,
     watchedGuAddressProofDocUrl,
-    watchedDeliveryInvoiceFile,
-    watchedDeliveryRcFile,
   ]);
-
-  // When approval bank is available but approval_banksData is empty, auto-seed one bank card.
-  useEffect(() => {
-    if (banksData.length > 0) return;
-    const approvalBankName = String(watchedApprovalBankName || "").trim();
-    if (!approvalBankName) return;
-    const snapshot = form.getFieldsValue([
-      "approval_bankName",
-      "approval_status",
-      "approval_loanAmountApproved",
-      "approval_loanAmountDisbursed",
-      "approval_roi",
-      "approval_tenureMonths",
-      "approval_processingFees",
-      "approval_approvalDate",
-      "approval_disbursedDate",
-      "approval_breakup_netLoanApproved",
-      "approval_breakup_creditAssured",
-      "approval_breakup_insuranceFinance",
-      "approval_breakup_ewFinance",
-      "payoutPercentage",
-    ]);
-    const autoBank = buildAutoBankCardFromApproval(snapshot, 0);
-    if (autoBank) setBanksData([normalizeApprovalSequence(autoBank)]);
-  }, [banksData.length, watchedApprovalBankName, form, buildAutoBankCardFromApproval, normalizeApprovalSequence]);
 
   // keep banksData mirrored in form for persistence
   useEffect(() => {
@@ -1524,6 +1553,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       "approval_loanAmountDisbursed",
       "approval_tenureMonths",
       "postfile_tenureMonths",
+      "approval_breakup_custom",
     ]);
     const amt = resolveBankAmounts(primaryBank, currentSnapshot);
     const resolvedTenure =
@@ -1552,6 +1582,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       approval_breakup_creditAssured: amt.credit,
       approval_breakup_insuranceFinance: amt.ins,
       approval_breakup_ewFinance: amt.ew,
+      approval_breakup_custom: amt.customFields,
       dsaCode:
         (primaryBank.loanBookedIn || "Direct Code") === "Indirect Code"
           ? ""
@@ -2263,6 +2294,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         approval_breakup_insuranceFinance:
           bankToDisburse.breakupInsuranceFinance || 0,
         approval_breakup_ewFinance: bankToDisburse.breakupEwFinance || 0,
+        approval_breakup_custom: normalizeLoanBreakupCustomFields(
+          bankToDisburse.breakupCustomFields || [],
+        ),
         payoutPercentage: bankToDisburse.payoutPercent || "",
         disburse_status: "Disbursed",
         disburse_bankName: bankToDisburse.bankName || "",
@@ -2276,6 +2310,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         postfile_processingFees: cleanNumber(bankToDisburse.processingFee),
         postfile_emiAmount: emiAmount,
         postfile_firstEmiDate: bankToDisburse.firstEmiDate || undefined,
+        postfile_disbursed_custom: normalizeLoanBreakupCustomFields(
+          bankToDisburse.breakupCustomFields || [],
+        ),
       });
 
       // ✅ Save loan with disbursement details
@@ -2519,7 +2556,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const HiddenFields = () => (
     <>
       <Form.Item name="loanId" hidden />
-      <Form.Item name="loan_number" hidden />
       <Form.Item name="customerId" hidden />
       <Form.Item name="dsaCode" hidden />
       <Form.Item name="co_id" hidden />
@@ -2558,6 +2594,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       <Form.Item name="approval_breakup_creditAssured" hidden />
       <Form.Item name="approval_breakup_insuranceFinance" hidden />
       <Form.Item name="approval_breakup_ewFinance" hidden />
+      <Form.Item name="approval_breakup_custom" hidden />
       <Form.Item name="approval_banksData" hidden />
       <Form.Item name="payoutPercentage" hidden />
 
@@ -2574,6 +2611,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       <Form.Item name="postfile_emiAmount" hidden />
       <Form.Item name="postfile_firstEmiDate" hidden />
       <Form.Item name="postfile_maturityDate" hidden />
+      <Form.Item name="postfile_disbursed_custom" hidden />
 
       <Form.Item name="__postfileSeeded" hidden />
       <Form.Item name="__postfileLocked" hidden />

@@ -22,7 +22,11 @@ const KycItem = ({ label, icon, nameInput, nameDoc, placeholder, maxLength, styl
 
       <div className="flex-none pt-1">
         <Form.Item name={nameDoc} style={{ marginBottom: 0 }}>
-          <span className="font-normal"><DocumentUpload /></span>
+          <DocumentUpload
+            uploadTitle={`Upload ${label}`}
+            viewerTitle="Post-File Document Viewer"
+            docTag={label}
+          />
         </Form.Item>
       </div>
     </div>
