@@ -358,7 +358,52 @@ const EMICalculator = ({
     const snapshot = buildVehiclePricingSnapshot(selectedVehicle);
 
     setPricingState((prev) => {
-      if (prev?.vehicleId === selectedVehicle._id) return prev;
+      if (prev?.vehicleId === selectedVehicle._id) {
+        const backfillKeys = [
+          "exShowroom",
+          "rto",
+          "insurance",
+          "tcs",
+          "accessories",
+          "extendedWarranty",
+        ];
+        const needsBackfill = backfillKeys.some((key) => {
+          const prevVal = Number(prev?.[key]) || 0;
+          const nextVal = Number(snapshot?.[key]) || 0;
+          return prevVal <= 0 && nextVal > 0;
+        });
+
+        if (!needsBackfill) return prev;
+
+        return {
+          ...prev,
+          exShowroom: Number(prev?.exShowroom) || Number(snapshot.exShowroom) || 0,
+          rto: Number(prev?.rto) || Number(snapshot.rto) || 0,
+          insurance: Number(prev?.insurance) || Number(snapshot.insurance) || 0,
+          tcs: Number(prev?.tcs) || Number(snapshot.tcs) || 0,
+          accessories:
+            Number(prev?.accessories) || Number(snapshot.accessories) || 0,
+          extendedWarranty:
+            Number(prev?.extendedWarranty) ||
+            Number(snapshot.extendedWarranty) ||
+            0,
+          additionsOthers:
+            Array.isArray(prev?.additionsOthers) && prev.additionsOthers.length
+              ? prev.additionsOthers
+              : snapshot.additionsOthers,
+          discountsOthers:
+            Array.isArray(prev?.discountsOthers) && prev.discountsOthers.length
+              ? prev.discountsOthers
+              : snapshot.discountsOthers,
+          onRoadBeforeDiscount:
+            Number(snapshot.onRoadBeforeDiscount) ||
+            Number(prev?.onRoadBeforeDiscount) ||
+            0,
+          totalDiscount:
+            Number(prev?.totalDiscount) || Number(snapshot.totalDiscount) || 0,
+          netOnRoad: Number(snapshot.netOnRoad) || Number(prev?.netOnRoad) || 0,
+        };
+      }
 
       return {
         vehicleId: selectedVehicle._id,

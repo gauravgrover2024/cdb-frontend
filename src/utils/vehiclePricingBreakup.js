@@ -147,6 +147,8 @@ const KNOWN_TOP_LEVEL_KEYS = new Set([
   "raw_price_json",
   "features",
   "variant_short",
+  "rawVariant",
+  "rawModel",
   "onRoadPrice",
   "on_road_price",
   "on_road_price_cardekho",
@@ -166,6 +168,31 @@ const SKIP_DYNAMIC_KEYS = new Set([
   "other_totalOtherCharges",
   "other_totalOtherChargesInRsFormat",
 ]);
+
+const isPricingLikeKey = (key) => {
+  const token = normalizeText(key);
+  return [
+    "charge",
+    "charges",
+    "tax",
+    "tcs",
+    "rto",
+    "insurance",
+    "warranty",
+    "accessories",
+    "accessory",
+    "amount",
+    "total",
+    "price",
+    "fee",
+    "fees",
+    "card",
+    "mcd",
+    "optional",
+    "other",
+    "road",
+  ].some((word) => token.includes(word));
+};
 
 const isDiscountLikeKey = (key) => {
   const token = normalizeText(key);
@@ -231,6 +258,7 @@ const extractDynamicLineItems = (vehicle, blockedKeys) => {
   Object.entries(source).forEach(([key, value]) => {
     if (!key || KNOWN_TOP_LEVEL_KEYS.has(key) || blockedKeys.has(key)) return;
     if (key.endsWith("_list")) return;
+    if (!isPricingLikeKey(key)) return;
 
     const amount = clampPositive(value);
     if (!amount) return;
