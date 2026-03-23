@@ -389,6 +389,11 @@ const EMICalculator = ({
   const [savedQuotationId, setSavedQuotationId] = useState(null);
 
   const [pricingState, setPricingState] = useState(null);
+  // Derived backend city used for pricing source selection
+  const backendCityKey = useMemo(() => {
+    if (!debouncedCityInput) return null;
+    return resolveVehiclePricingCity(debouncedCityInput);
+  }, [debouncedCityInput]);
 
   useEffect(() => {
     if (fromVariant) return;
@@ -691,12 +696,6 @@ const EMICalculator = ({
       ignore = true;
     };
   }, [debouncedVehicleSearchInput, includeDiscontinued]);
-
-  // Derived backend city used for pricing source selection
-  const backendCityKey = useMemo(() => {
-    if (!debouncedCityInput) return null;
-    return resolveVehiclePricingCity(debouncedCityInput);
-  }, [debouncedCityInput]);
 
   useEffect(() => {
     let ignore = false;
