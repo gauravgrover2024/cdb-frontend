@@ -6,7 +6,6 @@ import { useVehicleData } from "../../../../../hooks/useVehicleData";
 import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
 
 const { Option } = Select;
-const SHOWROOM_AUTOSUGGEST_POPUP_WIDTH = 520;
 
 const asAmount = (val) => {
   if (val === null || val === undefined || val === "") return 0;
@@ -547,10 +546,6 @@ const PostFileVehicleVerification = ({ form }) => {
                   <AutoComplete
                     options={showroomOptions}
                     popupMatchSelectWidth={false}
-                    popupStyle={{
-                      width: SHOWROOM_AUTOSUGGEST_POPUP_WIDTH,
-                      maxWidth: "92vw",
-                    }}
                     onSearch={searchShowrooms}
                     onSelect={handleShowroomSelect}
                     onChange={(value) =>

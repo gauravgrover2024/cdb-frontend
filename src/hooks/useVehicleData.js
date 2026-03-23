@@ -68,6 +68,38 @@ const filterRowsByDiscontinuedPreference = (rows, includeDiscontinued) => {
 
 const normalizeVehicleToken = (value) =>
   String(value || "").trim().toLowerCase();
+const normalizeCityToken = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+const isCityTokenMatch = (candidate, target) => {
+  if (!target) return true;
+  if (!candidate) return false;
+  if (candidate === target) return true;
+  return candidate.includes(target) || target.includes(candidate);
+};
+
+const uniqueNonEmptyValues = (items = []) => {
+  const out = [];
+  const seen = new Set();
+  items.forEach((item) => {
+    const value = String(item || "").trim();
+    if (!value) return;
+    const key = value.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(value);
+  });
+  return out;
+};
+
+const toBackendMakeCandidates = (make) => {
+  const raw = String(make || "").trim();
+  if (!raw) return [];
+  const titleCased = `${raw.charAt(0).toUpperCase()}${raw.slice(1).toLowerCase()}`;
+  return uniqueNonEmptyValues([raw, titleCased]);
+};
 
 const toMasterRows = (rows) => {
   if (!Array.isArray(rows)) return [];
@@ -78,9 +110,17 @@ const toMasterRows = (rows) => {
     const modelValue = String(row?.model || "").trim();
     const variantValue = String(row?.variant || "").trim();
     if (!makeValue) continue;
+    const cityValue = String(
+      row?.city || row?.locationCity || row?.showroomCity || "",
+    ).trim();
+    const fuelValue = String(
+      row?.fuel || row?.fuel_type || row?.fuelType || "",
+    ).trim();
     const key = `${normalizeVehicleToken(makeValue)}|${normalizeVehicleToken(
       modelValue,
-    )}|${normalizeVehicleToken(variantValue)}|${
+    )}|${normalizeVehicleToken(variantValue)}|${normalizeCityToken(
+      cityValue,
+    )}|${normalizeVehicleToken(fuelValue)}|${
       isVehicleRowDiscontinued(row) ? "discontinued" : "active"
     }`;
     if (seen.has(key)) continue;
@@ -89,6 +129,19 @@ const toMasterRows = (rows) => {
       make: makeValue,
       model: modelValue,
       variant: variantValue,
+      city: cityValue,
+      fuel: fuelValue,
+      fuel_type: row?.fuel_type,
+      fuelType: row?.fuelType,
+      exShowroom: row?.exShowroom,
+      ex_showroom: row?.ex_showroom,
+      exShowroomPrice: row?.exShowroomPrice,
+      rto: row?.rto,
+      roadTax: row?.roadTax,
+      insurance: row?.insurance,
+      insuranceCost: row?.insuranceCost,
+      otherCharges: row?.otherCharges,
+      onRoadPrice: row?.onRoadPrice,
       is_discontinued: row?.is_discontinued,
       isDiscontinued: row?.isDiscontinued,
       discontinued_date: row?.discontinued_date,
@@ -195,7 +248,7 @@ export const useVehicleData = (form, options = {}) => {
   const MODELS_CACHE_KEY = "vehicle_models_by_make_cache_v2";
   const VARIANTS_CACHE_KEY = "vehicle_variants_by_make_model_cache_v3";
   const MAKES_CACHE_KEY = "vehicle_makes_cache_v2";
-  const MASTER_ROWS_CACHE_KEY = "vehicle_master_rows_cache_v2";
+  const MASTER_ROWS_CACHE_KEY = "vehicle_master_rows_cache_v3";
   const toLabelList = (items, keys = []) => {
     if (!Array.isArray(items)) return [];
     const values = items
@@ -261,7 +314,7 @@ export const useVehicleData = (form, options = {}) => {
 
     inFlightRef.current.masterRows = (async () => {
       try {
-        const vehiclesRes = await vehiclesApi.getAll({ limit: 5000 });
+        const vehiclesRes = await vehiclesApi.getAll({ limit: 10000 });
         const rows = toMasterRows(Array.isArray(vehiclesRes?.data) ? vehiclesRes.data : []);
         cacheRef.current.featureRows = rows;
         writeVehicleCache(MASTER_ROWS_CACHE_KEY, rows);
@@ -506,48 +559,152 @@ export const useVehicleData = (form, options = {}) => {
       }
 
       try {
-    const cacheKey = `${discontinuedModeKey}|${selectedMake}|${selectedModel}`;
-        const rawByDisplay = cacheRef.current.variantRawByDisplayByMakeModel?.[cacheKey] || {};
+        const cacheKey = `${discontinuedModeKey}|${selectedMake}|${selectedModel}`;
+        const rawByDisplay =
+          cacheRef.current.variantRawByDisplayByMakeModel?.[cacheKey] || {};
         const resolvedVariant = rawByDisplay[selectedVariant] || selectedVariant;
         const resolvedCity = cityResolver
           ? cityResolver(selectedCity, form)
           : selectedCity;
-        let response = await vehiclesApi.getByDetails(
-          selectedMake,
-          selectedModel,
-          resolvedVariant,
-          null,
-          resolvedCity || null,
-        );
-        if (response.success && response.data) {
-          const vehicleData = response.data;
-          setSelectedVehicle(vehicleData);
+        const normalizedSelectedVariant = normalize(selectedVariant);
 
-          // Auto-populate pricing fields if enabled
-          if (autofillPricing && form) {
-            const pricingFields = {
-              exShowroomPrice: vehicleData.exShowroom,
-              rto: vehicleData.rto,
-              insurance: vehicleData.insurance,
-              otherCharges: vehicleData.otherCharges,
-              onRoadPrice: vehicleData.onRoadPrice,
-            };
-            const currentValues = form.getFieldsValue();
-            const fieldsToUpdate = {};
-            Object.entries(pricingFields).forEach(([key, value]) => {
-              if (value && !currentValues[key]) {
-                fieldsToUpdate[key] = value;
-              }
-            });
-            if (Object.keys(fieldsToUpdate).length > 0) {
-              form.setFieldsValue(fieldsToUpdate);
+        const variantCandidates = [
+          resolvedVariant,
+          selectedVariant,
+          `${selectedMake} ${selectedModel} ${selectedVariant}`,
+          `${selectedMake} ${selectedVariant}`,
+          `${selectedModel} ${selectedVariant}`,
+        ];
+
+        const masterRows = await loadMasterRows();
+        if (Array.isArray(masterRows) && masterRows.length) {
+          const targetMake = normalize(selectedMake);
+          const targetModel = normalize(selectedModel);
+          masterRows.forEach((row) => {
+            if (normalize(row?.make || row?.brand) !== targetMake) return;
+            if (normalize(row?.model) !== targetModel) return;
+            const rawVariant = String(row?.variant || "").trim();
+            if (!rawVariant) return;
+            const displayVariant = cleanVariantLabel(
+              rawVariant,
+              selectedMake,
+              selectedModel,
+            );
+            if (
+              normalize(rawVariant) === normalizedSelectedVariant ||
+              normalize(displayVariant) === normalizedSelectedVariant
+            ) {
+              variantCandidates.push(rawVariant);
+            }
+          });
+        }
+
+        const finalVariantCandidates = uniqueNonEmptyValues(variantCandidates);
+        const cityForLookup = String(resolvedCity || "").trim() || null;
+        const makeCandidates = toBackendMakeCandidates(selectedMake);
+        const cityToken = normalizeCityToken(cityForLookup);
+        let response = null;
+
+        const localMatches = [];
+        if (Array.isArray(masterRows) && masterRows.length) {
+          for (const makeCandidate of makeCandidates) {
+            const makeToken = normalize(makeCandidate);
+            const modelToken = normalize(selectedModel);
+            for (const variantCandidate of finalVariantCandidates) {
+              const variantToken = normalize(variantCandidate);
+              masterRows.forEach((row) => {
+                if (normalize(row?.make || row?.brand) !== makeToken) return;
+                if (normalize(row?.model) !== modelToken) return;
+                if (normalize(row?.variant) !== variantToken) return;
+                localMatches.push(row);
+              });
             }
           }
-          if (onVehicleSelect) {
-            onVehicleSelect(vehicleData);
+        }
+
+        if (localMatches.length) {
+          const cityMatched = localMatches.filter((row) =>
+            isCityTokenMatch(normalizeCityToken(row?.city), cityToken),
+          );
+          const best =
+            cityMatched.find(
+              (row) =>
+                row?.exShowroom !== undefined &&
+                row?.exShowroom !== null &&
+                String(row?.exShowroom).trim() !== "",
+            ) ||
+            cityMatched[0] ||
+            localMatches.find(
+              (row) =>
+                row?.exShowroom !== undefined &&
+                row?.exShowroom !== null &&
+                String(row?.exShowroom).trim() !== "",
+            ) ||
+            localMatches[0];
+
+          if (best) {
+            response = { success: true, data: best };
           }
-        } else {
+        }
+        const tryLookupByCandidates = async (cityValue) => {
+          for (const makeCandidate of makeCandidates) {
+            for (const variantCandidate of finalVariantCandidates) {
+              try {
+                const attempt = await vehiclesApi.getByDetails(
+                  makeCandidate,
+                  selectedModel,
+                  variantCandidate,
+                  null,
+                  cityValue,
+                );
+                if (attempt?.success && attempt?.data) {
+                  return attempt;
+                }
+              } catch (error) {
+                if (!isVehicleNotFoundError(error)) {
+                  throw error;
+                }
+              }
+            }
+          }
+          return null;
+        };
+
+        response = response || (await tryLookupByCandidates(cityForLookup));
+        if ((!response?.success || !response?.data) && cityForLookup) {
+          response = await tryLookupByCandidates(null);
+        }
+
+        if (!response?.success || !response?.data) {
           setSelectedVehicle(null);
+          return;
+        }
+
+        const vehicleData = response.data;
+        setSelectedVehicle(vehicleData);
+
+        // Auto-populate pricing fields if enabled
+        if (autofillPricing && form) {
+          const pricingFields = {
+            exShowroomPrice: vehicleData.exShowroom,
+            rto: vehicleData.rto,
+            insurance: vehicleData.insurance,
+            otherCharges: vehicleData.otherCharges,
+            onRoadPrice: vehicleData.onRoadPrice,
+          };
+          const currentValues = form.getFieldsValue();
+          const fieldsToUpdate = {};
+          Object.entries(pricingFields).forEach(([key, value]) => {
+            if (value && !currentValues[key]) {
+              fieldsToUpdate[key] = value;
+            }
+          });
+          if (Object.keys(fieldsToUpdate).length > 0) {
+            form.setFieldsValue(fieldsToUpdate);
+          }
+        }
+        if (onVehicleSelect) {
+          onVehicleSelect(vehicleData);
         }
       } catch (error) {
         // Legacy/migrated values may not exist in master vehicle DB.
@@ -558,7 +715,14 @@ export const useVehicleData = (form, options = {}) => {
         setSelectedVehicle(null);
       }
     },
-    [autofillPricing, onVehicleSelect, cityResolver, form, discontinuedModeKey],
+    [
+      autofillPricing,
+      onVehicleSelect,
+      cityResolver,
+      form,
+      discontinuedModeKey,
+      loadMasterRows,
+    ],
   );
 
   const canLookupVehicleDetails = useCallback(
@@ -693,6 +857,11 @@ export const useVehicleData = (form, options = {}) => {
     fetchMakes();
   }, [fetchMakes]);
 
+  useEffect(() => {
+    // Warm master rows in background so price/fuel lookup is instant on first variant select.
+    loadMasterRows();
+  }, [loadMasterRows]);
+
   /* =========================
      WATCH MAKE CHANGES
   ========================= */
@@ -725,7 +894,7 @@ export const useVehicleData = (form, options = {}) => {
     if (make && model && variant && canLookupVehicleDetails(variant)) {
       debounceTimer = setTimeout(() => {
         fetchVehicleDetails(make, model, variant, cityValue);
-      }, 200); // 200ms debounce
+      }, 60); // keep tiny debounce for rapid typing without visible lag
     } else {
       setSelectedVehicle(null);
     }

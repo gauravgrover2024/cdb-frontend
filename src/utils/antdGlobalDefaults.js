@@ -21,11 +21,18 @@ const applyDefaults = (component, defaults) => {
 applyDefaults(Input, { allowClear: true });
 applyDefaults(Input.TextArea, { allowClear: true });
 applyDefaults(Input.Search, { allowClear: true });
-applyDefaults(AutoComplete, { allowClear: true });
-applyDefaults(Select, { allowClear: true });
+applyDefaults(AutoComplete, {
+  allowClear: true,
+  popupMatchSelectWidth: false,
+  dropdownMatchSelectWidth: false,
+});
+applyDefaults(Select, {
+  allowClear: true,
+  popupMatchSelectWidth: false,
+  dropdownMatchSelectWidth: false,
+});
 applyDefaults(TreeSelect, { allowClear: true });
 applyDefaults(Cascader, { allowClear: true });
 applyDefaults(Mentions, { allowClear: true });
 applyDefaults(DatePicker, { allowClear: true });
 applyDefaults(DatePicker.RangePicker, { allowClear: true });
-

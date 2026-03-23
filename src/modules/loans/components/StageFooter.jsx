@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import Icon from "../../../components/AppIcon";
@@ -8,6 +8,7 @@ import Button from "../../../components/ui/Button";
 // Disburse Modal (compact + safe)
 // ----------------------------
 const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
+  const modalRef = useRef(null);
   const [selectedBankId, setSelectedBankId] = useState(() => {
     if (approvedBanks?.length === 1) return approvedBanks[0]?.id || null;
     return null;
@@ -41,7 +42,10 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-lg overflow-hidden">
+      <div
+        ref={modalRef}
+        className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-lg overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -119,6 +123,10 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
               onChange={(date) =>
                 setDisbursementDate(date ? date.format("YYYY-MM-DD") : "")
               }
+              getPopupContainer={(trigger) =>
+                trigger?.parentElement || modalRef.current || document.body
+              }
+              popupStyle={{ zIndex: 1400 }}
             />
           </div>
 

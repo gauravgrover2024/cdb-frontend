@@ -1,5 +1,5 @@
 // src/modules/loans/components/loan-form/prefile/Section4VehiclePricing.jsx
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Form,
@@ -26,11 +26,10 @@ import { buildVehicleRecordAutofillPatch } from "../../../../../utils/vehicleRec
 import {
   INDIAN_CITY_OPTIONS,
   normalizeCityAlias,
-  resolveVehiclePricingCity,
 } from "./registrationCityPricing";
 
 const { Option } = Select;
-const SHOWROOM_AUTOSUGGEST_POPUP_WIDTH = 520;
+const DELHI_PRICING_CITY = "new-delhi";
 
 const cleanVariantDisplay = (variant, make, model) => {
   const raw = String(variant || "").trim();
@@ -56,6 +55,19 @@ const cleanVariantDisplay = (variant, make, model) => {
   return cleaned || raw;
 };
 
+const normalizeFuelTypeValue = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw.includes("petrol")) return "Petrol";
+  if (raw.includes("diesel") || raw.includes("dsl")) return "Diesel";
+  if (raw.includes("cng")) return "CNG";
+  if (raw.includes("hybrid") || raw.includes("hev") || raw.includes("mhev")) {
+    return "Hybrid";
+  }
+  if (raw.includes("electric") || raw === "ev") return "Electric";
+  return "";
+};
+
 
 /**
  * Section4VehiclePricing
@@ -71,8 +83,73 @@ const cleanVariantDisplay = (variant, make, model) => {
 const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   const form = Form.useFormInstance();
   const selectedBrandForShowroom = Form.useWatch("vehicleMake", form);
+  const loanType = Form.useWatch("typeOfLoan", form);
+  const lastAutofillVehicleKeyRef = useRef("");
   const [fetchingRegistrationPincode, setFetchingRegistrationPincode] =
     useState(false);
+
+  const handleVehicleSelect = useCallback(
+    (vehicleData) => {
+      if (!vehicleData || loanType !== "New Car") return;
+
+      const toNumberOrNull = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const exShowroom = toNumberOrNull(
+        vehicleData.exShowroom ??
+          vehicleData.ex_showroom ??
+          vehicleData.exShowroomPrice,
+      );
+      const next = {};
+      const vehicleKey = [
+        form.getFieldValue("vehicleMake"),
+        form.getFieldValue("vehicleModel"),
+        form.getFieldValue("vehicleVariant"),
+      ]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .join("|");
+      const hasVehicleChanged =
+        Boolean(vehicleKey) && vehicleKey !== lastAutofillVehicleKeyRef.current;
+
+      if (exShowroom !== null) {
+        const touched = form.isFieldTouched("exShowroomPrice");
+        const current = form.getFieldValue("exShowroomPrice");
+        const hasValue =
+          current !== undefined &&
+          current !== null &&
+          String(current).trim() !== "";
+        // Keep editable behavior, but refresh value when vehicle selection changes.
+        if (hasVehicleChanged || !touched || !hasValue) {
+          next.exShowroomPrice = exShowroom;
+        }
+      } else if (hasVehicleChanged) {
+        next.exShowroomPrice = undefined;
+      }
+
+      const normalizedFuel = normalizeFuelTypeValue(
+        vehicleData.fuel ||
+          vehicleData.fuel_type ||
+          vehicleData.fuelType ||
+          vehicleData.vehicleFuelType,
+      );
+      if (normalizedFuel) {
+        const currentFuel = String(form.getFieldValue("vehicleFuelType") || "").trim();
+        if (hasVehicleChanged || !currentFuel) next.vehicleFuelType = normalizedFuel;
+      } else if (hasVehicleChanged) {
+        next.vehicleFuelType = undefined;
+      }
+
+      if (Object.keys(next).length > 0) {
+        form.setFieldsValue(next);
+      }
+      if (vehicleKey) {
+        lastAutofillVehicleKeyRef.current = vehicleKey;
+      }
+    },
+    [form, loanType],
+  );
 
   // Use centralized vehicle data hook
   const {
@@ -91,39 +168,9 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     modelFieldName: "vehicleModel",
     variantFieldName: "vehicleVariant",
     cityFieldName: "registrationCity",
-    cityResolver: resolveVehiclePricingCity,
-    autofillPricing: true,
-    onVehicleSelect: (vehicleData) => {
-      // Auto-populate pricing once, but never override manual edits.
-      if (!vehicleData || loanType !== "New Car") return;
-
-      const current = form.getFieldsValue([
-        "exShowroomPrice",
-        "insuranceCost",
-        "roadTax",
-      ]);
-      const candidate = {
-        exShowroomPrice: vehicleData.exShowroom ?? 0,
-        insuranceCost: vehicleData.insurance ?? 0,
-        roadTax: vehicleData.rto ?? 0,
-      };
-      const next = {};
-
-      ["exShowroomPrice", "insuranceCost", "roadTax"].forEach((name) => {
-        const touched = form.isFieldTouched(name);
-        const hasExistingValue =
-          current?.[name] !== undefined &&
-          current?.[name] !== null &&
-          String(current?.[name]).trim() !== "";
-        if (!touched && !hasExistingValue) {
-          next[name] = candidate[name];
-        }
-      });
-
-      if (Object.keys(next).length > 0) {
-        form.setFieldsValue(next);
-      }
-    },
+    cityResolver: () => DELHI_PRICING_CITY,
+    autofillPricing: false,
+    onVehicleSelect: handleVehicleSelect,
   });
   const { options: showroomOptions, search: searchShowrooms } =
     useShowroomAutoSuggest({ limit: 25, brand: selectedBrandForShowroom });
@@ -150,24 +197,17 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
 
   useEffect(() => {
     if (!selectedVehicle) return;
-    const rawFuel =
+    const normalized = normalizeFuelTypeValue(
       selectedVehicle.fuel ||
-      selectedVehicle.fuel_type ||
-      selectedVehicle.fuelType ||
-      "";
-    const v = String(rawFuel).trim().toLowerCase();
-    let normalized = "";
-    if (v.includes("petrol")) normalized = "Petrol";
-    else if (v.includes("diesel") || v.includes("dsl")) normalized = "Diesel";
-    else if (v.includes("cng")) normalized = "CNG";
-    else if (v.includes("hybrid") || v.includes("hev") || v.includes("mhev")) normalized = "Hybrid";
-    else if (v.includes("electric") || v === "ev") normalized = "Electric";
+        selectedVehicle.fuel_type ||
+        selectedVehicle.fuelType ||
+        selectedVehicle.vehicleFuelType,
+    );
     if (normalized && normalize(form.getFieldValue("vehicleFuelType")) !== normalize(normalized)) {
       form.setFieldsValue({ vehicleFuelType: normalized });
     }
   }, [selectedVehicle, form]);
 
-  const loanType = Form.useWatch("typeOfLoan", form);
   const hypothecation = Form.useWatch("hypothecation", form);
   const aadhaarSame = Form.useWatch("registerSameAsAadhaar", form);
   const registerSameAsPermanent = Form.useWatch(
@@ -951,10 +991,6 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       <AutoComplete
                         options={showroomOptions}
                         popupMatchSelectWidth={false}
-                        popupStyle={{
-                          width: SHOWROOM_AUTOSUGGEST_POPUP_WIDTH,
-                          maxWidth: "92vw",
-                        }}
                         onSearch={searchShowrooms}
                         onChange={(value) =>
                           syncDealerFields({ showroomDealerName: value || "" })

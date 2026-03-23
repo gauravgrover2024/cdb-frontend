@@ -438,3 +438,16 @@ body {
   border-color: rgba(148, 163, 184, 0.42);
   box-shadow: 0 28px 60px -38px rgba(0, 0, 0, 0.95);
 }
+
+/* Global autosuggest/select popup sizing: grow to fit content with viewport cap. */
+.ant-select-dropdown {
+  width: max-content !important;
+  min-width: 220px !important;
+  max-width: min(92vw, 980px) !important;
+}
+
+.ant-select-dropdown .ant-select-item-option-content {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}

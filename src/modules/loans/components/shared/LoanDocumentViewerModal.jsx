@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icon from "../../../../components/AppIcon";
 import Button from "../../../../components/ui/Button";
 
@@ -331,10 +332,11 @@ const LoanDocumentViewerModal = ({
   }, [viewportSize, renderedImageSize]);
 
   if (!open || !docs.length || !activeDoc) return null;
+  if (typeof document === "undefined") return null;
 
   const currentZoom = activeDoc?.isImage ? clampImageZoomValue(zoom) : clampZoomValue(pdfZoom);
 
-  return (
+  const modalNode = (
     <div
       className="fixed inset-0 z-[1300] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
       onWheelCapture={(e) => e.stopPropagation()}
@@ -583,6 +585,8 @@ const LoanDocumentViewerModal = ({
       </div>
     </div>
   );
+
+  return createPortal(modalNode, document.body);
 };
 
 export default LoanDocumentViewerModal;

@@ -1,5 +1,5 @@
 // src/modules/loans/components/loan-form/loan-approval/components/StatusUpdateModal.jsx
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import Icon from "../../../../../../components/AppIcon";
@@ -111,12 +111,14 @@ const toDayjsValue = (value) => {
 };
 
 const StatusUpdateModal = ({ bank, onClose, onSave }) => {
+  const modalRef = useRef(null);
   const [formData, setFormData] = useState({
     status: bank?.status || "Pending",
     remarks: "",
     approvalDate: "",
     rejectionDate: "",
     disbursalDate: "",
+    statusDate: "",
   });
 
   const statusOptions = [
@@ -146,6 +148,34 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
   if (!bank) return null;
 
   const { status } = formData;
+  const calendarConfig = (() => {
+    if (status === "Rejected") {
+      return {
+        field: "rejectionDate",
+        label: "Rejection Date",
+        help: "Select the rejection date",
+      };
+    }
+    if (status === "Disbursed") {
+      return {
+        field: "disbursalDate",
+        label: "Disbursal Date",
+        help: "Select the disbursal date",
+      };
+    }
+    if (status === "Approved") {
+      return {
+        field: "approvalDate",
+        label: "Approval Date",
+        help: "Select the approval date",
+      };
+    }
+    return {
+      field: "statusDate",
+      label: "Status Date",
+      help: "Select the status update date",
+    };
+  })();
 
   // Transform statusHistory into timeline format
   const renderTimeline = () => {
@@ -214,7 +244,7 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-xl max-h-[82vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className={`flex items-center justify-between p-4 md:p-6 border-b ${getStatusSurface(status)}`}>
@@ -245,6 +275,7 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
 
         {/* Body */}
         <form
+          ref={modalRef}
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto p-4 md:p-5"
         >
@@ -274,71 +305,29 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
                 description="Add any relevant notes or comments"
               />
 
-              {status === "Approved" && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium leading-none text-foreground">
-                    Approval Date
-                  </label>
-                  <DatePicker
-                    className="w-full"
-                    format="DD-MM-YYYY"
-                    value={toDayjsValue(formData.approvalDate)}
-                    onChange={(date) =>
-                      handleInputChange(
-                        "approvalDate",
-                        date ? date.format("YYYY-MM-DD") : "",
-                      )
-                    }
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Select the approval date
-                  </p>
-                </div>
-              )}
-
-              {status === "Rejected" && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium leading-none text-foreground">
-                    Rejection Date
-                  </label>
-                  <DatePicker
-                    className="w-full"
-                    format="DD-MM-YYYY"
-                    value={toDayjsValue(formData.rejectionDate)}
-                    onChange={(date) =>
-                      handleInputChange(
-                        "rejectionDate",
-                        date ? date.format("YYYY-MM-DD") : "",
-                      )
-                    }
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Select the rejection date
-                  </p>
-                </div>
-              )}
-
-              {status === "Disbursed" && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium leading-none text-foreground">
-                    Disbursal Date
-                  </label>
-                  <DatePicker
-                    className="w-full"
-                    format="DD-MM-YYYY"
-                    value={toDayjsValue(formData.disbursalDate)}
-                    onChange={(date) =>
-                      handleInputChange(
-                        "disbursalDate",
-                        date ? date.format("YYYY-MM-DD") : "",
-                      )
-                    }
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Select the disbursal date
-                  </p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none text-foreground">
+                  {calendarConfig.label}
+                </label>
+                <DatePicker
+                  className="w-full"
+                  format="DD-MM-YYYY"
+                  value={toDayjsValue(formData[calendarConfig.field])}
+                  onChange={(date) =>
+                    handleInputChange(
+                      calendarConfig.field,
+                      date ? date.format("YYYY-MM-DD") : "",
+                    )
+                  }
+                  getPopupContainer={(trigger) =>
+                    trigger?.parentElement || modalRef.current || document.body
+                  }
+                  popupStyle={{ zIndex: 1400 }}
+                />
+                <p className="text-sm text-muted-foreground">
+                  {calendarConfig.help}
+                </p>
+              </div>
             </div>
 
             {/* Status Timeline History */}
