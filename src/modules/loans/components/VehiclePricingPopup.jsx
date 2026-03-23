@@ -1,267 +1,165 @@
-// src/modules/loans/components/VehiclePricingPopup.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { Input, Button, Row, Col, Divider, Form, Tag } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import {
+  buildVehiclePricingSnapshot,
+  PRICING_ADDITION_FIELDS,
+  PRICING_DISCOUNT_FIELDS,
+} from "../../../utils/vehiclePricingBreakup";
 
 const parseNumber = (str) => Number(String(str).replace(/[^0-9]/g, "")) || 0;
-const BLOCKED_OTHER_LABELS = [
-  "total accessories",
-  "total accessories in rs",
-  "total other charges",
-  "orp without accessories",
-  "on road price",
-  "on-road price",
-  "net on-road",
-];
-
-const sanitizeOtherItems = (items) =>
-  (Array.isArray(items) ? items : []).filter((item) => {
-    const label = String(item?.label || "")
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!label) return false;
-    return !BLOCKED_OTHER_LABELS.some((blocked) => label.includes(blocked));
-  });
 
 const formatINR = (num) =>
-  isNaN(num) ? "₹0" : `₹${Math.round(num).toLocaleString("en-IN")}`;
-
-const formatINRNoSymbol = (num) =>
-  isNaN(num) ? "" : Math.round(num).toLocaleString("en-IN");
+  Number(num) ? `₹${Math.round(num).toLocaleString("en-IN")}` : "₹0";
 
 const formatDisplay = (num) =>
-  num ? `₹${Math.round(num).toLocaleString("en-IN")}` : "";
+  Number(num) ? `₹${Math.round(num).toLocaleString("en-IN")}` : "";
 
-// NOTE: props changed: vehicle, value, onChange
+const DEFAULT_ACTIVE_ADDITIONS = ["exShowroom", "roadTax", "insurance", "tcs"];
+const ADDITION_KEY_TO_FORM_KEY = { rto: "roadTax" };
+
+const toAdditionFormKey = (fieldKey) =>
+  ADDITION_KEY_TO_FORM_KEY[fieldKey] || fieldKey;
+
+const additionFields = PRICING_ADDITION_FIELDS.map((field) => ({
+  ...field,
+  formKey: toAdditionFormKey(field.key),
+}));
+
+const discountFields = PRICING_DISCOUNT_FIELDS.map((field) => ({
+  ...field,
+  formKey: field.key,
+}));
+
+const buildFormPatchFromSnapshot = (snapshot = {}) => ({
+  exShowroom: Number(snapshot.exShowroom) || 0,
+  roadTax: Number(snapshot.rto) || 0,
+  insurance: Number(snapshot.insurance) || 0,
+  tcs: Number(snapshot.tcs) || 0,
+  epc: Number(snapshot.epc) || 0,
+  accessories: Number(snapshot.accessories) || 0,
+  fastag: Number(snapshot.fastag) || 0,
+  extendedWarranty: Number(snapshot.extendedWarranty) || 0,
+  dealerDiscount: Number(snapshot.dealerDiscount) || 0,
+  schemeDiscount: Number(snapshot.schemeDiscount) || 0,
+  insuranceCashback: Number(snapshot.insuranceCashback) || 0,
+  exchange: Number(snapshot.exchange) || 0,
+  exchangeVehiclePrice: Number(snapshot.exchangeVehiclePrice) || 0,
+  loyalty: Number(snapshot.loyalty) || 0,
+  corporate: Number(snapshot.corporate) || 0,
+  additionsOthers: Array.isArray(snapshot.additionsOthers)
+    ? snapshot.additionsOthers
+    : [],
+  discountsOthers: Array.isArray(snapshot.discountsOthers)
+    ? snapshot.discountsOthers
+    : [],
+});
+
+const buildPricingOverridesFromFormValues = (values = {}) => ({
+  exShowroom: Number(values.exShowroom) || 0,
+  rto: Number(values.roadTax) || 0,
+  roadTax: Number(values.roadTax) || 0,
+  insurance: Number(values.insurance) || 0,
+  tcs: Number(values.tcs) || 0,
+  epc: Number(values.epc) || 0,
+  accessories: Number(values.accessories) || 0,
+  fastag: Number(values.fastag) || 0,
+  extendedWarranty: Number(values.extendedWarranty) || 0,
+  dealerDiscount: Number(values.dealerDiscount) || 0,
+  schemeDiscount: Number(values.schemeDiscount) || 0,
+  insuranceCashback: Number(values.insuranceCashback) || 0,
+  exchange: Number(values.exchange) || 0,
+  exchangeVehiclePrice: Number(values.exchangeVehiclePrice) || 0,
+  loyalty: Number(values.loyalty) || 0,
+  corporate: Number(values.corporate) || 0,
+  additionsOthers: values.additionsOthers || [],
+  discountsOthers: values.discountsOthers || [],
+});
+
 const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
   const selectedVehicle = vehicle;
   const [form] = Form.useForm();
   const isInitializingRef = useRef(false);
+
   const [totals, setTotals] = useState({
     onRoadBeforeDiscount: 0,
     totalDiscount: 0,
     netOnRoad: 0,
   });
 
-  // Prefill form from last value if present, else from vehicle
+  const [activeAdditions, setActiveAdditions] = useState(
+    DEFAULT_ACTIVE_ADDITIONS,
+  );
+  const [activeDiscounts, setActiveDiscounts] = useState([]);
+
+  const recomputeTotals = ({ notifyParent = true } = {}) => {
+    const values = form.getFieldsValue(true);
+    const snapshot = buildVehiclePricingSnapshot(
+      selectedVehicle || {},
+      buildPricingOverridesFromFormValues(values),
+    );
+
+    const nextTotals = {
+      onRoadBeforeDiscount: Number(snapshot.onRoadBeforeDiscount) || 0,
+      totalDiscount: Number(snapshot.totalDiscount) || 0,
+      netOnRoad: Number(snapshot.netOnRoad) || 0,
+    };
+    setTotals(nextTotals);
+
+    if (notifyParent) {
+      onChange?.({
+        ...snapshot,
+        rto: Number(snapshot.rto) || 0,
+        roadTax: Number(snapshot.rto) || 0,
+      });
+    }
+  };
+
+  // Reinitialize only when selected vehicle changes to avoid input reset on every keystroke.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!selectedVehicle) return;
 
-    // base defaults from vehicle
-    const base = {
-      exShowroom: selectedVehicle.exShowroom || 0,
-      insurance: selectedVehicle.insurance || 0,
-      tcs: selectedVehicle.tcs ?? selectedVehicle.otherCharges ?? 0,
-      roadTax: selectedVehicle.rto || selectedVehicle.roadTax || 0,
-      epc: selectedVehicle.epc || 0,
-      accessories: selectedVehicle.accessories || 0,
-      fastag: selectedVehicle.fastag || 0,
-      extendedWarranty: selectedVehicle.extendedWarranty || 0,
-      additionsOthers: sanitizeOtherItems(selectedVehicle.additionsOthers),
-      dealerDiscount: selectedVehicle.dealerDiscount || 0,
-      schemeDiscount: selectedVehicle.schemeDiscount || 0,
-      insuranceCashback: selectedVehicle.insuranceCashback || 0,
-      exchange: selectedVehicle.exchange || 0,
-      loyalty: selectedVehicle.loyalty || 0,
-      corporate: selectedVehicle.corporate || 0,
-      discountsOthers: sanitizeOtherItems(selectedVehicle.discountsOthers),
-      tcsPropName: selectedVehicle.tcs
-        ? "tcs"
-        : selectedVehicle.otherCharges
-          ? "otherCharges"
-          : null,
-    };
-
-    const existing = value || {};
-
-    // Set form values prefilling with existing (value) overriding vehicle defaults
-    const fields = {
-      ...base,
-      ...existing,
-      // unify roadTax -> roadTax field used in UI
-      roadTax: existing.rto ?? existing.roadTax ?? base.roadTax,
-      tcs: existing.tcs ?? existing.tcs ?? base.tcs,
-    };
-
-    // Ensure all numeric fields are numbers
-    const normalized = { ...fields };
-    [
-      "exShowroom",
-      "insurance",
-      "tcs",
-      "roadTax",
-      "epc",
-      "accessories",
-      "fastag",
-      "extendedWarranty",
-      "dealerDiscount",
-      "schemeDiscount",
-      "insuranceCashback",
-      "exchange",
-      "loyalty",
-      "corporate",
-    ].forEach((k) => {
-      normalized[k] = Number(normalized[k] || 0);
-    });
+    const snapshot = buildVehiclePricingSnapshot(selectedVehicle, value || {});
+    const formPatch = buildFormPatchFromSnapshot(snapshot);
 
     isInitializingRef.current = true;
+    form.setFieldsValue(formPatch);
 
-    // Set form fields
-    form.setFieldsValue(normalized);
-
-    // Decide active additions/discounts from non-zero values or presence
-    const newActiveAdditions = [];
-    additionPills.forEach((p) => {
-      // map ui key 'roadTax' -> form field 'roadTax'; exShowroom etc use same name
-      const key = p.key === "roadTax" ? "roadTax" : p.key;
-      const val = normalized[key];
-      if (
-        Array.isArray(normalized.additionsOthers) &&
-        normalized.additionsOthers.length
-      ) {
-        // additionsOthers will be shown if present
+    const nextActiveAdditions = new Set(DEFAULT_ACTIVE_ADDITIONS);
+    additionFields.forEach((field) => {
+      if ((Number(formPatch[field.formKey]) || 0) > 0) {
+        nextActiveAdditions.add(field.formKey);
       }
-      if (val && Number(val) > 0) newActiveAdditions.push(p.key);
-    });
-    // ensure exShowroom and roadTax / insurance / tcs are active by default even if zero?
-    // We'll activate exShowroom, roadTax, insurance, tcs if the vehicle provided a value (even zero it should show)
-    ["exShowroom", "roadTax", "insurance", "tcs"].forEach((k) => {
-      if (!newActiveAdditions.includes(k) && k in normalized)
-        newActiveAdditions.push(k);
     });
 
-    const newActiveDiscounts = [];
-    discountPills.forEach((p) => {
-      const val = normalized[p.key];
-      if (val && Number(val) > 0) newActiveDiscounts.push(p.key);
+    const nextActiveDiscounts = new Set();
+    discountFields.forEach((field) => {
+      if ((Number(formPatch[field.formKey]) || 0) > 0) {
+        nextActiveDiscounts.add(field.formKey);
+      }
     });
 
-    // additionsOthers present
-    if (
-      Array.isArray(normalized.additionsOthers) &&
-      normalized.additionsOthers.length
-    ) {
-      // keep additionsOthers pill behavior is separate; we won't add a pill but the list will show items
-    }
-    // discountsOthers present -> nothing special
+    setActiveAdditions(Array.from(nextActiveAdditions));
+    setActiveDiscounts(Array.from(nextActiveDiscounts));
 
-    setActiveAdditions(newActiveAdditions);
-    setActiveDiscounts(newActiveDiscounts);
-
-    // Compute totals and notify parent immediately so parent left-panel updates on refresh
-    // Use the recomputeTotals function (it uses form.getFieldsValue currently)
-    // call it next tick to ensure form.setFieldsValue took effect
     setTimeout(() => {
       recomputeTotals({ notifyParent: false });
       isInitializingRef.current = false;
     }, 0);
   }, [selectedVehicle?._id, selectedVehicle?.id, form]);
 
-  const recomputeTotals = ({ notifyParent = true } = {}) => {
-    const v = form.getFieldsValue(true);
-
-    const exShowroom = Number(v.exShowroom) || 0;
-    const insurance = Number(v.insurance) || 0;
-    const tcs = Number(v.tcs) || 0;
-    const roadTax = Number(v.roadTax) || 0;
-    const epc = Number(v.epc) || 0;
-    const accessories = Number(v.accessories) || 0;
-    const fastag = Number(v.fastag) || 0;
-    const extendedWarranty = Number(v.extendedWarranty) || 0;
-
-    const additionsOthers = sanitizeOtherItems(v.additionsOthers);
-    const additionsOthersTotal = additionsOthers.reduce(
-      (sum, x) => sum + (Number(x?.amount) || 0),
-      0,
-    );
-
-    const dealerDiscount = Number(v.dealerDiscount) || 0;
-    const schemeDiscount = Number(v.schemeDiscount) || 0;
-    const insuranceCashback = Number(v.insuranceCashback) || 0;
-    const exchange = Number(v.exchange) || 0;
-
-    const loyalty = Number(v.loyalty) || 0;
-    const corporate = Number(v.corporate) || 0;
-    const discountsOthers = sanitizeOtherItems(v.discountsOthers);
-    const discountsOthersTotal = discountsOthers.reduce(
-      (sum, x) => sum + (Number(x?.amount) || 0),
-      0,
-    );
-
-    const onRoadBeforeDiscount =
-      exShowroom +
-      insurance +
-      tcs +
-      roadTax +
-      epc +
-      accessories +
-      fastag +
-      extendedWarranty +
-      additionsOthersTotal;
-
-    const totalDiscount =
-      dealerDiscount +
-      schemeDiscount +
-      insuranceCashback +
-      exchange +
-      loyalty +
-      corporate +
-      discountsOthersTotal;
-
-    const netOnRoad = onRoadBeforeDiscount - totalDiscount;
-
-    const newTotals = { onRoadBeforeDiscount, totalDiscount, netOnRoad };
-    setTotals(newTotals);
-
-    if (notifyParent) {
-      onChange?.({
-        netOnRoad,
-        onRoadBeforeDiscount,
-        totalDiscount,
-        exShowroom,
-        insurance,
-        tcs,
-        rto: roadTax,
-        epc,
-        accessories,
-        fastag,
-        extendedWarranty,
-        additionsOthers,
-        dealerDiscount,
-        schemeDiscount,
-        insuranceCashback,
-        exchange,
-        loyalty,
-        corporate,
-        discountsOthers,
-      });
-    }
-  };
-
   const handleValuesChange = () => {
     if (isInitializingRef.current) return;
     recomputeTotals();
   };
 
-  const [activeAdditions, setActiveAdditions] = useState([
-    "exShowroom",
-    "roadTax",
-    "insurance",
-    "tcs",
-  ]);
-  const [activeDiscounts, setActiveDiscounts] = useState([]);
-
-  const toggleAddition = (key) => {
+  const toggleAddition = (formKey) => {
     setActiveAdditions((prev) => {
-      const next = prev.includes(key)
-        ? prev.filter((k) => k !== key)
-        : [...prev, key];
-
-      // if removing, write zero to the form field and recompute
-      if (!next.includes(key)) {
-        // map 'roadTax' -> form name 'roadTax'
-        const formKey = key === "roadTax" ? "roadTax" : key;
+      const next = prev.includes(formKey)
+        ? prev.filter((key) => key !== formKey)
+        : [...prev, formKey];
+      if (!next.includes(formKey)) {
         form.setFieldsValue({ [formKey]: 0 });
         recomputeTotals();
       }
@@ -269,39 +167,29 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
     });
   };
 
-  const toggleDiscount = (key) => {
+  const toggleDiscount = (formKey) => {
     setActiveDiscounts((prev) => {
-      const next = prev.includes(key)
-        ? prev.filter((k) => k !== key)
-        : [...prev, key];
-      if (!next.includes(key)) {
-        form.setFieldsValue({ [key]: 0 });
+      const next = prev.includes(formKey)
+        ? prev.filter((key) => key !== formKey)
+        : [...prev, formKey];
+      if (!next.includes(formKey)) {
+        form.setFieldsValue({ [formKey]: 0 });
         recomputeTotals();
       }
       return next;
     });
   };
 
-  const additionPills = [
-    { key: "exShowroom", label: "Ex‑showroom" },
-    { key: "roadTax", label: "RTO / Road tax" },
-    { key: "insurance", label: "Insurance" },
-    { key: "tcs", label: "TCS / Other" },
-    { key: "epc", label: "EPC" },
-    { key: "accessories", label: "Accessories" },
-    { key: "fastag", label: "Fastag" },
-    { key: "extendedWarranty", label: "Extended warranty" },
-  ];
-
-  const discountPills = [
-    { key: "dealerDiscount", label: "Dealer discount" },
-    { key: "schemeDiscount", label: "Scheme discount" },
-    { key: "insuranceCashback", label: "Insurance cashback" },
-    { key: "exchange", label: "Exchange bonus" },
-
-    { key: "loyalty", label: "Loyalty" },
-    { key: "corporate", label: "Corporate" },
-  ];
+  const renderAmountField = (name) => (
+    <Form.Item
+      name={name}
+      style={{ marginBottom: 0 }}
+      getValueFromEvent={(e) => parseNumber(e.target.value)}
+      getValueProps={(fieldValue) => ({ value: formatDisplay(fieldValue) })}
+    >
+      <Input size="small" type="text" />
+    </Form.Item>
+  );
 
   return (
     <div className="space-y-4">
@@ -311,34 +199,33 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
             Vehicle pricing builder
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
-            Use pills to add charges and discounts. Net on‑road updates live.
+            Add or remove charges and discounts. Net on-road updates live.
           </div>
         </div>
       </div>
 
       <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
-        {/* Pills */}
         <Row gutter={12} className="mb-2">
           <Col xs={24} md={12}>
             <div className="text-[11px] font-semibold text-slate-500 mb-1">
               Additions
             </div>
             <div className="flex flex-wrap gap-2">
-              {additionPills.map((pill) => (
+              {additionFields.map((field) => (
                 <button
-                  key={pill.key}
+                  key={field.formKey}
                   type="button"
-                  onClick={() => toggleAddition(pill.key)}
+                  onClick={() => toggleAddition(field.formKey)}
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
-                    activeAdditions.includes(pill.key)
+                    activeAdditions.includes(field.formKey)
                       ? "bg-slate-900 text-white border-slate-900"
                       : "bg-slate-100 dark:bg-[#262626] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[#262626]"
                   }`}
                 >
-                  {activeAdditions.includes(pill.key) && (
+                  {activeAdditions.includes(field.formKey) && (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   )}
-                  {pill.label}
+                  {field.label}
                 </button>
               ))}
             </div>
@@ -348,21 +235,21 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
               Discounts
             </div>
             <div className="flex flex-wrap gap-2">
-              {discountPills.map((pill) => (
+              {discountFields.map((field) => (
                 <button
-                  key={pill.key}
+                  key={field.formKey}
                   type="button"
-                  onClick={() => toggleDiscount(pill.key)}
+                  onClick={() => toggleDiscount(field.formKey)}
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
-                    activeDiscounts.includes(pill.key)
+                    activeDiscounts.includes(field.formKey)
                       ? "bg-slate-900 text-white border-slate-900"
                       : "bg-slate-100 dark:bg-[#262626] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[#262626]"
                   }`}
                 >
-                  {activeDiscounts.includes(pill.key) && (
+                  {activeDiscounts.includes(field.formKey) && (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   )}
-                  {pill.label}
+                  {field.label}
                 </button>
               ))}
             </div>
@@ -372,148 +259,22 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
         <Divider style={{ margin: "10px 0" }} />
 
         <Row gutter={16}>
-          {/* Additions */}
           <Col xs={24} md={12}>
             <div className="text-[11px] font-semibold text-slate-500 mb-2">
               Additions
             </div>
             <div className="space-y-2">
-              {activeAdditions.includes("exShowroom") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Ex‑showroom</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="exShowroom"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
+              {additionFields
+                .filter((field) => activeAdditions.includes(field.formKey))
+                .map((field) => (
+                  <div
+                    key={field.formKey}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <Tag className="text-[11px] px-2">{field.label}</Tag>
+                    <div className="flex-1">{renderAmountField(field.formKey)}</div>
                   </div>
-                </div>
-              )}
-              {activeAdditions.includes("roadTax") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">RTO / Road tax</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="roadTax"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeAdditions.includes("insurance") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Insurance</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="insurance"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeAdditions.includes("tcs") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">TCS / Other</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="tcs"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeAdditions.includes("epc") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">EPC</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="epc"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeAdditions.includes("accessories") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Accessories</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="accessories"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeAdditions.includes("fastag") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Fastag</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="fastag"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeAdditions.includes("extendedWarranty") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Extended warranty</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="extendedWarranty"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
+                ))}
             </div>
 
             <Divider style={{ margin: "10px 0" }} />
@@ -535,10 +296,7 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
                           name={[name, "label"]}
                           style={{ marginBottom: 0 }}
                         >
-                          <Input
-                            size="small"
-                            placeholder="Label (e.g. Handling)"
-                          />
+                          <Input size="small" placeholder="Label" />
                         </Form.Item>
                       </Col>
                       <Col xs={11}>
@@ -546,8 +304,8 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
                           name={[name, "amount"]}
                           style={{ marginBottom: 0 }}
                           getValueFromEvent={(e) => parseNumber(e.target.value)}
-                          getValueProps={(value) => ({
-                            value: formatDisplay(value),
+                          getValueProps={(fieldValue) => ({
+                            value: formatDisplay(fieldValue),
                           })}
                         >
                           <Input
@@ -555,17 +313,13 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
                             placeholder="Amount"
                             onChange={(e) => {
                               const list = [
-                                ...(form.getFieldValue("additionsOthers") ||
-                                  []),
+                                ...(form.getFieldValue("additionsOthers") || []),
                               ];
-                              const n = parseNumber(e.target.value);
                               list[name] = {
                                 ...(list[name] || {}),
-                                amount: n,
+                                amount: parseNumber(e.target.value),
                               };
-                              form.setFieldsValue({
-                                additionsOthers: list,
-                              });
+                              form.setFieldsValue({ additionsOthers: list });
                               recomputeTotals();
                             }}
                           />
@@ -600,116 +354,22 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
             </Form.List>
           </Col>
 
-          {/* Discounts */}
           <Col xs={24} md={12}>
             <div className="text-[11px] font-semibold text-slate-500 mb-2">
               Discounts
             </div>
             <div className="space-y-2">
-              {activeDiscounts.includes("dealerDiscount") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Dealer discount</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="dealerDiscount"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
+              {discountFields
+                .filter((field) => activeDiscounts.includes(field.formKey))
+                .map((field) => (
+                  <div
+                    key={field.formKey}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <Tag className="text-[11px] px-2">{field.label}</Tag>
+                    <div className="flex-1">{renderAmountField(field.formKey)}</div>
                   </div>
-                </div>
-              )}
-              {activeDiscounts.includes("schemeDiscount") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Scheme discount</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="schemeDiscount"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeDiscounts.includes("insuranceCashback") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Insurance cashback</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="insuranceCashback"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeDiscounts.includes("exchange") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Exchange bonus</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="exchange"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-
-              {activeDiscounts.includes("loyalty") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Loyalty</Tag>
-                  <div className="flex-1">
-                    {/* if you want only one field, you can remove this first Form.Item block */}
-                    <Form.Item
-                      name="loyalty"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
-              {activeDiscounts.includes("corporate") && (
-                <div className="flex items-center justify-between gap-2">
-                  <Tag className="text-[11px] px-2">Corporate</Tag>
-                  <div className="flex-1">
-                    <Form.Item
-                      name="corporate"
-                      style={{ marginBottom: 0 }}
-                      getValueFromEvent={(e) => parseNumber(e.target.value)}
-                      getValueProps={(value) => ({
-                        value: formatDisplay(value),
-                      })}
-                    >
-                      <Input size="small" type="text" />
-                    </Form.Item>
-                  </div>
-                </div>
-              )}
+                ))}
             </div>
 
             <Divider style={{ margin: "10px 0" }} />
@@ -731,10 +391,7 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
                           name={[name, "label"]}
                           style={{ marginBottom: 0 }}
                         >
-                          <Input
-                            size="small"
-                            placeholder="Label (e.g. Festive offer)"
-                          />
+                          <Input size="small" placeholder="Label" />
                         </Form.Item>
                       </Col>
                       <Col xs={11}>
@@ -742,8 +399,8 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
                           name={[name, "amount"]}
                           style={{ marginBottom: 0 }}
                           getValueFromEvent={(e) => parseNumber(e.target.value)}
-                          getValueProps={(value) => ({
-                            value: formatDisplay(value),
+                          getValueProps={(fieldValue) => ({
+                            value: formatDisplay(fieldValue),
                           })}
                         >
                           <Input
@@ -751,17 +408,13 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
                             placeholder="Amount"
                             onChange={(e) => {
                               const list = [
-                                ...(form.getFieldValue("discountsOthers") ||
-                                  []),
+                                ...(form.getFieldValue("discountsOthers") || []),
                               ];
-                              const n = parseNumber(e.target.value);
                               list[name] = {
                                 ...(list[name] || {}),
-                                amount: n,
+                                amount: parseNumber(e.target.value),
                               };
-                              form.setFieldsValue({
-                                discountsOthers: list,
-                              });
+                              form.setFieldsValue({ discountsOthers: list });
                               recomputeTotals();
                             }}
                           />
@@ -801,7 +454,7 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
           <div className="bg-slate-50 dark:bg-[#262626] rounded-2xl px-3 py-2">
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              On‑road before discount
+              On-road before discount
             </div>
             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               {formatINR(totals.onRoadBeforeDiscount)}
@@ -817,7 +470,7 @@ const VehiclePricingPopup = ({ vehicle, value, onChange }) => {
           </div>
           <div className="bg-emerald-50 dark:bg-[#022c22] rounded-2xl px-3 py-2">
             <div className="text-[11px] text-slate-600 dark:text-slate-300">
-              Net on‑road (quoted)
+              Net on-road (quoted)
             </div>
             <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
               {formatINR(totals.netOnRoad)}

@@ -4,6 +4,7 @@ import { vehiclesApi } from "../../api/vehicles";
 import { featuresApi } from "../../api/features";
 import Icon from "../../components/AppIcon";
 import Button from "../../components/ui/Button";
+import { buildVehiclePricingSnapshot } from "../../utils/vehiclePricingBreakup";
 
 const { Search } = Input;
 const { Option } = Select;
@@ -23,6 +24,16 @@ const toArray = (payload) => {
 
 const normalizeVehicleRecord = (vehicle = {}) => {
   const toNum = (v) => Number(v) || 0;
+  const pricingBreakup = buildVehiclePricingSnapshot(vehicle);
+  const netOnRoad =
+    Number(pricingBreakup.netOnRoad) ||
+    toNum(
+      vehicle.onRoadPrice ??
+        vehicle.on_road_price ??
+        vehicle.netOnRoad ??
+        vehicle.onRoad,
+    );
+
   return {
     ...vehicle,
     _id: vehicle._id || vehicle.id || vehicle.vehicleId,
@@ -31,11 +42,12 @@ const normalizeVehicleRecord = (vehicle = {}) => {
     variant: String(vehicle.variant || vehicle.variantName || vehicle.name || "N/A").trim() || "N/A",
     city: String(vehicle.city || vehicle.locationCity || vehicle.showroomCity || "N/A").trim() || "N/A",
     fuel: String(vehicle.fuel || vehicle.fuelType || "N/A").trim() || "N/A",
-    exShowroom: toNum(vehicle.exShowroom ?? vehicle.ex_showroom ?? vehicle.exShowroomPrice),
-    rto: toNum(vehicle.rto ?? vehicle.roadTax),
-    insurance: toNum(vehicle.insurance),
-    otherCharges: toNum(vehicle.otherCharges ?? vehicle.tcs),
-    onRoadPrice: toNum(vehicle.onRoadPrice ?? vehicle.on_road_price ?? vehicle.netOnRoad ?? vehicle.onRoad),
+    exShowroom: Number(pricingBreakup.exShowroom) || toNum(vehicle.exShowroom ?? vehicle.ex_showroom ?? vehicle.exShowroomPrice),
+    rto: Number(pricingBreakup.rto) || toNum(vehicle.rto ?? vehicle.roadTax),
+    insurance: Number(pricingBreakup.insurance) || toNum(vehicle.insurance),
+    otherCharges: Number(pricingBreakup.tcs) || toNum(vehicle.otherCharges ?? vehicle.tcs),
+    onRoadPrice: netOnRoad,
+    pricingBreakup,
   };
 };
 
@@ -97,21 +109,23 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       // Fallback: use variants-with-price source when vehicle master data is empty.
       const variantsRes = await featuresApi.getVariantsWithPrice();
       const variants = Array.isArray(variantsRes?.data) ? variantsRes.data : [];
-      const mapped = variants.map((v) => ({
-        _id: v.vehicleId || v.id || v._id,
-        make: v.make || "N/A",
-        model: v.model || "N/A",
-        variant: v.variant || "N/A",
-        fuel: v.fuel || "N/A",
-        city: v.city || "N/A",
-        exShowroom: Number(v.exShowroom || 0),
-        rto: Number(v.rto || 0),
-        insurance: Number(v.insurance || 0),
-        otherCharges: Number(v.otherCharges || v.tcs || 0),
-        onRoadPrice: Number(v.onRoadPrice || 0),
-        status: "Active",
-        isDiscontinued: false,
-      }));
+      const mapped = variants.map((v) =>
+        normalizeVehicleRecord({
+          _id: v.vehicleId || v.id || v._id,
+          make: v.make || "N/A",
+          model: v.model || "N/A",
+          variant: v.variant || "N/A",
+          fuel: v.fuel || "N/A",
+          city: v.city || "N/A",
+          exShowroom: Number(v.exShowroom || 0),
+          rto: Number(v.rto || 0),
+          insurance: Number(v.insurance || 0),
+          otherCharges: Number(v.otherCharges || v.tcs || 0),
+          onRoadPrice: Number(v.onRoadPrice || 0),
+          status: "Active",
+          isDiscontinued: false,
+        }),
+      );
 
       setVehicles(mapped);
     } catch (err) {
@@ -905,49 +919,95 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                         </summary>
 
                         <div className="px-6 md:px-8 pb-4 bg-gray-50 dark:bg-[#171717]">
+                          {(() => {
+                            const pricing =
+                              v.pricingBreakup || buildVehiclePricingSnapshot(v);
+                            const additionLines = Array.isArray(
+                              pricing?.additionLines,
+                            )
+                              ? pricing.additionLines
+                              : [];
+                            const discountLines = Array.isArray(
+                              pricing?.discountLines,
+                            )
+                              ? pricing.discountLines
+                              : [];
+                            const beforeDiscount =
+                              Number(pricing?.onRoadBeforeDiscount) ||
+                              v.onRoadPrice ||
+                              0;
+                            const totalDiscount =
+                              Number(pricing?.totalDiscount) || 0;
+                            const netOnRoad =
+                              Number(pricing?.netOnRoad) || v.onRoadPrice || 0;
+
+                            return (
+                              <>
                           {/* price breakdown without inner lines */}
-                          <div className="mt-3 rounded-2xl border border-gray-200 dark:border-[#262626] bg-white dark:bg-[#1f1f1f] px-4 py-3 space-y-3 text-xs md:text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Ex‑showroom
-                              </span>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">
-                                {formatCurrency(v.exShowroom)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                RTO
-                              </span>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">
-                                {formatCurrency(v.rto)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Insurance
-                              </span>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">
-                                {formatCurrency(v.insurance)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Other charges
-                              </span>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">
-                                {formatCurrency(v.otherCharges)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
-                              <span className="text-gray-700 dark:text-gray-200">
-                                Total on‑road
-                              </span>
-                              <span className="text-base md:text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                                {formatCurrency(v.onRoadPrice)}
-                              </span>
-                            </div>
-                          </div>
+                              <div className="mt-3 rounded-2xl border border-gray-200 dark:border-[#262626] bg-white dark:bg-[#1f1f1f] px-4 py-3 space-y-3 text-xs md:text-sm">
+                                {additionLines.map((row) => (
+                                  <div
+                                    key={`add-${row.key}`}
+                                    className="flex justify-between"
+                                  >
+                                    <span className="text-gray-600 dark:text-gray-400">
+                                      {row.label}
+                                    </span>
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                      {formatCurrency(row.amount)}
+                                    </span>
+                                  </div>
+                                ))}
+
+                                {discountLines.length > 0 && (
+                                  <>
+                                    <div className="pt-1 text-[10px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
+                                      Discounts
+                                    </div>
+                                    {discountLines.map((row) => (
+                                      <div
+                                        key={`disc-${row.key}`}
+                                        className="flex justify-between"
+                                      >
+                                        <span className="text-gray-600 dark:text-gray-400">
+                                          {row.label}
+                                        </span>
+                                        <span className="font-semibold text-rose-600 dark:text-rose-400">
+                                          -{formatCurrency(row.amount)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </>
+                                )}
+
+                                <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
+                                  <span className="text-gray-700 dark:text-gray-200">
+                                    On-road before discount
+                                  </span>
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(beforeDiscount)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-700 dark:text-gray-200">
+                                    Total discounts
+                                  </span>
+                                  <span className="font-semibold text-rose-600 dark:text-rose-400">
+                                    {formatCurrency(totalDiscount)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
+                                  <span className="text-gray-700 dark:text-gray-200">
+                                    Net on-road
+                                  </span>
+                                  <span className="text-base md:text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                                    {formatCurrency(netOnRoad)}
+                                  </span>
+                                </div>
+                              </div>
+                              </>
+                            );
+                          })()}
 
                           {selectionMode && (
                             <div className="mt-3 flex justify-end">

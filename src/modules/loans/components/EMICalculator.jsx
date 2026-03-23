@@ -14,6 +14,10 @@ import {
   INDIAN_CITY_OPTIONS,
   resolveVehiclePricingCity,
 } from "./loan-form/pre-file/registrationCityPricing";
+import {
+  buildVehiclePricingSnapshot,
+  normalizePricingLineItems,
+} from "../../../utils/vehiclePricingBreakup";
 
 const { Option } = Select;
 
@@ -145,6 +149,7 @@ const toArray = (payload) => {
 
 const normalizeVehicleRecord = (vehicle = {}) => {
   const toNum = (v) => Number(v) || 0;
+  const pricingSnapshot = buildVehiclePricingSnapshot(vehicle);
 
   return {
     ...vehicle,
@@ -154,33 +159,18 @@ const normalizeVehicleRecord = (vehicle = {}) => {
     variant: String(vehicle.variant || vehicle.variantName || vehicle.name || "").trim(),
     city: String(vehicle.city || vehicle.locationCity || vehicle.showroomCity || "").trim(),
     onRoadPrice: toNum(
-      vehicle.onRoadPrice ?? vehicle.on_road_price ?? vehicle.netOnRoad ?? vehicle.onRoad,
+      pricingSnapshot.netOnRoad ||
+        vehicle.onRoadPrice ||
+        vehicle.on_road_price ||
+        vehicle.netOnRoad ||
+        vehicle.onRoad,
     ),
-    exShowroom: toNum(
-      vehicle.exShowroom ?? vehicle.ex_showroom ?? vehicle.exShowroomPrice,
-    ),
-    rto: toNum(vehicle.rto ?? vehicle.roadTax),
-    insurance: toNum(vehicle.insurance),
-    otherCharges: toNum(vehicle.otherCharges ?? vehicle.tcs),
+    exShowroom: toNum(pricingSnapshot.exShowroom),
+    rto: toNum(pricingSnapshot.rto),
+    insurance: toNum(pricingSnapshot.insurance),
+    otherCharges: toNum(pricingSnapshot.tcs),
+    pricingSnapshot,
   };
-};
-
-const normalizeChargeLines = (items = []) => {
-  const rows = Array.isArray(items) ? items : [];
-  const seen = new Set();
-
-  return rows
-    .map((row) => ({
-      label: String(row?.label || "").trim(),
-      amount: Number(row?.amount) || 0,
-    }))
-    .filter((row) => row.label && row.amount > 0)
-    .filter((row) => {
-      const key = `${row.label.toLowerCase()}::${row.amount}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
 };
 
 const buildSchedule = (principal, monthlyRate, emi, months) => {
@@ -365,64 +355,7 @@ const EMICalculator = ({
   // Populate pricing state from selected vehicle (city-specific pricing row)
   useEffect(() => {
     if (!selectedVehicle) return;
-
-    const additionsOthers = Array.isArray(selectedVehicle.additionsOthers)
-      ? selectedVehicle.additionsOthers
-      : [];
-
-    const discountsOthers = Array.isArray(selectedVehicle.discountsOthers)
-      ? selectedVehicle.discountsOthers
-      : [];
-
-    const additionsTotal = additionsOthers.reduce(
-      (s, x) => s + (Number(x?.amount) || 0),
-      0,
-    );
-
-    const discountsTotal = discountsOthers.reduce(
-      (s, x) => s + (Number(x?.amount) || 0),
-      0,
-    );
-
-    const exShowroom = Number(selectedVehicle.exShowroom) || 0;
-    const insurance = Number(selectedVehicle.insurance) || 0;
-    const tcs =
-      Number(selectedVehicle.tcs ?? selectedVehicle.otherCharges) || 0;
-    const rto = Number(selectedVehicle.rto ?? selectedVehicle.roadTax) || 0;
-
-    const epc = Number(selectedVehicle.epc) || 0;
-    const accessories = Number(selectedVehicle.accessories) || 0;
-    const fastag = Number(selectedVehicle.fastag) || 0;
-    const extendedWarranty = Number(selectedVehicle.extendedWarranty) || 0;
-
-    const dealerDiscount = Number(selectedVehicle.dealerDiscount) || 0;
-    const schemeDiscount = Number(selectedVehicle.schemeDiscount) || 0;
-    const insuranceCashback = Number(selectedVehicle.insuranceCashback) || 0;
-    const exchange = Number(selectedVehicle.exchange) || 0;
-    const loyalty = Number(selectedVehicle.loyalty) || 0;
-    const corporate = Number(selectedVehicle.corporate) || 0;
-
-    const onRoadBeforeDiscount =
-      exShowroom +
-      insurance +
-      tcs +
-      rto +
-      epc +
-      accessories +
-      fastag +
-      extendedWarranty +
-      additionsTotal;
-
-    const totalDiscount =
-      dealerDiscount +
-      schemeDiscount +
-      insuranceCashback +
-      exchange +
-      loyalty +
-      corporate +
-      discountsTotal;
-
-    const netOnRoad = onRoadBeforeDiscount - totalDiscount;
+    const snapshot = buildVehiclePricingSnapshot(selectedVehicle);
 
     setPricingState((prev) => {
       if (prev?.vehicleId === selectedVehicle._id) return prev;
@@ -431,26 +364,26 @@ const EMICalculator = ({
         vehicleId: selectedVehicle._id,
         city: prev?.city || cityInput || selectedVehicle.city || "",
         color: prev?.color || "",
-        exShowroom,
-        rto,
-        insurance,
-        tcs,
-        epc,
-        accessories,
-        fastag,
-        extendedWarranty,
-        additionsOthers,
-        dealerDiscount,
-        schemeDiscount,
-        insuranceCashback,
-        exchange,
+        exShowroom: snapshot.exShowroom,
+        rto: snapshot.rto,
+        insurance: snapshot.insurance,
+        tcs: snapshot.tcs,
+        epc: snapshot.epc,
+        accessories: snapshot.accessories,
+        fastag: snapshot.fastag,
+        extendedWarranty: snapshot.extendedWarranty,
+        additionsOthers: snapshot.additionsOthers,
+        dealerDiscount: snapshot.dealerDiscount,
+        schemeDiscount: snapshot.schemeDiscount,
+        insuranceCashback: snapshot.insuranceCashback,
+        exchange: snapshot.exchange,
         exchangeVehiclePrice: Number(prev?.exchangeVehiclePrice) || 0,
-        loyalty,
-        corporate,
-        discountsOthers,
-        onRoadBeforeDiscount,
-        totalDiscount,
-        netOnRoad,
+        loyalty: snapshot.loyalty,
+        corporate: snapshot.corporate,
+        discountsOthers: snapshot.discountsOthers,
+        onRoadBeforeDiscount: snapshot.onRoadBeforeDiscount,
+        totalDiscount: snapshot.totalDiscount,
+        netOnRoad: snapshot.netOnRoad,
       };
     });
   }, [selectedVehicle, cityInput]);
@@ -844,13 +777,21 @@ const EMICalculator = ({
     });
   }, [vehicles, selectedVariant, selectedMake, selectedModel]);
 
-  const onRoadPrice =
-    pricingState?.netOnRoad ?? selectedVehicle?.onRoadPrice ?? 0;
+  const pricingComputed = useMemo(
+    () => buildVehiclePricingSnapshot(selectedVehicle || {}, pricingState || {}),
+    [selectedVehicle, pricingState],
+  );
 
-  const exShowroom = selectedVehicle?.exShowroom || 0;
-  const rto = selectedVehicle?.rto || 0;
-  const insurance = selectedVehicle?.insurance || 0;
-  const otherCharges = selectedVehicle?.otherCharges || 0;
+  const onRoadPrice =
+    Number(pricingComputed.netOnRoad) ||
+    pricingState?.netOnRoad ||
+    selectedVehicle?.onRoadPrice ||
+    0;
+
+  const exShowroom = Number(pricingComputed.exShowroom) || 0;
+  const rto = Number(pricingComputed.rto) || 0;
+  const insurance = Number(pricingComputed.insurance) || 0;
+  const otherCharges = Number(pricingComputed.tcs) || 0;
 
   // City & color (stored in pricingState but editable here)
   const city = pricingState?.city || "";
@@ -900,8 +841,12 @@ const EMICalculator = ({
       return null;
     }
 
-    const additionsOthers = normalizeChargeLines(pricingState?.additionsOthers);
-    const discountsOthers = normalizeChargeLines(pricingState?.discountsOthers);
+    const additionsOthers = normalizePricingLineItems(
+      pricingComputed?.additionsOthers,
+    );
+    const discountsOthers = normalizePricingLineItems(
+      pricingComputed?.discountsOthers,
+    );
 
     const base = {
       customer: customer || null,
@@ -915,26 +860,27 @@ const EMICalculator = ({
         onRoadPriceList: selectedVehicle.onRoadPrice,
       },
       pricing: {
-        exShowroom,
-        rto,
-        insurance,
-        tcs: pricingState?.tcs ?? 0,
-        epc: pricingState?.epc ?? 0,
-        accessories: pricingState?.accessories ?? 0,
-        fastag: pricingState?.fastag ?? 0,
-        extendedWarranty: pricingState?.extendedWarranty ?? 0,
+        exShowroom: Number(pricingComputed.exShowroom) || 0,
+        rto: Number(pricingComputed.rto) || 0,
+        insurance: Number(pricingComputed.insurance) || 0,
+        tcs: Number(pricingComputed.tcs) || 0,
+        epc: Number(pricingComputed.epc) || 0,
+        accessories: Number(pricingComputed.accessories) || 0,
+        fastag: Number(pricingComputed.fastag) || 0,
+        extendedWarranty: Number(pricingComputed.extendedWarranty) || 0,
         additionsOthers,
-        dealerDiscount: pricingState?.dealerDiscount ?? 0,
-        schemeDiscount: pricingState?.schemeDiscount ?? 0,
-        insuranceCashback: pricingState?.insuranceCashback ?? 0,
-        exchange: pricingState?.exchange ?? 0,
-        exchangeVehiclePrice: pricingState?.exchangeVehiclePrice ?? 0,
-        loyalty: pricingState?.loyalty ?? 0,
-        corporate: pricingState?.corporate ?? 0,
+        dealerDiscount: Number(pricingComputed.dealerDiscount) || 0,
+        schemeDiscount: Number(pricingComputed.schemeDiscount) || 0,
+        insuranceCashback: Number(pricingComputed.insuranceCashback) || 0,
+        exchange: Number(pricingComputed.exchange) || 0,
+        exchangeVehiclePrice: Number(pricingComputed.exchangeVehiclePrice) || 0,
+        loyalty: Number(pricingComputed.loyalty) || 0,
+        corporate: Number(pricingComputed.corporate) || 0,
         discountsOthers,
-        onRoadBeforeDiscount: pricingState?.onRoadBeforeDiscount || onRoadPrice,
-        totalDiscount: pricingState?.totalDiscount || 0,
-        netOnRoad: pricingState?.netOnRoad || onRoadPrice,
+        onRoadBeforeDiscount:
+          Number(pricingComputed.onRoadBeforeDiscount) || onRoadPrice,
+        totalDiscount: Number(pricingComputed.totalDiscount) || 0,
+        netOnRoad: Number(pricingComputed.netOnRoad) || onRoadPrice,
         color,
       },
       scenarios: {
@@ -1474,88 +1420,12 @@ const EMICalculator = ({
     }
   };
 
-  const additionFieldMap = [
-    { key: "exShowroom", label: "Ex-showroom" },
-    { key: "rto", label: "RTO / Road tax" },
-    { key: "insurance", label: "Insurance" },
-    { key: "tcs", label: "TCS / Other" },
-    { key: "epc", label: "EPC" },
-    { key: "accessories", label: "Accessories" },
-    { key: "fastag", label: "Fastag" },
-    { key: "extendedWarranty", label: "Extended warranty" },
-  ];
-
-  const additionLines = additionFieldMap
-    .map(({ key, label }) => {
-      const value =
-        pricingState && Object.prototype.hasOwnProperty.call(pricingState, key)
-          ? pricingState[key]
-          : (() => {
-              // some vehicles store TCS as otherCharges; prefer that for tcs
-              if (key === "tcs")
-                return (
-                  selectedVehicle?.otherCharges ?? selectedVehicle?.tcs ?? 0
-                );
-              // rto in pricing popup is 'rto' but vehicle might use 'rto' or 'roadTax'; attempt both
-              if (key === "rto")
-                return selectedVehicle?.rto ?? selectedVehicle?.roadTax ?? 0;
-              return selectedVehicle?.[key] ?? 0;
-            })();
-
-      if (!value) return null;
-
-      return {
-        key,
-        label,
-        amount: value,
-      };
-    })
-    .filter(Boolean);
-
-  // include dynamic additions
-  normalizeChargeLines(pricingState?.additionsOthers).forEach((x, idx) => {
-    if (!x.amount) return;
-
-    additionLines.push({
-      key: `add-${idx}`,
-      label: x.label || "Addition",
-      amount: x.amount,
-    });
-  });
-
-  const discountFieldMap = [
-    { key: "dealerDiscount", label: "Dealer discount" },
-    { key: "schemeDiscount", label: "Scheme discount" },
-    { key: "insuranceCashback", label: "Insurance cashback" },
-    { key: "exchange", label: "Exchange bonus" },
-    { key: "exchangeVehiclePrice", label: "Exchange vehicle price" },
-    { key: "loyalty", label: "Loyalty" },
-    { key: "corporate", label: "Corporate" },
-  ];
-
-  const discountLines = discountFieldMap
-    .map(({ key, label }) => {
-      const value = pricingState?.[key] || 0;
-      if (!value) return null;
-
-      return {
-        key,
-        label,
-        amount: value,
-      };
-    })
-    .filter(Boolean);
-
-  // include dynamic discounts
-  normalizeChargeLines(pricingState?.discountsOthers).forEach((x, idx) => {
-    if (!x.amount) return;
-
-    discountLines.push({
-      key: `disc-${idx}`,
-      label: x.label || "Discount",
-      amount: x.amount,
-    });
-  });
+  const additionLines = Array.isArray(pricingComputed?.additionLines)
+    ? pricingComputed.additionLines
+    : [];
+  const discountLines = Array.isArray(pricingComputed?.discountLines)
+    ? pricingComputed.discountLines
+    : [];
 
   const disableAll = shareMode;
   const scenarioAInputsDisabled = false; // we want Scenario A editable even in share mode
