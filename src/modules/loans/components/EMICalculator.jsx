@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Input, Select, message, Modal, AutoComplete, Checkbox } from "antd";
 import VehiclePricingPopup from "./VehiclePricingPopup";
 import ScenarioAInline from "./ScenarioAInline";
@@ -206,6 +206,80 @@ const toArray = (payload) => {
   return [];
 };
 
+const getVehicleImage = (vehicle) =>
+  String(
+    vehicle?.image_url ||
+      vehicle?.imageUrl ||
+      vehicle?.image ||
+      vehicle?.photo ||
+      vehicle?.thumbnail ||
+      vehicle?.url ||
+      "",
+  ).trim();
+
+const slugTokens = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .split("-")
+    .filter(Boolean);
+
+const mediaUrlMatchesVehicle = (url, make, model) => {
+  const rawUrl = String(url || "").trim().toLowerCase();
+  if (!rawUrl) return false;
+  const makeTokens = slugTokens(make);
+  const modelTokens = slugTokens(model);
+  if (!makeTokens.length || !modelTokens.length) return false;
+
+  const normalizedPath = rawUrl.replace(/[^a-z0-9]+/g, "-");
+  const hasMake = makeTokens.some(
+    (token) => normalizedPath.includes(`-${token}-`) || normalizedPath.endsWith(`-${token}`),
+  );
+  const hasModel = modelTokens.some(
+    (token) => normalizedPath.includes(`-${token}-`) || normalizedPath.endsWith(`-${token}`),
+  );
+
+  return hasMake && hasModel;
+};
+
+const toHighResCardekhoUrl = (url, size = "930x620") => {
+  const clean = String(url || "").split("?")[0].trim();
+  if (!clean) return "";
+
+  return clean
+    .replace("/images/car-images/large/", `/images/car-images/${size}/`)
+    .replace("/images/car-images/630x420/", `/images/car-images/${size}/`)
+    .replace("/images/car-images/360x240/", `/images/car-images/${size}/`)
+    .replace("/images/carexteriorimages/medium/", `/images/carexteriorimages/${size}/`)
+    .replace("/images/carexteriorimages/630x420/", `/images/carexteriorimages/${size}/`)
+    .replace("/images/carexteriorimages/360x240/", `/images/carexteriorimages/${size}/`);
+};
+
+const getVehicleColor = (vehicle) =>
+  String(
+    vehicle?.color_name ||
+      vehicle?.colorName ||
+      vehicle?.colour_name ||
+      vehicle?.colourName ||
+      vehicle?.color ||
+      vehicle?.colour ||
+      "",
+  ).trim();
+
+const getVehicleHex = (vehicle) =>
+  String(vehicle?.hex || vehicle?.color_hex || vehicle?.colour_hex || "").trim();
+
+const buildMediaKey = (vehicle) =>
+  [
+    normalizeText(vehicle?.make || vehicle?.brand || ""),
+    normalizeText(vehicle?.model || vehicle?.modelName || ""),
+    normalizeText(vehicle?.variant || vehicle?.variantName || ""),
+    normalizeText(getVehicleColor(vehicle) || "default"),
+    getVehicleImage(vehicle),
+  ].join("|");
+
 const normalizeVehicleRecord = (vehicle = {}) => {
   const toNum = (v) => Number(v) || 0;
   const pricingSnapshot = buildVehiclePricingSnapshot(vehicle);
@@ -281,8 +355,8 @@ const EMICalculator = ({
   const fromVariant = location.state?.fromVariant;
   const [featureSearch, setFeatureSearch] = useState("");
 
-  const [cityInput, setCityInput] = useState("");
-  const [debouncedCityInput, setDebouncedCityInput] = useState("");
+  const [cityInput, setCityInput] = useState("Delhi");
+  const [debouncedCityInput, setDebouncedCityInput] = useState("Delhi");
   const [includeDiscontinued, setIncludeDiscontinued] = useState(false);
   const [vehicleSearchInput, setVehicleSearchInput] = useState("");
   const [debouncedVehicleSearchInput, setDebouncedVehicleSearchInput] =
@@ -317,6 +391,8 @@ const EMICalculator = ({
     [vehicles, selectedVariant],
   );
   const [selectedFeatures, setSelectedFeatures] = useState([]);
+  const [colorGallery, setColorGallery] = useState([]);
+  const [colorGalleryLoading, setColorGalleryLoading] = useState(false);
 
   // Grouped features for the selected variant (same structure as FeaturesPage)
   const selectedFeatureGroups = useMemo(() => {
@@ -357,6 +433,45 @@ const EMICalculator = ({
       .filter((group) => group.rows.length > 0);
   }, [selectedFeatureGroups, featureSearch]);
 
+  const variantLabelFromSelection = useMemo(
+    () => String(selectedVariant?.label || "").split("—")[0].trim(),
+    [selectedVariant?.label],
+  );
+
+  const featureLookup = useMemo(() => {
+    const src = selectedVehicle || fromVariant || null;
+    if (!src) return null;
+    return {
+      vehicleId: String(src?._id || src?.vehicleId || src?.id || "").trim(),
+      make: String(
+        src?.make || src?.brand || src?.brandName || selectedMake || "",
+      ).trim(),
+      model: String(src?.model || src?.modelName || selectedModel || "").trim(),
+      variant: String(
+        src?.variant ||
+          src?.variantName ||
+          src?.name ||
+          variantLabelFromSelection ||
+          "",
+      ).trim(),
+    };
+  }, [
+    selectedVehicle?._id,
+    selectedVehicle?.make,
+    selectedVehicle?.model,
+    selectedVehicle?.variant,
+    fromVariant?._id,
+    fromVariant?.id,
+    fromVariant?.vehicleId,
+    fromVariant?.make,
+    fromVariant?.brand,
+    fromVariant?.model,
+    fromVariant?.variant,
+    selectedMake,
+    selectedModel,
+    variantLabelFromSelection,
+  ]);
+
   // EMI type: advance | arrear (default arrear = standard)
   const [emiType, setEmiType] = useState("arrear");
 
@@ -389,6 +504,8 @@ const EMICalculator = ({
   const [savedQuotationId, setSavedQuotationId] = useState(null);
 
   const [pricingState, setPricingState] = useState(null);
+  const [pricingSourceCity, setPricingSourceCity] = useState("");
+  const cityFallbackNoticeRef = useRef("");
   // Derived backend city used for pricing source selection
   const backendCityKey = useMemo(() => {
     if (!debouncedCityInput) return null;
@@ -404,7 +521,7 @@ const EMICalculator = ({
 
     if (quoteVehicle.make) setSelectedMake(String(quoteVehicle.make));
     if (quoteVehicle.model) setSelectedModel(String(quoteVehicle.model));
-    setCityInput(q.cityTyped || "");
+    setCityInput(q.cityTyped || "Delhi");
 
     if (!vehicles.length) return;
 
@@ -427,7 +544,7 @@ const EMICalculator = ({
     setPricingState((prev) => ({
       ...(prev || {}),
       ...(q.pricing || {}),
-      city: q.cityTyped || "",
+      city: q.cityTyped || "Delhi",
       color: q.pricing?.color || "",
     }));
   }, [fromVariant, initialQuotation, vehicles]);
@@ -442,7 +559,7 @@ const EMICalculator = ({
       ...(prev || {}),
       vehicleId: selectedVehicle._id,
       pricingCityKey: String(backendCityKey || "").trim().toLowerCase(),
-      city: prev?.city || cityInput || selectedVehicle.city || "",
+      city: cityInput || prev?.city || selectedVehicle.city || "",
       color: prev?.color || "",
       // Core city-driven amounts must always update from selected city row.
       exShowroom: Number(snapshot.exShowroom) || 0,
@@ -475,6 +592,33 @@ const EMICalculator = ({
       netOnRoad: Number(snapshot.netOnRoad) || 0,
     }));
   }, [selectedVehicle, cityInput, backendCityKey]);
+
+  useEffect(() => {
+    if (!selectedVehicle?._id) return;
+    if (!selectedVariant?.value) return;
+
+    const expectedLabel = `${selectedVehicle.variant} — ${formatINR(
+      selectedVehicle.onRoadPrice || 0,
+    )}`;
+
+    if (String(selectedVariant.label || "").trim() === expectedLabel) return;
+    if (String(selectedVariant.value) !== String(selectedVehicle._id)) return;
+
+    setSelectedVariant((prev) => {
+      if (!prev) return prev;
+      if (String(prev.value) !== String(selectedVehicle._id)) return prev;
+      return {
+        ...prev,
+        label: expectedLabel,
+      };
+    });
+  }, [
+    selectedVehicle?._id,
+    selectedVehicle?.variant,
+    selectedVehicle?.onRoadPrice,
+    selectedVariant?.value,
+    selectedVariant?.label,
+  ]);
 
   // When pricingState (netOnRoad or onRoadBeforeDiscount) changes, update loan amounts and derived EMI
   useEffect(() => {
@@ -593,31 +737,222 @@ const EMICalculator = ({
   }, [initialQuotation]);
 
   useEffect(() => {
+    let ignore = false;
+
     const loadFeatures = async () => {
-      if (!fromVariant) {
+      if (!featureLookup) {
         setSelectedFeatures([]);
         return;
       }
 
-      try {
-        const res = await featuresApi.getVariantsWithPrice();
+      const targetVehicleId = normalizeText(featureLookup.vehicleId);
+      const targetMake = normalizeText(featureLookup.make);
+      const targetModel = normalizeText(featureLookup.model);
+      const targetVariant = normalizeText(featureLookup.variant);
 
+      try {
+        if (
+          featureLookup.vehicleId ||
+          featureLookup.make ||
+          featureLookup.model ||
+          featureLookup.variant
+        ) {
+          const bySelection = await featuresApi.getBySelection(featureLookup);
+          const rows = toArray(bySelection);
+
+          // Endpoint can return either direct feature rows or a wrapped variant row.
+          let fromSelection = [];
+          if (rows.length && Array.isArray(rows[0]?.features)) {
+            fromSelection = rows[0].features;
+          } else if (
+            rows.length &&
+            rows.every(
+              (row) => typeof row === "object" && row?.name && "value" in row,
+            )
+          ) {
+            fromSelection = rows;
+          }
+
+          if (!ignore && fromSelection.length) {
+            setSelectedFeatures(fromSelection);
+            return;
+          }
+        }
+
+        const res = await featuresApi.getVariantsWithPrice();
         const variants = toArray(res);
 
-        const match = variants.find(
-          (v) =>
-            String(v.vehicleId || v._id || v.id) ===
-            String(fromVariant.vehicleId || fromVariant._id || fromVariant.id),
-        );
+        const match = variants.find((row) => {
+          const rowVehicleId = normalizeText(
+            String(row?.vehicleId || row?._id || row?.id || "").trim(),
+          );
+          const rowMake = normalizeText(row?.make || row?.brand || row?.brandName);
+          const rowModel = normalizeText(row?.model || row?.modelName);
+          const rowVariant = normalizeText(
+            row?.variant || row?.variantName || row?.name,
+          );
 
-        setSelectedFeatures(match?.features || []);
+          if (targetVehicleId && rowVehicleId && rowVehicleId === targetVehicleId) {
+            return true;
+          }
+          return (
+            !!targetMake &&
+            !!targetModel &&
+            !!targetVariant &&
+            rowMake === targetMake &&
+            rowModel === targetModel &&
+            rowVariant === targetVariant
+          );
+        });
+
+        if (!ignore) setSelectedFeatures(match?.features || []);
       } catch (e) {
-        setSelectedFeatures([]);
+        if (!ignore) setSelectedFeatures([]);
       }
     };
 
     loadFeatures();
-  }, [fromVariant]);
+    return () => {
+      ignore = true;
+    };
+  }, [
+    featureLookup?.vehicleId,
+    featureLookup?.make,
+    featureLookup?.model,
+    featureLookup?.variant,
+  ]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadColorGallery = async () => {
+      if (!selectedVehicle) {
+        setColorGallery([]);
+        return;
+      }
+
+      const makeKey = normalizeText(selectedVehicle.make);
+      const modelKey = normalizeText(selectedVehicle.model);
+      const variantKey = normalizeText(selectedVehicle.variant);
+
+      setColorGalleryLoading(true);
+      try {
+        const mediaPayload = await vehiclesApi.getMedia(
+          selectedVehicle.make,
+          selectedVehicle.model,
+          selectedVehicle.variant,
+        );
+
+        const mediaRows = toArray(mediaPayload).filter((row) =>
+          mediaUrlMatchesVehicle(
+            getVehicleImage(row),
+            selectedVehicle.make,
+            selectedVehicle.model,
+          ),
+        );
+        const fallbackRows = vehicles.filter((row) => {
+          const rowMake = normalizeText(row.make);
+          const rowModel = normalizeText(row.model);
+          const rowVariant = normalizeText(row.variant);
+          if (rowMake !== makeKey || rowModel !== modelKey) return false;
+          if (variantKey && rowVariant === variantKey) return true;
+          return !variantKey;
+        });
+        const modelScopedRows = fallbackRows.length
+          ? fallbackRows
+          : vehicles.filter((row) => {
+              const rowMake = normalizeText(row.make);
+              const rowModel = normalizeText(row.model);
+              return rowMake === makeKey && rowModel === modelKey;
+            });
+
+        const source = [...mediaRows, ...modelScopedRows];
+        const unique = [];
+        const seen = new Set();
+
+        source.forEach((row) => {
+          const image = getVehicleImage(row);
+          const colorName = getVehicleColor(row);
+          if (!image && !colorName) return;
+
+          const key = buildMediaKey(row);
+          if (seen.has(key)) return;
+          seen.add(key);
+
+          const originalImage = getVehicleImage(row);
+          const heroImage = toHighResCardekhoUrl(originalImage, "930x620");
+          const thumbImage = toHighResCardekhoUrl(originalImage, "630x420");
+          unique.push({
+            color: colorName || "Default",
+            image: heroImage || image,
+            thumb: thumbImage || image,
+            originalImage,
+            hex: getVehicleHex(row),
+          });
+        });
+
+        if (!ignore) {
+          setColorGallery(unique);
+          setPricingState((prev) => {
+            const existing = String(prev?.color || "").trim();
+            if (existing || !unique.length) return prev;
+            return {
+              ...(prev || {}),
+              color: unique[0].color || "",
+            };
+          });
+        }
+      } catch (error) {
+        const fallbackRows = vehicles.filter((row) => {
+          const rowMake = normalizeText(row.make);
+          const rowModel = normalizeText(row.model);
+          const rowVariant = normalizeText(row.variant);
+          return (
+            rowMake === makeKey &&
+            rowModel === modelKey &&
+            (!variantKey || rowVariant === variantKey)
+          );
+        });
+
+        const unique = [];
+        const seen = new Set();
+        fallbackRows.forEach((row) => {
+          const image = getVehicleImage(row);
+          const colorName = getVehicleColor(row);
+          if (!image && !colorName) return;
+
+          const key = buildMediaKey(row);
+          if (seen.has(key)) return;
+          seen.add(key);
+          const originalImage = getVehicleImage(row);
+          const heroImage = toHighResCardekhoUrl(originalImage, "930x620");
+          const thumbImage = toHighResCardekhoUrl(originalImage, "630x420");
+          unique.push({
+            color: colorName || "Default",
+            image: heroImage || image,
+            thumb: thumbImage || image,
+            originalImage,
+            hex: getVehicleHex(row),
+          });
+        });
+
+        if (!ignore) setColorGallery(unique);
+      } finally {
+        if (!ignore) setColorGalleryLoading(false);
+      }
+    };
+
+    loadColorGallery();
+    return () => {
+      ignore = true;
+    };
+  }, [
+    selectedVehicle?._id,
+    selectedVehicle?.make,
+    selectedVehicle?.model,
+    selectedVehicle?.variant,
+    vehicles,
+  ]);
 
   useEffect(() => {
     if (initialShareView && initialQuotation) {
@@ -812,20 +1147,64 @@ const EMICalculator = ({
         const rawRows = toArray(res);
         const normalizeStartedAt = performance.now();
         const list = rawRows.map(normalizeVehicleRecord);
+        let finalList = list;
+        let resolvedCity = backendCityKey || "";
+
+        if (backendCityKey) {
+          const strictCityRows = list.filter((row) =>
+            cityMatches(row.city, backendCityKey, backendCityKey),
+          );
+
+          if (strictCityRows.length) {
+            finalList = strictCityRows;
+          } else {
+            // Backend may return fallback rows (e.g. Gurgaon) for unsupported cities.
+            // For EMI we keep deterministic behavior: fallback to Delhi pricing only.
+            const delhiRes = await vehiclesApi.getVariantsWithPrice(
+              selectedMake,
+              selectedModel,
+              "Delhi",
+              includeDiscontinued,
+            );
+            const delhiRows = toArray(delhiRes)
+              .map(normalizeVehicleRecord)
+              .filter((row) => cityMatches(row.city, "Delhi", "Delhi"));
+
+            finalList = delhiRows;
+            resolvedCity = delhiRows.length ? "Delhi" : backendCityKey;
+
+            if (delhiRows.length) {
+              const noticeKey = `${normalizeText(selectedMake)}|${normalizeText(
+                selectedModel,
+              )}|${normalizeText(backendCityKey)}`;
+              if (cityFallbackNoticeRef.current !== noticeKey) {
+                cityFallbackNoticeRef.current = noticeKey;
+                message.info(
+                  `City pricing not available for ${backendCityKey}. Showing Delhi pricing.`,
+                );
+              }
+            }
+          }
+        }
+
         if (ignore) return;
-        setVehicles(list);
+        setVehicles(finalList);
+        setPricingSourceCity(resolvedCity || "");
         perfLog("brand-load:variants-api", {
           runId,
           city: backendCityKey,
+          resolvedCity,
           make: selectedMake,
           model: selectedModel,
           rows: rawRows.length,
+          finalRows: finalList.length,
           apiMs: Number((normalizeStartedAt - apiStartedAt).toFixed(1)),
           normalizeMs: Number((performance.now() - normalizeStartedAt).toFixed(1)),
         });
       } catch (e) {
         if (ignore) return;
         setVehicles([]);
+        setPricingSourceCity("");
         perfLog("brand-load:variants-api-error", {
           runId,
           city: backendCityKey,
@@ -916,14 +1295,27 @@ const EMICalculator = ({
     const selectedVariantName = normalizeText(
       String(selectedVariant.label || "").split("—")[0],
     );
+    const selectedVariantLooseKey = normalizeLooseKey(selectedVariantName);
 
-    const remapped = vehicles.find(
-      (v) =>
-        normalizeText(v.make) === normalizeText(selectedMake) &&
-        normalizeText(v.model) === normalizeText(selectedModel) &&
-        (!selectedVariantName ||
-          normalizeText(v.variant) === selectedVariantName),
-    );
+    const remapped =
+      vehicles.find(
+        (v) =>
+          normalizeText(v.make) === normalizeText(selectedMake) &&
+          normalizeText(v.model) === normalizeText(selectedModel) &&
+          (!selectedVariantName ||
+            normalizeText(v.variant) === selectedVariantName),
+      ) ||
+      vehicles.find((v) => {
+        if (normalizeText(v.make) !== normalizeText(selectedMake)) return false;
+        if (normalizeText(v.model) !== normalizeText(selectedModel)) return false;
+        if (!selectedVariantLooseKey) return false;
+        const candidateKey = normalizeLooseKey(v.variant);
+        return (
+          candidateKey === selectedVariantLooseKey ||
+          candidateKey.includes(selectedVariantLooseKey) ||
+          selectedVariantLooseKey.includes(candidateKey)
+        );
+      });
 
     if (!remapped) return;
 
@@ -952,6 +1344,19 @@ const EMICalculator = ({
   // City & color (stored in pricingState but editable here)
   const city = pricingState?.city || "";
   const color = pricingState?.color || "";
+
+  const selectedColorMedia = useMemo(() => {
+    if (!colorGallery.length) return null;
+    const colorKey = normalizeText(color);
+    const exact = colorKey
+      ? colorGallery.find(
+          (item) => normalizeText(item.color) === colorKey && !!item.image,
+        )
+      : null;
+    if (exact) return exact;
+    const firstWithImage = colorGallery.find((item) => !!item.image);
+    return firstWithImage || colorGallery[0];
+  }, [color, colorGallery]);
 
   // Downpayment sync (Scenario A)
   const downAmount = onRoadPrice ? onRoadPrice - loanAmountA : 0;
@@ -1708,10 +2113,21 @@ const EMICalculator = ({
                     options={cityAutocompleteOptions}
                     placeholder="Select city"
                     onChange={(value) => {
+                      const nextCity = String(value || "");
+                      const changed =
+                        normalizeText(nextCity) !== normalizeText(cityInput);
+
                       setCityInput(value);
+                      if (changed) {
+                        // Force city-specific variant re-selection so pricing always matches selected city.
+                        setSelectedVariant(null);
+                        setLoanAmountA(0);
+                        if (!comparisonTouched) setLoanAmountB(0);
+                      }
                       setPricingState((prev) => ({
                         ...(prev || {}),
                         city: value, // store what user typed
+                        ...(changed ? { vehicleId: null } : {}),
                       }));
                     }}
                     filterOption={(inputValue, option) =>
@@ -1720,6 +2136,12 @@ const EMICalculator = ({
                         .includes(inputValue.toUpperCase())
                     }
                   />
+                  {!!pricingSourceCity &&
+                    normalizeText(pricingSourceCity) !== normalizeText(cityInput) && (
+                      <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">
+                        Showing {pricingSourceCity} pricing for selected variant.
+                      </div>
+                    )}
                 </div>
 
                 <div>
@@ -2481,11 +2903,116 @@ const EMICalculator = ({
                 </div>
               </div>
             </div>
+            {selectedVehicle && (
+              <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-5 md:py-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Color gallery
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Select a color to auto-fill the Color field.
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 text-right">
+                    {colorGallery.length} color{colorGallery.length === 1 ? "" : "s"}
+                  </div>
+                </div>
 
+                {selectedColorMedia?.image ? (
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-[#2d2d2d] bg-slate-100 dark:bg-[#111]">
+                    <img
+                      src={selectedColorMedia.image}
+                      alt={selectedColorMedia.color || "Vehicle color"}
+                      className="h-56 md:h-72 w-full object-cover"
+                      loading="lazy"
+                      onError={(event) => {
+                        const fallback = selectedColorMedia.originalImage;
+                        if (
+                          fallback &&
+                          event.currentTarget.src !== fallback
+                        ) {
+                          event.currentTarget.src = fallback;
+                        }
+                      }}
+                    />
+                  </div>
+                ) : null}
 
+                {colorGalleryLoading ? (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Loading colors...
+                  </div>
+                ) : colorGallery.length ? (
+                  <div className="flex gap-3 overflow-x-auto pb-1">
+                    {colorGallery.map((entry, index) => {
+                      const active =
+                        normalizeText(color) === normalizeText(entry.color);
+                      return (
+                        <button
+                          key={`${entry.color || "color"}-${entry.image || "img"}-${index}`}
+                          type="button"
+                          onClick={() =>
+                            setPricingState((prev) => ({
+                              ...(prev || {}),
+                              color: entry.color || "",
+                            }))
+                          }
+                          disabled={disableAll}
+                          className={`min-w-[164px] rounded-2xl border p-2.5 text-left transition ${
+                            active
+                              ? "border-emerald-500 bg-white shadow-sm dark:border-emerald-400 dark:bg-[#1f1f1f]"
+                              : "border-slate-200 bg-white/80 hover:border-slate-300 dark:border-[#303030] dark:bg-[#1b1b1b]"
+                          } ${disableAll ? "opacity-60 cursor-not-allowed" : ""}`}
+                        >
+                          <div className="mb-2 h-24 w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-[#111] flex items-center justify-center">
+                            {entry.image ? (
+                              <img
+                                src={entry.thumb || entry.image}
+                                alt={entry.color || "Vehicle color"}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                onError={(event) => {
+                                  const fallback =
+                                    entry.originalImage || entry.image;
+                                  if (
+                                    fallback &&
+                                    event.currentTarget.src !== fallback
+                                  ) {
+                                    event.currentTarget.src = fallback;
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                No image
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-4 w-4 rounded-full border border-black/10"
+                              style={{
+                                backgroundColor: entry.hex || "#d1d5db",
+                              }}
+                            />
+                            <span className="truncate text-[12px] font-medium text-slate-700 dark:text-slate-200">
+                              {entry.color || "Default"}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    No color images available for this variant yet.
+                  </div>
+                )}
+              </div>
+            )}
 
-
-            {selectedVehicle && selectedFeatureGroups.length > 0 && (
+            {selectedVehicle && (
               <details className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-5 md:py-4 space-y-3">
                 <summary className="flex items-center justify-between cursor-pointer list-none">
                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -2510,29 +3037,35 @@ const EMICalculator = ({
 
                 {/* Features list */}
                 <div className="space-y-3 max-h-72 overflow-y-auto pr-1 mt-2">
-                  {filteredFeatureGroups.map((group) => (
-                    <div key={group.category} className="space-y-1.5">
-                      <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-                        {group.category}
-                      </div>
+                  {filteredFeatureGroups.length ? (
+                    filteredFeatureGroups.map((group) => (
+                      <div key={group.category} className="space-y-1.5">
+                        <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                          {group.category}
+                        </div>
 
-                      <div className="space-y-0.5 text-[11px]">
-                        {group.rows.map((row) => (
-                          <div
-                            key={row.name}
-                            className="flex items-center justify-between gap-3"
-                          >
-                            <span className="text-slate-500 dark:text-slate-400">
-                              {row.name}
-                            </span>
-                            <span className="font-medium text-slate-900 dark:text-slate-100 text-right">
-                              {row.value}
-                            </span>
-                          </div>
-                        ))}
+                        <div className="space-y-0.5 text-[11px]">
+                          {group.rows.map((row) => (
+                            <div
+                              key={row.name}
+                              className="flex items-center justify-between gap-3"
+                            >
+                              <span className="text-slate-500 dark:text-slate-400">
+                                {row.name}
+                              </span>
+                              <span className="font-medium text-slate-900 dark:text-slate-100 text-right">
+                                {row.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 dark:border-[#2d2d2d] px-3 py-4 text-[11px] text-slate-500 dark:text-slate-400">
+                      No features available for this variant yet.
                     </div>
-                  ))}
+                  )}
                 </div>
               </details>
             )}
