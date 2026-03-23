@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useMemo } from "react";
-import { Input, Select, message, Modal, AutoComplete } from "antd";
+import { Input, Select, message, Modal, AutoComplete, Checkbox } from "antd";
 import VehiclePricingPopup from "./VehiclePricingPopup";
 import ScenarioAInline from "./ScenarioAInline";
 import Icon from "../../../components/AppIcon";
@@ -123,6 +123,63 @@ const formatNumber = (v) =>
 
 const parseNumber = (str) => Number(String(str).replace(/,/g, "")) || 0;
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const collapseSpaces = (value) => String(value || "").replace(/\s+/g, " ").trim();
+const escapeRegExp = (value) =>
+  String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const trimLeadingPhrase = (source, phrase) => {
+  const src = collapseSpaces(source);
+  const lead = collapseSpaces(phrase);
+  if (!src || !lead) return src;
+  return src.replace(new RegExp(`^${escapeRegExp(lead)}\\s*[-:]*\\s*`, "i"), "").trim();
+};
+
+const trimModelLabel = (model, make) => {
+  const rawModel = collapseSpaces(model);
+  const rawMake = collapseSpaces(make);
+  if (!rawModel) return "";
+  return trimLeadingPhrase(rawModel, rawMake) || rawModel;
+};
+
+const trimVariantLabel = (variant, make, model) => {
+  let output = collapseSpaces(variant);
+  const rawMake = collapseSpaces(make);
+  const rawModel = collapseSpaces(model);
+  const normalizedModel = trimModelLabel(rawModel, rawMake);
+  [
+    `${rawMake} ${rawModel}`.trim(),
+    `${rawMake} ${normalizedModel}`.trim(),
+    rawModel,
+    normalizedModel,
+    rawMake,
+  ]
+    .filter(Boolean)
+    .forEach((prefix) => {
+      output = trimLeadingPhrase(output, prefix) || output;
+    });
+  return output || collapseSpaces(variant);
+};
+
+const isVehicleDiscontinued = (vehicle) => {
+  const flag = String(
+    vehicle?.is_discontinued ?? vehicle?.isDiscontinued ?? vehicle?.IsDiscontinued ?? "",
+  )
+    .trim()
+    .toLowerCase();
+  if (["1", "true", "yes"].includes(flag)) return true;
+  const discontinuedDate = String(
+    vehicle?.discontinued_date ?? vehicle?.discontinuedDate ?? "",
+  ).trim();
+  if (!discontinuedDate) return false;
+  return discontinuedDate.toLowerCase() !== "null";
+};
+
+const matchesMakeModelSearch = (make, model, rawQuery) => {
+  const tokens = normalizeText(rawQuery).split(/\s+/).filter(Boolean);
+  if (!tokens.length) return true;
+  const hay = normalizeText(`${make} ${model}`);
+  return tokens.every((token) => hay.includes(token));
+};
 
 const cityMatches = (vehicleCity, selectedCity, backendCity) => {
   const city = normalizeText(vehicleCity);
@@ -150,13 +207,23 @@ const toArray = (payload) => {
 const normalizeVehicleRecord = (vehicle = {}) => {
   const toNum = (v) => Number(v) || 0;
   const pricingSnapshot = buildVehiclePricingSnapshot(vehicle);
+  const rawMake = String(
+    vehicle.make || vehicle.brand || vehicle.brandName || "",
+  ).trim();
+  const rawModel = String(vehicle.model || vehicle.modelName || "").trim();
+  const normalizedModel = trimModelLabel(rawModel, rawMake) || rawModel;
+  const rawVariant = String(
+    vehicle.variant || vehicle.variantName || vehicle.name || "",
+  ).trim();
+  const normalizedVariant =
+    trimVariantLabel(rawVariant, rawMake, normalizedModel) || rawVariant;
 
   return {
     ...vehicle,
     _id: vehicle._id || vehicle.id || vehicle.vehicleId,
-    make: String(vehicle.make || vehicle.brand || vehicle.brandName || "").trim(),
-    model: String(vehicle.model || vehicle.modelName || "").trim(),
-    variant: String(vehicle.variant || vehicle.variantName || vehicle.name || "").trim(),
+    make: rawMake,
+    model: normalizedModel,
+    variant: normalizedVariant,
     city: String(vehicle.city || vehicle.locationCity || vehicle.showroomCity || "").trim(),
     onRoadPrice: toNum(
       pricingSnapshot.netOnRoad ||
@@ -214,6 +281,12 @@ const EMICalculator = ({
 
   const [cityInput, setCityInput] = useState("");
   const [debouncedCityInput, setDebouncedCityInput] = useState("");
+  const [includeDiscontinued, setIncludeDiscontinued] = useState(false);
+  const [vehicleSearchInput, setVehicleSearchInput] = useState("");
+  const [debouncedVehicleSearchInput, setDebouncedVehicleSearchInput] =
+    useState("");
+  const [vehicleSearchLoading, setVehicleSearchLoading] = useState(false);
+  const [vehicleSearchOptions, setVehicleSearchOptions] = useState([]);
   const cityAutocompleteOptions = useMemo(() => {
     const typed = String(cityInput || "").trim();
     if (!typed) return INDIAN_CITY_OPTIONS;
@@ -589,6 +662,71 @@ const EMICalculator = ({
     return () => clearTimeout(timer);
   }, [cityInput]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedVehicleSearchInput(String(vehicleSearchInput || "").trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [vehicleSearchInput]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchVehicleSearchOptions = async () => {
+      const query = String(debouncedVehicleSearchInput || "").trim();
+      if (query.length < 2) {
+        setVehicleSearchOptions([]);
+        return;
+      }
+
+      setVehicleSearchLoading(true);
+      try {
+        const tokens = normalizeText(query).split(/\s+/).filter(Boolean);
+        const seed = tokens[0] || query;
+        const payload = await vehiclesApi.getAll({
+          q: seed,
+          limit: 200,
+        });
+
+        const rows = toArray(payload)
+          .map(normalizeVehicleRecord)
+          .filter((row) =>
+            includeDiscontinued ? true : !isVehicleDiscontinued(row),
+          )
+          .filter((row) => matchesMakeModelSearch(row.make, row.model, query));
+
+        const seen = new Set();
+        const options = [];
+        rows.forEach((row) => {
+          const make = String(row.make || "").trim();
+          const model = String(row.model || "").trim();
+          if (!make || !model) return;
+          const key = `${normalizeText(make)}|${normalizeText(model)}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          options.push({
+            value: `${make} ${model}`.trim(),
+            label: `${make} ${model}`.trim(),
+            make,
+            model,
+          });
+        });
+
+        if (ignore) return;
+        setVehicleSearchOptions(options.slice(0, 20));
+      } catch {
+        if (!ignore) setVehicleSearchOptions([]);
+      } finally {
+        if (!ignore) setVehicleSearchLoading(false);
+      }
+    };
+
+    fetchVehicleSearchOptions();
+    return () => {
+      ignore = true;
+    };
+  }, [debouncedVehicleSearchInput, includeDiscontinued]);
+
   // Derived backend city used for pricing source selection
   const backendCityKey = useMemo(() => {
     if (!debouncedCityInput) return null;
@@ -610,7 +748,10 @@ const EMICalculator = ({
       setVehiclesLoading(true);
       try {
         const apiStartedAt = performance.now();
-        const makesRes = await vehiclesApi.getUniqueMakes(backendCityKey || null);
+        const makesRes = await vehiclesApi.getUniqueMakes(
+          backendCityKey || null,
+          includeDiscontinued,
+        );
         const rawRows = toArray(makesRes);
         const normalized = rawRows
           .map((row) => String(row || "").trim())
@@ -658,7 +799,7 @@ const EMICalculator = ({
     return () => {
       ignore = true;
     };
-  }, [backendCityKey, cityInput]);
+  }, [backendCityKey, cityInput, includeDiscontinued]);
 
   useEffect(() => {
     let ignore = false;
@@ -671,7 +812,11 @@ const EMICalculator = ({
       }
       setVehiclesLoading(true);
       try {
-        const res = await vehiclesApi.getUniqueModels(selectedMake, backendCityKey || null);
+        const res = await vehiclesApi.getUniqueModels(
+          selectedMake,
+          backendCityKey || null,
+          includeDiscontinued,
+        );
         const rows = toArray(res)
           .map((row) => String(row || "").trim())
           .filter(Boolean)
@@ -692,7 +837,7 @@ const EMICalculator = ({
     return () => {
       ignore = true;
     };
-  }, [selectedMake, backendCityKey]);
+  }, [selectedMake, backendCityKey, includeDiscontinued]);
 
   useEffect(() => {
     let ignore = false;
@@ -710,6 +855,7 @@ const EMICalculator = ({
           selectedMake,
           selectedModel,
           backendCityKey || null,
+          includeDiscontinued,
         );
         const rawRows = toArray(res);
         const normalizeStartedAt = performance.now();
@@ -744,7 +890,7 @@ const EMICalculator = ({
     return () => {
       ignore = true;
     };
-  }, [selectedMake, selectedModel, backendCityKey]);
+  }, [selectedMake, selectedModel, backendCityKey, includeDiscontinued]);
 
   const filteredVehicles = useMemo(() => vehicles, [vehicles]);
 
@@ -878,6 +1024,26 @@ const EMICalculator = ({
       const pct = (dpAmt / onRoadPrice) * 100;
       setDownPct(pct);
     }
+  };
+
+  const handleVehicleSearchSelect = (value, option) => {
+    const selectedMakeText = String(option?.make || "").trim();
+    const selectedModelText = String(option?.model || "").trim();
+    if (!selectedMakeText || !selectedModelText) return;
+
+    setVehicleSearchInput(
+      String(option?.label || value || `${selectedMakeText} ${selectedModelText}`),
+    );
+    setSelectedMake(selectedMakeText);
+    setSelectedModel(selectedModelText);
+    setSelectedVariant(null);
+    setComparisonTouched(false);
+    setPricingState((prev) => ({
+      city: prev?.city || cityInput || "",
+      color: prev?.color || "",
+    }));
+    setLoanAmountA(0);
+    if (!comparisonTouched) setLoanAmountB(0);
   };
 
   const buildQuotationPayload = () => {
@@ -1581,6 +1747,36 @@ const EMICalculator = ({
                 </div>
 
                 <div>
+                  <Label>Search Car (Make / Model)</Label>
+                  <AutoComplete
+                    style={{ width: "100%" }}
+                    value={vehicleSearchInput}
+                    options={vehicleSearchOptions}
+                    placeholder="Type make/model (e.g. Carens, Kia Car...)"
+                    onChange={(value) => setVehicleSearchInput(value)}
+                    onSelect={handleVehicleSearchSelect}
+                    notFoundContent={
+                      debouncedVehicleSearchInput.length < 2
+                        ? "Type at least 2 letters"
+                        : vehicleSearchLoading
+                          ? "Searching..."
+                          : "No matching cars"
+                    }
+                    filterOption={false}
+                  />
+                </div>
+
+                <div className="pt-0.5">
+                  <Checkbox
+                    checked={includeDiscontinued}
+                    onChange={(e) => setIncludeDiscontinued(Boolean(e?.target?.checked))}
+                    disabled={disableAll}
+                  >
+                    Include discontinued cars
+                  </Checkbox>
+                </div>
+
+                <div>
                   <Label>Brand</Label>
                   {vehiclesLoading && (
                     <div className="mb-1 text-[10px] font-medium text-slate-500">
@@ -1716,7 +1912,9 @@ const EMICalculator = ({
 
                 {!vehiclesLoading && !filteredVehicles.length && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
-                    No vehicles found for selected city. Try another city or clear city filter.
+                    No vehicles found for selected city. Try another city or enable
+                    {" "}
+                    <span className="font-semibold">Include discontinued cars</span>.
                   </div>
                 )}
               </div>

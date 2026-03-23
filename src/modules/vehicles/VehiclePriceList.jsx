@@ -25,7 +25,10 @@ const toArray = (payload) => {
 const normalizeVehicleRecord = (vehicle = {}) => {
   const toNum = (v) => Number(v) || 0;
   const pricingBreakup = buildVehiclePricingSnapshot(vehicle);
-  const netOnRoad =
+  // Vehicle price list should show base/on-road list pricing only.
+  // Discount logic is quotation-specific and intentionally not applied here.
+  const onRoadListPrice =
+    Number(pricingBreakup.onRoadBeforeDiscount) ||
     Number(pricingBreakup.netOnRoad) ||
     toNum(
       vehicle.onRoadPrice ??
@@ -46,7 +49,7 @@ const normalizeVehicleRecord = (vehicle = {}) => {
     rto: Number(pricingBreakup.rto) || toNum(vehicle.rto ?? vehicle.roadTax),
     insurance: Number(pricingBreakup.insurance) || toNum(vehicle.insurance),
     otherCharges: Number(pricingBreakup.tcs) || toNum(vehicle.otherCharges ?? vehicle.tcs),
-    onRoadPrice: netOnRoad,
+    onRoadPrice: onRoadListPrice,
     pricingBreakup,
   };
 };
@@ -927,19 +930,11 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                             )
                               ? pricing.additionLines
                               : [];
-                            const discountLines = Array.isArray(
-                              pricing?.discountLines,
-                            )
-                              ? pricing.discountLines
-                              : [];
-                            const beforeDiscount =
+                            const onRoad =
                               Number(pricing?.onRoadBeforeDiscount) ||
+                              Number(pricing?.netOnRoad) ||
                               v.onRoadPrice ||
                               0;
-                            const totalDiscount =
-                              Number(pricing?.totalDiscount) || 0;
-                            const netOnRoad =
-                              Number(pricing?.netOnRoad) || v.onRoadPrice || 0;
 
                             return (
                               <>
@@ -959,49 +954,12 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                                   </div>
                                 ))}
 
-                                {discountLines.length > 0 && (
-                                  <>
-                                    <div className="pt-1 text-[10px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400">
-                                      Discounts
-                                    </div>
-                                    {discountLines.map((row) => (
-                                      <div
-                                        key={`disc-${row.key}`}
-                                        className="flex justify-between"
-                                      >
-                                        <span className="text-gray-600 dark:text-gray-400">
-                                          {row.label}
-                                        </span>
-                                        <span className="font-semibold text-rose-600 dark:text-rose-400">
-                                          -{formatCurrency(row.amount)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </>
-                                )}
-
                                 <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
                                   <span className="text-gray-700 dark:text-gray-200">
-                                    On-road before discount
-                                  </span>
-                                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(beforeDiscount)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-700 dark:text-gray-200">
-                                    Total discounts
-                                  </span>
-                                  <span className="font-semibold text-rose-600 dark:text-rose-400">
-                                    {formatCurrency(totalDiscount)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
-                                  <span className="text-gray-700 dark:text-gray-200">
-                                    Net on-road
+                                    On-road
                                   </span>
                                   <span className="text-base md:text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                                    {formatCurrency(netOnRoad)}
+                                    {formatCurrency(onRoad)}
                                   </span>
                                 </div>
                               </div>
