@@ -123,6 +123,8 @@ const formatNumber = (v) =>
 
 const parseNumber = (str) => Number(String(str).replace(/,/g, "")) || 0;
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeLooseKey = (value) =>
+  normalizeText(value).replace(/[^a-z0-9]/g, "");
 const collapseSpaces = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const escapeRegExp = (value) =>
   String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -884,6 +886,19 @@ const EMICalculator = ({
     if (!selectedModel) return;
     if (!uniqueModels.length) return;
     if (!uniqueModels.includes(selectedModel)) {
+      const selectedKey = normalizeLooseKey(selectedModel);
+      const remapped =
+        uniqueModels.find(
+          (modelValue) => normalizeLooseKey(modelValue) === selectedKey,
+        ) ||
+        uniqueModels.find((modelValue) =>
+          normalizeLooseKey(modelValue).includes(selectedKey),
+        );
+      if (remapped) {
+        if (remapped !== selectedModel) setSelectedModel(remapped);
+        return;
+      }
+
       setSelectedModel("");
       setSelectedVariant(null);
       setLoanAmountA(0);
@@ -978,12 +993,23 @@ const EMICalculator = ({
   };
 
   const handleVehicleSearchSelect = (value, option) => {
-    const selectedMakeText = String(option?.make || "").trim();
-    const selectedModelText = String(option?.model || "").trim();
+    const selectedOption =
+      vehicleSearchOptions.find(
+        (row) =>
+          normalizeText(row?.value || row?.label || "") ===
+          normalizeText(value || ""),
+      ) || option;
+
+    const selectedMakeText = String(selectedOption?.make || "").trim();
+    const selectedModelText = String(selectedOption?.model || "").trim();
     if (!selectedMakeText || !selectedModelText) return;
 
     setVehicleSearchInput(
-      String(option?.label || value || `${selectedMakeText} ${selectedModelText}`),
+      String(
+        selectedOption?.label ||
+          value ||
+          `${selectedMakeText} ${selectedModelText}`,
+      ),
     );
     setSelectedMake(selectedMakeText);
     setSelectedModel(selectedModelText);
