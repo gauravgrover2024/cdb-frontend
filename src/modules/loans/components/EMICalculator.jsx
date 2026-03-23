@@ -426,85 +426,48 @@ const EMICalculator = ({
   }, [fromVariant, initialQuotation, vehicles]);
 
   // Populate pricing state from selected vehicle (city-specific pricing row)
+  // and always sync core pricing fields when city or selected row changes.
   useEffect(() => {
     if (!selectedVehicle) return;
     const snapshot = buildVehiclePricingSnapshot(selectedVehicle);
 
-    setPricingState((prev) => {
-      if (prev?.vehicleId === selectedVehicle._id) {
-        const backfillKeys = [
-          "exShowroom",
-          "rto",
-          "insurance",
-          "tcs",
-          "accessories",
-          "extendedWarranty",
-        ];
-        const needsBackfill = backfillKeys.some((key) => {
-          const prevVal = Number(prev?.[key]) || 0;
-          const nextVal = Number(snapshot?.[key]) || 0;
-          return prevVal <= 0 && nextVal > 0;
-        });
-
-        if (!needsBackfill) return prev;
-
-        return {
-          ...prev,
-          exShowroom: Number(prev?.exShowroom) || Number(snapshot.exShowroom) || 0,
-          rto: Number(prev?.rto) || Number(snapshot.rto) || 0,
-          insurance: Number(prev?.insurance) || Number(snapshot.insurance) || 0,
-          tcs: Number(prev?.tcs) || Number(snapshot.tcs) || 0,
-          accessories:
-            Number(prev?.accessories) || Number(snapshot.accessories) || 0,
-          extendedWarranty:
-            Number(prev?.extendedWarranty) ||
-            Number(snapshot.extendedWarranty) ||
-            0,
-          additionsOthers:
-            Array.isArray(prev?.additionsOthers) && prev.additionsOthers.length
-              ? prev.additionsOthers
-              : snapshot.additionsOthers,
-          discountsOthers:
-            Array.isArray(prev?.discountsOthers) && prev.discountsOthers.length
-              ? prev.discountsOthers
-              : snapshot.discountsOthers,
-          onRoadBeforeDiscount:
-            Number(snapshot.onRoadBeforeDiscount) ||
-            Number(prev?.onRoadBeforeDiscount) ||
-            0,
-          totalDiscount:
-            Number(prev?.totalDiscount) || Number(snapshot.totalDiscount) || 0,
-          netOnRoad: Number(snapshot.netOnRoad) || Number(prev?.netOnRoad) || 0,
-        };
-      }
-
-      return {
-        vehicleId: selectedVehicle._id,
-        city: prev?.city || cityInput || selectedVehicle.city || "",
-        color: prev?.color || "",
-        exShowroom: snapshot.exShowroom,
-        rto: snapshot.rto,
-        insurance: snapshot.insurance,
-        tcs: snapshot.tcs,
-        epc: snapshot.epc,
-        accessories: snapshot.accessories,
-        fastag: snapshot.fastag,
-        extendedWarranty: snapshot.extendedWarranty,
-        additionsOthers: snapshot.additionsOthers,
-        dealerDiscount: snapshot.dealerDiscount,
-        schemeDiscount: snapshot.schemeDiscount,
-        insuranceCashback: snapshot.insuranceCashback,
-        exchange: snapshot.exchange,
-        exchangeVehiclePrice: Number(prev?.exchangeVehiclePrice) || 0,
-        loyalty: snapshot.loyalty,
-        corporate: snapshot.corporate,
-        discountsOthers: snapshot.discountsOthers,
-        onRoadBeforeDiscount: snapshot.onRoadBeforeDiscount,
-        totalDiscount: snapshot.totalDiscount,
-        netOnRoad: snapshot.netOnRoad,
-      };
-    });
-  }, [selectedVehicle, cityInput]);
+    setPricingState((prev) => ({
+      ...(prev || {}),
+      vehicleId: selectedVehicle._id,
+      pricingCityKey: String(backendCityKey || "").trim().toLowerCase(),
+      city: prev?.city || cityInput || selectedVehicle.city || "",
+      color: prev?.color || "",
+      // Core city-driven amounts must always update from selected city row.
+      exShowroom: Number(snapshot.exShowroom) || 0,
+      rto: Number(snapshot.rto) || 0,
+      insurance: Number(snapshot.insurance) || 0,
+      tcs: Number(snapshot.tcs) || 0,
+      epc: Number(snapshot.epc) || 0,
+      accessories: Number(snapshot.accessories) || 0,
+      fastag: Number(snapshot.fastag) || 0,
+      extendedWarranty: Number(snapshot.extendedWarranty) || 0,
+      // Keep quote-only custom lines if user entered them.
+      additionsOthers:
+        Array.isArray(prev?.additionsOthers) && prev.additionsOthers.length
+          ? prev.additionsOthers
+          : snapshot.additionsOthers,
+      dealerDiscount: Number(prev?.dealerDiscount) || Number(snapshot.dealerDiscount) || 0,
+      schemeDiscount: Number(prev?.schemeDiscount) || Number(snapshot.schemeDiscount) || 0,
+      insuranceCashback:
+        Number(prev?.insuranceCashback) || Number(snapshot.insuranceCashback) || 0,
+      exchange: Number(prev?.exchange) || Number(snapshot.exchange) || 0,
+      exchangeVehiclePrice: Number(prev?.exchangeVehiclePrice) || 0,
+      loyalty: Number(prev?.loyalty) || Number(snapshot.loyalty) || 0,
+      corporate: Number(prev?.corporate) || Number(snapshot.corporate) || 0,
+      discountsOthers:
+        Array.isArray(prev?.discountsOthers) && prev.discountsOthers.length
+          ? prev.discountsOthers
+          : snapshot.discountsOthers,
+      onRoadBeforeDiscount: Number(snapshot.onRoadBeforeDiscount) || 0,
+      totalDiscount: Number(snapshot.totalDiscount) || 0,
+      netOnRoad: Number(snapshot.netOnRoad) || 0,
+    }));
+  }, [selectedVehicle, cityInput, backendCityKey]);
 
   // When pricingState (netOnRoad or onRoadBeforeDiscount) changes, update loan amounts and derived EMI
   useEffect(() => {
