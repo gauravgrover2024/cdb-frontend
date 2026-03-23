@@ -37,29 +37,34 @@ const getHeaders = (options) => {
   return base;
 };
 
+const tryParseJson = (text) => {
+  if (!text || typeof text !== "string") return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
 // Helper for consistent error handling
 const handleResponse = async (res) => {
   const text = await res.text();
-  try {
-    const data = JSON.parse(text);
-    if (!res.ok) {
-      const error = new Error(data.error || data.message || "API Request Failed");
-      error.status = res.status;
-      error.statusText = res.statusText;
-      error.payload = data;
-      throw error;
-    }
-    return data;
-  } catch (e) {
-    if (!res.ok) {
-      const error = e instanceof Error ? e : new Error(text || "API Request Failed");
-      error.status = res.status;
-      error.statusText = res.statusText;
-      error.payload = text;
-      throw error;
-    }
-    return {};
+  const data = tryParseJson(text);
+
+  if (!res.ok) {
+    const message =
+      data?.error ||
+      data?.message ||
+      text ||
+      "API Request Failed";
+    const error = new Error(message);
+    error.status = res.status;
+    error.statusText = res.statusText;
+    error.payload = data || text;
+    throw error;
   }
+
+  return data ?? {};
 };
 
 // Helper to build query string from params
