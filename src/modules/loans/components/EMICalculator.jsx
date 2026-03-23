@@ -760,13 +760,6 @@ const EMICalculator = ({
         if (ignore) return;
 
         setMakeOptions(normalized);
-        setModelOptions([]);
-        setVehicles([]);
-        setSelectedMake("");
-        setSelectedModel("");
-        setSelectedVariant(null);
-        setLoanAmountA(0);
-        setLoanAmountB(0);
 
         perfLog("brand-load:makes-api", {
           runId,
@@ -781,9 +774,6 @@ const EMICalculator = ({
         });
       } catch (e) {
         if (ignore) return;
-        setMakeOptions([]);
-        setModelOptions([]);
-        setVehicles([]);
         perfLog("brand-load:error", {
           runId,
           error: e?.message || String(e),
@@ -823,11 +813,9 @@ const EMICalculator = ({
           .sort((a, b) => a.localeCompare(b));
         if (ignore) return;
         setModelOptions(rows);
-        setVehicles([]);
       } catch {
         if (ignore) return;
         setModelOptions([]);
-        setVehicles([]);
       } finally {
         if (!ignore) setVehiclesLoading(false);
       }
