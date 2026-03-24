@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader, ArrowRight, Check } from "lucide-react";
 import { loginWithEmail, loginWithGoogle } from "../../api/firebaseAuth";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
+import { useAuth } from "../../context/AuthContext";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,6 +53,8 @@ const LoginPage = () => {
           localStorage.removeItem("savedEmail");
         }
 
+        await refreshUser();
+
         setSuccessMessage("Login successful! Redirecting...");
         setEmail("");
         setPassword("");
@@ -86,6 +90,7 @@ const LoginPage = () => {
       
       if (result.success) {
         localStorage.removeItem("savedEmail");
+        await refreshUser();
         setSuccessMessage("Google login successful! Redirecting...");
         setTimeout(() => navigate("/"), 800);
       }
@@ -106,7 +111,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden flex flex-col lg:flex-row font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <style>{`
         @keyframes slideInLeft {
           from {
@@ -176,14 +181,15 @@ const LoginPage = () => {
       {/* Left Side - Branding (Hidden on mobile) */}
       <section
         aria-label="Brand and product overview"
-        className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 relative overflow-hidden animate-slide-in-left"
+        className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen flex flex-col bg-slate-950 relative overflow-hidden animate-slide-in-left"
       >
-        {/* Background effects */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(99,102,241,0.15),transparent)]"></div>
-        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/20 to-transparent"></div>
-        <div className="absolute top-20 right-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
+        {/* Animated Background Effects */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,102,241,0.25),transparent_70%)]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-500/20 rounded-full blur-[120px] animate-pulse mix-blend-screen"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-500/20 rounded-full blur-[100px] animate-pulse mix-blend-screen" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-30 mix-blend-overlay"></div>
 
-        <div className="relative z-10 flex flex-col flex-1 p-8 sm:p-10 lg:p-14">
+        <div className="relative z-10 flex flex-col flex-1 p-6 sm:p-8 lg:p-10 lg:py-8 overflow-y-auto">
           {/* Logo */}
           <div className="flex-shrink-0">
             <div className="h-9 w-auto font-black text-2xl text-white hover:text-indigo-300 transition-smooth cursor-pointer">
@@ -193,12 +199,12 @@ const LoginPage = () => {
 
           {/* Content */}
           <div className="flex-1 flex flex-col justify-center mt-12 lg:mt-0">
-            <div className="space-y-6 max-w-md">
+            <div className="space-y-4 max-w-md">
               <span className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-500/30 to-purple-500/20 border border-indigo-400/30 text-indigo-200 text-[10px] font-bold uppercase tracking-[0.2em] hover:border-indigo-400/50 transition-smooth">
                 ✨ Financial Gateway
               </span>
               
-              <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight">
+              <h1 className="text-3xl sm:text-4xl font-black text-white leading-[1.1] tracking-tight">
                 Automotive <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Finance.</span>
               </h1>
               
@@ -208,14 +214,14 @@ const LoginPage = () => {
             </div>
 
             {/* Features */}
-            <ul className="mt-12 space-y-4">
+            <ul className="mt-8 space-y-3">
               {[
                 { icon: "⚡", title: "Real-time processing", desc: "Instant approvals & updates" },
                 { icon: "👥", title: "Multi-role support", desc: "Admin, Staff & Superadmin access" },
-                { icon: "🔒", title: "Enterprise security", desc: "Firebase + JWT encryption" },
+                { icon: "🔒", title: "Enterprise security", desc: "Advanced data encryption" },
               ].map((feature, i) => (
-                <li key={i} className="flex items-center gap-4 group cursor-pointer">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 group-hover:border-indigo-400/50 group-hover:bg-indigo-500/10 text-lg transition-smooth">
+                <li key={i} className="flex items-center p-3 gap-4 group cursor-pointer rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 hover:border-indigo-400/30 hover:shadow-[0_8px_32px_rgba(99,102,241,0.15)] transition-all duration-500 ease-out transform hover:-translate-y-1">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white/10 to-transparent border border-white/10 group-hover:from-indigo-500/20 group-hover:to-purple-500/20 group-hover:border-indigo-400/50 text-lg shadow-lg transition-all duration-500">
                     {feature.icon}
                   </span>
                   <div>
@@ -244,16 +250,21 @@ const LoginPage = () => {
       {/* Right Side - Login Form */}
       <section
         aria-label="Sign in"
-        className="w-full lg:w-[55%] min-h-[60vh] lg:min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#FAFAFC] to-slate-50 p-6 sm:p-8 lg:p-12 relative animate-slide-in-right"
+        className="w-full lg:w-[55%] min-h-[60vh] lg:min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-6 sm:p-8 lg:p-12 relative overflow-hidden animate-slide-in-right"
       >
+        {/* Soft Ambient Elements */}
+        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-indigo-100/50 rounded-full blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-sky-100/50 rounded-full blur-[100px] pointer-events-none"></div>
+
         {/* Mobile Logo */}
-        <div className="lg:hidden absolute top-6 left-6">
+        <div className="lg:hidden absolute top-6 left-6 z-20">
           <div className="h-7 font-black text-lg bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">AC</div>
         </div>
 
-        <div className="w-full max-w-[400px]">
+        {/* Glassmorphic Form Container */}
+        <div className="w-full max-w-[420px] z-10 bg-white/70 backdrop-blur-2xl p-6 sm:p-8 rounded-[2rem] border border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] relative my-auto">
           {/* Header */}
-          <div className="mb-8 animate-fade-in">
+          <div className="mb-6 animate-fade-in">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
               Sign in
             </h2>
@@ -279,7 +290,7 @@ const LoginPage = () => {
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleEmailLogin} className="space-y-5">
+          <form onSubmit={handleEmailLogin} className="space-y-4">
             {/* Email Input */}
             <div className="group">
               <label
@@ -309,7 +320,7 @@ const LoginPage = () => {
                   onFocus={() => setFocusedField("email")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-14 pl-12 pr-4 bg-white border-2 border-slate-200 rounded-xl input-focus outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-300 disabled:opacity-50 hover:border-slate-300"
+                  className="w-full h-12 pl-12 pr-4 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl input-focus outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 />
               </div>
             </div>
@@ -351,7 +362,7 @@ const LoginPage = () => {
                   onFocus={() => setFocusedField("password")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-14 pl-12 pr-12 bg-white border-2 border-slate-200 rounded-xl input-focus outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-300 disabled:opacity-50 hover:border-slate-300"
+                  className="w-full h-12 pl-12 pr-12 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl input-focus outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 />
                 <button
                   type="button"
@@ -385,7 +396,7 @@ const LoginPage = () => {
               <button
                 type="submit"
                 disabled={loading || !email || !password}
-                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap w-full h-14 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 transition-smooth active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap w-full h-12 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 bg-[length:200%_auto] hover:bg-right text-white rounded-xl font-bold text-sm tracking-wide shadow-[0_8px_20px_-6px_rgba(99,102,241,0.6)] hover:shadow-[0_12px_24px_-8px_rgba(99,102,241,0.8)] transition-all duration-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -403,7 +414,7 @@ const LoginPage = () => {
           </form>
 
           {/* Divider */}
-          <div className="relative flex items-center gap-3 my-7">
+          <div className="relative flex items-center gap-3 my-5">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
             <span className="text-xs text-slate-400 font-semibold px-3">OR</span>
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
@@ -413,7 +424,7 @@ const LoginPage = () => {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="group w-full h-14 bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-slate-300 text-slate-900 rounded-xl font-semibold text-sm transition-smooth disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-sm hover:shadow-md"
+            className="group w-full h-12 bg-white/80 hover:bg-white border-2 border-slate-200/80 hover:border-slate-300 text-slate-800 rounded-xl font-bold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_16px_rgba(0,0,0,0.06)] backdrop-blur-sm"
           >
             <svg className="w-5 h-5 group-hover:scale-110 transition-smooth" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -425,20 +436,9 @@ const LoginPage = () => {
           </button>
 
           {/* Divider */}
-          <div className="relative my-6">
+          <div className="relative my-4">
             <div className="h-px bg-slate-200"></div>
           </div>
-
-          {/* Sign Up Link */}
-          <p className="text-center text-sm text-slate-600 font-medium">
-            Don't have an account?{" "}
-            <a
-              href="/signup"
-              className="text-indigo-600 font-bold hover:text-indigo-700 transition-smooth hover:underline"
-            >
-              Sign up
-            </a>
-          </p>
 
           {/* Footer */}
           <p className="mt-6 text-center text-[10px] text-slate-400 font-medium leading-relaxed">

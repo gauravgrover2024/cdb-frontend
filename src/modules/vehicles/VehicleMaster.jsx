@@ -68,6 +68,7 @@ const VehicleMaster = () => {
     current: 1,
     pageSize: 10
   });
+  const [visibleBrandsCount, setVisibleBrandsCount] = useState(10);
 
   const loadVehicles = async () => {
     try {
@@ -191,6 +192,22 @@ const VehicleMaster = () => {
       (v.city && v.city.toLowerCase().includes(q))
     );
   }, [searchText, vehicles]);
+  const filteredBrands = useMemo(() => {
+    return makeStats.filter(brand => {
+      if (!searchText) return true;
+      const search = searchText.toLowerCase();
+      return brand.make.toLowerCase().includes(search) ||
+        brand.variants.some(v => 
+          v.model.toLowerCase().includes(search) ||
+          v.variant.toLowerCase().includes(search) ||
+          (v.city && v.city.toLowerCase().includes(search))
+        );
+    });
+  }, [makeStats, searchText]);
+
+  useEffect(() => {
+    setVisibleBrandsCount(10);
+  }, [searchText]);
 
   const columns = [
     {
@@ -449,18 +466,7 @@ const VehicleMaster = () => {
 
         <div className="flex-1 overflow-y-auto">
           <Collapse
-            items={makeStats
-              .filter(brand => {
-                if (!searchText) return true;
-                const search = searchText.toLowerCase();
-                return brand.make.toLowerCase().includes(search) ||
-                  brand.variants.some(v => 
-                    v.model.toLowerCase().includes(search) ||
-                    v.variant.toLowerCase().includes(search) ||
-                    (v.city && v.city.toLowerCase().includes(search))
-                  );
-              })
-              .map((brand) => ({
+            items={filteredBrands.slice(0, visibleBrandsCount).map((brand) => ({
               key: brand.make,
               label: (
                 <div className="flex items-center justify-between w-full pr-4">
@@ -576,6 +582,18 @@ const VehicleMaster = () => {
             accordion
             className="bg-transparent"
           />
+          {filteredBrands.length > visibleBrandsCount && (
+            <div className='p-4 flex justify-center border-t border-border'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setVisibleBrandsCount(prev => prev + 10)}
+                className='text-primary border-primary/40 hover:bg-primary/5'
+              >
+                Load More ({filteredBrands.length - visibleBrandsCount} remaining)
+              </Button>
+            </div>
+          )}
         </div>
         </div>
       </div>
