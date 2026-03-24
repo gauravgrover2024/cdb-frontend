@@ -1397,26 +1397,81 @@ const EMICalculator = ({
   };
 
   const handleVehicleSearchSelect = (value, option) => {
+    const valueText = collapseSpaces(String(value || ""));
+    const looseValueKey = normalizeLooseKey(valueText);
+
     const selectedOption =
       vehicleSearchOptions.find(
         (row) =>
           normalizeText(row?.value || row?.label || "") ===
-          normalizeText(value || ""),
-      ) || option;
+          normalizeText(valueText),
+      ) ||
+      vehicleSearchOptions.find((row) => {
+        const rowKey = normalizeLooseKey(row?.value || row?.label || "");
+        if (!rowKey || !looseValueKey) return false;
+        return rowKey === looseValueKey;
+      }) ||
+      option;
 
-    const selectedMakeText = String(selectedOption?.make || "").trim();
-    const selectedModelText = String(selectedOption?.model || "").trim();
+    let selectedMakeText = String(selectedOption?.make || "").trim();
+    let selectedModelText = String(selectedOption?.model || "").trim();
+
+    if (!selectedMakeText || !selectedModelText) {
+      const labelText = collapseSpaces(
+        String(selectedOption?.label || selectedOption?.value || valueText),
+      );
+      const normalizedLabel = normalizeText(labelText);
+
+      const matchedMake = [...new Set([...makeOptions, selectedMake, "Renault"])]
+        .map((m) => String(m || "").trim())
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length)
+        .find((makeCandidate) => {
+          const candidate = normalizeText(makeCandidate);
+          return (
+            normalizedLabel === candidate ||
+            normalizedLabel.startsWith(`${candidate} `)
+          );
+        });
+
+      if (matchedMake) {
+        const rawModel = labelText.slice(matchedMake.length).trim();
+        selectedMakeText = selectedMakeText || matchedMake;
+        selectedModelText = selectedModelText || rawModel;
+      }
+    }
+
+    if ((!selectedMakeText || !selectedModelText) && valueText.includes(" ")) {
+      const parts = valueText.split(" ").filter(Boolean);
+      if (!selectedMakeText) selectedMakeText = parts[0];
+      if (!selectedModelText) selectedModelText = parts.slice(1).join(" ");
+    }
+
+    selectedMakeText = collapseSpaces(selectedMakeText);
+    selectedModelText = collapseSpaces(selectedModelText);
     if (!selectedMakeText || !selectedModelText) return;
 
     setVehicleSearchInput(
       String(
         selectedOption?.label ||
-          value ||
+          valueText ||
           `${selectedMakeText} ${selectedModelText}`,
       ),
     );
     setSelectedMake(selectedMakeText);
     setSelectedModel(selectedModelText);
+    setModelOptions((prev) => {
+      const next = Array.isArray(prev) ? [...prev] : [];
+      if (
+        selectedModelText &&
+        !next.some(
+          (entry) => normalizeLooseKey(entry) === normalizeLooseKey(selectedModelText),
+        )
+      ) {
+        next.push(selectedModelText);
+      }
+      return next.sort((a, b) => String(a).localeCompare(String(b)));
+    });
     setSelectedVariant(null);
     setComparisonTouched(false);
     setPricingState((prev) => ({
@@ -2924,7 +2979,7 @@ const EMICalculator = ({
                     <img
                       src={selectedColorMedia.image}
                       alt={selectedColorMedia.color || "Vehicle color"}
-                      className="h-56 md:h-72 w-full object-cover"
+                      className="h-56 md:h-72 w-full object-contain bg-slate-100 dark:bg-[#111]"
                       loading="lazy"
                       onError={(event) => {
                         const fallback = selectedColorMedia.originalImage;
@@ -2970,7 +3025,7 @@ const EMICalculator = ({
                               <img
                                 src={entry.thumb || entry.image}
                                 alt={entry.color || "Vehicle color"}
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-contain bg-slate-100 dark:bg-[#111]"
                                 loading="lazy"
                                 onError={(event) => {
                                   const fallback =
