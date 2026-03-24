@@ -270,6 +270,8 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     if (!showroom) return;
     syncDealerFields({
       showroomDealerName: showroom.name || "",
+      showroomDealerContactPerson: showroom.contact_person || "",
+      showroomDealerContactNumber: showroom.phone || "",
       showroomDealerAddress: showroom.address || "",
     });
   };
@@ -277,6 +279,16 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     const next = { ...patch };
     if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerName")) {
       next.delivery_dealerName = patch.showroomDealerName;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, "showroomDealerContactPerson")
+    ) {
+      next.delivery_dealerContactPerson = patch.showroomDealerContactPerson;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, "showroomDealerContactNumber")
+    ) {
+      next.delivery_dealerContactNumber = patch.showroomDealerContactNumber;
     }
     if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerAddress")) {
       next.delivery_dealerAddress = patch.showroomDealerAddress;
@@ -1018,7 +1030,14 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       label="Contact Person"
                       name="showroomDealerContactPerson"
                     >
-                      <Input placeholder="Enter Contact Person" />
+                      <Input
+                        placeholder="Enter Contact Person"
+                        onChange={(e) =>
+                          syncDealerFields({
+                            showroomDealerContactPerson: e.target.value || "",
+                          })
+                        }
+                      />
                     </Form.Item>
                   </Col>
 
@@ -1027,7 +1046,14 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       label="Contact Number"
                       name="showroomDealerContactNumber"
                     >
-                      <Input placeholder="Enter Contact Number" />
+                      <Input
+                        placeholder="Enter Contact Number"
+                        onChange={(e) =>
+                          syncDealerFields({
+                            showroomDealerContactNumber: e.target.value || "",
+                          })
+                        }
+                      />
                     </Form.Item>
                   </Col>
 

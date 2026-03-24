@@ -239,6 +239,16 @@ const PostFileVehicleVerification = ({ form }) => {
     if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerName")) {
       next.delivery_dealerName = patch.showroomDealerName;
     }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, "showroomDealerContactPerson")
+    ) {
+      next.delivery_dealerContactPerson = patch.showroomDealerContactPerson;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, "showroomDealerContactNumber")
+    ) {
+      next.delivery_dealerContactNumber = patch.showroomDealerContactNumber;
+    }
     if (Object.prototype.hasOwnProperty.call(patch, "showroomDealerAddress")) {
       next.delivery_dealerAddress = patch.showroomDealerAddress;
     }
@@ -249,6 +259,8 @@ const PostFileVehicleVerification = ({ form }) => {
     if (!showroom) return;
     syncDealerFields({
       showroomDealerName: showroom.name || "",
+      showroomDealerContactPerson: showroom.contact_person || "",
+      showroomDealerContactNumber: showroom.phone || "",
       showroomDealerAddress: showroom.address || "",
     });
   };
@@ -572,14 +584,28 @@ const PostFileVehicleVerification = ({ form }) => {
                     name="showroomDealerContactPerson"
                     style={{ marginBottom: 0 }}
                   >
-                    <Input placeholder="Enter contact person" />
+                    <Input
+                      placeholder="Enter contact person"
+                      onChange={(e) =>
+                        syncDealerFields({
+                          showroomDealerContactPerson: e.target.value || "",
+                        })
+                      }
+                    />
                   </Form.Item>
                   <Form.Item
                     label="Contact Number"
                     name="showroomDealerContactNumber"
                     style={{ marginBottom: 0 }}
                   >
-                    <Input placeholder="Enter contact number" />
+                    <Input
+                      placeholder="Enter contact number"
+                      onChange={(e) =>
+                        syncDealerFields({
+                          showroomDealerContactNumber: e.target.value || "",
+                        })
+                      }
+                    />
                   </Form.Item>
                   <Form.Item
                     label="Dealer Address"

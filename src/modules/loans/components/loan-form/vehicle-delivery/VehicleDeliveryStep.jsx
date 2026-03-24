@@ -270,6 +270,16 @@ const VehicleDeliveryStep = ({ form }) => {
   const { options: showroomOptions, search: searchShowrooms } =
     useShowroomAutoSuggest({ limit: 25, brand: vehicleMake });
   const deliveryDealerNameInput = Form.useWatch("delivery_dealerName", form);
+  const showroomDealerName = Form.useWatch("showroomDealerName", form);
+  const showroomDealerAddress = Form.useWatch("showroomDealerAddress", form);
+  const showroomDealerContactPerson = Form.useWatch(
+    "showroomDealerContactPerson",
+    form,
+  );
+  const showroomDealerContactNumber = Form.useWatch(
+    "showroomDealerContactNumber",
+    form,
+  );
   const filteredShowroomOptions = useMemo(() => {
     const tokens = String(deliveryDealerNameInput || "")
       .toLowerCase()
@@ -301,6 +311,22 @@ const VehicleDeliveryStep = ({ form }) => {
     if (Object.prototype.hasOwnProperty.call(patch, "delivery_dealerName")) {
       next.showroomDealerName = patch.delivery_dealerName;
     }
+    if (
+      Object.prototype.hasOwnProperty.call(
+        patch,
+        "delivery_dealerContactPerson",
+      )
+    ) {
+      next.showroomDealerContactPerson = patch.delivery_dealerContactPerson;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(
+        patch,
+        "delivery_dealerContactNumber",
+      )
+    ) {
+      next.showroomDealerContactNumber = patch.delivery_dealerContactNumber;
+    }
     if (Object.prototype.hasOwnProperty.call(patch, "delivery_dealerAddress")) {
       next.showroomDealerAddress = patch.delivery_dealerAddress;
     }
@@ -312,6 +338,8 @@ const VehicleDeliveryStep = ({ form }) => {
     if (!showroom) return;
     syncDealerFields({
       delivery_dealerName: showroom.name || "",
+      delivery_dealerContactPerson: showroom.contact_person || "",
+      delivery_dealerContactNumber: showroom.phone || "",
       delivery_dealerAddress: showroom.address || "",
     });
   };
@@ -404,17 +432,38 @@ const VehicleDeliveryStep = ({ form }) => {
 
   // Pre-fill dealer details from vehicle verification
   useEffect(() => {
-    const dealerName = form.getFieldValue("showroomDealerName");
-    const dealerAddress = form.getFieldValue("showroomDealerAddress");
-
-    // Only set if delivery fields are empty
-    if (dealerName && !form.getFieldValue("delivery_dealerName")) {
-      form.setFieldsValue({
-        delivery_dealerName: dealerName,
-        delivery_dealerAddress: dealerAddress,
-      });
+    const patch = {};
+    if (showroomDealerName && !form.getFieldValue("delivery_dealerName")) {
+      patch.delivery_dealerName = showroomDealerName;
     }
-  }, [form]);
+    if (
+      showroomDealerContactPerson &&
+      !form.getFieldValue("delivery_dealerContactPerson")
+    ) {
+      patch.delivery_dealerContactPerson = showroomDealerContactPerson;
+    }
+    if (
+      showroomDealerContactNumber &&
+      !form.getFieldValue("delivery_dealerContactNumber")
+    ) {
+      patch.delivery_dealerContactNumber = showroomDealerContactNumber;
+    }
+    if (
+      showroomDealerAddress &&
+      !form.getFieldValue("delivery_dealerAddress")
+    ) {
+      patch.delivery_dealerAddress = showroomDealerAddress;
+    }
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  }, [
+    form,
+    showroomDealerName,
+    showroomDealerContactPerson,
+    showroomDealerContactNumber,
+    showroomDealerAddress,
+  ]);
 
   // Initialize static defaults only for genuinely new loans.
   useEffect(() => {
@@ -700,7 +749,14 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerContactPerson"
                 className="mb-0"
               >
-                <Input className={inputClassName} />
+                <Input
+                  className={inputClassName}
+                  onChange={(e) =>
+                    syncDealerFields({
+                      delivery_dealerContactPerson: e.target.value || "",
+                    })
+                  }
+                />
               </Form.Item>
 
               <Form.Item
@@ -708,7 +764,14 @@ const VehicleDeliveryStep = ({ form }) => {
                 name="delivery_dealerContactNumber"
                 className="mb-0"
               >
-                <Input className={inputClassName} />
+                <Input
+                  className={inputClassName}
+                  onChange={(e) =>
+                    syncDealerFields({
+                      delivery_dealerContactNumber: e.target.value || "",
+                    })
+                  }
+                />
               </Form.Item>
             </div>
 
