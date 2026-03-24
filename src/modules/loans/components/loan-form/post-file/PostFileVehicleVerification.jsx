@@ -221,6 +221,20 @@ const PostFileVehicleVerification = ({ form }) => {
     form.getFieldValue("showroomDealerName"),
     "",
   );
+  const filteredShowroomOptions = useMemo(() => {
+    const tokens = String(showroomDealerName || "")
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!tokens.length) return showroomOptions;
+    return (showroomOptions || []).filter((option) => {
+      const name = String(option?.showroom?.name || option?.value || "")
+        .toLowerCase()
+        .trim();
+      return tokens.every((token) => name.includes(token));
+    });
+  }, [showroomDealerName, showroomOptions]);
   const normalizedLoanType = String(
     firstFilled(typeOfLoanRaw, loanTypeRaw, form.getFieldValue("typeOfLoan"), form.getFieldValue("loanType"), ""),
   )
@@ -544,17 +558,18 @@ const PostFileVehicleVerification = ({ form }) => {
                   style={{ marginBottom: 0 }}
                 >
                   <AutoComplete
-                    options={showroomOptions}
+                    options={filteredShowroomOptions}
                     popupMatchSelectWidth={false}
                     onSearch={searchShowrooms}
                     onSelect={handleShowroomSelect}
-                    onChange={(value) =>
-                      syncDealerFields({ showroomDealerName: value || "" })
-                    }
+                    onChange={(value) => {
+                      searchShowrooms(value);
+                      syncDealerFields({ showroomDealerName: value || "" });
+                    }}
                     filterOption={(inputValue, option) =>
-                      String(option?.label || "")
-                        .toUpperCase()
-                        .includes(String(inputValue || "").toUpperCase())
+                      String(option?.showroom?.name || option?.value || "")
+                        .toLowerCase()
+                        .includes(String(inputValue || "").toLowerCase().trim())
                     }
                   >
                     <Input placeholder="Enter dealer name" />

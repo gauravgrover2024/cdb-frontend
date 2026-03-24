@@ -107,28 +107,37 @@ const matchesBrand = (showroom, brand) => {
 const includesBrand = (showroom, brand) => {
   return matchesBrand(showroom, brand);
 };
-const containsTerm = (showroom, term) => {
-  const q = normalize(term);
-  if (!q) return true;
-  const hay = [
+const showroomNameText = (showroom) =>
+  [
     showroom?.name,
-    showroom?.city,
-    showroom?.mobile,
-    showroom?.address,
-    showroom?.businessName,
   ]
     .map((v) => normalize(v))
     .filter(Boolean)
     .join(" | ");
-  return hay.includes(q);
+
+const nameMatchesQuery = (showroom, term) => {
+  const q = normalize(term);
+  if (!q) return true;
+  const name = showroomNameText(showroom);
+  if (!name) return false;
+  const parts = q.split(/\s+/).filter(Boolean);
+  if (!parts.length) return true;
+  return parts.every((part) => name.includes(part));
+};
+
+const containsTerm = (showroom, term) => {
+  return nameMatchesQuery(showroom, term);
 };
 
 export default function useShowroomAutoSuggest({ limit = 20, brand = "" } = {}) {
   const [showrooms, setShowrooms] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
   const timerRef = useRef(null);
   const brandRef = useRef(brand);
   const allActiveRef = useRef(null);
+  const activeTermRef = useRef("");
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     brandRef.current = brand;
@@ -187,14 +196,18 @@ export default function useShowroomAutoSuggest({ limit = 20, brand = "" } = {}) 
   const search = useCallback(
     (term) => {
       const q = String(term || "").trim();
+      setQuery(q);
       if (timerRef.current) clearTimeout(timerRef.current);
 
       timerRef.current = setTimeout(async () => {
+        const requestId = ++requestSeqRef.current;
+        activeTermRef.current = q;
         if (!q) {
           await fetchTop();
+          if (requestId !== requestSeqRef.current) return;
           return;
         }
-        if (q.length < 2) return;
+        if (q.length < 1) return;
 
         setLoading(true);
         try {
@@ -212,10 +225,13 @@ export default function useShowroomAutoSuggest({ limit = 20, brand = "" } = {}) 
             items = response?.data || [];
           }
           if (q) items = items.filter((item) => containsTerm(item, q));
+          if (requestId !== requestSeqRef.current) return;
           setShowrooms(items);
         } catch {
+          if (requestId !== requestSeqRef.current) return;
           setShowrooms([]);
         } finally {
+          if (requestId !== requestSeqRef.current) return;
           setLoading(false);
         }
       }, 280);
@@ -224,15 +240,32 @@ export default function useShowroomAutoSuggest({ limit = 20, brand = "" } = {}) 
   );
 
   const options = useMemo(
-    () =>
-      showrooms
+    () => {
+      const seen = new Set();
+      return showrooms
         .filter((s) => includesBrand(s, brand))
+        .filter((s) => containsTerm(s, query))
+        .filter((s) => {
+          const key = [
+            normalize(s?.showroomId),
+            normalize(s?.name),
+            normalize(s?.city),
+            normalize(s?.mobile),
+          ]
+            .filter(Boolean)
+            .join("|");
+          if (!key) return false;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
         .map((s) => ({
-        value: s.name || "",
-        label: `${s.name || "Unknown"}${s.city ? ` • ${s.city}` : ""}`,
-        showroom: s,
-      })),
-    [brand, showrooms],
+          value: s.name || "",
+          label: `${s.name || "Unknown"}${s.city ? ` • ${s.city}` : ""}`,
+          showroom: s,
+        }));
+    },
+    [brand, query, showrooms],
   );
 
   const getByName = useCallback(

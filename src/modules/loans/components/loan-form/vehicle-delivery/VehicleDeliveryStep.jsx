@@ -269,6 +269,21 @@ const VehicleDeliveryStep = ({ form }) => {
   const showHypothecation = isFinanced === "Yes";
   const { options: showroomOptions, search: searchShowrooms } =
     useShowroomAutoSuggest({ limit: 25, brand: vehicleMake });
+  const deliveryDealerNameInput = Form.useWatch("delivery_dealerName", form);
+  const filteredShowroomOptions = useMemo(() => {
+    const tokens = String(deliveryDealerNameInput || "")
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!tokens.length) return showroomOptions;
+    return (showroomOptions || []).filter((option) => {
+      const name = String(option?.showroom?.name || option?.value || "")
+        .toLowerCase()
+        .trim();
+      return tokens.every((token) => name.includes(token));
+    });
+  }, [deliveryDealerNameInput, showroomOptions]);
 
   const effectiveLoanRecordId = useMemo(() => {
     const direct =
@@ -662,17 +677,18 @@ const VehicleDeliveryStep = ({ form }) => {
                 className="mb-0"
               >
                 <AutoComplete
-                  options={showroomOptions}
+                  options={filteredShowroomOptions}
                   popupMatchSelectWidth={false}
                   onSearch={searchShowrooms}
                   onSelect={handleShowroomSelect}
-                  onChange={(value) =>
-                    syncDealerFields({ delivery_dealerName: value || "" })
-                  }
+                  onChange={(value) => {
+                    searchShowrooms(value);
+                    syncDealerFields({ delivery_dealerName: value || "" });
+                  }}
                   filterOption={(inputValue, option) =>
-                    String(option?.label || "")
-                      .toUpperCase()
-                      .includes(String(inputValue || "").toUpperCase())
+                    String(option?.showroom?.name || option?.value || "")
+                      .toLowerCase()
+                      .includes(String(inputValue || "").toLowerCase().trim())
                   }
                 >
                   <Input className={inputClassName} />
