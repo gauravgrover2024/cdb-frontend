@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { showroomsApi } from "../api/showrooms";
 
-const normalize = (value) => String(value || "").trim().toLowerCase();
+const normalize = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 const canonicalizeBrand = (value) => {
   const raw = normalize(value)
     .replace(/[_-]+/g, " ")
@@ -29,11 +32,7 @@ const canonicalizeBrand = (value) => {
     return "land-rover";
   }
   if (compact.includes("volkswagen") || compact === "vw") return "volkswagen";
-  if (
-    compact.includes("mahindra") ||
-    compact === "mm" ||
-    compact === "m&m"
-  ) {
+  if (compact.includes("mahindra") || compact === "mm" || compact === "m&m") {
     return "mahindra";
   }
   if (compact === "mg" || compact.includes("morrisgarage")) return "mg";
@@ -58,7 +57,10 @@ const canonicalizeBrand = (value) => {
   return raw;
 };
 
-export default function useShowroomAutoSuggest({ limit = 20, brand = "" } = {}) {
+export default function useShowroomAutoSuggest({
+  limit = 20,
+  brand = "",
+} = {}) {
   const [showrooms, setShowrooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -75,29 +77,32 @@ export default function useShowroomAutoSuggest({ limit = 20, brand = "" } = {}) 
     queryRef.current = query;
   }, [query]);
 
-  const runSearch = useCallback(async (term = "") => {
-    const q = String(term || "").trim();
-    const requestId = ++requestSeqRef.current;
-    setLoading(true);
-    try {
-      // Backend does the authoritative filtering:
-      // 1) brand exact-key filter (if selected)
-      // 2) strict contiguous name match for typed term
-      const response = await showroomsApi.search({
-        term: q,
-        limit: Math.max(limit, 300),
-        brand: brandRef.current || "",
-      });
-      if (requestId !== requestSeqRef.current) return;
-      setShowrooms(Array.isArray(response?.data) ? response.data : []);
-    } catch {
-      if (requestId !== requestSeqRef.current) return;
-      setShowrooms([]);
-    } finally {
-      if (requestId !== requestSeqRef.current) return;
-      setLoading(false);
-    }
-  }, [limit]);
+  const runSearch = useCallback(
+    async (term = "") => {
+      const q = String(term || "").trim();
+      const requestId = ++requestSeqRef.current;
+      setLoading(true);
+      try {
+        // Backend does the authoritative filtering:
+        // 1) brand exact-key filter (if selected)
+        // 2) strict contiguous name match for typed term
+        const response = await showroomsApi.search({
+          term: q,
+          limit: Math.max(limit, 300),
+          brand: brandRef.current || "",
+        });
+        if (requestId !== requestSeqRef.current) return;
+        setShowrooms(Array.isArray(response?.data) ? response.data : []);
+      } catch {
+        if (requestId !== requestSeqRef.current) return;
+        setShowrooms([]);
+      } finally {
+        if (requestId !== requestSeqRef.current) return;
+        setLoading(false);
+      }
+    },
+    [limit],
+  );
 
   useEffect(() => {
     runSearch(queryRef.current);
@@ -111,42 +116,46 @@ export default function useShowroomAutoSuggest({ limit = 20, brand = "" } = {}) 
   const search = useCallback(
     (term) => {
       const q = String(term || "").trim();
+
       setQuery(q);
+
+      if (q.length < 2) {
+        setShowrooms([]);
+        return;
+      }
+
       if (timerRef.current) clearTimeout(timerRef.current);
 
       timerRef.current = setTimeout(() => {
         runSearch(q);
-      }, 220);
+      }, 250);
     },
     [runSearch],
   );
 
-  const options = useMemo(
-    () => {
-      const seen = new Set();
-      return showrooms
-        .filter((s) => {
-          const key = [
-            normalize(s?.showroomId),
-            normalize(s?.name),
-            normalize(s?.city),
-            normalize(s?.mobile),
-          ]
-            .filter(Boolean)
-            .join("|");
-          if (!key) return false;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .map((s) => ({
-          value: s.name || "",
-          label: `${s.name || "Unknown"}${s.city ? ` • ${s.city}` : ""}`,
-          showroom: s,
-        }));
-    },
-    [showrooms],
-  );
+  const options = useMemo(() => {
+    const seen = new Set();
+    return showrooms
+      .filter((s) => {
+        const key = [
+          normalize(s?.showroomId),
+          normalize(s?.name),
+          normalize(s?.city),
+          normalize(s?.mobile),
+        ]
+          .filter(Boolean)
+          .join("|");
+        if (!key) return false;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((s) => ({
+        value: s.name || "",
+        label: `${s.name || "Unknown"}${s.city ? ` • ${s.city}` : ""}`,
+        showroom: s,
+      }));
+  }, [showrooms]);
 
   const getByName = useCallback(
     (name) => {
