@@ -221,20 +221,6 @@ const PostFileVehicleVerification = ({ form }) => {
     form.getFieldValue("showroomDealerName"),
     "",
   );
-  const filteredShowroomOptions = useMemo(() => {
-    const tokens = String(showroomDealerName || "")
-      .toLowerCase()
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-    if (!tokens.length) return showroomOptions;
-    return (showroomOptions || []).filter((option) => {
-      const name = String(option?.showroom?.name || option?.value || "")
-        .toLowerCase()
-        .trim();
-      return tokens.every((token) => name.includes(token));
-    });
-  }, [showroomDealerName, showroomOptions]);
   const normalizedLoanType = String(
     firstFilled(typeOfLoanRaw, loanTypeRaw, form.getFieldValue("typeOfLoan"), form.getFieldValue("loanType"), ""),
   )
@@ -558,21 +544,26 @@ const PostFileVehicleVerification = ({ form }) => {
                   style={{ marginBottom: 0 }}
                 >
                   <AutoComplete
-                    options={filteredShowroomOptions}
+                    options={showroomOptions}
+                    allowClear={false}
                     popupMatchSelectWidth={false}
                     onSearch={searchShowrooms}
                     onSelect={handleShowroomSelect}
                     onChange={(value) => {
-                      searchShowrooms(value);
                       syncDealerFields({ showroomDealerName: value || "" });
                     }}
-                    filterOption={(inputValue, option) =>
-                      String(option?.showroom?.name || option?.value || "")
-                        .toLowerCase()
-                        .includes(String(inputValue || "").toLowerCase().trim())
-                    }
+                    filterOption={false}
                   >
-                    <Input placeholder="Enter dealer name" />
+                    <Input
+                      placeholder="Enter dealer name"
+                      allowClear={false}
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      name="dealer_name_manual_postfile"
+                      data-lpignore="true"
+                    />
                   </AutoComplete>
                 </Form.Item>
                 <>

@@ -349,7 +349,7 @@ const LoanStickyHeader = ({ title, activeStep, isFinanced, form, innerRef, autoS
     <>
       <div
         ref={innerRef}
-        className="fixed left-0 right-0 z-[100] w-full border-b border-border bg-background/95 shadow-sm backdrop-blur-md"
+        className="fixed left-0 right-0 z-[100] w-full border-b border-border bg-background shadow-sm"
         style={{ top: 60 }}
       >
         <div className="app-max-wrap px-1 py-1 md:px-1 md:py-1">

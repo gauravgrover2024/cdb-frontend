@@ -1,5 +1,5 @@
 // src/modules/loans/components/loan-form/prefile/Section4VehiclePricing.jsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Form,
@@ -174,21 +174,6 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   });
   const { options: showroomOptions, search: searchShowrooms } =
     useShowroomAutoSuggest({ limit: 25, brand: selectedBrandForShowroom });
-  const showroomDealerNameInput = Form.useWatch("showroomDealerName", form);
-  const filteredShowroomOptions = useMemo(() => {
-    const tokens = String(showroomDealerNameInput || "")
-      .toLowerCase()
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-    if (!tokens.length) return showroomOptions;
-    return (showroomOptions || []).filter((option) => {
-      const name = String(option?.showroom?.name || option?.value || "")
-        .toLowerCase()
-        .trim();
-      return tokens.every((token) => name.includes(token));
-    });
-  }, [showroomDealerNameInput, showroomOptions]);
   const {
     options: registrationLookupOptions,
     loading: registrationLookupLoading,
@@ -1004,21 +989,26 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   <Col xs={24} md={8}>
                     <Form.Item label="Dealer Name" name="showroomDealerName">
                       <AutoComplete
-                        options={filteredShowroomOptions}
+                        options={showroomOptions}
+                        allowClear={false}
                         popupMatchSelectWidth={false}
                         onSearch={searchShowrooms}
                         onChange={(value) => {
-                          searchShowrooms(value);
                           syncDealerFields({ showroomDealerName: value || "" });
                         }}
                         onSelect={handleShowroomSelect}
-                        filterOption={(inputValue, option) =>
-                          String(option?.showroom?.name || option?.value || "")
-                            .toLowerCase()
-                            .includes(String(inputValue || "").toLowerCase().trim())
-                        }
+                        filterOption={false}
                       >
-                        <Input placeholder="Enter Dealer Name" />
+                        <Input
+                          placeholder="Enter Dealer Name"
+                          allowClear={false}
+                          autoComplete="new-password"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          name="dealer_name_manual_prefile"
+                          data-lpignore="true"
+                        />
                       </AutoComplete>
                     </Form.Item>
                   </Col>

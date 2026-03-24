@@ -9,10 +9,34 @@ import Button from "../../../components/ui/Button";
 // ----------------------------
 const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
   const modalRef = useRef(null);
+  const resolveBankKey = useCallback((bank, index) => {
+    if (!bank) return "";
+    return String(
+      bank?.id ??
+        bank?._id ??
+        bank?.bankId ??
+        bank?.loanId ??
+        `${bank?.bankName || "bank"}-${index}`,
+    );
+  }, []);
+  const bankOptions = useMemo(
+    () =>
+      (approvedBanks || []).map((bank, index) => ({
+        bank,
+        key: resolveBankKey(bank, index),
+      })),
+    [approvedBanks, resolveBankKey],
+  );
   const [selectedBankId, setSelectedBankId] = useState(() => {
-    if (approvedBanks?.length === 1) return approvedBanks[0]?.id || null;
+    if (approvedBanks?.length === 1) {
+      return resolveBankKey(approvedBanks[0], 0) || null;
+    }
     return null;
   });
+  const selectedBank = useMemo(
+    () => bankOptions.find((item) => item.key === selectedBankId)?.bank || null,
+    [bankOptions, selectedBankId],
+  );
 
   const [disbursementDate, setDisbursementDate] = useState(() => {
     return new Date().toISOString().split("T")[0];
@@ -33,11 +57,16 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
   };
 
   const handleDisburse = () => {
-    if (!selectedBankId || !disbursementDate) {
+    if (!selectedBank || !disbursementDate) {
       alert("Please select a bank and disbursement date");
       return;
     }
-    onDisburse?.(selectedBankId, disbursementDate, remarks);
+    const resolvedBankId =
+      selectedBank?.id ??
+      selectedBank?._id ??
+      selectedBank?.bankId ??
+      selectedBank?.bankName;
+    onDisburse?.(resolvedBankId, disbursementDate, remarks);
   };
 
   return (
@@ -85,12 +114,12 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
                 name="bank-selection"
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background"
                 value={selectedBankId || ""}
-                onChange={(e) => setSelectedBankId(Number(e.target.value))}
+                onChange={(e) => setSelectedBankId(String(e.target.value || ""))}
                 autoComplete="off"
               >
                 <option value="">Select bank</option>
-                {approvedBanks.map((bank) => (
-                  <option key={bank?.id} value={bank?.id}>
+                {bankOptions.map(({ bank, key }) => (
+                  <option key={key} value={key}>
                     {bank?.bankName || "Bank"} • {formatMoney(bank?.loanAmount)}
                   </option>
                 ))}
@@ -173,7 +202,7 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
             variant="default"
             size="sm"
             onClick={handleDisburse}
-            disabled={!selectedBankId || !disbursementDate}
+            disabled={!selectedBank || !disbursementDate}
             className="bg-amber-600 dark:bg-amber-600 hover:bg-amber-700 dark:hover:bg-amber-700 text-white shadow-lg shadow-amber-600/30"
           >
             <Icon name="CreditCard" size={16} style={{ marginRight: 6 }} />

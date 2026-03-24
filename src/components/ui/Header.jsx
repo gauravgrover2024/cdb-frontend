@@ -71,17 +71,10 @@ const Header = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const { isDarkMode, toggleTheme } = useTheme();
   const { user: userData, logout } = useAuth();
 
   const roleMeta = ROLE_META[userData?.role] || ROLE_META.staff;
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
@@ -213,11 +206,7 @@ const Header = () => {
       <header className="sticky top-0 z-[1000] py-0">
         <div className="app-max-wrap w-full">
           <div
-            className={`relative flex h-12 items-center gap-2 rounded-2xl px-2 md:h-14 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)] transition-colors duration-300 ${
-              scrolled
-                ? "bg-white/86 dark:bg-black/96 backdrop-blur-xl"
-                : "bg-white/95 dark:bg-black"
-            }`}
+            className="relative flex h-12 items-center gap-2 rounded-2xl bg-white dark:bg-black px-2 md:h-14 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)]"
           >
             {/* Brand Logo */}
             <button

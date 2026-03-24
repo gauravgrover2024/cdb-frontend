@@ -177,6 +177,17 @@ const hasMeaningfulValue = (value) => {
   return true;
 };
 
+const STEP_DISPLAY_NAMES = {
+  profile: "Profile",
+  prefile: "Pre-File",
+  approval: "Approval",
+  postfile: "Post-File",
+  delivery: "Delivery",
+  payout: "Payout",
+};
+
+const toLower = (value) => String(value || "").trim().toLowerCase();
+
 const normalizeLoanTypeLabel = (value) => {
   const text = String(value || "").trim().toLowerCase();
   if (!text) return value;
@@ -777,11 +788,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     }
   }, [watchedIsFinanced, activeStep]);
 
-  useEffect(() => {
-    if (!isValidRequestedRouteStep) return;
-    setActiveStep(requestedRouteStep);
-  }, [isValidRequestedRouteStep, requestedRouteStep]);
-
   // Auto-fill operational date/time fields when each step is opened the first time.
   useEffect(() => {
     if (!stepDefaultsReadyRef.current) return;
@@ -1140,6 +1146,125 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     if (isCashCase) return ["profile", "prefile", "delivery"];
     return ["profile", "prefile", "approval", "postfile", "delivery", "payout"];
   }, [isCashCase]);
+  const getStageFlags = useCallback(() => {
+    const approvalStatus = toLower(form.getFieldValue("approval_status"));
+    const disburseStatus = toLower(form.getFieldValue("disburse_status"));
+    const disbursementStatus = toLower(form.getFieldValue("disbursement_status"));
+    const approvalDisbursedDate = form.getFieldValue("approval_disbursedDate");
+    const disbursementDate = form.getFieldValue("disbursement_date");
+    const hasDisbursedBank = banksData.some(
+      (bank) => toLower(bank?.status) === "disbursed",
+    );
+    const isDisbursed =
+      hasDisbursedBank ||
+      approvalStatus === "disbursed" ||
+      disburseStatus === "disbursed" ||
+      disbursementStatus === "disbursed" ||
+      hasMeaningfulValue(approvalDisbursedDate) ||
+      hasMeaningfulValue(disbursementDate);
+
+    const deliveryStatus = toLower(form.getFieldValue("deliveryStatus"));
+    const deliveryDate = form.getFieldValue("delivery_date");
+    const isDeliveryActivated =
+      deliveryStatus === "delivered" ||
+      deliveryStatus === "completed" ||
+      hasMeaningfulValue(deliveryDate);
+
+    return {
+      isDisbursed,
+      isDeliveryActivated,
+    };
+  }, [banksData, form]);
+
+  const canNavigateToStep = useCallback(
+    (targetStep, { notify = false } = {}) => {
+      if (!visibleSteps.includes(targetStep)) return false;
+      if (targetStep === "profile" || targetStep === "prefile" || targetStep === "approval") {
+        return true;
+      }
+
+      const { isDisbursed, isDeliveryActivated } = getStageFlags();
+
+      if (!isCashCase && targetStep === "postfile" && !isDisbursed) {
+        if (notify) {
+          message.warning("Move to Post-File is enabled only after loan disbursement.");
+        }
+        return false;
+      }
+
+      if (targetStep === "delivery") {
+        if (isCashCase) return true;
+        if (!isDisbursed) {
+          if (notify) {
+            message.warning("Move to Delivery is enabled only after loan disbursement.");
+          }
+          return false;
+        }
+      }
+
+      if (!isCashCase && targetStep === "payout") {
+        if (!isDisbursed) {
+          if (notify) {
+            message.warning("Move to Payout is enabled only after loan disbursement.");
+          }
+          return false;
+        }
+        if (!isDeliveryActivated) {
+          if (notify) {
+            message.warning("Complete Delivery stage first to open Payout.");
+          }
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [getStageFlags, isCashCase, visibleSteps],
+  );
+
+  const getNearestAllowedStep = useCallback(
+    (targetStep) => {
+      if (!visibleSteps.length) return "profile";
+      const targetIndex = visibleSteps.indexOf(targetStep);
+      if (targetIndex <= 0) return visibleSteps[0];
+      for (let idx = targetIndex; idx >= 0; idx -= 1) {
+        const candidate = visibleSteps[idx];
+        if (canNavigateToStep(candidate)) return candidate;
+      }
+      return visibleSteps[0];
+    },
+    [canNavigateToStep, visibleSteps],
+  );
+
+  const navigateToStep = useCallback(
+    (
+      targetStep,
+      { notify = false, smoothScroll = true, fallbackToNearest = false } = {},
+    ) => {
+      if (!visibleSteps.includes(targetStep)) return false;
+      if (canNavigateToStep(targetStep, { notify })) {
+        setActiveStep(targetStep);
+        if (smoothScroll) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        return true;
+      }
+
+      if (fallbackToNearest) {
+        const safeStep = getNearestAllowedStep(targetStep);
+        if (safeStep && safeStep !== targetStep) {
+          setActiveStep(safeStep);
+          if (notify) {
+            message.info(
+              `Step locked. Opened ${STEP_DISPLAY_NAMES[safeStep] || safeStep} instead.`,
+            );
+          }
+        }
+      }
+      return false;
+    },
+    [canNavigateToStep, getNearestAllowedStep, visibleSteps],
+  );
   const stepperSections = useMemo(
     () => ({
       profile: [
@@ -1200,6 +1325,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       showPrefileGuarantor,
     ],
   );
+
+  useEffect(() => {
+    if (!isValidRequestedRouteStep) return;
+    navigateToStep(requestedRouteStep, {
+      notify: false,
+      smoothScroll: false,
+      fallbackToNearest: true,
+    });
+  }, [isValidRequestedRouteStep, navigateToStep, requestedRouteStep]);
 
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1414,10 +1548,51 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           }
         }
 
-        if (isValidRequestedRouteStep) {
-          setActiveStep(requestedRouteStep);
-        } else if (loan?.currentStage) {
-          setActiveStep(loan.currentStage);
+        const requestedStep = isValidRequestedRouteStep
+          ? requestedRouteStep
+          : toLower(loan?.currentStage);
+        if (requestedStep) {
+          const isCashFromLoan = toLower(loan?.isFinanced) === "no";
+          const bankDisbursed = Array.isArray(loan?.approval_banksData)
+            ? loan.approval_banksData.some(
+                (bank) => toLower(bank?.status) === "disbursed",
+              )
+            : false;
+          const isDisbursedFromLoan =
+            bankDisbursed ||
+            toLower(loan?.approval_status) === "disbursed" ||
+            toLower(loan?.disburse_status) === "disbursed" ||
+            toLower(loan?.disbursement_status) === "disbursed" ||
+            hasMeaningfulValue(loan?.approval_disbursedDate) ||
+            hasMeaningfulValue(loan?.disbursement_date);
+
+          const isDeliveryActivatedFromLoan =
+            toLower(loan?.deliveryStatus) === "delivered" ||
+            toLower(loan?.deliveryStatus) === "completed" ||
+            hasMeaningfulValue(loan?.delivery_date);
+
+          let safeStep = requestedStep;
+          if (isCashFromLoan && ["approval", "postfile", "payout"].includes(safeStep)) {
+            safeStep = "delivery";
+          }
+          if (!isCashFromLoan && safeStep === "postfile" && !isDisbursedFromLoan) {
+            safeStep = "approval";
+          }
+          if (!isCashFromLoan && safeStep === "delivery" && !isDisbursedFromLoan) {
+            safeStep = "approval";
+          }
+          if (!isCashFromLoan && safeStep === "payout") {
+            if (!isDisbursedFromLoan) safeStep = "approval";
+            else if (!isDeliveryActivatedFromLoan) safeStep = "delivery";
+          }
+          if (
+            !["profile", "prefile", "approval", "postfile", "delivery", "payout"].includes(
+              safeStep,
+            )
+          ) {
+            safeStep = "profile";
+          }
+          setActiveStep(safeStep);
         }
       } catch (e) {
         console.error("Load loan failed:", e);
@@ -2200,20 +2375,32 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     const success = await handleSaveLoan(false);
     if (!success) return;
 
-    setActiveStep("prefile");
+    navigateToStep("prefile", { notify: false });
   };
 
   const handleMoveToApproval = async () => {
     const success = await handleSaveLoan(false);
     if (!success) return;
 
-    if (isCashCase) setActiveStep("delivery");
-    else setActiveStep("approval");
+    if (isCashCase) navigateToStep("delivery", { notify: false });
+    else navigateToStep("approval", { notify: false });
   };
 
   const handleDisburseLoan = async (bankId, disbursementDate, remarks = "") => {
     try {
-      const bankToDisburse = banksData.find((b) => b.id === bankId);
+      const normalizedBankId = String(bankId ?? "").trim();
+      const bankToDisburse = banksData.find((b) => {
+        const candidates = [
+          b?.id,
+          b?._id,
+          b?.bankId,
+          b?.loanId,
+          b?.bankName,
+        ]
+          .map((value) => String(value ?? "").trim())
+          .filter(Boolean);
+        return candidates.includes(normalizedBankId);
+      });
 
       if (!bankToDisburse) {
         alert("❌ Bank not found");
@@ -2322,7 +2509,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       }
 
       alert("✅ Loan disbursed successfully! Receivables have been created and saved.");
-      setActiveStep("postfile");
+      navigateToStep("postfile", { notify: false });
     } catch (e) {
       console.error("❌ Disbursement failed:", e);
       alert(`❌ Disbursement failed: ${e.message}`);
@@ -2331,17 +2518,17 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   const handleMoveToDelivery = async () => {
     const success = await handleSaveLoan(false);
-    if (success) setActiveStep("delivery");
+    if (success) navigateToStep("delivery", { notify: true, fallbackToNearest: false });
   };
 
   const handleMoveToPostFile = async () => {
     const success = await handleSaveLoan(false);
-    if (success) setActiveStep("postfile");
+    if (success) navigateToStep("postfile", { notify: true, fallbackToNearest: false });
   };
 
   const handleMoveToPayout = async () => {
     const success = await handleSaveLoan(false);
-    if (success) setActiveStep("payout");
+    if (success) navigateToStep("payout", { notify: true, fallbackToNearest: false });
   };
 
   const handleCloseLead = () => {
@@ -2354,7 +2541,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   };
 
   const handleApprovalNext = () => {
-    setActiveStep("postfile");
+    navigateToStep("postfile", { notify: true, fallbackToNearest: false });
   };
 
   // ----------------------------
@@ -2506,7 +2693,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               form={form}
               banksData={banksData}
               setBanksData={setBanksData}
-              onNext={() => setActiveStep("postfile")}
+              onNext={() =>
+                navigateToStep("postfile", {
+                  notify: true,
+                  fallbackToNearest: false,
+                })
+              }
               loanId={loanIdFromRoute}
             />
           </div>
@@ -2684,12 +2876,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     return completed;
   }, [customerName, mobileNo, vehicleMake, vehicleModel, loanAmount, bankName, tenure, approvalStatus, postFileStatus, deliveryStatus, payoutStatus, isCashCase]);
 
-  const handleStageClick = (stageKey) => {
-    if (!visibleSteps.includes(stageKey)) return;
-    setActiveStep(stageKey);
-    // Optional: add smooth scroll to top when switching stages
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const handleStageClick = useCallback(
+    (stageKey) => {
+      navigateToStep(stageKey, {
+        notify: true,
+        smoothScroll: true,
+        fallbackToNearest: false,
+      });
+    },
+    [navigateToStep],
+  );
 
   const handleSectionClick = (section) => {
     const key = section.key;
@@ -2809,17 +3005,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       )}
 
       {/* Quick Actions Floating Toolbar - All Steps */}
-      <div className="fixed bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 bg-card dark:bg-black/90 border border-border rounded-2xl shadow-elevation-4 backdrop-blur-sm w-[calc(100%-1rem)] md:w-auto max-w-[960px] overflow-visible">
+      <div className="fixed bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 bg-card dark:bg-black/90 border border-border rounded-2xl shadow-elevation-4 w-[calc(100%-1rem)] md:w-auto max-w-[960px] overflow-visible">
         {visibleSteps.map((step, index) => {
-        // Accurate display names for steps
-        const stepDisplayNames = {
-          profile: "Profile",
-          prefile: "Pre-File",
-          approval: "Approval",
-          postfile: "Post-File",
-          delivery: "Delivery",
-          payout: "Payout",
-        };
         const stepIcons = {
           profile: "User",
           prefile: "ClipboardList",
@@ -2838,7 +3025,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             <div className="relative group/stepnav">
               <button
                 type="button"
-                onClick={() => setActiveStep(step)}
+                onClick={() => handleStageClick(step)}
                 className={`inline-flex items-center gap-1.5 text-[11px] md:text-xs font-medium px-2 py-1 rounded-lg transition-colors duration-150 whitespace-nowrap ${
                   activeStep === step
                     ? "bg-primary text-primary-foreground"
@@ -2846,7 +3033,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                 }`}
               >
                 <Icon name={stepIcons[step] || "Circle"} size={12} />
-                {stepDisplayNames[step] || step.charAt(0).toUpperCase() + step.slice(1)}
+                {STEP_DISPLAY_NAMES[step] || step.charAt(0).toUpperCase() + step.slice(1)}
               </button>
               {/* Dropdown menu on hover - now stays open on dropdown hover */}
               {sections.length > 0 && (
@@ -2859,7 +3046,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                         key={section.id}
                         type="button"
                         onClick={() => {
-                          setActiveStep(step);
+                          const moved = navigateToStep(step, {
+                            notify: true,
+                            smoothScroll: false,
+                            fallbackToNearest: false,
+                          });
+                          if (!moved) return;
                           setTimeout(() => {
                             const element = document.getElementById(section.id);
                             if (element) {
