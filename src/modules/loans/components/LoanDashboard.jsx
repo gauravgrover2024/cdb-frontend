@@ -130,7 +130,7 @@ const LoanDashboard = () => {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({
+  const [sortConfig] = useState({
     key: "createdAt",
     direction: "desc",
   });
@@ -1422,8 +1422,6 @@ const LoanDashboard = () => {
               currentPage={page}
               pageSize={pageSize}
               onPageChange={setPage}
-              sortConfig={sortConfig}
-              onSortChange={setSortConfig}
               onSelectLoan={handleSelectLoan}
               onSelectAll={handleSelectAll}
               onSelectionChange={handleSelectionChange}

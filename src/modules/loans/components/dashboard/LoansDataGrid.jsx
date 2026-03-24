@@ -23,15 +23,6 @@ const STAGES = [
   { key: "rc", label: "RC" },
 ];
 
-const SORT_OPTIONS = [
-  { key: "createdAt", label: "Latest" },
-  { key: "loanAmount", label: "Loan Amount" },
-  { key: "emi", label: "EMI" },
-  { key: "aging", label: "Aging" },
-  { key: "customer", label: "Customer" },
-  { key: "vehicle", label: "Vehicle" },
-];
-
 const STAGE_INDEX_MAP = {
   profile: 0,
   customerprofile: 0,
@@ -553,23 +544,6 @@ const getMiniWindow = (loan) => {
   };
 };
 
-const getStatusTheme = (status) => {
-  const s = String(status || "").toLowerCase();
-  if (s.includes("disburs")) {
-    return "border-emerald-300/80 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
-  }
-  if (s.includes("approved")) {
-    return "border-cyan-300/80 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300";
-  }
-  if (s.includes("pending") || s.includes("progress")) {
-    return "border-amber-300/80 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300";
-  }
-  if (s.includes("reject")) {
-    return "border-rose-300/80 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300";
-  }
-  return "border-slate-300/80 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300";
-};
-
 const pickPrimaryBank = (loan) => {
   const banks = loan?.approval_banksData || [];
   return (
@@ -586,8 +560,6 @@ const LoansDataGrid = ({
   currentPage = 1,
   pageSize = 75,
   onPageChange,
-  sortConfig = { key: "createdAt", direction: "desc" },
-  onSortChange,
   selectedLoans,
   onSelectLoan,
   onSelectAll,
@@ -762,34 +734,6 @@ const LoansDataGrid = ({
               {totalCount || sortedLoans?.length || 0} case(s) in current result
             </p>
           </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {SORT_OPTIONS.map((opt) => {
-            const active = sortConfig.key === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() =>
-                  onSortChange?.((prev) => ({
-                    key: opt.key,
-                    direction:
-                      prev.key === opt.key && prev.direction === "desc"
-                        ? "asc"
-                        : "desc",
-                  }))
-                }
-                className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
         </div>
 
         {selectedLoans?.length > 0 && (
@@ -987,25 +931,6 @@ const LoansDataGrid = ({
               const principalOutstanding =
                 storedPrincipalOutstanding ||
                 parseAmount(liveOutstandingFallback);
-              const maturityDate = (() => {
-                if (loan?.postfile_maturityDate)
-                  return loan.postfile_maturityDate;
-                const tenureMonths = parseAmount(
-                  primaryTenureMonths || loan?.loanTenureMonths || loan?.tenure,
-                );
-                const firstEmiDate =
-                  loan?.postfile_firstEmiDate ||
-                  loan?.postfile_first_emi_date ||
-                  primary?.firstEmiDate ||
-                  loan?.firstEmiDate ||
-                  null;
-                if (!firstEmiDate || !tenureMonths) return null;
-                const start = new Date(firstEmiDate);
-                if (Number.isNaN(start.getTime())) return null;
-                const derived = new Date(start);
-                derived.setMonth(derived.getMonth() + tenureMonths);
-                return derived.toISOString();
-              })();
               const isLoanClosed =
                 !!loan?.closureDate ||
                 !!loan?.closedDate ||
@@ -1054,32 +979,21 @@ const LoansDataGrid = ({
                 loan?.firstEmiDate ||
                 disbursementDate ||
                 null;
-              const maturityStatus = (() => {
-                if (!maturityDate) return null;
-                const m = new Date(maturityDate);
-                if (Number.isNaN(m.getTime())) return null;
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                m.setHours(0, 0, 0, 0);
-                return m > today ? "Active" : "Closed";
-              })();
               const statusTextLower = String(statusText || "").toLowerCase();
-              const effectiveLifecycleStatus = (() => {
-                if (isCashCar) return null;
-                if (isLoanClosed || maturityStatus === "Closed")
-                  return "Closed";
-                if (maturityStatus === "Active") return "Active";
-                if (
-                  statusTextLower.includes("disburs") ||
-                  statusTextLower.includes("approved") ||
-                  statusTextLower.includes("progress") ||
-                  statusTextLower.includes("pending")
-                ) {
-                  return "Active";
-                }
-                return "Active";
-              })();
-              const isClosedByStatus = effectiveLifecycleStatus === "Closed";
+              const hasDisbursedBank = (banks || []).some((bank) =>
+                String(bank?.status || "")
+                  .toLowerCase()
+                  .includes("disburs"),
+              );
+              const isDisbursedCase =
+                Boolean(toDateOrNull(disbursementDate)) ||
+                hasDisbursedBank ||
+                statusTextLower.includes("disburs");
+              const isClosedByStatus = isLoanClosed;
+              const activeStatusLabel =
+                !isCashCar && isDisbursedCase && !isClosedByStatus
+                  ? "Active"
+                  : null;
               const sourceText = firstMeaningful(
                 loan?.source,
                 loan?.recordSource,
@@ -1105,11 +1019,9 @@ const LoansDataGrid = ({
                       ""
                     ).trim()
                   : "";
-              const referenceName =
-                loan?.reference1?.name ||
-                loan?.reference1_name ||
-                loan?.reference_name ||
-                "";
+              const referenceName = hasDisplayValue(loan?.referenceName)
+                ? String(loan.referenceName).trim()
+                : "";
               const hasFinanceMeta =
                 primaryInterest != null || !!primaryTenureMonths;
 
@@ -1155,6 +1067,7 @@ const LoansDataGrid = ({
                                 </span>
                               )}
                             {!isCashCar &&
+                              isDisbursedCase &&
                               !isClosedByStatus &&
                               !!principalOutstanding && (
                                 <button
@@ -1187,11 +1100,11 @@ const LoansDataGrid = ({
                       </div>
 
                       <div className="flex items-start gap-1.5">
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getStatusTheme(statusText)}`}
-                        >
-                          {statusText}
-                        </span>
+                        {activeStatusLabel ? (
+                          <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            {activeStatusLabel}
+                          </span>
+                        ) : null}
                         <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                           {loan?.currentStage || "profile"}
                         </span>
@@ -1274,17 +1187,11 @@ const LoansDataGrid = ({
                           </p>
                         )}
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          {!isCashCar && effectiveLifecycleStatus && (
-                            <span
-                              className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                effectiveLifecycleStatus === "Closed"
-                                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                  : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-                              }`}
-                            >
-                              {effectiveLifecycleStatus}
+                          {activeStatusLabel ? (
+                            <span className="inline-flex w-fit rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                              {activeStatusLabel}
                             </span>
-                          )}
+                          ) : null}
                           {otherBanks.length > 0 && (
                             <button
                               type="button"
