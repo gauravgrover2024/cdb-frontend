@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Button from "../../../../components/ui/Button";
 import Icon from "../../../../components/AppIcon";
 
@@ -60,7 +61,7 @@ const LoanDocumentUploadModal = ({
     }
   };
 
-  return (
+  const modalNode = (
     <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
       <div className="pointer-events-auto w-full max-w-2xl rounded-[28px] border border-border bg-card shadow-elevation-4">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -157,6 +158,12 @@ const LoanDocumentUploadModal = ({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return modalNode;
+  }
+
+  return createPortal(modalNode, document.body);
 };
 
 export default LoanDocumentUploadModal;

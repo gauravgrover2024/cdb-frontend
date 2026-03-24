@@ -106,6 +106,163 @@
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Global responsive foundation (desktop + laptop + mobile)                   */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  --app-max-content: 1860px;
+  --app-gutter: clamp(8px, 1.6vw, 22px);
+  --app-font-min: 12px;
+  --app-font-max: 16px;
+}
+
+html {
+  font-size: clamp(var(--app-font-min), calc(11.2px + 0.22vw + 0.16vh), var(--app-font-max));
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.app-max-wrap {
+  width: min(100% - (var(--app-gutter) * 2), var(--app-max-content));
+  margin-inline: auto;
+}
+
+/* Shared form/input density */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number,
+.ant-btn {
+  font-size: clamp(12px, 0.77rem + 0.1vw, 14px);
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number {
+  min-height: clamp(36px, 2.6vw, 44px);
+}
+
+.ant-form-item {
+  margin-bottom: clamp(10px, 1.1vh, 18px);
+}
+
+/* Modal responsiveness */
+.ant-modal {
+  max-width: min(96vw, 980px);
+}
+
+.ant-modal .ant-modal-content {
+  border-radius: clamp(12px, 1.6vw, 22px);
+}
+
+.ant-modal .ant-modal-body {
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
+}
+
+/* Prevent clipping for dense grids/tables on narrow screens */
+.ant-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Large desktop / high-res */
+@media (min-width: 1800px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* Compact desktop / older laptops */
+@media (max-width: 1512px) {
+  :root {
+    --app-gutter: clamp(8px, 1.2vw, 14px);
+  }
+}
+
+@media (max-width: 1366px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-height: 900px) and (min-width: 1024px) {
+  html {
+    font-size: 13.5px;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 1024px) {
+  html {
+    font-size: 13px;
+  }
+
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select-selector,
+  .ant-picker,
+  .ant-input-number {
+    min-height: 38px;
+  }
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  :root {
+    --app-gutter: clamp(8px, 2vw, 16px);
+  }
+
+  html {
+    font-size: 13px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  :root {
+    --app-gutter: clamp(8px, 2.8vw, 14px);
+    --app-font-max: 14px;
+  }
+
+  html {
+    font-size: clamp(12px, 2.8vw, 14px);
+  }
+
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select-selector,
+  .ant-picker,
+  .ant-input-number,
+  .ant-btn {
+    font-size: 12px;
+  }
+
+  .ant-modal {
+    margin: 10px auto !important;
+    max-width: calc(100vw - 14px);
+  }
+
+  .ant-modal .ant-modal-body {
+    max-height: calc(100dvh - 150px);
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 12px;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - 10px);
+  }
+}
+
 /* Theme-aware Logo visibility */
 img.logo-theme-aware {
   filter: grayscale(1) brightness(0) !important; /* Unified Black in Light Mode */

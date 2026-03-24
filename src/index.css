@@ -130,6 +130,23 @@ body {
   }
 }
 
+/* Height-aware compact density for older/low-res desktop screens */
+@media (max-height: 900px) and (min-width: 1024px) {
+  :root {
+    --app-gutter: clamp(8px, 1vw, 12px);
+  }
+
+  html {
+    font-size: 13.75px;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 1024px) {
+  html {
+    font-size: 13px;
+  }
+}
+
 /* Focus styles */
 .ant-input:focus,
 .ant-input-focused,
@@ -223,6 +240,39 @@ body {
   .loan-form-workbench .ant-form-item,
   .prefile-workbench .ant-form-item {
     margin-bottom: 14px;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 1024px) {
+  .loan-form-workbench .ant-input,
+  .loan-form-workbench .ant-input-affix-wrapper,
+  .loan-form-workbench .ant-picker,
+  .loan-form-workbench .ant-select-selector,
+  .loan-form-workbench .ant-input-number,
+  .prefile-workbench .ant-input,
+  .prefile-workbench .ant-input-affix-wrapper,
+  .prefile-workbench .ant-picker,
+  .prefile-workbench .ant-select-selector,
+  .prefile-workbench .ant-input-number {
+    min-height: 38px;
+    border-radius: 14px !important;
+  }
+
+  .loan-form-workbench .ant-form-item,
+  .prefile-workbench .ant-form-item {
+    margin-bottom: 10px;
+  }
+
+  .loan-form-workbench textarea.ant-input,
+  .prefile-workbench textarea.ant-input {
+    min-height: 78px;
+    padding-top: 10px;
+  }
+
+  /* Keep long content modals usable on short screens */
+  .ant-modal .ant-modal-body {
+    max-height: calc(100vh - 190px);
+    overflow-y: auto;
   }
 }
 
