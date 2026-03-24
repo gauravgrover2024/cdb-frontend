@@ -97,6 +97,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const [priceSort, setPriceSort] = useState("asc");
   const [galleryVehicleId, setGalleryVehicleId] = useState(null);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(30);
 
   const loadVehicles = async () => {
     try {
@@ -142,6 +143,10 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   useEffect(() => {
     loadVehicles();
   }, []);
+
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [searchText, makeFilter, modelFilter, fuelFilter, variantFilter, cityFilter, budgetFilter, brandType, priceSort]);
 
   const uniqueMakes = useMemo(
     () => [...new Set(vehicles.map((v) => v.make))].sort(),
@@ -856,7 +861,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-[#262626]">
-                  {variantsForActiveFuel.map((v) => {
+                  {variantsForActiveFuel.slice(0, visibleCount).map((v) => {
                     const isBestValue =
                       !v.isDiscontinued &&
                       v.onRoadPrice &&
@@ -984,6 +989,18 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                       </details>
                     );
                   })}
+                  
+                  {variantsForActiveFuel.length > visibleCount && (
+                    <div className="p-4 flex justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => setVisibleCount((prev) => prev + 50)}
+                        className="text-emerald-600 border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                      >
+                        Load {variantsForActiveFuel.length - visibleCount > 50 ? "50 More" : `${variantsForActiveFuel.length - visibleCount} More`} ({variantsForActiveFuel.length} total)
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

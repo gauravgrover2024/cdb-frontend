@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, AlertCircle, Loader, ArrowRight, Check, Shield } from 'lucide-react';
-import { registerWithEmail } from '../../api/firebaseAuth';
+import { registerWithEmail, loginWithGoogle } from '../../api/firebaseAuth';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { useAuth } from '../../context/AuthContext';
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -92,8 +94,36 @@ const Signup = () => {
     }
   };
 
+  const handleGoogleSignup = async () => {
+    setError('');
+    setSuccessMessage('');
+    setLoading(true);
+
+    try {
+      const result = await loginWithGoogle();
+      
+      if (result.success) {
+        await refreshUser();
+        setSuccessMessage('Google signup successful! Redirecting...');
+        setTimeout(() => navigate('/'), 800);
+      }
+    } catch (err) {
+      if (err.isPending || err.status === 403) {
+        setError('⏳ Your account is pending approval. The administrator will review your account soon. Please check back later.');
+      } else {
+        const errorMessage = 
+          err.code === 'auth/popup-closed-by-user' ? 'Signup cancelled.' :
+          err.code === 'auth/cancelled-popup-request' ? 'Please try again.' :
+          err.message || 'Google signup failed. Please try again.';
+        setError(errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden flex flex-col lg:flex-row font-sans selection:bg-indigo-100 selection:text-indigo-900">
       <style>{`
         @keyframes slideInLeft {
           from {
@@ -147,28 +177,29 @@ const Signup = () => {
 
       {loading && <LoadingSpinner fullPage text="Creating your account..." />}
 
-      {/* Left Side - Branding */}
       <section
-        className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 relative overflow-hidden animate-slide-in-left"
+        className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen flex flex-col bg-slate-950 relative overflow-hidden animate-slide-in-left"
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(99,102,241,0.15),transparent)]"></div>
-        <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/20 to-transparent"></div>
-        <div className="absolute top-20 right-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
+        {/* Animated Background Effects */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(16,185,129,0.25),transparent_70%)]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-500/20 rounded-full blur-[120px] animate-pulse mix-blend-screen"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-teal-500/20 rounded-full blur-[100px] animate-pulse mix-blend-screen" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-30 mix-blend-overlay"></div>
 
-        <div className="relative z-10 flex flex-col flex-1 p-8 sm:p-10 lg:p-14">
+        <div className="relative z-10 flex flex-col flex-1 p-6 sm:p-8 lg:p-10 lg:py-6 overflow-y-auto">
           <div className="flex-shrink-0">
             <div className="h-9 w-auto font-black text-2xl text-white hover:text-indigo-300 transition-smooth cursor-pointer">
               AutoCredits
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col justify-center mt-12 lg:mt-0">
-            <div className="space-y-6 max-w-md">
-              <span className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-green-500/30 to-emerald-500/20 border border-green-400/30 text-green-200 text-[10px] font-bold uppercase tracking-[0.2em]">
+          <div className="flex-1 flex flex-col justify-center mt-8 lg:mt-0">
+            <div className="space-y-4 max-w-md">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-emerald-500/30 to-teal-500/20 border border-emerald-400/30 text-emerald-200 text-[10px] font-bold uppercase tracking-[0.2em]">
                 ✨ Join Our Team
               </span>
               
-              <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.1] tracking-tight">
+              <h1 className="text-3xl sm:text-4xl font-black text-white leading-[1.1] tracking-tight">
                 Create Your <span className="bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">Account</span>
               </h1>
               
@@ -177,14 +208,14 @@ const Signup = () => {
               </p>
             </div>
 
-            <ul className="mt-12 space-y-4">
+            <ul className="mt-8 space-y-3">
               {[
                 { icon: '✓', title: 'Instant Setup', desc: 'Get started in minutes' },
-                { icon: '🔐', title: 'Bank-Grade Security', desc: 'Firebase + JWT encryption' },
+                { icon: '🔐', title: 'Bank-Grade Security', desc: 'Advanced data encryption' },
                 { icon: '👥', title: '3 Role Levels', desc: 'Superadmin, Admin, Staff' },
               ].map((feature, i) => (
-                <li key={i} className="flex items-center gap-4 group cursor-pointer">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 group-hover:border-green-400/50 group-hover:bg-green-500/10 text-lg transition-smooth">
+                <li key={i} className="flex items-center p-3 gap-4 group cursor-pointer rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 hover:border-emerald-400/30 hover:shadow-[0_8px_32px_rgba(16,185,129,0.15)] transition-all duration-500 ease-out transform hover:-translate-y-1">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white/10 to-transparent border border-white/10 group-hover:from-emerald-500/20 group-hover:to-teal-500/20 group-hover:border-emerald-400/50 text-lg shadow-lg transition-all duration-500">
                     {feature.icon}
                   </span>
                   <div>
@@ -207,14 +238,18 @@ const Signup = () => {
 
       {/* Right Side - Signup Form */}
       <section
-        className="w-full lg:w-[55%] min-h-[60vh] lg:min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#FAFAFC] to-slate-50 p-6 sm:p-8 lg:p-12 relative animate-slide-in-right overflow-y-auto"
+        className="w-full lg:w-[55%] min-h-[60vh] lg:min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] relative overflow-hidden animate-slide-in-right p-6 sm:p-8 lg:p-12 overflow-y-auto"
       >
-        <div className="lg:hidden absolute top-6 left-6">
-          <div className="h-7 font-black text-lg bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">AC</div>
+        {/* Soft Ambient Elements */}
+        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-emerald-100/40 rounded-full blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-100/40 rounded-full blur-[100px] pointer-events-none"></div>
+
+        <div className="lg:hidden absolute top-6 left-6 z-20">
+          <div className="h-7 font-black text-lg bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">AC</div>
         </div>
 
-        <div className="w-full max-w-[450px] py-12 lg:py-0">
-          <div className="mb-8 animate-fade-in">
+        <div className="w-full max-w-[420px] z-10 bg-white/70 backdrop-blur-2xl p-6 sm:p-8 rounded-[2rem] border border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] relative my-auto">
+          <div className="mb-5 animate-fade-in">
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
               Sign up
             </h2>
@@ -237,7 +272,8 @@ const Signup = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Name Input */}
             <div className="group">
               <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">
@@ -256,7 +292,7 @@ const Signup = () => {
                   onFocus={() => setFocusedField("name")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-14 pl-12 pr-4 bg-white border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-300 disabled:opacity-50 hover:border-slate-300"
+                  className="w-full h-12 pl-12 pr-4 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 focus:bg-white outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 />
               </div>
             </div>
@@ -279,11 +315,13 @@ const Signup = () => {
                   onFocus={() => setFocusedField("email")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-14 pl-12 pr-4 bg-white border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-300 disabled:opacity-50 hover:border-slate-300"
+                  className="w-full h-12 pl-12 pr-4 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 focus:bg-white outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 />
               </div>
             </div>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Password Input */}
             <div className="group">
               <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400 ml-1">
@@ -302,7 +340,7 @@ const Signup = () => {
                   onFocus={() => setFocusedField("password")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-14 pl-12 pr-4 bg-white border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-300 disabled:opacity-50 hover:border-slate-300"
+                  className="w-full h-12 pl-12 pr-4 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 focus:bg-white outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 />
               </div>
             </div>
@@ -325,9 +363,10 @@ const Signup = () => {
                   onFocus={() => setFocusedField("confirmPassword")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-14 pl-12 pr-4 bg-white border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-300 disabled:opacity-50 hover:border-slate-300"
+                  className="w-full h-12 pl-12 pr-4 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 focus:bg-white outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 />
               </div>
+            </div>
             </div>
 
             {/* Role Selection */}
@@ -345,7 +384,7 @@ const Signup = () => {
                   value={form.role}
                   onChange={handleChange}
                   disabled={loading}
-                  className="w-full h-14 pl-12 pr-4 bg-white border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition-smooth font-medium text-slate-900 disabled:opacity-50 hover:border-slate-300 appearance-none cursor-pointer"
+                  className="w-full h-12 pl-12 pr-4 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 focus:bg-white outline-none transition-smooth font-medium text-slate-900 disabled:opacity-50 hover:border-slate-300 appearance-none cursor-pointer shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 >
                   <option value="staff">Staff - Process loans & customer support</option>
                 </select>
@@ -358,11 +397,11 @@ const Signup = () => {
             </div>
 
             {/* Submit Button */}
-            <div className="pt-4">
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading || !form.name || !form.email || !form.password || !form.confirmPassword}
-                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap w-full h-14 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 transition-smooth active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap w-full h-12 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 bg-[length:200%_auto] hover:bg-right text-white rounded-xl font-bold text-sm tracking-wide shadow-[0_8px_20px_-6px_rgba(16,185,129,0.6)] hover:shadow-[0_12px_24px_-8px_rgba(16,185,129,0.8)] transition-all duration-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -379,12 +418,34 @@ const Signup = () => {
             </div>
           </form>
 
-          <div className="relative bmy-6">
-            <div className="h-px bg-slate-200 my-6"></div>
+          {/* Divider */}
+          <div className="relative flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+            <span className="text-xs text-slate-400 font-semibold px-3">OR</span>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+          </div>
+
+          {/* Google Signup */}
+          <button
+            onClick={handleGoogleSignup}
+            disabled={loading}
+            className="group w-full h-12 bg-white/80 hover:bg-white border-2 border-slate-200/80 hover:border-slate-300 text-slate-800 rounded-xl font-bold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_16px_rgba(0,0,0,0.06)] backdrop-blur-sm"
+          >
+            <svg className="w-5 h-5 group-hover:scale-110 transition-smooth" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+
+          <div className="relative my-4">
+            <div className="h-px bg-slate-200"></div>
           </div>
 
           {/* Sign In Link */}
-          <p className="text-center text-sm text-slate-600 font-medium">
+          <p className="text-center text-[13px] text-slate-600 font-medium">
             Already have an account?{" "}
             <a
               href="/login"
