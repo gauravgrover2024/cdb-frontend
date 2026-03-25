@@ -18,6 +18,32 @@ import { startNewLoanCase } from "../utils/startNewLoanCase";
 // Showroom hydration fires extra per-loan API calls and can slow dashboard loads.
 // Keep disabled by default; backend list payload should provide these fields directly.
 const SHOWROOM_HYDRATION_ENABLED = false;
+const CPV_COMPLETION_THRESHOLD = 80;
+const CPV_SECTION_MIN_FIELDS = 3;
+const EXPANDED_FETCH_LIMIT = 5000;
+const AUTO_LOAN_NUMBER_REGEX = /^LN-\d{4}-\d+$/i;
+const PREFILE_CO_APPLICANT_FIELD_GROUPS = [
+  ["co_customerName", "co_name"],
+  ["co_primaryMobile", "co_mobile"],
+  ["co_dob"],
+  ["co_pan"],
+  ["co_aadhaar", "co_aadhar"],
+  ["co_address"],
+  ["co_pincode"],
+  ["co_city"],
+  ["co_occupation", "co_occupationType"],
+];
+const PREFILE_GUARANTOR_FIELD_GROUPS = [
+  ["gu_customerName", "gu_name"],
+  ["gu_primaryMobile", "gu_mobile"],
+  ["gu_dob"],
+  ["gu_pan"],
+  ["gu_aadhaar", "gu_aadhar"],
+  ["gu_address"],
+  ["gu_pincode"],
+  ["gu_city"],
+  ["gu_occupation", "gu_occupationType"],
+];
 
 const PRIMARY_STAT_THEMES = {
   total: {
@@ -124,14 +150,16 @@ const LoanDashboard = () => {
 
   const [filters, setFilters] = useState({
     loanTypes: [],
-    stages: [],
-    statuses: [],
-    agingBuckets: [],
     amountRanges: [],
     pendingApprovalOnly: false,
     pendingDisbursal: false,
     disbursedOnly: false,
     cashCarsOnly: false,
+    cpvIncomplete: false,
+    regNoPending: false,
+    loanNoPending: false,
+    rcPending: false,
+    invoicePending: false,
     searchQuery: "",
   });
 
@@ -158,6 +186,19 @@ const LoanDashboard = () => {
   const pageCacheRef = useRef(new Map());
   const showroomHydrationCacheRef = useRef(new Map());
   const showroomHydrationInFlightRef = useRef(new Set());
+  const cpvEvaluationCacheRef = useRef(new Map());
+  const hasWideClientFilters =
+    (filters.loanTypes?.length || 0) > 0 ||
+    (filters.amountRanges?.length || 0) > 0 ||
+    filters.cpvIncomplete ||
+    filters.regNoPending ||
+    filters.loanNoPending ||
+    filters.rcPending ||
+    filters.invoicePending ||
+    filters.pendingApprovalOnly ||
+    filters.pendingDisbursal ||
+    filters.disbursedOnly ||
+    filters.cashCarsOnly;
 
   const userRole = "admin";
 
@@ -290,6 +331,369 @@ const LoanDashboard = () => {
   const firstMeaningfulText = useCallback(
     (...values) => values.find((v) => hasMeaningfulText(v)) || "",
     [hasMeaningfulText],
+  );
+
+  const getValueByPath = useCallback(
+    (obj, path) =>
+      String(path || "")
+        .split(".")
+        .reduce((acc, key) => (acc == null ? undefined : acc[key]), obj),
+    [],
+  );
+
+  const isTruthyYes = useCallback((value) => {
+    if (value === true) return true;
+    const text = String(value ?? "")
+      .trim()
+      .toLowerCase();
+    return text === "yes" || text === "true" || text === "1";
+  }, []);
+
+  const hasPrefileValue = useCallback(
+    (value) => {
+      if (value === undefined || value === null) return false;
+      if (typeof value === "string") return hasMeaningfulText(value);
+      if (typeof value === "number") return Number.isFinite(value);
+      if (typeof value === "boolean") return true;
+      if (Array.isArray(value)) return value.some((item) => hasPrefileValue(item));
+      if (value instanceof Date) return !Number.isNaN(value.getTime());
+      if (typeof value === "object") {
+        const nestedDate =
+          value?.$date ?? value?.date ?? value?.value ?? value?._seconds;
+        if (nestedDate != null && hasPrefileValue(nestedDate)) return true;
+        return Object.values(value).some((item) => hasPrefileValue(item));
+      }
+      return false;
+    },
+    [hasMeaningfulText],
+  );
+
+  const normalizeLoanTypeForFilter = useCallback(
+    (loan) => {
+      if (hasMeaningfulText(loan?._metaLoanType)) {
+        return String(loan._metaLoanType).trim();
+      }
+      const raw = normalizeStatusText(
+        loan?.typeOfLoan || loan?.loanType || loan?.caseType || loan?.loan_type,
+      );
+      if (!raw) return "";
+      if (raw.includes("cash-in") || raw.includes("cash in")) return "Car Cash-in";
+      if (raw.includes("refinance")) return "Refinance";
+      if (raw.includes("used")) return "Used Car";
+      if (raw.includes("new")) return "New Car";
+      return String(loan?.typeOfLoan || loan?.loanType || "").trim();
+    },
+    [hasMeaningfulText, normalizeStatusText],
+  );
+
+  const toDateOrNull = useCallback((value) => {
+    if (value == null || value === "") return null;
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (typeof value === "number") {
+      if (!Number.isFinite(value)) return null;
+      const ts = value > 1e12 ? value : value * 1000;
+      const d = new Date(ts);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof value === "object") {
+      if (typeof value?.toDate === "function") return toDateOrNull(value.toDate());
+      if (typeof value?.valueOf === "function") {
+        const maybe = value.valueOf();
+        if (maybe !== value) return toDateOrNull(maybe);
+      }
+      const nested = value?.$date ?? value?.date ?? value?.value ?? null;
+      return nested == null ? null : toDateOrNull(nested);
+    }
+    const parsed = Date.parse(String(value).trim());
+    return Number.isFinite(parsed) ? new Date(parsed) : null;
+  }, []);
+
+  const getActualLoanNumber = useCallback(
+    (loan) => {
+      if (hasMeaningfulText(loan?._metaLoanNo)) {
+        return String(loan._metaLoanNo).trim();
+      }
+      const candidates = [
+        loan?.loan_number,
+        loan?.loanNumber,
+        loan?.loan_no,
+        loan?.postfile_loanNumber,
+      ];
+      const found = candidates.find((value) => {
+        if (!hasMeaningfulText(value)) return false;
+        return !AUTO_LOAN_NUMBER_REGEX.test(String(value).trim());
+      });
+      return found ? String(found).trim() : "";
+    },
+    [hasMeaningfulText],
+  );
+
+  const getDisbursalDate = useCallback(
+    (loan) => {
+      if (Number.isFinite(Number(loan?._metaDisbursalTs)) && Number(loan?._metaDisbursalTs) > 0) {
+        return new Date(Number(loan._metaDisbursalTs));
+      }
+      return toDateOrNull(
+        loan?.disbursement_date ||
+          loan?.approval_disbursedDate ||
+          loan?.disbursementDate ||
+          loan?.disbursedDate,
+      );
+    },
+    [toDateOrNull],
+  );
+
+  const getDeliveryDate = useCallback(
+    (loan) => {
+      if (Number.isFinite(Number(loan?._metaDeliveryTs)) && Number(loan?._metaDeliveryTs) > 0) {
+        return new Date(Number(loan._metaDeliveryTs));
+      }
+      return toDateOrNull(
+        loan?.delivery_date ||
+          loan?.deliveryDate ||
+          loan?.delivery_done_at ||
+          loan?.vehicleDeliveryDate,
+      );
+    },
+    [toDateOrNull],
+  );
+
+  const getRcReceivedDate = useCallback(
+    (loan) => {
+      if (Number.isFinite(Number(loan?._metaRcReceivedTs)) && Number(loan?._metaRcReceivedTs) > 0) {
+        return new Date(Number(loan._metaRcReceivedTs));
+      }
+      return toDateOrNull(loan?.rc_received_date || loan?.rc_received_at);
+    },
+    [toDateOrNull],
+  );
+
+  const getInvoiceReceivedDate = useCallback(
+    (loan) => {
+      if (Number.isFinite(Number(loan?._metaInvoiceReceivedTs)) && Number(loan?._metaInvoiceReceivedTs) > 0) {
+        return new Date(Number(loan._metaInvoiceReceivedTs));
+      }
+      return toDateOrNull(
+        loan?.invoice_received_date || loan?.invoice_done_at || loan?.invoice_date,
+      );
+    },
+    [toDateOrNull],
+  );
+
+  const isRegistrationNumberPending = useCallback(
+    (loan) =>
+      !hasMeaningfulText(
+        firstMeaningfulText(
+          loan?.rc_redg_no,
+          loan?.vehicleRegNo,
+          loan?.registrationNumber,
+          loan?.vehicleNumber,
+          loan?.regNo,
+          "",
+        ),
+      ),
+    [firstMeaningfulText, hasMeaningfulText],
+  );
+
+  const isLoanNumberPending = useCallback(
+    (loan) => !hasMeaningfulText(getActualLoanNumber(loan)),
+    [getActualLoanNumber, hasMeaningfulText],
+  );
+
+  const isRcPending = useCallback(
+    (loan) => {
+      const stageText = normalizeStatusText(loan?.currentStage || "");
+      const gateOpen = Boolean(getDisbursalDate(loan) || getDeliveryDate(loan));
+      if (!gateOpen && !stageText.includes("rc") && !stageText.includes("delivery")) {
+        return false;
+      }
+      return !Boolean(getRcReceivedDate(loan));
+    },
+    [getDisbursalDate, getDeliveryDate, getRcReceivedDate, normalizeStatusText],
+  );
+
+  const isInvoicePending = useCallback(
+    (loan) => {
+      if (normalizeLoanTypeForFilter(loan) !== "New Car") return false;
+      const stageText = normalizeStatusText(loan?.currentStage || "");
+      const gateOpen = Boolean(getDisbursalDate(loan) || getDeliveryDate(loan));
+      if (
+        !gateOpen &&
+        !stageText.includes("invoice") &&
+        !stageText.includes("delivery") &&
+        !stageText.includes("rc")
+      ) {
+        return false;
+      }
+      return !Boolean(getInvoiceReceivedDate(loan));
+    },
+    [
+      getDeliveryDate,
+      getDisbursalDate,
+      getInvoiceReceivedDate,
+      normalizeLoanTypeForFilter,
+      normalizeStatusText,
+    ],
+  );
+
+  const isCpvIncomplete = useCallback(
+    (loan) => {
+      if (isCashCaseLoan(loan)) return false;
+      const cacheId = String(loan?._id || loan?.loanId || loan?.loan_number || "").trim();
+      const cacheStamp = String(loan?.updatedAt || loan?.approval_approvalDate || "");
+      const cacheKey = `${cacheId}|${cacheStamp}`;
+      if (cacheId && cpvEvaluationCacheRef.current.has(cacheKey)) {
+        return cpvEvaluationCacheRef.current.get(cacheKey);
+      }
+      const loanType = normalizeLoanTypeForFilter(loan);
+      const isNewCar = loanType === "New Car";
+      const isUsedOrCashinOrRefinance =
+        loanType === "Used Car" ||
+        loanType === "Car Cash-in" ||
+        loanType === "Refinance";
+      const sourceLower = normalizeStatusText(firstMeaningfulText(loan?.recordSource, loan?.source, ""));
+      const isIndirectSource = sourceLower.includes("indirect");
+
+      const sections = [
+        {
+          groups: [
+            ["receivingDate"],
+            ["recordSource", "source"],
+            ["sourceName", "dealerName"],
+            ["dealtBy"],
+            ["docsPreparedBy"],
+          ],
+        },
+        {
+          groups: [
+            ["customerName", "applicant_name", "applicantName"],
+            ["primaryMobile", "mobile", "phone", "phoneNumber"],
+            ["dob"],
+            ["gender"],
+            ["maritalStatus"],
+          ],
+        },
+        {
+          groups: [
+            ["residenceAddress", "currentAddress", "address"],
+            ["city"],
+            ["pincode"],
+            ["houseType"],
+          ],
+        },
+        {
+          groups: [
+            ["occupationType", "occupation", "professionalType", "companyType"],
+            ["companyName"],
+            ["designation"],
+            ["experienceCurrent", "currentExperience", "totalExperience"],
+            ["totalIncomeITR", "annualIncome", "monthlyIncome"],
+          ],
+        },
+        {
+          groups: [
+            ["bankName", "approval_bankName"],
+            ["accountType"],
+            ["accountNumber"],
+            ["ifsc", "ifscCode"],
+            ["branch"],
+          ],
+        },
+        {
+          groups: [
+            ["typeOfLoan", "loanType"],
+            ["usage"],
+            ["vehicleMake"],
+            ["vehicleModel"],
+            ["vehicleVariant"],
+            ["vehicleFuelType"],
+          ],
+        },
+      ];
+
+      if (isIndirectSource) {
+        sections.push({
+          groups: [["dealerMobile"], ["dealerAddress"], ["payoutApplicable"]],
+        });
+      }
+
+      if (isNewCar) {
+        sections.push({
+          groups: [
+            ["showroomDealerName", "dealer_name_manual_prefile", "dealerName"],
+            ["showroomDealerContactPerson", "dealerContactPerson"],
+            ["showroomDealerContactNumber", "dealerContactNumber"],
+            ["showroomDealerAddress", "dealerAddress"],
+          ],
+        });
+      }
+
+      if (isNewCar || isUsedOrCashinOrRefinance) {
+        const registrationGroups = [["registrationCity", "postfile_regd_city"]];
+        if (isNewCar) {
+          registrationGroups.unshift(["registerSameAsAadhaar"]);
+          const isSameAsAadhaarNo =
+            normalizeStatusText(loan?.registerSameAsAadhaar) === "no";
+          if (isSameAsAadhaarNo) {
+            registrationGroups.push(["registerSameAsPermanent"]);
+            if (normalizeStatusText(loan?.registerSameAsPermanent) === "no") {
+              registrationGroups.push(["registrationAddress"], ["registrationPincode"]);
+            }
+          }
+        }
+        sections.push({
+          groups: registrationGroups,
+          minRequired: Math.min(2, registrationGroups.length),
+        });
+      }
+
+      if (loanType === "Car Cash-in" || loanType === "Refinance") {
+        sections.push({ groups: [["purposeOfLoan"]], minRequired: 1 });
+      }
+
+      if (isTruthyYes(loan?.hasCoApplicant)) {
+        sections.push({ groups: PREFILE_CO_APPLICANT_FIELD_GROUPS });
+      }
+      if (isTruthyYes(loan?.hasGuarantor)) {
+        sections.push({ groups: PREFILE_GUARANTOR_FIELD_GROUPS });
+      }
+
+      const completedSections = sections.reduce((count, section) => {
+        const totalGroups = section.groups.length;
+        const required = Math.min(
+          section.minRequired ?? CPV_SECTION_MIN_FIELDS,
+          totalGroups,
+        );
+        const filled = section.groups.reduce((groupCount, alternatives) => {
+          const hasGroupValue = alternatives.some((path) =>
+            hasPrefileValue(getValueByPath(loan, path)),
+          );
+          return hasGroupValue ? groupCount + 1 : groupCount;
+        }, 0);
+        return filled >= required ? count + 1 : count;
+      }, 0);
+
+      const totalSections = sections.length;
+      const percentage = totalSections
+        ? Math.round((completedSections / totalSections) * 100)
+        : 0;
+      const result = percentage < CPV_COMPLETION_THRESHOLD;
+      if (cacheId) {
+        cpvEvaluationCacheRef.current.set(cacheKey, result);
+      }
+      return result;
+    },
+    [
+      firstMeaningfulText,
+      getValueByPath,
+      hasPrefileValue,
+      isCashCaseLoan,
+      isTruthyYes,
+      normalizeLoanTypeForFilter,
+      normalizeStatusText,
+    ],
   );
 
   const normalizeSearchToken = useCallback(
@@ -456,6 +860,36 @@ const LoanDashboard = () => {
         delivery_dealerName:
           loan?.delivery_dealerName || loan?.delivery_dealer_name || "",
       };
+      const normalizedLoanType = normalizeLoanTypeForFilter(loan);
+      const actualLoanNumber = getActualLoanNumber(loan);
+      const disbursalDateObj = toDateOrNull(
+        loan?.disbursement_date ||
+          loan?.approval_disbursedDate ||
+          loan?.disbursementDate ||
+          loan?.disbursedDate,
+      );
+      const deliveryDateObj = toDateOrNull(
+        loan?.delivery_date ||
+          loan?.deliveryDate ||
+          loan?.delivery_done_at ||
+          loan?.vehicleDeliveryDate,
+      );
+      const rcReceivedDateObj = toDateOrNull(
+        loan?.rc_received_date || loan?.rc_received_at,
+      );
+      const invoiceReceivedDateObj = toDateOrNull(
+        loan?.invoice_received_date || loan?.invoice_done_at || loan?.invoice_date,
+      );
+      const leadDateObj = toDateOrNull(
+        loan?.leadDate ||
+          loan?.lead_date ||
+          loan?.leadDetails?.leadDate ||
+          loan?.lead_details?.leadDate ||
+          loan?.profile?.leadDate ||
+          loan?.receivingDate ||
+          loan?.createdAt ||
+          null,
+      );
       return {
         ...loan,
         loanId:
@@ -648,9 +1082,18 @@ const LoanDashboard = () => {
           null,
         createdAt: loan?.createdAt || loan?.receivingDate || null,
         updatedAt: loan?.updatedAt || null,
+        leadTimestamp: leadDateObj ? leadDateObj.getTime() : 0,
+        _metaLoanType: normalizedLoanType,
+        _metaLoanNo: actualLoanNumber,
+        _metaDisbursalTs: disbursalDateObj ? disbursalDateObj.getTime() : 0,
+        _metaDeliveryTs: deliveryDateObj ? deliveryDateObj.getTime() : 0,
+        _metaRcReceivedTs: rcReceivedDateObj ? rcReceivedDateObj.getTime() : 0,
+        _metaInvoiceReceivedTs: invoiceReceivedDateObj
+          ? invoiceReceivedDateObj.getTime()
+          : 0,
       };
     },
-    [firstMeaningfulText],
+    [firstMeaningfulText, getActualLoanNumber, normalizeLoanTypeForFilter, toDateOrNull],
   );
 
   const hydrateMissingShowroomFields = useCallback(
@@ -736,15 +1179,7 @@ const LoanDashboard = () => {
       const searchSeed = String(debouncedSearchQuery || "").trim();
       const searchKey = searchSeed.toLowerCase();
       const isSeedSearchMode = searchSeed.length >= 3;
-      const activeStatKey = (() => {
-        if (filters.pendingApprovalOnly) return "pendingApproval";
-        if (filters.pendingDisbursal) return "pendingDisbursal";
-        if (filters.disbursedOnly) return "disbursed";
-        if (filters.cashCarsOnly) return "cashCars";
-        return "";
-      })();
-      const isStatFilterMode = Boolean(activeStatKey);
-      const isExpandedFetchMode = isSeedSearchMode || isStatFilterMode;
+      const isExpandedFetchMode = isSeedSearchMode || hasWideClientFilters;
       const isLatestLeadMode = sortConfig?.key === "createdAt";
       const mapSortToApi = (cfg) => {
         switch (cfg?.key) {
@@ -783,19 +1218,23 @@ const LoanDashboard = () => {
       };
       const apiSort = mapSortToApi(sortConfig);
       const cacheKey = isExpandedFetchMode
-        ? `expanded:${searchKey}|${activeStatKey}|${apiSort.sortBy}|${apiSort.sortDir}`
+        ? `expanded:${searchKey}|${apiSort.sortBy}|${apiSort.sortDir}`
         : `${searchKey}|${page}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
       const cached = pageCacheRef.current.get(cacheKey);
       if (cached) {
         setLoans(cached.rows);
         setServerTotal(cached.total);
+        if (isExpandedFetchMode) {
+          // Expanded datasets can be large; avoid re-fetching on every filter toggle.
+          return;
+        }
       } else {
         setLoading(true);
       }
 
       const startedAt = performance.now();
       const effectivePage = isExpandedFetchMode ? 1 : page;
-      const effectiveLimit = isExpandedFetchMode ? 1000 : pageSize;
+      const effectiveLimit = isExpandedFetchMode ? EXPANDED_FETCH_LIMIT : pageSize;
       let payload = null;
       let rows = [];
       const apiStartAt = performance.now();
@@ -867,7 +1306,7 @@ const LoanDashboard = () => {
         total: isExpandedFetchMode ? pageRows.length : total,
         ts: Date.now(),
       });
-      if (!searchKey && page === 1 && !isStatFilterMode) {
+      if (!searchKey && page === 1 && !isExpandedFetchMode) {
         try {
           sessionStorage.setItem(
             PAGE1_CACHE_KEY,
@@ -934,8 +1373,7 @@ const LoanDashboard = () => {
           sortBy: payload?.meta?.sortBy || apiSort.sortBy,
           fromCache: Boolean(cached),
           seedMode: isSeedSearchMode,
-          statMode: isStatFilterMode,
-          statKey: activeStatKey || null,
+          statMode: false,
         });
       });
     } catch (e) {
@@ -950,10 +1388,7 @@ const LoanDashboard = () => {
     page,
     pageSize,
     debouncedSearchQuery,
-    filters.pendingApprovalOnly,
-    filters.pendingDisbursal,
-    filters.disbursedOnly,
-    filters.cashCarsOnly,
+    hasWideClientFilters,
     sortConfig,
     hydrateMissingShowroomFields,
   ]);
@@ -1022,6 +1457,115 @@ const LoanDashboard = () => {
   useEffect(() => {
     fetchLoans();
   }, [fetchLoans]);
+
+  useEffect(() => {
+    const searchSeed = String(debouncedSearchQuery || "").trim();
+    if (searchSeed) return;
+
+    const isLatestLeadMode = sortConfig?.key === "createdAt";
+    const mapSortToApi = (cfg) => {
+      switch (cfg?.key) {
+        case "loanAmount":
+          return { sortBy: "approval_loanAmountDisbursed", sortDir: cfg?.direction || "desc" };
+        case "emi":
+          return { sortBy: "postfile_emiAmount", sortDir: cfg?.direction || "desc" };
+        case "aging":
+          return {
+            sortBy: "createdAt",
+            sortDir: cfg?.direction === "desc" ? "asc" : "desc",
+          };
+        case "customer":
+          return { sortBy: "customerName", sortDir: cfg?.direction || "desc" };
+        case "vehicle":
+          return { sortBy: "vehicleModel", sortDir: cfg?.direction || "desc" };
+        case "createdAt":
+        default:
+          return { sortBy: "leadDate", sortDir: cfg?.direction || "desc" };
+      }
+    };
+    const apiSort = mapSortToApi(sortConfig);
+    const cacheKey = `expanded:|${apiSort.sortBy}|${apiSort.sortDir}`;
+    if (pageCacheRef.current.has(cacheKey)) return;
+
+    let cancelled = false;
+    const extractRows = (payload) => {
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload?.data)) return payload.data;
+      if (Array.isArray(payload?.items)) return payload.items;
+      if (Array.isArray(payload?.results)) return payload.results;
+      return [];
+    };
+    const extractTotal = (payload) =>
+      Number(
+        payload?.total ??
+          payload?.count ??
+          payload?.pagination?.total ??
+          payload?.meta?.total ??
+          0,
+      ) || 0;
+
+    const timer = setTimeout(() => {
+      const requestParams = {
+        page: 1,
+        skip: 0,
+        limit: EXPANDED_FETCH_LIMIT,
+        search: "",
+        sortBy: apiSort.sortBy,
+        sortDir: apiSort.sortDir,
+        ...(isLatestLeadMode ? {} : { view: "dashboard" }),
+      };
+
+      loansApi
+        .getAll(requestParams)
+        .then(async (payload) => {
+          if (cancelled) return;
+          let rows = extractRows(payload);
+          const total = extractTotal(payload);
+
+          if (total > rows.length) {
+            const totalPages = Math.ceil(total / EXPANDED_FETCH_LIMIT);
+            const pageRequests = [];
+            for (let p = 2; p <= totalPages; p += 1) {
+              pageRequests.push(
+                loansApi.getAll({
+                  ...requestParams,
+                  page: p,
+                  skip: (p - 1) * EXPANDED_FETCH_LIMIT,
+                }),
+              );
+            }
+            if (pageRequests.length) {
+              const extraPayloads = await Promise.all(pageRequests);
+              const extraRows = extraPayloads.flatMap((nextPayload) =>
+                extractRows(nextPayload),
+              );
+              rows = rows.concat(extraRows);
+            }
+          }
+
+          if (cancelled) return;
+          const normalizedRows = rows.map(normalizeLoan);
+          const dedupedById = new Map();
+          for (const row of normalizedRows) {
+            const key = String(row?._id || row?.loanId || row?.loan_number || "").trim();
+            if (!key) continue;
+            if (!dedupedById.has(key)) dedupedById.set(key, row);
+          }
+          const pageRows = Array.from(dedupedById.values());
+          pageCacheRef.current.set(cacheKey, {
+            rows: pageRows,
+            total: pageRows.length,
+            ts: Date.now(),
+          });
+        })
+        .catch(() => {});
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [debouncedSearchQuery, normalizeLoan, sortConfig]);
 
   useEffect(() => {
     try {
@@ -1097,6 +1641,7 @@ const LoanDashboard = () => {
 
   const refreshDashboard = useCallback(() => {
     pageCacheRef.current.clear();
+    cpvEvaluationCacheRef.current.clear();
     try {
       sessionStorage.removeItem(PAGE1_CACHE_KEY);
       sessionStorage.removeItem(STATS_CACHE_KEY);
@@ -1126,14 +1671,16 @@ const LoanDashboard = () => {
     setPage(1);
     setFilters({
       loanTypes: [],
-      stages: [],
-      statuses: [],
-      agingBuckets: [],
       amountRanges: [],
       pendingApprovalOnly: false,
       pendingDisbursal: false,
       disbursedOnly: false,
       cashCarsOnly: false,
+      cpvIncomplete: false,
+      regNoPending: false,
+      loanNoPending: false,
+      rcPending: false,
+      invoicePending: false,
       searchQuery: "",
     });
   };
@@ -1319,43 +1866,12 @@ const LoanDashboard = () => {
         if (!matchFound) return false;
       }
 
-      const loanTypeValue = (loan.loanType || loan.typeOfLoan || "").trim();
+      const loanTypeValue = normalizeLoanTypeForFilter(loan);
       if (filters.loanTypes?.length) {
         const matches = filters.loanTypes.some(
-          (ft) =>
-            (loanTypeValue &&
-              ft.toLowerCase() === loanTypeValue.toLowerCase()) ||
-            ft === loanTypeValue,
+          (ft) => String(ft || "").trim() === String(loanTypeValue || "").trim(),
         );
         if (!matches) return false;
-      }
-
-      const stage = (loan.currentStage || "profile").toLowerCase();
-      if (filters.stages?.length) {
-        const matches = filters.stages.some((s) => s.toLowerCase() === stage);
-        if (!matches) return false;
-      }
-
-      const loanStatus = (loan.status || loan.approval_status || "New").trim();
-      if (filters.statuses?.length) {
-        const matches = filters.statuses.some(
-          (s) =>
-            s && loanStatus && s.toLowerCase() === loanStatus.toLowerCase(),
-        );
-        if (!matches) return false;
-      }
-
-      const aging = loan.aging ?? calculateAging(loan.createdAt);
-      if (filters.agingBuckets?.length) {
-        const inBucket = filters.agingBuckets.some((bucket) => {
-          if (bucket === "0-7") return aging >= 0 && aging <= 7;
-          if (bucket === "8-15") return aging >= 8 && aging <= 15;
-          if (bucket === "16-30") return aging >= 16 && aging <= 30;
-          if (bucket === "31-60") return aging >= 31 && aging <= 60;
-          if (bucket === "60+") return aging >= 60;
-          return false;
-        });
-        if (!inBucket) return false;
       }
 
       const amountLakhs =
@@ -1369,7 +1885,9 @@ const LoanDashboard = () => {
           if (range === "5-10") return amountLakhs >= 5 && amountLakhs < 10;
           if (range === "10-15") return amountLakhs >= 10 && amountLakhs < 15;
           if (range === "15-20") return amountLakhs >= 15 && amountLakhs < 20;
-          if (range === "20+") return amountLakhs >= 20;
+          if (range === "20-50") return amountLakhs >= 20 && amountLakhs < 50;
+          if (range === "50-100") return amountLakhs >= 50 && amountLakhs < 100;
+          if (range === "100+") return amountLakhs >= 100;
           return false;
         });
         if (!inRange) return false;
@@ -1387,80 +1905,28 @@ const LoanDashboard = () => {
       if (filters.cashCarsOnly) {
         if (!isCashCaseLoan(loan)) return false;
       }
+      if (filters.cpvIncomplete) {
+        if (!isCpvIncomplete(loan)) return false;
+      }
+      if (filters.regNoPending) {
+        if (!isRegistrationNumberPending(loan)) return false;
+      }
+      if (filters.loanNoPending) {
+        if (!isLoanNumberPending(loan)) return false;
+      }
+      if (filters.rcPending) {
+        if (!isRcPending(loan)) return false;
+      }
+      if (filters.invoicePending) {
+        if (!isInvoicePending(loan)) return false;
+      }
 
       return true;
     });
     if (sortConfig?.key !== "createdAt") return filtered;
 
     const dir = sortConfig?.direction === "asc" ? 1 : -1;
-    const parseDateLike = (value) => {
-      if (value == null || value === "") return null;
-      if (value instanceof Date) {
-        const ts = value.getTime();
-        return Number.isFinite(ts) ? ts : null;
-      }
-      if (typeof value === "number") {
-        if (!Number.isFinite(value)) return null;
-        return value > 1e12 ? value : value * 1000;
-      }
-      if (typeof value === "object") {
-        if (typeof value?.toDate === "function") {
-          const d = value.toDate();
-          return parseDateLike(d);
-        }
-        if (typeof value?.valueOf === "function") {
-          const maybe = value.valueOf();
-          if (typeof maybe === "number" && Number.isFinite(maybe) && maybe > 0) {
-            return maybe > 1e12 ? maybe : maybe * 1000;
-          }
-        }
-        const nested =
-          value?.$date ??
-          value?.date ??
-          value?.value ??
-          value?._seconds ??
-          value?.seconds ??
-          null;
-        return parseDateLike(nested);
-      }
-      if (typeof value === "string") {
-        const raw = value.trim();
-        if (!raw) return null;
-        const dmY = raw.match(
-          /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
-        );
-        if (dmY) {
-          const dd = dmY[1].padStart(2, "0");
-          const mm = dmY[2].padStart(2, "0");
-          const yyyy = dmY[3].length === 2 ? `20${dmY[3]}` : dmY[3];
-          const hh = (dmY[4] || "00").padStart(2, "0");
-          const min = (dmY[5] || "00").padStart(2, "0");
-          const ss = (dmY[6] || "00").padStart(2, "0");
-          const isoLike = `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}`;
-          const ts = Date.parse(isoLike);
-          if (Number.isFinite(ts)) return ts;
-        }
-        const ts = Date.parse(raw);
-        return Number.isFinite(ts) ? ts : null;
-      }
-      return null;
-    };
-    const toTs = (...values) => {
-      for (const value of values) {
-        const ts = parseDateLike(value);
-        if (Number.isFinite(ts) && ts > 0) return ts;
-      }
-      return 0;
-    };
-    const leadTs = (loan) => {
-      return toTs(
-        loan?.leadDate,
-        loan?.lead_date,
-        loan?.leadDetails?.leadDate,
-        loan?.lead_details?.leadDate,
-        loan?.profile?.leadDate,
-      );
-    };
+    const leadTs = (loan) => Number(loan?.leadTimestamp) || 0;
     const tieBreak = (a, b) =>
       String(a?.loanId || a?._id || "").localeCompare(
         String(b?.loanId || b?._id || ""),
@@ -1477,10 +1943,16 @@ const LoanDashboard = () => {
     filters,
     debouncedSearchQuery,
     matchesDashboardSearch,
+    normalizeLoanTypeForFilter,
     isCashCaseLoan,
     isLoanDisbursedNonCash,
     isLoanPendingApproval,
     isLoanPendingDisbursal,
+    isCpvIncomplete,
+    isRegistrationNumberPending,
+    isLoanNumberPending,
+    isRcPending,
+    isInvoicePending,
     sortConfig?.key,
     sortConfig?.direction,
   ]);
@@ -1490,32 +1962,32 @@ const LoanDashboard = () => {
   }, [
     filters.searchQuery,
     filters.loanTypes,
-    filters.stages,
-    filters.statuses,
-    filters.agingBuckets,
     filters.amountRanges,
     filters.pendingApprovalOnly,
     filters.pendingDisbursal,
     filters.disbursedOnly,
     filters.cashCarsOnly,
+    filters.cpvIncomplete,
+    filters.regNoPending,
+    filters.loanNoPending,
+    filters.rcPending,
+    filters.invoicePending,
   ]);
 
   const hasClientOnlyFilters =
     filters.loanTypes.length > 0 ||
-    filters.stages.length > 0 ||
-    filters.statuses.length > 0 ||
-    filters.agingBuckets.length > 0 ||
     filters.amountRanges.length > 0 ||
     filters.pendingApprovalOnly ||
     filters.pendingDisbursal ||
     filters.disbursedOnly ||
-    filters.cashCarsOnly;
-  const activeStatFilterMode =
-    filters.pendingApprovalOnly ||
-    filters.pendingDisbursal ||
-    filters.disbursedOnly ||
-    filters.cashCarsOnly;
-  const gridLoans = activeStatFilterMode
+    filters.cashCarsOnly ||
+    filters.cpvIncomplete ||
+    filters.regNoPending ||
+    filters.loanNoPending ||
+    filters.rcPending ||
+    filters.invoicePending;
+  const activeFilterMode = hasClientOnlyFilters;
+  const gridLoans = activeFilterMode
     ? filteredLoans.slice((page - 1) * pageSize, page * pageSize)
     : filteredLoans;
   const totalCountForGrid = hasClientOnlyFilters
@@ -1581,9 +2053,7 @@ const LoanDashboard = () => {
               !filters.pendingApprovalOnly &&
               !filters.pendingDisbursal &&
               !filters.disbursedOnly &&
-              !filters.cashCarsOnly &&
-              filters.statuses.length === 0 &&
-              filters.stages.length === 0
+              !filters.cashCarsOnly
             }
             onClick={() => handleStatClick("total")}
           />

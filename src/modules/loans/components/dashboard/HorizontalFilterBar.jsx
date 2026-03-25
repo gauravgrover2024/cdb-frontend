@@ -18,31 +18,37 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
     { value: "Car Cash-in", label: "Car Cash-in" },
   ];
 
-  const stages = [
-    { value: "profile", label: "Customer Profile" },
-    { value: "prefile", label: "Pre-File" },
-    { value: "approval", label: "Loan Approval" },
-    { value: "postfile", label: "Post-File" },
-    { value: "delivery", label: "Vehicle Delivery" },
-  ];
-
-  const statuses = [
-    { value: "New", label: "New", dot: "bg-blue-500 dark:bg-blue-400" },
-    { value: "File Login", label: "File Login", dot: "bg-yellow-500 dark:bg-yellow-400" },
-    { value: "Pending", label: "Pending", dot: "bg-amber-500 dark:bg-amber-400" },
-    { value: "In Progress", label: "In Progress", dot: "bg-amber-400 dark:bg-amber-300" },
-    { value: "Approved", label: "Approved", dot: "bg-green-500 dark:bg-green-400" },
-    { value: "Disbursed", label: "Disbursed", dot: "bg-green-600 dark:bg-green-500" },
-    { value: "Rejected", label: "Rejected", dot: "bg-red-500 dark:bg-red-400" },
-    { value: "On Hold", label: "On Hold", dot: "bg-gray-500 dark:bg-gray-400" },
-  ];
-
-  const agingBuckets = [
-    { value: "0-7", label: "0-7 Days" },
-    { value: "8-15", label: "8-15 Days" },
-    { value: "16-30", label: "16-30 Days" },
-    { value: "31-60", label: "31-60 Days" },
-    { value: "60+", label: "60+ Days" },
+  const pendingFlags = [
+    {
+      key: "cpvIncomplete",
+      label: "CPV Incomplete",
+      color: "rose",
+      dotClass: "bg-rose-500 dark:bg-rose-400",
+    },
+    {
+      key: "regNoPending",
+      label: "Regd Number Pending",
+      color: "amber",
+      dotClass: "bg-amber-500 dark:bg-amber-400",
+    },
+    {
+      key: "loanNoPending",
+      label: "Loan Number Pending",
+      color: "indigo",
+      dotClass: "bg-indigo-500 dark:bg-indigo-400",
+    },
+    {
+      key: "rcPending",
+      label: "RC Pending",
+      color: "blue",
+      dotClass: "bg-blue-500 dark:bg-blue-400",
+    },
+    {
+      key: "invoicePending",
+      label: "Invoice Pending",
+      color: "emerald",
+      dotClass: "bg-emerald-500 dark:bg-emerald-400",
+    },
   ];
 
   const amountRanges = [
@@ -50,21 +56,25 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
     { value: "5-10", label: "₹5-10L" },
     { value: "10-15", label: "₹10-15L" },
     { value: "15-20", label: "₹15-20L" },
-    { value: "20+", label: "₹20L+" },
+    { value: "20-50", label: "₹20-50L" },
+    { value: "50-100", label: "₹50-100L" },
+    { value: "100+", label: "₹100L+" },
   ];
 
   const activeFilterCount = useMemo(() => {
     let count =
       (filters?.loanTypes?.length || 0) +
-      (filters?.stages?.length || 0) +
-      (filters?.statuses?.length || 0) +
-      (filters?.agingBuckets?.length || 0) +
       (filters?.amountRanges?.length || 0);
     if (filters?.searchQuery?.trim()) count += 1;
     if (filters?.pendingApprovalOnly) count += 1;
     if (filters?.pendingDisbursal) count += 1;
     if (filters?.disbursedOnly) count += 1;
     if (filters?.cashCarsOnly) count += 1;
+    if (filters?.cpvIncomplete) count += 1;
+    if (filters?.regNoPending) count += 1;
+    if (filters?.loanNoPending) count += 1;
+    if (filters?.rcPending) count += 1;
+    if (filters?.invoicePending) count += 1;
     return count;
   }, [filters]);
 
@@ -225,35 +235,46 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
               onRemove={() => onFilterChange("cashCarsOnly", false)}
             />
           )}
+          {filters?.cpvIncomplete && (
+            <Chip
+              key="cpvIncomplete"
+              label="CPV incomplete"
+              onRemove={() => onFilterChange("cpvIncomplete", false)}
+            />
+          )}
+          {filters?.regNoPending && (
+            <Chip
+              key="regNoPending"
+              label="Regd number pending"
+              onRemove={() => onFilterChange("regNoPending", false)}
+            />
+          )}
+          {filters?.loanNoPending && (
+            <Chip
+              key="loanNoPending"
+              label="Loan number pending"
+              onRemove={() => onFilterChange("loanNoPending", false)}
+            />
+          )}
+          {filters?.rcPending && (
+            <Chip
+              key="rcPending"
+              label="RC pending"
+              onRemove={() => onFilterChange("rcPending", false)}
+            />
+          )}
+          {filters?.invoicePending && (
+            <Chip
+              key="invoicePending"
+              label="Invoice pending"
+              onRemove={() => onFilterChange("invoicePending", false)}
+            />
+          )}
           {filters?.loanTypes?.map((v) => (
             <Chip
               key={`loanType-${v}`}
               label={loanTypes.find((x) => x.value === v)?.label || v}
               onRemove={() => removeFilter("loanTypes", v)}
-            />
-          ))}
-
-          {filters?.stages?.map((v) => (
-            <Chip
-              key={`stage-${v}`}
-              label={stages.find((x) => x.value === v)?.label || v}
-              onRemove={() => removeFilter("stages", v)}
-            />
-          ))}
-
-          {filters?.statuses?.map((v) => (
-            <Chip
-              key={`status-${v}`}
-              label={statuses.find((x) => x.value === v)?.label || v}
-              onRemove={() => removeFilter("statuses", v)}
-            />
-          ))}
-
-          {filters?.agingBuckets?.map((v) => (
-            <Chip
-              key={`aging-${v}`}
-              label={agingBuckets.find((x) => x.value === v)?.label || v}
-              onRemove={() => removeFilter("agingBuckets", v)}
             />
           ))}
 
@@ -297,83 +318,26 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
             </div>
           </div>
 
-          {/* Stage */}
+          {/* Pending/Missing */}
           <div>
             <div className="text-xs font-semibold text-muted-foreground mb-2">
-              Stage
+              Pending / Missing
             </div>
             <div className="flex flex-wrap gap-2">
-              {stages.map((s) => {
-                const selected = filters?.stages?.includes(s.value);
+              {pendingFlags.map((item) => {
+                const selected = Boolean(filters?.[item.key]);
                 return (
                   <TogglePill
-                    key={s.value}
+                    key={item.key}
                     selected={selected}
-                    color="amber"
-                    onClick={() => {
-                      const next = selected
-                        ? filters.stages.filter((x) => x !== s.value)
-                        : [...(filters.stages || []), s.value];
-                      onFilterChange("stages", next);
-                    }}
-                  >
-                    {s.label}
-                  </TogglePill>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-2">
-              Status
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {statuses.map((s) => {
-                const selected = filters?.statuses?.includes(s.value);
-                return (
-                  <TogglePill
-                    key={s.value}
-                    selected={selected}
-                    color="emerald"
+                    color={item.color || "amber"}
                     withDot
-                    dotClass={s.dot}
+                    dotClass={item.dotClass}
                     onClick={() => {
-                      const next = selected
-                        ? filters.statuses.filter((x) => x !== s.value)
-                        : [...(filters.statuses || []), s.value];
-                      onFilterChange("statuses", next);
+                      onFilterChange(item.key, !selected);
                     }}
                   >
-                    {s.label}
-                  </TogglePill>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Aging */}
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-2">
-              Aging
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {agingBuckets.map((b) => {
-                const selected = filters?.agingBuckets?.includes(b.value);
-                return (
-                  <TogglePill
-                    key={b.value}
-                    selected={selected}
-                    color="blue"
-                    onClick={() => {
-                      const next = selected
-                        ? filters.agingBuckets.filter((x) => x !== b.value)
-                        : [...(filters.agingBuckets || []), b.value];
-                      onFilterChange("agingBuckets", next);
-                    }}
-                  >
-                    {b.label}
+                    {item.label}
                   </TogglePill>
                 );
               })}
