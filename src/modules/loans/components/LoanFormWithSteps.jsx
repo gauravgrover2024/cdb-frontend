@@ -156,14 +156,6 @@ const STEP_OPEN_DEFAULT_FIELDS = {
     { name: "disbursement_date", type: "iso-date" },
     { name: "disbursement_time", type: "hhmm" },
   ],
-  delivery: [
-    { name: "delivery_date", type: "iso-date" },
-    { name: "insurance_policy_start_date", type: "iso-date" },
-    { name: "invoice_date", type: "iso-date" },
-    { name: "invoice_received_date", type: "iso-date" },
-    { name: "rc_redg_date", type: "iso-date" },
-    { name: "rc_received_date", type: "iso-date" },
-  ],
 };
 
 const hasMeaningfulValue = (value) => {

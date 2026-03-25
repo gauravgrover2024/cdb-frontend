@@ -126,6 +126,12 @@ const getDeliveryDate = (loan) =>
       loan?.delivery_date,
       loan?.deliveryDate,
       loan?.delivery_done_at,
+      loan?.postfile_delivery_date,
+      loan?.postfile_deliveryDate,
+      loan?.postFile?.delivery_date,
+      loan?.postFile?.deliveryDate,
+      loan?.postfile?.delivery_date,
+      loan?.postfile?.deliveryDate,
     ),
   );
 
@@ -972,6 +978,14 @@ const LoansDataGrid = ({
                     year: "numeric",
                   })
                 : "";
+              const cashDeliveryDate = getDeliveryDate(loan);
+              const cashDeliveryLabel = cashDeliveryDate
+                ? cashDeliveryDate.toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : "";
               const firstEmiDateForClosure =
                 loan?.postfile_firstEmiDate ||
                 loan?.postfile_first_emi_date ||
@@ -1066,6 +1080,11 @@ const LoansDataGrid = ({
                                   Disb: {disbursementLabel}
                                 </span>
                               )}
+                            {isCashCar && hasDisplayValue(cashDeliveryLabel) && (
+                              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                Delivery: {cashDeliveryLabel}
+                              </span>
+                            )}
                             {!isCashCar &&
                               isDisbursedCase &&
                               !isClosedByStatus &&

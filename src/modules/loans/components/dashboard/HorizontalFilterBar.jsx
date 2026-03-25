@@ -61,7 +61,10 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
       (filters?.agingBuckets?.length || 0) +
       (filters?.amountRanges?.length || 0);
     if (filters?.searchQuery?.trim()) count += 1;
-    if (filters?.approvedToday) count += 1;
+    if (filters?.pendingApprovalOnly) count += 1;
+    if (filters?.pendingDisbursal) count += 1;
+    if (filters?.disbursedOnly) count += 1;
+    if (filters?.cashCarsOnly) count += 1;
     return count;
   }, [filters]);
 
@@ -194,11 +197,32 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
               onRemove={() => handleSearch("")}
             />
           )}
-          {filters?.approvedToday && (
+          {filters?.pendingApprovalOnly && (
             <Chip
-              key="approvedToday"
-              label="Approved today"
-              onRemove={() => onFilterChange("approvedToday", false)}
+              key="pendingApprovalOnly"
+              label="Pending approval"
+              onRemove={() => onFilterChange("pendingApprovalOnly", false)}
+            />
+          )}
+          {filters?.pendingDisbursal && (
+            <Chip
+              key="pendingDisbursal"
+              label="Pending disbursal"
+              onRemove={() => onFilterChange("pendingDisbursal", false)}
+            />
+          )}
+          {filters?.disbursedOnly && (
+            <Chip
+              key="disbursedOnly"
+              label="Disbursed only"
+              onRemove={() => onFilterChange("disbursedOnly", false)}
+            />
+          )}
+          {filters?.cashCarsOnly && (
+            <Chip
+              key="cashCarsOnly"
+              label="Cash cars only"
+              onRemove={() => onFilterChange("cashCarsOnly", false)}
             />
           )}
           {filters?.loanTypes?.map((v) => (

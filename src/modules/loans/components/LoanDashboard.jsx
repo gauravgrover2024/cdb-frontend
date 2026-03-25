@@ -30,7 +30,7 @@ const PRIMARY_STAT_THEMES = {
     iconBg: "bg-white/20",
     accent: "text-amber-100",
   },
-  today: {
+  pendingDisbursal: {
     card: "from-emerald-500 to-green-600",
     iconBg: "bg-white/20",
     accent: "text-emerald-100",
@@ -39,6 +39,11 @@ const PRIMARY_STAT_THEMES = {
     card: "from-violet-500 to-fuchsia-600",
     iconBg: "bg-white/20",
     accent: "text-violet-100",
+  },
+  cashCars: {
+    card: "from-cyan-500 to-blue-600",
+    iconBg: "bg-white/20",
+    accent: "text-cyan-100",
   },
   ticket: {
     card: "from-slate-700 to-slate-900",
@@ -101,7 +106,7 @@ const MetricCard = ({
 const LoanDashboard = () => {
   const navigate = useNavigate();
   const PAGE1_CACHE_KEY = "loans_dashboard_page1_cache_v4";
-  const STATS_CACHE_KEY = "loans_dashboard_stats_cache_v1";
+  const STATS_CACHE_KEY = "loans_dashboard_stats_cache_v3";
   const STATS_TTL_MS = 2 * 60 * 1000;
   const formatCrores = (amount) => {
     const value = Number(amount) || 0;
@@ -123,7 +128,10 @@ const LoanDashboard = () => {
     statuses: [],
     agingBuckets: [],
     amountRanges: [],
-    approvedToday: false,
+    pendingApprovalOnly: false,
+    pendingDisbursal: false,
+    disbursedOnly: false,
+    cashCarsOnly: false,
     searchQuery: "",
   });
 
@@ -139,8 +147,9 @@ const LoanDashboard = () => {
   const [statsData, setStatsData] = useState({
     total: 0,
     pending: 0,
-    approvedToday: 0,
+    pendingDisbursal: 0,
     disbursed: 0,
+    cashCars: 0,
     totalBookValue: 0,
     emiCapturedCount: 0,
     regNoCapturedCount: 0,
@@ -159,6 +168,114 @@ const LoanDashboard = () => {
     const diffTime = Math.abs(now - created);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
+
+  const parseAmountValue = useCallback((value) => {
+    if (value === null || value === undefined || value === "") return 0;
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    const parsed = Number(String(value).replace(/[^\d.-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, []);
+
+  const normalizeStatusText = useCallback((value) => {
+    return String(value || "")
+      .trim()
+      .toLowerCase();
+  }, []);
+
+  const isLoanDisbursed = useCallback(
+    (loan) => {
+      const statusText = normalizeStatusText(
+        loan?.status || loan?.approval_status || "",
+      );
+      const disburseStatusText = normalizeStatusText(
+        loan?.disburse_status ||
+          loan?.disbursementStatus ||
+          loan?.disbursement_status ||
+          "",
+      );
+      const hasDisburseAmount =
+        parseAmountValue(
+          loan?.disburse_amount ?? loan?.disburseAmount ?? 0,
+        ) > 0;
+      const hasDisburseDate = Boolean(
+        loan?.disbursement_date ||
+          loan?.approval_disbursedDate ||
+          loan?.disburse_date ||
+          loan?.disbursedDate ||
+          loan?.disbursementDate,
+      );
+      return (
+        statusText.includes("disburs") ||
+        disburseStatusText.includes("disburs") ||
+        hasDisburseAmount ||
+        hasDisburseDate
+      );
+    },
+    [normalizeStatusText, parseAmountValue],
+  );
+
+  const isCashCaseLoan = useCallback(
+    (loan) => {
+      if (loan?.isCashCase === true) return true;
+      const loanType = normalizeStatusText(
+        loan?.typeOfLoan || loan?.loanType || loan?.caseType || loan?.loan_type,
+      );
+      const financed = normalizeStatusText(loan?.isFinanced);
+      const bankText = normalizeStatusText(
+        loan?.approval_bankName || loan?.postfile_bankName || loan?.bankName,
+      );
+
+      if (bankText.includes("cash sale bank")) return true;
+      if (loanType.includes("cash-in") || loanType.includes("cash in")) return false;
+      if ((financed === "no" || financed === "false") && !loanType.includes("refinance")) {
+        return true;
+      }
+      if (!loanType) return false;
+      return (
+        loanType === "cash" ||
+        loanType.includes("cash car") ||
+        loanType.includes("cash sale")
+      );
+    },
+    [normalizeStatusText],
+  );
+
+  const isLoanPendingDisbursal = useCallback(
+    (loan) => {
+      const statusText = normalizeStatusText(
+        loan?.status || loan?.approval_status || "",
+      );
+      const approvedByStatus = statusText.includes("approv");
+      const approvedByAmount =
+        parseAmountValue(loan?.approval_loanAmountApproved) > 0;
+      const approvedByDate = Boolean(loan?.approval_approvalDate);
+      const approved = approvedByStatus || approvedByAmount || approvedByDate;
+      return approved && !isLoanDisbursed(loan) && !isCashCaseLoan(loan);
+    },
+    [normalizeStatusText, parseAmountValue, isLoanDisbursed, isCashCaseLoan],
+  );
+
+  const isLoanPendingApproval = useCallback(
+    (loan) => {
+      const stage = normalizeStatusText(loan?.currentStage || "profile");
+      if (stage !== "approval") return false;
+      if (isLoanDisbursed(loan)) return false;
+      const statusText = normalizeStatusText(
+        loan?.status || loan?.approval_status || "",
+      );
+      const approvedByStatus = statusText.includes("approv");
+      const approvedByAmount =
+        parseAmountValue(loan?.approval_loanAmountApproved) > 0;
+      const approvedByDate = Boolean(loan?.approval_approvalDate);
+      return !(approvedByStatus || approvedByAmount || approvedByDate);
+    },
+    [normalizeStatusText, parseAmountValue, isLoanDisbursed],
+  );
+
+  const isLoanDisbursedNonCash = useCallback(
+    (loan) => isLoanDisbursed(loan) && !isCashCaseLoan(loan),
+    [isLoanDisbursed, isCashCaseLoan],
+  );
 
   const hasMeaningfulText = useCallback((value) => {
     const t = String(value ?? "")
@@ -533,7 +650,7 @@ const LoanDashboard = () => {
         updatedAt: loan?.updatedAt || null,
       };
     },
-    [extractShowroomFields],
+    [firstMeaningfulText],
   );
 
   const hydrateMissingShowroomFields = useCallback(
@@ -619,6 +736,15 @@ const LoanDashboard = () => {
       const searchSeed = String(debouncedSearchQuery || "").trim();
       const searchKey = searchSeed.toLowerCase();
       const isSeedSearchMode = searchSeed.length >= 3;
+      const activeStatKey = (() => {
+        if (filters.pendingApprovalOnly) return "pendingApproval";
+        if (filters.pendingDisbursal) return "pendingDisbursal";
+        if (filters.disbursedOnly) return "disbursed";
+        if (filters.cashCarsOnly) return "cashCars";
+        return "";
+      })();
+      const isStatFilterMode = Boolean(activeStatKey);
+      const isExpandedFetchMode = isSeedSearchMode || isStatFilterMode;
       const isLatestLeadMode = sortConfig?.key === "createdAt";
       const mapSortToApi = (cfg) => {
         switch (cfg?.key) {
@@ -656,8 +782,8 @@ const LoanDashboard = () => {
         }
       };
       const apiSort = mapSortToApi(sortConfig);
-      const cacheKey = isSeedSearchMode
-        ? `seed:${searchKey}|${apiSort.sortBy}|${apiSort.sortDir}`
+      const cacheKey = isExpandedFetchMode
+        ? `expanded:${searchKey}|${activeStatKey}|${apiSort.sortBy}|${apiSort.sortDir}`
         : `${searchKey}|${page}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
       const cached = pageCacheRef.current.get(cacheKey);
       if (cached) {
@@ -668,13 +794,14 @@ const LoanDashboard = () => {
       }
 
       const startedAt = performance.now();
-      const effectivePage = isSeedSearchMode ? 1 : page;
-      const effectiveLimit = isSeedSearchMode ? 1000 : pageSize;
+      const effectivePage = isExpandedFetchMode ? 1 : page;
+      const effectiveLimit = isExpandedFetchMode ? 1000 : pageSize;
       let payload = null;
       let rows = [];
       const apiStartAt = performance.now();
       const requestParams = {
         page: effectivePage,
+        skip: (effectivePage - 1) * effectiveLimit,
         limit: effectiveLimit,
         search: searchSeed || "",
         sortBy: apiSort.sortBy,
@@ -690,7 +817,7 @@ const LoanDashboard = () => {
       const total = extractTotal(payload);
 
       // Search UX: backend only once for 3-char seed; then local filtering for additional chars.
-      if (isSeedSearchMode && total > rows.length) {
+      if (isExpandedFetchMode && total > rows.length) {
         const totalPages = Math.ceil(total / effectiveLimit);
         const pageRequests = [];
         for (let p = 2; p <= totalPages; p += 1) {
@@ -698,6 +825,7 @@ const LoanDashboard = () => {
             loansApi.getAll({
               ...requestParams,
               page: p,
+              skip: (p - 1) * effectiveLimit,
               limit: effectiveLimit,
             }),
           );
@@ -713,7 +841,7 @@ const LoanDashboard = () => {
       const apiMs = Math.round(performance.now() - apiStartAt);
       const normalizeStartAt = performance.now();
       let normalizedRows = rows.map(normalizeLoan);
-      if (isSeedSearchMode) {
+      if (isExpandedFetchMode) {
         const dedupedById = new Map();
         for (const row of normalizedRows) {
           const key = String(
@@ -736,10 +864,10 @@ const LoanDashboard = () => {
 
       pageCacheRef.current.set(cacheKey, {
         rows: pageRows,
-        total,
+        total: isExpandedFetchMode ? pageRows.length : total,
         ts: Date.now(),
       });
-      if (!searchKey && page === 1) {
+      if (!searchKey && page === 1 && !isStatFilterMode) {
         try {
           sessionStorage.setItem(
             PAGE1_CACHE_KEY,
@@ -749,7 +877,7 @@ const LoanDashboard = () => {
       }
 
       setLoans(pageRows);
-      setServerTotal(isSeedSearchMode ? pageRows.length : total);
+      setServerTotal(isExpandedFetchMode ? pageRows.length : total);
       if (SHOWROOM_HYDRATION_ENABLED) {
         void hydrateMissingShowroomFields(pageRows);
       }
@@ -757,7 +885,7 @@ const LoanDashboard = () => {
       const payloadSizeBytes = new Blob([JSON.stringify(payload || {})]).size;
       const payloadKB = Number((payloadSizeBytes / 1024).toFixed(1));
 
-      if (!isSeedSearchMode) {
+      if (!isExpandedFetchMode) {
         // Warm next page for instant navigation.
         const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
         const nextPage = page + 1;
@@ -768,6 +896,7 @@ const LoanDashboard = () => {
               .getAll({
                 ...(isLatestLeadMode ? {} : { view: "dashboard" }),
                 page: nextPage,
+                skip: (nextPage - 1) * pageSize,
                 limit: pageSize,
                 search: searchSeed || "",
                 sortBy: apiSort.sortBy,
@@ -800,11 +929,13 @@ const LoanDashboard = () => {
           page,
           pageSize,
           rows: pageRows.length,
-          total: isSeedSearchMode ? pageRows.length : total,
+          total: isExpandedFetchMode ? pageRows.length : total,
           search: searchSeed || "",
           sortBy: payload?.meta?.sortBy || apiSort.sortBy,
           fromCache: Boolean(cached),
           seedMode: isSeedSearchMode,
+          statMode: isStatFilterMode,
+          statKey: activeStatKey || null,
         });
       });
     } catch (e) {
@@ -819,6 +950,10 @@ const LoanDashboard = () => {
     page,
     pageSize,
     debouncedSearchQuery,
+    filters.pendingApprovalOnly,
+    filters.pendingDisbursal,
+    filters.disbursedOnly,
+    filters.cashCarsOnly,
     sortConfig,
     hydrateMissingShowroomFields,
   ]);
@@ -852,8 +987,12 @@ const LoanDashboard = () => {
         const stats = {
           total: Number(payload?.total) || 0,
           pending: Number(payload?.pending) || 0,
-          approvedToday: Number(payload?.approvedToday) || 0,
+          pendingDisbursal:
+            Number(payload?.pendingDisbursal) ||
+            Number(payload?.approvedToday) ||
+            0,
           disbursed: Number(payload?.disbursed) || 0,
+          cashCars: Number(payload?.cashCars) || 0,
           totalBookValue: Number(payload?.totalBookValue) || 0,
           emiCapturedCount: Number(payload?.emiCapturedCount) || 0,
           regNoCapturedCount: Number(payload?.regNoCapturedCount) || 0,
@@ -991,7 +1130,10 @@ const LoanDashboard = () => {
       statuses: [],
       agingBuckets: [],
       amountRanges: [],
-      approvedToday: false,
+      pendingApprovalOnly: false,
+      pendingDisbursal: false,
+      disbursedOnly: false,
+      cashCarsOnly: false,
       searchQuery: "",
     });
   };
@@ -1002,21 +1144,25 @@ const LoanDashboard = () => {
       case "pending":
         setFilters((prev) => ({
           ...prev,
-          statuses: ["Pending", "In Progress"],
-          stages: ["approval"],
+          pendingApprovalOnly: true,
         }));
         break;
-      case "today":
+      case "pendingDisbursal":
         setFilters((prev) => ({
           ...prev,
-          statuses: ["Approved"],
-          approvedToday: true,
+          pendingDisbursal: true,
         }));
         break;
       case "disbursed":
         setFilters((prev) => ({
           ...prev,
-          statuses: ["Disbursed"],
+          disbursedOnly: true,
+        }));
+        break;
+      case "cashCars":
+        setFilters((prev) => ({
+          ...prev,
+          cashCarsOnly: true,
         }));
         break;
       default:
@@ -1031,7 +1177,7 @@ const LoanDashboard = () => {
   };
 
   const handleSelectAll = (checked) => {
-    setSelectedLoans(checked ? filteredLoans.map((l) => l.loanId) : []);
+    setSelectedLoans(checked ? gridLoans.map((l) => l.loanId) : []);
   };
 
   const handleSelectionChange = (keys) => {
@@ -1229,15 +1375,17 @@ const LoanDashboard = () => {
         if (!inRange) return false;
       }
 
-      if (filters.approvedToday) {
-        const today = new Date().toDateString();
-        const updated = loan.updatedAt
-          ? new Date(loan.updatedAt).toDateString()
-          : "";
-        const approved = loan.approval_approvalDate
-          ? new Date(loan.approval_approvalDate).toDateString()
-          : "";
-        if (updated !== today && approved !== today) return false;
+      if (filters.pendingDisbursal) {
+        if (!isLoanPendingDisbursal(loan)) return false;
+      }
+      if (filters.disbursedOnly) {
+        if (!isLoanDisbursedNonCash(loan)) return false;
+      }
+      if (filters.pendingApprovalOnly) {
+        if (!isLoanPendingApproval(loan)) return false;
+      }
+      if (filters.cashCarsOnly) {
+        if (!isCashCaseLoan(loan)) return false;
       }
 
       return true;
@@ -1329,6 +1477,10 @@ const LoanDashboard = () => {
     filters,
     debouncedSearchQuery,
     matchesDashboardSearch,
+    isCashCaseLoan,
+    isLoanDisbursedNonCash,
+    isLoanPendingApproval,
+    isLoanPendingDisbursal,
     sortConfig?.key,
     sortConfig?.direction,
   ]);
@@ -1342,7 +1494,10 @@ const LoanDashboard = () => {
     filters.statuses,
     filters.agingBuckets,
     filters.amountRanges,
-    filters.approvedToday,
+    filters.pendingApprovalOnly,
+    filters.pendingDisbursal,
+    filters.disbursedOnly,
+    filters.cashCarsOnly,
   ]);
 
   const hasClientOnlyFilters =
@@ -1351,7 +1506,18 @@ const LoanDashboard = () => {
     filters.statuses.length > 0 ||
     filters.agingBuckets.length > 0 ||
     filters.amountRanges.length > 0 ||
-    filters.approvedToday;
+    filters.pendingApprovalOnly ||
+    filters.pendingDisbursal ||
+    filters.disbursedOnly ||
+    filters.cashCarsOnly;
+  const activeStatFilterMode =
+    filters.pendingApprovalOnly ||
+    filters.pendingDisbursal ||
+    filters.disbursedOnly ||
+    filters.cashCarsOnly;
+  const gridLoans = activeStatFilterMode
+    ? filteredLoans.slice((page - 1) * pageSize, page * pageSize)
+    : filteredLoans;
   const totalCountForGrid = hasClientOnlyFilters
     ? filteredLoans.length
     : Number(serverTotal) || filteredLoans.length;
@@ -1403,7 +1569,7 @@ const LoanDashboard = () => {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <MetricCard
             id="total"
             title="Total Cases"
@@ -1412,7 +1578,10 @@ const LoanDashboard = () => {
             iconName="FileStack"
             loading={loading}
             isActive={
-              !filters.approvedToday &&
+              !filters.pendingApprovalOnly &&
+              !filters.pendingDisbursal &&
+              !filters.disbursedOnly &&
+              !filters.cashCarsOnly &&
               filters.statuses.length === 0 &&
               filters.stages.length === 0
             }
@@ -1425,22 +1594,18 @@ const LoanDashboard = () => {
             value={statsData.pending}
             iconName="Clock3"
             loading={loading}
-            isActive={
-              filters.stages.includes("approval") &&
-              (filters.statuses.includes("Pending") ||
-                filters.statuses.includes("In Progress"))
-            }
+            isActive={filters.pendingApprovalOnly}
             onClick={() => handleStatClick("pending")}
           />
           <MetricCard
-            id="today"
-            title="Approved Today"
-            subtitle="Updated on current date"
-            value={statsData.approvedToday}
+            id="pendingDisbursal"
+            title="Pending Disbursal"
+            subtitle="Approved but not disbursed yet"
+            value={statsData.pendingDisbursal}
             iconName="BadgeCheck"
             loading={loading}
-            isActive={filters.approvedToday}
-            onClick={() => handleStatClick("today")}
+            isActive={filters.pendingDisbursal}
+            onClick={() => handleStatClick("pendingDisbursal")}
           />
           <MetricCard
             id="disbursed"
@@ -1449,13 +1614,23 @@ const LoanDashboard = () => {
             value={statsData.disbursed}
             iconName="WalletCards"
             loading={loading}
-            isActive={filters.statuses.includes("Disbursed")}
+            isActive={filters.disbursedOnly}
             onClick={() => handleStatClick("disbursed")}
+          />
+          <MetricCard
+            id="cashCars"
+            title="Cash Cars"
+            subtitle="All cash car/cash sale cases"
+            value={statsData.cashCars}
+            iconName="CarFront"
+            loading={loading}
+            isActive={filters.cashCarsOnly}
+            onClick={() => handleStatClick("cashCars")}
           />
           <MetricCard
             id="ticket"
             title="Book Value"
-            subtitle="Total disbursal/approval base"
+            subtitle="Disbursed amount + cash car ex-showroom"
             value={formatCrores(statsData.totalBookValue || 0)}
             iconName="IndianRupee"
             loading={loading}
@@ -1476,7 +1651,7 @@ const LoanDashboard = () => {
 
           <div className="flex-1 overflow-hidden">
             <LoansDataGrid
-              loans={filteredLoans}
+              loans={gridLoans}
               selectedLoans={selectedLoans}
               totalCount={effectiveTotalCountForGrid}
               currentPage={page}
