@@ -172,11 +172,14 @@ const PayoutReceivablesDashboard = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
 
-  const [bulkCollectionModalVisible, setBulkCollectionModalVisible] = useState(false);
+  const [bulkCollectionModalVisible, setBulkCollectionModalVisible] =
+    useState(false);
   const [timelineModalVisible, setTimelineModalVisible] = useState(false);
-  const [partialPaymentModalVisible, setPartialPaymentModalVisible] = useState(false);
+  const [partialPaymentModalVisible, setPartialPaymentModalVisible] =
+    useState(false);
   const [editPaymentModalVisible, setEditPaymentModalVisible] = useState(false);
-  const [paymentHistoryModalVisible, setPaymentHistoryModalVisible] = useState(false);
+  const [paymentHistoryModalVisible, setPaymentHistoryModalVisible] =
+    useState(false);
 
   const [currentRecord, setCurrentRecord] = useState(null);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState(null);
@@ -206,7 +209,11 @@ const PayoutReceivablesDashboard = () => {
         const receivableList = list.filter((p) => {
           const type = p?.payout_type;
           const direction = p?.payout_direction;
-          return type === "Bank" || type === "Insurance" || direction === "Receivable";
+          return (
+            type === "Bank" ||
+            type === "Insurance" ||
+            direction === "Receivable"
+          );
         });
 
         return receivableList.map((p) => ({
@@ -232,7 +239,11 @@ const PayoutReceivablesDashboard = () => {
     loadReceivables();
   }, []);
 
-  const updateReceivableInBackend = async (payoutId, patch, activityAction = null) => {
+  const updateReceivableInBackend = async (
+    payoutId,
+    patch,
+    activityAction = null,
+  ) => {
     const sourceLoans = Array.isArray(loans) ? loans : [];
     let targetLoan = null;
     let updatedList = null;
@@ -264,9 +275,12 @@ const PayoutReceivablesDashboard = () => {
     if (!targetLoan || !updatedList) return;
 
     try {
-      await loansApi.update(targetLoan._id || targetLoan.loanId || targetLoan.id, {
-        [key]: updatedList,
-      });
+      await loansApi.update(
+        targetLoan._id || targetLoan.loanId || targetLoan.id,
+        {
+          [key]: updatedList,
+        },
+      );
       await loadReceivables();
     } catch (err) {
       console.error("Failed to update receivable:", err);
@@ -346,7 +360,10 @@ const PayoutReceivablesDashboard = () => {
         pendingAmount += paymentStatus.pendingAmount;
         pendingCount += 1;
 
-        const days = calculateDaysPending(r.payout_received_date, r.created_date);
+        const days = calculateDaysPending(
+          r.payout_received_date,
+          r.created_date,
+        );
         if (days !== null && days > 15) {
           overdueCount += 1;
         }
@@ -359,16 +376,12 @@ const PayoutReceivablesDashboard = () => {
         label: "Total Receivables",
         value: formatCurrency(totalAmount),
         icon: <DollarOutlined />,
-        bgColor: "bg-blue-50",
-        iconColor: "text-blue-600",
       },
       {
         id: "collected",
         label: "Collected",
         value: formatCurrency(collectedAmount),
         icon: <CheckCircleOutlined />,
-        bgColor: "bg-green-50",
-        iconColor: "text-green-600",
       },
       {
         id: "pending",
@@ -376,16 +389,12 @@ const PayoutReceivablesDashboard = () => {
         value: formatCurrency(pendingAmount),
         subtext: `${pendingCount} items`,
         icon: <ClockCircleOutlined />,
-        bgColor: "bg-orange-50",
-        iconColor: "text-orange-600",
       },
       {
         id: "overdue",
         label: "Overdue (15+ days)",
         value: overdueCount,
         icon: <AlertOutlined />,
-        bgColor: "bg-red-50",
-        iconColor: "text-red-600",
       },
     ];
   }, [rows]);
@@ -398,12 +407,14 @@ const PayoutReceivablesDashboard = () => {
       const paymentStatus = getPaymentStatus(r);
       const uiStatus = toUiStatus(r.payout_status, paymentStatus);
 
-      const statusOk = statusFilter === "All" ? true : uiStatus === statusFilter;
+      const statusOk =
+        statusFilter === "All" ? true : uiStatus === statusFilter;
 
       const bankOk =
         bankFilter === "All"
           ? true
-          : normalizeBankName(r.payout_party_name) === normalizeBankName(bankFilter);
+          : normalizeBankName(r.payout_party_name) ===
+            normalizeBankName(bankFilter);
 
       const searchOk = searchText
         ? `${r.loanId} ${r.customerName} ${r.payout_party_name} ${r.payoutId}`
@@ -414,7 +425,10 @@ const PayoutReceivablesDashboard = () => {
       let ageOk = true;
       if (ageFilter !== "All") {
         if (!paymentStatus.isFullyPaid) {
-          const days = calculateDaysPending(r.payout_received_date, r.created_date);
+          const days = calculateDaysPending(
+            r.payout_received_date,
+            r.created_date,
+          );
           if (days !== null) {
             if (ageFilter === "0-7") ageOk = days <= 7;
             else if (ageFilter === "8-15") ageOk = days >= 8 && days <= 15;
@@ -428,14 +442,23 @@ const PayoutReceivablesDashboard = () => {
       if (amountRangeFilter !== "All") {
         const amount = Number(r.payout_amount || 0);
         if (amountRangeFilter === "0-50k") amountOk = amount <= 50000;
-        else if (amountRangeFilter === "50k-1L") amountOk = amount > 50000 && amount <= 100000;
-        else if (amountRangeFilter === "1L-5L") amountOk = amount > 100000 && amount <= 500000;
+        else if (amountRangeFilter === "50k-1L")
+          amountOk = amount > 50000 && amount <= 100000;
+        else if (amountRangeFilter === "1L-5L")
+          amountOk = amount > 100000 && amount <= 500000;
         else if (amountRangeFilter === "5L+") amountOk = amount > 500000;
       }
 
       return statusOk && bankOk && searchOk && ageOk && amountOk;
     });
-  }, [rows, statusFilter, bankFilter, searchText, ageFilter, amountRangeFilter]);
+  }, [
+    rows,
+    statusFilter,
+    bankFilter,
+    searchText,
+    ageFilter,
+    amountRangeFilter,
+  ]);
 
   /* ==============================
      Payment History Management
@@ -466,7 +489,10 @@ const PayoutReceivablesDashboard = () => {
       edited_at: new Date().toISOString(),
     };
 
-    const totalReceived = updatedHistory.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalReceived = updatedHistory.reduce(
+      (sum, p) => sum + Number(p.amount || 0),
+      0,
+    );
     const expectedAmount = getExpectedAmount(currentRecord);
     const isFullyPaid = totalReceived >= expectedAmount;
 
@@ -474,7 +500,9 @@ const PayoutReceivablesDashboard = () => {
       currentRecord.payoutId,
       {
         payment_history: updatedHistory,
-        payout_status: toBackendStatus(isFullyPaid ? "Received" : totalReceived > 0 ? "Partial" : "Pending"),
+        payout_status: toBackendStatus(
+          isFullyPaid ? "Received" : totalReceived > 0 ? "Partial" : "Pending",
+        ),
         payout_received_date: isFullyPaid
           ? values.payment_date.format("YYYY-MM-DD")
           : currentRecord.payout_received_date,
@@ -494,7 +522,10 @@ const PayoutReceivablesDashboard = () => {
     const deletedPayment = updatedHistory[index];
     updatedHistory.splice(index, 1);
 
-    const totalReceived = updatedHistory.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalReceived = updatedHistory.reduce(
+      (sum, p) => sum + Number(p.amount || 0),
+      0,
+    );
     const expectedAmount = getExpectedAmount(currentRecord);
     const isFullyPaid = totalReceived >= expectedAmount;
 
@@ -502,8 +533,12 @@ const PayoutReceivablesDashboard = () => {
       currentRecord.payoutId,
       {
         payment_history: updatedHistory,
-        payout_status: toBackendStatus(isFullyPaid ? "Received" : totalReceived > 0 ? "Partial" : "Pending"),
-        payout_received_date: isFullyPaid ? currentRecord.payout_received_date : "",
+        payout_status: toBackendStatus(
+          isFullyPaid ? "Received" : totalReceived > 0 ? "Partial" : "Pending",
+        ),
+        payout_received_date: isFullyPaid
+          ? currentRecord.payout_received_date
+          : "",
       },
       {
         action: "Payment Deleted",
@@ -560,7 +595,10 @@ const PayoutReceivablesDashboard = () => {
         },
       ];
 
-      const totalReceived = newHistory.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      const totalReceived = newHistory.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0,
+      );
       const expectedAmount = getExpectedAmount(p);
       const isFullyPaid = totalReceived >= expectedAmount;
 
@@ -569,7 +607,9 @@ const PayoutReceivablesDashboard = () => {
         ...p,
         payment_history: newHistory,
         payout_status: toBackendStatus(isFullyPaid ? "Received" : "Partial"),
-        payout_received_date: isFullyPaid ? receivedDate : p.payout_received_date,
+        payout_received_date: isFullyPaid
+          ? receivedDate
+          : p.payout_received_date,
         activity_log: addActivityLog(
           p.activity_log,
           isFullyPaid ? "Full Payment Received" : "Partial Payment Recorded",
@@ -612,7 +652,10 @@ const PayoutReceivablesDashboard = () => {
     const existingHistory = safeArray(currentRecord.payment_history);
     const newHistory = [...existingHistory, payment];
 
-    const totalReceived = newHistory.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalReceived = newHistory.reduce(
+      (sum, p) => sum + Number(p.amount || 0),
+      0,
+    );
     const expectedAmount = getExpectedAmount(currentRecord);
     const isFullyPaid = totalReceived >= expectedAmount;
 
@@ -626,13 +669,19 @@ const PayoutReceivablesDashboard = () => {
           : currentRecord.payout_received_date,
       },
       {
-        action: isFullyPaid ? "Full Payment Received" : "Partial Payment Recorded",
+        action: isFullyPaid
+          ? "Full Payment Received"
+          : "Partial Payment Recorded",
         details: `Received ${formatCurrency(payment.amount)} on ${payment.date}. Total: ${formatCurrency(totalReceived)} of ${formatCurrency(expectedAmount)}`,
       },
     );
 
     setPartialPaymentModalVisible(false);
-    message.success(isFullyPaid ? "Payment complete!" : "Partial payment recorded successfully");
+    message.success(
+      isFullyPaid
+        ? "Payment complete!"
+        : "Partial payment recorded successfully",
+    );
   };
 
   const openTimelineModal = (record) => {
@@ -658,7 +707,8 @@ const PayoutReceivablesDashboard = () => {
         "Amount Received": paymentStatus.totalReceived,
         "Pending Amount": paymentStatus.pendingAmount,
         Status: toUiStatus(r.payout_status, paymentStatus),
-        "Days Pending": calculateDaysPending(r.payout_received_date, r.created_date) || "-",
+        "Days Pending":
+          calculateDaysPending(r.payout_received_date, r.created_date) || "-",
         "Received Date": r.payout_received_date || "-",
       };
     });
@@ -670,7 +720,10 @@ const PayoutReceivablesDashboard = () => {
         headers
           .map((header) => {
             const value = row[header];
-            if (typeof value === "string" && (value.includes(",") || value.includes('"'))) {
+            if (
+              typeof value === "string" &&
+              (value.includes(",") || value.includes('"'))
+            ) {
               return `"${value.replace(/"/g, '""')}"`;
             }
             return value;
@@ -683,7 +736,10 @@ const PayoutReceivablesDashboard = () => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `Collections_${dayjs().format("YYYY-MM-DD")}.csv`);
+    link.setAttribute(
+      "download",
+      `Collections_${dayjs().format("YYYY-MM-DD")}.csv`,
+    );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -705,16 +761,24 @@ const PayoutReceivablesDashboard = () => {
 
         return (
           <div>
-            <div className="font-semibold text-sm">{r.customerName}</div>
-            <div className="text-xs text-gray-500 mt-0.5">Loan: {r.loanId}</div>
-            <div className="text-xs text-gray-400 mt-0.5">ID: {r.payoutId}</div>
+            <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+              {r.customerName}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Loan: {r.loanId}
+            </div>
+            <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              ID: {r.payoutId}
+            </div>
             {paymentStatus.isPartial && (
               <div className="mt-2">
                 <Progress
                   percent={Math.round(paymentStatus.percentageReceived)}
                   size="small"
                   strokeColor="#faad14"
-                  format={() => `${Math.round(paymentStatus.percentageReceived)}%`}
+                  format={() =>
+                    `${Math.round(paymentStatus.percentageReceived)}%`
+                  }
                 />
               </div>
             )}
@@ -742,17 +806,29 @@ const PayoutReceivablesDashboard = () => {
 
         return (
           <div>
-            <div className="text-base font-semibold">{formatCurrency(paymentStatus.expectedAmount)}</div>
+            <div className="text-base font-semibold">
+              {formatCurrency(paymentStatus.expectedAmount)}
+            </div>
             {Number(r.tds_amount || 0) > 0 && (
-              <div className="text-xs text-gray-500">TDS: {formatCurrency(r.tds_amount)}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                TDS: {formatCurrency(r.tds_amount)}
+              </div>
             )}
             {paymentStatus.isPartial && (
               <div className="mt-2 space-y-1">
-                <div className="text-xs text-green-600">✓ Received: {formatCurrency(paymentStatus.totalReceived)}</div>
-                <div className="text-xs text-orange-600 font-medium">⏳ Pending: {formatCurrency(paymentStatus.pendingAmount)}</div>
+                <div className="text-xs text-green-600">
+                  ✓ Received: {formatCurrency(paymentStatus.totalReceived)}
+                </div>
+                <div className="text-xs text-orange-600 font-medium">
+                  ⏳ Pending: {formatCurrency(paymentStatus.pendingAmount)}
+                </div>
               </div>
             )}
-            {paymentStatus.isFullyPaid && <div className="text-xs text-green-600 mt-1">✓ Fully Collected</div>}
+            {paymentStatus.isFullyPaid && (
+              <div className="text-xs text-green-600 mt-1">
+                ✓ Fully Collected
+              </div>
+            )}
           </div>
         );
       },
@@ -768,7 +844,10 @@ const PayoutReceivablesDashboard = () => {
           return <Tag color="success">Collected</Tag>;
         }
 
-        const days = calculateDaysPending(r.payout_received_date, r.created_date);
+        const days = calculateDaysPending(
+          r.payout_received_date,
+          r.created_date,
+        );
         if (days === null) return "-";
 
         let color = "default";
@@ -861,19 +940,33 @@ const PayoutReceivablesDashboard = () => {
           <Space size="small">
             {hasPayments && (
               <Tooltip title="View/Edit payments">
-                <Button type="text" icon={<EditOutlined />} onClick={() => openPaymentHistoryModal(r)}>
+                <Button
+                  type="text"
+                  icon={<EditOutlined />}
+                  onClick={() => openPaymentHistoryModal(r)}
+                >
                   <Badge count={safeArray(r.payment_history).length} />
                 </Button>
               </Tooltip>
             )}
             <Tooltip title="Activity timeline">
-              <Button type="text" icon={<HistoryOutlined />} onClick={() => openTimelineModal(r)}>
-                {safeArray(r.activity_log).length > 0 && <Badge count={safeArray(r.activity_log).length} />}
+              <Button
+                type="text"
+                icon={<HistoryOutlined />}
+                onClick={() => openTimelineModal(r)}
+              >
+                {safeArray(r.activity_log).length > 0 && (
+                  <Badge count={safeArray(r.activity_log).length} />
+                )}
               </Button>
             </Tooltip>
             {!paymentStatus.isFullyPaid && (
               <Tooltip title="Record payment">
-                <Button type="text" icon={<DollarOutlined />} onClick={() => openPartialPaymentModal(r)} />
+                <Button
+                  type="text"
+                  icon={<DollarOutlined />}
+                  onClick={() => openPartialPaymentModal(r)}
+                />
               </Tooltip>
             )}
           </Space>
@@ -884,63 +977,118 @@ const PayoutReceivablesDashboard = () => {
 
   const bulkActionsMenu = (
     <Menu>
-      <Menu.Item key="collected" icon={<CheckCircleOutlined />} onClick={openBulkCollectionModal}>
+      <Menu.Item
+        key="collected"
+        icon={<CheckCircleOutlined />}
+        onClick={openBulkCollectionModal}
+      >
         Record Collections
       </Menu.Item>
     </Menu>
   );
 
+  /* ── Gradient theme map for stat cards ── */
+  const STAT_GRADIENTS = {
+    total: "from-sky-500 to-indigo-600",
+    collected: "from-emerald-500 to-green-600",
+    pending: "from-amber-500 to-orange-600",
+    overdue: "from-rose-500 to-red-600",
+  };
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="px-4 md:px-6 py-6 bg-slate-50 dark:bg-[#171717] min-h-screen">
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold mb-1">Collections Dashboard</h1>
-            <p className="text-sm text-gray-500">Manage receivables and track collections</p>
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-[#262626] text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-2">
+              <DollarOutlined style={{ fontSize: 11 }} />
+              Payouts
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-1">
+              Collections Dashboard
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Manage receivables and track collections
+            </p>
           </div>
           <Space>
-            <Button icon={<DownloadOutlined />} onClick={handleExport} size="large">
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={handleExport}
+              size="large"
+            >
               Export
             </Button>
-            <Button icon={<ReloadOutlined />} onClick={loadReceivables} size="large">
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadReceivables}
+              size="large"
+            >
               Refresh
             </Button>
           </Space>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-          {stats.map((stat) => (
-            <div
-              key={stat.id}
-              className="bg-white border rounded-2xl p-4 hover:shadow-md transition cursor-default relative"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-2xl ${stat.bgColor} flex items-center justify-center`}>
-                  <span className={`${stat.iconColor} text-lg`}>{stat.icon}</span>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">{stat.label}</div>
-                  <div className="text-xl font-semibold">{stat.value}</div>
-                  {stat.subtext && <div className="text-xs text-gray-400 mt-0.5">{stat.subtext}</div>}
+        {/* ── Gradient Stat Cards ── */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+          {stats.map((stat) => {
+            const gradient =
+              STAT_GRADIENTS[stat.id] || "from-slate-600 to-slate-800";
+            return (
+              <div
+                key={stat.id}
+                className={`relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${gradient} p-4 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl`}
+              >
+                <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                <div className="relative flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/70">
+                      {stat.label}
+                    </p>
+                    <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums leading-none">
+                      {stat.value}
+                    </p>
+                    {stat.subtext && (
+                      <p className="mt-1 text-xs text-white/80">
+                        {stat.subtext}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-1 h-10 w-10 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm shrink-0">
+                    <span className="text-lg">{stat.icon}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {bankSummary.length > 0 && (
-          <div className="bg-white border rounded-2xl p-4 mb-6">
-            <h3 className="text-sm font-semibold mb-3 text-gray-700">Bank-wise Pending Summary</h3>
+          <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl p-4 mb-6 shadow-sm">
+            <h3 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-200">
+              Bank-wise Pending Summary
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
               {bankSummary.slice(0, 8).map((bank, idx) => (
-                <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                <div
+                  key={idx}
+                  className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-[#262626] rounded-xl border border-slate-100 dark:border-[#303030]"
+                >
                   <div>
-                    <div className="text-xs font-medium text-gray-700">{bank.bank}</div>
-                    <div className="text-xs text-gray-500">{bank.count} items</div>
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {bank.bank}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {bank.count} items
+                    </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-orange-600">{formatCurrency(bank.pending)}</div>
-                    <div className="text-xs text-gray-400">{formatCurrency(bank.collected)} ✓</div>
+                    <div className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                      {formatCurrency(bank.pending)}
+                    </div>
+                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
+                      {formatCurrency(bank.collected)} ✓
+                    </div>
                   </div>
                 </div>
               ))}
@@ -948,7 +1096,7 @@ const PayoutReceivablesDashboard = () => {
           </div>
         )}
 
-        <div className="bg-white border rounded-2xl p-4">
+        <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl p-4 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
             <div className="xl:col-span-2">
               <Input
@@ -960,20 +1108,36 @@ const PayoutReceivablesDashboard = () => {
                 size="large"
               />
             </div>
-            <Select value={statusFilter} onChange={setStatusFilter} size="large" className="w-full">
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              size="large"
+              className="w-full"
+            >
               <Option value="All">All Status</Option>
               <Option value="Pending">Pending</Option>
               <Option value="Partial">Partial</Option>
               <Option value="Received">Received</Option>
             </Select>
-            <Select value={ageFilter} onChange={setAgeFilter} size="large" className="w-full">
+            <Select
+              value={ageFilter}
+              onChange={setAgeFilter}
+              size="large"
+              className="w-full"
+            >
               <Option value="All">All Ages</Option>
               <Option value="0-7">0-7 days</Option>
               <Option value="8-15">8-15 days</Option>
               <Option value="16-30">16-30 days</Option>
               <Option value="30+">30+ days</Option>
             </Select>
-            <Select value={bankFilter} onChange={setBankFilter} size="large" className="w-full" showSearch>
+            <Select
+              value={bankFilter}
+              onChange={setBankFilter}
+              size="large"
+              className="w-full"
+              showSearch
+            >
               <Option value="All">All Banks</Option>
               {bankOptions.map((b) => (
                 <Option key={b} value={b}>
@@ -987,7 +1151,7 @@ const PayoutReceivablesDashboard = () => {
             searchText ||
             ageFilter !== "All" ||
             amountRangeFilter !== "All") && (
-            <div className="mt-3">
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#262626]">
               <Button
                 onClick={() => {
                   setStatusFilter("All");
@@ -1005,9 +1169,11 @@ const PayoutReceivablesDashboard = () => {
       </div>
 
       {selectedRows.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-2xl p-4 mb-4">
           <div className="flex justify-between items-center">
-            <span className="font-medium">{selectedRows.length} receivable(s) selected</span>
+            <span className="font-medium text-slate-800 dark:text-slate-100">
+              {selectedRows.length} receivable(s) selected
+            </span>
             <Space>
               <Button
                 onClick={() => {
@@ -1027,7 +1193,7 @@ const PayoutReceivablesDashboard = () => {
         </div>
       )}
 
-      <div className="bg-white border rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl overflow-hidden shadow-sm">
         <Table
           rowKey={(r) => r.payoutId || r.id}
           rowSelection={{
@@ -1065,49 +1231,79 @@ const PayoutReceivablesDashboard = () => {
       >
         <Form form={bulkForm} layout="vertical">
           <p className="mb-4 text-gray-600">
-            Recording collections for <strong>{selectedRows.length}</strong> receivable(s).
+            Recording collections for <strong>{selectedRows.length}</strong>{" "}
+            receivable(s).
           </p>
 
           <Form.Item
             name="received_date"
             label="Collection Date"
-            rules={[{ required: true, message: "Please select collection date" }]}
+            rules={[
+              { required: true, message: "Please select collection date" },
+            ]}
           >
-            <DatePicker style={{ width: "100%" }} format="DD MMM YYYY" size="large" />
+            <DatePicker
+              style={{ width: "100%" }}
+              format="DD MMM YYYY"
+              size="large"
+            />
           </Form.Item>
 
           <Space style={{ marginBottom: 16 }} wrap>
-            <Button size="small" onClick={() => bulkForm.setFieldValue("received_date", dayjs())}>
+            <Button
+              size="small"
+              onClick={() => bulkForm.setFieldValue("received_date", dayjs())}
+            >
               Today
             </Button>
             <Button
               size="small"
-              onClick={() => bulkForm.setFieldValue("received_date", dayjs().subtract(1, "day"))}
+              onClick={() =>
+                bulkForm.setFieldValue(
+                  "received_date",
+                  dayjs().subtract(1, "day"),
+                )
+              }
             >
               Yesterday
             </Button>
-            <Button size="small" onClick={() => bulkForm.setFieldValue("received_date", dayjs().day(5))}>
+            <Button
+              size="small"
+              onClick={() =>
+                bulkForm.setFieldValue("received_date", dayjs().day(5))
+              }
+            >
               Last Friday
             </Button>
           </Space>
 
-          <div className="mt-4 mb-2 font-medium text-sm">Enter amount received for each item:</div>
+          <div className="mt-4 mb-2 font-medium text-sm">
+            Enter amount received for each item:
+          </div>
 
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {selectedRows.map((row) => {
               const paymentStatus = getPaymentStatus(row);
               return (
-                <div key={row.payoutId} className="p-3 bg-gray-50 rounded border">
+                <div
+                  key={row.payoutId}
+                  className="p-3 bg-gray-50 rounded border"
+                >
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <div className="font-medium text-sm">{row.customerName}</div>
-                      <div className="text-xs text-gray-500">Loan: {row.loanId}</div>
+                      <div className="font-medium text-sm">
+                        {row.customerName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Loan: {row.loanId}
+                      </div>
                       <div className="text-xs text-gray-500">
                         Expected: {formatCurrency(paymentStatus.expectedAmount)}
                       </div>
                       {paymentStatus.totalReceived > 0 && (
                         <div className="text-xs text-green-600">
-                          Already Received: {formatCurrency(paymentStatus.totalReceived)}
+                          Already Received:{" "}
+                          {formatCurrency(paymentStatus.totalReceived)}
                         </div>
                       )}
                     </div>
@@ -1123,7 +1319,10 @@ const PayoutReceivablesDashboard = () => {
                       { required: true, message: "Required" },
                       {
                         validator: (_, value) => {
-                          if (value > 0 && value <= paymentStatus.pendingAmount + 100) {
+                          if (
+                            value > 0 &&
+                            value <= paymentStatus.pendingAmount + 100
+                          ) {
                             return Promise.resolve();
                           }
                           return Promise.reject(
@@ -1140,7 +1339,9 @@ const PayoutReceivablesDashboard = () => {
                       style={{ width: "100%" }}
                       prefix="₹"
                       placeholder="Enter amount received"
-                      formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                      formatter={(value) =>
+                        `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                      }
                       parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                       min={0}
                       max={paymentStatus.pendingAmount}
@@ -1165,14 +1366,17 @@ const PayoutReceivablesDashboard = () => {
           <Form form={partialPaymentForm} layout="vertical">
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <div className="text-sm text-gray-600 mb-1">Expected Amount</div>
-              <div className="text-lg font-semibold">{formatCurrency(getExpectedAmount(currentRecord))}</div>
+              <div className="text-lg font-semibold">
+                {formatCurrency(getExpectedAmount(currentRecord))}
+              </div>
               {(() => {
                 const paymentStatus = getPaymentStatus(currentRecord);
                 if (paymentStatus.totalReceived > 0) {
                   return (
                     <>
                       <div className="text-sm text-green-600 mt-2">
-                        Already Received: {formatCurrency(paymentStatus.totalReceived)}
+                        Already Received:{" "}
+                        {formatCurrency(paymentStatus.totalReceived)}
                       </div>
                       <div className="text-sm text-orange-600 font-medium">
                         Remaining: {formatCurrency(paymentStatus.pendingAmount)}
@@ -1192,7 +1396,10 @@ const PayoutReceivablesDashboard = () => {
                 {
                   validator: (_, value) => {
                     const paymentStatus = getPaymentStatus(currentRecord);
-                    if (value > 0 && value <= paymentStatus.pendingAmount + 100) {
+                    if (
+                      value > 0 &&
+                      value <= paymentStatus.pendingAmount + 100
+                    ) {
                       return Promise.resolve();
                     }
                     return Promise.reject(
@@ -1207,7 +1414,9 @@ const PayoutReceivablesDashboard = () => {
               <InputNumber
                 style={{ width: "100%" }}
                 prefix="₹"
-                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                formatter={(value) =>
+                  `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                }
                 parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                 size="large"
                 min={0}
@@ -1217,22 +1426,37 @@ const PayoutReceivablesDashboard = () => {
             <Form.Item
               name="payment_date"
               label="Payment Date"
-              rules={[{ required: true, message: "Please select payment date" }]}
+              rules={[
+                { required: true, message: "Please select payment date" },
+              ]}
             >
-              <DatePicker style={{ width: "100%" }} format="DD MMM YYYY" size="large" />
+              <DatePicker
+                style={{ width: "100%" }}
+                format="DD MMM YYYY"
+                size="large"
+              />
             </Form.Item>
 
             <Form.Item name="payment_remarks" label="Remarks (optional)">
-              <Input.TextArea rows={2} placeholder="Payment method, reference number, etc." />
+              <Input.TextArea
+                rows={2}
+                placeholder="Payment method, reference number, etc."
+              />
             </Form.Item>
 
             {safeArray(currentRecord.payment_history).length > 0 && (
               <div className="mt-4">
-                <div className="text-sm font-medium mb-2">Previous Payments:</div>
+                <div className="text-sm font-medium mb-2">
+                  Previous Payments:
+                </div>
                 <div className="space-y-1">
                   {currentRecord.payment_history.map((p, idx) => (
-                    <div key={idx} className="text-xs text-gray-600 p-2 bg-gray-50 rounded">
-                      • {formatCurrency(p.amount)} on {dayjs(p.date).format("DD MMM YYYY")}
+                    <div
+                      key={idx}
+                      className="text-xs text-gray-600 p-2 bg-gray-50 rounded"
+                    >
+                      • {formatCurrency(p.amount)} on{" "}
+                      {dayjs(p.date).format("DD MMM YYYY")}
                       {p.remarks && ` - ${p.remarks}`}
                     </div>
                   ))}
@@ -1248,7 +1472,10 @@ const PayoutReceivablesDashboard = () => {
         open={paymentHistoryModalVisible}
         onCancel={() => setPaymentHistoryModalVisible(false)}
         footer={[
-          <Button key="close" onClick={() => setPaymentHistoryModalVisible(false)}>
+          <Button
+            key="close"
+            onClick={() => setPaymentHistoryModalVisible(false)}
+          >
             Close
           </Button>,
         ]}
@@ -1258,7 +1485,9 @@ const PayoutReceivablesDashboard = () => {
           <div>
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <div className="font-semibold">{currentRecord.customerName}</div>
-              <div className="text-sm text-gray-600">Payout ID: {currentRecord.payoutId}</div>
+              <div className="text-sm text-gray-600">
+                Payout ID: {currentRecord.payoutId}
+              </div>
               <div className="text-sm text-gray-600 mt-2">
                 Expected: {formatCurrency(getExpectedAmount(currentRecord))}
               </div>
@@ -1267,7 +1496,8 @@ const PayoutReceivablesDashboard = () => {
                 return (
                   <>
                     <div className="text-sm text-green-600">
-                      Total Received: {formatCurrency(paymentStatus.totalReceived)}
+                      Total Received:{" "}
+                      {formatCurrency(paymentStatus.totalReceived)}
                     </div>
                     {!paymentStatus.isFullyPaid && (
                       <div className="text-sm text-orange-600 font-medium">
@@ -1280,20 +1510,32 @@ const PayoutReceivablesDashboard = () => {
             </div>
 
             {safeArray(currentRecord.payment_history).length === 0 ? (
-              <div className="text-center text-gray-400 py-8">No payments recorded yet</div>
+              <div className="text-center text-gray-400 py-8">
+                No payments recorded yet
+              </div>
             ) : (
               <div className="space-y-2">
                 {currentRecord.payment_history.map((payment, idx) => (
-                  <div key={idx} className="p-3 bg-white border rounded flex justify-between items-center">
+                  <div
+                    key={idx}
+                    className="p-3 bg-white border rounded flex justify-between items-center"
+                  >
                     <div>
-                      <div className="font-medium">{formatCurrency(payment.amount)}</div>
-                      <div className="text-xs text-gray-500">Date: {dayjs(payment.date).format("DD MMM YYYY")}</div>
+                      <div className="font-medium">
+                        {formatCurrency(payment.amount)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Date: {dayjs(payment.date).format("DD MMM YYYY")}
+                      </div>
                       {payment.remarks && (
-                        <div className="text-xs text-gray-500 mt-1">Remarks: {payment.remarks}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Remarks: {payment.remarks}
+                        </div>
                       )}
                       {payment.edited_at && (
                         <div className="text-xs text-blue-500 mt-1">
-                          Edited on {dayjs(payment.edited_at).format("DD MMM YYYY")}
+                          Edited on{" "}
+                          {dayjs(payment.edited_at).format("DD MMM YYYY")}
                         </div>
                       )}
                     </div>
@@ -1312,7 +1554,12 @@ const PayoutReceivablesDashboard = () => {
                         cancelText="Cancel"
                         okButtonProps={{ danger: true }}
                       >
-                        <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                        />
                       </Popconfirm>
                     </Space>
                   </div>
@@ -1339,7 +1586,9 @@ const PayoutReceivablesDashboard = () => {
             <InputNumber
               style={{ width: "100%" }}
               prefix="₹"
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+              formatter={(value) =>
+                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+              }
               parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
               size="large"
               min={0}
@@ -1351,11 +1600,18 @@ const PayoutReceivablesDashboard = () => {
             label="Payment Date"
             rules={[{ required: true, message: "Please select payment date" }]}
           >
-            <DatePicker style={{ width: "100%" }} format="DD MMM YYYY" size="large" />
+            <DatePicker
+              style={{ width: "100%" }}
+              format="DD MMM YYYY"
+              size="large"
+            />
           </Form.Item>
 
           <Form.Item name="payment_remarks" label="Remarks">
-            <Input.TextArea rows={2} placeholder="Payment method, reference number, etc." />
+            <Input.TextArea
+              rows={2}
+              placeholder="Payment method, reference number, etc."
+            />
           </Form.Item>
         </Form>
       </Modal>
@@ -1375,11 +1631,15 @@ const PayoutReceivablesDashboard = () => {
           <div>
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <div className="font-semibold">{currentRecord.customerName}</div>
-              <div className="text-sm text-gray-600">Payout ID: {currentRecord.payoutId}</div>
+              <div className="text-sm text-gray-600">
+                Payout ID: {currentRecord.payoutId}
+              </div>
             </div>
 
             {safeArray(currentRecord.activity_log).length === 0 ? (
-              <div className="text-center text-gray-400 py-8">No activity recorded yet</div>
+              <div className="text-center text-gray-400 py-8">
+                No activity recorded yet
+              </div>
             ) : (
               <Timeline
                 items={safeArray(currentRecord.activity_log)
@@ -1388,8 +1648,12 @@ const PayoutReceivablesDashboard = () => {
                     children: (
                       <div key={idx}>
                         <div className="font-medium text-sm">{log.action}</div>
-                        <div className="text-xs text-gray-500">{log.details}</div>
-                        <div className="text-xs text-gray-400 mt-1">{log.date}</div>
+                        <div className="text-xs text-gray-500">
+                          {log.details}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {log.date}
+                        </div>
                       </div>
                     ),
                     color: idx === 0 ? "blue" : "gray",

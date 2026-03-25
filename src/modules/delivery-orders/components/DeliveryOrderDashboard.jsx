@@ -119,8 +119,6 @@ const DeliveryOrderDashboard = () => {
         label: "Total Loans",
         value: totalLoans,
         icon: <FileTextOutlined />,
-        bgColor: "bg-blue-50",
-        iconColor: "text-blue-600",
         onClick: () => {
           setStatusFilter("All");
           setFinanceFilter("All");
@@ -131,8 +129,6 @@ const DeliveryOrderDashboard = () => {
         label: "DO Created",
         value: withDO,
         icon: <CheckCircleOutlined />,
-        bgColor: "bg-green-50",
-        iconColor: "text-green-600",
         onClick: () => setStatusFilter("Created"),
       },
       {
@@ -140,8 +136,6 @@ const DeliveryOrderDashboard = () => {
         label: "Pending DO",
         value: withoutDO,
         icon: <ClockCircleOutlined />,
-        bgColor: "bg-orange-50",
-        iconColor: "text-orange-600",
         onClick: () => setStatusFilter("NotCreated"),
       },
       {
@@ -150,10 +144,7 @@ const DeliveryOrderDashboard = () => {
         value: totalNet,
         subtext: `Avg: ${avgNet}`,
         icon: <AlertOutlined />,
-        bgColor: "bg-purple-50",
-        iconColor: "text-purple-600",
         onClick: () => {
-          // optional: focus only Created DOs when clicking total net
           setStatusFilter("Created");
         },
       },
@@ -196,19 +187,19 @@ const DeliveryOrderDashboard = () => {
 
         return (
           <div>
-            <div className="font-semibold text-sm">
+            <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">
               {safeText(loan.customerName) || "—"}
             </div>
-            <div className="text-xs text-gray-500 mt-0.5">
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Loan: {safeText(loan.loanId)}
             </div>
-            <div className="text-xs text-gray-400 mt-0.5">
+            <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
               {financed ? "Financed" : "Cash"} ·{" "}
               {safeText(loan.recordSource) || "Direct"}
               {loan.sourceName ? ` · ${safeText(loan.sourceName)}` : ""}
             </div>
             {d?.do_refNo && (
-              <div className="text-[10px] text-gray-400 mt-0.5">
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                 DO: {safeText(d.do_refNo)}
               </div>
             )}
@@ -276,8 +267,12 @@ const DeliveryOrderDashboard = () => {
 
         return (
           <div>
-            <div className="text-sm font-medium">{ref}</div>
-            <div className="text-xs text-gray-500">{dt}</div>
+            <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
+              {ref}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {dt}
+            </div>
           </div>
         );
       },
@@ -345,16 +340,28 @@ const DeliveryOrderDashboard = () => {
     },
   ];
 
+  /* ── Gradient theme map for stat cards (mirrors LoanDashboard MetricCard) ── */
+  const STAT_GRADIENTS = {
+    total: "from-sky-500 to-indigo-600",
+    created: "from-emerald-500 to-green-600",
+    pending: "from-amber-500 to-orange-600",
+    netdo: "from-violet-500 to-fuchsia-600",
+  };
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
+    <div className="px-4 md:px-6 py-6 bg-slate-50 dark:bg-[#171717] min-h-screen">
+      {/* ── Header ── */}
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-semibold mb-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-[#262626] text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-2">
+              <CarOutlined style={{ fontSize: 11 }} />
+              Delivery Orders
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-1">
               Delivery Orders Dashboard
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Manage Delivery Orders and track net payable for each loan.
             </p>
           </div>
@@ -377,39 +384,44 @@ const DeliveryOrderDashboard = () => {
           </Space>
         </div>
 
-        {/* Stats Cards as filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-          {stats.map((stat) => (
-            <button
-              key={stat.id}
-              type="button"
-              onClick={stat.onClick}
-              className="bg-white border rounded-2xl p-4 hover:shadow-md transition text-left cursor-pointer relative focus:outline-none"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-11 h-11 rounded-2xl ${stat.bgColor} flex items-center justify-center`}
-                >
-                  <span className={`${stat.iconColor} text-lg`}>
-                    {stat.icon}
-                  </span>
+        {/* ── Gradient Stat Cards ── */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+          {stats.map((stat) => {
+            const gradient =
+              STAT_GRADIENTS[stat.id] || "from-slate-600 to-slate-800";
+            return (
+              <button
+                key={stat.id}
+                type="button"
+                onClick={stat.onClick}
+                className={`group relative text-left overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${gradient} p-4 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl focus:outline-none`}
+              >
+                <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                <div className="relative flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/70">
+                      {stat.label}
+                    </p>
+                    <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums leading-none">
+                      {stat.value}
+                    </p>
+                    {stat.subtext && (
+                      <p className="mt-1 text-xs text-white/80">
+                        {stat.subtext}
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-1 h-10 w-10 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm shrink-0">
+                    <span className="text-lg">{stat.icon}</span>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs text-gray-500">{stat.label}</div>
-                  <div className="text-xl font-semibold">{stat.value}</div>
-                  {stat.subtext && (
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {stat.subtext}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Filters */}
-        <div className="bg-white border rounded-2xl p-4">
+        {/* ── Filters ── */}
+        <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl p-4 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             <div className="xl:col-span-2">
               <Input
@@ -448,7 +460,7 @@ const DeliveryOrderDashboard = () => {
           {(statusFilter !== "All" ||
             financeFilter !== "All" ||
             searchText) && (
-            <div className="mt-3">
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#262626]">
               <Button
                 onClick={() => {
                   setStatusFilter("All");
@@ -463,8 +475,8 @@ const DeliveryOrderDashboard = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border rounded-2xl overflow-hidden">
+      {/* ── Table ── */}
+      <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl overflow-hidden shadow-sm">
         <Table
           rowKey={(r) => r.loanId || r.id}
           columns={columns}

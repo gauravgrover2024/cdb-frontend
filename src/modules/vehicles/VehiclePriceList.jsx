@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Input, Select, message, Tag } from "antd";
 import { vehiclesApi } from "../../api/vehicles";
 import { featuresApi } from "../../api/features";
@@ -9,9 +10,12 @@ import { buildVehiclePricingSnapshot } from "../../utils/vehiclePricingBreakup";
 const { Search } = Input;
 const { Option } = Select;
 
-const FUEL_ORDER = ["All", "Petrol", "Diesel", "CNG", "Electric"];
+const FUEL_ORDER = ["All", "Petrol", "Diesel", "CNG", "Electric", "Hybrid"];
 
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const toArray = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -40,15 +44,29 @@ const normalizeVehicleRecord = (vehicle = {}) => {
   return {
     ...vehicle,
     _id: vehicle._id || vehicle.id || vehicle.vehicleId,
-    make: String(vehicle.make || vehicle.brand || vehicle.brandName || "N/A").trim() || "N/A",
+    make:
+      String(
+        vehicle.make || vehicle.brand || vehicle.brandName || "N/A",
+      ).trim() || "N/A",
     model: String(vehicle.model || vehicle.modelName || "N/A").trim() || "N/A",
-    variant: String(vehicle.variant || vehicle.variantName || vehicle.name || "N/A").trim() || "N/A",
-    city: String(vehicle.city || vehicle.locationCity || vehicle.showroomCity || "N/A").trim() || "N/A",
+    variant:
+      String(
+        vehicle.variant || vehicle.variantName || vehicle.name || "N/A",
+      ).trim() || "N/A",
+    city:
+      String(
+        vehicle.city || vehicle.locationCity || vehicle.showroomCity || "N/A",
+      ).trim() || "N/A",
     fuel: String(vehicle.fuel || vehicle.fuelType || "N/A").trim() || "N/A",
-    exShowroom: Number(pricingBreakup.exShowroom) || toNum(vehicle.exShowroom ?? vehicle.ex_showroom ?? vehicle.exShowroomPrice),
+    exShowroom:
+      Number(pricingBreakup.exShowroom) ||
+      toNum(
+        vehicle.exShowroom ?? vehicle.ex_showroom ?? vehicle.exShowroomPrice,
+      ),
     rto: Number(pricingBreakup.rto) || toNum(vehicle.rto ?? vehicle.roadTax),
     insurance: Number(pricingBreakup.insurance) || toNum(vehicle.insurance),
-    otherCharges: Number(pricingBreakup.tcs) || toNum(vehicle.otherCharges ?? vehicle.tcs),
+    otherCharges:
+      Number(pricingBreakup.tcs) || toNum(vehicle.otherCharges ?? vehicle.tcs),
     onRoadPrice: onRoadListPrice,
     pricingBreakup,
   };
@@ -66,10 +84,16 @@ const cityMatches = (vehicleCity, selectedCity) => {
 const getVehicleMake = (vehicle) => vehicle?.make || vehicle?.brand || "";
 const getVehicleModel = (vehicle) => vehicle?.model || "";
 const getVehicleVariant = (vehicle) => vehicle?.variant || "";
-const getVehicleImage = (vehicle) => vehicle?.image_url || vehicle?.imageUrl || "";
+const getVehicleImage = (vehicle) =>
+  vehicle?.image_url || vehicle?.imageUrl || "";
 const getVehicleColor = (vehicle) =>
-  vehicle?.color_name || vehicle?.colorName || vehicle?.colour_name || vehicle?.colourName || "";
-const getVehicleHex = (vehicle) => vehicle?.hex || vehicle?.color_hex || vehicle?.colour_hex || "";
+  vehicle?.color_name ||
+  vehicle?.colorName ||
+  vehicle?.colour_name ||
+  vehicle?.colourName ||
+  "";
+const getVehicleHex = (vehicle) =>
+  vehicle?.hex || vehicle?.color_hex || vehicle?.colour_hex || "";
 
 const buildMediaKey = (vehicle) =>
   [
@@ -80,7 +104,23 @@ const buildMediaKey = (vehicle) =>
     getVehicleImage(vehicle),
   ].join("|");
 
+// Hybrid fuel helpers
+const isHybridFuel = (fuel) => {
+  const f = (fuel || "").toLowerCase();
+  return (
+    f.includes("hybrid") || f.includes("shvs") || f.includes("mild hybrid")
+  );
+};
+
+const normalizeFuelLabel = (fuel) => {
+  if (!fuel || fuel === "N/A") return fuel;
+  if (isHybridFuel(fuel)) return "Hybrid";
+  return fuel;
+};
+
 const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
+  const navigate = useNavigate();
+
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -89,15 +129,30 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const [modelFilter, setModelFilter] = useState("");
   const [fuelFilter, setFuelFilter] = useState("");
   const [variantFilter, setVariantFilter] = useState("");
-  const [cityFilter, setCityFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("Delhi");
   const [budgetFilter, setBudgetFilter] = useState("");
   const [brandType, setBrandType] = useState("");
+  const [showDiscontinued, setShowDiscontinued] = useState(false);
 
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [priceSort, setPriceSort] = useState("asc");
   const [galleryVehicleId, setGalleryVehicleId] = useState(null);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(30);
+  const [galleryMedia, setGalleryMedia] = useState([]);
+
+  // ─── smart-set city from loaded data ───────────────────────────────────────
+  const smartSetCity = useCallback((list) => {
+    setCityFilter((prev) => {
+      // If the user already changed city to something other than delhi-ish, keep it.
+      if (prev && !normalizeText(prev).includes("delhi")) return prev;
+      // Try to find the exact city name in data that resembles Delhi.
+      const delhiCity = list.find((v) =>
+        normalizeText(v.city).includes("delhi"),
+      )?.city;
+      return delhiCity || prev;
+    });
+  }, []);
 
   const loadVehicles = async () => {
     try {
@@ -107,6 +162,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
       if (list.length > 0) {
         setVehicles(list);
+        smartSetCity(list);
         return;
       }
 
@@ -132,6 +188,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       );
 
       setVehicles(mapped);
+      smartSetCity(mapped);
     } catch (err) {
       console.error("Load Vehicles Error:", err);
       message.error("Failed to load vehicle price list ❌");
@@ -146,7 +203,18 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
   useEffect(() => {
     setVisibleCount(30);
-  }, [searchText, makeFilter, modelFilter, fuelFilter, variantFilter, cityFilter, budgetFilter, brandType, priceSort]);
+  }, [
+    searchText,
+    makeFilter,
+    modelFilter,
+    fuelFilter,
+    variantFilter,
+    cityFilter,
+    budgetFilter,
+    brandType,
+    priceSort,
+    showDiscontinued,
+  ]);
 
   const uniqueMakes = useMemo(
     () => [...new Set(vehicles.map((v) => v.make))].sort(),
@@ -181,11 +249,16 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     [vehicles],
   );
 
-  const allFuelsPresent = useMemo(
-    () =>
-      new Set(vehicles.map((v) => v.fuel).filter((x) => !!x && x !== "N/A")),
-    [vehicles],
-  );
+  // Track which normalised fuel types actually appear in the master vehicle list
+  const allFuelsPresent = useMemo(() => {
+    const set = new Set();
+    vehicles.forEach((v) => {
+      const f = v.fuel || "";
+      if (!f || f === "N/A") return;
+      set.add(normalizeFuelLabel(f));
+    });
+    return set;
+  }, [vehicles]);
 
   const formatCurrency = (amount) => {
     if (!amount || Number(amount) <= 0) return "₹ 0";
@@ -205,13 +278,14 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
   const handleClearFilters = () => {
     setSearchText("");
-    setCityFilter("");
+    setCityFilter("Delhi");
     setMakeFilter("");
     setModelFilter("");
     setFuelFilter("");
     setVariantFilter("");
     setBudgetFilter("");
     setBrandType("");
+    setShowDiscontinued(false);
   };
 
   const handleRowActionSelect = (record) => {
@@ -223,8 +297,89 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     }
   };
 
+  // ─── Action button handlers ─────────────────────────────────────────────────
+  const handleCalculateEmi = (v) => {
+    navigate("/loans/emi-calculator", {
+      state: {
+        fromVariant: {
+          vehicleId: v._id,
+          make: v.make,
+          model: v.model,
+          variant: v.variant,
+          price: v.onRoadPrice,
+        },
+      },
+    });
+  };
+
+  const handleSendToQuotation = (v) => {
+    navigate("/loans/quotation", { state: { vehicle: v } });
+  };
+
+  const handleCheckFeatures = (v) => {
+    navigate("/loans/features", {
+      state: {
+        fromVariant: {
+          vehicleId: v._id,
+          make: v.make,
+          model: v.model,
+          variant: v.variant,
+        },
+      },
+    });
+  };
+
+  // ─── Smart search: auto-fill make / make+model when text matches ────────────
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const s = searchText.trim();
+      if (!s) return;
+      const sLower = s.toLowerCase();
+
+      // Exact make match
+      const matchedMake = uniqueMakes.find((m) => m.toLowerCase() === sLower);
+      if (matchedMake) {
+        if (matchedMake !== makeFilter) {
+          setMakeFilter(matchedMake);
+          setModelFilter("");
+          setVariantFilter("");
+        }
+        return;
+      }
+
+      // "Make Model" pattern
+      for (const make of uniqueMakes) {
+        const makeLower = make.toLowerCase();
+        if (sLower.startsWith(makeLower + " ")) {
+          const modelPart = sLower.slice(makeLower.length + 1).trim();
+          const modelsForMake = [
+            ...new Set(
+              vehicles.filter((v) => v.make === make).map((v) => v.model),
+            ),
+          ];
+          const matchedModel = modelsForMake.find(
+            (m) => m.toLowerCase() === modelPart,
+          );
+          if (matchedModel) {
+            if (makeFilter !== make) setMakeFilter(make);
+            if (modelFilter !== matchedModel) setModelFilter(matchedModel);
+            return;
+          }
+        }
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchText, uniqueMakes, vehicles, makeFilter, modelFilter]);
+
+  // ─── Filtered vehicles ──────────────────────────────────────────────────────
   const filteredVehicles = useMemo(() => {
     let filtered = [...vehicles];
+
+    // Discontinued toggle – applied first so stats are consistent
+    if (!showDiscontinued) {
+      filtered = filtered.filter((v) => !v.isDiscontinued);
+    }
 
     if (cityFilter) {
       filtered = filtered.filter((v) => cityMatches(v.city, cityFilter));
@@ -236,7 +391,14 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       filtered = filtered.filter((v) => v.model === modelFilter);
     }
     if (fuelFilter && fuelFilter !== "All") {
-      filtered = filtered.filter((v) => v.fuel === fuelFilter);
+      if (fuelFilter === "Hybrid") {
+        filtered = filtered.filter((v) => isHybridFuel(v.fuel));
+      } else {
+        // Match by normalised label so "Petrol" etc. work exactly
+        filtered = filtered.filter(
+          (v) => normalizeFuelLabel(v.fuel) === fuelFilter,
+        );
+      }
     }
     if (variantFilter) {
       filtered = filtered.filter((v) => v.variant === variantFilter);
@@ -316,6 +478,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     brandType,
     searchText,
     priceSort,
+    showDiscontinued,
   ]);
 
   const stats = useMemo(() => {
@@ -329,56 +492,104 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   }, [filteredVehicles]);
 
   const activeGalleryVehicle = useMemo(() => {
-    const fromFiltered = filteredVehicles.find((v) => v._id === galleryVehicleId);
+    const fromFiltered = filteredVehicles.find(
+      (v) => v._id === galleryVehicleId,
+    );
     return fromFiltered || filteredVehicles[0] || null;
   }, [filteredVehicles, galleryVehicleId]);
 
-  const galleryMedia = useMemo(() => {
-    if (!activeGalleryVehicle) return [];
+  // ─── Gallery: local-data fallback builder ───────────────────────────────────
+  const computeLocalGalleryMedia = useCallback(
+    (activeVehicle) => {
+      if (!activeVehicle) return [];
 
-    const makeKey = normalizeText(getVehicleMake(activeGalleryVehicle));
-    const modelKey = normalizeText(getVehicleModel(activeGalleryVehicle));
-    const variantKey = normalizeText(getVehicleVariant(activeGalleryVehicle));
+      const makeKey = normalizeText(getVehicleMake(activeVehicle));
+      const modelKey = normalizeText(getVehicleModel(activeVehicle));
+      const variantKey = normalizeText(getVehicleVariant(activeVehicle));
 
-    const variantScoped = vehicles.filter((vehicle) => {
-      const image = getVehicleImage(vehicle);
-      if (!image) return false;
-      return (
-        normalizeText(getVehicleMake(vehicle)) === makeKey &&
-        normalizeText(getVehicleModel(vehicle)) === modelKey &&
-        normalizeText(getVehicleVariant(vehicle)) === variantKey
-      );
-    });
-
-    const modelScoped = vehicles.filter((vehicle) => {
-      const image = getVehicleImage(vehicle);
-      if (!image) return false;
-      return (
-        normalizeText(getVehicleMake(vehicle)) === makeKey &&
-        normalizeText(getVehicleModel(vehicle)) === modelKey
-      );
-    });
-
-    const source = variantScoped.length ? variantScoped : modelScoped;
-    const unique = [];
-    const seen = new Set();
-
-    source.forEach((vehicle) => {
-      const key = buildMediaKey(vehicle);
-      if (seen.has(key)) return;
-      seen.add(key);
-      unique.push({
-        image: getVehicleImage(vehicle),
-        color: getVehicleColor(vehicle) || "Default",
-        hex: getVehicleHex(vehicle),
-        make: getVehicleMake(vehicle),
-        model: getVehicleModel(vehicle),
-        variant: getVehicleVariant(vehicle),
+      const variantScoped = vehicles.filter((vehicle) => {
+        const image = getVehicleImage(vehicle);
+        if (!image) return false;
+        return (
+          normalizeText(getVehicleMake(vehicle)) === makeKey &&
+          normalizeText(getVehicleModel(vehicle)) === modelKey &&
+          normalizeText(getVehicleVariant(vehicle)) === variantKey
+        );
       });
-    });
 
-    return unique;
-  }, [activeGalleryVehicle, vehicles]);
+      const modelScoped = vehicles.filter((vehicle) => {
+        const image = getVehicleImage(vehicle);
+        if (!image) return false;
+        return (
+          normalizeText(getVehicleMake(vehicle)) === makeKey &&
+          normalizeText(getVehicleModel(vehicle)) === modelKey
+        );
+      });
+
+      const source = variantScoped.length ? variantScoped : modelScoped;
+      const unique = [];
+      const seen = new Set();
+
+      source.forEach((vehicle) => {
+        const key = buildMediaKey(vehicle);
+        if (seen.has(key)) return;
+        seen.add(key);
+        unique.push({
+          image: getVehicleImage(vehicle),
+          color: getVehicleColor(vehicle) || "Default",
+          hex: getVehicleHex(vehicle),
+          make: getVehicleMake(vehicle),
+          model: getVehicleModel(vehicle),
+          variant: getVehicleVariant(vehicle),
+        });
+      });
+
+      return unique;
+    },
+    [vehicles],
+  );
+
+  // ─── Gallery: fetch from API when active vehicle changes ────────────────────
+  useEffect(() => {
+    if (!activeGalleryVehicle) {
+      setGalleryMedia([]);
+      return;
+    }
+
+    const make = getVehicleMake(activeGalleryVehicle);
+    const model = getVehicleModel(activeGalleryVehicle);
+    const variant = getVehicleVariant(activeGalleryVehicle);
+
+    vehiclesApi
+      .getMedia(make, model, variant)
+      .then((result) => {
+        const items = toArray(result);
+        if (items.length) {
+          const unique = [];
+          const seen = new Set();
+          items.forEach((item) => {
+            const key = buildMediaKey(item);
+            if (seen.has(key)) return;
+            seen.add(key);
+            unique.push({
+              image: getVehicleImage(item),
+              color: getVehicleColor(item) || "Default",
+              hex: getVehicleHex(item),
+              make: getVehicleMake(item),
+              model: getVehicleModel(item),
+              variant: getVehicleVariant(item),
+            });
+          });
+          setGalleryMedia(unique);
+        } else {
+          // Fallback: scan local vehicles array for images
+          setGalleryMedia(computeLocalGalleryMedia(activeGalleryVehicle));
+        }
+      })
+      .catch(() => {
+        setGalleryMedia(computeLocalGalleryMedia(activeGalleryVehicle));
+      });
+  }, [activeGalleryVehicle, computeLocalGalleryMedia]);
 
   useEffect(() => {
     setActiveMediaIndex(0);
@@ -416,10 +627,11 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     );
   };
 
+  // ─── Fuel bucketing (normalise hybrid variants) ─────────────────────────────
   const vehiclesByFuel = useMemo(() => {
     const map = {};
     filteredVehicles.forEach((v) => {
-      const fuel = v.fuel || "Unknown";
+      const fuel = normalizeFuelLabel(v.fuel) || "Unknown";
       if (!map[fuel]) map[fuel] = [];
       map[fuel].push(v);
     });
@@ -435,21 +647,36 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   }, [filteredVehicles]);
 
   const firstFuelWithData =
-    ["Petrol", "Diesel", "CNG", "Electric"].find(
+    ["Petrol", "Diesel", "CNG", "Electric", "Hybrid"].find(
       (f) => vehiclesByFuel[f]?.length,
     ) || Object.keys(vehiclesByFuel)[0];
 
-  const activeFuel =
-    fuelFilter && fuelFilter !== "All" ? fuelFilter : firstFuelWithData;
+  // null = "All" mode (show every filtered variant); string = show that fuel's bucket
+  const activeFuel = !fuelFilter || fuelFilter === "All" ? null : fuelFilter;
 
   const variantsForActiveFuel = activeFuel
     ? vehiclesByFuel[activeFuel] || []
-    : [];
+    : filteredVehicles; // "All" selected → show entire filtered list
 
+  // ─── Fuel tag colour helper ─────────────────────────────────────────────────
+  const fuelTagClass = (rawFuel) => {
+    const label = normalizeFuelLabel(rawFuel);
+    if (label === "Petrol")
+      return "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200";
+    if (label === "Diesel")
+      return "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200";
+    if (label === "Hybrid")
+      return "bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-200";
+    if (label === "Electric")
+      return "bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200";
+    return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200";
+  };
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#171717] px-4 py-6 md:px-8 md:py-8">
       <div className="app-max-wrap space-y-4 pb-16">
-        {/* New cleaner header */}
+        {/* ── Header ── */}
         <div className="bg-white dark:bg-[#1f1f1f] rounded-[28px] border border-slate-100 dark:border-[#262626] shadow-sm px-6 py-4 md:px-8 md:py-4 flex flex-col gap-3">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
@@ -478,16 +705,25 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                 </div>
               </div>
               <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                {stats.active} active • {stats.discontinued} discontinued •{" "}
-                {stats.makes} makes
+                {stats.active} active
+                {showDiscontinued && stats.discontinued > 0 && (
+                  <>
+                    {" "}
+                    •{" "}
+                    <span className="text-red-500">
+                      {stats.discontinued} discontinued
+                    </span>
+                  </>
+                )}{" "}
+                • {stats.makes} makes
               </div>
             </div>
           </div>
         </div>
 
-        {/* 2-column layout */}
+        {/* ── 2-column layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-[320px,minmax(0,1fr)] gap-4 mt-2 items-start">
-          {/* Sticky left filter panel */}
+          {/* ── Left: filter panel ── */}
           <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] px-5 py-5 flex flex-col gap-4 h-auto sticky top-24">
             <div>
               <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -498,12 +734,13 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </p>
             </div>
 
+            {/* Search */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 Search
               </label>
               <Search
-                placeholder="Make, model, variant..."
+                placeholder="Make, model, variant…"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 allowClear
@@ -517,6 +754,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               />
             </div>
 
+            {/* Sort */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 Sort by
@@ -532,6 +770,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </Select>
             </div>
 
+            {/* Budget */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 Budget (on‑road)
@@ -554,6 +793,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </Select>
             </div>
 
+            {/* Brand type */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 Brand type
@@ -571,6 +811,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </Select>
             </div>
 
+            {/* City */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 City
@@ -596,6 +837,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </Select>
             </div>
 
+            {/* Make */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 Make
@@ -621,6 +863,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </Select>
             </div>
 
+            {/* Model */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 Model
@@ -647,6 +890,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </Select>
             </div>
 
+            {/* Variant */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                 Variant
@@ -673,6 +917,24 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </Select>
             </div>
 
+            {/* Show Discontinued toggle */}
+            <div className="flex items-center gap-2.5 py-1">
+              <input
+                id="show-discontinued"
+                type="checkbox"
+                checked={showDiscontinued}
+                onChange={(e) => setShowDiscontinued(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 accent-emerald-600 cursor-pointer"
+              />
+              <label
+                htmlFor="show-discontinued"
+                className="text-[12px] font-medium text-slate-600 dark:text-slate-300 cursor-pointer select-none"
+              >
+                Show Discontinued
+              </label>
+            </div>
+
+            {/* Clear */}
             <div className="pt-1">
               <Button
                 variant="outline"
@@ -685,8 +947,9 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
             </div>
           </div>
 
-          {/* Right: variants & pricing */}
+          {/* ── Right: gallery + variants ── */}
           <div className="flex flex-col gap-3">
+            {/* ── Color Gallery card ── */}
             <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow border border-gray-200 dark:border-[#262626] overflow-hidden">
               <div className="px-6 py-5 md:px-8 border-b border-gray-100 dark:border-[#262626]">
                 <div className="flex items-start justify-between gap-3">
@@ -719,10 +982,12 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                 </div>
               ) : !galleryMedia.length ? (
                 <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
-                  No car photos are available in the database for this make/model yet.
+                  No car photos are available in the database for this
+                  make/model yet.
                 </div>
               ) : (
                 <div className="p-4 md:p-6 space-y-4 bg-slate-50 dark:bg-[#171717]">
+                  {/* Main image */}
                   <div className="relative overflow-hidden rounded-[24px] border border-slate-200 dark:border-[#2d2d2d] bg-white dark:bg-[#111]">
                     <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between p-3">
                       <button
@@ -745,11 +1010,12 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                       <img
                         src={activeMedia.image}
                         alt={`${activeMedia.make} ${activeMedia.model} ${activeMedia.variant} ${activeMedia.color}`}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain p-2"
                       />
                     </div>
                   </div>
 
+                  {/* Thumbnail strip */}
                   <div className="flex items-center gap-2 overflow-x-auto pb-1">
                     {galleryMedia.map((media, index) => {
                       const isActive = index === activeMediaIndex;
@@ -768,13 +1034,15 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                             <img
                               src={media.image}
                               alt={media.color}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-contain p-1"
                             />
                           </div>
                           <div className="flex items-center gap-2">
                             <span
-                              className="h-3.5 w-3.5 rounded-full border border-black/10"
-                              style={{ backgroundColor: media.hex || "#d1d5db" }}
+                              className="h-3.5 w-3.5 rounded-full border border-black/10 flex-shrink-0"
+                              style={{
+                                backgroundColor: media.hex || "#d1d5db",
+                              }}
                             />
                             <span className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">
                               {media.color}
@@ -788,17 +1056,19 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               )}
             </div>
 
+            {/* ── Variants & Pricing card ── */}
             <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow border border-gray-200 dark:border-[#262626] overflow-hidden">
               <div className="px-6 py-4 md:px-8 md:py-4 border-b border-gray-100 dark:border-[#262626] flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Variants & pricing
+                    Variants &amp; pricing
                   </h2>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
                     {filteredVehicles.length} variants found
                   </span>
                 </div>
 
+                {/* Fuel filter pills */}
                 <div className="flex flex-wrap gap-2">
                   {FUEL_ORDER.map((fuel) => {
                     if (fuel === "All") {
@@ -851,13 +1121,13 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                 <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
                   Loading variants…
                 </div>
-              ) : !firstFuelWithData ? (
+              ) : filteredVehicles.length === 0 ? (
                 <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
                   No variants available for current filters.
                 </div>
               ) : variantsForActiveFuel.length === 0 ? (
                 <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
-                  No variants available for this fuel with current filters.
+                  No variants available for this fuel type with current filters.
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-[#262626]">
@@ -885,15 +1155,9 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                             <div className="flex items-center gap-2 mt-1">
                               {v.fuel && v.fuel !== "N/A" && (
                                 <Tag
-                                  className={`text-[11px] px-2 py-0.5 rounded-full border-0 ${
-                                    v.fuel === "Petrol"
-                                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
-                                      : v.fuel === "Diesel"
-                                        ? "bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200"
-                                        : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200"
-                                  }`}
+                                  className={`text-[11px] px-2 py-0.5 rounded-full border-0 ${fuelTagClass(v.fuel)}`}
                                 >
-                                  {v.fuel}
+                                  {normalizeFuelLabel(v.fuel)}
                                 </Tag>
                               )}
                               {v.isDiscontinued && (
@@ -926,10 +1190,12 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                           </div>
                         </summary>
 
+                        {/* Expanded pricing + actions */}
                         <div className="px-6 md:px-8 pb-4 bg-gray-50 dark:bg-[#171717]">
                           {(() => {
                             const pricing =
-                              v.pricingBreakup || buildVehiclePricingSnapshot(v);
+                              v.pricingBreakup ||
+                              buildVehiclePricingSnapshot(v);
                             const additionLines = Array.isArray(
                               pricing?.additionLines,
                             )
@@ -943,31 +1209,56 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
                             return (
                               <>
-                          {/* price breakdown without inner lines */}
-                              <div className="mt-3 rounded-2xl border border-gray-200 dark:border-[#262626] bg-white dark:bg-[#1f1f1f] px-4 py-3 space-y-3 text-xs md:text-sm">
-                                {additionLines.map((row) => (
-                                  <div
-                                    key={`add-${row.key}`}
-                                    className="flex justify-between"
-                                  >
-                                    <span className="text-gray-600 dark:text-gray-400">
-                                      {row.label}
+                                {/* Pricing breakdown */}
+                                <div className="mt-3 rounded-2xl border border-gray-200 dark:border-[#262626] bg-white dark:bg-[#1f1f1f] px-4 py-3 space-y-3 text-xs md:text-sm">
+                                  {additionLines.map((row) => (
+                                    <div
+                                      key={`add-${row.key}`}
+                                      className="flex justify-between"
+                                    >
+                                      <span className="text-gray-600 dark:text-gray-400">
+                                        {row.label}
+                                      </span>
+                                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                        {formatCurrency(row.amount)}
+                                      </span>
+                                    </div>
+                                  ))}
+
+                                  <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
+                                    <span className="text-gray-700 dark:text-gray-200">
+                                      On-road
                                     </span>
-                                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                                      {formatCurrency(row.amount)}
+                                    <span className="text-base md:text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                                      {formatCurrency(onRoad)}
                                     </span>
                                   </div>
-                                ))}
-
-                                <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
-                                  <span className="text-gray-700 dark:text-gray-200">
-                                    On-road
-                                  </span>
-                                  <span className="text-base md:text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                                    {formatCurrency(onRoad)}
-                                  </span>
                                 </div>
-                              </div>
+
+                                {/* Action buttons */}
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <button
+                                    onClick={() => handleCalculateEmi(v)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition"
+                                  >
+                                    <Icon name="Calculator" size={13} />{" "}
+                                    Calculate EMI
+                                  </button>
+                                  <button
+                                    onClick={() => handleSendToQuotation(v)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition"
+                                  >
+                                    <Icon name="FileText" size={13} /> Send to
+                                    Quotation
+                                  </button>
+                                  <button
+                                    onClick={() => handleCheckFeatures(v)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                                  >
+                                    <Icon name="List" size={13} /> Check
+                                    Features
+                                  </button>
+                                </div>
                               </>
                             );
                           })()}
@@ -989,7 +1280,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                       </details>
                     );
                   })}
-                  
+
                   {variantsForActiveFuel.length > visibleCount && (
                     <div className="p-4 flex justify-center">
                       <Button
@@ -997,7 +1288,11 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                         onClick={() => setVisibleCount((prev) => prev + 50)}
                         className="text-emerald-600 border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                       >
-                        Load {variantsForActiveFuel.length - visibleCount > 50 ? "50 More" : `${variantsForActiveFuel.length - visibleCount} More`} ({variantsForActiveFuel.length} total)
+                        Load{" "}
+                        {variantsForActiveFuel.length - visibleCount > 50
+                          ? "50 More"
+                          : `${variantsForActiveFuel.length - visibleCount} More`}{" "}
+                        ({variantsForActiveFuel.length} total)
                       </Button>
                     </div>
                   )}
@@ -1007,7 +1302,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
           </div>
         </div>
 
-        {/* Sticky footer summary */}
+        {/* ── Sticky footer summary ── */}
         <div className="fixed bottom-4 left-0 right-0 z-20">
           <div className="app-max-wrap px-2">
             <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/95 dark:bg-[#1f1f1f]/95 border border-gray-200 dark:border-[#262626] shadow-xl backdrop-blur">
