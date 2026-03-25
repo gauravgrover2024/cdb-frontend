@@ -190,6 +190,7 @@ const LoanDashboard = () => {
         .trim()
         .toLowerCase();
       if (!rawQuery) return true;
+      if (rawQuery.length < 3) return true;
       const normalizedQuery = normalizeSearchToken(rawQuery);
 
       const fields = [
@@ -870,12 +871,12 @@ const LoanDashboard = () => {
     const rawQuery = String(filters.searchQuery || "");
     const trimmedQuery = rawQuery.trim();
 
-    // Start server search from first 2 typed characters only.
+    // Start server search only from the 3rd typed character.
     if (!trimmedQuery) {
       setDebouncedSearchQuery("");
       return undefined;
     }
-    if (trimmedQuery.length < 2) {
+    if (trimmedQuery.length < 3) {
       setDebouncedSearchQuery("");
       return undefined;
     }
