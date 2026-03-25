@@ -122,10 +122,16 @@ const formatNumber = (v) =>
     : Math.round(v).toLocaleString("en-IN");
 
 const parseNumber = (str) => Number(String(str).replace(/,/g, "")) || 0;
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 const normalizeLooseKey = (value) =>
   normalizeText(value).replace(/[^a-z0-9]/g, "");
-const collapseSpaces = (value) => String(value || "").replace(/\s+/g, " ").trim();
+const collapseSpaces = (value) =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
 const escapeRegExp = (value) =>
   String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -133,7 +139,9 @@ const trimLeadingPhrase = (source, phrase) => {
   const src = collapseSpaces(source);
   const lead = collapseSpaces(phrase);
   if (!src || !lead) return src;
-  return src.replace(new RegExp(`^${escapeRegExp(lead)}\\s*[-:]*\\s*`, "i"), "").trim();
+  return src
+    .replace(new RegExp(`^${escapeRegExp(lead)}\\s*[-:]*\\s*`, "i"), "")
+    .trim();
 };
 
 const trimModelLabel = (model, make) => {
@@ -164,7 +172,10 @@ const trimVariantLabel = (variant, make, model) => {
 
 const isVehicleDiscontinued = (vehicle) => {
   const flag = String(
-    vehicle?.is_discontinued ?? vehicle?.isDiscontinued ?? vehicle?.IsDiscontinued ?? "",
+    vehicle?.is_discontinued ??
+      vehicle?.isDiscontinued ??
+      vehicle?.IsDiscontinued ??
+      "",
   )
     .trim()
     .toLowerCase();
@@ -191,8 +202,10 @@ const cityMatches = (vehicleCity, selectedCity, backendCity) => {
   if (!city) return false;
   if (!selected && !backend) return true;
   if (city === selected || city === backend) return true;
-  if (selected && (city.includes(selected) || selected.includes(city))) return true;
-  if (backend && (city.includes(backend) || backend.includes(city))) return true;
+  if (selected && (city.includes(selected) || selected.includes(city)))
+    return true;
+  if (backend && (city.includes(backend) || backend.includes(city)))
+    return true;
 
   return false;
 };
@@ -227,7 +240,9 @@ const slugTokens = (value) =>
     .filter(Boolean);
 
 const mediaUrlMatchesVehicle = (url, make, model) => {
-  const rawUrl = String(url || "").trim().toLowerCase();
+  const rawUrl = String(url || "")
+    .trim()
+    .toLowerCase();
   if (!rawUrl) return false;
   const makeTokens = slugTokens(make);
   const modelTokens = slugTokens(model);
@@ -235,26 +250,41 @@ const mediaUrlMatchesVehicle = (url, make, model) => {
 
   const normalizedPath = rawUrl.replace(/[^a-z0-9]+/g, "-");
   const hasMake = makeTokens.some(
-    (token) => normalizedPath.includes(`-${token}-`) || normalizedPath.endsWith(`-${token}`),
+    (token) =>
+      normalizedPath.includes(`-${token}-`) ||
+      normalizedPath.endsWith(`-${token}`),
   );
   const hasModel = modelTokens.some(
-    (token) => normalizedPath.includes(`-${token}-`) || normalizedPath.endsWith(`-${token}`),
+    (token) =>
+      normalizedPath.includes(`-${token}-`) ||
+      normalizedPath.endsWith(`-${token}`),
   );
 
   return hasMake && hasModel;
 };
 
 const toHighResCardekhoUrl = (url, size = "930x620") => {
-  const clean = String(url || "").split("?")[0].trim();
+  const clean = String(url || "")
+    .split("?")[0]
+    .trim();
   if (!clean) return "";
 
   return clean
     .replace("/images/car-images/large/", `/images/car-images/${size}/`)
     .replace("/images/car-images/630x420/", `/images/car-images/${size}/`)
     .replace("/images/car-images/360x240/", `/images/car-images/${size}/`)
-    .replace("/images/carexteriorimages/medium/", `/images/carexteriorimages/${size}/`)
-    .replace("/images/carexteriorimages/630x420/", `/images/carexteriorimages/${size}/`)
-    .replace("/images/carexteriorimages/360x240/", `/images/carexteriorimages/${size}/`);
+    .replace(
+      "/images/carexteriorimages/medium/",
+      `/images/carexteriorimages/${size}/`,
+    )
+    .replace(
+      "/images/carexteriorimages/630x420/",
+      `/images/carexteriorimages/${size}/`,
+    )
+    .replace(
+      "/images/carexteriorimages/360x240/",
+      `/images/carexteriorimages/${size}/`,
+    );
 };
 
 const getVehicleColor = (vehicle) =>
@@ -269,7 +299,9 @@ const getVehicleColor = (vehicle) =>
   ).trim();
 
 const getVehicleHex = (vehicle) =>
-  String(vehicle?.hex || vehicle?.color_hex || vehicle?.colour_hex || "").trim();
+  String(
+    vehicle?.hex || vehicle?.color_hex || vehicle?.colour_hex || "",
+  ).trim();
 
 const buildMediaKey = (vehicle) =>
   [
@@ -300,7 +332,9 @@ const normalizeVehicleRecord = (vehicle = {}) => {
     make: rawMake,
     model: normalizedModel,
     variant: normalizedVariant,
-    city: String(vehicle.city || vehicle.locationCity || vehicle.showroomCity || "").trim(),
+    city: String(
+      vehicle.city || vehicle.locationCity || vehicle.showroomCity || "",
+    ).trim(),
     onRoadPrice: toNum(
       pricingSnapshot.netOnRoad ||
         vehicle.onRoadPrice ||
@@ -341,6 +375,7 @@ const EMICalculator = ({
   customer,
   initialQuotation,
   initialShareView,
+  isFloating = false,
 }) => {
   const EMI_PERF_DEBUG = true;
   const perfLog = (...args) => {
@@ -434,7 +469,10 @@ const EMICalculator = ({
   }, [selectedFeatureGroups, featureSearch]);
 
   const variantLabelFromSelection = useMemo(
-    () => String(selectedVariant?.label || "").split("—")[0].trim(),
+    () =>
+      String(selectedVariant?.label || "")
+        .split("—")[0]
+        .trim(),
     [selectedVariant?.label],
   );
 
@@ -558,7 +596,9 @@ const EMICalculator = ({
     setPricingState((prev) => ({
       ...(prev || {}),
       vehicleId: selectedVehicle._id,
-      pricingCityKey: String(backendCityKey || "").trim().toLowerCase(),
+      pricingCityKey: String(backendCityKey || "")
+        .trim()
+        .toLowerCase(),
       city: cityInput || prev?.city || selectedVehicle.city || "",
       color: prev?.color || "",
       // Core city-driven amounts must always update from selected city row.
@@ -575,10 +615,14 @@ const EMICalculator = ({
         Array.isArray(prev?.additionsOthers) && prev.additionsOthers.length
           ? prev.additionsOthers
           : snapshot.additionsOthers,
-      dealerDiscount: Number(prev?.dealerDiscount) || Number(snapshot.dealerDiscount) || 0,
-      schemeDiscount: Number(prev?.schemeDiscount) || Number(snapshot.schemeDiscount) || 0,
+      dealerDiscount:
+        Number(prev?.dealerDiscount) || Number(snapshot.dealerDiscount) || 0,
+      schemeDiscount:
+        Number(prev?.schemeDiscount) || Number(snapshot.schemeDiscount) || 0,
       insuranceCashback:
-        Number(prev?.insuranceCashback) || Number(snapshot.insuranceCashback) || 0,
+        Number(prev?.insuranceCashback) ||
+        Number(snapshot.insuranceCashback) ||
+        0,
       exchange: Number(prev?.exchange) || Number(snapshot.exchange) || 0,
       exchangeVehiclePrice: Number(prev?.exchangeVehiclePrice) || 0,
       loyalty: Number(prev?.loyalty) || Number(snapshot.loyalty) || 0,
@@ -655,15 +699,16 @@ const EMICalculator = ({
     const fallbackPrice =
       Number(fromVariant.onRoadPrice || fromVariant.price || 0) || 0;
     const fallbackDownPayment =
-      Number(fromVariant.defaultDownPayment) ||
-      Math.round(fallbackPrice * 0.1);
+      Number(fromVariant.defaultDownPayment) || Math.round(fallbackPrice * 0.1);
     const fallbackLoan =
       Number(fromVariant.loanAmount) ||
       Math.max(0, fallbackPrice - fallbackDownPayment);
 
     setLoanAmountA(fallbackLoan);
     setLoanAmountB(fallbackLoan);
-    setDownPct(fallbackPrice ? (fallbackDownPayment / fallbackPrice) * 100 : 10);
+    setDownPct(
+      fallbackPrice ? (fallbackDownPayment / fallbackPrice) * 100 : 10,
+    );
 
     if (!vehicles.length) return;
 
@@ -687,7 +732,8 @@ const EMICalculator = ({
       0;
     const downPayment =
       Number(fromVariant.defaultDownPayment) || Math.round(price * 0.1);
-    const loan = Number(fromVariant.loanAmount) || Math.max(0, price - downPayment);
+    const loan =
+      Number(fromVariant.loanAmount) || Math.max(0, price - downPayment);
 
     setLoanAmountA(loan);
     setLoanAmountB(loan);
@@ -716,7 +762,8 @@ const EMICalculator = ({
       setTenureTypeA(q.scenarios.A.tenureType || "years");
       setEmiAInput(q.scenarios.A.emi || "");
       setEmiType(
-        q.scenarios.A.emiMode === "advance" || q.scenarios.A.emiType === "advance"
+        q.scenarios.A.emiMode === "advance" ||
+          q.scenarios.A.emiType === "advance"
           ? "advance"
           : "arrear",
       );
@@ -729,7 +776,8 @@ const EMICalculator = ({
       setTenureTypeB(q.scenarios.B.tenureType || "years");
       setEmiBInput(q.scenarios.B.emi || "");
       setEmiTypeB(
-        q.scenarios.B.emiMode === "advance" || q.scenarios.B.emiType === "advance"
+        q.scenarios.B.emiMode === "advance" ||
+          q.scenarios.B.emiType === "advance"
           ? "advance"
           : "arrear",
       );
@@ -786,13 +834,19 @@ const EMICalculator = ({
           const rowVehicleId = normalizeText(
             String(row?.vehicleId || row?._id || row?.id || "").trim(),
           );
-          const rowMake = normalizeText(row?.make || row?.brand || row?.brandName);
+          const rowMake = normalizeText(
+            row?.make || row?.brand || row?.brandName,
+          );
           const rowModel = normalizeText(row?.model || row?.modelName);
           const rowVariant = normalizeText(
             row?.variant || row?.variantName || row?.name,
           );
 
-          if (targetVehicleId && rowVehicleId && rowVehicleId === targetVehicleId) {
+          if (
+            targetVehicleId &&
+            rowVehicleId &&
+            rowVehicleId === targetVehicleId
+          ) {
             return true;
           }
           return (
@@ -1199,7 +1253,9 @@ const EMICalculator = ({
           rows: rawRows.length,
           finalRows: finalList.length,
           apiMs: Number((normalizeStartedAt - apiStartedAt).toFixed(1)),
-          normalizeMs: Number((performance.now() - normalizeStartedAt).toFixed(1)),
+          normalizeMs: Number(
+            (performance.now() - normalizeStartedAt).toFixed(1),
+          ),
         });
       } catch (e) {
         if (ignore) return;
@@ -1285,7 +1341,8 @@ const EMICalculator = ({
   }, [uniqueModels, selectedModel, comparisonTouched]);
 
   useEffect(() => {
-    if (!selectedVariant || !selectedMake || !selectedModel || !vehicles.length) return;
+    if (!selectedVariant || !selectedMake || !selectedModel || !vehicles.length)
+      return;
 
     const existing = vehicles.find(
       (v) => String(v._id) === String(selectedVariant.value),
@@ -1307,7 +1364,8 @@ const EMICalculator = ({
       ) ||
       vehicles.find((v) => {
         if (normalizeText(v.make) !== normalizeText(selectedMake)) return false;
-        if (normalizeText(v.model) !== normalizeText(selectedModel)) return false;
+        if (normalizeText(v.model) !== normalizeText(selectedModel))
+          return false;
         if (!selectedVariantLooseKey) return false;
         const candidateKey = normalizeLooseKey(v.variant);
         return (
@@ -1326,7 +1384,8 @@ const EMICalculator = ({
   }, [vehicles, selectedVariant, selectedMake, selectedModel]);
 
   const pricingComputed = useMemo(
-    () => buildVehiclePricingSnapshot(selectedVehicle || {}, pricingState || {}),
+    () =>
+      buildVehiclePricingSnapshot(selectedVehicle || {}, pricingState || {}),
     [selectedVehicle, pricingState],
   );
 
@@ -1422,7 +1481,9 @@ const EMICalculator = ({
       );
       const normalizedLabel = normalizeText(labelText);
 
-      const matchedMake = [...new Set([...makeOptions, selectedMake, "Renault"])]
+      const matchedMake = [
+        ...new Set([...makeOptions, selectedMake, "Renault"]),
+      ]
         .map((m) => String(m || "").trim())
         .filter(Boolean)
         .sort((a, b) => b.length - a.length)
@@ -1465,7 +1526,8 @@ const EMICalculator = ({
       if (
         selectedModelText &&
         !next.some(
-          (entry) => normalizeLooseKey(entry) === normalizeLooseKey(selectedModelText),
+          (entry) =>
+            normalizeLooseKey(entry) === normalizeLooseKey(selectedModelText),
         )
       ) {
         next.push(selectedModelText);
@@ -1575,12 +1637,18 @@ const EMICalculator = ({
       const saved = res.data?.data || res.data;
       if (saved?._id) {
         setSavedQuotationId(saved._id);
-        message.success(res.data?.duplicate ? "Duplicate prevented. Existing quotation loaded." : "Quotation saved.");
+        message.success(
+          res.data?.duplicate
+            ? "Duplicate prevented. Existing quotation loaded."
+            : "Quotation saved.",
+        );
       } else {
         message.error("Save response did not include quotation id.");
       }
     } catch (err) {
-      message.error(err?.response?.data?.message || "Failed to save quotation.");
+      message.error(
+        err?.response?.data?.message || "Failed to save quotation.",
+      );
     }
   };
 
@@ -1815,7 +1883,15 @@ const EMICalculator = ({
         solveForA === "emi" ? loanAmountA : emiAInput,
         emiType,
       ),
-    [solveForA, loanAmountA, interestA, tenureA, tenureTypeA, emiAInput, emiType],
+    [
+      solveForA,
+      loanAmountA,
+      interestA,
+      tenureA,
+      tenureTypeA,
+      emiAInput,
+      emiType,
+    ],
   );
 
   // Compute arrear result for comparison (to show savings vs advance)
@@ -1908,7 +1984,15 @@ const EMICalculator = ({
         solveForB === "emi" ? loanAmountB : emiBInput,
         emiTypeB,
       ),
-    [solveForB, loanAmountB, interestB, tenureB, tenureTypeB, emiBInput, emiTypeB],
+    [
+      solveForB,
+      loanAmountB,
+      interestB,
+      tenureB,
+      tenureTypeB,
+      emiBInput,
+      emiTypeB,
+    ],
   );
 
   const breakupA = useMemo(() => {
@@ -1959,7 +2043,14 @@ const EMICalculator = ({
       principalPct: Math.max(0, principalPct),
       interestPct: Math.max(0, interestPct),
     };
-  }, [liveEmiResult.principalExact, liveEmiResult.interestExact, liveEmiResult.totalExact, liveEmiResult.principal, liveEmiResult.interest, liveEmiResult.total]);
+  }, [
+    liveEmiResult.principalExact,
+    liveEmiResult.interestExact,
+    liveEmiResult.totalExact,
+    liveEmiResult.principal,
+    liveEmiResult.interest,
+    liveEmiResult.total,
+  ]);
 
   const principalPctA = breakupA.principalPct;
   const interestPctA = breakupA.interestPct;
@@ -1997,12 +2088,7 @@ const EMICalculator = ({
 
     if (!principal || !months || !emi) return [];
 
-    return buildSchedule(
-      principal,
-      monthlyRate,
-      emi,
-      months,
-    );
+    return buildSchedule(principal, monthlyRate, emi, months);
   }, [liveEmiResult, interestA]);
 
   const solveOptions = [
@@ -2078,67 +2164,86 @@ const EMICalculator = ({
   const scenarioAInputsDisabled = false; // we want Scenario A editable even in share mode
 
   return (
-    <div className="relative px-4 md:px-8 pb-10">
+    <div className="relative px-4 md:px-6 pb-10">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-emerald-50/70 to-transparent dark:from-emerald-950/20" />
-      <div className="max-w-7xl mx-auto space-y-4 relative z-10">
+      <div className="w-full space-y-4 relative z-10">
         {/* Action bar */}
-        <div className="sticky top-16 z-20 bg-white/85 dark:bg-[#121212]/85 backdrop-blur-md rounded-2xl border border-slate-200/70 dark:border-[#2a2a2a] px-3 md:px-4 py-2.5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2 py-1">
-          <div className="flex flex-wrap items-center justify-end gap-2 w-full md:w-auto">
-            <div className="h-px w-8 bg-gradient-to-r from-emerald-400 to-teal-500" />
-            <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              EMI
-            </span>
-          </div>
+        <div
+          className={`sticky ${isFloating ? "top-0" : "top-16"} z-20 bg-white/85 dark:bg-[#121212]/85 backdrop-blur-md rounded-2xl border border-slate-200/70 dark:border-[#2a2a2a] px-3 md:px-4 py-2.5 shadow-sm`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 py-1">
+            <div className="flex flex-wrap items-center justify-end gap-2 w-full md:w-auto">
+              <div className="h-px w-8 bg-gradient-to-r from-emerald-400 to-teal-500" />
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                EMI
+              </span>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <Button type="button" size="sm" onClick={handleSaveQuotation}>
-              <Icon name="save" className="h-3 w-3" />
-              Save
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleShareLink}
-              disabled={disableAll || !savedQuotationId}
-              title={!savedQuotationId ? "Save quotation first" : "Copy share link"}
-            >
-              <Icon name="link" className="h-3 w-3" />
-              Share
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSharePdf}
-              disabled={disableAll || !savedQuotationId}
-              title={!savedQuotationId ? "Save quotation first" : "Download PDF"}
-            >
-              <Icon name="file" className="h-3 w-3" />
-              PDF
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={resetAll}>
-              <Icon name="refresh" className="h-3 w-3" />
-              Clear
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" onClick={handleSaveQuotation}>
+                <Icon name="save" className="h-3 w-3" />
+                Save
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleShareLink}
+                disabled={disableAll || !savedQuotationId}
+                title={
+                  !savedQuotationId ? "Save quotation first" : "Copy share link"
+                }
+              >
+                <Icon name="link" className="h-3 w-3" />
+                Share
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSharePdf}
+                disabled={disableAll || !savedQuotationId}
+                title={
+                  !savedQuotationId ? "Save quotation first" : "Download PDF"
+                }
+              >
+                <Icon name="file" className="h-3 w-3" />
+                PDF
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={resetAll}
+              >
+                <Icon name="refresh" className="h-3 w-3" />
+                Clear
+              </Button>
+            </div>
           </div>
-        </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
           <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Selected Vehicle</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">
+              Selected Vehicle
+            </div>
             <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 truncate">
-              {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model} ${selectedVehicle.variant}` : "Not selected"}
+              {selectedVehicle
+                ? `${selectedVehicle.make} ${selectedVehicle.model} ${selectedVehicle.variant}`
+                : "Not selected"}
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Mode</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">
+              Mode
+            </div>
             <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
               {emiType === "advance" ? "Advance EMI" : "Arrear EMI"}
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">Plan Snapshot</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-400">
+              Plan Snapshot
+            </div>
             <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
               {resultA.months || 0} months · {formatINR(resultA.emi || 0)}
             </div>
@@ -2146,7 +2251,7 @@ const EMICalculator = ({
         </div>
 
         {/* Main layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[300px,minmax(0,1fr)] gap-3 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-4 items-start">
           {/* Left: vehicle + downpayment + breakup */}
           <div className="space-y-3 lg:sticky lg:top-28">
             <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-sm border border-slate-100 dark:border-[#262626] px-3 py-3 flex flex-col gap-2.5 transition-all hover:shadow-md">
@@ -2155,7 +2260,8 @@ const EMICalculator = ({
                   Vehicle & downpayment
                 </h2>
                 <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-                  Choose city, brand, model and variant to auto-calculate loan values.
+                  Choose city, brand, model and variant to auto-calculate loan
+                  values.
                 </p>
               </div>
 
@@ -2192,9 +2298,11 @@ const EMICalculator = ({
                     }
                   />
                   {!!pricingSourceCity &&
-                    normalizeText(pricingSourceCity) !== normalizeText(cityInput) && (
+                    normalizeText(pricingSourceCity) !==
+                      normalizeText(cityInput) && (
                       <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">
-                        Showing {pricingSourceCity} pricing for selected variant.
+                        Showing {pricingSourceCity} pricing for selected
+                        variant.
                       </div>
                     )}
                 </div>
@@ -2222,7 +2330,9 @@ const EMICalculator = ({
                 <div className="pt-0.5">
                   <Checkbox
                     checked={includeDiscontinued}
-                    onChange={(e) => setIncludeDiscontinued(Boolean(e?.target?.checked))}
+                    onChange={(e) =>
+                      setIncludeDiscontinued(Boolean(e?.target?.checked))
+                    }
                     disabled={disableAll}
                   >
                     Include discontinued cars
@@ -2365,9 +2475,12 @@ const EMICalculator = ({
 
                 {!vehiclesLoading && !filteredVehicles.length && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
-                    No vehicles found for selected city. Try another city or enable
-                    {" "}
-                    <span className="font-semibold">Include discontinued cars</span>.
+                    No vehicles found for selected city. Try another city or
+                    enable{" "}
+                    <span className="font-semibold">
+                      Include discontinued cars
+                    </span>
+                    .
                   </div>
                 )}
               </div>
@@ -2507,12 +2620,17 @@ const EMICalculator = ({
                   <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                     Scenario A – primary EMI
                   </h2>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Configure core loan variables and solve instantly</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Configure core loan variables and solve instantly
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Advance / Arrear toggle */}
                   <div className="inline-flex flex-wrap rounded-full bg-slate-100 dark:bg-[#262626] p-1 text-[11px]">
-                    {[{ key: "arrear", label: "Arrear (Standard)" }, { key: "advance", label: "Advance" }].map((opt) => (
+                    {[
+                      { key: "arrear", label: "Arrear (Standard)" },
+                      { key: "advance", label: "Advance" },
+                    ].map((opt) => (
                       <button
                         key={opt.key}
                         type="button"
@@ -2675,9 +2793,9 @@ const EMICalculator = ({
                       <button
                         type="button"
                         className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
-                            tenureTypeA === "years"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-transparent text-slate-600 dark:text-slate-300"
+                          tenureTypeA === "years"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-transparent text-slate-600 dark:text-slate-300"
                         }`}
                         onClick={() => !disableAll && setTenureTypeA("years")}
                         disabled={disableAll}
@@ -2687,9 +2805,9 @@ const EMICalculator = ({
                       <button
                         type="button"
                         className={`px-3 py-1.5 text-xs font-medium border-l border-slate-200 dark:border-[#262626] whitespace-nowrap ${
-                            tenureTypeA === "months"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-transparent text-slate-600 dark:text-slate-300"
+                          tenureTypeA === "months"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-transparent text-slate-600 dark:text-slate-300"
                         }`}
                         onClick={() => !disableAll && setTenureTypeA("months")}
                         disabled={disableAll}
@@ -2740,18 +2858,18 @@ const EMICalculator = ({
                       </span>
                     )}
                   </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Current EMI:{" "}
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    <AnimatedNumber value={liveEmiResult.emi} />
-                  </span>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Current EMI:{" "}
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      <AnimatedNumber value={liveEmiResult.emi} />
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                    Based on Loan {formatINR(liveEmiResult.principal)} • Rate{" "}
+                    {(interestA || 0).toFixed(2)}% p.a. • Tenure{" "}
+                    {liveEmiResult.months || 0} months
+                  </div>
                 </div>
-                <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                  Based on Loan {formatINR(liveEmiResult.principal)} • Rate {(interestA || 0).toFixed(2)}% p.a. • Tenure {liveEmiResult.months || 0} months
-                </div>
-              </div>
-
-
               </div>
             </div>
 
@@ -2760,9 +2878,13 @@ const EMICalculator = ({
               {/* Header */}
               <div className="px-5 pt-5 pb-3 flex items-center justify-between bg-gradient-to-r from-emerald-50/70 via-transparent to-transparent dark:from-emerald-950/20">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">EMI Scheme</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    EMI Scheme
+                  </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    {emiType === "advance" ? "Advance EMI · First instalment paid upfront" : "Arrear EMI · Standard monthly payment"}
+                    {emiType === "advance"
+                      ? "Advance EMI · First instalment paid upfront"
+                      : "Arrear EMI · Standard monthly payment"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2773,11 +2895,13 @@ const EMICalculator = ({
                   >
                     {showSchedule ? "HIDE SCHEDULE" : "VIEW SCHEDULE"}
                   </button>
-                  <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${
-                    emiType === "advance"
-                      ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300"
-                      : "bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300"
-                  }`}>
+                  <span
+                    className={`text-[10px] font-bold px-3 py-1 rounded-full ${
+                      emiType === "advance"
+                        ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300"
+                        : "bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300"
+                    }`}
+                  >
                     {emiType === "advance" ? "ADVANCE" : "ARREAR"}
                   </span>
                 </div>
@@ -2787,29 +2911,41 @@ const EMICalculator = ({
               <div className="grid grid-cols-3 gap-px bg-slate-100 dark:bg-[#2e2e2e] mt-4 border-t border-slate-100 dark:border-[#2e2e2e]">
                 {/* Loan EMI */}
                 <div className="bg-white dark:bg-[#1f1f1f] px-4 py-4 text-center">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Loan EMI</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                    Loan EMI
+                  </div>
                   <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 leading-none">
                     <AnimatedNumber value={liveEmiResult.emi} />
                   </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">/month</div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                    /month
+                  </div>
                 </div>
 
                 {/* Total Interest */}
                 <div className="bg-white dark:bg-[#1f1f1f] px-4 py-4 text-center border-x border-slate-100 dark:border-[#2e2e2e]">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Total Interest</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                    Total Interest
+                  </div>
                   <div className="text-xl font-extrabold text-orange-500 dark:text-orange-400 leading-none">
                     {formatINR(breakupA.interestValue)}
                   </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">payable</div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                    payable
+                  </div>
                 </div>
 
                 {/* Total Payment */}
                 <div className="bg-white dark:bg-[#1f1f1f] px-4 py-4 text-center">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Total Payment</div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                    Total Payment
+                  </div>
                   <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100 leading-none">
                     {formatINR(breakupA.totalValue)}
                   </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">principal + interest</div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                    principal + interest
+                  </div>
                 </div>
               </div>
 
@@ -2817,42 +2953,61 @@ const EMICalculator = ({
               <div className="group relative flex flex-col md:flex-row items-center gap-6 px-5 py-5">
                 {/* SVG Donut — fixed arc math */}
                 <div className="relative flex-shrink-0">
-                   {(() => {
+                  {(() => {
                     const R = 80;
                     const CIRC = 2 * Math.PI * R; // ≈ 502.65
                     const pPct = breakupA.principalRatio;
                     const iPct = breakupA.interestRatio;
                     const GAP = 5; // gap in circumference-px between segments
 
-                    const pArc = Math.max(0, pPct * CIRC - GAP);   // principal dash length
-                    const iArc = Math.max(0, iPct * CIRC - GAP);   // interest dash length
+                    const pArc = Math.max(0, pPct * CIRC - GAP); // principal dash length
+                    const iArc = Math.max(0, iPct * CIRC - GAP); // interest dash length
                     // Interest arc starts immediately after principal segment ends:
                     // strokeDashoffset shifts the dash-start backwards by (CIRC - startPos).
                     // startPos = pPct * CIRC (principal span including gap)
                     const iOffset = CIRC - pPct * CIRC;
 
                     return (
-                      <svg viewBox="0 0 220 220" className="w-52 h-52" style={{ overflow: "visible" }}>
+                      <svg
+                        viewBox="0 0 220 220"
+                        className="w-52 h-52"
+                        style={{ overflow: "visible" }}
+                      >
                         {/* Grey background track */}
-                        <circle cx="110" cy="110" r={R}
-                          fill="none" stroke="#e2e8f0" strokeWidth="26" />
+                        <circle
+                          cx="110"
+                          cy="110"
+                          r={R}
+                          fill="none"
+                          stroke="#e2e8f0"
+                          strokeWidth="26"
+                        />
 
                         {/* Interest arc — orange */}
                         {iArc > 0 && (
-                          <circle cx="110" cy="110" r={R}
+                          <circle
+                            cx="110"
+                            cy="110"
+                            r={R}
                             fill="none"
                             stroke="#fb923c"
                             strokeWidth="26"
                             strokeDasharray={`${iArc} ${CIRC}`}
                             strokeDashoffset={iOffset}
                             transform="rotate(-90 110 110)"
-                            style={{ transition: "stroke-dasharray 0.7s ease, stroke-dashoffset 0.7s ease" }}
+                            style={{
+                              transition:
+                                "stroke-dasharray 0.7s ease, stroke-dashoffset 0.7s ease",
+                            }}
                           />
                         )}
 
                         {/* Principal arc — emerald, identical start (offset=0 aka 12-o'clock) */}
                         {pArc > 0 && (
-                          <circle cx="110" cy="110" r={R}
+                          <circle
+                            cx="110"
+                            cy="110"
+                            r={R}
                             fill="none"
                             stroke="#10b981"
                             strokeWidth="26"
@@ -2864,26 +3019,72 @@ const EMICalculator = ({
                         )}
 
                         {/* Donut hole — solid fill, JS-computed for dark mode compat */}
-                        <circle cx="110" cy="110" r="54"
+                        <circle
+                          cx="110"
+                          cy="110"
+                          r="54"
                           fill="var(--emi-donut-bg, #ffffff)"
-                          style={{ fill: document.documentElement.classList.contains('dark') ? '#1f1f1f' : '#ffffff' }}
+                          style={{
+                            fill: document.documentElement.classList.contains(
+                              "dark",
+                            )
+                              ? "#1f1f1f"
+                              : "#ffffff",
+                          }}
                         />
 
                         {/* Center content */}
                         {liveEmiResult.emi > 0 ? (
                           <>
-                            <text x="110" y="99" textAnchor="middle" fontSize="9.5" fill="#94a3b8">Monthly EMI</text>
-                            <text x="110" y="119" textAnchor="middle" fontSize="15" fontWeight="800" fill="#059669">
+                            <text
+                              x="110"
+                              y="99"
+                              textAnchor="middle"
+                              fontSize="9.5"
+                              fill="#94a3b8"
+                            >
+                              Monthly EMI
+                            </text>
+                            <text
+                              x="110"
+                              y="119"
+                              textAnchor="middle"
+                              fontSize="15"
+                              fontWeight="800"
+                              fill="#059669"
+                            >
                               {`₹${Math.round(liveEmiResult.emi).toLocaleString("en-IN")}`}
                             </text>
-                            <text x="110" y="134" textAnchor="middle" fontSize="9" fill="#94a3b8">
+                            <text
+                              x="110"
+                              y="134"
+                              textAnchor="middle"
+                              fontSize="9"
+                              fill="#94a3b8"
+                            >
                               {`${principalPctA}% P · ${interestPctA}% I`}
                             </text>
                           </>
                         ) : (
                           <>
-                            <text x="110" y="106" textAnchor="middle" fontSize="9.5" fill="#94a3b8">Break-up of</text>
-                            <text x="110" y="122" textAnchor="middle" fontSize="9.5" fill="#94a3b8">Total Payment</text>
+                            <text
+                              x="110"
+                              y="106"
+                              textAnchor="middle"
+                              fontSize="9.5"
+                              fill="#94a3b8"
+                            >
+                              Break-up of
+                            </text>
+                            <text
+                              x="110"
+                              y="122"
+                              textAnchor="middle"
+                              fontSize="9.5"
+                              fill="#94a3b8"
+                            >
+                              Total Payment
+                            </text>
                           </>
                         )}
                       </svg>
@@ -2894,7 +3095,9 @@ const EMICalculator = ({
                 {/* Legend + bar */}
                 <div className="flex-1 w-full space-y-4">
                   {/* Title */}
-                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Break-up of Total Payment</div>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                    Break-up of Total Payment
+                  </div>
 
                   {/* Stacked bar */}
                   <div className="flex h-3 rounded-full overflow-hidden w-full bg-slate-100 dark:bg-[#2e2e2e]">
@@ -2912,9 +3115,13 @@ const EMICalculator = ({
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0" />
-                      <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">Principal Loan Amount</span>
+                      <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
+                        Principal Loan Amount
+                      </span>
                     </div>
-                    <div className="text-[12px] font-bold text-slate-900 dark:text-slate-100">{principalPctA}%</div>
+                    <div className="text-[12px] font-bold text-slate-900 dark:text-slate-100">
+                      {principalPctA}%
+                    </div>
                   </div>
 
                   {/* Divider */}
@@ -2924,9 +3131,13 @@ const EMICalculator = ({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-orange-400 flex-shrink-0" />
-                      <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">Total Interest</span>
+                      <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
+                        Total Interest
+                      </span>
                     </div>
-                    <div className="text-[12px] font-bold text-orange-600 dark:text-orange-400">{interestPctA}%</div>
+                    <div className="text-[12px] font-bold text-orange-600 dark:text-orange-400">
+                      {interestPctA}%
+                    </div>
                   </div>
 
                   {/* Divider */}
@@ -2934,25 +3145,37 @@ const EMICalculator = ({
 
                   {/* Total row */}
                   <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">Total Payment</span>
-                    <div className="text-[10px] text-slate-400">{liveEmiResult.months} months</div>
+                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+                      Total Payment
+                    </span>
+                    <div className="text-[10px] text-slate-400">
+                      {liveEmiResult.months} months
+                    </div>
                   </div>
                 </div>
 
                 <div className="pointer-events-none absolute left-1/2 top-5 z-20 hidden w-[220px] -translate-x-1/2 rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur group-hover:block dark:border-[#2e2e2e] dark:bg-[#171717]/95">
-                  <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500">EMI Breakup</div>
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    EMI Breakup
+                  </div>
                   <div className="flex items-center justify-between py-0.5">
                     <span className="text-slate-500">Principal</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatINR(breakupA.principalValue)}</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {formatINR(breakupA.principalValue)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-0.5">
                     <span className="text-slate-500">Total Interest</span>
-                    <span className="font-bold text-orange-600 dark:text-orange-400">{formatINR(breakupA.interestValue)}</span>
+                    <span className="font-bold text-orange-600 dark:text-orange-400">
+                      {formatINR(breakupA.interestValue)}
+                    </span>
                   </div>
                   <div className="mt-1 border-t border-slate-100 pt-1 dark:border-[#2a2a2a]">
                     <div className="flex items-center justify-between py-0.5">
                       <span className="text-slate-500">Total Payable</span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100">{formatINR(breakupA.totalValue)}</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">
+                        {formatINR(breakupA.totalValue)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -2970,7 +3193,8 @@ const EMICalculator = ({
                     </div>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 text-right">
-                    {colorGallery.length} color{colorGallery.length === 1 ? "" : "s"}
+                    {colorGallery.length} color
+                    {colorGallery.length === 1 ? "" : "s"}
                   </div>
                 </div>
 
@@ -2983,10 +3207,7 @@ const EMICalculator = ({
                       loading="lazy"
                       onError={(event) => {
                         const fallback = selectedColorMedia.originalImage;
-                        if (
-                          fallback &&
-                          event.currentTarget.src !== fallback
-                        ) {
+                        if (fallback && event.currentTarget.src !== fallback) {
                           event.currentTarget.src = fallback;
                         }
                       }}
@@ -3125,408 +3346,665 @@ const EMICalculator = ({
               </details>
             )}
 
-            {/* Comparison accordion */}
+            {/* ── Scenario B – full redesign ───────────────────────────── */}
             {showScenarioB ? (
-            <details className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] px-5 py-5 transition-all hover:shadow-md">
-              <summary className="flex items-center justify-between cursor-pointer list-none">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    Scenario B – comparison EMI
-                  </h2>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                    Compare an alternate loan setup side-by-side
-                  </p>
-                </div>
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (!disableAll) cloneToScenarioB();
-                    }}
-                    disabled={disableAll}
-                  >
-                    Use Scenario A
-                  </Button>
-                  {/* Remove Scenario B */}
-                  <button
-                    type="button"
-                    title="Remove Scenario B"
-                    onClick={() => {
-                      setShowScenarioB(false);
-                      setComparisonTouched(false);
-                      setLoanAmountB(0);
-                      setInterestB(9.5);
-                      setTenureB(5);
-                      setTenureTypeB("years");
-                      setEmiBInput("");
-                      setSolveForB("emi");
-                      setEmiTypeB("arrear");
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors text-sm font-bold"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </summary>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1.4fr),minmax(0,1fr)] gap-4">
-                {/* Scenario B inputs */}
-                <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-[#2a2a2a] bg-slate-50/60 dark:bg-[#202020] px-4 py-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                      Scenario B inputs
-                    </span>
-                    <div className="inline-flex flex-wrap rounded-full bg-slate-100 dark:bg-[#262626] p-1 text-[11px]">
-                      {[{ key: "arrear", label: "Arrear (Standard)" }, { key: "advance", label: "Advance" }].map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() => {
-                            if (disableAll) return;
-                            setComparisonTouched(true);
-                            setEmiTypeB(opt.key);
-                          }}
-                          disabled={disableAll}
-                          className={`px-3 py-1 rounded-full font-medium transition-all ${
-                            emiTypeB === opt.key
-                              ? "bg-emerald-600 text-white shadow-sm"
-                              : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#333]"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
+              <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] overflow-hidden transition-all hover:shadow-md">
+                {/* ── Header ── */}
+                <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100 dark:border-[#262626] bg-gradient-to-r from-violet-50/70 via-transparent to-transparent dark:from-violet-950/20">
+                  <div className="flex items-center gap-3">
+                    {/* A vs B pill */}
+                    <div className="flex items-center gap-1">
+                      <span className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-black flex items-center justify-center select-none">
+                        A
+                      </span>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium px-0.5">
+                        vs
+                      </span>
+                      <span className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[11px] font-black flex items-center justify-center select-none">
+                        B
+                      </span>
                     </div>
-                  </div>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {emiTypeB === "advance" ? "Advance EMI · First instalment paid upfront" : "Arrear EMI · Standard monthly payment"}
-                    </span>
-                    <div className="inline-flex flex-wrap rounded-full bg-slate-100 dark:bg-[#262626] p-1 text-[11px]">
-                      {solveOptions.map((opt) => (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          onClick={() => {
-                            if (disableAll) return;
-                            setComparisonTouched(true);
-                            setSolveForB(opt.key);
-                          }}
-                          disabled={disableAll}
-                          className={`px-3 py-1 rounded-full font-medium ${
-                          solveForB === opt.key
-                            ? "bg-primary text-primary-foreground"
-                            : "text-slate-600 dark:text-slate-300"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                        Scenario B — comparison EMI
+                      </h2>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                        Tweak rate, tenure or amount · savings update live
+                      </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Amount B */}
-                    <div>
-                      <Label>Loan amount</Label>
-                      <div className="relative">
-                        <Input
-                          type="text"
-                          value={
-                            solveForB === "amount"
-                              ? formatNumber(
-                                  displayForField(
-                                    solveForB,
-                                    "amount",
-                                    resultB,
-                                    tenureTypeB,
-                                  ),
-                                ) || ""
-                              : formatNumber(loanAmountB)
-                          }
-                          onChange={(e) => {
-                            if (disableAll) return;
-                            setComparisonTouched(true);
-                            if (solveForB === "amount") return;
-                            setLoanAmountB(parseNumber(e.target.value));
-                          }}
-                          readOnly={solveForB === "amount" || disableAll}
-                          className={
-                            solveForB === "amount"
-                              ? "pr-16 border-emerald-500"
-                              : ""
-                          }
-                        />
-                        {solveForB === "amount" && (
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
-                            Live
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (!disableAll) cloneToScenarioB();
+                      }}
+                      disabled={disableAll}
+                      className="text-[11px]"
+                    >
+                      Copy A → B
+                    </Button>
+                    <button
+                      type="button"
+                      title="Remove Scenario B"
+                      onClick={() => {
+                        setShowScenarioB(false);
+                        setComparisonTouched(false);
+                        setLoanAmountB(0);
+                        setInterestB(9.5);
+                        setTenureB(5);
+                        setTenureTypeB("years");
+                        setEmiBInput("");
+                        setSolveForB("emi");
+                        setEmiTypeB("arrear");
+                      }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
 
-                    {/* Rate B */}
-                    <div>
-                      <Label>Interest rate (annual %)</Label>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={
-                            solveForB === "rate"
-                              ? displayForField(
-                                  solveForB,
-                                  "rate",
-                                  resultB,
-                                  tenureTypeB,
-                                ) || ""
-                              : interestB
-                          }
-                          onChange={(e) => {
-                            if (disableAll) return;
-                            setComparisonTouched(true);
-                            if (solveForB === "rate") return;
-                            setInterestB(Number(e.target.value) || 0);
-                          }}
-                          readOnly={solveForB === "rate" || disableAll}
-                          className={
-                            solveForB === "rate"
-                              ? "pr-16 border-emerald-500"
-                              : ""
-                          }
-                        />
-                        {solveForB === "rate" && (
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
-                            Live
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        type="range"
-                        min={5}
-                        max={20}
-                        step="0.1"
-                        value={interestB}
-                        onChange={(e) => {
-                          if (disableAll) return;
-                          setComparisonTouched(true);
-                          setInterestB(Number(e.target.value) || 0);
-                        }}
-                        className="w-full mt-1"
-                        disabled={disableAll}
-                      />
+                {/* ── Savings / Cost headline banner ── */}
+                {resultA.emi > 0 && resultB.emi > 0 && (
+                  <div
+                    className={`px-5 py-3 flex items-center gap-3 border-b border-slate-100 dark:border-[#262626] ${
+                      emiDiff < 0
+                        ? "bg-emerald-50/70 dark:bg-emerald-950/20"
+                        : emiDiff > 0
+                          ? "bg-rose-50/70 dark:bg-rose-950/20"
+                          : "bg-slate-50/60 dark:bg-[#262626]/40"
+                    }`}
+                  >
+                    <span
+                      className="text-2xl leading-none select-none"
+                      aria-hidden="true"
+                    >
+                      {emiDiff < 0 ? "🎉" : emiDiff > 0 ? "⚠️" : "⚖️"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      {emiDiff === 0 ? (
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          Same EMI as Scenario A
+                        </p>
+                      ) : emiDiff < 0 ? (
+                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                          Save{" "}
+                          <span className="text-[15px]">
+                            {formatINR(Math.abs(emiDiff))}/month
+                          </span>{" "}
+                          with Scenario B
+                        </p>
+                      ) : (
+                        <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                          Scenario B costs{" "}
+                          <span className="text-[15px]">
+                            {formatINR(Math.abs(emiDiff))}/month
+                          </span>{" "}
+                          more
+                        </p>
+                      )}
+                      {interestDiff !== 0 && (
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {interestDiff < 0
+                            ? `Save ${formatINR(Math.abs(interestDiff))} total interest`
+                            : `Pay ${formatINR(Math.abs(interestDiff))} more in total interest`}
+                          {` · ${resultB.months} months`}
+                        </p>
+                      )}
                     </div>
+                    {emiDiff !== 0 && (
+                      <span
+                        className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold ${
+                          emiDiff < 0
+                            ? "bg-emerald-600 text-white"
+                            : "bg-rose-600 text-white"
+                        }`}
+                      >
+                        {emiDiff < 0 ? "✓ B is better" : "A is better"}
+                      </span>
+                    )}
+                  </div>
+                )}
 
-                    {/* Tenure B */}
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1">
-                        <Label>Tenure</Label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            value={
-                              solveForB === "tenure"
-                                ? displayForField(
-                                    solveForB,
-                                    "tenure",
-                                    resultB,
-                                    tenureTypeB,
-                                  ) || ""
-                                : tenureB
-                            }
-                            onChange={(e) => {
-                              if (disableAll) return;
-                              setComparisonTouched(true);
-                              if (solveForB === "tenure") return;
-                              setTenureB(Number(e.target.value) || 0);
-                            }}
-                            readOnly={solveForB === "tenure" || disableAll}
-                            className={
-                              solveForB === "tenure"
-                                ? "pr-16 border-emerald-500"
-                                : ""
-                            }
-                          />
-                          {solveForB === "tenure" && (
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
-                              Live
-                            </span>
-                          )}
+                {/* ── Body: inputs (left) + outcomes (right) ── */}
+                <div className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr),minmax(0,1fr)] gap-5">
+                  {/* ── LEFT: inputs ── */}
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-violet-100 dark:border-violet-900/30 bg-violet-50/40 dark:bg-[#1e1726]/60 px-4 py-4 space-y-3.5">
+                      {/* Mode + solve-for toggles row */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        {/* EMI mode */}
+                        <div className="inline-flex rounded-full bg-white dark:bg-[#262626] border border-slate-200 dark:border-[#383838] p-0.5 text-[11px]">
+                          {[
+                            { key: "arrear", label: "Arrear" },
+                            { key: "advance", label: "Advance" },
+                          ].map((opt) => (
+                            <button
+                              key={opt.key}
+                              type="button"
+                              onClick={() => {
+                                if (disableAll) return;
+                                setComparisonTouched(true);
+                                setEmiTypeB(opt.key);
+                              }}
+                              disabled={disableAll}
+                              className={`px-3 py-1 rounded-full font-semibold transition-all ${
+                                emiTypeB === opt.key
+                                  ? "bg-violet-600 text-white shadow-sm"
+                                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#333]"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Solve-for */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Solve:
+                          </span>
+                          <div className="inline-flex rounded-full bg-white dark:bg-[#262626] border border-slate-200 dark:border-[#383838] p-0.5 text-[11px]">
+                            {solveOptions.map((opt) => (
+                              <button
+                                key={opt.key}
+                                type="button"
+                                onClick={() => {
+                                  if (disableAll) return;
+                                  setComparisonTouched(true);
+                                  setSolveForB(opt.key);
+                                }}
+                                disabled={disableAll}
+                                className={`px-3 py-1 rounded-full font-semibold transition-all ${
+                                  solveForB === opt.key
+                                    ? "bg-violet-600 text-white shadow-sm"
+                                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#333]"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-[#262626]">
-                        <button
-                          type="button"
-                          className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
-                            tenureTypeB === "years"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-transparent text-slate-600 dark:text-slate-300"
-                          }`}
-                          onClick={() => {
-                            if (disableAll) return;
-                            setComparisonTouched(true);
-                            setTenureTypeB("years");
-                          }}
-                          disabled={disableAll}
-                        >
-                          Years
-                        </button>
-                        <button
-                          type="button"
-                          className={`px-3 py-1.5 text-xs font-medium border-l border-slate-200 dark:border-[#262626] whitespace-nowrap ${
-                            tenureTypeB === "months"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-transparent text-slate-600 dark:text-slate-300"
-                          }`}
-                          onClick={() => {
-                            if (disableAll) return;
-                            setComparisonTouched(true);
-                            setTenureTypeB("months");
-                          }}
-                          disabled={disableAll}
-                        >
-                          Months
-                        </button>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Loan Amount B */}
+                        <div className="space-y-1">
+                          <Label>Loan amount</Label>
+                          <div className="relative">
+                            <Input
+                              type="text"
+                              value={
+                                solveForB === "amount"
+                                  ? formatNumber(
+                                      displayForField(
+                                        solveForB,
+                                        "amount",
+                                        resultB,
+                                        tenureTypeB,
+                                      ),
+                                    ) || ""
+                                  : formatNumber(loanAmountB)
+                              }
+                              onChange={(e) => {
+                                if (disableAll) return;
+                                setComparisonTouched(true);
+                                if (solveForB === "amount") return;
+                                setLoanAmountB(parseNumber(e.target.value));
+                              }}
+                              readOnly={solveForB === "amount" || disableAll}
+                              className={
+                                solveForB === "amount"
+                                  ? "pr-10 border-violet-400 focus:ring-violet-300"
+                                  : ""
+                              }
+                            />
+                            {solveForB === "amount" && (
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
+                                Live
+                              </span>
+                            )}
+                          </div>
+                          {/* diff hint */}
+                          {loanDiff !== 0 &&
+                            resultA.principal > 0 &&
+                            resultB.principal > 0 && (
+                              <p
+                                className={`text-[10px] font-semibold ${loanDiff > 0 ? "text-rose-500" : "text-emerald-600"}`}
+                              >
+                                {loanDiff > 0
+                                  ? `▲ ${formatINR(Math.abs(loanDiff))} vs A`
+                                  : `▼ ${formatINR(Math.abs(loanDiff))} vs A`}
+                              </p>
+                            )}
+                        </div>
+
+                        {/* EMI B */}
+                        <div className="space-y-1">
+                          <Label>EMI</Label>
+                          <div className="relative">
+                            <Input
+                              type="text"
+                              value={
+                                solveForB === "emi"
+                                  ? formatNumber(
+                                      displayForField(
+                                        solveForB,
+                                        "emi",
+                                        resultB,
+                                        tenureTypeB,
+                                      ),
+                                    ) || ""
+                                  : formatNumber(emiBInput)
+                              }
+                              onChange={(e) => {
+                                if (disableAll) return;
+                                setComparisonTouched(true);
+                                if (solveForB === "emi") return;
+                                setEmiBInput(parseNumber(e.target.value));
+                              }}
+                              readOnly={solveForB === "emi" || disableAll}
+                              className={
+                                solveForB === "emi"
+                                  ? "pr-10 border-violet-400 focus:ring-violet-300"
+                                  : ""
+                              }
+                            />
+                            {solveForB === "emi" && (
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
+                                Live
+                              </span>
+                            )}
+                          </div>
+                          {emiDiff !== 0 &&
+                            resultA.emi > 0 &&
+                            resultB.emi > 0 && (
+                              <p
+                                className={`text-[10px] font-semibold ${emiDiff < 0 ? "text-emerald-600" : "text-rose-500"}`}
+                              >
+                                {emiDiff < 0
+                                  ? `▼ ${formatINR(Math.abs(emiDiff))}/mo vs A`
+                                  : `▲ ${formatINR(Math.abs(emiDiff))}/mo vs A`}
+                              </p>
+                            )}
+                        </div>
+
+                        {/* Interest Rate B */}
+                        <div className="space-y-1 col-span-2">
+                          <Label>Interest rate (annual %)</Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={
+                                solveForB === "rate"
+                                  ? displayForField(
+                                      solveForB,
+                                      "rate",
+                                      resultB,
+                                      tenureTypeB,
+                                    ) || ""
+                                  : interestB
+                              }
+                              onChange={(e) => {
+                                if (disableAll) return;
+                                setComparisonTouched(true);
+                                if (solveForB === "rate") return;
+                                setInterestB(Number(e.target.value) || 0);
+                              }}
+                              readOnly={solveForB === "rate" || disableAll}
+                              className={
+                                solveForB === "rate"
+                                  ? "pr-10 border-violet-400"
+                                  : ""
+                              }
+                            />
+                            {solveForB === "rate" && (
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
+                                Live
+                              </span>
+                            )}
+                          </div>
+                          {/* Rate slider */}
+                          <div className="pt-1 space-y-1">
+                            <input
+                              type="range"
+                              min={5}
+                              max={20}
+                              step="0.1"
+                              value={interestB}
+                              onChange={(e) => {
+                                if (disableAll) return;
+                                setComparisonTouched(true);
+                                setInterestB(Number(e.target.value) || 0);
+                              }}
+                              className="w-full accent-violet-600"
+                              disabled={disableAll}
+                            />
+                            <div className="flex justify-between text-[9px] text-slate-400">
+                              <span>5%</span>
+                              <span className="font-bold text-violet-600 dark:text-violet-400">
+                                {Number(interestB).toFixed(2)}% p.a.
+                              </span>
+                              <span>20%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Tenure B */}
+                        <div className="space-y-1 col-span-2">
+                          <Label>Tenure</Label>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Input
+                                type="number"
+                                value={
+                                  solveForB === "tenure"
+                                    ? displayForField(
+                                        solveForB,
+                                        "tenure",
+                                        resultB,
+                                        tenureTypeB,
+                                      ) || ""
+                                    : tenureB
+                                }
+                                onChange={(e) => {
+                                  if (disableAll) return;
+                                  setComparisonTouched(true);
+                                  if (solveForB === "tenure") return;
+                                  setTenureB(Number(e.target.value) || 0);
+                                }}
+                                readOnly={solveForB === "tenure" || disableAll}
+                                className={
+                                  solveForB === "tenure"
+                                    ? "pr-10 border-violet-400"
+                                    : ""
+                                }
+                              />
+                              {solveForB === "tenure" && (
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
+                                  Live
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-[#383838]">
+                              {["years", "months"].map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  className={`px-3 py-1.5 text-[11px] font-semibold capitalize transition-colors ${
+                                    tenureTypeB === t
+                                      ? "bg-violet-600 text-white"
+                                      : "bg-transparent text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-[#383838] first:border-l-0 hover:bg-slate-50 dark:hover:bg-[#2a2a2a]"
+                                  }`}
+                                  onClick={() => {
+                                    if (disableAll) return;
+                                    setComparisonTouched(true);
+                                    setTenureTypeB(t);
+                                  }}
+                                  disabled={disableAll}
+                                >
+                                  {t === "years" ? "Yrs" : "Mos"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            = {resultB.months || 0} months
+                            {resultB.months !== resultA.months &&
+                              resultA.months > 0 && (
+                                <span
+                                  className={`ml-2 font-semibold ${resultB.months < resultA.months ? "text-emerald-600" : "text-rose-500"}`}
+                                >
+                                  (
+                                  {resultB.months < resultA.months
+                                    ? `-${resultA.months - resultB.months}`
+                                    : `+${resultB.months - resultA.months}`}{" "}
+                                  vs A)
+                                </span>
+                              )}
+                          </p>
+                        </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* EMI B */}
-                    <div>
-                      <Label>EMI</Label>
-                      <div className="relative">
-                        <Input
-                          type="text"
-                          value={
-                            solveForB === "emi"
-                              ? formatNumber(
-                                  displayForField(
-                                    solveForB,
-                                    "emi",
-                                    resultB,
-                                    tenureTypeB,
-                                  ),
-                                ) || ""
-                              : formatNumber(emiBInput)
-                          }
-                          onChange={(e) => {
-                            if (disableAll) return;
-                            setComparisonTouched(true);
-                            if (solveForB === "emi") return;
-                            setEmiBInput(parseNumber(e.target.value));
-                          }}
-                          readOnly={solveForB === "emi" || disableAll}
-                          className={
-                            solveForB === "emi"
-                              ? "pr-16 border-emerald-500"
-                              : ""
-                          }
-                        />
-                        {solveForB === "emi" && (
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
-                            Live
-                          </span>
+                  {/* ── RIGHT: outcomes ── */}
+                  <div className="space-y-4">
+                    {/* 3 stat cards — mirrors Scenario A's scheme panel */}
+                    <div className="grid grid-cols-3 gap-px bg-violet-100/60 dark:bg-[#2a2035] rounded-2xl overflow-hidden border border-violet-100 dark:border-violet-900/30">
+                      {/* EMI B */}
+                      <div className="bg-white dark:bg-[#1f1f1f] px-3 py-3.5 text-center">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
+                          Loan EMI
+                        </div>
+                        <div className="text-xl font-extrabold text-violet-600 dark:text-violet-400 leading-none">
+                          <AnimatedNumber value={resultB.emi} />
+                        </div>
+                        {emiDiff !== 0 && resultA.emi > 0 && (
+                          <div
+                            className={`text-[10px] mt-1.5 font-bold ${emiDiff < 0 ? "text-emerald-600" : "text-rose-500"}`}
+                          >
+                            {emiDiff < 0
+                              ? `▼ ${formatINR(Math.abs(emiDiff))}`
+                              : `▲ ${formatINR(Math.abs(emiDiff))}`}
+                          </div>
                         )}
+                        <div className="text-[9px] text-slate-400 mt-0.5">
+                          /month
+                        </div>
+                      </div>
+
+                      {/* Total Interest B */}
+                      <div className="bg-white dark:bg-[#1f1f1f] px-3 py-3.5 text-center border-x border-violet-100/60 dark:border-[#2a2035]">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
+                          Total Interest
+                        </div>
+                        <div className="text-xl font-extrabold text-orange-500 dark:text-orange-400 leading-none">
+                          {formatINR(resultB.interest)}
+                        </div>
+                        {interestDiff !== 0 && breakupA.interestValue > 0 && (
+                          <div
+                            className={`text-[10px] mt-1.5 font-bold ${interestDiff < 0 ? "text-emerald-600" : "text-rose-500"}`}
+                          >
+                            {interestDiff < 0
+                              ? `▼ ${formatINR(Math.abs(interestDiff))}`
+                              : `▲ ${formatINR(Math.abs(interestDiff))}`}
+                          </div>
+                        )}
+                        <div className="text-[9px] text-slate-400 mt-0.5">
+                          payable
+                        </div>
+                      </div>
+
+                      {/* Total Payment B */}
+                      <div className="bg-white dark:bg-[#1f1f1f] px-3 py-3.5 text-center">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
+                          Total Payment
+                        </div>
+                        <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100 leading-none">
+                          {formatINR(resultB.total)}
+                        </div>
+                        <div className="text-[9px] text-slate-400 mt-0.5">
+                          {resultB.months}mo
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Scenario B outcome + subvention numbers */}
-                <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1f1f1f] px-4 py-4">
-                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                    Outcome
-                  </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    EMI B:{" "}
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {formatINR(resultB.emi)}
-                    </span>{" "}
-                    ({resultB.months} months)
-                  </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Loan amount B:{" "}
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {formatINR(resultB.principal)}
-                    </span>
-                  </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Interest B:{" "}
-                    <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {formatINR(resultB.interest)}
-                    </span>
-                  </div>
+                    {/* A vs B side-by-side comparison table */}
+                    <div className="rounded-2xl border border-slate-200 dark:border-[#2a2a2a] overflow-hidden">
+                      {/* Table header */}
+                      <div className="grid grid-cols-[1fr,72px,72px] px-4 py-2 bg-slate-50 dark:bg-[#262626] border-b border-slate-100 dark:border-[#2a2a2a]">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Metric
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 text-center">
+                          A
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 text-center">
+                          B
+                        </span>
+                      </div>
 
-                  <div className="mt-2 rounded-2xl bg-slate-50 dark:bg-[#262626] px-3 py-3 text-xs space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-300">
-                        EMI difference
-                      </span>
-                      <span
-                        className={`font-semibold ${
-                          emiDiff < 0
-                            ? "text-emerald-600"
-                            : emiDiff > 0
-                              ? "text-red-500"
-                              : "text-slate-600"
-                        }`}
-                      >
-                        {emiDiff === 0
-                          ? "Same"
-                          : `${emiDiff < 0 ? "↓" : "↑"} ${formatINR(
-                              Math.abs(emiDiff),
-                            )}/month`}
-                      </span>
+                      {/* Comparison rows */}
+                      {[
+                        {
+                          label: "Monthly EMI",
+                          a: resultA.emi,
+                          b: resultB.emi,
+                          format: formatINR,
+                          lowerBetter: true,
+                        },
+                        {
+                          label: "Total Interest",
+                          a: breakupA.interestValue,
+                          b: resultB.interest,
+                          format: formatINR,
+                          lowerBetter: true,
+                        },
+                        {
+                          label: "Total Payment",
+                          a: breakupA.totalValue,
+                          b: resultB.total,
+                          format: formatINR,
+                          lowerBetter: true,
+                        },
+                        {
+                          label: "Loan Amount",
+                          a: resultA.principal,
+                          b: resultB.principal,
+                          format: formatINR,
+                          lowerBetter: null, // neutral — just informational
+                        },
+                        {
+                          label: "Tenure",
+                          a: resultA.months,
+                          b: resultB.months,
+                          format: (v) => `${v}mo`,
+                          lowerBetter: true,
+                        },
+                      ].map(({ label, a, b, format, lowerBetter }) => {
+                        const safeA = a || 0;
+                        const safeB = b || 0;
+                        const maxVal = Math.max(safeA, safeB);
+                        const aBar =
+                          maxVal > 0 ? Math.round((safeA / maxVal) * 100) : 0;
+                        const bBar =
+                          maxVal > 0 ? Math.round((safeB / maxVal) * 100) : 0;
+                        const diff = safeB - safeA;
+                        const aWins =
+                          lowerBetter !== null
+                            ? lowerBetter
+                              ? safeA <= safeB
+                              : safeA >= safeB
+                            : false;
+                        const bWins =
+                          lowerBetter !== null
+                            ? lowerBetter
+                              ? safeB <= safeA
+                              : safeB >= safeA
+                            : false;
+                        const hasBothValues = safeA > 0 && safeB > 0;
+
+                        return (
+                          <div
+                            key={label}
+                            className="grid grid-cols-[1fr,72px,72px] items-center px-4 py-2.5 border-b border-slate-100 dark:border-[#262626] last:border-b-0 bg-white dark:bg-[#1f1f1f] gap-2"
+                          >
+                            {/* Label + diff badge */}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                                  {label}
+                                </span>
+                                {diff !== 0 &&
+                                  hasBothValues &&
+                                  lowerBetter !== null && (
+                                    <span
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                        (lowerBetter && diff < 0) ||
+                                        (!lowerBetter && diff > 0)
+                                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                          : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                                      }`}
+                                    >
+                                      {diff < 0 ? "▼" : "▲"}{" "}
+                                      {format(Math.abs(diff))}
+                                    </span>
+                                  )}
+                              </div>
+                            </div>
+
+                            {/* Scenario A cell */}
+                            <div className="text-center space-y-1">
+                              {hasBothValues && (
+                                <div className="h-1 rounded-full bg-slate-100 dark:bg-[#2e2e2e] overflow-hidden mx-1">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-700 ${aWins ? "bg-emerald-500" : "bg-emerald-200 dark:bg-emerald-800"}`}
+                                    style={{ width: `${aBar}%` }}
+                                  />
+                                </div>
+                              )}
+                              <div
+                                className={`text-[11px] font-bold tabular-nums ${
+                                  hasBothValues && aWins
+                                    ? "text-emerald-700 dark:text-emerald-300"
+                                    : "text-slate-700 dark:text-slate-300"
+                                }`}
+                              >
+                                {safeA > 0 ? format(safeA) : "—"}
+                              </div>
+                            </div>
+
+                            {/* Scenario B cell */}
+                            <div className="text-center space-y-1">
+                              {hasBothValues && (
+                                <div className="h-1 rounded-full bg-slate-100 dark:bg-[#2e2e2e] overflow-hidden mx-1">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-700 ${bWins ? "bg-violet-500" : "bg-violet-200 dark:bg-violet-800"}`}
+                                    style={{ width: `${bBar}%` }}
+                                  />
+                                </div>
+                              )}
+                              <div
+                                className={`text-[11px] font-bold tabular-nums ${
+                                  hasBothValues && bWins
+                                    ? "text-violet-700 dark:text-violet-300"
+                                    : "text-slate-700 dark:text-slate-300"
+                                }`}
+                              >
+                                {safeB > 0 ? format(safeB) : "—"}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-300">
-                        Total interest difference
-                      </span>
-                      <span
-                        className={`font-semibold ${
-                          interestDiff < 0
-                            ? "text-emerald-600"
-                            : interestDiff > 0
-                              ? "text-red-500"
-                              : "text-slate-600"
-                        }`}
-                      >
-                        {interestDiff === 0
-                          ? "0"
-                          : `${interestDiff < 0 ? "↓" : "↑"} ${formatINR(
-                              Math.abs(interestDiff),
-                            )}`}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-300">
-                        Loan amount difference
-                      </span>
-                      <span
-                        className={`font-semibold ${
-                          loanDiff < 0
-                            ? "text-red-500"
-                            : loanDiff > 0
-                              ? "text-emerald-600"
-                              : "text-slate-600"
-                        }`}
-                      >
-                        {loanDiff === 0
-                          ? "0"
-                          : `${loanDiff < 0 ? "↓" : "↑"} ${formatINR(
-                              Math.abs(loanDiff),
-                            )}`}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      At same EMI & tenure, this is the extra loan / subvention
-                      required.
-                    </div>
+
+                    {/* Subvention / extra loan note */}
+                    {loanDiff !== 0 && resultA.emi > 0 && resultB.emi > 0 && (
+                      <div className="rounded-2xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/30 px-4 py-3 flex items-start gap-2">
+                        <span
+                          className="text-violet-500 text-base leading-none mt-0.5"
+                          aria-hidden="true"
+                        >
+                          ⓘ
+                        </span>
+                        <p className="text-[11px] text-violet-700 dark:text-violet-300 leading-relaxed">
+                          <span className="font-bold">Subvention note: </span>
+                          {loanDiff > 0
+                            ? `At the same EMI & tenure, Scenario B requires ${formatINR(Math.abs(loanDiff))} extra loan / subvention.`
+                            : `Scenario B uses ${formatINR(Math.abs(loanDiff))} less loan — meaning a higher down payment is required.`}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </details>
             ) : (
               /* Re-add Scenario B */
               <button
@@ -3551,40 +4029,41 @@ const EMICalculator = ({
                 </div>
                 {scheduleA.length === 0 ? (
                   <div className="rounded-2xl border border-slate-200 dark:border-[#262626] bg-slate-50/60 dark:bg-[#262626]/50 px-4 py-4 text-[12px] text-slate-500 dark:text-slate-400">
-                    Schedule unavailable. Please ensure Loan Amount, Tenure, Interest, and EMI are valid.
+                    Schedule unavailable. Please ensure Loan Amount, Tenure,
+                    Interest, and EMI are valid.
                   </div>
                 ) : (
-                <div className="max-h-80 overflow-y-auto rounded-2xl border border-slate-200 dark:border-[#262626]">
-                  <table className="w-full text-xs border-collapse">
-                    <thead className="bg-slate-50 dark:bg-[#262626] sticky top-0 z-10">
-                      <tr>
-                        <th className="p-2 text-left">Month</th>
-                        <th className="p-2 text-right">Principal</th>
-                        <th className="p-2 text-right">Interest</th>
-                        <th className="p-2 text-right">Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scheduleA.map((row) => (
-                        <tr
-                          key={row.month}
-                          className="border-t border-slate-100 dark:border-[#262626]"
-                        >
-                          <td className="p-2">{row.month}</td>
-                          <td className="p-2 text-right">
-                            {formatINR(row.principal)}
-                          </td>
-                          <td className="p-2 text-right">
-                            {formatINR(row.interest)}
-                          </td>
-                          <td className="p-2 text-right">
-                            {formatINR(row.balance)}
-                          </td>
+                  <div className="max-h-80 overflow-y-auto rounded-2xl border border-slate-200 dark:border-[#262626]">
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="bg-slate-50 dark:bg-[#262626] sticky top-0 z-10">
+                        <tr>
+                          <th className="p-2 text-left">Month</th>
+                          <th className="p-2 text-right">Principal</th>
+                          <th className="p-2 text-right">Interest</th>
+                          <th className="p-2 text-right">Balance</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {scheduleA.map((row) => (
+                          <tr
+                            key={row.month}
+                            className="border-t border-slate-100 dark:border-[#262626]"
+                          >
+                            <td className="p-2">{row.month}</td>
+                            <td className="p-2 text-right">
+                              {formatINR(row.principal)}
+                            </td>
+                            <td className="p-2 text-right">
+                              {formatINR(row.interest)}
+                            </td>
+                            <td className="p-2 text-right">
+                              {formatINR(row.balance)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}

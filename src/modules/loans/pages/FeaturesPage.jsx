@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, X, Check, Minus } from "lucide-react";
 import { featuresApi } from "../../../api/features";
 import ScenarioAInline from "../components/ScenarioAInline";
+import { Select } from "antd";
 
 // helper to extract a number from a string
 const extractNumber = (str) => {
@@ -35,6 +36,10 @@ const FeaturesPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [fuelFilter, setFuelFilter] = useState("all");
   const [transmissionFilter, setTransmissionFilter] = useState("all");
+
+  const [makeFilter, setMakeFilter] = useState("");
+  const [modelFilter, setModelFilter] = useState("");
+  const [variantFilter, setVariantFilter] = useState("");
 
   const [expandedId, setExpandedId] = useState(null);
   const [compareIds, setCompareIds] = useState([]);
@@ -108,10 +113,49 @@ const FeaturesPage = () => {
         )
           return false;
 
+        if (makeFilter && v.make !== makeFilter) return false;
+        if (modelFilter && v.model !== modelFilter) return false;
+        if (variantFilter && v.variant !== variantFilter) return false;
+
         return true;
       }),
-    [variants, searchTerm, fuelFilter, transmissionFilter],
+    [
+      variants,
+      searchTerm,
+      fuelFilter,
+      transmissionFilter,
+      makeFilter,
+      modelFilter,
+      variantFilter,
+    ],
   );
+
+  // All unique makes from loaded variants
+  const uniqueMakes = useMemo(
+    () => [...new Set(variants.map((v) => v.make).filter(Boolean))].sort(),
+    [variants],
+  );
+
+  // Models available for the selected make
+  const uniqueModels = useMemo(() => {
+    if (!makeFilter) return [];
+    return [
+      ...new Set(
+        variants
+          .filter((v) => v.make === makeFilter)
+          .map((v) => v.model)
+          .filter(Boolean),
+      ),
+    ].sort();
+  }, [variants, makeFilter]);
+
+  // Variants available for the selected make + model
+  const uniqueVariants = useMemo(() => {
+    let list = variants;
+    if (makeFilter) list = list.filter((v) => v.make === makeFilter);
+    if (modelFilter) list = list.filter((v) => v.model === modelFilter);
+    return [...new Set(list.map((v) => v.variant).filter(Boolean))].sort();
+  }, [variants, makeFilter, modelFilter]);
 
   const handleToggleCompare = (id) => {
     setCompareIds((prev) => {
@@ -296,10 +340,24 @@ const FeaturesPage = () => {
     };
   };
 
+  const handleMakeChange = (value) => {
+    setMakeFilter(value || "");
+    setModelFilter("");
+    setVariantFilter("");
+  };
+
+  const handleModelChange = (value) => {
+    setModelFilter(value || "");
+    setVariantFilter("");
+  };
+
   const handleClearFilters = () => {
     setSearchTerm("");
     setFuelFilter("all");
     setTransmissionFilter("all");
+    setMakeFilter("");
+    setModelFilter("");
+    setVariantFilter("");
     setCompareIds([]);
     setShowMatrix(false);
     setExpandedId(null);
@@ -385,7 +443,6 @@ const FeaturesPage = () => {
                   { value: "Petrol", label: "Petrol" },
                   { value: "CNG", label: "CNG" },
                   { value: "Diesel", label: "Diesel" },
-                  { value: "Strong Hybrid", label: "Hybrid" },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -413,9 +470,7 @@ const FeaturesPage = () => {
                 {[
                   { value: "all", label: "All" },
                   { value: "MT", label: "MT" },
-                  { value: "AMT", label: "AMT" },
                   { value: "AT", label: "AT" },
-                  { value: "DCT", label: "DCT" },
                 ].map((opt) => (
                   <button
                     key={opt.value}
@@ -444,6 +499,100 @@ const FeaturesPage = () => {
             <X className="w-3.5 h-3.5" />
             Clear filters & compare
           </button>
+        </div>
+
+        {/* Make / Model / Variant dependent dropdowns */}
+        <div className="bg-white dark:bg-[#111111] rounded-2xl border border-slate-100 dark:border-neutral-800 px-4 py-3.5">
+          <div className="flex items-center gap-1 mb-2.5">
+            <SlidersHorizontal className="w-4 h-4 text-slate-400" />
+            <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+              Filter by vehicle
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3 items-end">
+            {/* Make */}
+            <div className="min-w-[160px]">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                Make
+              </label>
+              <Select
+                placeholder="Any make"
+                value={makeFilter || undefined}
+                onChange={handleMakeChange}
+                allowClear
+                showSearch
+                className="w-full"
+                size="middle"
+                filterOption={(input, option) =>
+                  (option?.children ?? "")
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+              >
+                {uniqueMakes.map((make) => (
+                  <Select.Option key={make} value={make}>
+                    {make}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Model — dependent on Make */}
+            <div className="min-w-[200px]">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                Model
+              </label>
+              <Select
+                placeholder="Any model"
+                value={modelFilter || undefined}
+                onChange={handleModelChange}
+                allowClear
+                showSearch
+                disabled={!makeFilter}
+                className="w-full"
+                size="middle"
+                filterOption={(input, option) =>
+                  (option?.children ?? "")
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+              >
+                {uniqueModels.map((model) => (
+                  <Select.Option key={model} value={model}>
+                    {model}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Variant — dependent on Make + Model */}
+            <div className="min-w-[240px]">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                Variant
+              </label>
+              <Select
+                placeholder="Any variant"
+                value={variantFilter || undefined}
+                onChange={(v) => setVariantFilter(v || "")}
+                allowClear
+                showSearch
+                disabled={!makeFilter && !modelFilter}
+                className="w-full"
+                size="middle"
+                filterOption={(input, option) =>
+                  (option?.children ?? "")
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+              >
+                {uniqueVariants.map((variant) => (
+                  <Select.Option key={variant} value={variant}>
+                    {variant}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+          </div>
         </div>
 
         {/* Global search */}
@@ -735,7 +884,7 @@ const FeaturesPage = () => {
 
                       <div
                         className={`transition-all duration-300 ease-out overflow-hidden ${
-                          isExpanded ? "max-h-72 mt-2" : "max-h-0"
+                          isExpanded ? "max-h-[60vh] mt-2" : "max-h-0"
                         }`}
                       >
                         {isExpanded && (
@@ -761,65 +910,69 @@ const FeaturesPage = () => {
                               )}
                             </div>
 
-                            {[
-                              "Safety",
-                              "Comfort & Convenience",
-                              "Exterior",
-                              "Infotainment",
-                              "Connected",
-                              "Others",
-                            ].map((cat) => {
-                              let items = (v.features || []).filter(
-                                (f) => f.category === cat,
-                              );
-                              if (localPanelSearch) {
-                                items = items.filter((f) =>
-                                  `${f.name} ${f.value}`
-                                    .toLowerCase()
-                                    .includes(localPanelSearch),
+                            <div className="overflow-y-auto max-h-[50vh] pr-2 space-y-2">
+                              {[
+                                "Safety",
+                                "Comfort & Convenience",
+                                "Exterior",
+                                "Infotainment",
+                                "Connected",
+                                "Others",
+                              ].map((cat) => {
+                                let items = (v.features || []).filter(
+                                  (f) => f.category === cat,
                                 );
-                              }
-                              if (!items.length) return null;
-                              return (
-                                <div key={cat}>
-                                  <div className="text-[12px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
-                                    {cat}
-                                  </div>
-                                  <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                                    {items.map((f) => {
-                                      const label = normalizeValueLabel(
-                                        f.value,
-                                      );
-                                      const valLower = String(label)
-                                        .toLowerCase()
-                                        .trim();
-                                      const isYes = valLower === "yes";
-                                      const isNo = valLower === "not available";
-                                      return (
-                                        <div
-                                          key={f.name}
-                                          className="flex items-start justify-between gap-2 text-[12px]"
-                                        >
-                                          <div className="text-slate-700 dark:text-slate-200">
-                                            {f.name}
+                                if (localPanelSearch) {
+                                  items = items.filter((f) =>
+                                    `${f.name} ${f.value}`
+                                      .toLowerCase()
+                                      .includes(localPanelSearch),
+                                  );
+                                }
+                                if (!items.length) return null;
+                                return (
+                                  <div key={cat}>
+                                    <div className="text-[12px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                                      {cat}
+                                    </div>
+                                    <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                                      {items.map((f) => {
+                                        const label = normalizeValueLabel(
+                                          f.value,
+                                        );
+                                        const valLower = String(label)
+                                          .toLowerCase()
+                                          .trim();
+                                        const isYes = valLower === "yes";
+                                        const isNo =
+                                          valLower === "not available";
+                                        return (
+                                          <div
+                                            key={f.name}
+                                            className="flex items-start justify-between gap-2 text-[12px]"
+                                          >
+                                            <div className="text-slate-700 dark:text-slate-200">
+                                              {f.name}
+                                            </div>
+                                            <div className="flex items-center gap-1 text-slate-700 dark:text-slate-100">
+                                              {isYes ? (
+                                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                              ) : isNo ? (
+                                                <Minus className="w-3.5 h-3.5 text-slate-400" />
+                                              ) : null}
+                                              <span>
+                                                {isYes || isNo ? "" : label}
+                                              </span>
+                                            </div>
                                           </div>
-                                          <div className="flex items-center gap-1 text-slate-700 dark:text-slate-100">
-                                            {isYes ? (
-                                              <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                            ) : isNo ? (
-                                              <Minus className="w-3.5 h-3.5 text-slate-400" />
-                                            ) : null}
-                                            <span>
-                                              {isYes || isNo ? "" : label}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
+                            {/* end overflow-y-auto categories wrapper */}
                           </div>
                         )}
                       </div>
