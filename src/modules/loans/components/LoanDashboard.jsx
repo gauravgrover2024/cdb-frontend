@@ -616,7 +616,9 @@ const LoanDashboard = () => {
       ) || 0;
 
     try {
-      const searchKey = (debouncedSearchQuery || "").trim().toLowerCase();
+      const searchSeed = String(debouncedSearchQuery || "").trim();
+      const searchKey = searchSeed.toLowerCase();
+      const isSeedSearchMode = searchSeed.length >= 3;
       const isLatestLeadMode = sortConfig?.key === "createdAt";
       const mapSortToApi = (cfg) => {
         switch (cfg?.key) {
@@ -654,7 +656,9 @@ const LoanDashboard = () => {
         }
       };
       const apiSort = mapSortToApi(sortConfig);
-      const cacheKey = `${searchKey}|${page}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
+      const cacheKey = isSeedSearchMode
+        ? `seed:${searchKey}|${apiSort.sortBy}|${apiSort.sortDir}`
+        : `${searchKey}|${page}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
       const cached = pageCacheRef.current.get(cacheKey);
       if (cached) {
         setLoans(cached.rows);
@@ -664,15 +668,15 @@ const LoanDashboard = () => {
       }
 
       const startedAt = performance.now();
-      const effectivePage = page;
-      const effectiveLimit = pageSize;
+      const effectivePage = isSeedSearchMode ? 1 : page;
+      const effectiveLimit = isSeedSearchMode ? 1000 : pageSize;
       let payload = null;
       let rows = [];
       const apiStartAt = performance.now();
       const requestParams = {
         page: effectivePage,
         limit: effectiveLimit,
-        search: debouncedSearchQuery?.trim() || "",
+        search: searchSeed || "",
         sortBy: apiSort.sortBy,
         sortDir: apiSort.sortDir,
       };
@@ -683,9 +687,43 @@ const LoanDashboard = () => {
         ...requestParams,
       });
       rows = extractRows(payload);
+      const total = extractTotal(payload);
+
+      // Search UX: backend only once for 3-char seed; then local filtering for additional chars.
+      if (isSeedSearchMode && total > rows.length) {
+        const totalPages = Math.ceil(total / effectiveLimit);
+        const pageRequests = [];
+        for (let p = 2; p <= totalPages; p += 1) {
+          pageRequests.push(
+            loansApi.getAll({
+              ...requestParams,
+              page: p,
+              limit: effectiveLimit,
+            }),
+          );
+        }
+        if (pageRequests.length) {
+          const extraPayloads = await Promise.all(pageRequests);
+          const extraRows = extraPayloads.flatMap((nextPayload) =>
+            extractRows(nextPayload),
+          );
+          rows = rows.concat(extraRows);
+        }
+      }
       const apiMs = Math.round(performance.now() - apiStartAt);
       const normalizeStartAt = performance.now();
       let normalizedRows = rows.map(normalizeLoan);
+      if (isSeedSearchMode) {
+        const dedupedById = new Map();
+        for (const row of normalizedRows) {
+          const key = String(
+            row?._id || row?.loanId || row?.loan_number || "",
+          ).trim();
+          if (!key) continue;
+          if (!dedupedById.has(key)) dedupedById.set(key, row);
+        }
+        normalizedRows = Array.from(dedupedById.values());
+      }
       normalizedRows = normalizedRows.map((loan) => {
         const id = String(loan?._id || loan?.loanId || "").trim();
         if (!id) return loan;
@@ -693,7 +731,6 @@ const LoanDashboard = () => {
         return cached ? { ...loan, ...cached } : loan;
       });
       const normalizeMs = Math.round(performance.now() - normalizeStartAt);
-      const total = extractTotal(payload);
 
       const pageRows = normalizedRows;
 
@@ -712,7 +749,7 @@ const LoanDashboard = () => {
       }
 
       setLoans(pageRows);
-      setServerTotal(total);
+      setServerTotal(isSeedSearchMode ? pageRows.length : total);
       if (SHOWROOM_HYDRATION_ENABLED) {
         void hydrateMissingShowroomFields(pageRows);
       }
@@ -720,30 +757,32 @@ const LoanDashboard = () => {
       const payloadSizeBytes = new Blob([JSON.stringify(payload || {})]).size;
       const payloadKB = Number((payloadSizeBytes / 1024).toFixed(1));
 
-      // Warm next page for instant navigation.
-      const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
-      const nextPage = page + 1;
-      if (nextPage <= totalPages) {
-        const nextKey = `${searchKey}|${nextPage}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
-        if (!pageCacheRef.current.has(nextKey)) {
-          loansApi
-            .getAll({
-              ...(isLatestLeadMode ? {} : { view: "dashboard" }),
-              page: nextPage,
-              limit: pageSize,
-              search: debouncedSearchQuery?.trim() || "",
-              sortBy: apiSort.sortBy,
-              sortDir: apiSort.sortDir,
-            })
-            .then((nextPayload) => {
-              const nextRows = extractRows(nextPayload).map(normalizeLoan);
-              pageCacheRef.current.set(nextKey, {
-                rows: nextRows,
-                total: extractTotal(nextPayload),
-                ts: Date.now(),
-              });
-            })
-            .catch(() => {});
+      if (!isSeedSearchMode) {
+        // Warm next page for instant navigation.
+        const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
+        const nextPage = page + 1;
+        if (nextPage <= totalPages) {
+          const nextKey = `${searchKey}|${nextPage}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}`;
+          if (!pageCacheRef.current.has(nextKey)) {
+            loansApi
+              .getAll({
+                ...(isLatestLeadMode ? {} : { view: "dashboard" }),
+                page: nextPage,
+                limit: pageSize,
+                search: searchSeed || "",
+                sortBy: apiSort.sortBy,
+                sortDir: apiSort.sortDir,
+              })
+              .then((nextPayload) => {
+                const nextRows = extractRows(nextPayload).map(normalizeLoan);
+                pageCacheRef.current.set(nextKey, {
+                  rows: nextRows,
+                  total: extractTotal(nextPayload),
+                  ts: Date.now(),
+                });
+              })
+              .catch(() => {});
+          }
         }
       }
 
@@ -761,10 +800,11 @@ const LoanDashboard = () => {
           page,
           pageSize,
           rows: pageRows.length,
-          total,
-          search: debouncedSearchQuery?.trim() || "",
+          total: isSeedSearchMode ? pageRows.length : total,
+          search: searchSeed || "",
           sortBy: payload?.meta?.sortBy || apiSort.sortBy,
           fromCache: Boolean(cached),
+          seedMode: isSeedSearchMode,
         });
       });
     } catch (e) {
@@ -882,7 +922,8 @@ const LoanDashboard = () => {
     }
 
     const handle = setTimeout(() => {
-      setDebouncedSearchQuery(rawQuery);
+      // Seed backend search at 3 chars; 4th+ chars are refined on frontend.
+      setDebouncedSearchQuery(trimmedQuery.slice(0, 3));
     }, 180);
     return () => clearTimeout(handle);
   }, [filters.searchQuery]);
@@ -1115,8 +1156,19 @@ const LoanDashboard = () => {
   };
 
   const filteredLoans = useMemo(() => {
+    const activeSearch = String(filters.searchQuery || "").trim();
+    const seedSearch = String(debouncedSearchQuery || "")
+      .trim()
+      .toLowerCase();
+    const shouldApplyClientSearch = (() => {
+      if (!activeSearch) return false;
+      if (activeSearch.length < 3) return true;
+      if (!seedSearch) return true;
+      return activeSearch.toLowerCase() !== seedSearch;
+    })();
+
     const filtered = loans.filter((loan) => {
-      if (filters.searchQuery?.trim()) {
+      if (shouldApplyClientSearch) {
         const matchFound = matchesDashboardSearch(loan, filters.searchQuery);
         if (!matchFound) return false;
       }
@@ -1272,7 +1324,14 @@ const LoanDashboard = () => {
     };
 
     return [...filtered].sort(compareBy(leadTs));
-  }, [loans, filters, matchesDashboardSearch, sortConfig?.key, sortConfig?.direction]);
+  }, [
+    loans,
+    filters,
+    debouncedSearchQuery,
+    matchesDashboardSearch,
+    sortConfig?.key,
+    sortConfig?.direction,
+  ]);
 
   useEffect(() => {
     setPage(1);
