@@ -361,16 +361,16 @@ const PayoutPayablesDashboard = () => {
         label: "Total Payables",
         value: formatCurrency(totalAmount),
         icon: <DollarOutlined />,
-        bgColor: "bg-blue-50",
-        iconColor: "text-blue-600",
+        bgColor: "bg-blue-50 dark:bg-blue-900/20",
+        iconColor: "text-blue-600 dark:text-blue-400",
       },
       {
         id: "paid",
         label: "Paid",
         value: formatCurrency(paidAmount),
         icon: <CheckCircleOutlined />,
-        bgColor: "bg-green-50",
-        iconColor: "text-green-600",
+        bgColor: "bg-green-50 dark:bg-green-900/20",
+        iconColor: "text-green-600 dark:text-green-400",
       },
       {
         id: "pending",
@@ -378,16 +378,16 @@ const PayoutPayablesDashboard = () => {
         value: formatCurrency(pendingAmount),
         subtext: `${pendingCount} items`,
         icon: <ClockCircleOutlined />,
-        bgColor: "bg-orange-50",
-        iconColor: "text-orange-600",
+        bgColor: "bg-orange-50 dark:bg-orange-900/20",
+        iconColor: "text-orange-600 dark:text-orange-400",
       },
       {
         id: "overdue",
         label: "Overdue (15+ days)",
         value: overdueCount,
         icon: <AlertOutlined />,
-        bgColor: "bg-red-50",
-        iconColor: "text-red-600",
+        bgColor: "bg-red-50 dark:bg-red-900/20",
+        iconColor: "text-red-600 dark:text-red-400",
       },
     ];
   }, [rows]);
@@ -937,12 +937,12 @@ const PayoutPayablesDashboard = () => {
   );
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 min-h-screen">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-semibold mb-1">Payables Dashboard</h1>
-            <p className="text-sm text-gray-500">Track payouts to Dealers, Sources and Brokers</p>
+            <h1 className="text-2xl font-semibold mb-1 text-slate-900 dark:text-white">Payables Dashboard</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Track payouts to Dealers, Sources and Brokers</p>
           </div>
           <Space>
             <Button icon={<DownloadOutlined />} onClick={handleExport} size="large">
@@ -958,16 +958,16 @@ const PayoutPayablesDashboard = () => {
           {stats.map((stat) => (
             <div
               key={stat.id}
-              className="bg-white border rounded-2xl p-4 hover:shadow-md transition cursor-default relative"
+              className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-[#252525] rounded-2xl p-4 hover:shadow-md transition cursor-default relative"
             >
               <div className="flex items-center gap-3">
                 <div className={`w-11 h-11 rounded-2xl ${stat.bgColor} flex items-center justify-center`}>
                   <span className={`${stat.iconColor} text-lg`}>{stat.icon}</span>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500">{stat.label}</div>
-                  <div className="text-xl font-semibold">{stat.value}</div>
-                  {stat.subtext && <div className="text-xs text-gray-400 mt-0.5">{stat.subtext}</div>}
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{stat.label}</div>
+                  <div className="text-xl font-semibold text-slate-900 dark:text-white">{stat.value}</div>
+                  {stat.subtext && <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{stat.subtext}</div>}
                 </div>
               </div>
             </div>
@@ -975,18 +975,18 @@ const PayoutPayablesDashboard = () => {
         </div>
 
         {partySummary.length > 0 && (
-          <div className="bg-white border rounded-2xl p-4 mb-6">
-            <h3 className="text-sm font-semibold mb-3 text-gray-700">Party-wise Pending Summary</h3>
+          <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-[#252525] rounded-2xl p-4 mb-6">
+            <h3 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-200">Party-wise Pending Summary</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
               {partySummary.slice(0, 8).map((party, idx) => (
-                <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                <div key={idx} className="flex justify-between items-center p-2 bg-slate-50 dark:bg-[#1e1e1e] rounded-lg">
                   <div>
-                    <div className="text-xs font-medium text-gray-700">{party.party}</div>
-                    <div className="text-xs text-gray-500">{party.count} items</div>
+                    <div className="text-xs font-medium text-slate-700 dark:text-slate-200">{party.party}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{party.count} items</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-orange-600">{formatCurrency(party.pending)}</div>
-                    <div className="text-xs text-gray-400">{formatCurrency(party.paid)} ✓</div>
+                    <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(party.pending)}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">{formatCurrency(party.paid)} ✓</div>
                   </div>
                 </div>
               ))}
@@ -994,7 +994,7 @@ const PayoutPayablesDashboard = () => {
           </div>
         )}
 
-        <div className="bg-white border rounded-2xl p-4">
+        <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-[#252525] rounded-2xl p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
             <div className="xl:col-span-2">
               <Input
@@ -1063,9 +1063,9 @@ const PayoutPayablesDashboard = () => {
       </div>
 
       {selectedRows.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4">
+        <div className="bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800/40 rounded-2xl p-4 mb-4">
           <div className="flex justify-between items-center">
-            <span className="font-medium">{selectedRows.length} payable(s) selected</span>
+            <span className="font-medium text-slate-800 dark:text-slate-100">{selectedRows.length} payable(s) selected</span>
             <Space>
               <Button
                 onClick={() => {
@@ -1085,7 +1085,7 @@ const PayoutPayablesDashboard = () => {
         </div>
       )}
 
-      <div className="bg-white border rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-[#252525] rounded-2xl overflow-hidden">
         <Table
           rowKey={(r) => r.payoutId || r.id}
           rowSelection={{
@@ -1122,7 +1122,7 @@ const PayoutPayablesDashboard = () => {
         okText="Record Payments"
       >
         <Form form={bulkForm} layout="vertical">
-          <p className="mb-4 text-gray-600">
+          <p className="mb-4 text-slate-600 dark:text-slate-400">
             Recording payments for <strong>{selectedRows.length}</strong> payable(s).
           </p>
 
@@ -1152,12 +1152,12 @@ const PayoutPayablesDashboard = () => {
             {selectedRows.map((row) => {
               const paymentStatus = getPaymentStatus(row);
               return (
-                <div key={row.payoutId} className="p-3 bg-gray-50 rounded border">
+                <div key={row.payoutId} className="p-3 bg-slate-50 dark:bg-[#1e1e1e] rounded border border-slate-200 dark:border-[#2e2e2e]">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <div className="font-medium text-sm">{row.payout_party_name}</div>
-                      <div className="text-xs text-gray-500">Loan: {row.loanId}</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="font-medium text-sm text-slate-800 dark:text-slate-100">{row.payout_party_name}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Loan: {row.loanId}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
                         Expected: {formatCurrency(paymentStatus.expectedAmount)}
                       </div>
                       {paymentStatus.totalPaid > 0 && (

@@ -1,7 +1,7 @@
 // src/modules/loans/pages/FeaturesPage.jsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, X, Check, Minus } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Search, SlidersHorizontal, X, Check, Minus, ChevronDown, ChevronUp } from "lucide-react";
 import { featuresApi } from "../../../api/features";
 import ScenarioAInline from "../components/ScenarioAInline";
 import { Select } from "antd";
@@ -32,14 +32,16 @@ const normalizeValueLabel = (raw) => {
 
 const FeaturesPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromVariant = location.state?.fromVariant;
 
   const [searchTerm, setSearchTerm] = useState("");
   const [fuelFilter, setFuelFilter] = useState("all");
   const [transmissionFilter, setTransmissionFilter] = useState("all");
 
-  const [makeFilter, setMakeFilter] = useState("");
-  const [modelFilter, setModelFilter] = useState("");
-  const [variantFilter, setVariantFilter] = useState("");
+  const [makeFilter, setMakeFilter] = useState(fromVariant?.make || "");
+  const [modelFilter, setModelFilter] = useState(fromVariant?.model || "");
+  const [variantFilter, setVariantFilter] = useState(fromVariant?.variant || "");
 
   const [expandedId, setExpandedId] = useState(null);
   const [compareIds, setCompareIds] = useState([]);
@@ -48,9 +50,17 @@ const FeaturesPage = () => {
 
   const [panelSearch, setPanelSearch] = useState("");
 
+  // allVariants = full unfiltered set (used for dropdown option lists)
+  const [allVariants, setAllVariants] = useState([]);
+  // variants = currently displayed set (filtered by backend params)
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Two-phase load: features fetched on-demand when a card is expanded / added to compare
+  // { [variantId]: featuresArray }
+  const [loadedFeatures, setLoadedFeatures] = useState({});
+  const [featureLoading, setFeatureLoading] = useState(null); // id being loaded
 
   // EMI modal
   const [emiModalOpen, setEmiModalOpen] = useState(false);
@@ -62,20 +72,36 @@ const FeaturesPage = () => {
   // keyboard navigation
   const cardRefs = useRef({});
 
+  // Initial load: serve from sessionStorage if fresh (5 min TTL), else fetch slim list
+  const FEATURES_SLIM_CACHE_KEY = "features_slim_v1";
+  const FEATURES_SLIM_TTL_MS = 5 * 60 * 1000;
   useEffect(() => {
     let isMounted = true;
-
     const load = async () => {
       try {
+        // Try sessionStorage first
+        const cached = sessionStorage.getItem(FEATURES_SLIM_CACHE_KEY);
+        if (cached) {
+          const { data, ts } = JSON.parse(cached);
+          if (Date.now() - ts < FEATURES_SLIM_TTL_MS && Array.isArray(data) && data.length > 0) {
+            if (isMounted) {
+              setAllVariants(data);
+              setVariants(data);
+              setLoading(false);
+            }
+            return;
+          }
+        }
         setLoading(true);
         setError(null);
-        const res = await featuresApi.getVariantsWithPrice();
-
+        const res = await featuresApi.getVariantsWithPrice({ slim: '1' });
         const items = Array.isArray(res.data) ? res.data : res.data?.data || [];
-
         if (!isMounted) return;
-
+        setAllVariants(items);
         setVariants(items);
+        try {
+          sessionStorage.setItem(FEATURES_SLIM_CACHE_KEY, JSON.stringify({ data: items, ts: Date.now() }));
+        } catch { /* storage quota exceeded — ignore */ }
       } catch (err) {
         if (!isMounted) return;
         console.error("features load error", err);
@@ -84,78 +110,151 @@ const FeaturesPage = () => {
         if (isMounted) setLoading(false);
       }
     };
-
     load();
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-fetch from backend when make/model/variant/fuel change (backend filters cached data)
+  useEffect(() => {
+    // Skip on initial mount — initial load handles it
+    if (!allVariants.length) return;
+    let isMounted = true;
+    const params = {};
+    if (makeFilter)    params.make    = makeFilter;
+    if (modelFilter)   params.model   = modelFilter;
+    if (variantFilter) params.variant = variantFilter;
+    if (fuelFilter !== "all") params.fuel = fuelFilter;
+    params.slim = '1';
+
+    const fetch = async () => {
+      try {
+        setLoading(true);
+        const res = await featuresApi.getVariantsWithPrice(params);
+        const items = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        if (!isMounted) return;
+        setVariants(items);
+      } catch {
+        // silently keep current set on error
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetch();
+    return () => { isMounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [makeFilter, modelFilter, variantFilter, fuelFilter]);
+
+  // Debounced search — pass q to backend (backend filters over cached dataset)
+  useEffect(() => {
+    if (!allVariants.length) return;
+    const q = searchTerm.trim();
+    if (!q) {
+      // No search query: re-apply dropdown filters locally from current set
+      return;
+    }
+    let isMounted = true;
+    const params = { q, slim: '1' };
+    if (makeFilter)    params.make    = makeFilter;
+    if (modelFilter)   params.model   = modelFilter;
+    if (fuelFilter !== "all") params.fuel = fuelFilter;
+
+    const handle = setTimeout(async () => {
+      try {
+        const res = await featuresApi.getVariantsWithPrice(params);
+        const items = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        if (!isMounted) return;
+        setVariants(items);
+      } catch { /* keep current set */ }
+    }, 300);
+    return () => { isMounted = false; clearTimeout(handle); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
+
+  // On-demand feature loading: fetch full features when a card is expanded
+  useEffect(() => {
+    if (!expandedId) return;
+    if (loadedFeatures[expandedId] !== undefined) return; // already loaded
+    const v = allVariants.find((x) => x.id === expandedId);
+    if (!v) return;
+    let isMounted = true;
+    setFeatureLoading(expandedId);
+    featuresApi
+      .getBySelection({ make: v.make, model: v.model, variant: v.variant, vehicleId: v.vehicleId })
+      .then((res) => {
+        if (!isMounted) return;
+        const items = Array.isArray(res.data) ? res.data : [];
+        setLoadedFeatures((prev) => ({ ...prev, [expandedId]: items }));
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setLoadedFeatures((prev) => ({ ...prev, [expandedId]: [] }));
+      })
+      .finally(() => { if (isMounted) setFeatureLoading(null); });
+    return () => { isMounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedId]);
+
+  // Prefetch features for variants added to compare (so matrix populates immediately)
+  useEffect(() => {
+    compareIds.forEach((id) => {
+      if (loadedFeatures[id] !== undefined) return;
+      const v = allVariants.find((x) => x.id === id);
+      if (!v) return;
+      featuresApi
+        .getBySelection({ make: v.make, model: v.model, variant: v.variant, vehicleId: v.vehicleId })
+        .then((res) => {
+          const items = Array.isArray(res.data) ? res.data : [];
+          setLoadedFeatures((prev) => ({ ...prev, [id]: items }));
+        })
+        .catch(() => setLoadedFeatures((prev) => ({ ...prev, [id]: [] })));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compareIds]);
+
+  // Auto-expand the variant that matches fromVariant after data loads
+  useEffect(() => {
+    if (!fromVariant || !variants.length) return;
+    const match = variants.find(
+      (v) =>
+        String(v.make || "").toLowerCase() === String(fromVariant.make || "").toLowerCase() &&
+        String(v.model || "").toLowerCase() === String(fromVariant.model || "").toLowerCase() &&
+        String(v.variant || "").toLowerCase() === String(fromVariant.variant || "").toLowerCase(),
+    );
+    if (match?.id) setExpandedId(match.id);
+  }, [fromVariant, variants]);
+
+  // Local post-filter: handles transmission (not a backend param) + clears search when empty
   const filteredVariants = useMemo(
     () =>
       variants.filter((v) => {
-        const q = searchTerm.trim().toLowerCase();
-
-        if (q) {
-          const featureText = (v.features || [])
-            .map((f) => `${f.name} ${f.value}`)
-            .join(" ");
-          const haystack = `${v.make} ${v.model} ${v.variant} ${(
-            v.tags || []
-          ).join(" ")} ${featureText}`.toLowerCase();
-          if (!haystack.includes(q)) return false;
-        }
-
-        if (fuelFilter !== "all" && v.fuel !== fuelFilter) return false;
-        if (
-          transmissionFilter !== "all" &&
-          v.transmission !== transmissionFilter
-        )
-          return false;
-
-        if (makeFilter && v.make !== makeFilter) return false;
-        if (modelFilter && v.model !== modelFilter) return false;
-        if (variantFilter && v.variant !== variantFilter) return false;
-
+        if (transmissionFilter !== "all" && v.transmission !== transmissionFilter) return false;
         return true;
       }),
-    [
-      variants,
-      searchTerm,
-      fuelFilter,
-      transmissionFilter,
-      makeFilter,
-      modelFilter,
-      variantFilter,
-    ],
+    [variants, transmissionFilter],
   );
 
-  // All unique makes from loaded variants
+  // Dropdown option lists — computed from full unfiltered set
   const uniqueMakes = useMemo(
-    () => [...new Set(variants.map((v) => v.make).filter(Boolean))].sort(),
-    [variants],
+    () => [...new Set(allVariants.map((v) => v.make).filter(Boolean))].sort(),
+    [allVariants],
   );
 
-  // Models available for the selected make
   const uniqueModels = useMemo(() => {
     if (!makeFilter) return [];
     return [
       ...new Set(
-        variants
-          .filter((v) => v.make === makeFilter)
-          .map((v) => v.model)
-          .filter(Boolean),
+        allVariants.filter((v) => v.make === makeFilter).map((v) => v.model).filter(Boolean),
       ),
     ].sort();
-  }, [variants, makeFilter]);
+  }, [allVariants, makeFilter]);
 
-  // Variants available for the selected make + model
   const uniqueVariants = useMemo(() => {
-    let list = variants;
+    let list = allVariants;
     if (makeFilter) list = list.filter((v) => v.make === makeFilter);
     if (modelFilter) list = list.filter((v) => v.model === modelFilter);
     return [...new Set(list.map((v) => v.variant).filter(Boolean))].sort();
-  }, [variants, makeFilter, modelFilter]);
+  }, [allVariants, makeFilter, modelFilter]);
 
   const handleToggleCompare = (id) => {
     setCompareIds((prev) => {
@@ -168,8 +267,8 @@ const FeaturesPage = () => {
 
   const compareDetails = useMemo(
     () =>
-      compareIds.map((id) => variants.find((v) => v.id === id)).filter(Boolean),
-    [compareIds, variants],
+      compareIds.map((id) => allVariants.find((v) => v.id === id)).filter(Boolean),
+    [compareIds, allVariants],
   );
 
   // EMI computation for finance comparison (10% down, 90% loan, 60 months, 10% p.a.)
@@ -221,7 +320,7 @@ const FeaturesPage = () => {
     const byCategory = new Map();
 
     compareDetails.forEach((variant) => {
-      (variant.features || []).forEach((f) => {
+      (loadedFeatures[variant.id] || []).forEach((f) => {
         const key = `${f.category}||${f.name}`;
         if (!byCategory.has(key)) {
           byCategory.set(key, {
@@ -247,7 +346,7 @@ const FeaturesPage = () => {
     return Array.from(groups.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([category, rows]) => ({ category, rows }));
-  }, [compareDetails]);
+  }, [compareDetails, loadedFeatures]);
 
   const diffFilteredMatrix = useMemo(() => {
     if (!onlyDifferences) return compareMatrix;
@@ -266,13 +365,13 @@ const FeaturesPage = () => {
       .filter((group) => group.rows.length > 0);
   }, [compareMatrix, compareDetails, onlyDifferences]);
 
-  const computeAdditions = (currentVariant, previousVariant) => {
+  const computeAdditions = (currentVariant, previousVariant, curFeatures, prevFeatures) => {
     if (!currentVariant || !previousVariant) return [];
 
     const additions = [];
 
-    (currentVariant.features || []).forEach((f) => {
-      const prevVal = (previousVariant.features || []).find(
+    (curFeatures || []).forEach((f) => {
+      const prevVal = (prevFeatures || []).find(
         (p) => p.name === f.name,
       )?.value;
       if (!prevVal) return;
@@ -305,7 +404,7 @@ const FeaturesPage = () => {
     return additions;
   };
 
-  const computeUpgradeSuggestion = (currentVariant, previousVariant) => {
+  const computeUpgradeSuggestion = (currentVariant, previousVariant, curFeatures, prevFeatures) => {
     if (!currentVariant || !previousVariant) return null;
 
     const priceNow = Number(
@@ -320,7 +419,7 @@ const FeaturesPage = () => {
     const diff = priceNow - pricePrev;
     if (diff <= 0) return null;
 
-    const additions = computeAdditions(currentVariant, previousVariant);
+    const additions = computeAdditions(currentVariant, previousVariant, curFeatures, prevFeatures);
     if (!additions.length) return null;
 
     const airbagsAddition = additions.find((a) =>
@@ -390,7 +489,7 @@ const FeaturesPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-screen  px-4 py-6 md:px-8 md:py-8">
       <div className="app-max-wrap pb-24 space-y-4">
         {/* Header */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-1 px-1 md:px-0">
@@ -637,17 +736,10 @@ const FeaturesPage = () => {
               filteredVariants.map((v, idx) => {
                 const inCompare = compareIds.includes(v.id);
 
-                const airbags = (v.features || []).find((f) =>
-                  f.name.toLowerCase().includes("airbags"),
-                )?.value;
-
-                const ncap = (v.features || []).find((f) =>
-                  f.name.toLowerCase().includes("ncap"),
-                )?.value;
-
-                const screen = (v.features || []).find((f) =>
-                  f.name.toLowerCase().includes("touchscreen size"),
-                )?.value;
+                // Use pre-computed summary fields from backend (slim payload)
+                const airbags = v._airbags ?? null;
+                const ncap    = v._ncap ?? null;
+                const screen  = v._screen ?? null;
 
                 // previous variant within same make+model in the current filtered list
                 let prevVariant = null;
@@ -662,11 +754,13 @@ const FeaturesPage = () => {
                   }
                 }
 
+                const vFeats    = loadedFeatures[v.id] || [];
+                const prevFeats = prevVariant ? (loadedFeatures[prevVariant.id] || []) : [];
                 const additions = prevVariant
-                  ? computeAdditions(v, prevVariant)
+                  ? computeAdditions(v, prevVariant, vFeats, prevFeats)
                   : [];
                 const upgrade = prevVariant
-                  ? computeUpgradeSuggestion(v, prevVariant)
+                  ? computeUpgradeSuggestion(v, prevVariant, vFeats, prevFeats)
                   : null;
 
                 const isExpanded = expandedId === v.id;
@@ -866,7 +960,7 @@ const FeaturesPage = () => {
                     </div>
 
                     {/* Expandable features section */}
-                    <div className="pt-1 mt-1 border-t border-dashed border-slate-100 dark:border-neutral-800">
+                    <div className="mt-1 pt-2 border-t border-dashed border-slate-100 dark:border-neutral-800">
                       <button
                         type="button"
                         onClick={() => {
@@ -874,108 +968,139 @@ const FeaturesPage = () => {
                           setExpandedId(next);
                           if (next) setPanelSearch("");
                         }}
-                        className="text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white"
+                        className="w-full flex items-center justify-between gap-2 group"
                       >
-                        {isExpanded ? "Hide all features" : "Show all features"}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                            {isExpanded ? "Hide features" : "All features"}
+                          </span>
+                          {(v.featureCount ?? vFeats.length) > 0 && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-slate-400">
+                              {v.featureCount ?? vFeats.length}
+                            </span>
+                          )}
+                        </div>
+                        {isExpanded
+                          ? <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                          : <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                        }
                       </button>
-                      <span className="text-[12px] text-slate-400 inline ml-2">
-                        {(v.features || []).length} items
-                      </span>
 
-                      <div
-                        className={`transition-all duration-300 ease-out overflow-hidden ${
-                          isExpanded ? "max-h-[60vh] mt-2" : "max-h-0"
-                        }`}
-                      >
-                        {isExpanded && (
-                          <div className="space-y-2 pr-1">
-                            {/* feature search inside panel */}
-                            <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#181818] rounded-xl px-2 py-1.5">
-                              <Search className="w-4 h-4 text-slate-400" />
-                              <input
-                                type="text"
-                                value={panelSearch}
-                                onChange={(e) => setPanelSearch(e.target.value)}
-                                placeholder="Search within this variant’s features"
-                                className="flex-1 bg-transparent outline-none text-[12px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-                              />
-                              {panelSearch && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPanelSearch("")}
-                                  className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#252525]"
-                                >
-                                  <X className="w-3 h-3 text-slate-400" />
-                                </button>
-                              )}
+                      {isExpanded && (
+                        <div className="mt-3 space-y-3">
+                          {/* Loading skeleton */}
+                          {featureLoading === v.id ? (
+                            <div className="space-y-2">
+                              {[...Array(6)].map((_, i) => (
+                                <div key={i} className="flex items-center justify-between gap-3 animate-pulse">
+                                  <div className="h-3 bg-slate-100 dark:bg-neutral-800 rounded w-2/3" />
+                                  <div className="h-3 bg-slate-100 dark:bg-neutral-800 rounded w-12" />
+                                </div>
+                              ))}
                             </div>
+                          ) : (
+                            <>
+                              {/* Panel search */}
+                              <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#181818] border border-slate-100 dark:border-neutral-800 rounded-xl px-3 py-2">
+                                <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <input
+                                  type="text"
+                                  value={panelSearch}
+                                  onChange={(e) => setPanelSearch(e.target.value)}
+                                  placeholder="Search features…"
+                                  className="flex-1 bg-transparent outline-none text-[12px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 min-w-0"
+                                />
+                                {panelSearch && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPanelSearch("")}
+                                    className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-neutral-700 shrink-0"
+                                  >
+                                    <X className="w-3 h-3 text-slate-400" />
+                                  </button>
+                                )}
+                              </div>
 
-                            <div className="overflow-y-auto max-h-[50vh] pr-2 space-y-2">
-                              {[
-                                "Safety",
-                                "Comfort & Convenience",
-                                "Exterior",
-                                "Infotainment",
-                                "Connected",
-                                "Others",
-                              ].map((cat) => {
-                                let items = (v.features || []).filter(
-                                  (f) => f.category === cat,
-                                );
-                                if (localPanelSearch) {
-                                  items = items.filter((f) =>
-                                    `${f.name} ${f.value}`
-                                      .toLowerCase()
-                                      .includes(localPanelSearch),
-                                  );
-                                }
-                                if (!items.length) return null;
-                                return (
-                                  <div key={cat}>
-                                    <div className="text-[12px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
-                                      {cat}
-                                    </div>
-                                    <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                                      {items.map((f) => {
-                                        const label = normalizeValueLabel(
-                                          f.value,
-                                        );
-                                        const valLower = String(label)
-                                          .toLowerCase()
-                                          .trim();
-                                        const isYes = valLower === "yes";
-                                        const isNo =
-                                          valLower === "not available";
-                                        return (
-                                          <div
-                                            key={f.name}
-                                            className="flex items-start justify-between gap-2 text-[12px]"
-                                          >
-                                            <div className="text-slate-700 dark:text-slate-200">
-                                              {f.name}
-                                            </div>
-                                            <div className="flex items-center gap-1 text-slate-700 dark:text-slate-100">
-                                              {isYes ? (
-                                                <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                              ) : isNo ? (
-                                                <Minus className="w-3.5 h-3.5 text-slate-400" />
-                                              ) : null}
-                                              <span>
-                                                {isYes || isNo ? "" : label}
+                              {/* Categories */}
+                              <div className="overflow-y-auto max-h-[52vh] space-y-4 pr-0.5">
+                                {[
+                                  { key: "Safety",                color: "text-rose-600 dark:text-rose-400",    dot: "bg-rose-400" },
+                                  { key: "Comfort & Convenience", color: "text-sky-600 dark:text-sky-400",      dot: "bg-sky-400" },
+                                  { key: "Exterior",              color: "text-amber-600 dark:text-amber-400",  dot: "bg-amber-400" },
+                                  { key: "Infotainment",          color: "text-violet-600 dark:text-violet-400",dot: "bg-violet-400" },
+                                  { key: "Connected",             color: "text-teal-600 dark:text-teal-400",    dot: "bg-teal-400" },
+                                  { key: "Others",                color: "text-slate-500 dark:text-slate-400",  dot: "bg-slate-400" },
+                                ].map(({ key: cat, color, dot }) => {
+                                  let items = vFeats.filter((f) => f.category === cat);
+                                  if (localPanelSearch) {
+                                    items = items.filter((f) =>
+                                      `${f.name} ${f.value}`.toLowerCase().includes(localPanelSearch),
+                                    );
+                                  }
+                                  if (!items.length) return null;
+                                  return (
+                                    <div key={cat}>
+                                      {/* Category header */}
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                                        <span className={`text-[11px] font-semibold uppercase tracking-wider ${color}`}>
+                                          {cat}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 dark:text-slate-600">
+                                          {items.length}
+                                        </span>
+                                      </div>
+
+                                      {/* Feature rows */}
+                                      <div className="rounded-xl border border-slate-100 dark:border-neutral-800 divide-y divide-slate-50 dark:divide-neutral-800/80 overflow-hidden">
+                                        {items.map((f) => {
+                                          const label = normalizeValueLabel(f.value);
+                                          const valLower = String(label).toLowerCase().trim();
+                                          const isYes = valLower === "yes";
+                                          const isNo  = valLower === "not available";
+                                          return (
+                                            <div
+                                              key={f.name}
+                                              className="flex items-center justify-between gap-3 px-3 py-2 bg-white dark:bg-[#111111] hover:bg-slate-50/70 dark:hover:bg-[#161616] transition-colors"
+                                            >
+                                              <span className="text-[12px] text-slate-700 dark:text-slate-300 leading-snug min-w-0">
+                                                {f.name}
                                               </span>
+                                              {isYes ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                                                  <Check className="w-3 h-3" />
+                                                  Yes
+                                                </span>
+                                              ) : isNo ? (
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 dark:bg-neutral-800 text-slate-400 dark:text-slate-500 shrink-0">
+                                                  <Minus className="w-3 h-3" />
+                                                </span>
+                                              ) : (
+                                                <span className="text-[12px] font-medium text-slate-800 dark:text-slate-200 shrink-0 text-right max-w-[45%] truncate">
+                                                  {label}
+                                                </span>
+                                              )}
                                             </div>
-                                          </div>
-                                        );
-                                      })}
+                                          );
+                                        })}
+                                      </div>
                                     </div>
+                                  );
+                                })}
+
+                                {/* No results for search */}
+                                {localPanelSearch && vFeats.filter((f) =>
+                                  `${f.name} ${f.value}`.toLowerCase().includes(localPanelSearch)
+                                ).length === 0 && (
+                                  <div className="text-[12px] text-slate-400 py-4 text-center">
+                                    No features match "{panelSearch}"
                                   </div>
-                                );
-                              })}
-                            </div>
-                            {/* end overflow-y-auto categories wrapper */}
-                          </div>
-                        )}
-                      </div>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

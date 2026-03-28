@@ -376,6 +376,7 @@ const EMICalculator = ({
   initialQuotation,
   initialShareView,
   isFloating = false,
+  onClose,
 }) => {
   const EMI_PERF_DEBUG = true;
   const perfLog = (...args) => {
@@ -428,6 +429,8 @@ const EMICalculator = ({
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [colorGallery, setColorGallery] = useState([]);
   const [colorGalleryLoading, setColorGalleryLoading] = useState(false);
+  const [colorLightboxOpen, setColorLightboxOpen] = useState(false);
+  const [colorLightboxIdx, setColorLightboxIdx] = useState(0);
 
   // Grouped features for the selected variant (same structure as FeaturesPage)
   const selectedFeatureGroups = useMemo(() => {
@@ -531,7 +534,7 @@ const EMICalculator = ({
   const [tenureB, setTenureB] = useState(5);
   const [tenureTypeB, setTenureTypeB] = useState("years");
   const [emiBInput, setEmiBInput] = useState("");
-  const [solveForB, setSolveForB] = useState("emi");
+  const [solveForB, setSolveForB] = useState("amount");
   const [emiTypeB, setEmiTypeB] = useState("arrear");
   const [comparisonTouched, setComparisonTouched] = useState(false);
 
@@ -2217,43 +2220,56 @@ const EMICalculator = ({
                 <Icon name="refresh" className="h-3 w-3" />
                 Clear
               </Button>
+              {isFloating && onClose && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onClose}
+                >
+                  <Icon name="X" className="h-3 w-3" />
+                  Close
+                </Button>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-          <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">
-              Selected Vehicle
+        {!isFloating && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                Selected Vehicle
+              </div>
+              <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 truncate">
+                {selectedVehicle
+                  ? `${selectedVehicle.make} ${selectedVehicle.model} ${selectedVehicle.variant}`
+                  : "Not selected"}
+              </div>
             </div>
-            <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 truncate">
-              {selectedVehicle
-                ? `${selectedVehicle.make} ${selectedVehicle.model} ${selectedVehicle.variant}`
-                : "Not selected"}
+            <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                Mode
+              </div>
+              <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
+                {emiType === "advance" ? "Advance EMI" : "Arrear EMI"}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                Plan Snapshot
+              </div>
+              <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
+                {resultA.months || 0} months · {formatINR(resultA.emi || 0)}
+              </div>
             </div>
           </div>
-          <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">
-              Mode
-            </div>
-            <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-              {emiType === "advance" ? "Advance EMI" : "Arrear EMI"}
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-            <div className="text-[10px] uppercase tracking-wider text-slate-400">
-              Plan Snapshot
-            </div>
-            <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-              {resultA.months || 0} months · {formatINR(resultA.emi || 0)}
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Main layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-4 items-start">
+        <div className={isFloating ? "space-y-4" : "grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-4 items-start"}>
           {/* Left: vehicle + downpayment + breakup */}
-          <div className="space-y-3 lg:sticky lg:top-28">
+          {!isFloating && <div className="space-y-3 lg:sticky lg:top-28">
             <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-sm border border-slate-100 dark:border-[#262626] px-3 py-3 flex flex-col gap-2.5 transition-all hover:shadow-md">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -2609,7 +2625,7 @@ const EMICalculator = ({
                 </div>
               </button>
             )}
-          </div>
+          </div>}
 
           {/* Right: Scenario A + chart + comparison + schedule */}
           <div className="space-y-4">
@@ -2638,7 +2654,7 @@ const EMICalculator = ({
                         disabled={disableAll}
                         className={`px-3 py-1 rounded-full font-medium transition-all ${
                           emiType === opt.key
-                            ? "bg-emerald-600 text-white shadow-sm"
+                            ? "bg-violet-600 text-white shadow-sm"
                             : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#333]"
                         }`}
                       >
@@ -2654,10 +2670,10 @@ const EMICalculator = ({
                         type="button"
                         onClick={() => !disableAll && setSolveForA(opt.key)}
                         disabled={disableAll}
-                        className={`px-3 py-1 rounded-full font-medium ${
+                        className={`px-3 py-1 rounded-full font-medium transition-all ${
                           solveForA === opt.key
-                            ? "bg-primary text-primary-foreground"
-                            : "text-slate-600 dark:text-slate-300"
+                            ? "bg-violet-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#333]"
                         }`}
                       >
                         {opt.label}
@@ -2696,11 +2712,11 @@ const EMICalculator = ({
                         solveForA === "amount" || scenarioAInputsDisabled
                       }
                       className={
-                        solveForA === "amount" ? "pr-16 border-emerald-500" : ""
+                        solveForA === "amount" ? "pr-16 border-violet-500" : ""
                       }
                     />
                     {solveForA === "amount" && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
                         Live
                       </span>
                     )}
@@ -2731,11 +2747,11 @@ const EMICalculator = ({
                       }}
                       readOnly={solveForA === "rate" || disableAll}
                       className={
-                        solveForA === "rate" ? "pr-16 border-emerald-500" : ""
+                        solveForA === "rate" ? "pr-16 border-violet-500" : ""
                       }
                     />
                     {solveForA === "rate" && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
                         Live
                       </span>
                     )}
@@ -2779,12 +2795,12 @@ const EMICalculator = ({
                         readOnly={solveForA === "tenure" || disableAll}
                         className={
                           solveForA === "tenure"
-                            ? "pr-16 border-emerald-500"
+                            ? "pr-16 border-violet-500"
                             : ""
                         }
                       />
                       {solveForA === "tenure" && (
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
                           Live
                         </span>
                       )}
@@ -2794,7 +2810,7 @@ const EMICalculator = ({
                         type="button"
                         className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
                           tenureTypeA === "years"
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-violet-600 text-white"
                             : "bg-transparent text-slate-600 dark:text-slate-300"
                         }`}
                         onClick={() => !disableAll && setTenureTypeA("years")}
@@ -2806,7 +2822,7 @@ const EMICalculator = ({
                         type="button"
                         className={`px-3 py-1.5 text-xs font-medium border-l border-slate-200 dark:border-[#262626] whitespace-nowrap ${
                           tenureTypeA === "months"
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-violet-600 text-white"
                             : "bg-transparent text-slate-600 dark:text-slate-300"
                         }`}
                         onClick={() => !disableAll && setTenureTypeA("months")}
@@ -2849,18 +2865,18 @@ const EMICalculator = ({
                       }}
                       readOnly={solveForA === "emi" || disableAll}
                       className={
-                        solveForA === "emi" ? "pr-16 border-emerald-500" : ""
+                        solveForA === "emi" ? "pr-16 border-violet-500" : ""
                       }
                     />
                     {solveForA === "emi" && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-emerald-600 animate-pulse">
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
                         Live
                       </span>
                     )}
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     Current EMI:{" "}
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span className="font-semibold text-violet-600 dark:text-violet-400">
                       <AnimatedNumber value={liveEmiResult.emi} />
                     </span>
                   </div>
@@ -2876,7 +2892,7 @@ const EMICalculator = ({
             {/* EMI Scheme Panel — emicalculator.net style */}
             <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] overflow-hidden transition-all hover:shadow-md">
               {/* Header */}
-              <div className="px-5 pt-5 pb-3 flex items-center justify-between bg-gradient-to-r from-emerald-50/70 via-transparent to-transparent dark:from-emerald-950/20">
+              <div className="px-5 pt-5 pb-3 flex items-center justify-between bg-gradient-to-r from-violet-50/70 via-transparent to-transparent dark:from-violet-950/20">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     EMI Scheme
@@ -2891,14 +2907,14 @@ const EMICalculator = ({
                   <button
                     type="button"
                     onClick={() => setShowSchedule(!showSchedule)}
-                    className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-full transition-colors"
+                    className="text-[10px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 bg-violet-50 dark:bg-violet-900/30 px-3 py-1 rounded-full transition-colors"
                   >
                     {showSchedule ? "HIDE SCHEDULE" : "VIEW SCHEDULE"}
                   </button>
                   <span
                     className={`text-[10px] font-bold px-3 py-1 rounded-full ${
                       emiType === "advance"
-                        ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300"
+                        ? "bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300"
                         : "bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300"
                     }`}
                   >
@@ -2914,7 +2930,7 @@ const EMICalculator = ({
                   <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
                     Loan EMI
                   </div>
-                  <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 leading-none">
+                  <div className="text-xl font-extrabold text-violet-600 dark:text-violet-400 leading-none">
                     <AnimatedNumber value={liveEmiResult.emi} />
                   </div>
                   <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
@@ -3002,14 +3018,14 @@ const EMICalculator = ({
                           />
                         )}
 
-                        {/* Principal arc — emerald, identical start (offset=0 aka 12-o'clock) */}
+                        {/* Principal arc — violet, identical start (offset=0 aka 12-o'clock) */}
                         {pArc > 0 && (
                           <circle
                             cx="110"
                             cy="110"
                             r={R}
                             fill="none"
-                            stroke="#10b981"
+                            stroke="#7c3aed"
                             strokeWidth="26"
                             strokeDasharray={`${pArc} ${CIRC}`}
                             strokeDashoffset={0}
@@ -3051,7 +3067,7 @@ const EMICalculator = ({
                               textAnchor="middle"
                               fontSize="15"
                               fontWeight="800"
-                              fill="#059669"
+                              fill="#7c3aed"
                             >
                               {`₹${Math.round(liveEmiResult.emi).toLocaleString("en-IN")}`}
                             </text>
@@ -3102,7 +3118,7 @@ const EMICalculator = ({
                   {/* Stacked bar */}
                   <div className="flex h-3 rounded-full overflow-hidden w-full bg-slate-100 dark:bg-[#2e2e2e]">
                     <div
-                      className="bg-emerald-500 transition-all duration-700 ease-in-out"
+                      className="bg-violet-500 transition-all duration-700 ease-in-out"
                       style={{ width: `${principalPctA}%` }}
                     />
                     <div
@@ -3114,7 +3130,7 @@ const EMICalculator = ({
                   {/* Principal legend row */}
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-emerald-500 flex-shrink-0" />
+                      <span className="w-3 h-3 rounded-full bg-violet-500 flex-shrink-0" />
                       <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
                         Principal Loan Amount
                       </span>
@@ -3160,7 +3176,7 @@ const EMICalculator = ({
                   </div>
                   <div className="flex items-center justify-between py-0.5">
                     <span className="text-slate-500">Principal</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="font-bold text-violet-600 dark:text-violet-400">
                       {formatINR(breakupA.principalValue)}
                     </span>
                   </div>
@@ -3181,114 +3197,268 @@ const EMICalculator = ({
                 </div>
               </div>
             </div>
-            {selectedVehicle && (
-              <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-5 md:py-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Color gallery
+            {!isFloating && selectedVehicle && (
+              <div className="bg-white dark:bg-[#141414] rounded-3xl border border-slate-100 dark:border-[#242424] overflow-hidden shadow-sm">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-100 dark:border-[#242424] bg-gradient-to-r from-violet-50/60 to-transparent dark:from-violet-950/20 dark:to-transparent">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-violet-600 dark:fill-violet-400" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="4" cy="8" r="3" />
+                        <circle cx="8" cy="5" r="2.2" opacity="0.6" />
+                        <circle cx="12" cy="8" r="3" opacity="0.4" />
+                      </svg>
                     </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Select a color to auto-fill the Color field.
+                    <div>
+                      <div className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">Exterior Colors</div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Tap a color to auto-fill · click image to zoom</div>
                     </div>
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 text-right">
-                    {colorGallery.length} color
-                    {colorGallery.length === 1 ? "" : "s"}
-                  </div>
+                  {colorGallery.length > 0 && (
+                    <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 border border-violet-200/60 dark:border-violet-800/40 px-2.5 py-0.5 rounded-full">
+                      {colorGallery.length} color{colorGallery.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
 
-                {selectedColorMedia?.image ? (
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-[#2d2d2d] bg-slate-100 dark:bg-[#111]">
-                    <img
-                      src={selectedColorMedia.image}
-                      alt={selectedColorMedia.color || "Vehicle color"}
-                      className="h-56 md:h-72 w-full object-contain bg-slate-100 dark:bg-[#111]"
-                      loading="lazy"
-                      onError={(event) => {
-                        const fallback = selectedColorMedia.originalImage;
-                        if (fallback && event.currentTarget.src !== fallback) {
-                          event.currentTarget.src = fallback;
-                        }
+                <div className="p-4 space-y-3">
+                  {/* Main preview image */}
+                  {selectedColorMedia?.image && (
+                    <div
+                      className="relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-[#2a2a2a] bg-slate-50 dark:bg-[#111] cursor-zoom-in group"
+                      onClick={() => {
+                        const idx = colorGallery.findIndex((e) => normalizeText(e.color) === normalizeText(color));
+                        setColorLightboxIdx(idx >= 0 ? idx : 0);
+                        setColorLightboxOpen(true);
                       }}
-                    />
-                  </div>
-                ) : null}
-
-                {colorGalleryLoading ? (
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Loading colors...
-                  </div>
-                ) : colorGallery.length ? (
-                  <div className="flex gap-3 overflow-x-auto pb-1">
-                    {colorGallery.map((entry, index) => {
-                      const active =
-                        normalizeText(color) === normalizeText(entry.color);
-                      return (
-                        <button
-                          key={`${entry.color || "color"}-${entry.image || "img"}-${index}`}
-                          type="button"
-                          onClick={() =>
-                            setPricingState((prev) => ({
-                              ...(prev || {}),
-                              color: entry.color || "",
-                            }))
+                    >
+                      {color && (
+                        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-black/35 backdrop-blur-sm rounded-full px-2.5 py-1">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-white/30 flex-shrink-0"
+                            style={{ backgroundColor: selectedColorMedia.hex || "#d1d5db" }}
+                          />
+                          <span className="text-[10px] font-semibold text-white leading-none">{selectedColorMedia.color || color}</span>
+                        </div>
+                      )}
+                      {/* zoom hint */}
+                      <div className="absolute bottom-2.5 left-2.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1">
+                        <svg viewBox="0 0 16 16" className="w-3 h-3 fill-white" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M6.5 1a5.5 5.5 0 1 1-3.613 9.694l-2.54 2.54a.75.75 0 1 1-1.061-1.06l2.54-2.541A5.5 5.5 0 0 1 6.5 1Zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM6 4.25h1v1.75h1.75v1H7V8.75H6V7H4.25V6H6V4.25Z"/>
+                        </svg>
+                        <span className="text-[9px] text-white font-medium">Zoom</span>
+                      </div>
+                      <img
+                        src={selectedColorMedia.image}
+                        alt={selectedColorMedia.color || "Vehicle color"}
+                        className="h-52 md:h-64 w-full object-contain p-3"
+                        loading="lazy"
+                        onError={(event) => {
+                          const fallback = selectedColorMedia.originalImage;
+                          if (fallback && event.currentTarget.src !== fallback) {
+                            event.currentTarget.src = fallback;
                           }
-                          disabled={disableAll}
-                          className={`min-w-[164px] rounded-2xl border p-2.5 text-left transition ${
-                            active
-                              ? "border-emerald-500 bg-white shadow-sm dark:border-emerald-400 dark:bg-[#1f1f1f]"
-                              : "border-slate-200 bg-white/80 hover:border-slate-300 dark:border-[#303030] dark:bg-[#1b1b1b]"
-                          } ${disableAll ? "opacity-60 cursor-not-allowed" : ""}`}
-                        >
-                          <div className="mb-2 h-24 w-full overflow-hidden rounded-xl bg-slate-100 dark:bg-[#111] flex items-center justify-center">
-                            {entry.image ? (
-                              <img
-                                src={entry.thumb || entry.image}
-                                alt={entry.color || "Vehicle color"}
-                                className="h-full w-full object-contain bg-slate-100 dark:bg-[#111]"
-                                loading="lazy"
-                                onError={(event) => {
-                                  const fallback =
-                                    entry.originalImage || entry.image;
-                                  if (
-                                    fallback &&
-                                    event.currentTarget.src !== fallback
-                                  ) {
-                                    event.currentTarget.src = fallback;
-                                  }
-                                }}
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Thumbnails */}
+                  {colorGalleryLoading ? (
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="flex-shrink-0 w-[88px] rounded-xl border border-slate-100 dark:border-[#262626] p-1.5 animate-pulse">
+                          <div className="h-14 rounded-lg bg-slate-200 dark:bg-[#2a2a2a] mb-1.5" />
+                          <div className="h-2.5 w-12 rounded-full bg-slate-200 dark:bg-[#2a2a2a] mx-auto" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : colorGallery.length ? (
+                    <div className="flex gap-2 overflow-x-auto pb-0.5">
+                      {colorGallery.map((entry, index) => {
+                        const active = normalizeText(color) === normalizeText(entry.color);
+                        return (
+                          <button
+                            key={`${entry.color || "color"}-${entry.image || "img"}-${index}`}
+                            type="button"
+                            onClick={() => {
+                              setPricingState((prev) => ({ ...(prev || {}), color: entry.color || "" }));
+                              setColorLightboxIdx(index);
+                              setColorLightboxOpen(true);
+                            }}
+                            disabled={disableAll}
+                            className={`flex-shrink-0 w-[88px] rounded-xl border-2 p-1.5 text-left transition-all duration-150 ${
+                              active
+                                ? "border-violet-500 dark:border-violet-400 bg-violet-50/50 dark:bg-violet-900/20 shadow-md"
+                                : "border-transparent bg-slate-50 dark:bg-[#1e1e1e] hover:border-slate-200 dark:hover:border-[#383838] hover:shadow-sm"
+                            } ${disableAll ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                          >
+                            <div className="h-14 w-full overflow-hidden rounded-lg bg-white dark:bg-[#111] flex items-center justify-center mb-1.5">
+                              {entry.image ? (
+                                <img
+                                  src={entry.thumb || entry.image}
+                                  alt={entry.color || "Vehicle color"}
+                                  className="h-full w-full object-contain p-0.5"
+                                  loading="lazy"
+                                  onError={(event) => {
+                                    const fallback = entry.originalImage || entry.image;
+                                    if (fallback && event.currentTarget.src !== fallback) {
+                                      event.currentTarget.src = fallback;
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-[9px] text-slate-400">No img</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 px-0.5">
+                              <span
+                                className="h-2.5 w-2.5 rounded-full border border-black/10 flex-shrink-0"
+                                style={{ backgroundColor: entry.hex || "#d1d5db" }}
                               />
-                            ) : (
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                                No image
+                              <span className="truncate text-[10px] font-semibold text-slate-700 dark:text-slate-300 leading-tight">
+                                {entry.color || "Default"}
                               </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="h-4 w-4 rounded-full border border-black/10"
-                              style={{
-                                backgroundColor: entry.hex || "#d1d5db",
-                              }}
-                            />
-                            <span className="truncate text-[12px] font-medium text-slate-700 dark:text-slate-200">
-                              {entry.color || "Default"}
-                            </span>
-                          </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#252525] flex items-center justify-center">
+                        <svg viewBox="0 0 20 20" className="w-5 h-5 fill-slate-400" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 10 5Z" opacity="0.4" />
+                          <circle cx="10" cy="10" r="2" />
+                        </svg>
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">No color images yet for this variant</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── COLOR LIGHTBOX ── */}
+                {colorLightboxOpen && colorGallery.length > 0 && (
+                  <div
+                    className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                    onClick={() => setColorLightboxOpen(false)}
+                  >
+                    <div
+                      className="relative bg-[#111] rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+                      style={{ width: "min(90vw, 820px)", maxHeight: "90vh" }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-white/20 flex-shrink-0"
+                            style={{ backgroundColor: colorGallery[colorLightboxIdx]?.hex || "#d1d5db" }}
+                          />
+                          <span className="text-[13px] font-bold text-white leading-none">
+                            {colorGallery[colorLightboxIdx]?.color || "Vehicle Color"}
+                          </span>
+                          <span className="text-[10px] font-mono text-white/40 ml-1">
+                            {colorLightboxIdx + 1}/{colorGallery.length}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setColorLightboxOpen(false)}
+                          className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                          aria-label="Close"
+                        >
+                          <svg viewBox="0 0 16 16" className="w-4 h-4 fill-white" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3.22 3.22a.75.75 0 0 1 1.06 0L8 6.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L9.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L8 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L6.94 8 3.22 4.28a.75.75 0 0 1 0-1.06Z"/>
+                          </svg>
                         </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    No color images available for this variant yet.
+                      </div>
+
+                      {/* Main image */}
+                      <div className="flex-1 flex items-center justify-center bg-[#0d0d0d] overflow-hidden p-6" style={{ minHeight: 0 }}>
+                        <img
+                          key={colorGallery[colorLightboxIdx]?.image}
+                          src={colorGallery[colorLightboxIdx]?.image}
+                          alt={colorGallery[colorLightboxIdx]?.color || "Vehicle color"}
+                          className="max-w-full max-h-full object-contain"
+                          style={{ maxHeight: "60vh" }}
+                          onError={(event) => {
+                            const fallback = colorGallery[colorLightboxIdx]?.originalImage;
+                            if (fallback && event.currentTarget.src !== fallback) event.currentTarget.src = fallback;
+                          }}
+                        />
+                      </div>
+
+                      {/* Thumbnail strip */}
+                      {colorGallery.length > 1 && (
+                        <div className="flex gap-2 overflow-x-auto px-4 py-3 border-t border-white/10">
+                          {colorGallery.map((entry, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                setColorLightboxIdx(i);
+                                setPricingState((prev) => ({ ...(prev || {}), color: entry.color || "" }));
+                              }}
+                              className={`flex-shrink-0 w-[72px] rounded-xl border-2 p-1 transition-all ${
+                                i === colorLightboxIdx
+                                  ? "border-violet-500 bg-violet-900/30"
+                                  : "border-transparent bg-white/5 hover:border-white/20"
+                              }`}
+                            >
+                              <div className="h-12 overflow-hidden rounded-lg bg-black flex items-center justify-center mb-1">
+                                {entry.image ? (
+                                  <img
+                                    src={entry.thumb || entry.image}
+                                    alt={entry.color || ""}
+                                    className="h-full w-full object-contain p-0.5"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <span className="text-[8px] text-white/30">No img</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 px-0.5">
+                                <span className="w-2 h-2 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: entry.hex || "#d1d5db" }} />
+                                <span className="truncate text-[9px] text-white/70 leading-tight">{entry.color || "—"}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Prev / Next arrows */}
+                      {colorGallery.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setColorLightboxIdx((i) => (i - 1 + colorGallery.length) % colorGallery.length)}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors"
+                            aria-label="Previous"
+                          >
+                            <svg viewBox="0 0 16 16" className="w-4 h-4 fill-white" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M10.28 3.22a.75.75 0 0 1 0 1.06L6.56 8l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z"/>
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setColorLightboxIdx((i) => (i + 1) % colorGallery.length)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors"
+                            aria-label="Next"
+                          >
+                            <svg viewBox="0 0 16 16" className="w-4 h-4 fill-white" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M5.72 3.22a.75.75 0 0 0 0 1.06L9.44 8l-3.72 3.72a.75.75 0 1 0 1.06 1.06l4.25-4.25a.75.75 0 0 0 0-1.06L6.78 3.22a.75.75 0 0 0-1.06 0Z"/>
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {selectedVehicle && (
+            {!isFloating && selectedVehicle && (
               <details className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-5 md:py-4 space-y-3">
                 <summary className="flex items-center justify-between cursor-pointer list-none">
                   <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -3347,14 +3517,14 @@ const EMICalculator = ({
             )}
 
             {/* ── Scenario B – full redesign ───────────────────────────── */}
-            {showScenarioB ? (
+            {!isFloating && (showScenarioB ? (
               <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] overflow-hidden transition-all hover:shadow-md">
                 {/* ── Header ── */}
                 <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100 dark:border-[#262626] bg-gradient-to-r from-violet-50/70 via-transparent to-transparent dark:from-violet-950/20">
                   <div className="flex items-center gap-3">
                     {/* A vs B pill */}
                     <div className="flex items-center gap-1">
-                      <span className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-black flex items-center justify-center select-none">
+                      <span className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[11px] font-black flex items-center justify-center select-none">
                         A
                       </span>
                       <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium px-0.5">
@@ -4015,9 +4185,9 @@ const EMICalculator = ({
                 <span className="text-lg leading-none">+</span>
                 Add Comparison (Scenario B)
               </button>
-            )}
+            ))}
             {/* Repayment schedule */}
-            {showSchedule && (
+            {!isFloating && showSchedule && (
               <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-6 md:py-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -4069,7 +4239,7 @@ const EMICalculator = ({
             )}
 
             {/* Terms & conditions */}
-            <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-6 md:py-5 text-[11px] space-y-1.5">
+            {!isFloating && <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-6 md:py-5 text-[11px] space-y-1.5">
               <div className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
                 Terms & conditions
               </div>
@@ -4090,7 +4260,7 @@ const EMICalculator = ({
                 • Registration & Issue of Registration Certificate will be at
                 the sole discretion of the "Respective Transport Authority".
               </p>
-            </div>
+            </div>}
           </div>
         </div>
 

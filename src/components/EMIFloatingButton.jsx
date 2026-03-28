@@ -200,7 +200,7 @@ const EMIFloatingButton = () => {
 
             {/* ── Modal Body (scrollable) ── */}
             <div className="flex-1 overflow-y-auto overscroll-contain">
-              <EMICalculator isFloating />
+              <EMICalculator isFloating onClose={handleClose} />
             </div>
           </div>
         </div>

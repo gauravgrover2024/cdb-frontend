@@ -216,18 +216,11 @@ const LoanDashboard = () => {
   const showroomHydrationCacheRef = useRef(new Map());
   const showroomHydrationInFlightRef = useRef(new Set());
   const cpvEvaluationCacheRef = useRef(new Map());
-  const hasWideClientFilters =
-    (filters.loanTypes?.length || 0) > 0 ||
-    (filters.amountRanges?.length || 0) > 0 ||
-    filters.cpvIncomplete ||
-    filters.regNoPending ||
-    filters.loanNoPending ||
-    filters.rcPending ||
-    filters.invoicePending ||
-    filters.pendingApprovalOnly ||
-    filters.pendingDisbursal ||
-    filters.disbursedOnly ||
-    filters.cashCarsOnly;
+  // cpvIncomplete is the ONLY filter that cannot be evaluated on the backend
+  // (it inspects many optional fields client-side). All other filters are fully
+  // handled server-side, so they use normal per-page fetches instead of the
+  // expensive EXPANDED_FETCH_LIMIT=5000 scan.
+  const hasWideClientFilters = filters.cpvIncomplete;
 
   const userRole = "admin";
 
@@ -1335,10 +1328,14 @@ const LoanDashboard = () => {
       if (cached) {
         setLoans(cached.rows);
         setServerTotal(cached.total);
-        if (isExpandedFetchMode) {
-          // Expanded datasets can be large; avoid re-fetching on every filter toggle.
-          return;
-        }
+        // For expanded mode, cached result is authoritative — skip re-fetch.
+        if (isExpandedFetchMode) return;
+        // For normal mode with a fresh cache hit, render immediately without
+        // showing the loading skeleton. The fetch still runs in the background
+        // to refresh stale data but the UI won't flicker.
+        const cacheAgeMs = Date.now() - (cached.ts || 0);
+        if (cacheAgeMs < STATS_TTL_MS) return; // cache is fresh enough
+        // Cache is stale: refetch silently (no loading spinner, no flicker)
       } else {
         setLoading(true);
       }
@@ -1703,8 +1700,16 @@ const LoanDashboard = () => {
       if (!raw) return;
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed?.rows)) return;
+      const age = Date.now() - Number(parsed?.ts || 0);
+      // Only restore from sessionStorage if cache is fresh enough (< STATS_TTL_MS = 2 min)
+      // to avoid showing very stale data as the initial paint.
+      if (age > STATS_TTL_MS) return;
       const hydratedRows = parsed.rows.map(normalizeLoan);
-      pageCacheRef.current.set(`|1|${pageSize}`, {
+      // Use the same key format fetchLoans() uses for page 1, no search, default sort.
+      // This ensures the next fetchLoans() call hits the cache and skips setLoading(true),
+      // eliminating the stale → skeleton → fresh data flicker sequence.
+      const page1CacheKey = `|1|${pageSize}|leadDate|desc`;
+      pageCacheRef.current.set(page1CacheKey, {
         rows: hydratedRows,
         total: Number(parsed?.total) || hydratedRows.length,
         ts: Number(parsed?.ts) || Date.now(),
@@ -1715,10 +1720,11 @@ const LoanDashboard = () => {
         console.info("[LoansDashboard] hydrated page cache", {
           rows: hydratedRows.length,
           total: Number(parsed?.total) || hydratedRows.length,
+          ageMs: age,
         });
       }
     } catch (_) {}
-  }, [normalizeLoan, page, pageSize, filters.searchQuery]);
+  }, [normalizeLoan, page, pageSize, filters.searchQuery, STATS_TTL_MS]);
 
   useEffect(() => {
     const rawQuery = String(filters.searchQuery || "");
@@ -1986,6 +1992,8 @@ const LoanDashboard = () => {
     const seedSearch = String(debouncedSearchQuery || "")
       .trim()
       .toLowerCase();
+    // Only apply client-side search when the typed query is longer than the 3-char
+    // seed sent to the backend (so the backend already did a coarser pre-filter).
     const shouldApplyClientSearch = (() => {
       if (!activeSearch) return false;
       if (activeSearch.length < 3) return true;
@@ -1994,65 +2002,16 @@ const LoanDashboard = () => {
     })();
 
     const filtered = loans.filter((loan) => {
+      // Search refinement (client-side only when query > 3 chars or no seed yet)
       if (shouldApplyClientSearch) {
-        const matchFound = matchesDashboardSearch(loan, filters.searchQuery);
-        if (!matchFound) return false;
+        if (!matchesDashboardSearch(loan, filters.searchQuery)) return false;
       }
 
-      const loanTypeValue = normalizeLoanTypeForFilter(loan);
-      if (filters.loanTypes?.length) {
-        const matches = filters.loanTypes.some(
-          (ft) =>
-            String(ft || "").trim() === String(loanTypeValue || "").trim(),
-        );
-        if (!matches) return false;
-      }
-
-      const amountLakhs =
-        (loan.loanAmount ||
-          loan.approval_loanAmountApproved ||
-          loan.approval_loanAmountDisbursed ||
-          0) / 100000;
-      if (filters.amountRanges?.length) {
-        const inRange = filters.amountRanges.some((range) => {
-          if (range === "0-5") return amountLakhs >= 0 && amountLakhs < 5;
-          if (range === "5-10") return amountLakhs >= 5 && amountLakhs < 10;
-          if (range === "10-15") return amountLakhs >= 10 && amountLakhs < 15;
-          if (range === "15-20") return amountLakhs >= 15 && amountLakhs < 20;
-          if (range === "20-50") return amountLakhs >= 20 && amountLakhs < 50;
-          if (range === "50-100") return amountLakhs >= 50 && amountLakhs < 100;
-          if (range === "100+") return amountLakhs >= 100;
-          return false;
-        });
-        if (!inRange) return false;
-      }
-
-      if (filters.pendingDisbursal) {
-        if (!isLoanPendingDisbursal(loan)) return false;
-      }
-      if (filters.disbursedOnly) {
-        if (!isLoanDisbursedNonCash(loan)) return false;
-      }
-      if (filters.pendingApprovalOnly) {
-        if (!isLoanPendingApproval(loan)) return false;
-      }
-      if (filters.cashCarsOnly) {
-        if (!isCashCaseLoan(loan)) return false;
-      }
+      // cpvIncomplete is the only filter that truly requires client evaluation
+      // (it inspects many optional fields). All other filters are enforced by
+      // the backend query before rows are returned.
       if (filters.cpvIncomplete) {
         if (!isCpvIncomplete(loan)) return false;
-      }
-      if (filters.regNoPending) {
-        if (!isRegistrationNumberPending(loan)) return false;
-      }
-      if (filters.loanNoPending) {
-        if (!isLoanNumberPending(loan)) return false;
-      }
-      if (filters.rcPending) {
-        if (!isRcPending(loan)) return false;
-      }
-      if (filters.invoicePending) {
-        if (!isInvoicePending(loan)) return false;
       }
 
       return true;
@@ -2077,16 +2036,7 @@ const LoanDashboard = () => {
     filters,
     debouncedSearchQuery,
     matchesDashboardSearch,
-    normalizeLoanTypeForFilter,
-    isCashCaseLoan,
-    isLoanDisbursedNonCash,
-    isLoanPendingApproval,
-    isLoanPendingDisbursal,
     isCpvIncomplete,
-    isRegistrationNumberPending,
-    isLoanNumberPending,
-    isRcPending,
-    isInvoicePending,
     sortConfig?.key,
     sortConfig?.direction,
   ]);
@@ -2108,18 +2058,9 @@ const LoanDashboard = () => {
     filters.invoicePending,
   ]);
 
-  const hasClientOnlyFilters =
-    filters.loanTypes.length > 0 ||
-    filters.amountRanges.length > 0 ||
-    filters.pendingApprovalOnly ||
-    filters.pendingDisbursal ||
-    filters.disbursedOnly ||
-    filters.cashCarsOnly ||
-    filters.cpvIncomplete ||
-    filters.regNoPending ||
-    filters.loanNoPending ||
-    filters.rcPending ||
-    filters.invoicePending;
+  // Only cpvIncomplete truly filters on the client side. All other filters are
+  // handled by the backend, so server-pagination works correctly for them.
+  const hasClientOnlyFilters = filters.cpvIncomplete;
   const activeFilterMode = hasClientOnlyFilters;
   const gridLoans = activeFilterMode
     ? filteredLoans.slice((page - 1) * pageSize, page * pageSize)
