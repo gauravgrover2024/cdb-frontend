@@ -121,6 +121,9 @@ const normalizeFuelLabel = (fuel) => {
 const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const navigate = useNavigate();
 
+  // allVehicles = full unfiltered set — used only for dropdown option lists
+  const [allVehicles, setAllVehicles] = useState([]);
+  // vehicles = backend-filtered set (by city/make/model/fuel) — used for display
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -154,52 +157,76 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     });
   }, []);
 
-  const loadVehicles = async () => {
+  // Load the full vehicle list once — used to populate dropdown options.
+  // Runs only on mount. Backend has in-memory cache so this is fast after first hit.
+  const loadAllVehicles = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await vehiclesApi.getAll();
-      const list = toArray(res).map(normalizeVehicleRecord);
+      let list = toArray(res).map(normalizeVehicleRecord);
 
-      if (list.length > 0) {
-        setVehicles(list);
-        smartSetCity(list);
-        return;
+      if (!list.length) {
+        const variantsRes = await featuresApi.getVariantsWithPrice();
+        const variants = Array.isArray(variantsRes?.data) ? variantsRes.data : [];
+        list = variants.map((v) =>
+          normalizeVehicleRecord({
+            _id: v.vehicleId || v.id || v._id,
+            make: v.make || "N/A",
+            model: v.model || "N/A",
+            variant: v.variant || "N/A",
+            fuel: v.fuel || "N/A",
+            city: v.city || "N/A",
+            exShowroom: Number(v.exShowroom || 0),
+            rto: Number(v.rto || 0),
+            insurance: Number(v.insurance || 0),
+            otherCharges: Number(v.otherCharges || v.tcs || 0),
+            onRoadPrice: Number(v.onRoadPrice || 0),
+            status: "Active",
+            isDiscontinued: false,
+          }),
+        );
       }
 
-      // Fallback: use variants-with-price source when vehicle master data is empty.
-      const variantsRes = await featuresApi.getVariantsWithPrice();
-      const variants = Array.isArray(variantsRes?.data) ? variantsRes.data : [];
-      const mapped = variants.map((v) =>
-        normalizeVehicleRecord({
-          _id: v.vehicleId || v.id || v._id,
-          make: v.make || "N/A",
-          model: v.model || "N/A",
-          variant: v.variant || "N/A",
-          fuel: v.fuel || "N/A",
-          city: v.city || "N/A",
-          exShowroom: Number(v.exShowroom || 0),
-          rto: Number(v.rto || 0),
-          insurance: Number(v.insurance || 0),
-          otherCharges: Number(v.otherCharges || v.tcs || 0),
-          onRoadPrice: Number(v.onRoadPrice || 0),
-          status: "Active",
-          isDiscontinued: false,
-        }),
-      );
-
-      setVehicles(mapped);
-      smartSetCity(mapped);
+      setAllVehicles(list);
+      setVehicles(list);   // initial display = full set (local filtering kicks in below)
+      smartSetCity(list);
     } catch (err) {
       console.error("Load Vehicles Error:", err);
       message.error("Failed to load vehicle price list ❌");
+    }
+  }, [smartSetCity]);
+
+  // Re-fetch from backend when city / make / model / fuel change.
+  // Backend has indexes on these fields + response cache → fast round-trips.
+  const loadFilteredVehicles = useCallback(async (params) => {
+    try {
+      setLoading(true);
+      const res = await vehiclesApi.getAll(params);
+      const list = toArray(res).map(normalizeVehicleRecord);
+      setVehicles(list);
+    } catch (err) {
+      console.error("Load Filtered Vehicles Error:", err);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadVehicles();
   }, []);
+
+  // Initial mount: load full set for dropdowns
+  useEffect(() => {
+    setLoading(true);
+    loadAllVehicles().finally(() => setLoading(false));
+  }, [loadAllVehicles]);
+
+  // When key filters change: ask backend for the filtered subset
+  useEffect(() => {
+    if (!allVehicles.length) return; // wait for initial load
+    const params = {};
+    if (cityFilter) params.city = cityFilter;
+    if (makeFilter) params.make = makeFilter;
+    if (modelFilter) params.model = modelFilter;
+    if (fuelFilter && fuelFilter !== "All") params.fuel = fuelFilter;
+    loadFilteredVehicles(params);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cityFilter, makeFilter, modelFilter, fuelFilter]);
 
   useEffect(() => {
     setVisibleCount(30);
@@ -216,49 +243,49 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     showDiscontinued,
   ]);
 
+  // Dropdown option lists always computed from the full unfiltered set
   const uniqueMakes = useMemo(
-    () => [...new Set(vehicles.map((v) => v.make))].sort(),
-    [vehicles],
+    () => [...new Set(allVehicles.map((v) => v.make))].sort(),
+    [allVehicles],
   );
 
   const uniqueModels = useMemo(() => {
     if (!makeFilter) return [];
     return [
       ...new Set(
-        vehicles.filter((v) => v.make === makeFilter).map((v) => v.model),
+        allVehicles.filter((v) => v.make === makeFilter).map((v) => v.model),
       ),
     ].sort();
-  }, [vehicles, makeFilter]);
+  }, [allVehicles, makeFilter]);
 
   const uniqueVariants = useMemo(() => {
-    let list = vehicles;
+    let list = allVehicles;
     if (makeFilter) list = list.filter((v) => v.make === makeFilter);
     if (modelFilter) list = list.filter((v) => v.model === modelFilter);
     return [
       ...new Set(list.map((v) => v.variant).filter((x) => !!x && x !== "N/A")),
     ].sort();
-  }, [vehicles, makeFilter, modelFilter]);
+  }, [allVehicles, makeFilter, modelFilter]);
 
   const uniqueCities = useMemo(
     () =>
       [
         ...new Set(
-          vehicles.map((v) => v.city).filter((x) => !!x && x !== "N/A"),
+          allVehicles.map((v) => v.city).filter((x) => !!x && x !== "N/A"),
         ),
       ].sort(),
-    [vehicles],
+    [allVehicles],
   );
 
-  // Track which normalised fuel types actually appear in the master vehicle list
   const allFuelsPresent = useMemo(() => {
     const set = new Set();
-    vehicles.forEach((v) => {
+    allVehicles.forEach((v) => {
       const f = v.fuel || "";
       if (!f || f === "N/A") return;
       set.add(normalizeFuelLabel(f));
     });
     return set;
-  }, [vehicles]);
+  }, [allVehicles]);
 
   const formatCurrency = (amount) => {
     if (!amount || Number(amount) <= 0) return "₹ 0";
@@ -313,7 +340,18 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   };
 
   const handleSendToQuotation = (v) => {
-    navigate("/loans/quotation", { state: { vehicle: v } });
+    navigate("/loans/emi-calculator", {
+      state: {
+        fromVariant: {
+          vehicleId: v._id,
+          make: v.make,
+          model: v.model,
+          variant: v.variant,
+          price: v.onRoadPrice,
+        },
+        openQuotation: true,
+      },
+    });
   };
 
   const handleCheckFeatures = (v) => {
@@ -354,7 +392,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
           const modelPart = sLower.slice(makeLower.length + 1).trim();
           const modelsForMake = [
             ...new Set(
-              vehicles.filter((v) => v.make === make).map((v) => v.model),
+              allVehicles.filter((v) => v.make === make).map((v) => v.model),
             ),
           ];
           const matchedModel = modelsForMake.find(
@@ -370,7 +408,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchText, uniqueMakes, vehicles, makeFilter, modelFilter]);
+  }, [searchText, uniqueMakes, allVehicles, makeFilter, modelFilter]);
 
   // ─── Filtered vehicles ──────────────────────────────────────────────────────
   const filteredVehicles = useMemo(() => {
@@ -492,10 +530,8 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   }, [filteredVehicles]);
 
   const activeGalleryVehicle = useMemo(() => {
-    const fromFiltered = filteredVehicles.find(
-      (v) => v._id === galleryVehicleId,
-    );
-    return fromFiltered || filteredVehicles[0] || null;
+    if (!galleryVehicleId) return null;
+    return filteredVehicles.find((v) => v._id === galleryVehicleId) || null;
   }, [filteredVehicles, galleryVehicleId]);
 
   // ─── Gallery: local-data fallback builder ───────────────────────────────────
@@ -595,11 +631,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     setActiveMediaIndex(0);
   }, [galleryVehicleId]);
 
-  useEffect(() => {
-    if (!activeGalleryVehicle && filteredVehicles.length) {
-      setGalleryVehicleId(filteredVehicles[0]._id);
-    }
-  }, [activeGalleryVehicle, filteredVehicles]);
+  // Gallery loads only when user explicitly clicks a variant row — no auto-selection on start.
 
   useEffect(() => {
     if (!galleryMedia.length) {
@@ -672,50 +704,58 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200";
   };
 
+  // ─── Skeleton loader ────────────────────────────────────────────────────────
+  const SkeletonCard = () => (
+    <div className="px-6 md:px-8 py-4 border-b border-slate-100 dark:border-[#262626] animate-pulse">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-48 rounded-full bg-slate-200 dark:bg-[#2a2a2a]" />
+          <div className="h-3 w-32 rounded-full bg-slate-100 dark:bg-[#222]" />
+          <div className="h-5 w-20 rounded-full bg-slate-100 dark:bg-[#222]" />
+        </div>
+        <div className="h-7 w-28 rounded-full bg-slate-200 dark:bg-[#2a2a2a]" />
+      </div>
+    </div>
+  );
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#171717] px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-screen bg-transparent px-4 py-6 md:px-8 md:py-8">
       <div className="app-max-wrap space-y-4 pb-16">
-        {/* ── Header ── */}
-        <div className="bg-white dark:bg-[#1f1f1f] rounded-[28px] border border-slate-100 dark:border-[#262626] shadow-sm px-6 py-4 md:px-8 md:py-4 flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        {/* ── Hero header ── */}
+        <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-[#0f0f0f] dark:via-[#1a1a1a] dark:to-[#0f0f0f] px-6 py-6 md:px-10 md:py-8 shadow-xl">
+          {/* subtle grid texture */}
+          <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+          <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-5">
             <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-[#262626] text-[11px] font-medium text-slate-700 dark:text-slate-100">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-semibold text-white/80 tracking-wide uppercase mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Price Intelligence
               </div>
-              <h1 className="mt-2 text-[26px] md:text-[30px] font-semibold text-slate-900 dark:text-slate-50">
+              <h1 className="text-[32px] md:text-[40px] font-black text-white leading-none tracking-tight">
                 Vehicle Price List
               </h1>
-              <p className="mt-1 text-xs md:text-sm text-slate-500 dark:text-slate-400">
-                On‑road prices • Updated{" "}
-                {new Date().toLocaleDateString("en-IN")}
+              <p className="mt-2 text-sm text-white/50">
+                On‑road prices · Updated {new Date().toLocaleDateString("en-IN")}
               </p>
             </div>
 
-            <div className="flex flex-col items-start md:items-end gap-1 text-xs md:text-sm">
-              <div className="flex flex-wrap gap-2">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-[#262626] text-slate-900 dark:text-slate-50">
-                  <Icon name="MapPin" size={14} />
-                  <span>{cityFilter || "All Cities"}</span>
-                </div>
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 dark:bg-[#262626] text-slate-900 dark:text-slate-50">
-                  <Icon name="List" size={14} />
-                  <span>{stats.total} variants</span>
-                </div>
+            {/* Live stat chips */}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-white/10 border border-white/15 px-5 py-3 min-w-[100px]">
+                <span className="text-[28px] font-black text-white leading-none">{stats.active}</span>
+                <span className="text-[11px] text-white/60 mt-1 font-medium">Active Variants</span>
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                {stats.active} active
-                {showDiscontinued && stats.discontinued > 0 && (
-                  <>
-                    {" "}
-                    •{" "}
-                    <span className="text-red-500">
-                      {stats.discontinued} discontinued
-                    </span>
-                  </>
-                )}{" "}
-                • {stats.makes} makes
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-white/10 border border-white/15 px-5 py-3 min-w-[100px]">
+                <span className="text-[28px] font-black text-emerald-400 leading-none">{stats.total}</span>
+                <span className="text-[11px] text-white/60 mt-1 font-medium">Listings</span>
+              </div>
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-white/10 border border-white/15 px-5 py-3 min-w-[100px]">
+                <div className="flex items-center gap-1.5">
+                  <Icon name="MapPin" size={13} className="text-white/60" />
+                  <span className="text-[14px] font-bold text-white leading-none">{cityFilter || "All"}</span>
+                </div>
+                <span className="text-[11px] text-white/60 mt-1 font-medium">{stats.makes} makes</span>
               </div>
             </div>
           </div>
@@ -724,7 +764,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
         {/* ── 2-column layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-[320px,minmax(0,1fr)] gap-4 mt-2 items-start">
           {/* ── Left: filter panel ── */}
-          <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] px-5 py-5 flex flex-col gap-4 h-auto sticky top-24">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-lg shadow-slate-200/60 dark:shadow-black/40 border border-slate-100 dark:border-[#262626] px-5 py-5 flex flex-col gap-4 h-auto sticky top-24">
             <div>
               <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Filters
@@ -950,103 +990,92 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
           {/* ── Right: gallery + variants ── */}
           <div className="flex flex-col gap-3">
             {/* ── Color Gallery card ── */}
-            <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow border border-gray-200 dark:border-[#262626] overflow-hidden">
-              <div className="px-6 py-5 md:px-8 border-b border-gray-100 dark:border-[#262626]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      Color Gallery
-                    </div>
-                    <h2 className="mt-1 text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {activeGalleryVehicle
-                        ? `${getVehicleMake(activeGalleryVehicle)} ${getVehicleModel(activeGalleryVehicle)}`
-                        : "Select a vehicle"}
-                    </h2>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {activeGalleryVehicle
-                        ? `${getVehicleVariant(activeGalleryVehicle)} • ${galleryMedia.length} color view${galleryMedia.length === 1 ? "" : "s"}`
-                        : "Open a variant to preview available car photos and colors."}
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-lg shadow-slate-200/60 dark:shadow-black/40 border border-slate-100 dark:border-[#262626] overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-4 md:px-7 border-b border-slate-100 dark:border-[#262626] flex items-center justify-between gap-3 bg-gradient-to-r from-slate-50 to-transparent dark:from-[#1f1f1f] dark:to-transparent">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Color Gallery</p>
+                  <h2 className="mt-0.5 text-[15px] font-bold text-slate-900 dark:text-slate-100">
+                    {activeGalleryVehicle
+                      ? `${getVehicleMake(activeGalleryVehicle)} ${getVehicleModel(activeGalleryVehicle)}`
+                      : "Click a variant to preview"}
+                  </h2>
+                  {activeGalleryVehicle && (
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      {getVehicleVariant(activeGalleryVehicle)} · {galleryMedia.length} color{galleryMedia.length !== 1 ? "s" : ""}
                     </p>
-                  </div>
-                  {activeMedia && (
-                    <div className="rounded-full border border-slate-200 dark:border-[#383838] px-3 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                      {activeMedia.color}
-                    </div>
                   )}
                 </div>
+                {activeMedia && (
+                  <div className="flex items-center gap-2 rounded-full bg-slate-100 dark:bg-[#262626] px-3 py-1.5">
+                    <span className="h-3 w-3 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: activeMedia.hex || "#d1d5db" }} />
+                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">{activeMedia.color}</span>
+                  </div>
+                )}
               </div>
 
               {!activeGalleryVehicle ? (
-                <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
-                  No vehicle selected for preview.
+                <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-[#262626] flex items-center justify-center">
+                    <Icon name="Image" size={22} className="text-slate-400" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Expand a variant below to load photos</p>
                 </div>
               ) : !galleryMedia.length ? (
-                <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
-                  No car photos are available in the database for this
-                  make/model yet.
+                <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-[#262626] flex items-center justify-center">
+                    <Icon name="ImageOff" size={22} className="text-slate-400" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No photos available for this variant yet</p>
                 </div>
               ) : (
-                <div className="p-4 md:p-6 space-y-4 bg-slate-50 dark:bg-[#171717]">
+                <div className="p-4 md:p-5 space-y-3 bg-slate-50/60 dark:bg-[#141414]">
                   {/* Main image */}
-                  <div className="relative overflow-hidden rounded-[24px] border border-slate-200 dark:border-[#2d2d2d] bg-white dark:bg-[#111]">
+                  <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-[#282828] bg-white dark:bg-[#111] shadow-sm">
                     <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between p-3">
-                      <button
-                        type="button"
-                        onClick={goToPreviousMedia}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/80 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
-                      >
-                        <Icon name="ChevronLeft" size={18} />
+                      <button type="button" onClick={goToPreviousMedia}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-slate-800 shadow backdrop-blur-sm hover:bg-white transition-all active:scale-95">
+                        <Icon name="ChevronLeft" size={17} />
                       </button>
-                      <button
-                        type="button"
-                        onClick={goToNextMedia}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/80 text-slate-700 shadow-sm backdrop-blur hover:bg-white"
-                      >
-                        <Icon name="ChevronRight" size={18} />
+                      <div className="px-3 py-1 rounded-full bg-black/30 backdrop-blur-sm text-white text-[11px] font-semibold">
+                        {activeMediaIndex + 1} / {galleryMedia.length}
+                      </div>
+                      <button type="button" onClick={goToNextMedia}
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-slate-800 shadow backdrop-blur-sm hover:bg-white transition-all active:scale-95">
+                        <Icon name="ChevronRight" size={17} />
                       </button>
                     </div>
-
                     <div className="aspect-[16/9] w-full overflow-hidden">
                       <img
                         src={activeMedia.image}
                         alt={`${activeMedia.make} ${activeMedia.model} ${activeMedia.variant} ${activeMedia.color}`}
-                        className="h-full w-full object-contain p-2"
+                        className="h-full w-full object-contain p-3"
+                        loading="lazy"
                       />
                     </div>
                   </div>
 
                   {/* Thumbnail strip */}
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-thin">
                     {galleryMedia.map((media, index) => {
-                      const isActive = index === activeMediaIndex;
+                      const isThumbnailActive = index === activeMediaIndex;
                       return (
                         <button
                           key={`${media.image}-${media.color}-${index}`}
                           type="button"
                           onClick={() => setActiveMediaIndex(index)}
-                          className={`min-w-[112px] rounded-2xl border p-2 text-left transition ${
-                            isActive
-                              ? "border-emerald-500 bg-white shadow-sm dark:border-emerald-400 dark:bg-[#1f1f1f]"
-                              : "border-slate-200 bg-white/70 hover:border-slate-300 dark:border-[#303030] dark:bg-[#1b1b1b]"
+                          className={`group relative flex-shrink-0 w-[96px] rounded-xl border-2 p-1.5 text-left transition-all duration-200 ${
+                            isThumbnailActive
+                              ? "border-violet-500 bg-white shadow-md dark:border-violet-400 dark:bg-[#1f1f1f]"
+                              : "border-transparent bg-white/80 hover:border-slate-300 hover:shadow-sm dark:bg-[#1e1e1e] dark:hover:border-slate-600"
                           }`}
                         >
-                          <div className="mb-2 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 dark:bg-[#111]">
-                            <img
-                              src={media.image}
-                              alt={media.color}
-                              className="h-full w-full object-contain p-1"
-                            />
+                          <div className="aspect-[4/3] overflow-hidden rounded-lg bg-slate-100 dark:bg-[#111] mb-1.5">
+                            <img src={media.image} alt={media.color} className="h-full w-full object-contain p-0.5" loading="lazy" />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="h-3.5 w-3.5 rounded-full border border-black/10 flex-shrink-0"
-                              style={{
-                                backgroundColor: media.hex || "#d1d5db",
-                              }}
-                            />
-                            <span className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">
-                              {media.color}
-                            </span>
+                          <div className="flex items-center gap-1.5 px-0.5">
+                            <span className="h-2.5 w-2.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: media.hex || "#d1d5db" }} />
+                            <span className="truncate text-[10px] font-semibold text-slate-700 dark:text-slate-300">{media.color}</span>
                           </div>
                         </button>
                       );
@@ -1057,14 +1086,14 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
             </div>
 
             {/* ── Variants & Pricing card ── */}
-            <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow border border-gray-200 dark:border-[#262626] overflow-hidden">
-              <div className="px-6 py-4 md:px-8 md:py-4 border-b border-gray-100 dark:border-[#262626] flex flex-col gap-3">
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-lg shadow-slate-200/60 dark:shadow-black/40 border border-slate-100 dark:border-[#262626] overflow-hidden">
+              <div className="px-6 py-4 md:px-8 md:py-4 border-b border-slate-100 dark:border-[#262626] flex flex-col gap-3 bg-gradient-to-r from-slate-50 to-transparent dark:from-[#1f1f1f] dark:to-transparent">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Variants &amp; pricing
+                  <h2 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
+                    Variants &amp; Pricing
                   </h2>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {filteredVehicles.length} variants found
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-[#262626] px-3 py-1 rounded-full">
+                    {filteredVehicles.length} variants
                   </span>
                 </div>
 
@@ -1079,7 +1108,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                           onClick={() => setFuelFilter(isActive ? "" : "All")}
                           className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-medium border transition ${
                             isActive
-                              ? "bg-emerald-600 text-white border-emerald-600"
+                              ? "bg-violet-600 text-white border-violet-600"
                               : "bg-gray-50 dark:bg-[#262626] text-gray-700 dark:text-gray-200 border-gray-200 dark:border-[#383838]"
                           }`}
                         >
@@ -1104,7 +1133,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                           existsInData
                             ? hasVariantsInFilter
                               ? isActive
-                                ? "bg-emerald-600 text-white border-emerald-600"
+                                ? "bg-violet-600 text-white border-violet-600"
                                 : "bg-gray-50 dark:bg-[#262626] text-gray-700 dark:text-gray-200 border-gray-200 dark:border-[#383838]"
                               : "bg-gray-100 dark:bg-[#262626] text-gray-400 dark:text-gray-500 border-dashed border-gray-200 dark:border-[#383838] cursor-default"
                             : "bg-gray-100 dark:bg-[#171717] text-gray-500 dark:text-gray-600 border-dashed border-gray-200 dark:border-[#262626] cursor-default opacity-50"
@@ -1118,120 +1147,98 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </div>
 
               {loading ? (
-                <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
-                  Loading variants…
+                <div className="divide-y divide-slate-100 dark:divide-[#262626]">
+                  {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
                 </div>
               ) : filteredVehicles.length === 0 ? (
-                <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
-                  No variants available for current filters.
+                <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-[#262626] flex items-center justify-center">
+                    <Icon name="SearchX" size={22} className="text-slate-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No variants match your filters</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Try adjusting your search or clearing filters</p>
                 </div>
               ) : variantsForActiveFuel.length === 0 ? (
-                <div className="px-6 md:px-8 py-8 text-sm text-gray-500 dark:text-gray-400">
-                  No variants available for this fuel type with current filters.
+                <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-[#262626] flex items-center justify-center">
+                    <Icon name="Fuel" size={22} className="text-slate-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No {fuelFilter} variants with current filters</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100 dark:divide-[#262626]">
+                <div className="divide-y divide-slate-100 dark:divide-[#262626]">
                   {variantsForActiveFuel.slice(0, visibleCount).map((v) => {
                     const isBestValue =
                       !v.isDiscontinued &&
                       v.onRoadPrice &&
                       medianOnRoad &&
-                      Math.abs(v.onRoadPrice - medianOnRoad) / medianOnRoad <=
-                        0.15;
+                      Math.abs(v.onRoadPrice - medianOnRoad) / medianOnRoad <= 0.15;
 
                     return (
                       <details key={v._id} className="group">
                         <summary
-                          className="flex items-center justify-between gap-3 px-6 md:px-8 py-3 cursor-pointer bg-white dark:bg-[#1f1f1f] hover:bg-gray-50 dark:hover:bg-[#262626] transition-colors"
+                          className="flex items-center justify-between gap-3 px-6 md:px-8 py-4 cursor-pointer select-none bg-white dark:bg-[#1a1a1a] hover:bg-slate-50/80 dark:hover:bg-[#202020] transition-colors duration-150"
                           onClick={() => setGalleryVehicleId(v._id)}
                         >
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                              {v.model} ({v.variant})
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100 truncate">
+                              {v.model}{" "}
+                              <span className="font-medium text-slate-500 dark:text-slate-400">({v.variant})</span>
                             </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {v.make} • {v.city || "City not set"}
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {v.make} · {v.city || "City not set"}
                             </span>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                               {v.fuel && v.fuel !== "N/A" && (
-                                <Tag
-                                  className={`text-[11px] px-2 py-0.5 rounded-full border-0 ${fuelTagClass(v.fuel)}`}
-                                >
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${fuelTagClass(v.fuel)}`}>
                                   {normalizeFuelLabel(v.fuel)}
-                                </Tag>
+                                </span>
                               )}
                               {v.isDiscontinued && (
-                                <span className="text-[11px] font-semibold text-red-500">
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400 font-bold">
                                   DISCONTINUED
                                 </span>
                               )}
                               {isBestValue && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-200 border border-emerald-200/60 dark:border-emerald-700/60">
-                                  Best value
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200/60 dark:border-amber-700/40 font-semibold">
+                                  ★ Best Value
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 shrink-0">
                             <div className="text-right">
-                              <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                                On‑road from
-                              </div>
-                              <div className="text-lg md:text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                              <div className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">On‑road</div>
+                              <div className="text-[17px] font-black text-slate-900 dark:text-slate-50 leading-tight">
                                 {formatCurrency(v.onRoadPrice)}
                               </div>
                             </div>
-                            <Icon
-                              name="ChevronDown"
-                              size={16}
-                              className="text-gray-400 group-open:rotate-180 transition-transform"
-                            />
+                            <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-[#2a2a2a] flex items-center justify-center transition-transform group-open:rotate-180">
+                              <Icon name="ChevronDown" size={14} className="text-slate-500" />
+                            </div>
                           </div>
                         </summary>
 
                         {/* Expanded pricing + actions */}
-                        <div className="px-6 md:px-8 pb-4 bg-gray-50 dark:bg-[#171717]">
+                        <div className="px-6 md:px-8 pb-5 pt-1 bg-slate-50/60 dark:bg-[#141414]">
                           {(() => {
-                            const pricing =
-                              v.pricingBreakup ||
-                              buildVehiclePricingSnapshot(v);
-                            const additionLines = Array.isArray(
-                              pricing?.additionLines,
-                            )
-                              ? pricing.additionLines
-                              : [];
-                            const onRoad =
-                              Number(pricing?.onRoadBeforeDiscount) ||
-                              Number(pricing?.netOnRoad) ||
-                              v.onRoadPrice ||
-                              0;
-
+                            const pricing = v.pricingBreakup || buildVehiclePricingSnapshot(v);
+                            const additionLines = Array.isArray(pricing?.additionLines) ? pricing.additionLines : [];
+                            const onRoad = Number(pricing?.onRoadBeforeDiscount) || Number(pricing?.netOnRoad) || v.onRoadPrice || 0;
                             return (
                               <>
                                 {/* Pricing breakdown */}
-                                <div className="mt-3 rounded-2xl border border-gray-200 dark:border-[#262626] bg-white dark:bg-[#1f1f1f] px-4 py-3 space-y-3 text-xs md:text-sm">
+                                <div className="mt-3 rounded-2xl border border-slate-200 dark:border-[#262626] bg-white dark:bg-[#1f1f1f] px-4 py-3 space-y-2.5 text-xs md:text-sm shadow-sm">
                                   {additionLines.map((row) => (
-                                    <div
-                                      key={`add-${row.key}`}
-                                      className="flex justify-between"
-                                    >
-                                      <span className="text-gray-600 dark:text-gray-400">
-                                        {row.label}
-                                      </span>
-                                      <span className="font-semibold text-gray-900 dark:text-gray-100">
-                                        {formatCurrency(row.amount)}
-                                      </span>
+                                    <div key={`add-${row.key}`} className="flex justify-between">
+                                      <span className="text-slate-500 dark:text-slate-400">{row.label}</span>
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200">{formatCurrency(row.amount)}</span>
                                     </div>
                                   ))}
-
-                                  <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-[#262626] mt-1">
-                                    <span className="text-gray-700 dark:text-gray-200">
-                                      On-road
-                                    </span>
-                                    <span className="text-base md:text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                                      {formatCurrency(onRoad)}
-                                    </span>
+                                  <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-[#262626]">
+                                    <span className="font-bold text-slate-700 dark:text-slate-200">On-road Total</span>
+                                    <span className="text-[15px] font-black text-slate-900 dark:text-slate-50">{formatCurrency(onRoad)}</span>
                                   </div>
                                 </div>
 
@@ -1239,24 +1246,24 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   <button
                                     onClick={() => handleCalculateEmi(v)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition"
+                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 text-white text-[12px] font-bold hover:bg-blue-700 active:scale-95 transition-all shadow-sm shadow-blue-200 dark:shadow-none"
                                   >
-                                    <Icon name="Calculator" size={13} />{" "}
-                                    Calculate EMI
+                                    <Icon name="Calculator" size={13} />
+                                    EMI Planner
                                   </button>
                                   <button
                                     onClick={() => handleSendToQuotation(v)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition"
+                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-violet-600 text-white text-[12px] font-bold hover:bg-violet-700 active:scale-95 transition-all shadow-sm shadow-violet-200 dark:shadow-none"
                                   >
-                                    <Icon name="FileText" size={13} /> Send to
-                                    Quotation
+                                    <Icon name="FileText" size={13} />
+                                    Send to Quotation
                                   </button>
                                   <button
                                     onClick={() => handleCheckFeatures(v)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#383838] text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-white dark:hover:bg-[#262626] active:scale-95 transition-all"
                                   >
-                                    <Icon name="List" size={13} /> Check
-                                    Features
+                                    <Icon name="List" size={13} />
+                                    Full Features
                                   </button>
                                 </div>
                               </>
@@ -1269,7 +1276,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleRowActionSelect(v)}
-                                className="border-emerald-500 text-emerald-600 dark:border-emerald-500/70 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/40"
+                                className="border-violet-500 text-violet-600 dark:border-violet-500/70 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30"
                               >
                                 <Icon name="Check" size={14} />
                                 Select
@@ -1282,17 +1289,15 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                   })}
 
                   {variantsForActiveFuel.length > visibleCount && (
-                    <div className="p-4 flex justify-center">
+                    <div className="p-5 flex justify-center">
                       <Button
                         variant="outline"
                         onClick={() => setVisibleCount((prev) => prev + 50)}
-                        className="text-emerald-600 border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        className="text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#383838] hover:bg-slate-50 dark:hover:bg-[#262626] font-semibold"
                       >
-                        Load{" "}
-                        {variantsForActiveFuel.length - visibleCount > 50
-                          ? "50 More"
-                          : `${variantsForActiveFuel.length - visibleCount} More`}{" "}
-                        ({variantsForActiveFuel.length} total)
+                        <Icon name="ChevronDown" size={15} />
+                        Load {variantsForActiveFuel.length - visibleCount > 50 ? "50" : variantsForActiveFuel.length - visibleCount} more
+                        <span className="ml-1 text-slate-400">({variantsForActiveFuel.length} total)</span>
                       </Button>
                     </div>
                   )}
@@ -1305,7 +1310,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
         {/* ── Sticky footer summary ── */}
         <div className="fixed bottom-4 left-0 right-0 z-20">
           <div className="app-max-wrap px-2">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/95 dark:bg-[#1f1f1f]/95 border border-gray-200 dark:border-[#262626] shadow-xl backdrop-blur">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-white/95 dark:bg-[#1a1a1a]/95 border border-slate-200 dark:border-[#2a2a2a] shadow-2xl shadow-slate-900/15 backdrop-blur-md">
               <div className="flex flex-wrap items-center gap-3 text-sm md:text-base">
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
                   {filteredVehicles.length} variants

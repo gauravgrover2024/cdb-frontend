@@ -56,7 +56,7 @@ const EMICalculatorPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-[#111] dark:via-[#171717] dark:to-[#111]">
+    <div className="min-h-screen bg-transparent">
       {/* ── BREADCRUMBS / BACK BUTTON ── */}
       {!initialShareView && (
         <div className="w-full px-4 md:px-6 pt-4 flex items-center justify-between gap-4">
@@ -102,17 +102,9 @@ const EMICalculatorPage = () => {
       )}
 
       {/* ── CUSTOMER PANEL ── */}
-      <div className="w-full px-4 md:px-6 pt-5 pb-2">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 dark:via-[#2a2a2a] to-transparent" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Customer
-          </span>
-          <div className="h-px flex-1 bg-gradient-to-l from-transparent via-slate-200 dark:via-[#2a2a2a] to-transparent" />
-        </div>
-
+      <div className="w-full px-4 md:px-6 pt-4 pb-2">
         {loadingQuote ? (
-          <div className="h-16 bg-white dark:bg-[#1f1f1f] rounded-2xl border border-slate-100 dark:border-[#262626] animate-pulse" />
+          <div className="h-[72px] bg-white dark:bg-[#141414] rounded-2xl border border-slate-100 dark:border-[#252525] animate-pulse" />
         ) : (
           <EMICustomerDetails
             key={customerKey}

@@ -142,6 +142,7 @@ const Header = () => {
       roles: [...new Set([...FEATURE_ACCESS.PAYOUTS, ...FEATURE_ACCESS.DELIVERY_ORDERS, ...FEATURE_ACCESS.PAYMENTS])],
       children: [
         { label: "Receivables",     path: "/payouts/receivables", desc: "Track incoming funds",   roles: FEATURE_ACCESS.PAYOUTS },
+        { label: "Payables",        path: "/payouts/payables",    desc: "Track outgoing funds",   roles: FEATURE_ACCESS.PAYOUTS },
         { label: "Delivery Orders", path: "/delivery-orders",     desc: "Manage DO dispatch",     roles: FEATURE_ACCESS.DELIVERY_ORDERS },
         { label: "Payments",        path: "/payments",            desc: "Process installments",   roles: FEATURE_ACCESS.PAYMENTS },
       ],
@@ -215,7 +216,7 @@ const Header = () => {
               onClick={() => handleNavigation("/")}
             >
               <img
-                src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
+                src={process.env.PUBLIC_URL + (isDarkMode ? "/acillp-logo-dark.svg" : "/acillp-logo-without-car.svg")}
                 alt="ACILLP"
                 className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105 md:h-8 xl:h-11"
               />
@@ -425,7 +426,7 @@ const Header = () => {
             <div className="p-6 flex items-center justify-between border-b border-border/50">
               <div className="rounded-lg px-2 py-1">
                 <img
-                  src={process.env.PUBLIC_URL + "/acillp-logo-without-car.svg"}
+                  src={process.env.PUBLIC_URL + (isDarkMode ? "/acillp-logo-dark.svg" : "/acillp-logo-without-car.svg")}
                   alt="ACILLP"
                   className="h-12 w-auto object-contain"
                 />
