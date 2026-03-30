@@ -3,8 +3,8 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, SlidersHorizontal, X, Check, Minus, ChevronDown, ChevronUp } from "lucide-react";
 import { featuresApi } from "../../../api/features";
-import ScenarioAInline from "../components/ScenarioAInline";
-import { Select } from "antd";
+import { AutoComplete, Select } from "antd";
+import FeaturesEmiCompareModal from "../components/FeaturesEmiCompareModal";
 
 // helper to extract a number from a string
 const extractNumber = (str) => {
@@ -30,12 +30,44 @@ const normalizeValueLabel = (raw) => {
   return raw;
 };
 
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const collapseSpaces = (value) =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isVehicleDiscontinued = (vehicle) => {
+  const flag = String(
+    vehicle?.is_discontinued ??
+      vehicle?.isDiscontinued ??
+      vehicle?.IsDiscontinued ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+  if (["1", "true", "yes"].includes(flag)) return true;
+  const discontinuedDate = String(
+    vehicle?.discontinued_date ?? vehicle?.discontinuedDate ?? "",
+  ).trim();
+  if (!discontinuedDate) return false;
+  return !["null", "undefined"].includes(discontinuedDate.toLowerCase());
+};
+
 const FeaturesPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const fromVariant = location.state?.fromVariant;
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [vehicleSearchInput, setVehicleSearchInput] = useState("");
+  const [debouncedVehicleSearchInput, setDebouncedVehicleSearchInput] =
+    useState("");
+  const [vehicleSearchLoading, setVehicleSearchLoading] = useState(false);
+  const [vehicleSearchOptions, setVehicleSearchOptions] = useState([]);
+  const [includeDiscontinued, setIncludeDiscontinued] = useState(false);
   const [fuelFilter, setFuelFilter] = useState("all");
   const [transmissionFilter, setTransmissionFilter] = useState("all");
 
@@ -73,7 +105,10 @@ const FeaturesPage = () => {
   const cardRefs = useRef({});
 
   // Initial load: serve from sessionStorage if fresh (5 min TTL), else fetch slim list
-  const FEATURES_SLIM_CACHE_KEY = "features_slim_v1";
+  const FEATURES_SLIM_CACHE_KEY = useMemo(
+    () => `features_slim_v2_${includeDiscontinued ? "all" : "active"}`,
+    [includeDiscontinued],
+  );
   const FEATURES_SLIM_TTL_MS = 5 * 60 * 1000;
   useEffect(() => {
     let isMounted = true;
@@ -94,7 +129,10 @@ const FeaturesPage = () => {
         }
         setLoading(true);
         setError(null);
-        const res = await featuresApi.getVariantsWithPrice({ slim: '1' });
+        const res = await featuresApi.getVariantsWithPrice({
+          slim: "1",
+          includeDiscontinued: includeDiscontinued ? "1" : "0",
+        });
         const items = Array.isArray(res.data) ? res.data : res.data?.data || [];
         if (!isMounted) return;
         setAllVariants(items);
@@ -112,8 +150,7 @@ const FeaturesPage = () => {
     };
     load();
     return () => { isMounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [FEATURES_SLIM_CACHE_KEY, FEATURES_SLIM_TTL_MS, includeDiscontinued]);
 
   // Re-fetch from backend when make/model/variant/fuel change (backend filters cached data)
   useEffect(() => {
@@ -125,7 +162,8 @@ const FeaturesPage = () => {
     if (modelFilter)   params.model   = modelFilter;
     if (variantFilter) params.variant = variantFilter;
     if (fuelFilter !== "all") params.fuel = fuelFilter;
-    params.slim = '1';
+    params.slim = "1";
+    params.includeDiscontinued = includeDiscontinued ? "1" : "0";
 
     const fetch = async () => {
       try {
@@ -142,34 +180,73 @@ const FeaturesPage = () => {
     };
     fetch();
     return () => { isMounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [makeFilter, modelFilter, variantFilter, fuelFilter]);
+  }, [
+    allVariants.length,
+    makeFilter,
+    modelFilter,
+    variantFilter,
+    fuelFilter,
+    includeDiscontinued,
+  ]);
 
-  // Debounced search — pass q to backend (backend filters over cached dataset)
   useEffect(() => {
-    if (!allVariants.length) return;
-    const q = searchTerm.trim();
-    if (!q) {
-      // No search query: re-apply dropdown filters locally from current set
+    const handle = setTimeout(() => {
+      setDebouncedVehicleSearchInput(collapseSpaces(vehicleSearchInput));
+    }, 180);
+    return () => clearTimeout(handle);
+  }, [vehicleSearchInput]);
+
+  useEffect(() => {
+    const q = String(debouncedVehicleSearchInput || "").trim();
+    if (q.length < 2) {
+      setVehicleSearchOptions([]);
+      setVehicleSearchLoading(false);
       return;
     }
     let isMounted = true;
-    const params = { q, slim: '1' };
-    if (makeFilter)    params.make    = makeFilter;
-    if (modelFilter)   params.model   = modelFilter;
-    if (fuelFilter !== "all") params.fuel = fuelFilter;
-
-    const handle = setTimeout(async () => {
+    const loadVehicleOptions = async () => {
       try {
-        const res = await featuresApi.getVariantsWithPrice(params);
-        const items = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        setVehicleSearchLoading(true);
+        const res = await featuresApi.getVariantsWithPrice({
+          q,
+          slim: "1",
+          includeDiscontinued: includeDiscontinued ? "1" : "0",
+        });
         if (!isMounted) return;
-        setVariants(items);
-      } catch { /* keep current set */ }
-    }, 300);
-    return () => { isMounted = false; clearTimeout(handle); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+        const rows = (Array.isArray(res.data) ? res.data : res.data?.data || []).filter((row) =>
+          includeDiscontinued ? true : !isVehicleDiscontinued(row),
+        );
+        const dedup = new Map();
+        rows.forEach((row) => {
+          const make = collapseSpaces(row?.make);
+          const model = collapseSpaces(row?.model);
+          if (!make || !model) return;
+          const key = `${normalizeText(make)}|${normalizeText(model)}`;
+          if (dedup.has(key)) return;
+          dedup.set(key, {
+            value: `${make} ${model}`.trim(),
+            make,
+            model,
+            label: (
+              <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100">
+                {make} {model}
+              </span>
+            ),
+          });
+        });
+        setVehicleSearchOptions(Array.from(dedup.values()).slice(0, 30));
+      } catch {
+        if (!isMounted) return;
+        setVehicleSearchOptions([]);
+      } finally {
+        if (isMounted) setVehicleSearchLoading(false);
+      }
+    };
+    loadVehicleOptions();
+    return () => {
+      isMounted = false;
+    };
+  }, [debouncedVehicleSearchInput, includeDiscontinued]);
 
   // On-demand feature loading: fetch full features when a card is expanded
   useEffect(() => {
@@ -228,10 +305,11 @@ const FeaturesPage = () => {
   const filteredVariants = useMemo(
     () =>
       variants.filter((v) => {
+        if (!includeDiscontinued && isVehicleDiscontinued(v)) return false;
         if (transmissionFilter !== "all" && v.transmission !== transmissionFilter) return false;
         return true;
       }),
-    [variants, transmissionFilter],
+    [variants, transmissionFilter, includeDiscontinued],
   );
 
   // Dropdown option lists — computed from full unfiltered set
@@ -255,6 +333,28 @@ const FeaturesPage = () => {
     if (modelFilter) list = list.filter((v) => v.model === modelFilter);
     return [...new Set(list.map((v) => v.variant).filter(Boolean))].sort();
   }, [allVariants, makeFilter, modelFilter]);
+
+  const handleVehicleSearchSelect = (value, option) => {
+    const make = collapseSpaces(option?.make || "");
+    const model = collapseSpaces(option?.model || "");
+    const raw = collapseSpaces(value || "");
+
+    if (make) setMakeFilter(make);
+    if (model) setModelFilter(model);
+    setVariantFilter("");
+
+    if (!make || !model) {
+      const parts = raw.split(" ").filter(Boolean);
+      if (parts.length >= 2) {
+        const maybeMake = parts[0];
+        const maybeModel = parts[1];
+        setMakeFilter((prev) => prev || maybeMake);
+        setModelFilter((prev) => prev || maybeModel);
+      }
+    }
+
+    setVehicleSearchInput(raw || `${make} ${model}`.trim());
+  };
 
   const handleToggleCompare = (id) => {
     setCompareIds((prev) => {
@@ -451,9 +551,12 @@ const FeaturesPage = () => {
   };
 
   const handleClearFilters = () => {
-    setSearchTerm("");
+    setVehicleSearchInput("");
+    setDebouncedVehicleSearchInput("");
+    setVehicleSearchOptions([]);
     setFuelFilter("all");
     setTransmissionFilter("all");
+    setIncludeDiscontinued(false);
     setMakeFilter("");
     setModelFilter("");
     setVariantFilter("");
@@ -525,79 +628,32 @@ const FeaturesPage = () => {
           </div>
         </div>
 
-        {/* Filter bar */}
-        <div className="bg-white dark:bg-[#111111] rounded-2xl border border-slate-100 dark:border-neutral-800 px-4 py-3.5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Fuel */}
-            <div>
-              <div className="flex items-center gap-1 mb-1">
-                <SlidersHorizontal className="w-4 h-4 text-slate-400" />
-                <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
-                  Fuel
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { value: "all", label: "All" },
-                  { value: "Petrol", label: "Petrol" },
-                  { value: "CNG", label: "CNG" },
-                  { value: "Diesel", label: "Diesel" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setFuelFilter(opt.value)}
-                    className={[
-                      "px-3 py-1.5 rounded-full text-[13px] border transition-colors",
-                      fuelFilter === opt.value
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-slate-50 dark:bg-[#181818] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
-                    ].join(" ")}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Transmission */}
-            <div>
-              <div className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1 uppercase tracking-wide">
-                Transmission
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { value: "all", label: "All" },
-                  { value: "MT", label: "MT" },
-                  { value: "AT", label: "AT" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setTransmissionFilter(opt.value)}
-                    className={[
-                      "px-3 py-1.5 rounded-full text-[13px] border transition-colors",
-                      transmissionFilter === opt.value
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-slate-50 dark:bg-[#181818] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
-                    ].join(" ")}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Global search */}
+        <div className="bg-white dark:bg-[#111111] rounded-2xl border border-slate-100 dark:border-neutral-800 px-4 py-3.5">
+          <div className="flex items-center gap-1 mb-2.5">
+            <Search className="w-4 h-4 text-slate-400" />
+            <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+              Search vehicle
+            </span>
           </div>
-
-          {/* Clear filters */}
-          <button
-            type="button"
-            onClick={handleClearFilters}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.75 rounded-full text-[13px] border border-slate-300 dark:border-neutral-700 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#181818] hover:bg-slate-100 dark:hover:bg-[#202020]"
-          >
-            <X className="w-3.5 h-3.5" />
-            Clear filters & compare
-          </button>
+          <AutoComplete
+            className="w-full"
+            value={vehicleSearchInput}
+            options={vehicleSearchOptions}
+            onChange={(value) => {
+              setVehicleSearchInput(value);
+            }}
+            onSelect={handleVehicleSearchSelect}
+            placeholder="Search make/model (e.g. Kia Carens, BMW X5)"
+            filterOption={false}
+            notFoundContent={
+              vehicleSearchInput.trim().length < 2
+                ? "Type at least 2 letters"
+                : vehicleSearchLoading
+                  ? "Searching vehicles..."
+                  : "No matching vehicle found"
+            }
+          />
         </div>
 
         {/* Make / Model / Variant dependent dropdowns */}
@@ -691,28 +747,99 @@ const FeaturesPage = () => {
                 ))}
               </Select>
             </div>
+
+            <div className="min-w-[220px]">
+              <label className="block text-xs font-medium text-transparent mb-1 select-none">
+                .
+              </label>
+              <label className="h-8 inline-flex items-center gap-2 text-[12px] text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 rounded border-slate-300 dark:border-neutral-700"
+                  checked={includeDiscontinued}
+                  onChange={(e) =>
+                    setIncludeDiscontinued(Boolean(e?.target?.checked))
+                  }
+                />
+                Show discontinued models
+              </label>
+            </div>
           </div>
         </div>
 
-        {/* Global search */}
-        <div className="bg-white dark:bg-[#111111] rounded-2xl border border-slate-100 dark:border-neutral-800 px-4 py-3.5 flex items-center gap-3">
-          <Search className="w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search make, model, variant or feature keyword (e.g. ‘Hyundai Verna SX sunroof’)"
-            className="flex-1 bg-transparent outline-none text-[14px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm("")}
-              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#181818]"
-            >
-              <X className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-          )}
+        {/* Filter bar */}
+        <div className="bg-white dark:bg-[#111111] rounded-2xl border border-slate-100 dark:border-neutral-800 px-4 py-3.5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Fuel */}
+            <div>
+              <div className="flex items-center gap-1 mb-1">
+                <SlidersHorizontal className="w-4 h-4 text-slate-400" />
+                <span className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                  Fuel
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: "all", label: "All" },
+                  { value: "Petrol", label: "Petrol" },
+                  { value: "CNG", label: "CNG" },
+                  { value: "Diesel", label: "Diesel" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFuelFilter(opt.value)}
+                    className={[
+                      "px-3 py-1.5 rounded-full text-[13px] border transition-colors",
+                      fuelFilter === opt.value
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-slate-50 dark:bg-[#181818] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
+                    ].join(" ")}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Transmission */}
+            <div>
+              <div className="text-[13px] font-semibold text-slate-700 dark:text-slate-200 mb-1 uppercase tracking-wide">
+                Transmission
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: "all", label: "All" },
+                  { value: "MT", label: "MT" },
+                  { value: "AT", label: "AT" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTransmissionFilter(opt.value)}
+                    className={[
+                      "px-3 py-1.5 rounded-full text-[13px] border transition-colors",
+                      transmissionFilter === opt.value
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-slate-50 dark:bg-[#181818] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
+                    ].join(" ")}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Clear filters */}
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.75 rounded-full text-[13px] border border-slate-300 dark:border-neutral-700 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#181818] hover:bg-slate-100 dark:hover:bg-[#202020]"
+          >
+            <X className="w-3.5 h-3.5" />
+            Clear filters & compare
+          </button>
         </div>
 
         {/* Loading / error */}
@@ -1223,72 +1350,26 @@ const FeaturesPage = () => {
           </div>
         )}
 
-        {/* EMI Scenario A modal */}
-        {emiModalOpen && emiVariant && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-xl max-w-xl w-full p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="text-[15px] font-semibold text-slate-900 dark:text-slate-50">
-                    EMI Scenario A
-                  </div>
-                  <div className="text-[13px] text-slate-500 dark:text-slate-400">
-                    {emiVariant.make} {emiVariant.model} • {emiVariant.variant}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEmiModalOpen(false)}
-                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#181818]"
-                >
-                  <X className="w-4 h-4 text-slate-500" />
-                </button>
-              </div>
-
-              {emiVariant.exShowroom || emiVariant.onRoadPrice ? (
-                <ScenarioAInline
-                  initialPrice={emiVariant.exShowroom || emiVariant.onRoadPrice}
-                />
-              ) : (
-                <div className="text-[13px] text-slate-500 dark:text-slate-400">
-                  Price not available for EMI calculation.
-                </div>
-              )}
-
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEmiModalOpen(false)}
-                  className="px-3 py-1.5 rounded-full text-[12px] border border-slate-300 dark:border-neutral-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#181818]"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const price =
-                      emiVariant.exShowroom || emiVariant.onRoadPrice;
-                    setEmiModalOpen(false);
-                    navigate("/loans/emi-calculator", {
-                      state: {
-                        fromVariant: {
-                          vehicleId: emiVariant.vehicleId,
-                          make: emiVariant.make,
-                          model: emiVariant.model,
-                          variant: emiVariant.variant,
-                          price,
-                        },
-                      },
-                    });
-                  }}
-                  className="px-3 py-1.5 rounded-full text-[12px] border border-slate-300 dark:border-neutral-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#181818]"
-                >
-                  Open full EMI calculator
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <FeaturesEmiCompareModal
+          open={emiModalOpen && Boolean(emiVariant)}
+          variant={emiVariant}
+          onClose={() => setEmiModalOpen(false)}
+          onOpenFullCalculator={() => {
+            const price = emiVariant?.exShowroom || emiVariant?.onRoadPrice || 0;
+            setEmiModalOpen(false);
+            navigate("/loans/emi-calculator", {
+              state: {
+                fromVariant: {
+                  vehicleId: emiVariant?.vehicleId,
+                  make: emiVariant?.make,
+                  model: emiVariant?.model,
+                  variant: emiVariant?.variant,
+                  price,
+                },
+              },
+            });
+          }}
+        />
 
         {/* Upgrades modal with dropdown compare */}
         {upgradeModal && (

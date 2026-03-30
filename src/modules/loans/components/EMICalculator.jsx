@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Input, Select, message, Modal, AutoComplete, Checkbox } from "antd";
 import VehiclePricingPopup from "./VehiclePricingPopup";
-import ScenarioAInline from "./ScenarioAInline";
+import ScenarioAPanel from "./ScenarioAPanel";
+import ScenarioBPanel from "./ScenarioBPanel";
 import Icon from "../../../components/AppIcon";
 import Button from "../../../components/ui/Button";
 import { vehiclesApi } from "../../../api/vehicles";
@@ -429,6 +430,7 @@ const EMICalculator = ({
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [colorGallery, setColorGallery] = useState([]);
   const [colorGalleryLoading, setColorGalleryLoading] = useState(false);
+  const [mainColorImageMeta, setMainColorImageMeta] = useState(null);
   const [colorLightboxOpen, setColorLightboxOpen] = useState(false);
   const [colorLightboxIdx, setColorLightboxIdx] = useState(0);
 
@@ -521,16 +523,16 @@ const EMICalculator = ({
   const [loanAmountA, setLoanAmountA] = useState(0);
 
   // Scenario A core
-  const [interestA, setInterestA] = useState(10.5);
+  const [interestA, setInterestA] = useState(9.5);
   const [tenureA, setTenureA] = useState(5);
   const [tenureTypeA, setTenureTypeA] = useState("years");
   const [emiAInput, setEmiAInput] = useState("");
   const [solveForA, setSolveForA] = useState("emi"); // emi | amount | rate | tenure
 
   // Scenario B (comparison)
-  const [showScenarioB, setShowScenarioB] = useState(true);
+  const [showScenarioB, setShowScenarioB] = useState(false);
   const [loanAmountB, setLoanAmountB] = useState(0);
-  const [interestB, setInterestB] = useState(9.5);
+  const [interestB, setInterestB] = useState(9);
   const [tenureB, setTenureB] = useState(5);
   const [tenureTypeB, setTenureTypeB] = useState("years");
   const [emiBInput, setEmiBInput] = useState("");
@@ -540,6 +542,7 @@ const EMICalculator = ({
 
   // UI
   const [showSchedule, setShowSchedule] = useState(true);
+  const [emiBreakupHover, setEmiBreakupHover] = useState(null);
   const [showPricingModal, setShowPricingModal] = useState(false);
   const [shareMode, setShareMode] = useState(false);
   const [savedQuotationId, setSavedQuotationId] = useState(null);
@@ -547,6 +550,7 @@ const EMICalculator = ({
   const [pricingState, setPricingState] = useState(null);
   const [pricingSourceCity, setPricingSourceCity] = useState("");
   const cityFallbackNoticeRef = useRef("");
+  const emiBreakupWrapRef = useRef(null);
   // Derived backend city used for pricing source selection
   const backendCityKey = useMemo(() => {
     if (!debouncedCityInput) return null;
@@ -1420,6 +1424,25 @@ const EMICalculator = ({
     return firstWithImage || colorGallery[0];
   }, [color, colorGallery]);
 
+  useEffect(() => {
+    setMainColorImageMeta(null);
+  }, [selectedColorMedia?.image]);
+
+  const selectedColorPreviewTuning = useMemo(() => {
+    const safeAspect =
+      Number(mainColorImageMeta?.width) > 0 && Number(mainColorImageMeta?.height) > 0
+        ? Number(mainColorImageMeta.width) / Number(mainColorImageMeta.height)
+        : 1.8;
+
+    const viewportAspect = Math.max(1.55, Math.min(2.2, safeAspect));
+    const minHeight = safeAspect >= 1.9 ? 320 : safeAspect >= 1.7 ? 340 : 360;
+    const maxHeight = safeAspect >= 1.9 ? 500 : safeAspect >= 1.7 ? 530 : 560;
+    const scale = 1;
+    const focusY = 50;
+
+    return { scale, focusY, minHeight, maxHeight, viewportAspect };
+  }, [mainColorImageMeta?.width, mainColorImageMeta?.height]);
+
   // Downpayment sync (Scenario A)
   const downAmount = onRoadPrice ? onRoadPrice - loanAmountA : 0;
 
@@ -1948,18 +1971,26 @@ const EMICalculator = ({
     }
   }, [resultA.emi]);
 
+  const effectiveScenarioARate = useMemo(() => {
+    const computedAnnual = Number(resultA?.rateMonthly) * 12 * 100;
+    if (Number.isFinite(computedAnnual) && computedAnnual > 0) {
+      return computedAnnual;
+    }
+    return Number(interestA) || 0;
+  }, [resultA?.rateMonthly, interestA]);
+
   // Mirror Scenario A into B unless user edited comparison
   useEffect(() => {
     if (comparisonTouched) return;
     setLoanAmountB(loanAmountA);
-    setInterestB(interestA - 0.25 > 0 ? interestA - 0.25 : interestA);
+    setInterestB(Math.max(0, (Number(effectiveScenarioARate) || 0) - 0.25));
     setTenureB(tenureA);
     setTenureTypeB(tenureTypeA);
-    setSolveForB("emi");
+    setSolveForB("amount");
     setEmiBInput(resultA.emi || "");
   }, [
     loanAmountA,
-    interestA,
+    effectiveScenarioARate,
     tenureA,
     tenureTypeA,
     comparisonTouched,
@@ -2057,6 +2088,33 @@ const EMICalculator = ({
 
   const principalPctA = breakupA.principalPct;
   const interestPctA = breakupA.interestPct;
+  const activeBreakupSegment =
+    emiBreakupHover?.segment === "interest"
+      ? {
+          label: "Interest Payable",
+          value: breakupA.interestValue,
+          percent: interestPctA,
+          colorClass: "text-orange-600 dark:text-orange-400",
+        }
+      : {
+          label: "Principal Payable",
+          value: breakupA.principalValue,
+          percent: principalPctA,
+          colorClass: "text-violet-600 dark:text-violet-400",
+        };
+
+  const handleEmiBreakupHover = (segment, event) => {
+    const wrap = emiBreakupWrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const clampedX = Math.min(Math.max(x, 34), Math.max(rect.width - 34, 34));
+    const clampedY = Math.min(Math.max(y, 48), Math.max(rect.height - 14, 48));
+    setEmiBreakupHover({ segment, x: clampedX, y: clampedY });
+  };
+
+  const clearEmiBreakupHover = () => setEmiBreakupHover(null);
 
   const emiDiff = resultB.emi - resultA.emi;
   const interestDiff = resultB.interest - resultA.interest;
@@ -2065,13 +2123,37 @@ const EMICalculator = ({
   const cloneToScenarioB = () => {
     setComparisonTouched(true);
     setLoanAmountB(loanAmountA);
-    setInterestB(interestA);
+    setInterestB(Number(effectiveScenarioARate) || 0);
     setTenureB(tenureA);
     setEmiBInput(emiAInput);
     setSolveForB(solveForA);
     setTenureTypeB(tenureTypeA);
     setEmiTypeB(emiType);
     message.success("Copied Scenario A to Scenario B.");
+  };
+
+  const removeScenarioB = () => {
+    setShowScenarioB(false);
+    setComparisonTouched(false);
+    setLoanAmountB(0);
+    setInterestB(9.5);
+    setTenureB(5);
+    setTenureTypeB("years");
+    setEmiBInput("");
+    setSolveForB("amount");
+    setEmiTypeB("arrear");
+  };
+
+  const addScenarioB = () => {
+    setShowScenarioB(true);
+    setComparisonTouched(false);
+    setLoanAmountB(loanAmountA);
+    setInterestB(Math.max(0, (Number(effectiveScenarioARate) || 0) - 0.25));
+    setTenureB(tenureA);
+    setTenureTypeB(tenureTypeA);
+    setEmiBInput(resultA.emi || "");
+    setEmiTypeB(emiType);
+    setSolveForB("amount");
   };
 
   const scheduleA = useMemo(() => {
@@ -2128,21 +2210,21 @@ const EMICalculator = ({
     // downpayment & scenarios
     setDownPct(10);
     setLoanAmountA(0);
-    setInterestA(10.5);
+    setInterestA(9.5);
     setTenureA(5);
     setTenureTypeA("years");
     setEmiAInput("");
     setLoanAmountB(0);
-    setInterestB(9.5);
+    setInterestB(9);
     setTenureB(5);
     setTenureTypeB("years");
     setEmiBInput("");
     setSolveForA("emi");
-    setSolveForB("emi");
+    setSolveForB("amount");
     setEmiTypeB("arrear");
     setComparisonTouched(false);
     setEmiType("arrear");
-    setShowScenarioB(true);
+    setShowScenarioB(false);
 
     // UI
     setShowSchedule(true);
@@ -2235,806 +2317,631 @@ const EMICalculator = ({
           </div>
         </div>
 
-        {!isFloating && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                Selected Vehicle
-              </div>
-              <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100 truncate">
-                {selectedVehicle
-                  ? `${selectedVehicle.make} ${selectedVehicle.model} ${selectedVehicle.variant}`
-                  : "Not selected"}
-              </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                Mode
-              </div>
-              <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                {emiType === "advance" ? "Advance EMI" : "Arrear EMI"}
-              </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 dark:border-[#2b2b2b] bg-white/80 dark:bg-[#1a1a1a]/80 px-3 py-2.5">
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                Plan Snapshot
-              </div>
-              <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-100">
-                {resultA.months || 0} months · {formatINR(resultA.emi || 0)}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Main layout */}
-        <div className={isFloating ? "space-y-4" : "grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-4 items-start"}>
+        <div
+          className={
+            isFloating
+              ? "space-y-4"
+              : "grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-4 items-start"
+          }
+        >
           {/* Left: vehicle + downpayment + breakup */}
-          {!isFloating && <div className="space-y-3 lg:sticky lg:top-28">
-            <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-sm border border-slate-100 dark:border-[#262626] px-3 py-3 flex flex-col gap-2.5 transition-all hover:shadow-md">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Vehicle & downpayment
-                </h2>
-                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-                  Choose city, brand, model and variant to auto-calculate loan
-                  values.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2.5">
+          {!isFloating && (
+            <div className="space-y-3 lg:sticky lg:top-28">
+              <div className="bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-sm border border-slate-100 dark:border-[#262626] px-3 py-3 flex flex-col gap-2.5 transition-all hover:shadow-md">
                 <div>
-                  <Label>City</Label>
-                  <AutoComplete
-                    style={{ width: "100%" }}
-                    value={cityInput}
-                    options={cityAutocompleteOptions}
-                    placeholder="Select city"
-                    onChange={(value) => {
-                      const nextCity = String(value || "");
-                      const changed =
-                        normalizeText(nextCity) !== normalizeText(cityInput);
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Vehicle & downpayment
+                  </h2>
+                  <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+                    Choose city, brand, model and variant to auto-calculate loan
+                    values.
+                  </p>
+                </div>
 
-                      setCityInput(value);
-                      if (changed) {
-                        // Force city-specific variant re-selection so pricing always matches selected city.
-                        setSelectedVariant(null);
-                        setLoanAmountA(0);
-                        if (!comparisonTouched) setLoanAmountB(0);
+                <div className="grid grid-cols-1 gap-2.5">
+                  <div>
+                    <Label>City</Label>
+                    <AutoComplete
+                      style={{ width: "100%" }}
+                      value={cityInput}
+                      options={cityAutocompleteOptions}
+                      placeholder="Select city"
+                      onChange={(value) => {
+                        const nextCity = String(value || "");
+                        const changed =
+                          normalizeText(nextCity) !== normalizeText(cityInput);
+
+                        setCityInput(value);
+                        if (changed) {
+                          // Force city-specific variant re-selection so pricing always matches selected city.
+                          setSelectedVariant(null);
+                          setLoanAmountA(0);
+                          if (!comparisonTouched) setLoanAmountB(0);
+                        }
+                        setPricingState((prev) => ({
+                          ...(prev || {}),
+                          city: value, // store what user typed
+                          ...(changed ? { vehicleId: null } : {}),
+                        }));
+                      }}
+                      filterOption={(inputValue, option) =>
+                        String(option?.value || "")
+                          .toUpperCase()
+                          .includes(inputValue.toUpperCase())
                       }
-                      setPricingState((prev) => ({
-                        ...(prev || {}),
-                        city: value, // store what user typed
-                        ...(changed ? { vehicleId: null } : {}),
-                      }));
-                    }}
-                    filterOption={(inputValue, option) =>
-                      String(option?.value || "")
-                        .toUpperCase()
-                        .includes(inputValue.toUpperCase())
-                    }
-                  />
-                  {!!pricingSourceCity &&
-                    normalizeText(pricingSourceCity) !==
-                      normalizeText(cityInput) && (
-                      <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">
-                        Showing {pricingSourceCity} pricing for selected
-                        variant.
+                    />
+                    {!!pricingSourceCity &&
+                      normalizeText(pricingSourceCity) !==
+                        normalizeText(cityInput) && (
+                        <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">
+                          Showing {pricingSourceCity} pricing for selected
+                          variant.
+                        </div>
+                      )}
+                  </div>
+
+                  <div>
+                    <Label>Search Car (Make / Model)</Label>
+                    <AutoComplete
+                      style={{ width: "100%" }}
+                      value={vehicleSearchInput}
+                      options={vehicleSearchOptions}
+                      placeholder="Type make/model (e.g. Carens, Kia Car...)"
+                      onChange={(value) => setVehicleSearchInput(value)}
+                      onSelect={handleVehicleSearchSelect}
+                      notFoundContent={
+                        debouncedVehicleSearchInput.length < 2
+                          ? "Type at least 2 letters"
+                          : vehicleSearchLoading
+                            ? "Searching..."
+                            : "No matching cars"
+                      }
+                      filterOption={false}
+                    />
+                  </div>
+
+                  <div className="pt-0.5">
+                    <Checkbox
+                      checked={includeDiscontinued}
+                      onChange={(e) =>
+                        setIncludeDiscontinued(Boolean(e?.target?.checked))
+                      }
+                      disabled={disableAll}
+                    >
+                      Include discontinued cars
+                    </Checkbox>
+                  </div>
+
+                  <div>
+                    <Label>Brand</Label>
+                    {vehiclesLoading && (
+                      <div className="mb-1 text-[10px] font-medium text-slate-500">
+                        Loading city pricing...
                       </div>
                     )}
-                </div>
-
-                <div>
-                  <Label>Search Car (Make / Model)</Label>
-                  <AutoComplete
-                    style={{ width: "100%" }}
-                    value={vehicleSearchInput}
-                    options={vehicleSearchOptions}
-                    placeholder="Type make/model (e.g. Carens, Kia Car...)"
-                    onChange={(value) => setVehicleSearchInput(value)}
-                    onSelect={handleVehicleSearchSelect}
-                    notFoundContent={
-                      debouncedVehicleSearchInput.length < 2
-                        ? "Type at least 2 letters"
-                        : vehicleSearchLoading
-                          ? "Searching..."
-                          : "No matching cars"
-                    }
-                    filterOption={false}
-                  />
-                </div>
-
-                <div className="pt-0.5">
-                  <Checkbox
-                    checked={includeDiscontinued}
-                    onChange={(e) =>
-                      setIncludeDiscontinued(Boolean(e?.target?.checked))
-                    }
-                    disabled={disableAll}
-                  >
-                    Include discontinued cars
-                  </Checkbox>
-                </div>
-
-                <div>
-                  <Label>Brand</Label>
-                  {vehiclesLoading && (
-                    <div className="mb-1 text-[10px] font-medium text-slate-500">
-                      Loading city pricing...
-                    </div>
-                  )}
-                  <Select
-                    value={selectedMake || undefined}
-                    placeholder="Select brand"
-                    allowClear
-                    onChange={(val) => {
-                      setSelectedMake(val);
-                      setSelectedModel("");
-                      setSelectedVariant(null);
-                      setPricingState((prev) => ({
-                        city: prev?.city || cityInput || "",
-                        color: prev?.color || "",
-                      }));
-
-                      setLoanAmountA(0);
-                      if (!comparisonTouched) setLoanAmountB(0);
-                    }}
-                    className="w-full"
-                    showSearch
-                    disabled={disableAll || vehiclesLoading}
-                    filterOption={(input, option) =>
-                      String(option?.children ?? "")
-                        .toLowerCase()
-                        .includes(input.toLowerCase())
-                    }
-                  >
-                    {uniqueMakes.map((m) => (
-                      <Option key={m} value={m}>
-                        {m}
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <Label>Model</Label>
-                  <Select
-                    value={selectedModel || undefined}
-                    placeholder="Select model"
-                    allowClear
-                    onChange={(val) => {
-                      setSelectedModel(val);
-                      setSelectedVariant(null);
-                      setPricingState((prev) => ({
-                        city: prev?.city || cityInput || "",
-                        color: prev?.color || "",
-                      }));
-
-                      setLoanAmountA(0);
-                      if (!comparisonTouched) setLoanAmountB(0);
-                    }}
-                    disabled={!selectedMake || disableAll || vehiclesLoading}
-                    className="w-full"
-                    showSearch
-                    filterOption={(input, option) =>
-                      String(option?.children ?? "")
-                        .toLowerCase()
-                        .includes(input.toLowerCase())
-                    }
-                  >
-                    {uniqueModels.map((m) => (
-                      <Option key={m} value={m}>
-                        {m}
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <Label>Variant</Label>
-                  <Select
-                    labelInValue
-                    value={selectedVariant || undefined}
-                    placeholder="Select variant"
-                    allowClear
-                    onChange={(val, option) => {
-                      if (!val?.value) {
+                    <Select
+                      value={selectedMake || undefined}
+                      placeholder="Select brand"
+                      allowClear
+                      onChange={(val) => {
+                        setSelectedMake(val);
+                        setSelectedModel("");
                         setSelectedVariant(null);
+                        setPricingState((prev) => ({
+                          city: prev?.city || cityInput || "",
+                          color: prev?.color || "",
+                        }));
+
                         setLoanAmountA(0);
                         if (!comparisonTouched) setLoanAmountB(0);
-                        return;
+                      }}
+                      className="w-full"
+                      showSearch
+                      disabled={disableAll || vehiclesLoading}
+                      filterOption={(input, option) =>
+                        String(option?.children ?? "")
+                          .toLowerCase()
+                          .includes(input.toLowerCase())
                       }
+                    >
+                      {uniqueMakes.map((m) => (
+                        <Option key={m} value={m}>
+                          {m}
+                        </Option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Model</Label>
+                    <Select
+                      value={selectedModel || undefined}
+                      placeholder="Select model"
+                      allowClear
+                      onChange={(val) => {
+                        setSelectedModel(val);
+                        setSelectedVariant(null);
+                        setPricingState((prev) => ({
+                          city: prev?.city || cityInput || "",
+                          color: prev?.color || "",
+                        }));
 
-                      const optionLabel =
-                        val?.label || option?.label || option?.children || "";
+                        setLoanAmountA(0);
+                        if (!comparisonTouched) setLoanAmountB(0);
+                      }}
+                      disabled={!selectedMake || disableAll || vehiclesLoading}
+                      className="w-full"
+                      showSearch
+                      filterOption={(input, option) =>
+                        String(option?.children ?? "")
+                          .toLowerCase()
+                          .includes(input.toLowerCase())
+                      }
+                    >
+                      {uniqueModels.map((m) => (
+                        <Option key={m} value={m}>
+                          {m}
+                        </Option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Variant</Label>
+                    <Select
+                      labelInValue
+                      value={selectedVariant || undefined}
+                      placeholder="Select variant"
+                      allowClear
+                      onChange={(val, option) => {
+                        if (!val?.value) {
+                          setSelectedVariant(null);
+                          setLoanAmountA(0);
+                          if (!comparisonTouched) setLoanAmountB(0);
+                          return;
+                        }
 
-                      setSelectedVariant({
-                        value: val.value,
-                        label: String(optionLabel),
-                      });
+                        const optionLabel =
+                          val?.label || option?.label || option?.children || "";
 
-                      setComparisonTouched(false);
+                        setSelectedVariant({
+                          value: val.value,
+                          label: String(optionLabel),
+                        });
 
-                      const v = variantsForModel.find(
-                        (x) => String(x._id) === String(val.value),
-                      );
-                      const price =
-                        Number(v?.onRoadPrice ?? v?.on_road_price ?? 0) || 0;
+                        setComparisonTouched(false);
 
-                      const initialLoan = price * 0.9;
-                      setLoanAmountA(initialLoan);
-                      setLoanAmountB(initialLoan);
-                      setDownPct(10);
-                    }}
-                    disabled={
-                      !selectedMake ||
-                      !selectedModel ||
-                      disableAll ||
-                      vehiclesLoading
-                    }
-                    className="w-full"
-                    showSearch
-                    notFoundContent={
-                      selectedMake && selectedModel
-                        ? "No variants found"
-                        : "Select brand and model first"
-                    }
-                  >
-                    {variantsForModel.map((v) => (
-                      <Option
-                        key={v._id}
-                        value={v._id}
-                        label={`${v.variant} — ${formatINR(v.onRoadPrice || 0)}`}
-                      >
-                        {v.variant} — {formatINR(v.onRoadPrice || 0)}
-                      </Option>
-                    ))}
-                  </Select>
+                        const v = variantsForModel.find(
+                          (x) => String(x._id) === String(val.value),
+                        );
+                        const price =
+                          Number(v?.onRoadPrice ?? v?.on_road_price ?? 0) || 0;
+
+                        const initialLoan = price * 0.9;
+                        setLoanAmountA(initialLoan);
+                        setLoanAmountB(initialLoan);
+                        setDownPct(10);
+                      }}
+                      disabled={
+                        !selectedMake ||
+                        !selectedModel ||
+                        disableAll ||
+                        vehiclesLoading
+                      }
+                      className="w-full"
+                      showSearch
+                      notFoundContent={
+                        selectedMake && selectedModel
+                          ? "No variants found"
+                          : "Select brand and model first"
+                      }
+                    >
+                      {variantsForModel.map((v) => (
+                        <Option
+                          key={v._id}
+                          value={v._id}
+                          label={`${v.variant} — ${formatINR(v.onRoadPrice || 0)}`}
+                        >
+                          {v.variant} — {formatINR(v.onRoadPrice || 0)}
+                        </Option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {!vehiclesLoading && !filteredVehicles.length && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                      No vehicles found for selected city. Try another city or
+                      enable{" "}
+                      <span className="font-semibold">
+                        Include discontinued cars
+                      </span>
+                      .
+                    </div>
+                  )}
                 </div>
 
-                {!vehiclesLoading && !filteredVehicles.length && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
-                    No vehicles found for selected city. Try another city or
-                    enable{" "}
-                    <span className="font-semibold">
-                      Include discontinued cars
-                    </span>
-                    .
-                  </div>
+                {onRoadPrice > 0 && (
+                  <>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label>Downpayment %</Label>
+                        <Input
+                          type="text"
+                          value={Math.round(effectiveDownPct) || 0}
+                          onChange={(e) =>
+                            handleDownPctChange(parseNumber(e.target.value))
+                          }
+                          disabled={disableAll}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label>Downpayment amount</Label>
+                        <Input
+                          type="text"
+                          value={formatNumber(downAmount)}
+                          onChange={(e) =>
+                            handleDownAmountChange(parseNumber(e.target.value))
+                          }
+                          disabled={disableAll}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Loan amount</Label>
+                      <Input
+                        type="text"
+                        value={formatNumber(loanAmountA)}
+                        onChange={(e) =>
+                          handleLoanAmountChange(parseNumber(e.target.value))
+                        }
+                        disabled={disableAll}
+                      />
+                    </div>
+
+                    {/* City & color under loan amount */}
+                    <div className="grid grid-cols-1 gap-2 mt-1.5">
+                      <div>
+                        <Label>Color</Label>
+                        <Input
+                          type="text"
+                          value={color}
+                          onChange={(e) =>
+                            setPricingState((prev) => ({
+                              ...(prev || {}),
+                              color: e.target.value,
+                            }))
+                          }
+                          placeholder="Color (e.g. Red, White)"
+                          disabled={disableAll}
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
               {onRoadPrice > 0 && (
-                <>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Label>Downpayment %</Label>
-                      <Input
-                        type="text"
-                        value={Math.round(effectiveDownPct) || 0}
-                        onChange={(e) =>
-                          handleDownPctChange(parseNumber(e.target.value))
-                        }
-                        disabled={disableAll}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Label>Downpayment amount</Label>
-                      <Input
-                        type="text"
-                        value={formatNumber(downAmount)}
-                        onChange={(e) =>
-                          handleDownAmountChange(parseNumber(e.target.value))
-                        }
-                        disabled={disableAll}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Loan amount</Label>
-                    <Input
-                      type="text"
-                      value={formatNumber(loanAmountA)}
-                      onChange={(e) =>
-                        handleLoanAmountChange(parseNumber(e.target.value))
-                      }
-                      disabled={disableAll}
-                    />
+                <button
+                  type="button"
+                  onClick={() => !disableAll && setShowPricingModal(true)}
+                  disabled={disableAll}
+                  className={`w-full text-left bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-sm border px-4 py-3 space-y-1.5 transition-all ${
+                    disableAll
+                      ? "border-slate-100 dark:border-[#262626] opacity-60 cursor-not-allowed"
+                      : "border-slate-100 dark:border-[#262626] hover:border-emerald-500 hover:shadow-md cursor-pointer transition"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                      On‑road price breakup
+                    </h3>
                   </div>
 
-                  {/* City & color under loan amount */}
-                  <div className="grid grid-cols-1 gap-2 mt-1.5">
-                    <div>
-                      <Label>Color</Label>
-                      <Input
-                        type="text"
-                        value={color}
-                        onChange={(e) =>
-                          setPricingState((prev) => ({
-                            ...(prev || {}),
-                            color: e.target.value,
-                          }))
-                        }
-                        placeholder="Color (e.g. Red, White)"
-                        disabled={disableAll}
-                      />
+                  {/* additions */}
+                  <div className="space-y-1.5 text-[11px]">
+                    {additionLines.map((row) => (
+                      <div key={row.key} className="flex justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {row.label}
+                        </span>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">
+                          {formatINR(row.amount)}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* discounts block */}
+                    {discountLines.length > 0 && (
+                      <>
+                        <div className="pt-1 text-[10px] uppercase tracking-wide text-slate-900 font-bold">
+                          Discounts
+                        </div>
+                        {discountLines.map((row) => (
+                          <div key={row.key} className="flex justify-between">
+                            <span className="text-slate-500 dark:text-slate-400">
+                              {row.label}
+                            </span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">
+                              -{formatINR(row.amount)}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+
+                  {/* net on-road below price list */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-[#262626] mt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Net On-Road
+                      </div>
+
+                      <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 text-right">
+                        <AnimatedNumber value={onRoadPrice} />
+                      </div>
                     </div>
                   </div>
-                </>
+                </button>
               )}
             </div>
-
-            {onRoadPrice > 0 && (
-              <button
-                type="button"
-                onClick={() => !disableAll && setShowPricingModal(true)}
-                disabled={disableAll}
-                className={`w-full text-left bg-white dark:bg-[#1f1f1f] rounded-2xl shadow-sm border px-4 py-3 space-y-1.5 transition-all ${
-                  disableAll
-                    ? "border-slate-100 dark:border-[#262626] opacity-60 cursor-not-allowed"
-                    : "border-slate-100 dark:border-[#262626] hover:border-emerald-500 hover:shadow-md cursor-pointer transition"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                    On‑road price breakup
-                  </h3>
-                </div>
-
-                {/* additions */}
-                <div className="space-y-1.5 text-[11px]">
-                  {additionLines.map((row) => (
-                    <div key={row.key} className="flex justify-between">
-                      <span className="text-slate-500 dark:text-slate-400">
-                        {row.label}
-                      </span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">
-                        {formatINR(row.amount)}
-                      </span>
-                    </div>
-                  ))}
-
-                  {/* discounts block */}
-                  {discountLines.length > 0 && (
-                    <>
-                      <div className="pt-1 text-[10px] uppercase tracking-wide text-slate-900 font-bold">
-                        Discounts
-                      </div>
-                      {discountLines.map((row) => (
-                        <div key={row.key} className="flex justify-between">
-                          <span className="text-slate-500 dark:text-slate-400">
-                            {row.label}
-                          </span>
-                          <span className="font-semibold text-rose-600 dark:text-rose-400">
-                            -{formatINR(row.amount)}
-                          </span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-
-                {/* net on-road below price list */}
-                <div className="pt-2 border-t border-slate-100 dark:border-[#262626] mt-2">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Net On-Road
-                    </div>
-
-                    <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 text-right">
-                      <AnimatedNumber value={onRoadPrice} />
-                    </div>
-                  </div>
-                </div>
-              </button>
-            )}
-          </div>}
+          )}
 
           {/* Right: Scenario A + chart + comparison + schedule */}
           <div className="space-y-4">
             {/* Scenario A */}
-            <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] px-5 py-5 space-y-4 transition-all hover:shadow-md">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    Scenario A – primary EMI
-                  </h2>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Configure core loan variables and solve instantly
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Advance / Arrear toggle */}
-                  <div className="inline-flex flex-wrap rounded-full bg-slate-100 dark:bg-[#262626] p-1 text-[11px]">
-                    {[
-                      { key: "arrear", label: "Arrear (Standard)" },
-                      { key: "advance", label: "Advance" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => !disableAll && setEmiType(opt.key)}
-                        disabled={disableAll}
-                        className={`px-3 py-1 rounded-full font-medium transition-all ${
-                          emiType === opt.key
-                            ? "bg-violet-600 text-white shadow-sm"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#333]"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Solve-for toggle */}
-                  <div className="inline-flex flex-wrap rounded-full bg-slate-100 dark:bg-[#262626] p-1 text-[11px]">
-                    {solveOptions.map((opt) => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        onClick={() => !disableAll && setSolveForA(opt.key)}
-                        disabled={disableAll}
-                        className={`px-3 py-1 rounded-full font-medium transition-all ${
-                          solveForA === opt.key
-                            ? "bg-violet-600 text-white shadow-sm"
-                            : "text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#333]"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            <ScenarioAPanel
+              disableAll={disableAll}
+              emiType={emiType}
+              setEmiType={setEmiType}
+              solveOptions={solveOptions}
+              solveForA={solveForA}
+              setSolveForA={setSolveForA}
+              formatNumber={formatNumber}
+              displayForField={displayForField}
+              resultA={resultA}
+              tenureTypeA={tenureTypeA}
+              loanAmountA={loanAmountA}
+              scenarioAInputsDisabled={scenarioAInputsDisabled}
+              parseNumber={parseNumber}
+              setLoanAmountA={setLoanAmountA}
+              interestA={interestA}
+              setInterestA={setInterestA}
+              tenureA={tenureA}
+              setTenureA={setTenureA}
+              setTenureTypeA={setTenureTypeA}
+              liveEmiResult={liveEmiResult}
+              emiAInput={emiAInput}
+              setEmiAInput={setEmiAInput}
+              AnimatedNumber={AnimatedNumber}
+              formatINR={formatINR}
+            />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Loan amount */}
-                <div className="space-y-1">
-                  <Label>Loan amount</Label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      value={
-                        solveForA === "amount"
-                          ? formatNumber(
-                              displayForField(
-                                solveForA,
-                                "amount",
-                                resultA,
-                                tenureTypeA,
-                              ),
-                            ) || ""
-                          : formatNumber(loanAmountA)
-                      }
-                      onChange={(e) => {
-                        if (scenarioAInputsDisabled) return;
-                        if (solveForA === "amount") return;
-                        const n = parseNumber(e.target.value);
-                        setLoanAmountA(n);
-                      }}
-                      readOnly={
-                        solveForA === "amount" || scenarioAInputsDisabled
-                      }
-                      className={
-                        solveForA === "amount" ? "pr-16 border-violet-500" : ""
-                      }
-                    />
-                    {solveForA === "amount" && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
-                        Live
-                      </span>
-                    )}
-                  </div>
-                </div>
+            <ScenarioBPanel
+              isFloating={isFloating}
+              showScenarioB={showScenarioB}
+              disableAll={disableAll}
+              cloneToScenarioB={cloneToScenarioB}
+              onRemoveScenarioB={removeScenarioB}
+              onAddScenarioB={addScenarioB}
+              resultA={resultA}
+              resultB={resultB}
+              breakupA={breakupA}
+              emiDiff={emiDiff}
+              interestDiff={interestDiff}
+              loanDiff={loanDiff}
+              solveOptions={solveOptions}
+              solveForB={solveForB}
+              setSolveForB={setSolveForB}
+              emiTypeB={emiTypeB}
+              setEmiTypeB={setEmiTypeB}
+              tenureTypeB={tenureTypeB}
+              setTenureTypeB={setTenureTypeB}
+              loanAmountB={loanAmountB}
+              setLoanAmountB={setLoanAmountB}
+              emiBInput={emiBInput}
+              setEmiBInput={setEmiBInput}
+              interestB={interestB}
+              setInterestB={setInterestB}
+              tenureB={tenureB}
+              setTenureB={setTenureB}
+              setComparisonTouched={setComparisonTouched}
+              displayForField={displayForField}
+              parseNumber={parseNumber}
+              formatNumber={formatNumber}
+              formatINR={formatINR}
+              AnimatedNumber={AnimatedNumber}
+            />
 
-                {/* Interest */}
-                <div className="space-y-1">
-                  <Label>Interest rate (annual %)</Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={
-                        solveForA === "rate"
-                          ? displayForField(
-                              solveForA,
-                              "rate",
-                              resultA,
-                              tenureTypeA,
-                            ) || ""
-                          : interestA
-                      }
-                      onChange={(e) => {
-                        if (disableAll) return;
-                        if (solveForA === "rate") return;
-                        setInterestA(Number(e.target.value) || 0);
-                      }}
-                      readOnly={solveForA === "rate" || disableAll}
-                      className={
-                        solveForA === "rate" ? "pr-16 border-violet-500" : ""
-                      }
-                    />
-                    {solveForA === "rate" && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
-                        Live
-                      </span>
-                    )}
+            {/* EMI Scheme Panel */}
+            <div className="rounded-[28px] border border-slate-200/80 bg-white shadow-[0_12px_35px_-24px_rgba(15,23,42,0.45)] transition-all hover:shadow-[0_18px_45px_-28px_rgba(76,29,149,0.35)] dark:border-[#2a2a2a] dark:bg-[#1b1b1b]">
+              <div className="rounded-t-[28px] border-b border-slate-100/90 bg-gradient-to-r from-violet-50 via-fuchsia-50/40 to-white px-5 py-4 dark:border-[#2a2a2a] dark:from-violet-950/35 dark:via-fuchsia-950/10 dark:to-[#1b1b1b]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      EMI Scheme
+                    </h3>
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      {emiType === "advance"
+                        ? "Advance EMI - First instalment paid upfront"
+                        : "Arrear EMI - Standard monthly payment"}
+                    </p>
                   </div>
-                  <input
-                    type="range"
-                    min={5}
-                    max={20}
-                    step="0.1"
-                    value={interestA}
-                    onChange={(e) =>
-                      !disableAll && setInterestA(Number(e.target.value) || 0)
-                    }
-                    className="w-full mt-1"
-                    disabled={disableAll}
-                  />
-                </div>
-
-                {/* Tenure */}
-                <div className="space-y-1">
-                  <Label>Tenure</Label>
-                  <div className="flex gap-2 items-end">
-                    <div className="relative flex-1">
-                      <Input
-                        type="number"
-                        value={
-                          solveForA === "tenure"
-                            ? displayForField(
-                                solveForA,
-                                "tenure",
-                                resultA,
-                                tenureTypeA,
-                              ) || ""
-                            : tenureA
-                        }
-                        onChange={(e) => {
-                          if (disableAll) return;
-                          if (solveForA === "tenure") return;
-                          setTenureA(Number(e.target.value) || 0);
-                        }}
-                        readOnly={solveForA === "tenure" || disableAll}
-                        className={
-                          solveForA === "tenure"
-                            ? "pr-16 border-violet-500"
-                            : ""
-                        }
-                      />
-                      {solveForA === "tenure" && (
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
-                          Live
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-[#262626]">
-                      <button
-                        type="button"
-                        className={`px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
-                          tenureTypeA === "years"
-                            ? "bg-violet-600 text-white"
-                            : "bg-transparent text-slate-600 dark:text-slate-300"
-                        }`}
-                        onClick={() => !disableAll && setTenureTypeA("years")}
-                        disabled={disableAll}
-                      >
-                        Years
-                      </button>
-                      <button
-                        type="button"
-                        className={`px-3 py-1.5 text-xs font-medium border-l border-slate-200 dark:border-[#262626] whitespace-nowrap ${
-                          tenureTypeA === "months"
-                            ? "bg-violet-600 text-white"
-                            : "bg-transparent text-slate-600 dark:text-slate-300"
-                        }`}
-                        onClick={() => !disableAll && setTenureTypeA("months")}
-                        disabled={disableAll}
-                      >
-                        Months
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    = {liveEmiResult.months} months
-                  </div>
-                </div>
-              </div>
-
-              {/* EMI row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                <div className="space-y-1">
-                  <Label>EMI amount</Label>
-                  <div className="relative">
-                    <Input
-                      type="text"
-                      value={
-                        solveForA === "emi"
-                          ? formatNumber(
-                              displayForField(
-                                solveForA,
-                                "emi",
-                                resultA,
-                                tenureTypeA,
-                              ),
-                            ) || ""
-                          : formatNumber(emiAInput)
-                      }
-                      onChange={(e) => {
-                        if (disableAll) return;
-                        const val = parseNumber(e.target.value);
-                        if (solveForA === "emi") return;
-                        setEmiAInput(val);
-                      }}
-                      readOnly={solveForA === "emi" || disableAll}
-                      className={
-                        solveForA === "emi" ? "pr-16 border-violet-500" : ""
-                      }
-                    />
-                    {solveForA === "emi" && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 animate-pulse">
-                        Live
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Current EMI:{" "}
-                    <span className="font-semibold text-violet-600 dark:text-violet-400">
-                      <AnimatedNumber value={liveEmiResult.emi} />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowSchedule(!showSchedule)}
+                      className="rounded-full border border-violet-200/80 bg-white/85 px-3 py-1 text-[10px] font-bold tracking-wide text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-300 dark:hover:bg-violet-900/35"
+                    >
+                      {showSchedule ? "HIDE SCHEDULE" : "VIEW SCHEDULE"}
+                    </button>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-[10px] font-bold tracking-wide ${
+                        emiType === "advance"
+                          ? "border-violet-300 bg-violet-100/95 text-violet-700 dark:border-violet-700/60 dark:bg-violet-900/35 dark:text-violet-300"
+                          : "border-sky-300 bg-sky-100/95 text-sky-700 dark:border-sky-700/60 dark:bg-sky-900/35 dark:text-sky-300"
+                      }`}
+                    >
+                      {emiType === "advance" ? "ADVANCE" : "ARREAR"}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                    Based on Loan {formatINR(liveEmiResult.principal)} • Rate{" "}
-                    {(interestA || 0).toFixed(2)}% p.a. • Tenure{" "}
-                    {liveEmiResult.months || 0} months
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* EMI Scheme Panel — emicalculator.net style */}
-            <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] overflow-hidden transition-all hover:shadow-md">
-              {/* Header */}
-              <div className="px-5 pt-5 pb-3 flex items-center justify-between bg-gradient-to-r from-violet-50/70 via-transparent to-transparent dark:from-violet-950/20">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    EMI Scheme
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    {emiType === "advance"
-                      ? "Advance EMI · First instalment paid upfront"
-                      : "Arrear EMI · Standard monthly payment"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowSchedule(!showSchedule)}
-                    className="text-[10px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 bg-violet-50 dark:bg-violet-900/30 px-3 py-1 rounded-full transition-colors"
-                  >
-                    {showSchedule ? "HIDE SCHEDULE" : "VIEW SCHEDULE"}
-                  </button>
-                  <span
-                    className={`text-[10px] font-bold px-3 py-1 rounded-full ${
-                      emiType === "advance"
-                        ? "bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300"
-                        : "bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300"
-                    }`}
-                  >
-                    {emiType === "advance" ? "ADVANCE" : "ARREAR"}
-                  </span>
                 </div>
               </div>
 
-              {/* Three stat cards row */}
-              <div className="grid grid-cols-3 gap-px bg-slate-100 dark:bg-[#2e2e2e] mt-4 border-t border-slate-100 dark:border-[#2e2e2e]">
-                {/* Loan EMI */}
-                <div className="bg-white dark:bg-[#1f1f1f] px-4 py-4 text-center">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+              <div className="grid grid-cols-1 gap-2 px-4 pt-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-violet-100/90 bg-violet-50/70 px-4 py-3.5 text-center dark:border-violet-900/40 dark:bg-violet-950/20">
+                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                     Loan EMI
                   </div>
-                  <div className="text-xl font-extrabold text-violet-600 dark:text-violet-400 leading-none">
+                  <div className="text-[22px] font-black leading-none text-violet-700 dark:text-violet-300">
                     <AnimatedNumber value={liveEmiResult.emi} />
                   </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-                    /month
+                  <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                    per month
                   </div>
                 </div>
 
-                {/* Total Interest */}
-                <div className="bg-white dark:bg-[#1f1f1f] px-4 py-4 text-center border-x border-slate-100 dark:border-[#2e2e2e]">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
-                    Total Interest
+                <div className="rounded-2xl border border-sky-100/90 bg-sky-50/75 px-4 py-3.5 text-center dark:border-sky-900/40 dark:bg-sky-950/20">
+                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    ROI | Tenure
                   </div>
-                  <div className="text-xl font-extrabold text-orange-500 dark:text-orange-400 leading-none">
-                    {formatINR(breakupA.interestValue)}
+                  <div className="flex items-center justify-center gap-2 text-[20px] font-black leading-none text-sky-700 dark:text-sky-300">
+                    <span>{`${(Number(liveEmiResult.rateMonthly) > 0
+                      ? Number(liveEmiResult.rateMonthly) * 12 * 100
+                      : Number(interestA) || 0
+                    ).toFixed(2)}%`}</span>
+                    <span className="text-sky-300 dark:text-sky-700">|</span>
+                    <span>{`${Math.max(0, Number(liveEmiResult.months) || 0)}m`}</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-                    payable
+                  <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                    annual rate and duration
                   </div>
                 </div>
 
-                {/* Total Payment */}
-                <div className="bg-white dark:bg-[#1f1f1f] px-4 py-4 text-center">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">
+                <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 px-4 py-3.5 text-center dark:border-[#333] dark:bg-[#232323]">
+                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                     Total Payment
                   </div>
-                  <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100 leading-none">
+                  <div className="text-[22px] font-black leading-none text-slate-800 dark:text-slate-100">
                     {formatINR(breakupA.totalValue)}
                   </div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                  <div className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                     principal + interest
                   </div>
                 </div>
               </div>
 
-              {/* Donut chart + legend */}
-              <div className="group relative flex flex-col md:flex-row items-center gap-6 px-5 py-5">
-                {/* SVG Donut — fixed arc math */}
-                <div className="relative flex-shrink-0">
+              <div
+                ref={emiBreakupWrapRef}
+                onMouseLeave={clearEmiBreakupHover}
+                className="relative flex flex-col items-center gap-5 px-5 pb-5 pt-4 md:flex-row"
+              >
+                <div className="relative flex-shrink-0 rounded-[26px] border border-slate-200/90 bg-gradient-to-br from-white via-violet-50/30 to-orange-50/30 p-3 shadow-[0_10px_28px_-22px_rgba(76,29,149,0.55)] dark:border-[#2e2e2e] dark:from-[#232323] dark:via-[#211b2a] dark:to-[#2a211a]">
                   {(() => {
                     const R = 80;
-                    const CIRC = 2 * Math.PI * R; // ≈ 502.65
+                    const CIRC = 2 * Math.PI * R;
                     const pPct = breakupA.principalRatio;
                     const iPct = breakupA.interestRatio;
-                    const GAP = 5; // gap in circumference-px between segments
 
-                    const pArc = Math.max(0, pPct * CIRC - GAP); // principal dash length
-                    const iArc = Math.max(0, iPct * CIRC - GAP); // interest dash length
-                    // Interest arc starts immediately after principal segment ends:
-                    // strokeDashoffset shifts the dash-start backwards by (CIRC - startPos).
-                    // startPos = pPct * CIRC (principal span including gap)
-                    const iOffset = CIRC - pPct * CIRC;
+                    // Principal + interest must always consume 100% of ring.
+                    const pArc = Math.max(0, pPct * CIRC);
+                    const iArc = Math.max(0, iPct * CIRC);
+                    const iStartRotation = -90 + pPct * 360;
+                    const isPrincipalActive =
+                      emiBreakupHover?.segment === "principal";
+                    const isInterestActive =
+                      emiBreakupHover?.segment === "interest";
 
                     return (
                       <svg
                         viewBox="0 0 220 220"
-                        className="w-52 h-52"
+                        className="h-52 w-52"
                         style={{ overflow: "visible" }}
                       >
-                        {/* Grey background track */}
+                        <defs>
+                          <linearGradient
+                            id="emiPrincipalGradient"
+                            x1="0%"
+                            y1="0%"
+                            x2="100%"
+                            y2="100%"
+                          >
+                            <stop offset="0%" stopColor="#8b5cf6" />
+                            <stop offset="100%" stopColor="#6d28d9" />
+                          </linearGradient>
+                          <linearGradient
+                            id="emiInterestGradient"
+                            x1="0%"
+                            y1="0%"
+                            x2="100%"
+                            y2="100%"
+                          >
+                            <stop offset="0%" stopColor="#fdba74" />
+                            <stop offset="100%" stopColor="#f97316" />
+                          </linearGradient>
+                        </defs>
                         <circle
                           cx="110"
                           cy="110"
                           r={R}
                           fill="none"
-                          stroke="#e2e8f0"
-                          strokeWidth="26"
+                          stroke="#e5e7eb"
+                          strokeWidth="24"
                         />
 
-                        {/* Interest arc — orange */}
                         {iArc > 0 && (
                           <circle
                             cx="110"
                             cy="110"
                             r={R}
                             fill="none"
-                            stroke="#fb923c"
-                            strokeWidth="26"
+                            stroke="url(#emiInterestGradient)"
+                            strokeWidth={isInterestActive ? "30" : "24"}
+                            strokeLinecap="butt"
                             strokeDasharray={`${iArc} ${CIRC}`}
-                            strokeDashoffset={iOffset}
-                            transform="rotate(-90 110 110)"
+                            strokeDashoffset={0}
+                            transform={`rotate(${iStartRotation} 110 110)`}
+                            onMouseEnter={(event) =>
+                              handleEmiBreakupHover("interest", event)
+                            }
+                            onMouseMove={(event) =>
+                              handleEmiBreakupHover("interest", event)
+                            }
+                            onMouseLeave={clearEmiBreakupHover}
                             style={{
+                              pointerEvents: "stroke",
                               transition:
-                                "stroke-dasharray 0.7s ease, stroke-dashoffset 0.7s ease",
+                                "stroke-dasharray 0.7s ease, stroke-dashoffset 0.7s ease, stroke-width 0.2s ease",
                             }}
                           />
                         )}
 
-                        {/* Principal arc — violet, identical start (offset=0 aka 12-o'clock) */}
                         {pArc > 0 && (
                           <circle
                             cx="110"
                             cy="110"
                             r={R}
                             fill="none"
-                            stroke="#7c3aed"
-                            strokeWidth="26"
+                            stroke="url(#emiPrincipalGradient)"
+                            strokeWidth={isPrincipalActive ? "30" : "24"}
+                            strokeLinecap="butt"
                             strokeDasharray={`${pArc} ${CIRC}`}
                             strokeDashoffset={0}
                             transform="rotate(-90 110 110)"
-                            style={{ transition: "stroke-dasharray 0.7s ease" }}
+                            onMouseEnter={(event) =>
+                              handleEmiBreakupHover("principal", event)
+                            }
+                            onMouseMove={(event) =>
+                              handleEmiBreakupHover("principal", event)
+                            }
+                            onMouseLeave={clearEmiBreakupHover}
+                            style={{
+                              pointerEvents: "stroke",
+                              transition:
+                                "stroke-dasharray 0.7s ease, stroke-width 0.2s ease",
+                            }}
                           />
                         )}
 
-                        {/* Donut hole — solid fill, JS-computed for dark mode compat */}
                         <circle
                           cx="110"
                           cy="110"
@@ -3049,8 +2956,7 @@ const EMICalculator = ({
                           }}
                         />
 
-                        {/* Center content */}
-                        {liveEmiResult.emi > 0 ? (
+                        {breakupA.totalValue > 0 ? (
                           <>
                             <text
                               x="110"
@@ -3059,26 +2965,27 @@ const EMICalculator = ({
                               fontSize="9.5"
                               fill="#94a3b8"
                             >
-                              Monthly EMI
+                              Payable Split
                             </text>
                             <text
                               x="110"
-                              y="119"
+                              y="118"
                               textAnchor="middle"
-                              fontSize="15"
+                              fontSize="12.5"
                               fontWeight="800"
                               fill="#7c3aed"
                             >
-                              {`₹${Math.round(liveEmiResult.emi).toLocaleString("en-IN")}`}
+                              {`${principalPctA}% Principal`}
                             </text>
                             <text
                               x="110"
-                              y="134"
+                              y="133"
                               textAnchor="middle"
-                              fontSize="9"
-                              fill="#94a3b8"
+                              fontSize="11.5"
+                              fontWeight="700"
+                              fill="#f97316"
                             >
-                              {`${principalPctA}% P · ${interestPctA}% I`}
+                              {`${interestPctA}% Interest`}
                             </text>
                           </>
                         ) : (
@@ -3108,93 +3015,86 @@ const EMICalculator = ({
                   })()}
                 </div>
 
-                {/* Legend + bar */}
-                <div className="flex-1 w-full space-y-4">
-                  {/* Title */}
-                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                    Break-up of Total Payment
-                  </div>
-
-                  {/* Stacked bar */}
-                  <div className="flex h-3 rounded-full overflow-hidden w-full bg-slate-100 dark:bg-[#2e2e2e]">
-                    <div
-                      className="bg-violet-500 transition-all duration-700 ease-in-out"
-                      style={{ width: `${principalPctA}%` }}
-                    />
-                    <div
-                      className="bg-orange-400 transition-all duration-700 ease-in-out"
-                      style={{ width: `${interestPctA}%` }}
-                    />
-                  </div>
-
-                  {/* Principal legend row */}
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-violet-500 flex-shrink-0" />
-                      <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
-                        Principal Loan Amount
-                      </span>
+                <div className="w-full flex-1 space-y-4">
+                  <div className="space-y-3">
+                    <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                      Payment Components
                     </div>
-                    <div className="text-[12px] font-bold text-slate-900 dark:text-slate-100">
-                      {principalPctA}%
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="h-px bg-slate-100 dark:bg-[#2a2a2a]" />
-
-                  {/* Interest legend row */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-orange-400 flex-shrink-0" />
-                      <span className="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
-                        Total Interest
-                      </span>
-                    </div>
-                    <div className="text-[12px] font-bold text-orange-600 dark:text-orange-400">
-                      {interestPctA}%
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="h-px bg-slate-100 dark:bg-[#2a2a2a]" />
-
-                  {/* Total row */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
-                      Total Payment
-                    </span>
-                    <div className="text-[10px] text-slate-400">
-                      {liveEmiResult.months} months
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="rounded-2xl border border-violet-200/70 bg-violet-50/70 px-3.5 py-2.5 dark:border-violet-800/40 dark:bg-violet-900/20">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-violet-500" />
+                            <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
+                              Principal Payable
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300">
+                            {principalPctA}%
+                          </div>
+                        </div>
+                        <div className="mt-1.5 text-[14px] font-black text-violet-700 dark:text-violet-300">
+                          {formatINR(breakupA.principalValue)}
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-violet-100 dark:bg-violet-900/40">
+                          <div
+                            className="h-full rounded-full bg-violet-500 transition-all duration-700 ease-in-out"
+                            style={{ width: `${principalPctA}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-orange-200/70 bg-orange-50/70 px-3.5 py-2.5 dark:border-orange-800/40 dark:bg-orange-900/20">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-orange-400" />
+                            <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-200">
+                              Interest Payable
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-bold text-orange-700 dark:text-orange-300">
+                            {interestPctA}%
+                          </div>
+                        </div>
+                        <div className="mt-1.5 text-[14px] font-black text-orange-700 dark:text-orange-300">
+                          {formatINR(breakupA.interestValue)}
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-orange-100 dark:bg-orange-900/40">
+                          <div
+                            className="h-full rounded-full bg-orange-400 transition-all duration-700 ease-in-out"
+                            style={{ width: `${interestPctA}%` }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="pointer-events-none absolute left-1/2 top-5 z-20 hidden w-[220px] -translate-x-1/2 rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur group-hover:block dark:border-[#2e2e2e] dark:bg-[#171717]/95">
-                  <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                    EMI Breakup
-                  </div>
-                  <div className="flex items-center justify-between py-0.5">
-                    <span className="text-slate-500">Principal</span>
-                    <span className="font-bold text-violet-600 dark:text-violet-400">
-                      {formatINR(breakupA.principalValue)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-0.5">
-                    <span className="text-slate-500">Total Interest</span>
-                    <span className="font-bold text-orange-600 dark:text-orange-400">
-                      {formatINR(breakupA.interestValue)}
-                    </span>
-                  </div>
-                  <div className="mt-1 border-t border-slate-100 pt-1 dark:border-[#2a2a2a]">
+                {emiBreakupHover && (
+                  <div
+                    className="pointer-events-none absolute z-20 w-[232px] -translate-x-1/2 -translate-y-[104%] rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur dark:border-[#2e2e2e] dark:bg-[#171717]/95"
+                    style={{
+                      left: `${emiBreakupHover.x}px`,
+                      top: `${emiBreakupHover.y}px`,
+                    }}
+                  >
+                    <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                      Donut Segment
+                    </div>
                     <div className="flex items-center justify-between py-0.5">
-                      <span className="text-slate-500">Total Payable</span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100">
-                        {formatINR(breakupA.totalValue)}
+                      <span className="text-slate-500">
+                        {activeBreakupSegment.label}
+                      </span>
+                      <span
+                        className={`font-bold ${activeBreakupSegment.colorClass}`}
+                      >
+                        {formatINR(activeBreakupSegment.value)}
                       </span>
                     </div>
+                    <div className="mt-1 text-[10px] text-slate-500">
+                      Share: {activeBreakupSegment.percent}%
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
             {!isFloating && selectedVehicle && (
@@ -3203,20 +3103,29 @@ const EMICalculator = ({
                 <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-100 dark:border-[#242424] bg-gradient-to-r from-violet-50/60 to-transparent dark:from-violet-950/20 dark:to-transparent">
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
-                      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 fill-violet-600 dark:fill-violet-400" xmlns="http://www.w3.org/2000/svg">
+                      <svg
+                        viewBox="0 0 16 16"
+                        className="w-3.5 h-3.5 fill-violet-600 dark:fill-violet-400"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
                         <circle cx="4" cy="8" r="3" />
                         <circle cx="8" cy="5" r="2.2" opacity="0.6" />
                         <circle cx="12" cy="8" r="3" opacity="0.4" />
                       </svg>
                     </div>
                     <div>
-                      <div className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">Exterior Colors</div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Tap a color to auto-fill · click image to zoom</div>
+                      <div className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                        Exterior Colors
+                      </div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                        Tap a color to auto-fill the Color field
+                      </div>
                     </div>
                   </div>
                   {colorGallery.length > 0 && (
                     <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 border border-violet-200/60 dark:border-violet-800/40 px-2.5 py-0.5 rounded-full">
-                      {colorGallery.length} color{colorGallery.length !== 1 ? "s" : ""}
+                      {colorGallery.length} color
+                      {colorGallery.length !== 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
@@ -3225,37 +3134,69 @@ const EMICalculator = ({
                   {/* Main preview image */}
                   {selectedColorMedia?.image && (
                     <div
-                      className="relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-[#2a2a2a] bg-slate-50 dark:bg-[#111] cursor-zoom-in group"
-                      onClick={() => {
-                        const idx = colorGallery.findIndex((e) => normalizeText(e.color) === normalizeText(color));
-                        setColorLightboxIdx(idx >= 0 ? idx : 0);
-                        setColorLightboxOpen(true);
+                      className="relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-[#2a2a2a] bg-gradient-to-b from-slate-100 to-slate-50 dark:from-[#151515] dark:to-[#101010]"
+                      style={{
+                        height: `clamp(${selectedColorPreviewTuning.minHeight}px, 56vh, ${selectedColorPreviewTuning.maxHeight}px)`,
                       }}
                     >
+                      <div
+                        className="absolute inset-0 opacity-50 blur-2xl"
+                        style={{
+                          backgroundImage: `url(${selectedColorMedia.image})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: `50% ${selectedColorPreviewTuning.focusY}%`,
+                          transform: `scale(${Math.max(
+                            1.05,
+                            selectedColorPreviewTuning.scale - 0.08,
+                          )})`,
+                        }}
+                      />
                       {color && (
                         <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-black/35 backdrop-blur-sm rounded-full px-2.5 py-1">
                           <span
                             className="w-2.5 h-2.5 rounded-full border border-white/30 flex-shrink-0"
-                            style={{ backgroundColor: selectedColorMedia.hex || "#d1d5db" }}
+                            style={{
+                              backgroundColor:
+                                selectedColorMedia.hex || "#d1d5db",
+                            }}
                           />
-                          <span className="text-[10px] font-semibold text-white leading-none">{selectedColorMedia.color || color}</span>
+                          <span className="text-[10px] font-semibold text-white leading-none">
+                            {selectedColorMedia.color || color}
+                          </span>
                         </div>
                       )}
-                      {/* zoom hint */}
-                      <div className="absolute bottom-2.5 left-2.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1">
-                        <svg viewBox="0 0 16 16" className="w-3 h-3 fill-white" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M6.5 1a5.5 5.5 0 1 1-3.613 9.694l-2.54 2.54a.75.75 0 1 1-1.061-1.06l2.54-2.541A5.5 5.5 0 0 1 6.5 1Zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM6 4.25h1v1.75h1.75v1H7V8.75H6V7H4.25V6H6V4.25Z"/>
-                        </svg>
-                        <span className="text-[9px] text-white font-medium">Zoom</span>
-                      </div>
                       <img
                         src={selectedColorMedia.image}
                         alt={selectedColorMedia.color || "Vehicle color"}
-                        className="h-52 md:h-64 w-full object-contain p-3"
+                        className="relative z-[1] block h-full w-full object-cover"
+                        style={{
+                          objectPosition: `50% ${selectedColorPreviewTuning.focusY}%`,
+                          transform: `scale(${selectedColorPreviewTuning.scale})`,
+                          transformOrigin: `50% ${selectedColorPreviewTuning.focusY}%`,
+                        }}
                         loading="lazy"
+                        onLoad={(event) => {
+                          const nextWidth =
+                            Number(event.currentTarget.naturalWidth) || 0;
+                          const nextHeight =
+                            Number(event.currentTarget.naturalHeight) || 0;
+                          if (!nextWidth || !nextHeight) return;
+                          setMainColorImageMeta((prev) => {
+                            if (
+                              prev?.width === nextWidth &&
+                              prev?.height === nextHeight
+                            ) {
+                              return prev;
+                            }
+                            return { width: nextWidth, height: nextHeight };
+                          });
+                        }}
                         onError={(event) => {
                           const fallback = selectedColorMedia.originalImage;
-                          if (fallback && event.currentTarget.src !== fallback) {
+                          if (
+                            fallback &&
+                            event.currentTarget.src !== fallback
+                          ) {
                             event.currentTarget.src = fallback;
                           }
                         }}
@@ -3267,7 +3208,10 @@ const EMICalculator = ({
                   {colorGalleryLoading ? (
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="flex-shrink-0 w-[88px] rounded-xl border border-slate-100 dark:border-[#262626] p-1.5 animate-pulse">
+                        <div
+                          key={i}
+                          className="flex-shrink-0 w-[88px] rounded-xl border border-slate-100 dark:border-[#262626] p-1.5 animate-pulse"
+                        >
                           <div className="h-14 rounded-lg bg-slate-200 dark:bg-[#2a2a2a] mb-1.5" />
                           <div className="h-2.5 w-12 rounded-full bg-slate-200 dark:bg-[#2a2a2a] mx-auto" />
                         </div>
@@ -3276,15 +3220,17 @@ const EMICalculator = ({
                   ) : colorGallery.length ? (
                     <div className="flex gap-2 overflow-x-auto pb-0.5">
                       {colorGallery.map((entry, index) => {
-                        const active = normalizeText(color) === normalizeText(entry.color);
+                        const active =
+                          normalizeText(color) === normalizeText(entry.color);
                         return (
                           <button
                             key={`${entry.color || "color"}-${entry.image || "img"}-${index}`}
                             type="button"
                             onClick={() => {
-                              setPricingState((prev) => ({ ...(prev || {}), color: entry.color || "" }));
-                              setColorLightboxIdx(index);
-                              setColorLightboxOpen(true);
+                              setPricingState((prev) => ({
+                                ...(prev || {}),
+                                color: entry.color || "",
+                              }));
                             }}
                             disabled={disableAll}
                             className={`flex-shrink-0 w-[88px] rounded-xl border-2 p-1.5 text-left transition-all duration-150 ${
@@ -3301,20 +3247,28 @@ const EMICalculator = ({
                                   className="h-full w-full object-contain p-0.5"
                                   loading="lazy"
                                   onError={(event) => {
-                                    const fallback = entry.originalImage || entry.image;
-                                    if (fallback && event.currentTarget.src !== fallback) {
+                                    const fallback =
+                                      entry.originalImage || entry.image;
+                                    if (
+                                      fallback &&
+                                      event.currentTarget.src !== fallback
+                                    ) {
                                       event.currentTarget.src = fallback;
                                     }
                                   }}
                                 />
                               ) : (
-                                <span className="text-[9px] text-slate-400">No img</span>
+                                <span className="text-[9px] text-slate-400">
+                                  No img
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 px-0.5">
                               <span
                                 className="h-2.5 w-2.5 rounded-full border border-black/10 flex-shrink-0"
-                                style={{ backgroundColor: entry.hex || "#d1d5db" }}
+                                style={{
+                                  backgroundColor: entry.hex || "#d1d5db",
+                                }}
                               />
                               <span className="truncate text-[10px] font-semibold text-slate-700 dark:text-slate-300 leading-tight">
                                 {entry.color || "Default"}
@@ -3327,12 +3281,21 @@ const EMICalculator = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
                       <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#252525] flex items-center justify-center">
-                        <svg viewBox="0 0 20 20" className="w-5 h-5 fill-slate-400" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 10 5Z" opacity="0.4" />
+                        <svg
+                          viewBox="0 0 20 20"
+                          className="w-5 h-5 fill-slate-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 10 5Z"
+                            opacity="0.4"
+                          />
                           <circle cx="10" cy="10" r="2" />
                         </svg>
                       </div>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500">No color images yet for this variant</p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                        No color images yet for this variant
+                      </p>
                     </div>
                   )}
                 </div>
@@ -3353,10 +3316,15 @@ const EMICalculator = ({
                         <div className="flex items-center gap-2.5">
                           <span
                             className="w-3.5 h-3.5 rounded-full border border-white/20 flex-shrink-0"
-                            style={{ backgroundColor: colorGallery[colorLightboxIdx]?.hex || "#d1d5db" }}
+                            style={{
+                              backgroundColor:
+                                colorGallery[colorLightboxIdx]?.hex ||
+                                "#d1d5db",
+                            }}
                           />
                           <span className="text-[13px] font-bold text-white leading-none">
-                            {colorGallery[colorLightboxIdx]?.color || "Vehicle Color"}
+                            {colorGallery[colorLightboxIdx]?.color ||
+                              "Vehicle Color"}
                           </span>
                           <span className="text-[10px] font-mono text-white/40 ml-1">
                             {colorLightboxIdx + 1}/{colorGallery.length}
@@ -3368,23 +3336,38 @@ const EMICalculator = ({
                           className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
                           aria-label="Close"
                         >
-                          <svg viewBox="0 0 16 16" className="w-4 h-4 fill-white" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M3.22 3.22a.75.75 0 0 1 1.06 0L8 6.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L9.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L8 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L6.94 8 3.22 4.28a.75.75 0 0 1 0-1.06Z"/>
+                          <svg
+                            viewBox="0 0 16 16"
+                            className="w-4 h-4 fill-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path d="M3.22 3.22a.75.75 0 0 1 1.06 0L8 6.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L9.06 8l3.72 3.72a.75.75 0 1 1-1.06 1.06L8 9.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L6.94 8 3.22 4.28a.75.75 0 0 1 0-1.06Z" />
                           </svg>
                         </button>
                       </div>
 
                       {/* Main image */}
-                      <div className="flex-1 flex items-center justify-center bg-[#0d0d0d] overflow-hidden p-6" style={{ minHeight: 0 }}>
+                      <div
+                        className="flex-1 flex items-center justify-center bg-[#0d0d0d] overflow-hidden p-6"
+                        style={{ minHeight: 0 }}
+                      >
                         <img
                           key={colorGallery[colorLightboxIdx]?.image}
                           src={colorGallery[colorLightboxIdx]?.image}
-                          alt={colorGallery[colorLightboxIdx]?.color || "Vehicle color"}
+                          alt={
+                            colorGallery[colorLightboxIdx]?.color ||
+                            "Vehicle color"
+                          }
                           className="max-w-full max-h-full object-contain"
                           style={{ maxHeight: "60vh" }}
                           onError={(event) => {
-                            const fallback = colorGallery[colorLightboxIdx]?.originalImage;
-                            if (fallback && event.currentTarget.src !== fallback) event.currentTarget.src = fallback;
+                            const fallback =
+                              colorGallery[colorLightboxIdx]?.originalImage;
+                            if (
+                              fallback &&
+                              event.currentTarget.src !== fallback
+                            )
+                              event.currentTarget.src = fallback;
                           }}
                         />
                       </div>
@@ -3398,7 +3381,10 @@ const EMICalculator = ({
                               type="button"
                               onClick={() => {
                                 setColorLightboxIdx(i);
-                                setPricingState((prev) => ({ ...(prev || {}), color: entry.color || "" }));
+                                setPricingState((prev) => ({
+                                  ...(prev || {}),
+                                  color: entry.color || "",
+                                }));
                               }}
                               className={`flex-shrink-0 w-[72px] rounded-xl border-2 p-1 transition-all ${
                                 i === colorLightboxIdx
@@ -3415,12 +3401,21 @@ const EMICalculator = ({
                                     loading="lazy"
                                   />
                                 ) : (
-                                  <span className="text-[8px] text-white/30">No img</span>
+                                  <span className="text-[8px] text-white/30">
+                                    No img
+                                  </span>
                                 )}
                               </div>
                               <div className="flex items-center gap-1 px-0.5">
-                                <span className="w-2 h-2 rounded-full flex-shrink-0 border border-white/20" style={{ backgroundColor: entry.hex || "#d1d5db" }} />
-                                <span className="truncate text-[9px] text-white/70 leading-tight">{entry.color || "—"}</span>
+                                <span
+                                  className="w-2 h-2 rounded-full flex-shrink-0 border border-white/20"
+                                  style={{
+                                    backgroundColor: entry.hex || "#d1d5db",
+                                  }}
+                                />
+                                <span className="truncate text-[9px] text-white/70 leading-tight">
+                                  {entry.color || "—"}
+                                </span>
                               </div>
                             </button>
                           ))}
@@ -3432,22 +3427,40 @@ const EMICalculator = ({
                         <>
                           <button
                             type="button"
-                            onClick={() => setColorLightboxIdx((i) => (i - 1 + colorGallery.length) % colorGallery.length)}
+                            onClick={() =>
+                              setColorLightboxIdx(
+                                (i) =>
+                                  (i - 1 + colorGallery.length) %
+                                  colorGallery.length,
+                              )
+                            }
                             className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors"
                             aria-label="Previous"
                           >
-                            <svg viewBox="0 0 16 16" className="w-4 h-4 fill-white" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M10.28 3.22a.75.75 0 0 1 0 1.06L6.56 8l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z"/>
+                            <svg
+                              viewBox="0 0 16 16"
+                              className="w-4 h-4 fill-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path d="M10.28 3.22a.75.75 0 0 1 0 1.06L6.56 8l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" />
                             </svg>
                           </button>
                           <button
                             type="button"
-                            onClick={() => setColorLightboxIdx((i) => (i + 1) % colorGallery.length)}
+                            onClick={() =>
+                              setColorLightboxIdx(
+                                (i) => (i + 1) % colorGallery.length,
+                              )
+                            }
                             className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center transition-colors"
                             aria-label="Next"
                           >
-                            <svg viewBox="0 0 16 16" className="w-4 h-4 fill-white" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M5.72 3.22a.75.75 0 0 0 0 1.06L9.44 8l-3.72 3.72a.75.75 0 1 0 1.06 1.06l4.25-4.25a.75.75 0 0 0 0-1.06L6.78 3.22a.75.75 0 0 0-1.06 0Z"/>
+                            <svg
+                              viewBox="0 0 16 16"
+                              className="w-4 h-4 fill-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path d="M5.72 3.22a.75.75 0 0 0 0 1.06L9.44 8l-3.72 3.72a.75.75 0 1 0 1.06 1.06l4.25-4.25a.75.75 0 0 0 0-1.06L6.78 3.22a.75.75 0 0 0-1.06 0Z" />
                             </svg>
                           </button>
                         </>
@@ -3471,721 +3484,147 @@ const EMICalculator = ({
                   </div>
                 </summary>
 
-                {/* Search */}
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#262626] rounded-xl px-2 py-1.5 mt-3">
-                  <Input
-                    placeholder="Search features"
-                    value={featureSearch}
-                    onChange={(e) => setFeatureSearch(e.target.value)}
-                    allowClear
-                  />
-                </div>
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#181818] border border-slate-100 dark:border-neutral-800 rounded-xl px-3 py-2">
+                    <Icon
+                      name="Search"
+                      size={14}
+                      className="text-slate-400 shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={featureSearch}
+                      onChange={(e) => setFeatureSearch(e.target.value)}
+                      placeholder="Search features..."
+                      className="flex-1 bg-transparent outline-none text-[12px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 min-w-0"
+                    />
+                    {featureSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setFeatureSearch("")}
+                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-neutral-700 shrink-0"
+                      >
+                        <Icon name="X" size={12} className="text-slate-400" />
+                      </button>
+                    )}
+                  </div>
 
-                {/* Features list */}
-                <div className="space-y-3 max-h-72 overflow-y-auto pr-1 mt-2">
-                  {filteredFeatureGroups.length ? (
-                    filteredFeatureGroups.map((group) => (
-                      <div key={group.category} className="space-y-1.5">
-                        <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-                          {group.category}
-                        </div>
+                  <div className="overflow-y-auto max-h-[52vh] space-y-4 pr-0.5">
+                    {filteredFeatureGroups.length ? (
+                      (() => {
+                        const fixedCategories = [
+                          {
+                            key: "Safety",
+                            color: "text-rose-600 dark:text-rose-400",
+                            dot: "bg-rose-400",
+                          },
+                          {
+                            key: "Comfort & Convenience",
+                            color: "text-sky-600 dark:text-sky-400",
+                            dot: "bg-sky-400",
+                          },
+                          {
+                            key: "Exterior",
+                            color: "text-amber-600 dark:text-amber-400",
+                            dot: "bg-amber-400",
+                          },
+                          {
+                            key: "Infotainment",
+                            color: "text-violet-600 dark:text-violet-400",
+                            dot: "bg-violet-400",
+                          },
+                          {
+                            key: "Connected",
+                            color: "text-teal-600 dark:text-teal-400",
+                            dot: "bg-teal-400",
+                          },
+                          {
+                            key: "Others",
+                            color: "text-slate-500 dark:text-slate-400",
+                            dot: "bg-slate-400",
+                          },
+                        ];
+                        const known = new Set(fixedCategories.map((c) => c.key));
+                        const extraCategories = filteredFeatureGroups
+                          .filter((group) => !known.has(group.category))
+                          .map((group) => ({
+                            key: group.category,
+                            color: "text-slate-600 dark:text-slate-300",
+                            dot: "bg-slate-400",
+                          }));
+                        const orderedCategories = [
+                          ...fixedCategories,
+                          ...extraCategories,
+                        ];
 
-                        <div className="space-y-0.5 text-[11px]">
-                          {group.rows.map((row) => (
-                            <div
-                              key={row.name}
-                              className="flex items-center justify-between gap-3"
-                            >
-                              <span className="text-slate-500 dark:text-slate-400">
-                                {row.name}
+                        return orderedCategories.map(({ key: cat, color, dot }) => {
+                          const group = filteredFeatureGroups.find(
+                            (entry) => entry.category === cat,
+                          );
+                          if (!group?.rows?.length) return null;
+
+                        return (
+                          <div key={cat}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`}
+                              />
+                              <span
+                                className={`text-[11px] font-semibold uppercase tracking-wider ${color}`}
+                              >
+                                {cat}
                               </span>
-                              <span className="font-medium text-slate-900 dark:text-slate-100 text-right">
-                                {row.value}
+                              <span className="text-[10px] text-slate-400 dark:text-slate-600">
+                                {group.rows.length}
                               </span>
                             </div>
-                          ))}
-                        </div>
+
+                            <div className="rounded-xl border border-slate-100 dark:border-neutral-800 divide-y divide-slate-50 dark:divide-neutral-800/80 overflow-hidden">
+                              {group.rows.map((row) => {
+                                const label = String(row.value || "Not Available");
+                                const valLower = label.toLowerCase().trim();
+                                const isYes = valLower === "yes";
+                                const isNo = valLower === "not available";
+                                return (
+                                  <div
+                                    key={row.name}
+                                    className="flex items-center justify-between gap-3 px-3 py-2 bg-white dark:bg-[#111111] hover:bg-slate-50/70 dark:hover:bg-[#161616] transition-colors"
+                                  >
+                                    <span className="text-[12px] text-slate-700 dark:text-slate-300 leading-snug min-w-0">
+                                      {row.name}
+                                    </span>
+                                    {isYes ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                                        <Icon name="Check" size={12} />
+                                        Yes
+                                      </span>
+                                    ) : isNo ? (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 dark:bg-neutral-800 text-slate-400 dark:text-slate-500 shrink-0">
+                                        <Icon name="Minus" size={12} />
+                                      </span>
+                                    ) : (
+                                      <span className="text-[12px] font-medium text-slate-800 dark:text-slate-200 shrink-0 text-right max-w-[45%] truncate">
+                                        {label}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                        });
+                      })()
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 dark:border-[#2d2d2d] px-3 py-4 text-[11px] text-slate-500 dark:text-slate-400">
+                        No features available for this variant yet.
                       </div>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-slate-200 dark:border-[#2d2d2d] px-3 py-4 text-[11px] text-slate-500 dark:text-slate-400">
-                      No features available for this variant yet.
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </details>
             )}
 
-            {/* ── Scenario B – full redesign ───────────────────────────── */}
-            {!isFloating && (showScenarioB ? (
-              <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] overflow-hidden transition-all hover:shadow-md">
-                {/* ── Header ── */}
-                <div className="px-5 py-4 flex items-center justify-between border-b border-slate-100 dark:border-[#262626] bg-gradient-to-r from-violet-50/70 via-transparent to-transparent dark:from-violet-950/20">
-                  <div className="flex items-center gap-3">
-                    {/* A vs B pill */}
-                    <div className="flex items-center gap-1">
-                      <span className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[11px] font-black flex items-center justify-center select-none">
-                        A
-                      </span>
-                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium px-0.5">
-                        vs
-                      </span>
-                      <span className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-[11px] font-black flex items-center justify-center select-none">
-                        B
-                      </span>
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                        Scenario B — comparison EMI
-                      </h2>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                        Tweak rate, tenure or amount · savings update live
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        if (!disableAll) cloneToScenarioB();
-                      }}
-                      disabled={disableAll}
-                      className="text-[11px]"
-                    >
-                      Copy A → B
-                    </Button>
-                    <button
-                      type="button"
-                      title="Remove Scenario B"
-                      onClick={() => {
-                        setShowScenarioB(false);
-                        setComparisonTouched(false);
-                        setLoanAmountB(0);
-                        setInterestB(9.5);
-                        setTenureB(5);
-                        setTenureTypeB("years");
-                        setEmiBInput("");
-                        setSolveForB("emi");
-                        setEmiTypeB("arrear");
-                      }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                {/* ── Savings / Cost headline banner ── */}
-                {resultA.emi > 0 && resultB.emi > 0 && (
-                  <div
-                    className={`px-5 py-3 flex items-center gap-3 border-b border-slate-100 dark:border-[#262626] ${
-                      emiDiff < 0
-                        ? "bg-emerald-50/70 dark:bg-emerald-950/20"
-                        : emiDiff > 0
-                          ? "bg-rose-50/70 dark:bg-rose-950/20"
-                          : "bg-slate-50/60 dark:bg-[#262626]/40"
-                    }`}
-                  >
-                    <span
-                      className="text-2xl leading-none select-none"
-                      aria-hidden="true"
-                    >
-                      {emiDiff < 0 ? "🎉" : emiDiff > 0 ? "⚠️" : "⚖️"}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      {emiDiff === 0 ? (
-                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                          Same EMI as Scenario A
-                        </p>
-                      ) : emiDiff < 0 ? (
-                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                          Save{" "}
-                          <span className="text-[15px]">
-                            {formatINR(Math.abs(emiDiff))}/month
-                          </span>{" "}
-                          with Scenario B
-                        </p>
-                      ) : (
-                        <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
-                          Scenario B costs{" "}
-                          <span className="text-[15px]">
-                            {formatINR(Math.abs(emiDiff))}/month
-                          </span>{" "}
-                          more
-                        </p>
-                      )}
-                      {interestDiff !== 0 && (
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {interestDiff < 0
-                            ? `Save ${formatINR(Math.abs(interestDiff))} total interest`
-                            : `Pay ${formatINR(Math.abs(interestDiff))} more in total interest`}
-                          {` · ${resultB.months} months`}
-                        </p>
-                      )}
-                    </div>
-                    {emiDiff !== 0 && (
-                      <span
-                        className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold ${
-                          emiDiff < 0
-                            ? "bg-emerald-600 text-white"
-                            : "bg-rose-600 text-white"
-                        }`}
-                      >
-                        {emiDiff < 0 ? "✓ B is better" : "A is better"}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Body: inputs (left) + outcomes (right) ── */}
-                <div className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr),minmax(0,1fr)] gap-5">
-                  {/* ── LEFT: inputs ── */}
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-violet-100 dark:border-violet-900/30 bg-violet-50/40 dark:bg-[#1e1726]/60 px-4 py-4 space-y-3.5">
-                      {/* Mode + solve-for toggles row */}
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        {/* EMI mode */}
-                        <div className="inline-flex rounded-full bg-white dark:bg-[#262626] border border-slate-200 dark:border-[#383838] p-0.5 text-[11px]">
-                          {[
-                            { key: "arrear", label: "Arrear" },
-                            { key: "advance", label: "Advance" },
-                          ].map((opt) => (
-                            <button
-                              key={opt.key}
-                              type="button"
-                              onClick={() => {
-                                if (disableAll) return;
-                                setComparisonTouched(true);
-                                setEmiTypeB(opt.key);
-                              }}
-                              disabled={disableAll}
-                              className={`px-3 py-1 rounded-full font-semibold transition-all ${
-                                emiTypeB === opt.key
-                                  ? "bg-violet-600 text-white shadow-sm"
-                                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#333]"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Solve-for */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            Solve:
-                          </span>
-                          <div className="inline-flex rounded-full bg-white dark:bg-[#262626] border border-slate-200 dark:border-[#383838] p-0.5 text-[11px]">
-                            {solveOptions.map((opt) => (
-                              <button
-                                key={opt.key}
-                                type="button"
-                                onClick={() => {
-                                  if (disableAll) return;
-                                  setComparisonTouched(true);
-                                  setSolveForB(opt.key);
-                                }}
-                                disabled={disableAll}
-                                className={`px-3 py-1 rounded-full font-semibold transition-all ${
-                                  solveForB === opt.key
-                                    ? "bg-violet-600 text-white shadow-sm"
-                                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#333]"
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Loan Amount B */}
-                        <div className="space-y-1">
-                          <Label>Loan amount</Label>
-                          <div className="relative">
-                            <Input
-                              type="text"
-                              value={
-                                solveForB === "amount"
-                                  ? formatNumber(
-                                      displayForField(
-                                        solveForB,
-                                        "amount",
-                                        resultB,
-                                        tenureTypeB,
-                                      ),
-                                    ) || ""
-                                  : formatNumber(loanAmountB)
-                              }
-                              onChange={(e) => {
-                                if (disableAll) return;
-                                setComparisonTouched(true);
-                                if (solveForB === "amount") return;
-                                setLoanAmountB(parseNumber(e.target.value));
-                              }}
-                              readOnly={solveForB === "amount" || disableAll}
-                              className={
-                                solveForB === "amount"
-                                  ? "pr-10 border-violet-400 focus:ring-violet-300"
-                                  : ""
-                              }
-                            />
-                            {solveForB === "amount" && (
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
-                                Live
-                              </span>
-                            )}
-                          </div>
-                          {/* diff hint */}
-                          {loanDiff !== 0 &&
-                            resultA.principal > 0 &&
-                            resultB.principal > 0 && (
-                              <p
-                                className={`text-[10px] font-semibold ${loanDiff > 0 ? "text-rose-500" : "text-emerald-600"}`}
-                              >
-                                {loanDiff > 0
-                                  ? `▲ ${formatINR(Math.abs(loanDiff))} vs A`
-                                  : `▼ ${formatINR(Math.abs(loanDiff))} vs A`}
-                              </p>
-                            )}
-                        </div>
-
-                        {/* EMI B */}
-                        <div className="space-y-1">
-                          <Label>EMI</Label>
-                          <div className="relative">
-                            <Input
-                              type="text"
-                              value={
-                                solveForB === "emi"
-                                  ? formatNumber(
-                                      displayForField(
-                                        solveForB,
-                                        "emi",
-                                        resultB,
-                                        tenureTypeB,
-                                      ),
-                                    ) || ""
-                                  : formatNumber(emiBInput)
-                              }
-                              onChange={(e) => {
-                                if (disableAll) return;
-                                setComparisonTouched(true);
-                                if (solveForB === "emi") return;
-                                setEmiBInput(parseNumber(e.target.value));
-                              }}
-                              readOnly={solveForB === "emi" || disableAll}
-                              className={
-                                solveForB === "emi"
-                                  ? "pr-10 border-violet-400 focus:ring-violet-300"
-                                  : ""
-                              }
-                            />
-                            {solveForB === "emi" && (
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
-                                Live
-                              </span>
-                            )}
-                          </div>
-                          {emiDiff !== 0 &&
-                            resultA.emi > 0 &&
-                            resultB.emi > 0 && (
-                              <p
-                                className={`text-[10px] font-semibold ${emiDiff < 0 ? "text-emerald-600" : "text-rose-500"}`}
-                              >
-                                {emiDiff < 0
-                                  ? `▼ ${formatINR(Math.abs(emiDiff))}/mo vs A`
-                                  : `▲ ${formatINR(Math.abs(emiDiff))}/mo vs A`}
-                              </p>
-                            )}
-                        </div>
-
-                        {/* Interest Rate B */}
-                        <div className="space-y-1 col-span-2">
-                          <Label>Interest rate (annual %)</Label>
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={
-                                solveForB === "rate"
-                                  ? displayForField(
-                                      solveForB,
-                                      "rate",
-                                      resultB,
-                                      tenureTypeB,
-                                    ) || ""
-                                  : interestB
-                              }
-                              onChange={(e) => {
-                                if (disableAll) return;
-                                setComparisonTouched(true);
-                                if (solveForB === "rate") return;
-                                setInterestB(Number(e.target.value) || 0);
-                              }}
-                              readOnly={solveForB === "rate" || disableAll}
-                              className={
-                                solveForB === "rate"
-                                  ? "pr-10 border-violet-400"
-                                  : ""
-                              }
-                            />
-                            {solveForB === "rate" && (
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
-                                Live
-                              </span>
-                            )}
-                          </div>
-                          {/* Rate slider */}
-                          <div className="pt-1 space-y-1">
-                            <input
-                              type="range"
-                              min={5}
-                              max={20}
-                              step="0.1"
-                              value={interestB}
-                              onChange={(e) => {
-                                if (disableAll) return;
-                                setComparisonTouched(true);
-                                setInterestB(Number(e.target.value) || 0);
-                              }}
-                              className="w-full accent-violet-600"
-                              disabled={disableAll}
-                            />
-                            <div className="flex justify-between text-[9px] text-slate-400">
-                              <span>5%</span>
-                              <span className="font-bold text-violet-600 dark:text-violet-400">
-                                {Number(interestB).toFixed(2)}% p.a.
-                              </span>
-                              <span>20%</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Tenure B */}
-                        <div className="space-y-1 col-span-2">
-                          <Label>Tenure</Label>
-                          <div className="flex gap-2">
-                            <div className="relative flex-1">
-                              <Input
-                                type="number"
-                                value={
-                                  solveForB === "tenure"
-                                    ? displayForField(
-                                        solveForB,
-                                        "tenure",
-                                        resultB,
-                                        tenureTypeB,
-                                      ) || ""
-                                    : tenureB
-                                }
-                                onChange={(e) => {
-                                  if (disableAll) return;
-                                  setComparisonTouched(true);
-                                  if (solveForB === "tenure") return;
-                                  setTenureB(Number(e.target.value) || 0);
-                                }}
-                                readOnly={solveForB === "tenure" || disableAll}
-                                className={
-                                  solveForB === "tenure"
-                                    ? "pr-10 border-violet-400"
-                                    : ""
-                                }
-                              />
-                              {solveForB === "tenure" && (
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-600 dark:text-violet-400 animate-pulse font-bold">
-                                  Live
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-[#383838]">
-                              {["years", "months"].map((t) => (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  className={`px-3 py-1.5 text-[11px] font-semibold capitalize transition-colors ${
-                                    tenureTypeB === t
-                                      ? "bg-violet-600 text-white"
-                                      : "bg-transparent text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-[#383838] first:border-l-0 hover:bg-slate-50 dark:hover:bg-[#2a2a2a]"
-                                  }`}
-                                  onClick={() => {
-                                    if (disableAll) return;
-                                    setComparisonTouched(true);
-                                    setTenureTypeB(t);
-                                  }}
-                                  disabled={disableAll}
-                                >
-                                  {t === "years" ? "Yrs" : "Mos"}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            = {resultB.months || 0} months
-                            {resultB.months !== resultA.months &&
-                              resultA.months > 0 && (
-                                <span
-                                  className={`ml-2 font-semibold ${resultB.months < resultA.months ? "text-emerald-600" : "text-rose-500"}`}
-                                >
-                                  (
-                                  {resultB.months < resultA.months
-                                    ? `-${resultA.months - resultB.months}`
-                                    : `+${resultB.months - resultA.months}`}{" "}
-                                  vs A)
-                                </span>
-                              )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── RIGHT: outcomes ── */}
-                  <div className="space-y-4">
-                    {/* 3 stat cards — mirrors Scenario A's scheme panel */}
-                    <div className="grid grid-cols-3 gap-px bg-violet-100/60 dark:bg-[#2a2035] rounded-2xl overflow-hidden border border-violet-100 dark:border-violet-900/30">
-                      {/* EMI B */}
-                      <div className="bg-white dark:bg-[#1f1f1f] px-3 py-3.5 text-center">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
-                          Loan EMI
-                        </div>
-                        <div className="text-xl font-extrabold text-violet-600 dark:text-violet-400 leading-none">
-                          <AnimatedNumber value={resultB.emi} />
-                        </div>
-                        {emiDiff !== 0 && resultA.emi > 0 && (
-                          <div
-                            className={`text-[10px] mt-1.5 font-bold ${emiDiff < 0 ? "text-emerald-600" : "text-rose-500"}`}
-                          >
-                            {emiDiff < 0
-                              ? `▼ ${formatINR(Math.abs(emiDiff))}`
-                              : `▲ ${formatINR(Math.abs(emiDiff))}`}
-                          </div>
-                        )}
-                        <div className="text-[9px] text-slate-400 mt-0.5">
-                          /month
-                        </div>
-                      </div>
-
-                      {/* Total Interest B */}
-                      <div className="bg-white dark:bg-[#1f1f1f] px-3 py-3.5 text-center border-x border-violet-100/60 dark:border-[#2a2035]">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
-                          Total Interest
-                        </div>
-                        <div className="text-xl font-extrabold text-orange-500 dark:text-orange-400 leading-none">
-                          {formatINR(resultB.interest)}
-                        </div>
-                        {interestDiff !== 0 && breakupA.interestValue > 0 && (
-                          <div
-                            className={`text-[10px] mt-1.5 font-bold ${interestDiff < 0 ? "text-emerald-600" : "text-rose-500"}`}
-                          >
-                            {interestDiff < 0
-                              ? `▼ ${formatINR(Math.abs(interestDiff))}`
-                              : `▲ ${formatINR(Math.abs(interestDiff))}`}
-                          </div>
-                        )}
-                        <div className="text-[9px] text-slate-400 mt-0.5">
-                          payable
-                        </div>
-                      </div>
-
-                      {/* Total Payment B */}
-                      <div className="bg-white dark:bg-[#1f1f1f] px-3 py-3.5 text-center">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
-                          Total Payment
-                        </div>
-                        <div className="text-xl font-extrabold text-slate-800 dark:text-slate-100 leading-none">
-                          {formatINR(resultB.total)}
-                        </div>
-                        <div className="text-[9px] text-slate-400 mt-0.5">
-                          {resultB.months}mo
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* A vs B side-by-side comparison table */}
-                    <div className="rounded-2xl border border-slate-200 dark:border-[#2a2a2a] overflow-hidden">
-                      {/* Table header */}
-                      <div className="grid grid-cols-[1fr,72px,72px] px-4 py-2 bg-slate-50 dark:bg-[#262626] border-b border-slate-100 dark:border-[#2a2a2a]">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Metric
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 text-center">
-                          A
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 text-center">
-                          B
-                        </span>
-                      </div>
-
-                      {/* Comparison rows */}
-                      {[
-                        {
-                          label: "Monthly EMI",
-                          a: resultA.emi,
-                          b: resultB.emi,
-                          format: formatINR,
-                          lowerBetter: true,
-                        },
-                        {
-                          label: "Total Interest",
-                          a: breakupA.interestValue,
-                          b: resultB.interest,
-                          format: formatINR,
-                          lowerBetter: true,
-                        },
-                        {
-                          label: "Total Payment",
-                          a: breakupA.totalValue,
-                          b: resultB.total,
-                          format: formatINR,
-                          lowerBetter: true,
-                        },
-                        {
-                          label: "Loan Amount",
-                          a: resultA.principal,
-                          b: resultB.principal,
-                          format: formatINR,
-                          lowerBetter: null, // neutral — just informational
-                        },
-                        {
-                          label: "Tenure",
-                          a: resultA.months,
-                          b: resultB.months,
-                          format: (v) => `${v}mo`,
-                          lowerBetter: true,
-                        },
-                      ].map(({ label, a, b, format, lowerBetter }) => {
-                        const safeA = a || 0;
-                        const safeB = b || 0;
-                        const maxVal = Math.max(safeA, safeB);
-                        const aBar =
-                          maxVal > 0 ? Math.round((safeA / maxVal) * 100) : 0;
-                        const bBar =
-                          maxVal > 0 ? Math.round((safeB / maxVal) * 100) : 0;
-                        const diff = safeB - safeA;
-                        const aWins =
-                          lowerBetter !== null
-                            ? lowerBetter
-                              ? safeA <= safeB
-                              : safeA >= safeB
-                            : false;
-                        const bWins =
-                          lowerBetter !== null
-                            ? lowerBetter
-                              ? safeB <= safeA
-                              : safeB >= safeA
-                            : false;
-                        const hasBothValues = safeA > 0 && safeB > 0;
-
-                        return (
-                          <div
-                            key={label}
-                            className="grid grid-cols-[1fr,72px,72px] items-center px-4 py-2.5 border-b border-slate-100 dark:border-[#262626] last:border-b-0 bg-white dark:bg-[#1f1f1f] gap-2"
-                          >
-                            {/* Label + diff badge */}
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-                                  {label}
-                                </span>
-                                {diff !== 0 &&
-                                  hasBothValues &&
-                                  lowerBetter !== null && (
-                                    <span
-                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                        (lowerBetter && diff < 0) ||
-                                        (!lowerBetter && diff > 0)
-                                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                          : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
-                                      }`}
-                                    >
-                                      {diff < 0 ? "▼" : "▲"}{" "}
-                                      {format(Math.abs(diff))}
-                                    </span>
-                                  )}
-                              </div>
-                            </div>
-
-                            {/* Scenario A cell */}
-                            <div className="text-center space-y-1">
-                              {hasBothValues && (
-                                <div className="h-1 rounded-full bg-slate-100 dark:bg-[#2e2e2e] overflow-hidden mx-1">
-                                  <div
-                                    className={`h-full rounded-full transition-all duration-700 ${aWins ? "bg-emerald-500" : "bg-emerald-200 dark:bg-emerald-800"}`}
-                                    style={{ width: `${aBar}%` }}
-                                  />
-                                </div>
-                              )}
-                              <div
-                                className={`text-[11px] font-bold tabular-nums ${
-                                  hasBothValues && aWins
-                                    ? "text-emerald-700 dark:text-emerald-300"
-                                    : "text-slate-700 dark:text-slate-300"
-                                }`}
-                              >
-                                {safeA > 0 ? format(safeA) : "—"}
-                              </div>
-                            </div>
-
-                            {/* Scenario B cell */}
-                            <div className="text-center space-y-1">
-                              {hasBothValues && (
-                                <div className="h-1 rounded-full bg-slate-100 dark:bg-[#2e2e2e] overflow-hidden mx-1">
-                                  <div
-                                    className={`h-full rounded-full transition-all duration-700 ${bWins ? "bg-violet-500" : "bg-violet-200 dark:bg-violet-800"}`}
-                                    style={{ width: `${bBar}%` }}
-                                  />
-                                </div>
-                              )}
-                              <div
-                                className={`text-[11px] font-bold tabular-nums ${
-                                  hasBothValues && bWins
-                                    ? "text-violet-700 dark:text-violet-300"
-                                    : "text-slate-700 dark:text-slate-300"
-                                }`}
-                              >
-                                {safeB > 0 ? format(safeB) : "—"}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Subvention / extra loan note */}
-                    {loanDiff !== 0 && resultA.emi > 0 && resultB.emi > 0 && (
-                      <div className="rounded-2xl bg-violet-50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/30 px-4 py-3 flex items-start gap-2">
-                        <span
-                          className="text-violet-500 text-base leading-none mt-0.5"
-                          aria-hidden="true"
-                        >
-                          ⓘ
-                        </span>
-                        <p className="text-[11px] text-violet-700 dark:text-violet-300 leading-relaxed">
-                          <span className="font-bold">Subvention note: </span>
-                          {loanDiff > 0
-                            ? `At the same EMI & tenure, Scenario B requires ${formatINR(Math.abs(loanDiff))} extra loan / subvention.`
-                            : `Scenario B uses ${formatINR(Math.abs(loanDiff))} less loan — meaning a higher down payment is required.`}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* Re-add Scenario B */
-              <button
-                type="button"
-                onClick={() => setShowScenarioB(true)}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-3xl border-2 border-dashed border-slate-200 dark:border-[#2e2e2e] text-[12px] font-medium text-slate-400 hover:text-emerald-600 hover:border-emerald-400 dark:hover:border-emerald-700 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-all"
-              >
-                <span className="text-lg leading-none">+</span>
-                Add Comparison (Scenario B)
-              </button>
-            ))}
             {/* Repayment schedule */}
             {!isFloating && showSchedule && (
               <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-6 md:py-5 space-y-3">
@@ -4239,28 +3678,30 @@ const EMICalculator = ({
             )}
 
             {/* Terms & conditions */}
-            {!isFloating && <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-6 md:py-5 text-[11px] space-y-1.5">
-              <div className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
-                Terms & conditions
+            {!isFloating && (
+              <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl border border-slate-200 dark:border-[#262626] px-4 py-4 md:px-6 md:py-5 text-[11px] space-y-1.5">
+                <div className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                  Terms & conditions
+                </div>
+                <p className="text-slate-500 dark:text-slate-400">
+                  • This is an indicative quotation only and does not constitute
+                  a final offer or sanction.
+                </p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  • Interest rate, loan amount, tenure, and EMI are subject to
+                  credit approval by the financier.
+                </p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  • Price & Specifications are subject to change without notice.
+                  Price & Scheme prevailing at the time of delivery will be
+                  applicable.
+                </p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  • Registration & Issue of Registration Certificate will be at
+                  the sole discretion of the "Respective Transport Authority".
+                </p>
               </div>
-              <p className="text-slate-500 dark:text-slate-400">
-                • This is an indicative quotation only and does not constitute a
-                final offer or sanction.
-              </p>
-              <p className="text-slate-500 dark:text-slate-400">
-                • Interest rate, loan amount, tenure, and EMI are subject to
-                credit approval by the financier.
-              </p>
-              <p className="text-slate-500 dark:text-slate-400">
-                • Price & Specifications are subject to change without notice.
-                Price & Scheme prevailing at the time of delivery will be
-                applicable.
-              </p>
-              <p className="text-slate-500 dark:text-slate-400">
-                • Registration & Issue of Registration Certificate will be at
-                the sole discretion of the "Respective Transport Authority".
-              </p>
-            </div>}
+            )}
           </div>
         </div>
 
