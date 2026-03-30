@@ -197,12 +197,15 @@ const solveOptions = [
   { key: "tenure", label: "Tenure" },
 ];
 
+const DEFAULT_SCENARIO_BASE_PRICE = 1200000;
+
 const getVariantPrice = (variant) =>
   Number(variant?.exShowroom || variant?.onRoadPrice || 0) || 0;
 
 const FeaturesEmiCompareModal = ({
   open,
   variant,
+  assumedOnRoadPrice = DEFAULT_SCENARIO_BASE_PRICE,
   onClose,
   onOpenFullCalculator,
 }) => {
@@ -224,7 +227,13 @@ const FeaturesEmiCompareModal = ({
   const [emiTypeB, setEmiTypeB] = useState("arrear");
   const [comparisonTouched, setComparisonTouched] = useState(false);
 
-  const basePrice = useMemo(() => getVariantPrice(variant), [variant]);
+  const basePrice = useMemo(() => {
+    const variantPrice = getVariantPrice(variant);
+    if (variantPrice > 0) return variantPrice;
+    return Number(assumedOnRoadPrice) > 0
+      ? Number(assumedOnRoadPrice)
+      : DEFAULT_SCENARIO_BASE_PRICE;
+  }, [variant, assumedOnRoadPrice]);
 
   useEffect(() => {
     if (!open) return;
@@ -410,7 +419,11 @@ const FeaturesEmiCompareModal = ({
     setSolveForB("amount");
   };
 
-  if (!open || !variant) return null;
+  if (!open) return null;
+
+  const variantTitle = [variant?.make, variant?.model, variant?.variant]
+    .filter(Boolean)
+    .join(" • ");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 md:p-5">
@@ -420,9 +433,15 @@ const FeaturesEmiCompareModal = ({
             <div className="text-[15px] font-semibold text-slate-900 dark:text-slate-50">
               EMI Scenarios
             </div>
-            <div className="text-[13px] text-slate-500 dark:text-slate-400">
-              {variant.make} {variant.model} • {variant.variant}
-            </div>
+            {variantTitle ? (
+              <div className="text-[13px] text-slate-500 dark:text-slate-400">
+                {variantTitle}
+              </div>
+            ) : (
+              <div className="text-[13px] text-slate-500 dark:text-slate-400">
+                Quick planner for any vehicle
+              </div>
+            )}
             <div className="mt-1 text-[12px] text-emerald-700 dark:text-emerald-300">
               Assumed loan in Scenario A: 90% ({formatINR(Math.round(basePrice * 0.9))})
             </div>

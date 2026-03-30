@@ -427,6 +427,22 @@ const EMICalculator = ({
       ),
     [vehicles, selectedVariant],
   );
+  const galleryVehicleContext = useMemo(() => {
+    if (selectedVehicle) return selectedVehicle;
+    if (!selectedMake || !selectedModel) return null;
+    return (
+      vehicles.find(
+        (v) =>
+          normalizeText(v?.make) === normalizeText(selectedMake) &&
+          normalizeText(v?.model) === normalizeText(selectedModel),
+      ) || {
+        _id: "",
+        make: selectedMake,
+        model: selectedModel,
+        variant: "",
+      }
+    );
+  }, [selectedMake, selectedModel, selectedVehicle, vehicles]);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [colorGallery, setColorGallery] = useState([]);
   const [colorGalleryLoading, setColorGalleryLoading] = useState(false);
@@ -887,28 +903,30 @@ const EMICalculator = ({
     let ignore = false;
 
     const loadColorGallery = async () => {
-      if (!selectedVehicle) {
+      if (!galleryVehicleContext) {
         setColorGallery([]);
         return;
       }
 
-      const makeKey = normalizeText(selectedVehicle.make);
-      const modelKey = normalizeText(selectedVehicle.model);
-      const variantKey = normalizeText(selectedVehicle.variant);
+      const makeKey = normalizeText(galleryVehicleContext.make);
+      const modelKey = normalizeText(galleryVehicleContext.model);
+      const variantKey = selectedVehicle
+        ? normalizeText(galleryVehicleContext.variant)
+        : "";
 
       setColorGalleryLoading(true);
       try {
         const mediaPayload = await vehiclesApi.getMedia(
-          selectedVehicle.make,
-          selectedVehicle.model,
-          selectedVehicle.variant,
+          galleryVehicleContext.make,
+          galleryVehicleContext.model,
+          selectedVehicle ? galleryVehicleContext.variant : null,
         );
 
         const mediaRows = toArray(mediaPayload).filter((row) =>
           mediaUrlMatchesVehicle(
             getVehicleImage(row),
-            selectedVehicle.make,
-            selectedVehicle.model,
+            galleryVehicleContext.make,
+            galleryVehicleContext.model,
           ),
         );
         const fallbackRows = vehicles.filter((row) => {
@@ -1008,10 +1026,11 @@ const EMICalculator = ({
       ignore = true;
     };
   }, [
+    galleryVehicleContext?._id,
+    galleryVehicleContext?.make,
+    galleryVehicleContext?.model,
+    galleryVehicleContext?.variant,
     selectedVehicle?._id,
-    selectedVehicle?.make,
-    selectedVehicle?.model,
-    selectedVehicle?.variant,
     vehicles,
   ]);
 
@@ -3097,7 +3116,7 @@ const EMICalculator = ({
                 )}
               </div>
             </div>
-            {!isFloating && selectedVehicle && (
+            {!isFloating && galleryVehicleContext && (
               <div className="bg-white dark:bg-[#141414] rounded-3xl border border-slate-100 dark:border-[#242424] overflow-hidden shadow-sm">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-100 dark:border-[#242424] bg-gradient-to-r from-violet-50/60 to-transparent dark:from-violet-950/20 dark:to-transparent">

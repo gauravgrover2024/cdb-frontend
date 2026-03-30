@@ -723,6 +723,34 @@ export const vehiclesApi = {
     return withNormalizedData(payload, normalizeArrayData(payload));
   },
 
+  getSimilarModels: async ({
+    make,
+    model,
+    city = null,
+    includeDiscontinued = false,
+    tolerance = 0.15,
+    limit = 5,
+  }) => {
+    let url = `/api/vehicles/similar-models?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`;
+    if (city) url += `&city=${encodeURIComponent(city)}`;
+    if (includeDiscontinued) url += `&includeDiscontinued=true`;
+    if (tolerance != null) url += `&tolerance=${encodeURIComponent(String(tolerance))}`;
+    if (limit != null) url += `&limit=${encodeURIComponent(String(limit))}`;
+    const payload = await apiClient.get(url);
+
+    if (payload && typeof payload === "object") {
+      const rows = normalizeArrayData(payload);
+      return {
+        ...payload,
+        data: rows,
+        baseModel: payload.baseModel || payload?.data?.baseModel || null,
+      };
+    }
+
+    const rows = normalizeArrayData(payload);
+    return { success: true, data: rows, baseModel: null };
+  },
+
   searchMasterRecords: async (query, limit = 20) => {
     const q = String(query || "").trim();
     if (!q) return { success: true, data: [] };

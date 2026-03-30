@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Input, Select, message, Tag } from "antd";
+import { AutoComplete, Select, message } from "antd";
 import { vehiclesApi } from "../../api/vehicles";
 import { featuresApi } from "../../api/features";
 import Icon from "../../components/AppIcon";
 import Button from "../../components/ui/Button";
 import { buildVehiclePricingSnapshot } from "../../utils/vehiclePricingBreakup";
+import FeaturesEmiCompareModal from "../loans/components/FeaturesEmiCompareModal";
 
-const { Search } = Input;
 const { Option } = Select;
 
 const FUEL_ORDER = ["All", "Petrol", "Diesel", "CNG", "Electric", "Hybrid"];
@@ -16,6 +16,105 @@ const normalizeText = (value) =>
   String(value || "")
     .trim()
     .toLowerCase();
+
+const escapeRegExp = (value) =>
+  String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const collapseSpaces = (value) =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const parseSeatCount = (value) => {
+  if (value == null) return null;
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.round(value);
+  }
+  const text = String(value).trim();
+  if (!text) return null;
+  const match = text.match(/(\d{1,2})/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const normalizeBodyTypeBucket = (value) => {
+  const text = normalizeText(value);
+  if (!text) return "";
+  if (
+    text.includes("suv") ||
+    text.includes("crossover") ||
+    text.includes("sport utility")
+  ) {
+    return "suv";
+  }
+  if (text.includes("sedan")) return "sedan";
+  if (text.includes("hatch")) return "hatchback";
+  if (text.includes("muv") || text.includes("mpv") || text.includes("people mover")) {
+    return "mpv";
+  }
+  if (text.includes("coupe")) return "coupe";
+  if (text.includes("convertible") || text.includes("cabriolet")) {
+    return "convertible";
+  }
+  if (text.includes("pickup")) return "pickup";
+  return text;
+};
+
+const formatBodyType = (value) => {
+  const text = collapseSpaces(value);
+  if (!text) return "";
+  return text
+    .split(" ")
+    .map((token) =>
+      token ? token.charAt(0).toUpperCase() + token.slice(1).toLowerCase() : "",
+    )
+    .join(" ");
+};
+
+const buildVariantDisplayLabel = (variant, make = "", model = "") => {
+  const raw = collapseSpaces(variant);
+  if (!raw) return "";
+
+  let cleaned = raw;
+  const makeModel = collapseSpaces(`${make} ${model}`);
+  if (makeModel) {
+    const fullPrefix = new RegExp(
+      `^${escapeRegExp(makeModel)}(?:\\s*[-:|/]\\s*|\\s+)`,
+      "i",
+    );
+    cleaned = cleaned.replace(fullPrefix, "").trim();
+  }
+
+  if (make) {
+    const makePrefix = new RegExp(
+      `^${escapeRegExp(collapseSpaces(make))}(?:\\s*[-:|/]\\s*|\\s+)`,
+      "i",
+    );
+    cleaned = cleaned.replace(makePrefix, "").trim();
+  }
+
+  return cleaned || raw;
+};
+
+const buildPriceDeltaInsight = (basePrice, candidatePrice, bodyType, seatCount) => {
+  const base = Number(basePrice) || 0;
+  const next = Number(candidatePrice) || 0;
+  if (!base || !next) return "AI insight: Similar segment option for comparison.";
+
+  const diff = next - base;
+  const pct = Math.round((Math.abs(diff) / base) * 100);
+  const seatLabel = seatCount ? `${seatCount}-seater` : "same seating class";
+  const bodyLabel = bodyType || "same body type";
+
+  if (pct <= 2) {
+    return `AI insight: Near-identical starting price in ${bodyLabel}, ${seatLabel}.`;
+  }
+  if (diff < 0) {
+    return `AI insight: About ${pct}% lower than current pick with ${bodyLabel}, ${seatLabel}.`;
+  }
+  return `AI insight: About ${pct}% premium over current pick with ${bodyLabel}, ${seatLabel}.`;
+};
 
 const toArray = (payload) => {
   if (Array.isArray(payload)) return payload;
@@ -68,6 +167,43 @@ const normalizeVehicleRecord = (vehicle = {}) => {
     otherCharges:
       Number(pricingBreakup.tcs) || toNum(vehicle.otherCharges ?? vehicle.tcs),
     onRoadPrice: onRoadListPrice,
+    bodyType:
+      collapseSpaces(
+        vehicle.bodyType ||
+          vehicle.body_type ||
+          vehicle.body ||
+          vehicle.bodyStyle ||
+          vehicle.body_style ||
+          vehicle.vehicleType ||
+          vehicle.vehicle_type ||
+          vehicle.carType ||
+          vehicle.vehicleBodyType ||
+          vehicle.segment ||
+          "",
+      ) || "",
+    bodyTypeBucket:
+      normalizeBodyTypeBucket(
+        vehicle.bodyType ||
+          vehicle.body_type ||
+          vehicle.body ||
+          vehicle.bodyStyle ||
+          vehicle.body_style ||
+          vehicle.vehicleType ||
+          vehicle.vehicle_type ||
+          vehicle.carType ||
+          vehicle.vehicleBodyType ||
+          vehicle.segment ||
+          "",
+      ) || "",
+    seatingCapacity:
+      parseSeatCount(
+        vehicle.seatingCapacity ||
+          vehicle.seating_capacity ||
+          vehicle.seating ||
+          vehicle.seat_capacity ||
+          vehicle.seats ||
+          vehicle.noOfSeats,
+      ) || null,
     pricingBreakup,
   };
 };
@@ -118,6 +254,64 @@ const normalizeFuelLabel = (fuel) => {
   return fuel;
 };
 
+const normalizeValueLabel = (raw) => {
+  if (raw == null) return "Not Available";
+  const v = String(raw).trim().toLowerCase();
+  if (["yes", "y", "available", "present"].includes(v)) return "Yes";
+  if (["no", "n", "not available", "na", "n/a"].includes(v))
+    return "Not Available";
+  return raw;
+};
+
+const hasDisplayableFeatureValue = (value) => {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  return ![
+    "not available",
+    "na",
+    "n/a",
+    "null",
+    "undefined",
+    "-",
+    "none",
+    "no",
+  ].includes(normalized);
+};
+
+const FEATURE_CATEGORY_STYLES = {
+  Safety: { color: "text-rose-600 dark:text-rose-400", dot: "bg-rose-400" },
+  "Comfort & Convenience": {
+    color: "text-sky-600 dark:text-sky-400",
+    dot: "bg-sky-400",
+  },
+  Exterior: {
+    color: "text-amber-600 dark:text-amber-400",
+    dot: "bg-amber-400",
+  },
+  Infotainment: {
+    color: "text-violet-600 dark:text-violet-400",
+    dot: "bg-violet-400",
+  },
+  Connected: {
+    color: "text-teal-600 dark:text-teal-400",
+    dot: "bg-teal-400",
+  },
+  Others: {
+    color: "text-slate-500 dark:text-slate-400",
+    dot: "bg-slate-400",
+  },
+};
+
+const FEATURE_CATEGORY_ORDER = [
+  "Safety",
+  "Comfort & Convenience",
+  "Exterior",
+  "Infotainment",
+  "Connected",
+  "Others",
+];
+
 const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const navigate = useNavigate();
 
@@ -127,14 +321,15 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [searchText, setSearchText] = useState("");
+  const [vehicleSearchInput, setVehicleSearchInput] = useState("");
+  const [debouncedVehicleSearchInput, setDebouncedVehicleSearchInput] =
+    useState("");
   const [makeFilter, setMakeFilter] = useState("");
   const [modelFilter, setModelFilter] = useState("");
   const [fuelFilter, setFuelFilter] = useState("");
   const [variantFilter, setVariantFilter] = useState("");
   const [cityFilter, setCityFilter] = useState("Delhi");
   const [budgetFilter, setBudgetFilter] = useState("");
-  const [brandType, setBrandType] = useState("");
   const [showDiscontinued, setShowDiscontinued] = useState(false);
 
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
@@ -143,6 +338,22 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(30);
   const [galleryMedia, setGalleryMedia] = useState([]);
+  const [mainColorImageMeta, setMainColorImageMeta] = useState(null);
+
+  const [emiModalOpen, setEmiModalOpen] = useState(false);
+  const [emiVariant, setEmiVariant] = useState(null);
+
+  const [featureByVehicleId, setFeatureByVehicleId] = useState({});
+  const [featureLoadingByVehicleId, setFeatureLoadingByVehicleId] = useState(
+    {},
+  );
+  const [featurePanelOpenByVehicleId, setFeaturePanelOpenByVehicleId] =
+    useState({});
+  const [featurePanelSearchByVehicleId, setFeaturePanelSearchByVehicleId] =
+    useState({});
+  const [baseModelContext, setBaseModelContext] = useState(null);
+  const [similarCarsIdeas, setSimilarCarsIdeas] = useState([]);
+  const [similarCarsLoading, setSimilarCarsLoading] = useState(false);
 
   // ─── smart-set city from loaded data ───────────────────────────────────────
   const smartSetCity = useCallback((list) => {
@@ -229,16 +440,71 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   }, [cityFilter, makeFilter, modelFilter, fuelFilter]);
 
   useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedVehicleSearchInput(collapseSpaces(vehicleSearchInput));
+    }, 180);
+    return () => clearTimeout(handle);
+  }, [vehicleSearchInput]);
+
+  const vehicleSearchOptions = useMemo(() => {
+    const q = normalizeText(debouncedVehicleSearchInput);
+    if (q.length < 2) return [];
+    const dedup = new Map();
+    allVehicles.forEach((row) => {
+      if (!showDiscontinued && row?.isDiscontinued) return;
+      const make = collapseSpaces(row?.make);
+      const model = collapseSpaces(row?.model);
+      if (!make || !model || make === "N/A" || model === "N/A") return;
+      const hay = normalizeText(`${make} ${model}`);
+      if (!hay.includes(q)) return;
+      const key = `${normalizeText(make)}|${normalizeText(model)}`;
+      if (dedup.has(key)) return;
+      dedup.set(key, {
+        value: `${make} ${model}`.trim(),
+        make,
+        model,
+        label: (
+          <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100">
+            {make} {model}
+          </span>
+        ),
+      });
+    });
+    return Array.from(dedup.values()).slice(0, 30);
+  }, [allVehicles, debouncedVehicleSearchInput, showDiscontinued]);
+
+  const handleVehicleSearchSelect = (value, option) => {
+    const make = collapseSpaces(option?.make || "");
+    const model = collapseSpaces(option?.model || "");
+    const raw = collapseSpaces(value || "");
+
+    if (make) setMakeFilter(make);
+    if (model) setModelFilter(model);
+    setVariantFilter("");
+
+    if (!make || !model) {
+      const parts = raw.split(" ").filter(Boolean);
+      if (parts.length >= 2) {
+        const maybeMake = parts[0];
+        const maybeModel = parts[1];
+        setMakeFilter((prev) => prev || maybeMake);
+        setModelFilter((prev) => prev || maybeModel);
+      }
+    }
+
+    setVehicleSearchInput(raw || `${make} ${model}`.trim());
+  };
+
+  useEffect(() => {
     setVisibleCount(30);
   }, [
-    searchText,
+    vehicleSearchInput,
     makeFilter,
     modelFilter,
     fuelFilter,
     variantFilter,
     cityFilter,
     budgetFilter,
-    brandType,
     priceSort,
     showDiscontinued,
   ]);
@@ -258,13 +524,19 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     ].sort();
   }, [allVehicles, makeFilter]);
 
-  const uniqueVariants = useMemo(() => {
+  const uniqueVariantOptions = useMemo(() => {
     let list = allVehicles;
     if (makeFilter) list = list.filter((v) => v.make === makeFilter);
     if (modelFilter) list = list.filter((v) => v.model === modelFilter);
-    return [
+    const rawVariants = [
       ...new Set(list.map((v) => v.variant).filter((x) => !!x && x !== "N/A")),
-    ].sort();
+    ];
+    return rawVariants
+      .map((rawVariant) => ({
+        value: rawVariant,
+        label: buildVariantDisplayLabel(rawVariant, makeFilter, modelFilter),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [allVehicles, makeFilter, modelFilter]);
 
   const uniqueCities = useMemo(
@@ -304,16 +576,27 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   };
 
   const handleClearFilters = () => {
-    setSearchText("");
+    setVehicleSearchInput("");
+    setDebouncedVehicleSearchInput("");
     setCityFilter("Delhi");
     setMakeFilter("");
     setModelFilter("");
     setFuelFilter("");
     setVariantFilter("");
     setBudgetFilter("");
-    setBrandType("");
     setShowDiscontinued(false);
   };
+
+  const applySimilarCarSelection = useCallback((idea) => {
+    const make = collapseSpaces(idea?.make);
+    const model = collapseSpaces(idea?.model);
+    if (!make || !model) return;
+    setMakeFilter(make);
+    setModelFilter(model);
+    setVariantFilter("");
+    setVehicleSearchInput(`${make} ${model}`);
+    setDebouncedVehicleSearchInput(`${make} ${model}`);
+  }, []);
 
   const handleRowActionSelect = (record) => {
     if (onSelectVehicle) {
@@ -326,17 +609,8 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
   // ─── Action button handlers ─────────────────────────────────────────────────
   const handleCalculateEmi = (v) => {
-    navigate("/loans/emi-calculator", {
-      state: {
-        fromVariant: {
-          vehicleId: v._id,
-          make: v.make,
-          model: v.model,
-          variant: v.variant,
-          price: v.onRoadPrice,
-        },
-      },
-    });
+    setEmiVariant(v);
+    setEmiModalOpen(true);
   };
 
   const handleSendToQuotation = (v) => {
@@ -354,61 +628,35 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     });
   };
 
-  const handleCheckFeatures = (v) => {
-    navigate("/loans/features", {
-      state: {
-        fromVariant: {
-          vehicleId: v._id,
-          make: v.make,
-          model: v.model,
-          variant: v.variant,
-        },
-      },
-    });
+  const toggleFeaturePanel = async (vehicle) => {
+    const vehicleId = String(vehicle?._id || "");
+    if (!vehicleId) return;
+
+    setFeaturePanelOpenByVehicleId((prev) => ({
+      ...prev,
+      [vehicleId]: !prev[vehicleId],
+    }));
+
+    if (featureByVehicleId[vehicleId] !== undefined) return;
+    if (featureLoadingByVehicleId[vehicleId]) return;
+
+    setFeatureLoadingByVehicleId((prev) => ({ ...prev, [vehicleId]: true }));
+    try {
+      const res = await featuresApi.getBySelection({
+        make: vehicle?.make,
+        model: vehicle?.model,
+        variant: vehicle?.variant,
+        vehicleId: vehicle?._id,
+      });
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      setFeatureByVehicleId((prev) => ({ ...prev, [vehicleId]: rows }));
+    } catch (err) {
+      console.error("Feature panel load error", err);
+      setFeatureByVehicleId((prev) => ({ ...prev, [vehicleId]: [] }));
+    } finally {
+      setFeatureLoadingByVehicleId((prev) => ({ ...prev, [vehicleId]: false }));
+    }
   };
-
-  // ─── Smart search: auto-fill make / make+model when text matches ────────────
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const s = searchText.trim();
-      if (!s) return;
-      const sLower = s.toLowerCase();
-
-      // Exact make match
-      const matchedMake = uniqueMakes.find((m) => m.toLowerCase() === sLower);
-      if (matchedMake) {
-        if (matchedMake !== makeFilter) {
-          setMakeFilter(matchedMake);
-          setModelFilter("");
-          setVariantFilter("");
-        }
-        return;
-      }
-
-      // "Make Model" pattern
-      for (const make of uniqueMakes) {
-        const makeLower = make.toLowerCase();
-        if (sLower.startsWith(makeLower + " ")) {
-          const modelPart = sLower.slice(makeLower.length + 1).trim();
-          const modelsForMake = [
-            ...new Set(
-              allVehicles.filter((v) => v.make === make).map((v) => v.model),
-            ),
-          ];
-          const matchedModel = modelsForMake.find(
-            (m) => m.toLowerCase() === modelPart,
-          );
-          if (matchedModel) {
-            if (makeFilter !== make) setMakeFilter(make);
-            if (modelFilter !== matchedModel) setModelFilter(matchedModel);
-            return;
-          }
-        }
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchText, uniqueMakes, allVehicles, makeFilter, modelFilter]);
 
   // ─── Filtered vehicles ──────────────────────────────────────────────────────
   const filteredVehicles = useMemo(() => {
@@ -457,47 +705,6 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       });
     }
 
-    if (brandType) {
-      filtered = filtered.filter((v) => {
-        const make = (v.make || "").toLowerCase();
-        const premium = ["honda", "hyundai", "skoda", "volkswagen", "kia"];
-        const luxury = ["mercedes", "bmw", "audi", "volvo", "lexus", "jaguar"];
-        if (brandType === "luxury") return luxury.some((m) => make.includes(m));
-        if (brandType === "premium")
-          return premium.some((m) => make.includes(m));
-        if (brandType === "mass")
-          return (
-            !premium.some((m) => make.includes(m)) &&
-            !luxury.some((m) => make.includes(m))
-          );
-        return true;
-      });
-    }
-
-    if (searchText.trim()) {
-      const s = searchText.toLowerCase();
-      filtered = filtered.filter((v) => {
-        const make = v.make || "";
-        const model = v.model || "";
-        const variant = v.variant || "";
-        const fuel = v.fuel || "";
-        const city = v.city || "";
-
-        const combinedMakeModel = `${make} ${model}`.toLowerCase();
-        const combinedModelMake = `${model} ${make}`.toLowerCase();
-
-        return (
-          make.toLowerCase().includes(s) ||
-          model.toLowerCase().includes(s) ||
-          variant.toLowerCase().includes(s) ||
-          fuel.toLowerCase().includes(s) ||
-          city.toLowerCase().includes(s) ||
-          combinedMakeModel.includes(s) ||
-          combinedModelMake.includes(s)
-        );
-      });
-    }
-
     filtered.sort((a, b) => {
       const aPrice = a.onRoadPrice || 0;
       const bPrice = b.onRoadPrice || 0;
@@ -513,8 +720,6 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     fuelFilter,
     variantFilter,
     budgetFilter,
-    brandType,
-    searchText,
     priceSort,
     showDiscontinued,
   ]);
@@ -529,10 +734,122 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     return { total, active, discontinued, makes };
   }, [filteredVehicles]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    if (!makeFilter || !modelFilter) {
+      setBaseModelContext(null);
+      setSimilarCarsIdeas([]);
+      setSimilarCarsLoading(false);
+      return () => {
+        ignore = true;
+      };
+    }
+
+    const loadSimilarCars = async () => {
+      setSimilarCarsLoading(true);
+      try {
+        const payload = await vehiclesApi.getSimilarModels({
+          make: makeFilter,
+          model: modelFilter,
+          city: cityFilter || undefined,
+          includeDiscontinued: showDiscontinued,
+          tolerance: 0.15,
+          limit: 5,
+        });
+        if (ignore) return;
+
+        const base = payload?.baseModel || null;
+        const metadataReady = Boolean(
+          base?.metadataReady !== false &&
+            base?.bodyTypeBucket &&
+            Number(base?.seatingCapacity || 0) > 0,
+        );
+        const normalizedBase = base
+          ? {
+              make: collapseSpaces(base?.make || makeFilter),
+              model: collapseSpaces(base?.model || modelFilter),
+              basePrice: Number(base?.basePrice || 0),
+              bodyType:
+                collapseSpaces(base?.bodyType || "") ||
+                formatBodyType(base?.bodyTypeBucket || ""),
+              bodyTypeBucket: normalizeText(base?.bodyTypeBucket || ""),
+              seatCount: Number(base?.seatingCapacity || 0) || null,
+              metadataReady,
+            }
+          : null;
+        setBaseModelContext(normalizedBase);
+
+        const sourceRows = Array.isArray(payload?.data) ? payload.data : [];
+        const basePrice = Number(normalizedBase?.basePrice || 0);
+        const ideas = sourceRows
+          .map((row) => {
+            const startingPrice = Number(row?.startingPrice || row?.basePrice || 0);
+            const seatCount = Number(row?.seatingCapacity || row?.seatCount || 0) || null;
+            if (!startingPrice) return null;
+            return {
+              make: collapseSpaces(row?.make || ""),
+              model: collapseSpaces(row?.model || ""),
+              startingPrice,
+              bodyType: collapseSpaces(row?.bodyType || normalizedBase?.bodyType || ""),
+              seatCount,
+              aiInsight: buildPriceDeltaInsight(
+                basePrice,
+                startingPrice,
+                row?.bodyType || normalizedBase?.bodyType || "",
+                seatCount,
+              ),
+            };
+          })
+          .filter(Boolean);
+        setSimilarCarsIdeas(ideas);
+      } catch (error) {
+        if (ignore) return;
+        console.error("Failed to load AI similar cars", error);
+        setBaseModelContext(null);
+        setSimilarCarsIdeas([]);
+      } finally {
+        if (!ignore) setSimilarCarsLoading(false);
+      }
+    };
+
+    loadSimilarCars();
+    return () => {
+      ignore = true;
+    };
+  }, [cityFilter, makeFilter, modelFilter, showDiscontinued]);
+
   const activeGalleryVehicle = useMemo(() => {
-    if (!galleryVehicleId) return null;
-    return filteredVehicles.find((v) => v._id === galleryVehicleId) || null;
-  }, [filteredVehicles, galleryVehicleId]);
+    if (galleryVehicleId) {
+      return (
+        filteredVehicles.find((v) => String(v._id) === String(galleryVehicleId)) ||
+        allVehicles.find((v) => String(v._id) === String(galleryVehicleId)) ||
+        null
+      );
+    }
+
+    if (makeFilter && modelFilter) {
+      return (
+        filteredVehicles.find(
+          (v) =>
+            normalizeText(v?.make) === normalizeText(makeFilter) &&
+            normalizeText(v?.model) === normalizeText(modelFilter),
+        ) ||
+        allVehicles.find(
+          (v) =>
+            normalizeText(v?.make) === normalizeText(makeFilter) &&
+            normalizeText(v?.model) === normalizeText(modelFilter),
+        ) ||
+        null
+      );
+    }
+
+    return null;
+  }, [allVehicles, filteredVehicles, galleryVehicleId, makeFilter, modelFilter]);
+
+  useEffect(() => {
+    setGalleryVehicleId(null);
+  }, [makeFilter, modelFilter]);
 
   // ─── Gallery: local-data fallback builder ───────────────────────────────────
   const computeLocalGalleryMedia = useCallback(
@@ -594,7 +911,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
 
     const make = getVehicleMake(activeGalleryVehicle);
     const model = getVehicleModel(activeGalleryVehicle);
-    const variant = getVehicleVariant(activeGalleryVehicle);
+    const variant = galleryVehicleId ? getVehicleVariant(activeGalleryVehicle) : null;
 
     vehiclesApi
       .getMedia(make, model, variant)
@@ -625,11 +942,17 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       .catch(() => {
         setGalleryMedia(computeLocalGalleryMedia(activeGalleryVehicle));
       });
-  }, [activeGalleryVehicle, computeLocalGalleryMedia]);
+  }, [activeGalleryVehicle, computeLocalGalleryMedia, galleryVehicleId]);
 
   useEffect(() => {
     setActiveMediaIndex(0);
   }, [galleryVehicleId]);
+
+  const activeMedia = galleryMedia[activeMediaIndex] || null;
+
+  useEffect(() => {
+    setMainColorImageMeta(null);
+  }, [activeMedia?.image]);
 
   // Gallery loads only when user explicitly clicks a variant row — no auto-selection on start.
 
@@ -643,7 +966,19 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     }
   }, [galleryMedia, activeMediaIndex]);
 
-  const activeMedia = galleryMedia[activeMediaIndex] || null;
+  const selectedColorPreviewTuning = useMemo(() => {
+    const safeAspect =
+      Number(mainColorImageMeta?.width) > 0 &&
+      Number(mainColorImageMeta?.height) > 0
+        ? Number(mainColorImageMeta.width) / Number(mainColorImageMeta.height)
+        : 1.8;
+
+    const minHeight = safeAspect >= 1.9 ? 320 : safeAspect >= 1.7 ? 340 : 360;
+    const maxHeight = safeAspect >= 1.9 ? 500 : safeAspect >= 1.7 ? 530 : 560;
+    const scale = 1;
+    const focusY = 50;
+    return { scale, focusY, minHeight, maxHeight };
+  }, [mainColorImageMeta?.width, mainColorImageMeta?.height]);
 
   const goToPreviousMedia = () => {
     if (!galleryMedia.length) return;
@@ -774,83 +1109,6 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </p>
             </div>
 
-            {/* Search */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                Search
-              </label>
-              <Search
-                placeholder="Make, model, variant…"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                allowClear
-                prefix={
-                  <Icon
-                    name="Search"
-                    size={16}
-                    className="text-slate-400 dark:text-slate-500"
-                  />
-                }
-              />
-            </div>
-
-            {/* Sort */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                Sort by
-              </label>
-              <Select
-                size="middle"
-                value={priceSort}
-                onChange={setPriceSort}
-                className="w-full"
-              >
-                <Option value="asc">Price: Low to High</Option>
-                <Option value="desc">Price: High to Low</Option>
-              </Select>
-            </div>
-
-            {/* Budget */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                Budget (on‑road)
-              </label>
-              <Select
-                placeholder="Any budget"
-                value={budgetFilter || undefined}
-                onChange={(v) => setBudgetFilter(v || "")}
-                allowClear
-                className="w-full"
-              >
-                <Option value="1-5">₹1–5 Lakh</Option>
-                <Option value="5-10">₹5–10 Lakh</Option>
-                <Option value="10-15">₹10–15 Lakh</Option>
-                <Option value="15-20">₹15–20 Lakh</Option>
-                <Option value="20-35">₹20–35 Lakh</Option>
-                <Option value="35-50">₹35–50 Lakh</Option>
-                <Option value="50-100">₹50 Lakh–1 Cr</Option>
-                <Option value="100+">Above 1 Cr</Option>
-              </Select>
-            </div>
-
-            {/* Brand type */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                Brand type
-              </label>
-              <Select
-                placeholder="All brands"
-                value={brandType || undefined}
-                onChange={(v) => setBrandType(v || "")}
-                allowClear
-                className="w-full"
-              >
-                <Option value="mass">Mass market</Option>
-                <Option value="premium">Premium</Option>
-                <Option value="luxury">Luxury</Option>
-              </Select>
-            </div>
-
             {/* City */}
             <div>
               <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
@@ -875,6 +1133,27 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                   </Option>
                 ))}
               </Select>
+            </div>
+
+            {/* Search */}
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                Search
+              </label>
+              <AutoComplete
+                className="w-full"
+                value={vehicleSearchInput}
+                options={vehicleSearchOptions}
+                onChange={(value) => setVehicleSearchInput(value)}
+                onSelect={handleVehicleSearchSelect}
+                placeholder="Search make/model (e.g. Kia Carens, BMW X5)"
+                filterOption={false}
+                notFoundContent={
+                  vehicleSearchInput.trim().length < 2
+                    ? "Type at least 2 letters"
+                    : "No matching vehicle found"
+                }
+              />
             </div>
 
             {/* Make */}
@@ -949,9 +1228,9 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                     .includes(input.toLowerCase())
                 }
               >
-                {uniqueVariants.map((variant) => (
-                  <Option key={variant} value={variant}>
-                    {variant}
+                {uniqueVariantOptions.map((variantOption) => (
+                  <Option key={variantOption.value} value={variantOption.value}>
+                    {variantOption.label}
                   </Option>
                 ))}
               </Select>
@@ -974,6 +1253,45 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               </label>
             </div>
 
+            {/* Sort */}
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                Sort by
+              </label>
+              <Select
+                size="middle"
+                value={priceSort}
+                onChange={setPriceSort}
+                className="w-full"
+              >
+                <Option value="asc">Price: Low to High</Option>
+                <Option value="desc">Price: High to Low</Option>
+              </Select>
+            </div>
+
+            {/* Budget */}
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                Budget (on‑road)
+              </label>
+              <Select
+                placeholder="Any budget"
+                value={budgetFilter || undefined}
+                onChange={(v) => setBudgetFilter(v || "")}
+                allowClear
+                className="w-full"
+              >
+                <Option value="1-5">₹1–5 Lakh</Option>
+                <Option value="5-10">₹5–10 Lakh</Option>
+                <Option value="10-15">₹10–15 Lakh</Option>
+                <Option value="15-20">₹15–20 Lakh</Option>
+                <Option value="20-35">₹20–35 Lakh</Option>
+                <Option value="35-50">₹35–50 Lakh</Option>
+                <Option value="50-100">₹50 Lakh–1 Cr</Option>
+                <Option value="100+">Above 1 Cr</Option>
+              </Select>
+            </div>
+
             {/* Clear */}
             <div className="pt-1">
               <Button
@@ -984,6 +1302,78 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                 <Icon name="X" size={14} />
                 Clear all
               </Button>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-[#2a2a2a]">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h3 className="text-[12px] font-bold text-slate-800 dark:text-slate-200">
+                  AI Similar Cars
+                </h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border border-violet-200/70 dark:border-violet-800/50">
+                  ±15%
+                </span>
+              </div>
+
+              {!baseModelContext ? (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Select make and model to see similar options by body type and seating.
+                </p>
+              ) : similarCarsLoading ? (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Loading strict body type + seating matches...
+                </p>
+              ) : !baseModelContext.metadataReady ? (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Body type or seating data is missing for this model, so strict AI matching is paused.
+                </p>
+              ) : !similarCarsIdeas.length ? (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  No close matches found for {baseModelContext.bodyType || "this body type"} and{" "}
+                  {baseModelContext.seatCount ? `${baseModelContext.seatCount}-seater` : "this seating class"}.
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {similarCarsIdeas.map((idea) => (
+                    <button
+                      key={`${idea.make}-${idea.model}`}
+                      type="button"
+                      onClick={() => applySimilarCarSelection(idea)}
+                      className="w-full text-left rounded-xl border border-slate-200 dark:border-[#353535] bg-slate-50/80 dark:bg-[#222] px-3 py-2.5 hover:bg-white dark:hover:bg-[#292929] transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[12px] font-bold text-slate-900 dark:text-slate-100 truncate">
+                            {idea.make} {idea.model}
+                          </div>
+                          <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
+                            From {formatCurrency(idea.startingPrice)}
+                          </div>
+                        </div>
+                        <Icon
+                          name="ArrowUpRight"
+                          size={14}
+                          className="text-slate-400 shrink-0"
+                        />
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {idea.bodyType ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#2a2a2a] text-slate-600 dark:text-slate-300">
+                            {idea.bodyType}
+                          </span>
+                        ) : null}
+                        {idea.seatCount ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#2a2a2a] text-slate-600 dark:text-slate-300">
+                            {idea.seatCount}-seater
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1.5 text-[10px] leading-snug text-slate-500 dark:text-slate-400">
+                        {idea.aiInsight}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -998,7 +1388,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                   <h2 className="mt-0.5 text-[15px] font-bold text-slate-900 dark:text-slate-100">
                     {activeGalleryVehicle
                       ? `${getVehicleMake(activeGalleryVehicle)} ${getVehicleModel(activeGalleryVehicle)}`
-                      : "Click a variant to preview"}
+                      : "Select make and model to preview"}
                   </h2>
                   {activeGalleryVehicle && (
                     <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
@@ -1019,7 +1409,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                   <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-[#262626] flex items-center justify-center">
                     <Icon name="Image" size={22} className="text-slate-400" />
                   </div>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Expand a variant below to load photos</p>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Choose make and model from filters or search to load photos</p>
                 </div>
               ) : !galleryMedia.length ? (
                 <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
@@ -1029,53 +1419,122 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-400">No photos available for this variant yet</p>
                 </div>
               ) : (
-                <div className="p-4 md:p-5 space-y-3 bg-slate-50/60 dark:bg-[#141414]">
-                  {/* Main image */}
-                  <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 dark:border-[#282828] bg-white dark:bg-[#111] shadow-sm">
-                    <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between p-3">
-                      <button type="button" onClick={goToPreviousMedia}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-slate-800 shadow backdrop-blur-sm hover:bg-white transition-all active:scale-95">
-                        <Icon name="ChevronLeft" size={17} />
-                      </button>
-                      <div className="px-3 py-1 rounded-full bg-black/30 backdrop-blur-sm text-white text-[11px] font-semibold">
-                        {activeMediaIndex + 1} / {galleryMedia.length}
+                <div className="p-4 space-y-3">
+                  {activeMedia?.image && (
+                    <div
+                      className="relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-[#2a2a2a] bg-gradient-to-b from-slate-100 to-slate-50 dark:from-[#151515] dark:to-[#101010]"
+                      style={{
+                        height: `clamp(${selectedColorPreviewTuning.minHeight}px, 56vh, ${selectedColorPreviewTuning.maxHeight}px)`,
+                      }}
+                    >
+                      <div
+                        className="absolute inset-0 opacity-50 blur-2xl"
+                        style={{
+                          backgroundImage: `url(${activeMedia.image})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: `50% ${selectedColorPreviewTuning.focusY}%`,
+                          transform: `scale(${Math.max(
+                            1.05,
+                            selectedColorPreviewTuning.scale - 0.08,
+                          )})`,
+                        }}
+                      />
+
+                      <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between p-3">
+                        <button
+                          type="button"
+                          onClick={goToPreviousMedia}
+                          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-slate-800 shadow backdrop-blur-sm hover:bg-white transition-all active:scale-95"
+                        >
+                          <Icon name="ChevronLeft" size={17} />
+                        </button>
+                        <div className="flex items-center gap-2 rounded-full bg-black/35 backdrop-blur-sm px-2.5 py-1">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-white/30 flex-shrink-0"
+                            style={{ backgroundColor: activeMedia.hex || "#d1d5db" }}
+                          />
+                          <span className="text-[10px] font-semibold text-white leading-none">
+                            {activeMedia.color || "Default"}
+                          </span>
+                          <span className="text-[10px] font-semibold text-white/80">
+                            {activeMediaIndex + 1}/{galleryMedia.length}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={goToNextMedia}
+                          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-slate-800 shadow backdrop-blur-sm hover:bg-white transition-all active:scale-95"
+                        >
+                          <Icon name="ChevronRight" size={17} />
+                        </button>
                       </div>
-                      <button type="button" onClick={goToNextMedia}
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-slate-800 shadow backdrop-blur-sm hover:bg-white transition-all active:scale-95">
-                        <Icon name="ChevronRight" size={17} />
-                      </button>
-                    </div>
-                    <div className="aspect-[16/9] w-full overflow-hidden">
+
                       <img
                         src={activeMedia.image}
                         alt={`${activeMedia.make} ${activeMedia.model} ${activeMedia.variant} ${activeMedia.color}`}
-                        className="h-full w-full object-contain p-3"
+                        className="relative z-[1] block h-full w-full object-cover"
+                        style={{
+                          objectPosition: `50% ${selectedColorPreviewTuning.focusY}%`,
+                          transform: `scale(${selectedColorPreviewTuning.scale})`,
+                          transformOrigin: `50% ${selectedColorPreviewTuning.focusY}%`,
+                        }}
                         loading="lazy"
+                        onLoad={(event) => {
+                          const nextWidth =
+                            Number(event.currentTarget.naturalWidth) || 0;
+                          const nextHeight =
+                            Number(event.currentTarget.naturalHeight) || 0;
+                          if (!nextWidth || !nextHeight) return;
+                          setMainColorImageMeta((prev) => {
+                            if (
+                              prev?.width === nextWidth &&
+                              prev?.height === nextHeight
+                            ) {
+                              return prev;
+                            }
+                            return { width: nextWidth, height: nextHeight };
+                          });
+                        }}
                       />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Thumbnail strip */}
-                  <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-thin">
+                  <div className="flex gap-2 overflow-x-auto pb-0.5">
                     {galleryMedia.map((media, index) => {
-                      const isThumbnailActive = index === activeMediaIndex;
+                      const active = index === activeMediaIndex;
                       return (
                         <button
                           key={`${media.image}-${media.color}-${index}`}
                           type="button"
                           onClick={() => setActiveMediaIndex(index)}
-                          className={`group relative flex-shrink-0 w-[96px] rounded-xl border-2 p-1.5 text-left transition-all duration-200 ${
-                            isThumbnailActive
-                              ? "border-violet-500 bg-white shadow-md dark:border-violet-400 dark:bg-[#1f1f1f]"
-                              : "border-transparent bg-white/80 hover:border-slate-300 hover:shadow-sm dark:bg-[#1e1e1e] dark:hover:border-slate-600"
+                          className={`flex-shrink-0 w-[88px] rounded-xl border-2 p-1.5 text-left transition-all duration-150 ${
+                            active
+                              ? "border-violet-500 dark:border-violet-400 bg-violet-50/50 dark:bg-violet-900/20 shadow-md"
+                              : "border-transparent bg-slate-50 dark:bg-[#1e1e1e] hover:border-slate-200 dark:hover:border-[#383838] hover:shadow-sm"
                           }`}
                         >
-                          <div className="aspect-[4/3] overflow-hidden rounded-lg bg-slate-100 dark:bg-[#111] mb-1.5">
-                            <img src={media.image} alt={media.color} className="h-full w-full object-contain p-0.5" loading="lazy" />
+                          <div className="h-14 w-full overflow-hidden rounded-lg bg-white dark:bg-[#111] flex items-center justify-center mb-1.5">
+                            {media.image ? (
+                              <img
+                                src={media.image}
+                                alt={media.color || "Vehicle color"}
+                                className="h-full w-full object-contain p-0.5"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span className="text-[9px] text-slate-400">
+                                No img
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 px-0.5">
-                            <span className="h-2.5 w-2.5 rounded-full border border-black/10 flex-shrink-0" style={{ backgroundColor: media.hex || "#d1d5db" }} />
-                            <span className="truncate text-[10px] font-semibold text-slate-700 dark:text-slate-300">{media.color}</span>
+                            <span
+                              className="h-2.5 w-2.5 rounded-full border border-black/10 flex-shrink-0"
+                              style={{ backgroundColor: media.hex || "#d1d5db" }}
+                            />
+                            <span className="truncate text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                              {media.color}
+                            </span>
                           </div>
                         </button>
                       );
@@ -1183,7 +1642,9 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                           <div className="flex flex-col min-w-0 flex-1">
                             <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100 truncate">
                               {v.model}{" "}
-                              <span className="font-medium text-slate-500 dark:text-slate-400">({v.variant})</span>
+                              <span className="font-medium text-slate-500 dark:text-slate-400">
+                                ({buildVariantDisplayLabel(v.variant, v.make, v.model)})
+                              </span>
                             </span>
                             <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                               {v.make} · {v.city || "City not set"}
@@ -1259,13 +1720,206 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                                     Send to Quotation
                                   </button>
                                   <button
-                                    onClick={() => handleCheckFeatures(v)}
+                                    onClick={() => toggleFeaturePanel(v)}
                                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#383838] text-slate-700 dark:text-slate-200 text-[12px] font-bold hover:bg-white dark:hover:bg-[#262626] active:scale-95 transition-all"
                                   >
                                     <Icon name="List" size={13} />
-                                    Full Features
+                                    {featurePanelOpenByVehicleId[String(v._id)]
+                                      ? "Hide Features"
+                                      : "Full Features"}
                                   </button>
                                 </div>
+
+                                {featurePanelOpenByVehicleId[String(v._id)] && (
+                                  <div className="mt-3 rounded-2xl border border-slate-200 dark:border-[#262626] bg-white dark:bg-[#1f1f1f] p-3">
+                                    {featureLoadingByVehicleId[String(v._id)] ? (
+                                      <div className="space-y-2">
+                                        {[...Array(6)].map((_, i) => (
+                                          <div
+                                            key={i}
+                                            className="flex items-center justify-between gap-3 animate-pulse"
+                                          >
+                                            <div className="h-3 bg-slate-100 dark:bg-neutral-800 rounded w-2/3" />
+                                            <div className="h-3 bg-slate-100 dark:bg-neutral-800 rounded w-12" />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      (() => {
+                                        const vehicleId = String(v._id || "");
+                                        const allFeatures =
+                                          featureByVehicleId[vehicleId] || [];
+                                        const displayFeatures = allFeatures.filter((feature) =>
+                                          hasDisplayableFeatureValue(feature?.value),
+                                        );
+                                        const panelSearch =
+                                          featurePanelSearchByVehicleId[vehicleId] || "";
+                                        const panelSearchLower = panelSearch.toLowerCase();
+
+                                        const categorySet = new Set(
+                                          displayFeatures.map((feature) =>
+                                            collapseSpaces(feature?.category || "Others") || "Others",
+                                          ),
+                                        );
+                                        const orderedCategories = [
+                                          ...FEATURE_CATEGORY_ORDER.filter((cat) =>
+                                            categorySet.has(cat),
+                                          ),
+                                          ...Array.from(categorySet)
+                                            .filter(
+                                              (cat) =>
+                                                !FEATURE_CATEGORY_ORDER.includes(cat),
+                                            )
+                                            .sort((a, b) => a.localeCompare(b)),
+                                        ];
+
+                                        if (!displayFeatures.length) {
+                                          return (
+                                            <div className="text-[12px] text-slate-500 dark:text-slate-400 py-4 text-center">
+                                              No feature data available for this variant.
+                                            </div>
+                                          );
+                                        }
+
+                                        return (
+                                          <div className="space-y-3">
+                                            <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#181818] border border-slate-100 dark:border-neutral-800 rounded-xl px-3 py-2">
+                                              <Icon
+                                                name="Search"
+                                                size={14}
+                                                className="text-slate-400 shrink-0"
+                                              />
+                                              <input
+                                                type="text"
+                                                value={panelSearch}
+                                                onChange={(event) =>
+                                                  setFeaturePanelSearchByVehicleId((prev) => ({
+                                                    ...prev,
+                                                    [vehicleId]: event.target.value,
+                                                  }))
+                                                }
+                                                placeholder="Search features..."
+                                                className="flex-1 bg-transparent outline-none text-[12px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 min-w-0"
+                                              />
+                                              {panelSearch && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setFeaturePanelSearchByVehicleId((prev) => ({
+                                                      ...prev,
+                                                      [vehicleId]: "",
+                                                    }))
+                                                  }
+                                                  className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-neutral-700 shrink-0"
+                                                >
+                                                  <Icon
+                                                    name="X"
+                                                    size={10}
+                                                    className="text-slate-400"
+                                                  />
+                                                </button>
+                                              )}
+                                            </div>
+
+                                            <div className="overflow-y-auto max-h-[52vh] space-y-4 pr-0.5">
+                                              {orderedCategories.map((category) => {
+                                                const style =
+                                                  FEATURE_CATEGORY_STYLES[category] ||
+                                                  FEATURE_CATEGORY_STYLES.Others;
+                                                let items = displayFeatures.filter(
+                                                  (feature) =>
+                                                    collapseSpaces(
+                                                      feature?.category || "Others",
+                                                    ) === category,
+                                                );
+
+                                                if (panelSearchLower) {
+                                                  items = items.filter((feature) =>
+                                                    `${feature?.name || ""} ${
+                                                      feature?.value || ""
+                                                    }`
+                                                      .toLowerCase()
+                                                      .includes(panelSearchLower),
+                                                  );
+                                                }
+                                                if (!items.length) return null;
+
+                                                return (
+                                                  <div key={category}>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                      <span
+                                                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${style.dot}`}
+                                                      />
+                                                      <span
+                                                        className={`text-[11px] font-semibold uppercase tracking-wider ${style.color}`}
+                                                      >
+                                                        {category}
+                                                      </span>
+                                                      <span className="text-[10px] text-slate-400 dark:text-slate-600">
+                                                        {items.length}
+                                                      </span>
+                                                    </div>
+
+                                                    <div className="rounded-xl border border-slate-100 dark:border-neutral-800 divide-y divide-slate-50 dark:divide-neutral-800/80 overflow-hidden">
+                                                      {items.map((feature) => {
+                                                        const label = normalizeValueLabel(
+                                                          feature?.value,
+                                                        );
+                                                        const valLower = String(label)
+                                                          .toLowerCase()
+                                                          .trim();
+                                                        const isYes = valLower === "yes";
+                                                        const isNo =
+                                                          valLower === "not available";
+                                                        return (
+                                                          <div
+                                                            key={`${category}-${feature?.name}`}
+                                                            className="flex items-center justify-between gap-3 px-3 py-2 bg-white dark:bg-[#111111] hover:bg-slate-50/70 dark:hover:bg-[#161616] transition-colors"
+                                                          >
+                                                            <span className="text-[12px] text-slate-700 dark:text-slate-300 leading-snug min-w-0">
+                                                              {feature?.name}
+                                                            </span>
+                                                            {isYes ? (
+                                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                                                                <Icon name="Check" size={11} />
+                                                                Yes
+                                                              </span>
+                                                            ) : isNo ? (
+                                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-50 dark:bg-neutral-800 text-slate-400 dark:text-slate-500 shrink-0">
+                                                                <Icon name="Minus" size={11} />
+                                                              </span>
+                                                            ) : (
+                                                              <span className="text-[12px] font-medium text-slate-800 dark:text-slate-200 shrink-0 text-right max-w-[45%] truncate">
+                                                                {label}
+                                                              </span>
+                                                            )}
+                                                          </div>
+                                                        );
+                                                      })}
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })}
+
+                                              {panelSearchLower &&
+                                                !displayFeatures.some((feature) =>
+                                                  `${feature?.name || ""} ${
+                                                    feature?.value || ""
+                                                  }`
+                                                    .toLowerCase()
+                                                    .includes(panelSearchLower),
+                                                ) && (
+                                                  <div className="text-[12px] text-slate-400 py-4 text-center">
+                                                    No features match "{panelSearch}"
+                                                  </div>
+                                                )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()
+                                    )}
+                                  </div>
+                                )}
                               </>
                             );
                           })()}
@@ -1345,6 +1999,49 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
             </div>
           </div>
         </div>
+
+        <FeaturesEmiCompareModal
+          open={emiModalOpen && Boolean(emiVariant)}
+          variant={
+            emiVariant
+              ? {
+                  ...emiVariant,
+                  exShowroom:
+                    Number(emiVariant?.exShowroom) ||
+                    Number(emiVariant?.ex_showroom) ||
+                    0,
+                  onRoadPrice:
+                    Number(emiVariant?.onRoadPrice) ||
+                    Number(emiVariant?.on_road_price_cardekho) ||
+                    0,
+                }
+              : null
+          }
+          assumedOnRoadPrice={Number(emiVariant?.exShowroom) || 0}
+          onClose={() => {
+            setEmiModalOpen(false);
+            setEmiVariant(null);
+          }}
+          onOpenFullCalculator={() => {
+            const v = emiVariant;
+            if (!v) return;
+            const exShowroomPrice =
+              Number(v?.exShowroom) || Number(v?.ex_showroom) || 0;
+            setEmiModalOpen(false);
+            setEmiVariant(null);
+            navigate("/loans/emi-calculator", {
+              state: {
+                fromVariant: {
+                  vehicleId: v?._id,
+                  make: v?.make,
+                  model: v?.model,
+                  variant: v?.variant,
+                  price: exShowroomPrice,
+                },
+              },
+            });
+          }}
+        />
       </div>
     </div>
   );

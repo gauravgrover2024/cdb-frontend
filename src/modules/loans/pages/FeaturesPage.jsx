@@ -1,7 +1,16 @@
 // src/modules/loans/pages/FeaturesPage.jsx
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, SlidersHorizontal, X, Check, Minus, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Search,
+  SlidersHorizontal,
+  X,
+  Check,
+  Minus,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+} from "lucide-react";
 import { featuresApi } from "../../../api/features";
 import { AutoComplete, Select } from "antd";
 import FeaturesEmiCompareModal from "../components/FeaturesEmiCompareModal";
@@ -57,6 +66,168 @@ const isVehicleDiscontinued = (vehicle) => {
   return !["null", "undefined"].includes(discontinuedDate.toLowerCase());
 };
 
+const getFuelBadgeClasses = (fuel) => {
+  const value = normalizeText(fuel);
+  if (value.includes("petrol")) {
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/60";
+  }
+  if (value.includes("diesel")) {
+    return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/60";
+  }
+  if (value.includes("cng")) {
+    return "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800/60";
+  }
+  if (value.includes("electric") || value.includes("ev")) {
+    return "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800/60";
+  }
+  return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/20 dark:text-slate-300 dark:border-slate-700";
+};
+
+const getTransmissionBadgeClasses = (transmission) => {
+  const value = normalizeText(transmission);
+  if (["mt", "manual"].includes(value)) {
+    return "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-300 dark:border-cyan-800/60";
+  }
+  if (
+    ["at", "automatic", "amt", "cvt", "dct", "ivt", "tc"].some((token) =>
+      value.includes(token),
+    )
+  ) {
+    return "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-800/60";
+  }
+  return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/20 dark:text-slate-300 dark:border-slate-700";
+};
+
+const getVariantNumericPrice = (variant) => {
+  const n = Number(variant?.exShowroom || variant?.onRoadPrice || 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+const isDualToneVariant = (variantName) => {
+  const raw = normalizeText(variantName);
+  if (!raw) return false;
+  return (
+    /\bdual\s*tone\b/i.test(raw) ||
+    /\bdualtone\b/i.test(raw) ||
+    /\bcontrast\s+roof\b/i.test(raw) ||
+    /\bblack\s+roof\b/i.test(raw) ||
+    /\bwith\s+black\s+roof\b/i.test(raw) ||
+    /\bdt\b/i.test(raw)
+  );
+};
+
+const isCosmeticFeature = (name) => {
+  const n = normalizeText(name);
+  return (
+    n.includes("color") ||
+    n.includes("colour") ||
+    n.includes("roof") ||
+    n.includes("paint") ||
+    n.includes("interior theme") ||
+    n.includes("upholstery")
+  );
+};
+
+const featureAvailabilityState = (value) => {
+  const v = normalizeText(value);
+  if (!v) return "unknown";
+  if (
+    ["yes", "y", "available", "present", "true", "standard", "std", "1"].includes(
+      v,
+    )
+  ) {
+    return "available";
+  }
+  if (
+    ["no", "n", "not available", "na", "n/a", "false", "0", "-", "none"].includes(
+      v,
+    )
+  ) {
+    return "unavailable";
+  }
+  return "other";
+};
+
+const normalizeFuelBucket = (fuelValue) => {
+  const value = normalizeText(fuelValue);
+  if (!value) return "";
+  if (value.includes("petrol")) return "petrol";
+  if (value.includes("diesel")) return "diesel";
+  if (value.includes("cng")) return "cng";
+  if (value.includes("electric") || value === "ev") return "electric";
+  if (value.includes("hybrid")) return "hybrid";
+  if (value.includes("lpg")) return "lpg";
+  return value;
+};
+
+const normalizeTransmissionBucket = (variant) => {
+  const direct = normalizeText(variant?.transmission || variant || "");
+  const source = direct || normalizeText(variant?.variant || "");
+  if (!source) return "mt";
+
+  if (/\bmt\b/.test(source) || source.includes("manual")) return "mt";
+  if (
+    /\bat\b/.test(source) ||
+    source.includes("automatic") ||
+    source.includes("amt") ||
+    source.includes("cvt") ||
+    source.includes("dct") ||
+    source.includes("ivt")
+  ) {
+    return "at";
+  }
+  return "mt";
+};
+
+const hasDisplayableFeatureValue = (value) => {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  return ![
+    "not available",
+    "na",
+    "n/a",
+    "null",
+    "undefined",
+    "-",
+    "none",
+    "no",
+  ].includes(normalized);
+};
+
+const FEATURE_CATEGORY_STYLES = {
+  Safety: { color: "text-rose-600 dark:text-rose-400", dot: "bg-rose-400" },
+  "Comfort & Convenience": {
+    color: "text-sky-600 dark:text-sky-400",
+    dot: "bg-sky-400",
+  },
+  Exterior: {
+    color: "text-amber-600 dark:text-amber-400",
+    dot: "bg-amber-400",
+  },
+  Infotainment: {
+    color: "text-violet-600 dark:text-violet-400",
+    dot: "bg-violet-400",
+  },
+  Connected: {
+    color: "text-teal-600 dark:text-teal-400",
+    dot: "bg-teal-400",
+  },
+  Others: {
+    color: "text-slate-500 dark:text-slate-400",
+    dot: "bg-slate-400",
+  },
+};
+
+const FEATURE_CATEGORY_ORDER = [
+  "Safety",
+  "Comfort & Convenience",
+  "Exterior",
+  "Infotainment",
+  "Connected",
+  "Others",
+];
+
 const FeaturesPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,8 +236,6 @@ const FeaturesPage = () => {
   const [vehicleSearchInput, setVehicleSearchInput] = useState("");
   const [debouncedVehicleSearchInput, setDebouncedVehicleSearchInput] =
     useState("");
-  const [vehicleSearchLoading, setVehicleSearchLoading] = useState(false);
-  const [vehicleSearchOptions, setVehicleSearchOptions] = useState([]);
   const [includeDiscontinued, setIncludeDiscontinued] = useState(false);
   const [fuelFilter, setFuelFilter] = useState("all");
   const [transmissionFilter, setTransmissionFilter] = useState("all");
@@ -93,6 +262,7 @@ const FeaturesPage = () => {
   // { [variantId]: featuresArray }
   const [loadedFeatures, setLoadedFeatures] = useState({});
   const [featureLoading, setFeatureLoading] = useState(null); // id being loaded
+  const [modelFeaturesLoading, setModelFeaturesLoading] = useState(false);
 
   // EMI modal
   const [emiModalOpen, setEmiModalOpen] = useState(false);
@@ -103,6 +273,8 @@ const FeaturesPage = () => {
 
   // keyboard navigation
   const cardRefs = useRef({});
+  const featureFetchInFlightRef = useRef(new Set());
+  const modelFeaturesCacheRef = useRef(new Map());
 
   // Initial load: serve from sessionStorage if fresh (5 min TTL), else fetch slim list
   const FEATURES_SLIM_CACHE_KEY = useMemo(
@@ -152,43 +324,6 @@ const FeaturesPage = () => {
     return () => { isMounted = false; };
   }, [FEATURES_SLIM_CACHE_KEY, FEATURES_SLIM_TTL_MS, includeDiscontinued]);
 
-  // Re-fetch from backend when make/model/variant/fuel change (backend filters cached data)
-  useEffect(() => {
-    // Skip on initial mount — initial load handles it
-    if (!allVariants.length) return;
-    let isMounted = true;
-    const params = {};
-    if (makeFilter)    params.make    = makeFilter;
-    if (modelFilter)   params.model   = modelFilter;
-    if (variantFilter) params.variant = variantFilter;
-    if (fuelFilter !== "all") params.fuel = fuelFilter;
-    params.slim = "1";
-    params.includeDiscontinued = includeDiscontinued ? "1" : "0";
-
-    const fetch = async () => {
-      try {
-        setLoading(true);
-        const res = await featuresApi.getVariantsWithPrice(params);
-        const items = Array.isArray(res.data) ? res.data : res.data?.data || [];
-        if (!isMounted) return;
-        setVariants(items);
-      } catch {
-        // silently keep current set on error
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    fetch();
-    return () => { isMounted = false; };
-  }, [
-    allVariants.length,
-    makeFilter,
-    modelFilter,
-    variantFilter,
-    fuelFilter,
-    includeDiscontinued,
-  ]);
-
   useEffect(() => {
     const handle = setTimeout(() => {
       setDebouncedVehicleSearchInput(collapseSpaces(vehicleSearchInput));
@@ -196,57 +331,122 @@ const FeaturesPage = () => {
     return () => clearTimeout(handle);
   }, [vehicleSearchInput]);
 
+  const vehicleSearchOptions = useMemo(() => {
+    const q = normalizeText(debouncedVehicleSearchInput);
+    if (q.length < 2) return [];
+    const dedup = new Map();
+    allVariants.forEach((row) => {
+      if (!includeDiscontinued && isVehicleDiscontinued(row)) return;
+      const make = collapseSpaces(row?.make);
+      const model = collapseSpaces(row?.model);
+      if (!make || !model) return;
+      const hay = normalizeText(`${make} ${model}`);
+      if (!hay.includes(q)) return;
+      const key = `${normalizeText(make)}|${normalizeText(model)}`;
+      if (dedup.has(key)) return;
+      dedup.set(key, {
+        value: `${make} ${model}`.trim(),
+        make,
+        model,
+        label: (
+          <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100">
+            {make} {model}
+          </span>
+        ),
+      });
+    });
+    return Array.from(dedup.values()).slice(0, 30);
+  }, [allVariants, debouncedVehicleSearchInput, includeDiscontinued]);
+
+  const seedFeaturesFromRows = useCallback((rows = []) => {
+    const patch = {};
+    rows.forEach((row) => {
+      const id = String(row?.id || "").trim();
+      if (!id) return;
+      if (!Array.isArray(row?.features)) return;
+      patch[id] = row.features;
+    });
+    const patchKeys = Object.keys(patch);
+    if (!patchKeys.length) return;
+    setLoadedFeatures((prev) => {
+      const next = { ...prev };
+      patchKeys.forEach((id) => {
+        if (next[id] === undefined) {
+          next[id] = patch[id];
+        }
+      });
+      return next;
+    });
+  }, []);
+
+  // One-shot bulk hydrate for selected make+model to avoid N per-variant requests.
   useEffect(() => {
-    const q = String(debouncedVehicleSearchInput || "").trim();
-    if (q.length < 2) {
-      setVehicleSearchOptions([]);
-      setVehicleSearchLoading(false);
+    if (!makeFilter || !modelFilter) return;
+    const modelKey = `${normalizeText(makeFilter)}|${normalizeText(modelFilter)}|${
+      includeDiscontinued ? "1" : "0"
+    }`;
+    const cachedRows = modelFeaturesCacheRef.current.get(modelKey);
+    if (Array.isArray(cachedRows) && cachedRows.length) {
+      seedFeaturesFromRows(cachedRows);
       return;
     }
-    let isMounted = true;
-    const loadVehicleOptions = async () => {
-      try {
-        setVehicleSearchLoading(true);
-        const res = await featuresApi.getVariantsWithPrice({
-          q,
-          slim: "1",
-          includeDiscontinued: includeDiscontinued ? "1" : "0",
-        });
-        if (!isMounted) return;
-        const rows = (Array.isArray(res.data) ? res.data : res.data?.data || []).filter((row) =>
-          includeDiscontinued ? true : !isVehicleDiscontinued(row),
-        );
-        const dedup = new Map();
-        rows.forEach((row) => {
-          const make = collapseSpaces(row?.make);
-          const model = collapseSpaces(row?.model);
-          if (!make || !model) return;
-          const key = `${normalizeText(make)}|${normalizeText(model)}`;
-          if (dedup.has(key)) return;
-          dedup.set(key, {
-            value: `${make} ${model}`.trim(),
-            make,
-            model,
-            label: (
-              <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100">
-                {make} {model}
-              </span>
-            ),
-          });
-        });
-        setVehicleSearchOptions(Array.from(dedup.values()).slice(0, 30));
-      } catch {
-        if (!isMounted) return;
-        setVehicleSearchOptions([]);
-      } finally {
-        if (isMounted) setVehicleSearchLoading(false);
-      }
-    };
-    loadVehicleOptions();
+
+    let cancelled = false;
+    setModelFeaturesLoading(true);
+    featuresApi
+      .getVariantsWithPrice({
+        make: makeFilter,
+        model: modelFilter,
+        slim: "0",
+        includeDiscontinued: includeDiscontinued ? "1" : "0",
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : res.data?.data || [];
+        modelFeaturesCacheRef.current.set(modelKey, rows);
+        seedFeaturesFromRows(rows);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setModelFeaturesLoading(false);
+      });
+
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
-  }, [debouncedVehicleSearchInput, includeDiscontinued]);
+  }, [includeDiscontinued, makeFilter, modelFilter, seedFeaturesFromRows]);
+
+  const ensureVariantFeatures = useCallback(
+    async (variant) => {
+      const id = String(variant?.id || "").trim();
+      if (!id) return [];
+      if (loadedFeatures[id] !== undefined) return loadedFeatures[id];
+      if (featureFetchInFlightRef.current.has(id)) return null;
+
+      featureFetchInFlightRef.current.add(id);
+      try {
+        const res = await featuresApi.getBySelection({
+          make: variant.make,
+          model: variant.model,
+          variant: variant.variant,
+          vehicleId: variant.vehicleId,
+        });
+        const rows = Array.isArray(res.data) ? res.data : [];
+        setLoadedFeatures((prev) =>
+          prev[id] !== undefined ? prev : { ...prev, [id]: rows },
+        );
+        return rows;
+      } catch {
+        setLoadedFeatures((prev) =>
+          prev[id] !== undefined ? prev : { ...prev, [id]: [] },
+        );
+        return [];
+      } finally {
+        featureFetchInFlightRef.current.delete(id);
+      }
+    },
+    [loadedFeatures],
+  );
 
   // On-demand feature loading: fetch full features when a card is expanded
   useEffect(() => {
@@ -256,21 +456,11 @@ const FeaturesPage = () => {
     if (!v) return;
     let isMounted = true;
     setFeatureLoading(expandedId);
-    featuresApi
-      .getBySelection({ make: v.make, model: v.model, variant: v.variant, vehicleId: v.vehicleId })
-      .then((res) => {
-        if (!isMounted) return;
-        const items = Array.isArray(res.data) ? res.data : [];
-        setLoadedFeatures((prev) => ({ ...prev, [expandedId]: items }));
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        setLoadedFeatures((prev) => ({ ...prev, [expandedId]: [] }));
-      })
+    ensureVariantFeatures(v)
       .finally(() => { if (isMounted) setFeatureLoading(null); });
     return () => { isMounted = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandedId]);
+  }, [allVariants, ensureVariantFeatures, expandedId, loadedFeatures]);
 
   // Prefetch features for variants added to compare (so matrix populates immediately)
   useEffect(() => {
@@ -278,16 +468,10 @@ const FeaturesPage = () => {
       if (loadedFeatures[id] !== undefined) return;
       const v = allVariants.find((x) => x.id === id);
       if (!v) return;
-      featuresApi
-        .getBySelection({ make: v.make, model: v.model, variant: v.variant, vehicleId: v.vehicleId })
-        .then((res) => {
-          const items = Array.isArray(res.data) ? res.data : [];
-          setLoadedFeatures((prev) => ({ ...prev, [id]: items }));
-        })
-        .catch(() => setLoadedFeatures((prev) => ({ ...prev, [id]: [] })));
+      void ensureVariantFeatures(v);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compareIds]);
+  }, [allVariants, compareIds, ensureVariantFeatures, loadedFeatures]);
 
   // Auto-expand the variant that matches fromVariant after data loads
   useEffect(() => {
@@ -301,15 +485,104 @@ const FeaturesPage = () => {
     if (match?.id) setExpandedId(match.id);
   }, [fromVariant, variants]);
 
-  // Local post-filter: handles transmission (not a backend param) + clears search when empty
+  // Local filter pipeline (instant, no refetch): make/model/variant/fuel/transmission
   const filteredVariants = useMemo(
     () =>
       variants.filter((v) => {
         if (!includeDiscontinued && isVehicleDiscontinued(v)) return false;
-        if (transmissionFilter !== "all" && v.transmission !== transmissionFilter) return false;
+        if (
+          makeFilter &&
+          normalizeText(v?.make) !== normalizeText(makeFilter)
+        ) {
+          return false;
+        }
+        if (
+          modelFilter &&
+          normalizeText(v?.model) !== normalizeText(modelFilter)
+        ) {
+          return false;
+        }
+        if (
+          variantFilter &&
+          normalizeText(v?.variant) !== normalizeText(variantFilter)
+        ) {
+          return false;
+        }
+        if (
+          fuelFilter !== "all" &&
+          normalizeFuelBucket(v?.fuel) !== normalizeFuelBucket(fuelFilter)
+        ) {
+          return false;
+        }
+        if (
+          transmissionFilter !== "all" &&
+          normalizeTransmissionBucket(v) !== normalizeTransmissionBucket(transmissionFilter)
+        ) {
+          return false;
+        }
         return true;
       }),
-    [variants, transmissionFilter, includeDiscontinued],
+    [
+      variants,
+      includeDiscontinued,
+      makeFilter,
+      modelFilter,
+      variantFilter,
+      fuelFilter,
+      transmissionFilter,
+    ],
+  );
+
+  // Canonical comparison ladder for each make+model:
+  // - excludes discontinued (unless toggled on)
+  // - excludes DT / Dual Tone variants
+  // - sorted by effective price ascending
+  const comparisonPoolByModel = useMemo(() => {
+    const map = new Map();
+    allVariants.forEach((variant) => {
+      if (!variant?.make || !variant?.model) return;
+      if (!includeDiscontinued && isVehicleDiscontinued(variant)) return;
+      if (isDualToneVariant(variant?.variant)) return;
+      const price = getVariantNumericPrice(variant);
+      if (!price) return;
+      const transmission = normalizeTransmissionBucket(variant);
+      if (!transmission) return;
+      const key = `${normalizeText(variant.make)}|${normalizeText(variant.model)}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push({ ...variant, _transmissionBucket: transmission });
+    });
+    map.forEach((arr) => {
+      arr.sort((a, b) => {
+        const pa = getVariantNumericPrice(a);
+        const pb = getVariantNumericPrice(b);
+        if (pa !== pb) return pa - pb;
+        return String(a?.variant || "").localeCompare(String(b?.variant || ""));
+      });
+    });
+    return map;
+  }, [allVariants, includeDiscontinued]);
+
+  const getBaseVariantForUpgrade = useCallback(
+    (variant) => {
+      if (!variant?.make || !variant?.model) return null;
+      if (isDualToneVariant(variant?.variant)) return null;
+      const price = getVariantNumericPrice(variant);
+      if (!price) return null;
+      const currentTransmission = normalizeTransmissionBucket(variant);
+      if (!currentTransmission) return null;
+      const key = `${normalizeText(variant.make)}|${normalizeText(variant.model)}`;
+      const pool = comparisonPoolByModel.get(key) || [];
+      if (!pool.length) return null;
+      const lower = pool.filter(
+        (candidate) =>
+          candidate?.id !== variant?.id &&
+          normalizeTransmissionBucket(candidate) === currentTransmission &&
+          getVariantNumericPrice(candidate) < price,
+      );
+      if (!lower.length) return null;
+      return lower[lower.length - 1];
+    },
+    [comparisonPoolByModel],
   );
 
   // Dropdown option lists — computed from full unfiltered set
@@ -465,47 +738,60 @@ const FeaturesPage = () => {
       .filter((group) => group.rows.length > 0);
   }, [compareMatrix, compareDetails, onlyDifferences]);
 
-  const computeAdditions = (currentVariant, previousVariant, curFeatures, prevFeatures) => {
+  const computeAdditions = useCallback((currentVariant, previousVariant, curFeatures, prevFeatures) => {
     if (!currentVariant || !previousVariant) return [];
+    if (isDualToneVariant(currentVariant?.variant)) return [];
 
     const additions = [];
+    const previousByName = new Map(
+      (prevFeatures || []).map((feature) => [
+        normalizeText(feature?.name),
+        feature?.value,
+      ]),
+    );
 
     (curFeatures || []).forEach((f) => {
-      const prevVal = (prevFeatures || []).find(
-        (p) => p.name === f.name,
-      )?.value;
-      if (!prevVal) return;
-      if (f.value === prevVal) return;
+      const featureName = String(f?.name || "").trim();
+      if (!featureName || isCosmeticFeature(featureName)) return;
 
-      const c = String(f.value || "").toLowerCase();
-      const p = String(prevVal || "").toLowerCase();
+      const prevVal = previousByName.get(normalizeText(featureName));
+      if (prevVal === undefined || prevVal === null) return;
 
-      const yesAdded = c === "yes" && p === "not available";
+      const currText = collapseSpaces(f?.value);
+      const prevText = collapseSpaces(prevVal);
+      if (!currText || currText === prevText) return;
 
-      const isAirbag = f.name.toLowerCase().includes("airbag");
-      const isTouchscreen = f.name.toLowerCase().includes("touchscreen");
+      const currState = featureAvailabilityState(currText);
+      const prevState = featureAvailabilityState(prevText);
 
-      const upgradedAirbags =
-        isAirbag &&
-        !isNaN(Number(f.value)) &&
-        !isNaN(Number(prevVal)) &&
-        Number(f.value) > Number(prevVal);
+      const currNum = extractNumber(currText);
+      const prevNum = extractNumber(prevText);
+      const numericUpgrade =
+        currNum != null &&
+        prevNum != null &&
+        Number.isFinite(currNum) &&
+        Number.isFinite(prevNum) &&
+        currNum > prevNum;
 
-      const currNum = extractNumber(f.value);
-      const prevNum = extractNumber(prevVal);
-      const upgradedScreen =
-        isTouchscreen && currNum && prevNum && currNum > prevNum;
+      const availabilityUpgrade =
+        currState === "available" && prevState !== "available";
 
-      if (yesAdded || upgradedAirbags || upgradedScreen) {
-        additions.push({ name: f.name, from: prevVal, to: f.value });
+      const textUpgrade =
+        prevState === "unavailable" &&
+        currState !== "unavailable" &&
+        currText.toLowerCase() !== prevText.toLowerCase();
+
+      if (availabilityUpgrade || numericUpgrade || textUpgrade) {
+        additions.push({ name: featureName, from: prevText, to: currText });
       }
     });
 
     return additions;
-  };
+  }, []);
 
-  const computeUpgradeSuggestion = (currentVariant, previousVariant, curFeatures, prevFeatures) => {
+  const computeUpgradeSuggestion = useCallback((currentVariant, previousVariant, curFeatures, prevFeatures) => {
     if (!currentVariant || !previousVariant) return null;
+    if (isDualToneVariant(currentVariant?.variant)) return null;
 
     const priceNow = Number(
       currentVariant.exShowroom || currentVariant.onRoadPrice,
@@ -537,7 +823,41 @@ const FeaturesPage = () => {
       diff,
       additions,
     };
-  };
+  }, [computeAdditions]);
+
+  const upgradeSummaryById = useMemo(() => {
+    const byId = new Map();
+    filteredVariants.forEach((variant) => {
+      const baseVariant = getBaseVariantForUpgrade(variant);
+      if (!baseVariant) {
+        byId.set(variant.id, {
+          baseVariant: null,
+          additions: [],
+          upgrade: null,
+        });
+        return;
+      }
+      const currentFeatures = loadedFeatures[variant.id] || [];
+      const baseFeatures = loadedFeatures[baseVariant.id] || [];
+      const additions = computeAdditions(
+        variant,
+        baseVariant,
+        currentFeatures,
+        baseFeatures,
+      );
+      const upgrade =
+        additions.length > 0
+          ? computeUpgradeSuggestion(
+              variant,
+              baseVariant,
+              currentFeatures,
+              baseFeatures,
+            )
+          : null;
+      byId.set(variant.id, { baseVariant, additions, upgrade });
+    });
+    return byId;
+  }, [filteredVariants, getBaseVariantForUpgrade, loadedFeatures]);
 
   const handleMakeChange = (value) => {
     setMakeFilter(value || "");
@@ -553,7 +873,6 @@ const FeaturesPage = () => {
   const handleClearFilters = () => {
     setVehicleSearchInput("");
     setDebouncedVehicleSearchInput("");
-    setVehicleSearchOptions([]);
     setFuelFilter("all");
     setTransmissionFilter("all");
     setIncludeDiscontinued(false);
@@ -649,9 +968,7 @@ const FeaturesPage = () => {
             notFoundContent={
               vehicleSearchInput.trim().length < 2
                 ? "Type at least 2 letters"
-                : vehicleSearchLoading
-                  ? "Searching vehicles..."
-                  : "No matching vehicle found"
+                : "No matching vehicle found"
             }
           />
         </div>
@@ -792,8 +1109,8 @@ const FeaturesPage = () => {
                     className={[
                       "px-3 py-1.5 rounded-full text-[13px] border transition-colors",
                       fuelFilter === opt.value
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-slate-50 dark:bg-[#181818] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
+                        ? getFuelBadgeClasses(opt.value)
+                        : "bg-slate-50 dark:bg-[#181818] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
                     ].join(" ")}
                   >
                     {opt.label}
@@ -820,8 +1137,10 @@ const FeaturesPage = () => {
                     className={[
                       "px-3 py-1.5 rounded-full text-[13px] border transition-colors",
                       transmissionFilter === opt.value
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-slate-50 dark:bg-[#181818] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
+                        ? opt.value === "all"
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : getTransmissionBadgeClasses(opt.value)
+                        : "bg-slate-50 dark:bg-[#181818] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#202020]",
                     ].join(" ")}
                   >
                     {opt.label}
@@ -868,27 +1187,34 @@ const FeaturesPage = () => {
                 const ncap    = v._ncap ?? null;
                 const screen  = v._screen ?? null;
 
-                // previous variant within same make+model in the current filtered list
-                let prevVariant = null;
-                for (let i = idx - 1; i >= 0; i -= 1) {
-                  const candidate = filteredVariants[i];
-                  if (
-                    candidate.make === v.make &&
-                    candidate.model === v.model
-                  ) {
-                    prevVariant = candidate;
-                    break;
-                  }
-                }
-
-                const vFeats    = loadedFeatures[v.id] || [];
-                const prevFeats = prevVariant ? (loadedFeatures[prevVariant.id] || []) : [];
-                const additions = prevVariant
-                  ? computeAdditions(v, prevVariant, vFeats, prevFeats)
-                  : [];
-                const upgrade = prevVariant
-                  ? computeUpgradeSuggestion(v, prevVariant, vFeats, prevFeats)
-                  : null;
+                // Base comparable variant = immediate lower priced non-DT variant.
+                const summary = upgradeSummaryById.get(v.id) || {};
+                const prevVariant = summary.baseVariant || null;
+                const additions = summary.additions || [];
+                const upgrade = summary.upgrade || null;
+                const vFeats = loadedFeatures[v.id] || [];
+                const vDisplayFeats = vFeats.filter((f) =>
+                  hasDisplayableFeatureValue(f?.value),
+                );
+                const categorySet = new Set(
+                  vDisplayFeats.map((feature) =>
+                    collapseSpaces(feature?.category || "Others") || "Others",
+                  ),
+                );
+                const orderedCategories = [
+                  ...FEATURE_CATEGORY_ORDER.filter((cat) => categorySet.has(cat)),
+                  ...Array.from(categorySet)
+                    .filter((cat) => !FEATURE_CATEGORY_ORDER.includes(cat))
+                    .sort((a, b) => a.localeCompare(b)),
+                ];
+                const hasCurrentFeatures = loadedFeatures[v.id] !== undefined;
+                const hasBaseFeatures = prevVariant
+                  ? loadedFeatures[prevVariant.id] !== undefined
+                  : true;
+                const isAiInsightLoading =
+                  Boolean(prevVariant) &&
+                  (!hasCurrentFeatures || !hasBaseFeatures) &&
+                  modelFeaturesLoading;
 
                 const isExpanded = expandedId === v.id;
 
@@ -933,8 +1259,28 @@ const FeaturesPage = () => {
                         <div className="text-[16px] font-semibold text-slate-900 dark:text-slate-50">
                           {v.variant}
                         </div>
-                        <div className="text-[14px] text-slate-600 dark:text-slate-400">
-                          {v.make} {v.model} • {v.fuel} • {v.transmission}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[14px] text-slate-600 dark:text-slate-400">
+                          <span>{v.make} {v.model}</span>
+                          {v.fuel ? (
+                            <span
+                              className={[
+                                "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                                getFuelBadgeClasses(v.fuel),
+                              ].join(" ")}
+                            >
+                              {v.fuel}
+                            </span>
+                          ) : null}
+                          {v.transmission ? (
+                            <span
+                              className={[
+                                "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                                getTransmissionBadgeClasses(v.transmission),
+                              ].join(" ")}
+                            >
+                              {v.transmission}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="text-[13px] text-slate-800 dark:text-slate-200 font-medium">
                           {formatPrice(priceToUse)}
@@ -958,8 +1304,8 @@ const FeaturesPage = () => {
                         className={[
                           "relative w-9 h-9 rounded-full border flex items-center justify-center transition-colors",
                           inCompare
-                            ? "bg-slate-900 text-white border-slate-900"
-                            : "bg-slate-50 dark:bg-[#181818] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-neutral-700 hover:bg-slate-100 dark:hover:bg-[#222222]",
+                            ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-violet-500 shadow-sm shadow-violet-500/30"
+                            : "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/30",
                         ].join(" ")}
                       >
                         {inCompare ? (
@@ -967,21 +1313,40 @@ const FeaturesPage = () => {
                         ) : (
                           <span className="text-[18px] leading-none">+</span>
                         )}
-                        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        <span
+                          className={[
+                            "absolute -bottom-6 left-1/2 -translate-x-1/2 text-[11px] whitespace-nowrap",
+                            inCompare
+                              ? "text-violet-600 dark:text-violet-300"
+                              : "text-indigo-600 dark:text-indigo-300",
+                          ].join(" ")}
+                        >
                           {inCompare ? "In compare" : "Add"}
                         </span>
                       </button>
                     </div>
 
-                    {prevVariant && additions.length > 0 && (
-                      <div className="text-[13px] text-slate-600 dark:text-slate-300 mt-0.5">
-                        Only{" "}
-                        {upgrade
-                          ? upgrade.diff >= 100000
-                            ? `₹${(upgrade.diff / 100000).toFixed(1)}L`
-                            : `₹${Math.round(upgrade.diff / 1000)}k`
-                          : ""}{" "}
-                        more for {additions.length} upgrades — worth the upgrade{" "}
+                    {isAiInsightLoading && (
+                      <div className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border border-violet-200/70 bg-violet-50 px-2.5 py-1 text-[12px] text-violet-700 dark:border-violet-800/60 dark:bg-violet-900/20 dark:text-violet-300">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        AI insight loading...
+                      </div>
+                    )}
+                    {!isAiInsightLoading && prevVariant && additions.length > 0 && (
+                      <div className="mt-0.5 inline-flex flex-wrap items-center gap-1.5 rounded-full border border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-violet-50 px-2.5 py-1 text-[12px] text-slate-700 dark:border-emerald-800/60 dark:from-emerald-900/20 dark:to-violet-900/20 dark:text-slate-200">
+                        <Sparkles className="w-3.5 h-3.5 text-violet-600 dark:text-violet-300" />
+                        <span className="font-semibold text-violet-700 dark:text-violet-300">
+                          AI insight:
+                        </span>
+                        <span>
+                          Only{" "}
+                          {upgrade
+                            ? upgrade.diff >= 100000
+                              ? `₹${(upgrade.diff / 100000).toFixed(1)}L`
+                              : `₹${Math.round(upgrade.diff / 1000)}k`
+                            : ""}{" "}
+                          more for {additions.length} upgrades
+                        </span>
                         <button
                           type="button"
                           onClick={() =>
@@ -993,7 +1358,7 @@ const FeaturesPage = () => {
                               compareToId: prevVariant.id,
                             })
                           }
-                          className="text-emerald-700 dark:text-emerald-300 underline underline-offset-2"
+                          className="font-semibold text-emerald-700 dark:text-emerald-300 underline underline-offset-2"
                         >
                           ({additions.length} upgrades)
                         </button>
@@ -1097,16 +1462,16 @@ const FeaturesPage = () => {
                         }}
                         className="w-full flex items-center justify-between gap-2 group"
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                            {isExpanded ? "Hide features" : "All features"}
-                          </span>
-                          {(v.featureCount ?? vFeats.length) > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                          {isExpanded ? "Hide features" : "All features"}
+                        </span>
+                          {(vDisplayFeats.length || v.featureCount || 0) > 0 && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-neutral-800 text-slate-500 dark:text-slate-400">
-                              {v.featureCount ?? vFeats.length}
+                              {vDisplayFeats.length || v.featureCount || 0}
                             </span>
                           )}
-                        </div>
+                      </div>
                         {isExpanded
                           ? <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
                           : <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
@@ -1150,15 +1515,13 @@ const FeaturesPage = () => {
 
                               {/* Categories */}
                               <div className="overflow-y-auto max-h-[52vh] space-y-4 pr-0.5">
-                                {[
-                                  { key: "Safety",                color: "text-rose-600 dark:text-rose-400",    dot: "bg-rose-400" },
-                                  { key: "Comfort & Convenience", color: "text-sky-600 dark:text-sky-400",      dot: "bg-sky-400" },
-                                  { key: "Exterior",              color: "text-amber-600 dark:text-amber-400",  dot: "bg-amber-400" },
-                                  { key: "Infotainment",          color: "text-violet-600 dark:text-violet-400",dot: "bg-violet-400" },
-                                  { key: "Connected",             color: "text-teal-600 dark:text-teal-400",    dot: "bg-teal-400" },
-                                  { key: "Others",                color: "text-slate-500 dark:text-slate-400",  dot: "bg-slate-400" },
-                                ].map(({ key: cat, color, dot }) => {
-                                  let items = vFeats.filter((f) => f.category === cat);
+                                {orderedCategories.map((cat) => {
+                                  const style =
+                                    FEATURE_CATEGORY_STYLES[cat] ||
+                                    FEATURE_CATEGORY_STYLES.Others;
+                                  const color = style.color;
+                                  const dot = style.dot;
+                                  let items = vDisplayFeats.filter((f) => f.category === cat);
                                   if (localPanelSearch) {
                                     items = items.filter((f) =>
                                       `${f.name} ${f.value}`.toLowerCase().includes(localPanelSearch),
@@ -1216,7 +1579,7 @@ const FeaturesPage = () => {
                                 })}
 
                                 {/* No results for search */}
-                                {localPanelSearch && vFeats.filter((f) =>
+                                {localPanelSearch && vDisplayFeats.filter((f) =>
                                   `${f.name} ${f.value}`.toLowerCase().includes(localPanelSearch)
                                 ).length === 0 && (
                                   <div className="text-[12px] text-slate-400 py-4 text-center">
@@ -1375,6 +1738,24 @@ const FeaturesPage = () => {
         {upgradeModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
             <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-xl max-w-lg w-full p-4">
+              {(() => {
+                const current = upgradeModal.current;
+                const modelKey = `${normalizeText(current?.make)}|${normalizeText(
+                  current?.model,
+                )}`;
+                const currentPrice = getVariantNumericPrice(current);
+                const currentTransmission = normalizeTransmissionBucket(current);
+                const comparableOptions = (
+                  comparisonPoolByModel.get(modelKey) || []
+                ).filter(
+                  (vv) =>
+                    vv.id !== current.id &&
+                    normalizeTransmissionBucket(vv) === currentTransmission &&
+                    getVariantNumericPrice(vv) < currentPrice,
+                );
+
+                return (
+                  <>
               <div className="flex items-center justify-between mb-2">
                 <div className="space-y-1">
                   <div className="text-[15px] font-semibold text-slate-900 dark:text-slate-50">
@@ -1386,15 +1767,10 @@ const FeaturesPage = () => {
                       className="bg-transparent border border-slate-200 dark:border-[#262626] rounded-full px-2 py-0.5 text-[12px]"
                       value={upgradeModal.compareToId}
                       onChange={(e) => {
-                        const newBase = variants.find(
+                        const newBase = allVariants.find(
                           (vv) => vv.id === e.target.value,
                         );
                         if (!newBase) return;
-
-                        const newAdditions = computeAdditions(
-                          upgradeModal.current,
-                          newBase,
-                        );
                         const priceNow =
                           Number(
                             upgradeModal.current.exShowroom ||
@@ -1403,24 +1779,55 @@ const FeaturesPage = () => {
                         const priceBase =
                           Number(newBase.exShowroom || newBase.onRoadPrice) ||
                           0;
+                        const applyModalUpdate = (baseFeaturesRows) => {
+                          const newAdditions = computeAdditions(
+                            upgradeModal.current,
+                            newBase,
+                            loadedFeatures[upgradeModal.current.id] || [],
+                            baseFeaturesRows || [],
+                          );
+                          setUpgradeModal((prev) => ({
+                            ...prev,
+                            baseVariant: newBase,
+                            additions: newAdditions,
+                            priceDiff: priceNow - priceBase,
+                            compareToId: newBase.id,
+                          }));
+                        };
 
-                        setUpgradeModal((prev) => ({
-                          ...prev,
-                          baseVariant: newBase,
-                          additions: newAdditions,
-                          priceDiff: priceNow - priceBase,
-                          compareToId: newBase.id,
-                        }));
+                        const cachedBaseFeatures = loadedFeatures[newBase.id];
+                        if (cachedBaseFeatures !== undefined) {
+                          applyModalUpdate(cachedBaseFeatures);
+                          return;
+                        }
+
+                        featuresApi
+                          .getBySelection({
+                            make: newBase.make,
+                            model: newBase.model,
+                            variant: newBase.variant,
+                            vehicleId: newBase.vehicleId,
+                          })
+                          .then((res) => {
+                            const rows = Array.isArray(res.data) ? res.data : [];
+                            setLoadedFeatures((prev) =>
+                              prev[newBase.id] !== undefined
+                                ? prev
+                                : { ...prev, [newBase.id]: rows },
+                            );
+                            applyModalUpdate(rows);
+                          })
+                          .catch(() => {
+                            setLoadedFeatures((prev) =>
+                              prev[newBase.id] !== undefined
+                                ? prev
+                                : { ...prev, [newBase.id]: [] },
+                            );
+                            applyModalUpdate([]);
+                          });
                       }}
                     >
-                      {variants
-                        .filter(
-                          (vv) =>
-                            vv.make === upgradeModal.current.make &&
-                            vv.model === upgradeModal.current.model &&
-                            vv.id !== upgradeModal.current.id,
-                        )
-                        .map((vv) => (
+                      {comparableOptions.map((vv) => (
                           <option key={vv.id} value={vv.id}>
                             {vv.variant}
                           </option>
@@ -1458,6 +1865,9 @@ const FeaturesPage = () => {
                   </div>
                 )}
               </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
