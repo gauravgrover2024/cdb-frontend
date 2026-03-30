@@ -34,20 +34,21 @@ const DisbursementStep = ({ form, banksData, onNext, loanId }) => {
       // Call disbursement API
       const response = await disburseLoan(loanId, disbursementData);
 
-      if (response.data) {
-        setPayoutData(response.data.payouts);
+      if (response.success) {
+        setPayoutData(response.payouts);
         setDisbursed(true);
         message.success("Loan disbursed successfully!");
-        
+
         // Update form with disbursement data
         form.setFieldsValue({
+          disburse_status: "Disbursed",
           disbursementStatus: "Disbursed",
           disbursementDate: dayjs(),
         });
       }
     } catch (error) {
       console.error("Disbursement error:", error);
-      message.error(error.response?.data?.message || "Failed to disburse loan");
+      message.error(error.message || "Failed to disburse loan");
     } finally {
       setLoading(false);
     }
