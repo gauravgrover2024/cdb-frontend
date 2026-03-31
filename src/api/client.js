@@ -69,6 +69,21 @@ const handleResponse = async (res) => {
 
 // Helper to build query string from params
 const buildQuery = (params = {}) => {
+  if (typeof params === "string" || params instanceof String) {
+    const raw = String(params || "");
+    if (!raw) return "";
+    return raw.startsWith("?") ? raw : `?${raw}`;
+  }
+  if (params instanceof URLSearchParams) {
+    const raw = params.toString();
+    return raw ? `?${raw}` : "";
+  }
+  if (params === null || params === undefined) return "";
+  if (typeof params !== "object") {
+    const raw = String(params || "");
+    if (!raw) return "";
+    return raw.startsWith("?") ? raw : `?${raw}`;
+  }
   const entries = Object.entries(params).filter(
     ([, v]) => v !== undefined && v !== null && v !== "",
   );

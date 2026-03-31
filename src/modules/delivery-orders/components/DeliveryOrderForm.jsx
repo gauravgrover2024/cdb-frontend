@@ -29,6 +29,8 @@ import Section2DealerDetails from "./sections/Section2DealerDetails";
 import Section3VehicleDetailsShowroom from "./sections/Section3VehicleDetailsShowroom";
 import Section4VehicleDetailsCustomer from "./sections/Section4VehicleDetailsCustomer";
 import Section5DODetails from "./sections/Section5DODetails";
+import PrintButton from "../../print/PrintButton";
+import { DOPrint } from "../../print/PrintFormats";
 
 // -------------------------------------
 // Helpers
@@ -569,6 +571,11 @@ const DeliveryOrderForm = () => {
           {/* SECTION 5 — DO DETAILS */}
           <Section5DODetails loan={loanData} />
           <div style={{ height: 24 }} />
+
+          {/* Point 9: Hidden print area — rendered for window.print() */}
+          <div style={{ display: "none" }} className="print-area">
+            <DOPrint doData={existingDO || {}} loan={loanData || {}} />
+          </div>
         </Form>
       </div>
     </div>

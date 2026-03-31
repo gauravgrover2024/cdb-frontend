@@ -27,6 +27,7 @@ import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { loansApi } from "../../../api/loans";
+import DirectCreateModal from "../../shared/DirectCreateModal";
 
 const { Option } = Select;
 
@@ -40,9 +41,31 @@ const asInt = (val) => {
 
 const money = (n) => `₹${asInt(n).toLocaleString("en-IN")}`;
 
+const listFromResponse = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
 const fetchAllDOs = async () => {
-  const res = await deliveryOrdersApi.getAll();
-  return res.data || [];
+  const pageSize = 500;
+  let skip = 0;
+  let hasMore = true;
+  const all = [];
+
+  while (hasMore) {
+    const res = await deliveryOrdersApi.getAll({
+      limit: pageSize,
+      skip,
+      noCount: true,
+    });
+    const page = listFromResponse(res);
+    all.push(...page);
+    hasMore = Boolean(res?.hasMore);
+    skip += pageSize;
+  }
+
+  return all;
 };
 
 const DeliveryOrderDashboard = () => {
@@ -56,11 +79,37 @@ const DeliveryOrderDashboard = () => {
   const [searchText, setSearchText] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const loadLoansFromApi = useCallback(async () => {
     try {
-      const res = await loansApi.getAll("?limit=10000&skip=0");
-      setLoans(Array.isArray(res?.data) ? res.data : []);
+      // Point 5: only New Car loans (both financed and cash)
+      const pageSize = 1000;
+      let skip = 0;
+      let hasMore = true;
+      const all = [];
+
+      while (hasMore) {
+        const res = await loansApi.getAll({
+          limit: pageSize,
+          skip,
+          noCount: true,
+          filterLoanType: "New Car",
+          view: "dashboard",
+          sortBy: "leadDate",
+          sortDir: "desc",
+        });
+        const page = listFromResponse(res);
+        all.push(...page);
+        hasMore = Boolean(res?.hasMore);
+        skip += pageSize;
+      }
+      // client-side safety filter
+      const newCarOnly = all.filter((l) => {
+        const t = String(l?.typeOfLoan || l?.loanType || l?.caseType || "").toLowerCase();
+        return t.includes("new car") || t === "new";
+      });
+      setLoans(newCarOnly);
     } catch (err) {
       console.error("Load Loans Error:", err);
       setLoans([]);
@@ -375,6 +424,14 @@ const DeliveryOrderDashboard = () => {
               Refresh
             </Button>
             <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setShowCreateModal(true)}
+              size="large"
+            >
+              New DO
+            </Button>
+            <Button
               icon={<CarOutlined />}
               onClick={() => navigate("/loans")}
               size="large"
@@ -491,6 +548,12 @@ const DeliveryOrderDashboard = () => {
           size="middle"
         />
       </div>
+      <DirectCreateModal
+        open={showCreateModal}
+        mode="DO"
+        onClose={() => setShowCreateModal(false)}
+        onCreated={() => loadData()}
+      />
     </div>
   );
 };

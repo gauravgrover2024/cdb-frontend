@@ -33,9 +33,9 @@ import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { paymentsApi } from "../../../api/payments";
 import { bookingsApi } from "../../../api/bookings";
 import { useBankDirectoryOptions } from "../../../hooks/useBankDirectoryOptions";
+import DirectCreateModal from "../../shared/DirectCreateModal";
 
 const { Text } = Typography;
-const { Panel } = Collapse;
 
 const safeText = (v) => (v === undefined || v === null ? "" : String(v));
 
@@ -47,6 +47,28 @@ const asInt = (val) => {
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
+const listFromResponse = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
+const fetchAllByPagination = async (fetchPage, pageSize = 500) => {
+  let skip = 0;
+  let hasMore = true;
+  const all = [];
+
+  while (hasMore) {
+    const res = await fetchPage({ limit: pageSize, skip, noCount: true });
+    const page = listFromResponse(res);
+    all.push(...page);
+    hasMore = Boolean(res?.hasMore);
+    skip += pageSize;
+  }
+
+  return all;
+};
+
 const PaymentsDashboard = () => {
   const navigate = useNavigate();
   const { options: bankDirectoryOptions } = useBankDirectoryOptions();
@@ -56,6 +78,7 @@ const PaymentsDashboard = () => {
   const [savedDOs, setSavedDOs] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchInput, setSearchInput] = useState("");
 
   // Quick-add modal state
@@ -101,11 +124,10 @@ const PaymentsDashboard = () => {
   useEffect(() => {
     const loadBookings = async () => {
       try {
-        const res = await bookingsApi.list({ limit: 200, skip: 0 });
+        const res = await bookingsApi.list({ limit: 500, skip: 0, noCount: true });
         console.log("BOOKINGS API RAW FULL RESPONSE:", res);
 
-        // res IS the array
-        const raw = Array.isArray(res) ? res : [];
+        const raw = listFromResponse(res);
         console.log("BOOKINGS RAW ARRAY:", raw);
 
         setBookings(raw);
@@ -155,34 +177,31 @@ const PaymentsDashboard = () => {
     try {
       const t0 = performance.now();
       const [loansRes, dosRes, paymentsRes] = await Promise.all([
-        loansApi.getAll("?limit=4000&skip=0"),
-        deliveryOrdersApi.getAll(),
-        paymentsApi.getAll(),
+        fetchAllByPagination(
+          (params) =>
+            loansApi.getAll({
+              ...params,
+              filterLoanType: "New Car",
+              view: "dashboard",
+              sortBy: "leadDate",
+              sortDir: "desc",
+            }),
+          300,
+        ),
+        fetchAllByPagination((params) => deliveryOrdersApi.getAll(params), 500),
+        fetchAllByPagination((params) => paymentsApi.getAll(params), 500),
       ]);
 
-      console.log("[PaymentsDashboard] loansRes", loansRes);
-      console.log("[PaymentsDashboard] dosRes", dosRes);
-      console.log("[PaymentsDashboard] paymentsRes", paymentsRes);
+      const allLoans = Array.isArray(loansRes) ? loansRes : [];
+      // client-side safety filter
+      const newCarLoans = allLoans.filter((l) => {
+        const t = String(l?.typeOfLoan || l?.loanType || l?.caseType || "").toLowerCase();
+        return t.includes("new car") || t === "new";
+      });
 
-      const t1 = performance.now();
-
-      console.log(
-        "[PaymentsDashboard] paymentMap built in",
-        (t1 - t0).toFixed(0),
-        "ms for",
-        savedPayments.length,
-        "payments",
-      );
-      console.log("[PaymentsDashboard] loans:", loansRes?.data?.length || 0);
-      console.log("[PaymentsDashboard] DOs:", dosRes?.data?.length || 0);
-      console.log(
-        "[PaymentsDashboard] payments:",
-        paymentsRes?.data?.length || 0,
-      );
-
-      setLoans(loansRes?.data || []);
-      setSavedDOs(dosRes?.data || []);
-      setSavedPayments(paymentsRes?.data || []);
+      setLoans(newCarLoans);
+      setSavedDOs(Array.isArray(dosRes) ? dosRes : []);
+      setSavedPayments(Array.isArray(paymentsRes) ? paymentsRes : []);
 
       const endedAt = performance.now();
       console.log(
@@ -1039,7 +1058,7 @@ const PaymentsDashboard = () => {
       {/* HEADER + STATS */}
       <Card
         className="rounded-2xl mb-4 bg-card border border-border"
-        bodyStyle={{ padding: 18 }}
+        styles={{ body: { padding: 18 } }}
       >
         <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
           <div>
@@ -1058,6 +1077,13 @@ const PaymentsDashboard = () => {
               onClick={loadData}
             >
               Refresh
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setShowCreateModal(true)}
+            >
+              New Payment
             </Button>
             <Button
               icon={<FilterOutlined />}
@@ -1136,7 +1162,7 @@ const PaymentsDashboard = () => {
       {/* TOOLBAR: search + filters + analytics */}
       <Card
         className="rounded-2xl mb-4 bg-card border border-border"
-        bodyStyle={{ padding: 14 }}
+        styles={{ body: { padding: 14 } }}
       >
         <div className="flex flex-wrap justify-between items-center gap-3 mb-2">
           {entityView === "PAYMENTS" ? (
@@ -1204,15 +1230,15 @@ const PaymentsDashboard = () => {
             defaultActiveKey={[]}
             expandIconPosition="end"
             style={{ background: "transparent" }}
-          >
-            <Panel
-              header={
-                <div className="text-xs font-medium text-muted-foreground">
-                  Analytics · top showrooms & customers
-                </div>
-              }
-              key="analytics"
-            >
+            items={[
+              {
+                key: "analytics",
+                label: (
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Analytics · top showrooms & customers
+                  </div>
+                ),
+                children: (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                 <div>
                   <div className="text-[11px] font-semibold text-muted-foreground mb-1">
@@ -1285,8 +1311,10 @@ const PaymentsDashboard = () => {
                   )}
                 </div>
               </div>
-            </Panel>
-          </Collapse>
+                ),
+              },
+            ]}
+          />
         )}
       </Card>
 
@@ -1302,7 +1330,7 @@ const PaymentsDashboard = () => {
       {entityView === "PAYMENTS" ? (
         <Card
           className="rounded-2xl bg-card border border-border"
-          bodyStyle={{ padding: 0 }}
+          styles={{ body: { padding: 0 } }}
         >
           <div className="px-5 pt-4 pb-2 flex items-center justify-between">
             <div>
@@ -1328,7 +1356,7 @@ const PaymentsDashboard = () => {
       ) : (
         <Card
           className="rounded-2xl bg-card border border-border"
-          bodyStyle={{ padding: 0 }}
+          styles={{ body: { padding: 0 } }}
         >
           <div className="px-5 pt-4 pb-2 flex items-center justify-between">
             <div>
@@ -1366,7 +1394,7 @@ const PaymentsDashboard = () => {
         onOk={handleQuickAddSubmit}
         okText="Save"
         centered
-        destroyOnClose
+        destroyOnHidden
       >
         <div className="bg-card border border-border rounded-2xl p-3 space-y-3">
           <div className="text-xs text-muted-foreground">
@@ -1648,6 +1676,12 @@ const PaymentsDashboard = () => {
           )}
         </div>
       </Modal>
+      <DirectCreateModal
+        open={showCreateModal}
+        mode="PAYMENT"
+        onClose={() => setShowCreateModal(false)}
+        onCreated={() => loadData()}
+      />
     </div>
   );
 };

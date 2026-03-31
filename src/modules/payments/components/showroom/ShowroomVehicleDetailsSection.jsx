@@ -69,7 +69,10 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
     data?.do_onRoadVehicleCost ?? data?.onRoadVehicleCost ?? 0,
   );
   const totalDiscountDO = asInt(
-    data?.do_totalDiscount ?? data?.discountExclVehicleValue ?? 0,
+    data?.do_selectedEffectiveTotalDiscount ??
+      data?.do_totalDiscount ??
+      data?.discountExclVehicleValue ??
+      0,
   );
   const netOnRoadDO = asInt(
     data?.do_netOnRoadVehicleCost ?? data?.netOnRoadVehicleCost ?? 0,
