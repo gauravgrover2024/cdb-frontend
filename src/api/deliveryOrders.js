@@ -9,6 +9,10 @@ export const deliveryOrdersApi = {
     return await apiClient.get(`/api/do/${loanId}`);
   },
 
+  createDirect: async (data) => {
+    return await apiClient.post("/api/do", data);
+  },
+
   save: async (loanId, data) => {
     return await apiClient.post(`/api/do/${loanId}`, data);
   },
@@ -17,7 +21,6 @@ export const deliveryOrdersApi = {
     try {
       return await apiClient.put(`/api/do/${loanId}`, data);
     } catch (err) {
-      // Backward compatibility for older deployments that only accepted POST
       return await apiClient.post(`/api/do/${loanId}`, data);
     }
   },
