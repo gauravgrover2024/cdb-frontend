@@ -41,9 +41,31 @@ const asInt = (val) => {
 
 const money = (n) => `₹${asInt(n).toLocaleString("en-IN")}`;
 
+const listFromResponse = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
 const fetchAllDOs = async () => {
-  const res = await deliveryOrdersApi.getAll();
-  return res.data || [];
+  const pageSize = 500;
+  let skip = 0;
+  let hasMore = true;
+  const all = [];
+
+  while (hasMore) {
+    const res = await deliveryOrdersApi.getAll({
+      limit: pageSize,
+      skip,
+      noCount: true,
+    });
+    const page = listFromResponse(res);
+    all.push(...page);
+    hasMore = Boolean(res?.hasMore);
+    skip += pageSize;
+  }
+
+  return all;
 };
 
 const DeliveryOrderDashboard = () => {
@@ -62,8 +84,26 @@ const DeliveryOrderDashboard = () => {
   const loadLoansFromApi = useCallback(async () => {
     try {
       // Point 5: only New Car loans (both financed and cash)
-      const res = await loansApi.getAll("?limit=10000&skip=0&filterLoanType=New Car");
-      const all = Array.isArray(res?.data) ? res.data : [];
+      const pageSize = 1000;
+      let skip = 0;
+      let hasMore = true;
+      const all = [];
+
+      while (hasMore) {
+        const res = await loansApi.getAll({
+          limit: pageSize,
+          skip,
+          noCount: true,
+          filterLoanType: "New Car",
+          view: "dashboard",
+          sortBy: "leadDate",
+          sortDir: "desc",
+        });
+        const page = listFromResponse(res);
+        all.push(...page);
+        hasMore = Boolean(res?.hasMore);
+        skip += pageSize;
+      }
       // client-side safety filter
       const newCarOnly = all.filter((l) => {
         const t = String(l?.typeOfLoan || l?.loanType || l?.caseType || "").toLowerCase();

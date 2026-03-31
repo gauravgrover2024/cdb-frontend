@@ -162,6 +162,7 @@ const getPaymentStatus = (record) => {
    Component
 ============================== */
 const PayoutReceivablesDashboard = () => {
+  const [messageApi, messageContextHolder] = message.useMessage();
   const [rows, setRows] = useState([]);
   const [loans, setLoans] = useState([]);
   const [statusFilter, setStatusFilter] = useState("All");
@@ -190,13 +191,21 @@ const PayoutReceivablesDashboard = () => {
 
   const loadReceivables = async () => {
     try {
-      const pageSize = 1000;
+      const pageSize = 300;
       let skip = 0;
       let hasMore = true;
       const allLoans = [];
 
       while (hasMore) {
-        const res = await loansApi.getAll({ limit: pageSize, skip });
+        const res = await loansApi.getAll({
+          limit: pageSize,
+          skip,
+          noCount: true,
+          filterLoanType: "New Car",
+          view: "dashboard",
+          sortBy: "leadDate",
+          sortDir: "desc",
+        });
         const pageLoans = safeArray(res?.data);
         allLoans.push(...pageLoans);
         hasMore = Boolean(res?.hasMore);
@@ -231,7 +240,7 @@ const PayoutReceivablesDashboard = () => {
       setRows(receivables);
     } catch (err) {
       console.error("Failed to load receivables:", err);
-      message.error("Failed to load receivables");
+      messageApi.error("Failed to load receivables");
     }
   };
 
@@ -284,7 +293,7 @@ const PayoutReceivablesDashboard = () => {
       await loadReceivables();
     } catch (err) {
       console.error("Failed to update receivable:", err);
-      message.error("Failed to update receivable");
+      messageApi.error("Failed to update receivable");
     }
   };
 
@@ -514,7 +523,7 @@ const PayoutReceivablesDashboard = () => {
     );
 
     setEditPaymentModalVisible(false);
-    message.success("Payment updated successfully");
+    messageApi.success("Payment updated successfully");
   };
 
   const handleDeletePayment = async (index) => {
@@ -546,7 +555,7 @@ const PayoutReceivablesDashboard = () => {
       },
     );
 
-    message.success("Payment deleted successfully");
+    messageApi.success("Payment deleted successfully");
   };
 
   /* ==============================
@@ -554,7 +563,7 @@ const PayoutReceivablesDashboard = () => {
   ============================== */
   const openBulkCollectionModal = () => {
     if (!selectedRows.length) {
-      message.warning("Please select at least 1 receivable");
+      messageApi.warning("Please select at least 1 receivable");
       return;
     }
 
@@ -622,7 +631,7 @@ const PayoutReceivablesDashboard = () => {
     setSelectedRowKeys([]);
     setSelectedRows([]);
     setBulkCollectionModalVisible(false);
-    message.success(`${updatedCount} receivables updated`);
+    messageApi.success(`${updatedCount} receivables updated`);
   };
 
   /* ==============================
@@ -677,7 +686,7 @@ const PayoutReceivablesDashboard = () => {
     );
 
     setPartialPaymentModalVisible(false);
-    message.success(
+    messageApi.success(
       isFullyPaid
         ? "Payment complete!"
         : "Partial payment recorded successfully",
@@ -691,7 +700,7 @@ const PayoutReceivablesDashboard = () => {
 
   const handleExport = () => {
     if (!filteredRows.length) {
-      message.warning("No rows to export");
+      messageApi.warning("No rows to export");
       return;
     }
 
@@ -745,7 +754,7 @@ const PayoutReceivablesDashboard = () => {
     link.click();
     document.body.removeChild(link);
 
-    message.success("Data exported to CSV successfully");
+    messageApi.success("Data exported to CSV successfully");
   };
 
   /* ==============================
@@ -997,6 +1006,7 @@ const PayoutReceivablesDashboard = () => {
 
   return (
     <div className="px-4 md:px-6 py-6 bg-slate-50 dark:bg-[#171717] min-h-screen">
+      {messageContextHolder}
       <div className="mb-6">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
           <div>

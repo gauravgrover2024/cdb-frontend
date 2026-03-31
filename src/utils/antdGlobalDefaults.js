@@ -24,12 +24,10 @@ applyDefaults(Input.Search, { allowClear: true });
 applyDefaults(AutoComplete, {
   allowClear: true,
   popupMatchSelectWidth: false,
-  dropdownMatchSelectWidth: false,
 });
 applyDefaults(Select, {
   allowClear: true,
   popupMatchSelectWidth: false,
-  dropdownMatchSelectWidth: false,
 });
 applyDefaults(TreeSelect, { allowClear: true });
 applyDefaults(Cascader, { allowClear: true });

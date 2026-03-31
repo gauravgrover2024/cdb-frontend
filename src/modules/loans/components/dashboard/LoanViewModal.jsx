@@ -1807,7 +1807,7 @@ const LoanViewModal = ({ open, loan, onClose, initialTab, onEdit }) => {
       closable={false}
       width="95vw"
       centered
-      destroyOnClose
+      destroyOnHidden
       className="theme-modal-clean"
       styles={{ body: { padding: 0, borderRadius: 20, overflow: "hidden" } }}
     >
