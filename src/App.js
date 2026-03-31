@@ -41,6 +41,7 @@ import ProfilePage from "./pages/ProfilePage";
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
 import BookingDetailPage from "./modules/payments/pages/BookingDetailPage";
 import BookingsDashboard from "./modules/bookings/pages/BookingsDashboard";
+import ShowroomReceivablesDashboard from "./modules/receivables/pages/ShowroomReceivablesDashboard";
 
 // Floating EMI Calculator – accessible from every authenticated screen
 import EMIFloatingButton from "./components/EMIFloatingButton";
@@ -213,9 +214,19 @@ function App() {
               element={R(FEATURE_ACCESS.PAYMENTS, <NewBookingPage />)}
             />
 
+            {/* Showroom Receivables (Point 7 + 8) */}
+            <Route
+              path="receivables"
+              element={R(FEATURE_ACCESS.PAYMENTS, <ShowroomReceivablesDashboard />)}
+            />
+
             {/* Vehicles — admin/superadmin only */}
             <Route
               path="vehicles"
+              element={R(FEATURE_ACCESS.VEHICLES, <VehicleMaster />)}
+            />
+            <Route
+              path="vehicles/manage"
               element={R(FEATURE_ACCESS.VEHICLES, <VehicleMaster />)}
             />
             <Route

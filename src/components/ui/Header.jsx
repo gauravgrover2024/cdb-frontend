@@ -146,6 +146,7 @@ const Header = () => {
         { label: "Delivery Orders", path: "/delivery-orders",     desc: "Manage DO dispatch",     roles: FEATURE_ACCESS.DELIVERY_ORDERS },
         { label: "Payments",        path: "/payments",            desc: "Process installments",   roles: FEATURE_ACCESS.PAYMENTS },
         { label: "Bookings",        path: "/bookings",            desc: "Manage vehicle bookings", roles: FEATURE_ACCESS.PAYMENTS },
+        { label: "Receivables",     path: "/receivables",         desc: "Showroom excess & commission", roles: FEATURE_ACCESS.PAYMENTS },
       ],
     },
     {

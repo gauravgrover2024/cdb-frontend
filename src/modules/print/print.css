@@ -1,0 +1,141 @@
+/* src/modules/print/print.css */
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+  @page { margin: 15mm; size: A4; }
+}
+
+.print-area {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 12px;
+  color: #111;
+  line-height: 1.5;
+}
+
+.print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #111;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.print-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.print-subtitle {
+  font-size: 11px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.print-section {
+  margin-bottom: 14px;
+}
+
+.print-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #444;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 3px;
+  margin-bottom: 8px;
+}
+
+.print-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.print-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.print-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
+}
+
+.print-label {
+  font-size: 10px;
+  color: #777;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.print-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+}
+
+.print-table th {
+  background: #f3f4f6;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 5px 8px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.print-table td {
+  padding: 5px 8px;
+  border: 1px solid #ddd;
+  font-size: 11px;
+}
+
+.print-amount-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 12px;
+  border-bottom: 1px dashed #eee;
+}
+
+.print-amount-row.total {
+  font-weight: 800;
+  font-size: 14px;
+  border-bottom: 2px solid #111;
+  border-top: 1px solid #111;
+  padding: 5px 0;
+}
+
+.print-footer {
+  margin-top: 24px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #777;
+  border-top: 1px solid #ddd;
+  padding-top: 8px;
+}
+
+.print-sign-box {
+  border-top: 1px solid #111;
+  width: 160px;
+  text-align: center;
+  padding-top: 4px;
+  font-size: 10px;
+  color: #555;
+  margin-top: 40px;
+}
