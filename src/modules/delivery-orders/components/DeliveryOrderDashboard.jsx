@@ -27,6 +27,7 @@ import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { loansApi } from "../../../api/loans";
+import DirectCreateModal from "../../shared/DirectCreateModal";
 
 const { Option } = Select;
 
@@ -56,6 +57,7 @@ const DeliveryOrderDashboard = () => {
   const [searchText, setSearchText] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const loadLoansFromApi = useCallback(async () => {
     try {
@@ -375,6 +377,14 @@ const DeliveryOrderDashboard = () => {
               Refresh
             </Button>
             <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setShowCreateModal(true)}
+              size="large"
+            >
+              New DO
+            </Button>
+            <Button
               icon={<CarOutlined />}
               onClick={() => navigate("/loans")}
               size="large"
@@ -491,6 +501,12 @@ const DeliveryOrderDashboard = () => {
           size="middle"
         />
       </div>
+      <DirectCreateModal
+        open={showCreateModal}
+        mode="DO"
+        onClose={() => setShowCreateModal(false)}
+        onCreated={() => loadData()}
+      />
     </div>
   );
 };

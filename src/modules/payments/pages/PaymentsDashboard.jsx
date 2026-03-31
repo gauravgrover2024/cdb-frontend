@@ -33,6 +33,7 @@ import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { paymentsApi } from "../../../api/payments";
 import { bookingsApi } from "../../../api/bookings";
 import { useBankDirectoryOptions } from "../../../hooks/useBankDirectoryOptions";
+import DirectCreateModal from "../../shared/DirectCreateModal";
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -56,6 +57,7 @@ const PaymentsDashboard = () => {
   const [savedDOs, setSavedDOs] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchInput, setSearchInput] = useState("");
 
   // Quick-add modal state
@@ -1060,6 +1062,13 @@ const PaymentsDashboard = () => {
               Refresh
             </Button>
             <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setShowCreateModal(true)}
+            >
+              New Payment
+            </Button>
+            <Button
               icon={<FilterOutlined />}
               type={entityView === "BOOKINGS" ? "primary" : "default"}
               onClick={() =>
@@ -1648,6 +1657,12 @@ const PaymentsDashboard = () => {
           )}
         </div>
       </Modal>
+      <DirectCreateModal
+        open={showCreateModal}
+        mode="PAYMENT"
+        onClose={() => setShowCreateModal(false)}
+        onCreated={() => loadData()}
+      />
     </div>
   );
 };
