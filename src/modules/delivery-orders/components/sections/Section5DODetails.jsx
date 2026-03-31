@@ -183,69 +183,63 @@ const Section5DODetails = ({ loan }) => {
     safeText(loan?.loanType).toLowerCase() === "financed";
   const netOffDiscount = !!v.do_netOffDiscount;
 
-  const showroom_vehicleCost = asInt(v.do_onRoadVehicleCost);
-  const showroom_grossDO = asInt(v.do_grossDO);
-  const showroom_totalDiscount = asInt(v.do_totalDiscount);
-  const showroom_insuranceCost = asInt(v.do_insuranceCost);
-  const showroom_vehicleValue = asInt(v.do_exchangeVehiclePrice);
-  const showroom_marginMoney = asInt(v.do_marginMoneyPaid);
+  // ── Source values based on account type ──────────────────────────────────
+  const selectedOnRoad = asInt(v.do_onRoadVehicleCost);
+  const selectedGrossDO = asInt(v.do_grossDO);
+  const selectedMarginMoney = asInt(v.do_marginMoneyPaid);
+  const selectedInsuranceCost = asInt(v.do_insuranceCost);
+  const exchangeVehiclePrice = asInt(v.do_exchangeVehiclePrice);
 
-  const customer_vehicleCost = asInt(v.do_onRoadVehicleCost);
-  const customer_grossDO = asInt(v.do_grossDO);
-  const customer_totalDiscount = asInt(v.do_customer_totalDiscount);
-  const customer_insuranceCost = asInt(v.do_insuranceCost);
-  const customer_vehicleValue = asInt(v.do_exchangeVehiclePrice);
-  const customer_marginMoney = asInt(v.do_marginMoneyPaid);
-
-  const selectedVehicleCost =
-    doAccountType === "Customer" ? customer_vehicleCost : showroom_vehicleCost;
-  const selectedGrossDO =
-    doAccountType === "Customer" ? customer_grossDO : showroom_grossDO;
-  const selectedTotalDiscount =
+  // Total discount from the active account section
+  // Section3 totalDiscount already includes exchangeVehiclePrice — we must NOT deduct it again
+  const rawTotalDiscount =
     doAccountType === "Customer"
-      ? customer_totalDiscount
-      : showroom_totalDiscount;
-  const selectedInsuranceCost =
-    doAccountType === "Customer"
-      ? customer_insuranceCost
-      : showroom_insuranceCost;
-  const selectedVehicleValue =
-    doAccountType === "Customer"
-      ? customer_vehicleValue
-      : showroom_vehicleValue;
-  const selectedMarginMoney =
-    doAccountType === "Customer" ? customer_marginMoney : showroom_marginMoney;
+      ? asInt(v.do_customer_totalDiscount)
+      : asInt(v.do_totalDiscount);
 
-  const effectiveTotalDiscount = netOffDiscount ? 0 : selectedTotalDiscount;
-  const discountExcludingVehicleValue = Math.max(
-    0,
-    effectiveTotalDiscount - selectedVehicleValue,
-  );
-
+  // ── Adjustment entry logic ────────────────────────────────────────────────
+  // Insurance deduction: only deduct if insurance is NOT paid by showroom
+  // (if showroom pays insurance, it's already in their cost — no separate deduction)
   const insuranceBy = safeText(v.do_insuranceBy);
   const insuranceDeductForNet =
     insuranceBy.toLowerCase() === "showroom" ? 0 : selectedInsuranceCost;
 
+  // Exchange vehicle: Section3 already includes exchangeVehiclePrice in totalDiscount.
+  // In Section5 we only need to handle the case where exchange is purchased by Autocredits
+  // (not showroom) — in that case the vehicle value should NOT be in the discount at all,
+  // so we add it back (cancel the discount) and don't deduct it separately.
   const exchangePurchasedBy = safeText(v.do_exchangePurchasedBy);
-  const vehicleValueDeductForNet =
-    exchangePurchasedBy.toLowerCase() === "showroom" ? selectedVehicleValue : 0;
+  // If purchased by Autocredits: exchange value was wrongly included in discount → add back
+  // If purchased by Showroom: exchange value stays in discount (showroom absorbs it)
+  const exchangeAddBack =
+    exchangePurchasedBy.toLowerCase() === "showroom" ? 0 : exchangeVehiclePrice;
 
+  // Effective discount applied to Net DO
+  // netOffDiscount = ignore all discounts (borne externally)
+  const effectiveDiscount = netOffDiscount ? 0 : Math.max(0, rawTotalDiscount - exchangeAddBack);
+
+  // Finance deduction: net loan disbursed minus processing fees
   const loanAmount = asInt(v.do_loanAmount);
   const processingFees = asInt(v.do_processingFees);
-  const financeNetValue = isFinanced
-    ? Math.max(0, loanAmount - processingFees)
-    : 0;
+  const financeNetValue = isFinanced ? Math.max(0, loanAmount - processingFees) : 0;
 
-  const showroomOnRoadPayable = asInt(v.do_onRoadVehicleCost);
-  const showroomMarginMoneyPaid = asInt(v.do_marginMoneyPaid);
-
+  // ── Final Net DO ──────────────────────────────────────────────────────────
+  // Net DO = OnRoad - MarginMoney - EffectiveDiscount - FinanceNet - InsuranceDeduction
   const netDOAmountFinal =
-    showroomOnRoadPayable -
-    showroomMarginMoneyPaid -
-    discountExcludingVehicleValue -
+    selectedOnRoad -
+    selectedMarginMoney -
+    effectiveDiscount -
     financeNetValue -
-    insuranceDeductForNet -
-    vehicleValueDeductForNet;
+    insuranceDeductForNet;
+
+  // Keep legacy aliases for hidden form fields & summary rows
+  const showroomOnRoadPayable = selectedOnRoad;
+  const showroomMarginMoneyPaid = selectedMarginMoney;
+  const discountExcludingVehicleValue = effectiveDiscount;
+  const vehicleValueDeductForNet = exchangeAddBack;
+  const selectedVehicleCost = selectedOnRoad;
+  const selectedTotalDiscount = rawTotalDiscount;
+  const selectedVehicleValue = exchangeVehiclePrice;
 
   useEffect(() => {
     if (!form) return;
@@ -321,7 +315,7 @@ const Section5DODetails = ({ loan }) => {
       do_selectedVehicleCost: selectedVehicleCost,
       do_selectedGrossDO: selectedGrossDO,
       do_selectedTotalDiscount: selectedTotalDiscount,
-      do_selectedEffectiveTotalDiscount: effectiveTotalDiscount,
+      do_selectedEffectiveTotalDiscount: effectiveDiscount,
       do_selectedDiscountExclVehicleValue: discountExcludingVehicleValue,
       do_selectedInsuranceCost: selectedInsuranceCost,
       do_selectedVehicleValue: selectedVehicleValue,
@@ -338,7 +332,7 @@ const Section5DODetails = ({ loan }) => {
     selectedVehicleCost,
     selectedGrossDO,
     selectedTotalDiscount,
-    effectiveTotalDiscount,
+    effectiveDiscount,
     discountExcludingVehicleValue,
     selectedInsuranceCost,
     selectedVehicleValue,
@@ -747,26 +741,27 @@ const Section5DODetails = ({ loan }) => {
             <SummaryRow
               label={
                 netOffDiscount
-                  ? "Discount Used (net-off applied)"
-                  : "Discount Used (after vehicle value)"
+                  ? "Discount (net-off applied — ignored)"
+                  : exchangeAddBack > 0
+                  ? `Discount (excl. exchange ₹${asInt(exchangeAddBack).toLocaleString("en-IN")} — by Autocredits)`
+                  : "Discount Applied"
               }
               value={discountExcludingVehicleValue}
               intent="discount"
               strong={netOffDiscount}
             />
             <SummaryRow
-              label="Net finance (Loan − PF)"
+              label="Net Finance (Loan − PF)"
               value={financeNetValue}
               intent="deduction"
             />
             <SummaryRow
-              label="Insurance Deduction"
+              label={
+                insuranceBy.toLowerCase() === "showroom"
+                  ? "Insurance (by Showroom — not deducted)"
+                  : "Insurance Deduction"
+              }
               value={insuranceDeductForNet}
-              intent="deduction"
-            />
-            <SummaryRow
-              label="Vehicle Value Deduction"
-              value={vehicleValueDeductForNet}
               intent="deduction"
             />
           </div>
