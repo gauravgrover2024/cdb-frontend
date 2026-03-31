@@ -97,25 +97,6 @@ const buildVariantDisplayLabel = (variant, make = "", model = "") => {
   return cleaned || raw;
 };
 
-const buildPriceDeltaInsight = (basePrice, candidatePrice, bodyType, seatCount) => {
-  const base = Number(basePrice) || 0;
-  const next = Number(candidatePrice) || 0;
-  if (!base || !next) return "AI insight: Similar segment option for comparison.";
-
-  const diff = next - base;
-  const pct = Math.round((Math.abs(diff) / base) * 100);
-  const seatLabel = seatCount ? `${seatCount}-seater` : "same seating class";
-  const bodyLabel = bodyType || "same body type";
-
-  if (pct <= 2) {
-    return `AI insight: Near-identical starting price in ${bodyLabel}, ${seatLabel}.`;
-  }
-  if (diff < 0) {
-    return `AI insight: About ${pct}% lower than current pick with ${bodyLabel}, ${seatLabel}.`;
-  }
-  return `AI insight: About ${pct}% premium over current pick with ${bodyLabel}, ${seatLabel}.`;
-};
-
 const toArray = (payload) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
@@ -354,6 +335,8 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   const [baseModelContext, setBaseModelContext] = useState(null);
   const [similarCarsIdeas, setSimilarCarsIdeas] = useState([]);
   const [similarCarsLoading, setSimilarCarsLoading] = useState(false);
+  const [similarCarsExpanded, setSimilarCarsExpanded] = useState(false);
+  const [similarCarsTotalMatches, setSimilarCarsTotalMatches] = useState(0);
 
   // ─── smart-set city from loaded data ───────────────────────────────────────
   const smartSetCity = useCallback((list) => {
@@ -445,6 +428,10 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     }, 180);
     return () => clearTimeout(handle);
   }, [vehicleSearchInput]);
+
+  useEffect(() => {
+    setSimilarCarsExpanded(false);
+  }, [makeFilter, modelFilter, cityFilter, showDiscontinued]);
 
   const vehicleSearchOptions = useMemo(() => {
     const q = normalizeText(debouncedVehicleSearchInput);
@@ -741,6 +728,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       setBaseModelContext(null);
       setSimilarCarsIdeas([]);
       setSimilarCarsLoading(false);
+      setSimilarCarsTotalMatches(0);
       return () => {
         ignore = true;
       };
@@ -755,7 +743,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
           city: cityFilter || undefined,
           includeDiscontinued: showDiscontinued,
           tolerance: 0.15,
-          limit: 5,
+          limit: similarCarsExpanded ? 200 : 5,
         });
         if (ignore) return;
 
@@ -781,7 +769,6 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
         setBaseModelContext(normalizedBase);
 
         const sourceRows = Array.isArray(payload?.data) ? payload.data : [];
-        const basePrice = Number(normalizedBase?.basePrice || 0);
         const ideas = sourceRows
           .map((row) => {
             const startingPrice = Number(row?.startingPrice || row?.basePrice || 0);
@@ -793,21 +780,22 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
               startingPrice,
               bodyType: collapseSpaces(row?.bodyType || normalizedBase?.bodyType || ""),
               seatCount,
-              aiInsight: buildPriceDeltaInsight(
-                basePrice,
-                startingPrice,
-                row?.bodyType || normalizedBase?.bodyType || "",
-                seatCount,
-              ),
             };
           })
           .filter(Boolean);
         setSimilarCarsIdeas(ideas);
+        const totalMatches = Number(payload?.meta?.totalMatches);
+        setSimilarCarsTotalMatches(
+          Number.isFinite(totalMatches) && totalMatches >= 0
+            ? totalMatches
+            : ideas.length,
+        );
       } catch (error) {
         if (ignore) return;
         console.error("Failed to load AI similar cars", error);
         setBaseModelContext(null);
         setSimilarCarsIdeas([]);
+        setSimilarCarsTotalMatches(0);
       } finally {
         if (!ignore) setSimilarCarsLoading(false);
       }
@@ -817,7 +805,13 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     return () => {
       ignore = true;
     };
-  }, [cityFilter, makeFilter, modelFilter, showDiscontinued]);
+  }, [
+    cityFilter,
+    makeFilter,
+    modelFilter,
+    showDiscontinued,
+    similarCarsExpanded,
+  ]);
 
   const activeGalleryVehicle = useMemo(() => {
     if (galleryVehicleId) {
@@ -1355,23 +1349,25 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                           className="text-slate-400 shrink-0"
                         />
                       </div>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {idea.bodyType ? (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#2a2a2a] text-slate-600 dark:text-slate-300">
-                            {idea.bodyType}
-                          </span>
-                        ) : null}
-                        {idea.seatCount ? (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#2a2a2a] text-slate-600 dark:text-slate-300">
-                            {idea.seatCount}-seater
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="mt-1.5 text-[10px] leading-snug text-slate-500 dark:text-slate-400">
-                        {idea.aiInsight}
-                      </p>
                     </button>
                   ))}
+                  {similarCarsTotalMatches > similarCarsIdeas.length ? (
+                    <button
+                      type="button"
+                      onClick={() => setSimilarCarsExpanded(true)}
+                      className="w-full rounded-lg border border-violet-200 bg-violet-50/80 px-3 py-2 text-[11px] font-semibold text-violet-700 hover:bg-violet-100 dark:border-violet-800/60 dark:bg-violet-900/20 dark:text-violet-300"
+                    >
+                      Show more similar cars ({similarCarsTotalMatches})
+                    </button>
+                  ) : similarCarsExpanded && similarCarsTotalMatches > 5 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSimilarCarsExpanded(false)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#3b3b3b] dark:bg-[#242424] dark:text-slate-200"
+                    >
+                      Show less
+                    </button>
+                  ) : null}
                 </div>
               )}
             </div>
