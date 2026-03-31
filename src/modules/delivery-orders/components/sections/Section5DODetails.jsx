@@ -441,7 +441,7 @@ const Section5DODetails = ({ loan }) => {
                   <Select
                     bordered={false}
                     size="small"
-                    dropdownMatchSelectWidth={220}
+                    popupMatchSelectWidth={220}
                   >
                     <Option value="Showroom">Showroom Account</Option>
                     <Option value="Customer">Customer Account</Option>
@@ -491,7 +491,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     placeholder="Select"
-                    dropdownMatchSelectWidth={220}
+                    popupMatchSelectWidth={220}
                   >
                     <Option value="Autocredits India LLP">
                       Autocredits India LLP
@@ -514,7 +514,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     placeholder="Select"
-                    dropdownMatchSelectWidth={220}
+                    popupMatchSelectWidth={220}
                   >
                     <Option value="Showroom">Showroom</Option>
                     <Option value="Autocredits">Autocredits</Option>
@@ -581,7 +581,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     placeholder="Select"
-                    dropdownMatchSelectWidth={180}
+                    popupMatchSelectWidth={180}
                   >
                     <Option value="Private">Private</Option>
                     <Option value="Commercial">Commercial</Option>

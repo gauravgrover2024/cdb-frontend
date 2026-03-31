@@ -18,7 +18,30 @@ const { Option } = Select;
 const asInt = (v) => Math.trunc(Number(v) || 0);
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
+const listFromResponse = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
+const fetchAllByPagination = async (fetchPage, pageSize = 500) => {
+  let skip = 0;
+  let hasMore = true;
+  const all = [];
+
+  while (hasMore) {
+    const res = await fetchPage({ limit: pageSize, skip, noCount: true });
+    const page = listFromResponse(res);
+    all.push(...page);
+    hasMore = Boolean(res?.hasMore);
+    skip += pageSize;
+  }
+
+  return all;
+};
+
 const ShowroomReceivablesDashboard = () => {
+  const [messageApi, messageContextHolder] = message.useMessage();
   const [payments, setPayments] = useState([]);
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -38,13 +61,23 @@ const ShowroomReceivablesDashboard = () => {
     setLoading(true);
     try {
       const [pmtRes, loanRes] = await Promise.all([
-        paymentsApi.getAll(),
-        loansApi.getAll("?limit=5000&skip=0&filterLoanType=New Car"),
+        fetchAllByPagination((params) => paymentsApi.getAll(params), 500),
+        fetchAllByPagination(
+          (params) =>
+            loansApi.getAll({
+              ...params,
+              filterLoanType: "New Car",
+              view: "dashboard",
+              sortBy: "leadDate",
+              sortDir: "desc",
+            }),
+          300,
+        ),
       ]);
-      setPayments(pmtRes?.data || []);
-      setLoans(loanRes?.data || []);
+      setPayments(Array.isArray(pmtRes) ? pmtRes : []);
+      setLoans(Array.isArray(loanRes) ? loanRes : []);
     } catch (err) {
-      message.error("Failed to load receivables");
+      messageApi.error("Failed to load receivables");
     } finally {
       setLoading(false);
     }
@@ -133,11 +166,11 @@ const ShowroomReceivablesDashboard = () => {
         billDate: values.billDate.toISOString(),
         billStatus: "Bill Generated",
       });
-      message.success(`Bill ${values.billNumber} generated ✅`);
+      messageApi.success(`Bill ${values.billNumber} generated ✅`);
       setBillModal(false);
       load();
     } catch (err) {
-      message.error("Failed to save bill");
+      messageApi.error("Failed to save bill");
     }
   };
 
@@ -163,11 +196,11 @@ const ShowroomReceivablesDashboard = () => {
         outstandingCommissionFromShowroom: Math.max(0, newCommReceivable - newCommReceived),
         showroomName: excessRecord.showroomName,
       });
-      message.success("Excess / commission entry saved ✅");
+      messageApi.success("Excess / commission entry saved ✅");
       setExcessModal(false);
       load();
     } catch (err) {
-      message.error("Failed to save entry");
+      messageApi.error("Failed to save entry");
     }
   };
 
@@ -298,6 +331,7 @@ const ShowroomReceivablesDashboard = () => {
 
   return (
     <div className="px-4 md:px-6 py-6 bg-slate-50 dark:bg-[#171717] min-h-screen">
+      {messageContextHolder}
       {/* Header */}
       <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
         <div>
@@ -356,7 +390,7 @@ const ShowroomReceivablesDashboard = () => {
         onOk={handleBillSave}
         okText="Save & Generate"
         centered
-        destroyOnClose
+        destroyOnHidden
       >
         {billRecord && (
           <div className="mb-3 text-sm text-muted-foreground">
@@ -384,7 +418,7 @@ const ShowroomReceivablesDashboard = () => {
         onOk={handleExcessSave}
         okText="Save Entry"
         centered
-        destroyOnClose
+        destroyOnHidden
       >
         {excessRecord && (
           <div className="mb-3 text-sm text-muted-foreground">

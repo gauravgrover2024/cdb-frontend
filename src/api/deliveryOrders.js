@@ -1,8 +1,8 @@
 import { apiClient } from "./client";
 
 export const deliveryOrdersApi = {
-  getAll: async () => {
-    return await apiClient.get("/api/do");
+  getAll: async (params = {}) => {
+    return await apiClient.get("/api/do", { params });
   },
 
   getByLoanId: async (loanId) => {

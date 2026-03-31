@@ -22,6 +22,12 @@ const money = (n) => {
 
 const STATUS_COLOR = { Open: "blue", Converted: "green", Cancelled: "red" };
 
+const listFromResponse = (res) => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
 const BookingsDashboard = () => {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
@@ -32,8 +38,8 @@ const BookingsDashboard = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await bookingsApi.list({ limit: 500, skip: 0 });
-      setBookings(Array.isArray(res) ? res : []);
+      const res = await bookingsApi.list({ limit: 500, skip: 0, noCount: true });
+      setBookings(listFromResponse(res));
     } catch (err) {
       message.error("Failed to load bookings");
     } finally {

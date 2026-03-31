@@ -158,6 +158,7 @@ const getPaymentStatus = (record) => {
    Component
 ============================== */
 const PayoutPayablesDashboard = () => {
+  const [messageApi, messageContextHolder] = message.useMessage();
   const [rows, setRows] = useState([]);
   const [loans, setLoans] = useState([]);
   const [statusFilter, setStatusFilter] = useState("All");
@@ -183,13 +184,21 @@ const PayoutPayablesDashboard = () => {
 
   const loadPayables = async () => {
     try {
-      const pageSize = 1000;
+      const pageSize = 300;
       let skip = 0;
       let hasMore = true;
       const allLoans = [];
 
       while (hasMore) {
-        const res = await loansApi.getAll({ limit: pageSize, skip });
+        const res = await loansApi.getAll({
+          limit: pageSize,
+          skip,
+          noCount: true,
+          filterLoanType: "New Car",
+          view: "dashboard",
+          sortBy: "leadDate",
+          sortDir: "desc",
+        });
         const pageLoans = safeArray(res?.data);
         allLoans.push(...pageLoans);
         hasMore = Boolean(res?.hasMore);
@@ -226,7 +235,7 @@ const PayoutPayablesDashboard = () => {
       setRows(payables);
     } catch (err) {
       console.error("Failed to load payables:", err);
-      message.error("Failed to load payables");
+      messageApi.error("Failed to load payables");
     }
   };
 
@@ -272,7 +281,7 @@ const PayoutPayablesDashboard = () => {
       await loadPayables();
     } catch (err) {
       console.error("Failed to update payable:", err);
-      message.error("Failed to update payable");
+      messageApi.error("Failed to update payable");
     }
   };
 
@@ -487,7 +496,7 @@ const PayoutPayablesDashboard = () => {
     );
 
     setEditPaymentModalVisible(false);
-    message.success("Payment updated successfully");
+    messageApi.success("Payment updated successfully");
   };
 
   const handleDeletePayment = async (index) => {
@@ -513,7 +522,7 @@ const PayoutPayablesDashboard = () => {
       },
     );
 
-    message.success("Payment deleted successfully");
+    messageApi.success("Payment deleted successfully");
   };
 
   /* ==============================
@@ -521,7 +530,7 @@ const PayoutPayablesDashboard = () => {
   ============================== */
   const openBulkPaymentModal = () => {
     if (!selectedRows.length) {
-      message.warning("Please select at least 1 payable");
+      messageApi.warning("Please select at least 1 payable");
       return;
     }
 
@@ -585,7 +594,7 @@ const PayoutPayablesDashboard = () => {
     setSelectedRowKeys([]);
     setSelectedRows([]);
     setBulkPaymentModalVisible(false);
-    message.success(`${updatedCount} payables updated`);
+    messageApi.success(`${updatedCount} payables updated`);
   };
 
   /* ==============================
@@ -638,7 +647,7 @@ const PayoutPayablesDashboard = () => {
     );
 
     setPartialPaymentModalVisible(false);
-    message.success(isFullyPaid ? "Payment complete!" : "Partial payment recorded successfully");
+    messageApi.success(isFullyPaid ? "Payment complete!" : "Partial payment recorded successfully");
   };
 
   const openTimelineModal = (record) => {
@@ -648,7 +657,7 @@ const PayoutPayablesDashboard = () => {
 
   const handleExport = () => {
     if (!filteredRows.length) {
-      message.warning("No rows to export");
+      messageApi.warning("No rows to export");
       return;
     }
 
@@ -696,7 +705,7 @@ const PayoutPayablesDashboard = () => {
     link.click();
     document.body.removeChild(link);
 
-    message.success("Data exported to CSV successfully");
+    messageApi.success("Data exported to CSV successfully");
   };
 
   /* ==============================
@@ -938,6 +947,7 @@ const PayoutPayablesDashboard = () => {
 
   return (
     <div className="p-6 min-h-screen">
+      {messageContextHolder}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-6">
           <div>

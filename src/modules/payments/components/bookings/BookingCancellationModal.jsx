@@ -37,7 +37,7 @@ const BookingCancellationModal = ({ open, onClose, booking, onCancelled }) => {
       onOk={handleOk}
       okText="Cancel booking"
       okButtonProps={{ danger: true, loading: submitting }}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         layout="vertical"

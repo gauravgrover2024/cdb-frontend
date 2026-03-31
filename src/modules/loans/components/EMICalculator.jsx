@@ -3730,7 +3730,7 @@ const EMICalculator = ({
           onCancel={() => setShowPricingModal(false)}
           footer={null}
           width={720}
-          destroyOnClose
+          destroyOnHidden
           title={null}
         >
           <VehiclePricingPopup

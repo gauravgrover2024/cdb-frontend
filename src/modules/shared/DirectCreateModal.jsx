@@ -70,7 +70,7 @@ const DirectCreateModal = ({ open, mode, onClose, onCreated }) => {
         </Button>,
       ]}
       centered
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" className="mt-2">
         <Form.Item
