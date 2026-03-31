@@ -204,6 +204,8 @@ const VEHICLE_ROWS_BY_CITY = new Map();
 const VEHICLE_ROWS_FETCHING = new Map();
 const VEHICLE_LIST_LIMIT = 1000;
 const VEHICLE_FALLBACK_MAX_ROWS = 2000;
+const VEHICLE_MEDIA_CACHE_TTL_MS = 10 * 60 * 1000;
+const VEHICLE_MEDIA_CACHE = new Map();
 
 const normalizeVehicleRecord = (row) => ({
   ...row,
@@ -717,10 +719,22 @@ export const vehiclesApi = {
   },
 
   getMedia: async (make, model, variant = null) => {
+    const cacheKey = JSON.stringify({
+      make: String(make || "").trim().toLowerCase(),
+      model: String(model || "").trim().toLowerCase(),
+      variant: String(variant || "").trim().toLowerCase(),
+    });
+    const cached = VEHICLE_MEDIA_CACHE.get(cacheKey);
+    if (cached && Date.now() - cached.ts <= VEHICLE_MEDIA_CACHE_TTL_MS) {
+      return cached.payload;
+    }
+
     let url = `/api/vehicles/media?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`;
     if (variant) url += `&variant=${encodeURIComponent(variant)}`;
     const payload = await apiClient.get(url);
-    return withNormalizedData(payload, normalizeArrayData(payload));
+    const normalized = withNormalizedData(payload, normalizeArrayData(payload));
+    VEHICLE_MEDIA_CACHE.set(cacheKey, { ts: Date.now(), payload: normalized });
+    return normalized;
   },
 
   getSimilarModels: async ({

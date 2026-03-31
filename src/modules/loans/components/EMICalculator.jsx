@@ -850,8 +850,14 @@ const EMICalculator = ({
           }
         }
 
-        const res = await featuresApi.getVariantsWithPrice();
-        const variants = toArray(res);
+        const scopedVariantsResponse = await featuresApi.getVariantsWithPrice({
+          make: featureLookup.make || "",
+          model: featureLookup.model || "",
+          variant: featureLookup.variant || "",
+          slim: "0",
+          includeDiscontinued: "1",
+        });
+        const variants = toArray(scopedVariantsResponse);
 
         const match = variants.find((row) => {
           const rowVehicleId = normalizeText(

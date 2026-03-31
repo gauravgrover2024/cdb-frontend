@@ -355,30 +355,29 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   // Runs only on mount. Backend has in-memory cache so this is fast after first hit.
   const loadAllVehicles = useCallback(async () => {
     try {
-      const res = await vehiclesApi.getAll();
-      let list = toArray(res).map(normalizeVehicleRecord);
-
-      if (!list.length) {
-        const variantsRes = await featuresApi.getVariantsWithPrice();
-        const variants = Array.isArray(variantsRes?.data) ? variantsRes.data : [];
-        list = variants.map((v) =>
-          normalizeVehicleRecord({
-            _id: v.vehicleId || v.id || v._id,
-            make: v.make || "N/A",
-            model: v.model || "N/A",
-            variant: v.variant || "N/A",
-            fuel: v.fuel || "N/A",
-            city: v.city || "N/A",
-            exShowroom: Number(v.exShowroom || 0),
-            rto: Number(v.rto || 0),
-            insurance: Number(v.insurance || 0),
-            otherCharges: Number(v.otherCharges || v.tcs || 0),
-            onRoadPrice: Number(v.onRoadPrice || 0),
-            status: "Active",
-            isDiscontinued: false,
-          }),
-        );
-      }
+      // Fast source for dropdown universe: deduped variants list.
+      const variantsRes = await featuresApi.getVariantsWithPrice({
+        slim: "1",
+        includeDiscontinued: "1",
+      });
+      const variants = Array.isArray(variantsRes?.data) ? variantsRes.data : [];
+      const list = variants.map((v) =>
+        normalizeVehicleRecord({
+          _id: v.vehicleId || v.id || v._id,
+          make: v.make || "N/A",
+          model: v.model || "N/A",
+          variant: v.variant || "N/A",
+          fuel: v.fuel || "N/A",
+          city: v.city || "N/A",
+          exShowroom: Number(v.exShowroom || 0),
+          rto: Number(v.rto || 0),
+          insurance: Number(v.insurance || 0),
+          otherCharges: Number(v.otherCharges || v.tcs || 0),
+          onRoadPrice: Number(v.onRoadPrice || 0),
+          status: "Active",
+          isDiscontinued: Boolean(v.isDiscontinued),
+        }),
+      );
 
       setAllVehicles(list);
       setVehicles(list);   // initial display = full set (local filtering kicks in below)
@@ -413,6 +412,22 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
   // When key filters change: ask backend for the filtered subset
   useEffect(() => {
     if (!allVehicles.length) return; // wait for initial load
+    const isDelhiLike = !cityFilter || cityMatches(cityFilter, "Delhi");
+    const hasNarrowingFilters = Boolean(
+      makeFilter ||
+        modelFilter ||
+        variantFilter ||
+        (fuelFilter && fuelFilter !== "All") ||
+        !isDelhiLike,
+    );
+
+    // Fast first paint: keep slim dataset for default view.
+    // Fetch full vehicle rows only when user narrows context.
+    if (!hasNarrowingFilters) {
+      setVehicles(allVehicles);
+      return;
+    }
+
     const params = {};
     if (cityFilter) params.city = cityFilter;
     if (makeFilter) params.make = makeFilter;
@@ -740,7 +755,6 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
         const payload = await vehiclesApi.getSimilarModels({
           make: makeFilter,
           model: modelFilter,
-          city: cityFilter || undefined,
           includeDiscontinued: showDiscontinued,
           tolerance: 0.15,
           limit: similarCarsExpanded ? 200 : 5,
@@ -806,7 +820,6 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       ignore = true;
     };
   }, [
-    cityFilter,
     makeFilter,
     modelFilter,
     showDiscontinued,
