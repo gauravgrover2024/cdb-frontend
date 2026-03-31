@@ -402,9 +402,11 @@ const PaymentForm = () => {
     );
 
     const onRoadVehicleCost = asInt(doRec?.do_onRoadVehicleCost || 0);
+    // Point 3: use the corrected effective discount stored by Section5 (after exchange add-back)
     const discountExclVehicleValue = asInt(
-      doRec?.do_selectedDiscountExclVehicleValue ||
-        doRec?.do_totalDiscount ||
+      doRec?.do_selectedEffectiveTotalDiscount ??
+        doRec?.do_selectedDiscountExclVehicleValue ??
+        doRec?.do_totalDiscount ??
         0,
     );
 

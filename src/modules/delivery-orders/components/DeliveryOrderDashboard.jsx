@@ -61,8 +61,15 @@ const DeliveryOrderDashboard = () => {
 
   const loadLoansFromApi = useCallback(async () => {
     try {
-      const res = await loansApi.getAll("?limit=10000&skip=0");
-      setLoans(Array.isArray(res?.data) ? res.data : []);
+      // Point 5: only New Car loans (both financed and cash)
+      const res = await loansApi.getAll("?limit=10000&skip=0&filterLoanType=New Car");
+      const all = Array.isArray(res?.data) ? res.data : [];
+      // client-side safety filter
+      const newCarOnly = all.filter((l) => {
+        const t = String(l?.typeOfLoan || l?.loanType || l?.caseType || "").toLowerCase();
+        return t.includes("new car") || t === "new";
+      });
+      setLoans(newCarOnly);
     } catch (err) {
       console.error("Load Loans Error:", err);
       setLoans([]);

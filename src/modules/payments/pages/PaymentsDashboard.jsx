@@ -157,32 +157,20 @@ const PaymentsDashboard = () => {
     try {
       const t0 = performance.now();
       const [loansRes, dosRes, paymentsRes] = await Promise.all([
-        loansApi.getAll("?limit=4000&skip=0"),
+        // Point 5: only New Car loans (financed + cash)
+        loansApi.getAll("?limit=4000&skip=0&filterLoanType=New Car"),
         deliveryOrdersApi.getAll(),
         paymentsApi.getAll(),
       ]);
 
-      console.log("[PaymentsDashboard] loansRes", loansRes);
-      console.log("[PaymentsDashboard] dosRes", dosRes);
-      console.log("[PaymentsDashboard] paymentsRes", paymentsRes);
+      const allLoans = loansRes?.data || [];
+      // client-side safety filter
+      const newCarLoans = allLoans.filter((l) => {
+        const t = String(l?.typeOfLoan || l?.loanType || l?.caseType || "").toLowerCase();
+        return t.includes("new car") || t === "new";
+      });
 
-      const t1 = performance.now();
-
-      console.log(
-        "[PaymentsDashboard] paymentMap built in",
-        (t1 - t0).toFixed(0),
-        "ms for",
-        savedPayments.length,
-        "payments",
-      );
-      console.log("[PaymentsDashboard] loans:", loansRes?.data?.length || 0);
-      console.log("[PaymentsDashboard] DOs:", dosRes?.data?.length || 0);
-      console.log(
-        "[PaymentsDashboard] payments:",
-        paymentsRes?.data?.length || 0,
-      );
-
-      setLoans(loansRes?.data || []);
+      setLoans(newCarLoans);
       setSavedDOs(dosRes?.data || []);
       setSavedPayments(paymentsRes?.data || []);
 
