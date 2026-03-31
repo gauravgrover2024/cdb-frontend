@@ -24,4 +24,8 @@ export const deliveryOrdersApi = {
       return await apiClient.post(`/api/do/${loanId}`, data);
     }
   },
+
+  deleteByLoanId: async (loanId) => {
+    return await apiClient.delete(`/api/do/${loanId}`);
+  },
 };

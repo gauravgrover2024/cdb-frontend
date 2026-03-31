@@ -1,7 +1,7 @@
 // src/modules/delivery-orders/components/sections/Section1CustomerDetails.jsx
 
 import React, { useEffect, useMemo } from "react";
-import { Row, Col, Form, Tag, Divider, Input } from "antd";
+import { Row, Col, Form, Tag, Divider, Input, DatePicker } from "antd";
 import { UserOutlined, IdcardOutlined, HomeOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import Icon from "../../../../components/AppIcon";
@@ -97,12 +97,18 @@ const ReadonlyInput = ({ value, multiline }) =>
 
 const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
   const customerName = Form.useWatch("customerName", form);
+  const doCustomerName = Form.useWatch("do_customerName", form);
   const residenceAddress = Form.useWatch("residenceAddress", form);
+  const doResidenceAddress = Form.useWatch("do_residenceAddress", form);
   const pincode = Form.useWatch("pincode", form);
+  const doPincode = Form.useWatch("do_pincode", form);
   const city = Form.useWatch("city", form);
+  const doCity = Form.useWatch("do_city", form);
 
   const recordSource = Form.useWatch("recordSource", form);
+  const doRecordSource = Form.useWatch("do_recordSource", form);
   const sourceName = Form.useWatch("sourceName", form);
+  const doSourceName = Form.useWatch("do_sourceName", form);
 
   const doDate = Form.useWatch("do_date", form);
   const doRefNo = Form.useWatch("do_refNo", form);
@@ -130,9 +136,16 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
     }
   }, [form]);
 
-  const sourceText = recordSource
-    ? recordSource === "Indirect"
-      ? `Indirect (${sourceName || "-"})`
+  const resolvedCustomerName = customerName || doCustomerName || "-";
+  const resolvedAddress = residenceAddress || doResidenceAddress || "-";
+  const resolvedPincode = pincode || doPincode || "-";
+  const resolvedCity = city || doCity || "-";
+  const resolvedRecordSource = recordSource || doRecordSource || "";
+  const resolvedSourceName = sourceName || doSourceName || "";
+
+  const sourceText = resolvedRecordSource
+    ? resolvedRecordSource === "Indirect"
+      ? `Indirect (${resolvedSourceName || "-"})`
       : "Direct"
     : "-";
 
@@ -238,22 +251,15 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
             <Col xs={24} md={12}>
               <InlineField label="DO Date">
                 <Form.Item name="do_date" style={{ marginBottom: 0 }}>
-                  <div className="relative">
-                    <Icon
-                      name="Calendar"
-                      size={16}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                    />
-                    <input
-                      type="date"
-                      className="w-full border-none outline-none pl-10 pr-3 py-1.5 text-sm bg-transparent text-foreground"
-                      disabled={readOnly}
-                      value={doDate ? dayjs(doDate).format("YYYY-MM-DD") : ""}
-                      onChange={(e) =>
-                        form.setFieldsValue({ do_date: dayjs(e.target.value) })
-                      }
-                    />
-                  </div>
+                  <DatePicker
+                    className="h-9 w-full"
+                    format="DD/MM/YYYY"
+                    value={doDate ? dayjs(doDate) : null}
+                    onChange={(date) => form.setFieldsValue({ do_date: date || null })}
+                    allowClear
+                    disabled={readOnly}
+                    suffixIcon={<Icon name="Calendar" size={14} />}
+                  />
                 </Form.Item>
               </InlineField>
             </Col>
@@ -279,7 +285,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
           <Row gutter={[16, 8]}>
             <Col xs={24} md={12}>
               <InlineField label="Customer Name">
-                <ReadonlyInput value={customerName} />
+                <ReadonlyInput value={resolvedCustomerName} />
               </InlineField>
             </Col>
 
@@ -307,19 +313,19 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
           </div>
 
           <InlineField label="Address">
-            <ReadonlyInput value={residenceAddress} multiline />
+            <ReadonlyInput value={resolvedAddress} multiline />
           </InlineField>
 
           <Row gutter={[16, 8]}>
             <Col xs={24} md={12}>
               <InlineField label="City">
-                <ReadonlyInput value={city} />
+                <ReadonlyInput value={resolvedCity} />
               </InlineField>
             </Col>
 
             <Col xs={24} md={12}>
               <InlineField label="Pincode">
-                <ReadonlyInput value={pincode} />
+                <ReadonlyInput value={resolvedPincode} />
               </InlineField>
             </Col>
           </Row>

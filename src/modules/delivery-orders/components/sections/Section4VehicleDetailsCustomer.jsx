@@ -219,10 +219,12 @@ const Section4VehicleDetailsCustomer = () => {
   useEffect(() => {
     if (!form) return;
     form.setFieldsValue({
+      do_customer_onRoadVehicleCost: onRoadVehicleCost,
+      do_customer_grossDO: onRoadVehicleCost - marginMoneyPaid,
       do_customer_totalDiscount: totalDiscount,
       do_customer_netOnRoadVehicleCost: netOnRoadVehicleCost,
     });
-  }, [form, totalDiscount, netOnRoadVehicleCost]);
+  }, [form, onRoadVehicleCost, marginMoneyPaid, totalDiscount, netOnRoadVehicleCost]);
 
   // Right-side summary
   const SummaryCard = useMemo(() => {

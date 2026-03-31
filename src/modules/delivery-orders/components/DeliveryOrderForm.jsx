@@ -7,12 +7,9 @@ import {
   Form,
   Row,
   Col,
-  DatePicker,
-  Input,
   message,
   Checkbox,
   Tag,
-  Switch,
 } from "antd";
 import {
   ArrowLeftOutlined,
@@ -29,7 +26,6 @@ import Section2DealerDetails from "./sections/Section2DealerDetails";
 import Section3VehicleDetailsShowroom from "./sections/Section3VehicleDetailsShowroom";
 import Section4VehicleDetailsCustomer from "./sections/Section4VehicleDetailsCustomer";
 import Section5DODetails from "./sections/Section5DODetails";
-import PrintButton from "../../print/PrintButton";
 import { DOPrint } from "../../print/PrintFormats";
 
 // -------------------------------------
@@ -57,51 +53,90 @@ const pickFirstMeaningful = (...values) => {
   }
   return "";
 };
+const asNumberOrEmpty = (value) => {
+  if (value === undefined || value === null || value === "") return "";
+  const normalized = String(value).replace(/,/g, "").trim();
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : "";
+};
 const buildLoanContextPrefill = (loan = {}) => ({
   customerName: pickFirstMeaningful(
     loan?.customerName,
+    loan?.do_customerName,
+    loan?.profile_customerName,
     loan?.applicant_name,
     loan?.applicantName,
     loan?.companyName,
+    loan?.profile?.customerName,
+    loan?.personalDetails?.name,
+    loan?.leadName,
   ),
   residenceAddress: pickFirstMeaningful(
     loan?.residenceAddress,
+    loan?.do_residenceAddress,
     loan?.currentAddress,
+    loan?.current_address,
     loan?.address,
     loan?.permanentAddress,
+    loan?.profile?.residenceAddress,
+    loan?.profile?.currentAddress,
+    loan?.profile?.address,
   ),
   pincode: pickFirstMeaningful(
     loan?.pincode,
+    loan?.do_pincode,
     loan?.currentPincode,
+    loan?.current_pincode,
     loan?.permanentPincode,
+    loan?.profile?.pincode,
+    loan?.profile?.currentPincode,
+    loan?.profile?.permanentPincode,
   ),
   city: pickFirstMeaningful(
     loan?.city,
+    loan?.do_city,
     loan?.currentCity,
+    loan?.current_city,
     loan?.permanentCity,
     loan?.registrationCity,
+    loan?.profile?.city,
+    loan?.profile?.currentCity,
+    loan?.profile?.permanentCity,
   ),
   recordSource: pickFirstMeaningful(
     loan?.recordSource,
+    loan?.do_recordSource,
     loan?.source,
     loan?.sourcingChannel,
     loan?.sourceType,
+    loan?.profile?.recordSource,
+    loan?.record_details?.recordSource,
   ),
   sourceName: pickFirstMeaningful(
     loan?.sourceName,
+    loan?.do_sourceName,
     loan?.showroomDealerName,
+    loan?.showroomName,
     loan?.dealerName,
     loan?.channelName,
+    loan?.profile?.sourceName,
+    loan?.record_details?.sourceName,
   ),
   dealerMobile: pickFirstMeaningful(
     loan?.dealerMobile,
+    loan?.do_dealerMobile,
     loan?.dealerContactNumber,
     loan?.dealerPhone,
+    loan?.delivery_dealerContactNumber,
+    loan?.record_dealerContactNumber,
   ),
   dealerAddress: pickFirstMeaningful(
     loan?.dealerAddress,
+    loan?.do_dealerAddress,
     loan?.showroomAddress,
     loan?.record_dealerAddress,
+    loan?.delivery_dealerAddress,
+    loan?.showroomDealerAddress,
   ),
 });
 
@@ -222,12 +257,36 @@ const DeliveryOrderForm = () => {
     const load = async () => {
       try {
         const res = await loansApi.getById(loanId);
-        if (res?.data) {
-          setLoanData(res.data);
+        const fromById = res?.data?.loanId || res?.data?._id ? res.data : null;
+        if (fromById) {
+          setLoanData(fromById);
+          return;
+        }
+        if (res?.data?.data) {
+          setLoanData(res.data.data);
           return;
         }
       } catch (e) {
         // ignore and fall back
+      }
+
+      try {
+        const listRes = await loansApi.getAll({
+          loanIds: loanId,
+          limit: 1,
+          noCount: true,
+          view: "dashboard",
+        });
+        const candidate =
+          (Array.isArray(listRes?.data) && listRes.data[0]) ||
+          (Array.isArray(listRes) && listRes[0]) ||
+          null;
+        if (candidate) {
+          setLoanData(candidate);
+          return;
+        }
+      } catch (_) {
+        // ignore and continue with session fallbacks
       }
 
       const editingLoanRaw = sessionStorage.getItem("editingLoan");
@@ -290,29 +349,143 @@ const DeliveryOrderForm = () => {
           ...patched,
           customerName: pickFirstMeaningful(
             patched?.customerName,
+            patched?.do_customerName,
+            patched?.customer_name,
             loanPrefill.customerName,
           ),
           residenceAddress: pickFirstMeaningful(
             patched?.residenceAddress,
+            patched?.do_residenceAddress,
+            patched?.address,
             loanPrefill.residenceAddress,
           ),
-          pincode: pickFirstMeaningful(patched?.pincode, loanPrefill.pincode),
-          city: pickFirstMeaningful(patched?.city, loanPrefill.city),
+          pincode: pickFirstMeaningful(
+            patched?.pincode,
+            patched?.do_pincode,
+            loanPrefill.pincode,
+          ),
+          city: pickFirstMeaningful(
+            patched?.city,
+            patched?.do_city,
+            loanPrefill.city,
+          ),
           recordSource: pickFirstMeaningful(
             patched?.recordSource,
+            patched?.do_recordSource,
+            patched?.source,
             loanPrefill.recordSource,
           ),
           sourceName: pickFirstMeaningful(
             patched?.sourceName,
+            patched?.do_sourceName,
+            patched?.dealerName,
             loanPrefill.sourceName,
           ),
           dealerMobile: pickFirstMeaningful(
             patched?.dealerMobile,
+            patched?.do_dealerMobile,
+            patched?.do_dealerContactNumber,
             loanPrefill.dealerMobile,
           ),
           dealerAddress: pickFirstMeaningful(
             patched?.dealerAddress,
+            patched?.do_dealerAddress,
             loanPrefill.dealerAddress,
+          ),
+          do_dealerName: pickFirstMeaningful(
+            patched?.do_dealerName,
+            patched?.dealerName,
+            patched?.delivery_dealerName,
+          ),
+          do_dealerAddress: pickFirstMeaningful(
+            patched?.do_dealerAddress,
+            patched?.dealerAddress,
+            patched?.delivery_dealerAddress,
+          ),
+          do_dealerMobile: pickFirstMeaningful(
+            patched?.do_dealerMobile,
+            patched?.do_dealerContactNumber,
+            patched?.dealerMobile,
+            patched?.delivery_dealerContactNumber,
+          ),
+          do_dealerContactPerson: pickFirstMeaningful(
+            patched?.do_dealerContactPerson,
+            patched?.dealerContactPerson,
+            patched?.delivery_dealerContactPerson,
+          ),
+          do_dealerCity: pickFirstMeaningful(
+            patched?.do_dealerCity,
+            patched?.delivery_dealerCity,
+            patched?.city,
+          ),
+          do_dealerPincode: pickFirstMeaningful(
+            patched?.do_dealerPincode,
+            patched?.delivery_dealerPincode,
+            patched?.pincode,
+          ),
+          do_vehicleMake: pickFirstMeaningful(
+            patched?.do_vehicleMake,
+            patched?.vehicleMake,
+            loanData?.vehicleMake,
+            loanData?.make,
+          ),
+          do_vehicleModel: pickFirstMeaningful(
+            patched?.do_vehicleModel,
+            patched?.vehicleModel,
+            loanData?.vehicleModel,
+            loanData?.model,
+          ),
+          do_vehicleVariant: pickFirstMeaningful(
+            patched?.do_vehicleVariant,
+            patched?.vehicleVariant,
+            loanData?.vehicleVariant,
+            loanData?.variant,
+          ),
+          do_colour: pickFirstMeaningful(
+            patched?.do_colour,
+            patched?.do_vehicleColor,
+            patched?.vehicleColor,
+          ),
+          do_exShowroomPrice: asNumberOrEmpty(
+            pickFirstMeaningful(
+              patched?.do_exShowroomPrice,
+              patched?.exShowroomPrice,
+              patched?.ex_showroom,
+            ),
+          ),
+          do_insuranceCost: asNumberOrEmpty(
+            pickFirstMeaningful(
+              patched?.do_insuranceCost,
+              patched?.insuranceCost,
+              patched?.insurance,
+            ),
+          ),
+          do_roadTax: asNumberOrEmpty(
+            pickFirstMeaningful(
+              patched?.do_roadTax,
+              patched?.roadTax,
+              patched?.rto,
+            ),
+          ),
+          do_accountType: pickFirstMeaningful(
+            patched?.do_accountType,
+            "Showroom",
+          ),
+          do_loanAmount: asNumberOrEmpty(
+            pickFirstMeaningful(
+              patched?.do_loanAmount,
+              patched?.loanAmount,
+              loanData?.postfile_disbursedLoan,
+              loanData?.loanAmount,
+            ),
+          ),
+          do_processingFees: asNumberOrEmpty(
+            pickFirstMeaningful(
+              patched?.do_processingFees,
+              patched?.processingFees,
+              loanData?.postfile_processingFees,
+              loanData?.processingFees,
+            ),
           ),
         };
 

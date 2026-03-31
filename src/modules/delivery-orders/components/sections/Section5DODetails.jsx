@@ -278,6 +278,10 @@ const Section5DODetails = ({ loan }) => {
     ) {
       form.setFieldsValue({
         do_loanAmount:
+          loan?.postfile_loanAmountDisbursed ??
+          loan?.postfile_netLoanAmount ??
+          loan?.postFile?.loanAmountDisbursed ??
+          loan?.postFile?.netLoanAmount ??
           loan?.postfile_disbursedLoan ??
           loan?.disbursedLoanAmount ??
           loan?.loanAmount ??
@@ -292,6 +296,10 @@ const Section5DODetails = ({ loan }) => {
     ) {
       form.setFieldsValue({
         do_processingFees:
+          loan?.postFile?.processingFees ??
+          loan?.postFile?.postfile_processingFees ??
+          loan?.postfile?.processingFees ??
+          loan?.postfile?.postfile_processingFees ??
           loan?.postfile_processingFees ?? loan?.processingFees ?? "",
       });
     }
@@ -605,7 +613,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
-                    format="DD-MM-YYYY"
+                    format="DD/MM/YYYY"
                   />
                 </Form.Item>
               </InlineField>
@@ -706,7 +714,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
-                    format="DD-MM-YYYY"
+                    format="DD/MM/YYYY"
                   />
                 </Form.Item>
               </InlineField>

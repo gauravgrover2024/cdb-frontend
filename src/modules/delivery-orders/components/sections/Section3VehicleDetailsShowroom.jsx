@@ -32,6 +32,17 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
+const pickFirst = (...values) => {
+  for (const value of values) {
+    if (value === undefined || value === null) continue;
+    const t = String(value).trim();
+    if (!t) continue;
+    if (["na", "n/a", "null", "undefined", "-", "--"].includes(t.toLowerCase())) continue;
+    return value;
+  }
+  return "";
+};
+
 // show only if value > 0
 const hasValue = (val) => asInt(val) > 0;
 
@@ -191,7 +202,38 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
       existing?.do_exShowroomPrice === ""
     ) {
       form.setFieldsValue({
-        do_exShowroomPrice: loan?.exShowroomPrice ?? "",
+        do_exShowroomPrice: pickFirst(
+          loan?.exShowroomPrice,
+          loan?.ex_showroom,
+          loan?.exShowroom,
+          loan?.vehiclePricing?.exShowroom,
+          loan?.pricing?.exShowroom,
+          "",
+        ),
+      });
+    }
+
+    if (existing?.do_insuranceCost === undefined || existing?.do_insuranceCost === "") {
+      form.setFieldsValue({
+        do_insuranceCost: pickFirst(
+          loan?.insuranceCost,
+          loan?.insurance,
+          loan?.insurance_amount_cardekho,
+          loan?.vehiclePricing?.insurance,
+          "",
+        ),
+      });
+    }
+
+    if (existing?.do_roadTax === undefined || existing?.do_roadTax === "") {
+      form.setFieldsValue({
+        do_roadTax: pickFirst(
+          loan?.roadTax,
+          loan?.rto,
+          loan?.rto_amount_cardekho,
+          loan?.vehiclePricing?.rto,
+          "",
+        ),
       });
     }
   }, [form, loan]);
