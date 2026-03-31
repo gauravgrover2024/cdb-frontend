@@ -44,6 +44,66 @@ const generateDONumber = () => {
 };
 
 const safeText = (v) => (v === undefined || v === null ? "" : String(v));
+const hasMeaningfulValue = (v) => {
+  if (v === undefined || v === null) return false;
+  const t = String(v).trim();
+  if (!t) return false;
+  const lc = t.toLowerCase();
+  return !["n/a", "na", "null", "undefined", "-", "--", "not set"].includes(lc);
+};
+const pickFirstMeaningful = (...values) => {
+  for (const value of values) {
+    if (hasMeaningfulValue(value)) return String(value).trim();
+  }
+  return "";
+};
+const buildLoanContextPrefill = (loan = {}) => ({
+  customerName: pickFirstMeaningful(
+    loan?.customerName,
+    loan?.applicant_name,
+    loan?.applicantName,
+    loan?.companyName,
+  ),
+  residenceAddress: pickFirstMeaningful(
+    loan?.residenceAddress,
+    loan?.currentAddress,
+    loan?.address,
+    loan?.permanentAddress,
+  ),
+  pincode: pickFirstMeaningful(
+    loan?.pincode,
+    loan?.currentPincode,
+    loan?.permanentPincode,
+  ),
+  city: pickFirstMeaningful(
+    loan?.city,
+    loan?.currentCity,
+    loan?.permanentCity,
+    loan?.registrationCity,
+  ),
+  recordSource: pickFirstMeaningful(
+    loan?.recordSource,
+    loan?.source,
+    loan?.sourcingChannel,
+    loan?.sourceType,
+  ),
+  sourceName: pickFirstMeaningful(
+    loan?.sourceName,
+    loan?.showroomDealerName,
+    loan?.dealerName,
+    loan?.channelName,
+  ),
+  dealerMobile: pickFirstMeaningful(
+    loan?.dealerMobile,
+    loan?.dealerContactNumber,
+    loan?.dealerPhone,
+  ),
+  dealerAddress: pickFirstMeaningful(
+    loan?.dealerAddress,
+    loan?.showroomAddress,
+    loan?.record_dealerAddress,
+  ),
+});
 
 const patchDateFieldsToDayjs = (obj = {}) => {
   const patched = { ...(obj || {}) };
@@ -225,11 +285,41 @@ const DeliveryOrderForm = () => {
 
         setExistingDO(foundDO);
         const patched = patchDateFieldsToDayjs(foundDO);
+        const loanPrefill = buildLoanContextPrefill(loanData || {});
+        const hydrated = {
+          ...patched,
+          customerName: pickFirstMeaningful(
+            patched?.customerName,
+            loanPrefill.customerName,
+          ),
+          residenceAddress: pickFirstMeaningful(
+            patched?.residenceAddress,
+            loanPrefill.residenceAddress,
+          ),
+          pincode: pickFirstMeaningful(patched?.pincode, loanPrefill.pincode),
+          city: pickFirstMeaningful(patched?.city, loanPrefill.city),
+          recordSource: pickFirstMeaningful(
+            patched?.recordSource,
+            loanPrefill.recordSource,
+          ),
+          sourceName: pickFirstMeaningful(
+            patched?.sourceName,
+            loanPrefill.sourceName,
+          ),
+          dealerMobile: pickFirstMeaningful(
+            patched?.dealerMobile,
+            loanPrefill.dealerMobile,
+          ),
+          dealerAddress: pickFirstMeaningful(
+            patched?.dealerAddress,
+            loanPrefill.dealerAddress,
+          ),
+        };
 
         form.setFieldsValue({
-          ...patched,
-          do_loanId: patched?.do_loanId || patched?.loanId || loanId,
-          loanId: patched?.loanId || patched?.do_loanId || loanId,
+          ...hydrated,
+          do_loanId: hydrated?.do_loanId || hydrated?.loanId || loanId,
+          loanId: hydrated?.loanId || hydrated?.do_loanId || loanId,
         });
       } catch (err) {
         console.error("Load DO Error:", err);
@@ -263,17 +353,27 @@ const DeliveryOrderForm = () => {
       });
     }
 
-    form.setFieldsValue({
-      customerName: safeText(loanData?.customerName),
-      residenceAddress: safeText(loanData?.residenceAddress),
-      pincode: safeText(loanData?.pincode),
-      city: safeText(loanData?.city),
+    const loanPrefill = buildLoanContextPrefill(loanData || {});
+    const fieldPatch = {};
 
-      recordSource: safeText(loanData?.recordSource),
-      sourceName: safeText(loanData?.sourceName),
-      dealerMobile: safeText(loanData?.dealerMobile),
-      dealerAddress: safeText(loanData?.dealerAddress),
+    [
+      "customerName",
+      "residenceAddress",
+      "pincode",
+      "city",
+      "recordSource",
+      "sourceName",
+      "dealerMobile",
+      "dealerAddress",
+    ].forEach((key) => {
+      if (!hasMeaningfulValue(existing[key]) && hasMeaningfulValue(loanPrefill[key])) {
+        fieldPatch[key] = loanPrefill[key];
+      }
     });
+
+    if (Object.keys(fieldPatch).length) {
+      form.setFieldsValue(fieldPatch);
+    }
   }, [form, loanData, loanId]);
 
   // Autosave DO (Debounced)

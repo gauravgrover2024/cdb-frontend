@@ -46,9 +46,33 @@ const listFromResponse = (res) => {
   if (Array.isArray(res?.data)) return res.data;
   return [];
 };
+const normalizeLoanId = (value) => safeText(value).trim();
+const dedupeDOByLoanId = (rows = []) => {
+  const byLoanId = new Map();
+  (rows || []).forEach((row) => {
+    const key = normalizeLoanId(row?.loanId || row?.do_loanId);
+    if (!key) return;
+    if (!byLoanId.has(key)) {
+      byLoanId.set(key, row);
+      return;
+    }
+    const prev = byLoanId.get(key);
+    const prevTs = new Date(prev?.updatedAt || prev?.createdAt || 0).getTime() || 0;
+    const nextTs = new Date(row?.updatedAt || row?.createdAt || 0).getTime() || 0;
+    if (nextTs >= prevTs) {
+      byLoanId.set(key, row);
+    }
+  });
+  return Array.from(byLoanId.values());
+};
+const chunkArray = (arr = [], size = 300) => {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+};
 
 const fetchAllDOs = async () => {
-  const pageSize = 500;
+  const pageSize = 1000;
   let skip = 0;
   let hasMore = true;
   const all = [];
@@ -68,6 +92,40 @@ const fetchAllDOs = async () => {
   return all;
 };
 
+const fetchLoansByIds = async (loanIds = []) => {
+  const ids = Array.from(
+    new Set((loanIds || []).map((id) => normalizeLoanId(id)).filter(Boolean)),
+  );
+  if (!ids.length) return [];
+
+  const chunks = chunkArray(ids, 300);
+  const payloads = await Promise.all(
+    chunks.map((chunk) =>
+      loansApi.getAll({
+        loanIds: chunk.join(","),
+        limit: 1000,
+        noCount: true,
+        view: "dashboard",
+        sortBy: "leadDate",
+        sortDir: "desc",
+      }),
+    ),
+  );
+  return payloads.flatMap((payload) => listFromResponse(payload));
+};
+
+const buildLoanFallbackFromDO = (d = {}) => ({
+  loanId: normalizeLoanId(d.loanId || d.do_loanId),
+  customerName: safeText(d.customerName || d.do_customerName || d.customer_name),
+  vehicleMake: safeText(d.vehicleMake || d.make),
+  vehicleModel: safeText(d.vehicleModel || d.model),
+  vehicleVariant: safeText(d.vehicleVariant || d.variant),
+  isFinanced: safeText(d.isFinanced || d.do_accountType || "No"),
+  recordSource: safeText(d.recordSource || d.source || d.sourcing),
+  sourceName: safeText(d.sourceName || d.dealerName),
+  _hasLinkedLoan: false,
+});
+
 const DeliveryOrderDashboard = () => {
   const navigate = useNavigate();
 
@@ -81,58 +139,41 @@ const DeliveryOrderDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const loadLoansFromApi = useCallback(async () => {
-    try {
-      // Point 5: only New Car loans (both financed and cash)
-      const pageSize = 1000;
-      let skip = 0;
-      let hasMore = true;
-      const all = [];
-
-      while (hasMore) {
-        const res = await loansApi.getAll({
-          limit: pageSize,
-          skip,
-          noCount: true,
-          filterLoanType: "New Car",
-          view: "dashboard",
-          sortBy: "leadDate",
-          sortDir: "desc",
-        });
-        const page = listFromResponse(res);
-        all.push(...page);
-        hasMore = Boolean(res?.hasMore);
-        skip += pageSize;
-      }
-      // client-side safety filter
-      const newCarOnly = all.filter((l) => {
-        const t = String(l?.typeOfLoan || l?.loanType || l?.caseType || "").toLowerCase();
-        return t.includes("new car") || t === "new";
-      });
-      setLoans(newCarOnly);
-    } catch (err) {
-      console.error("Load Loans Error:", err);
-      setLoans([]);
-    }
-  }, []);
-
-  const loadDOsFromMongo = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const docs = await fetchAllDOs();
+      const docs = dedupeDOByLoanId(await fetchAllDOs());
       setDeliveryOrders(Array.isArray(docs) ? docs : []);
+
+      const loanIds = docs
+        .map((d) => normalizeLoanId(d?.loanId || d?.do_loanId))
+        .filter(Boolean);
+      const linkedLoans = await fetchLoansByIds(loanIds);
+      const linkedMap = new Map();
+      (linkedLoans || []).forEach((loan) => {
+        const id = normalizeLoanId(loan?.loanId || loan?.loan_number || loan?._id);
+        if (!id) return;
+        linkedMap.set(id, {
+          ...loan,
+          loanId: id,
+          _hasLinkedLoan: true,
+        });
+      });
+
+      const mergedRows = docs.map((doc) => {
+        const id = normalizeLoanId(doc?.loanId || doc?.do_loanId);
+        return linkedMap.get(id) || buildLoanFallbackFromDO(doc);
+      });
+      setLoans(mergedRows);
     } catch (err) {
       console.error("Load DO Dashboard Error:", err);
+      setLoans([]);
+      setDeliveryOrders([]);
       message.error("Failed to load Delivery Orders from server ❌");
     } finally {
       setLoading(false);
     }
   }, []);
-
-  const loadData = useCallback(async () => {
-    await loadLoansFromApi();
-    await loadDOsFromMongo();
-  }, [loadLoansFromApi, loadDOsFromMongo]);
 
   useEffect(() => {
     loadData();
@@ -150,7 +191,7 @@ const DeliveryOrderDashboard = () => {
   const stats = useMemo(() => {
     const totalLoans = loans.length;
     const withDO = loans.filter((l) => !!doMap[l.loanId]).length;
-    const withoutDO = totalLoans - withDO;
+    const withoutDO = loans.filter((l) => !l?._hasLinkedLoan).length;
 
     const allNet = loans
       .map((l) => asInt(doMap[l.loanId]?.do_netDOAmount))
@@ -165,7 +206,7 @@ const DeliveryOrderDashboard = () => {
     return [
       {
         id: "total",
-        label: "Total Loans",
+        label: "Total DO Entries",
         value: totalLoans,
         icon: <FileTextOutlined />,
         onClick: () => {
@@ -182,10 +223,10 @@ const DeliveryOrderDashboard = () => {
       },
       {
         id: "pending",
-        label: "Pending DO",
+        label: "Loan Link Missing",
         value: withoutDO,
         icon: <ClockCircleOutlined />,
-        onClick: () => setStatusFilter("NotCreated"),
+        onClick: () => setStatusFilter("MissingLoan"),
       },
       {
         id: "netdo",
@@ -205,7 +246,7 @@ const DeliveryOrderDashboard = () => {
       const d = doMap[loan.loanId];
 
       if (statusFilter === "Created" && !d) return false;
-      if (statusFilter === "NotCreated" && d) return false;
+      if (statusFilter === "MissingLoan" && loan?._hasLinkedLoan) return false;
 
       const financed = safeText(loan?.isFinanced).toLowerCase() === "yes";
       if (financeFilter === "Financed" && !financed) return false;
@@ -499,7 +540,7 @@ const DeliveryOrderDashboard = () => {
             >
               <Option value="All">All DO Status</Option>
               <Option value="Created">DO Created</Option>
-              <Option value="NotCreated">DO Not Created</Option>
+              <Option value="MissingLoan">Loan Link Missing</Option>
             </Select>
 
             <Select
@@ -540,7 +581,7 @@ const DeliveryOrderDashboard = () => {
           dataSource={filteredRows}
           pagination={{
             pageSize: 15,
-            showTotal: (total) => `Total ${total} loans`,
+            showTotal: (total) => `Total ${total} DO entries`,
             showSizeChanger: true,
             pageSizeOptions: ["10", "15", "25", "50"],
           }}
