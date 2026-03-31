@@ -285,9 +285,10 @@ const Section5DODetails = ({ loan }) => {
       });
     }
 
+    // PF is always manually editable — only prefill if completely empty on first load
     if (
       existing?.do_processingFees === undefined ||
-      existing?.do_processingFees === ""
+      existing?.do_processingFees === null
     ) {
       form.setFieldsValue({
         do_processingFees:
@@ -560,13 +561,14 @@ const Section5DODetails = ({ loan }) => {
             </Col>
 
             <Col xs={12} md={6}>
-              <InlineField label="Processing Fees">
+              <InlineField label="Processing Fees (manual / editable)">
                 <Form.Item name="do_processingFees" style={{ marginBottom: 0 }}>
                   <InputNumber
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
                     controls={false}
+                    placeholder="Enter PF manually"
                   />
                 </Form.Item>
               </InlineField>

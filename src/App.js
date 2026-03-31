@@ -40,6 +40,7 @@ import ProfilePage from "./pages/ProfilePage";
 // NEW: booking pages
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
 import BookingDetailPage from "./modules/payments/pages/BookingDetailPage";
+import BookingsDashboard from "./modules/bookings/pages/BookingsDashboard";
 
 // Floating EMI Calculator – accessible from every authenticated screen
 import EMIFloatingButton from "./components/EMIFloatingButton";
@@ -167,7 +168,7 @@ function App() {
               element={R(FEATURE_ACCESS.DELIVERY_ORDERS, <DeliveryOrderForm />)}
             />
 
-            {/* Payments + Bookings */}
+            {/* Payments */}
             <Route
               path="payments"
               element={R(FEATURE_ACCESS.PAYMENTS, <PaymentsDashboard />)}
@@ -175,6 +176,29 @@ function App() {
             <Route
               path="payments/:loanId"
               element={R(FEATURE_ACCESS.PAYMENTS, <PaymentForm />)}
+            />
+
+            {/* Bookings — separate module (Point 6) */}
+            <Route
+              path="bookings"
+              element={R(FEATURE_ACCESS.PAYMENTS, <BookingsDashboard />)}
+            />
+            <Route
+              path="bookings/new"
+              element={R(FEATURE_ACCESS.PAYMENTS, <NewBookingPage />)}
+            />
+            <Route
+              path="bookings/:bookingId"
+              element={R(FEATURE_ACCESS.PAYMENTS, <BookingDetailPage />)}
+            />
+            <Route
+              path="bookings/edit/:bookingId"
+              element={R(FEATURE_ACCESS.PAYMENTS, <NewBookingPage />)}
+            />
+            {/* Legacy payment booking routes — redirect handled by keeping old paths */}
+            <Route
+              path="payments/new-booking"
+              element={R(FEATURE_ACCESS.PAYMENTS, <NewBookingPage />)}
             />
             <Route
               path="payments/bookings/new"
