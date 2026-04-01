@@ -8,7 +8,6 @@ import {
   Input,
   Select,
   Divider,
-  InputNumber,
   DatePicker,
   Tag,
   Checkbox,
@@ -24,6 +23,8 @@ import { InfoCircleOutlined } from "@ant-design/icons";
 import { Tooltip } from "antd";
 import { useTheme } from "../../../../context/ThemeContext";
 import BreakdownSummaryCard from "../shared/BreakdownSummaryCard";
+import DOAmountInput from "../shared/DOAmountInput";
+import DOPillCard from "../shared/DOPillCard";
 
 const { Option } = Select;
 
@@ -102,42 +103,6 @@ const InlineField = ({ label, children }) => (
     >
       {children}
     </div>
-  </div>
-);
-
-const PillAmount = ({ label, value, danger }) => (
-  <div
-    style={{
-      padding: "6px 16px",
-      borderRadius: 999,
-      border: "1px solid #d1d5db",
-      display: "inline-flex",
-      flexDirection: "column",
-      alignItems: "flex-start",
-      minWidth: 170,
-      background: "#fff",
-    }}
-  >
-    <span
-      style={{
-        fontSize: 10,
-        textTransform: "uppercase",
-        letterSpacing: 0.4,
-        color: "#6b7280",
-        marginBottom: 2,
-      }}
-    >
-      {label}
-    </span>
-    <span
-      style={{
-        fontSize: 18,
-        fontWeight: 800,
-        color: danger ? "#1d4ed8" : "#111827", // negative also blue now
-      }}
-    >
-      {money(value)}
-    </span>
   </div>
 );
 
@@ -366,14 +331,16 @@ const Section5DODetails = ({ loan }) => {
           </Tag>
         </div>
 
-        <PillAmount
+        <DOPillCard
+          isDarkMode={isDarkMode}
           label="Net DO Amount (Payable to Showroom)"
-          value={netDOAmountFinal}
-          danger={netDOAmountFinal < 0}
+          value={money(netDOAmountFinal)}
+          accent={netDOAmountFinal < 0 ? "violet" : "emerald"}
+          minWidth={250}
         />
       </div>
     );
-  }, [doAccountType, isFinanced, netDOAmountFinal]);
+  }, [doAccountType, isDarkMode, isFinanced, netDOAmountFinal]);
 
   const doSummarySections = useMemo(
     () => [
@@ -482,9 +449,14 @@ const Section5DODetails = ({ loan }) => {
         "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
-        borderRadius: 16,
-        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
+        background: isDarkMode
+          ? "linear-gradient(180deg, rgba(27,27,27,0.98) 0%, rgba(19,19,19,0.98) 100%)"
+          : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,250,255,0.98) 100%)",
+        borderRadius: 24,
+        border: `1px solid ${isDarkMode ? "#303030" : "#dbe7f4"}`,
+        boxShadow: isDarkMode
+          ? "0 22px 48px rgba(0,0,0,0.24)"
+          : "0 22px 48px rgba(37,99,235,0.08)",
       }}
     >
       {TopStrip}
@@ -522,6 +494,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     popupMatchSelectWidth={220}
+                    allowClear
                   >
                     <Option value="Showroom">Showroom Account</Option>
                     <Option value="Customer">Customer Account</Option>
@@ -572,6 +545,7 @@ const Section5DODetails = ({ loan }) => {
                     size="small"
                     placeholder="Select"
                     popupMatchSelectWidth={220}
+                    allowClear
                   >
                     <Option value="Autocredits India LLP">
                       Autocredits India LLP
@@ -595,6 +569,7 @@ const Section5DODetails = ({ loan }) => {
                     size="small"
                     placeholder="Select"
                     popupMatchSelectWidth={220}
+                    allowClear
                   >
                     <Option value="Showroom">Showroom</Option>
                     <Option value="Autocredits">Autocredits</Option>
@@ -622,6 +597,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     placeholder="From delivery"
+                    allowClear
                   />
                 </Form.Item>
               </InlineField>
@@ -630,7 +606,7 @@ const Section5DODetails = ({ loan }) => {
             <Col xs={12} md={6}>
               <InlineField label="Loan Amount">
                 <Form.Item name="do_loanAmount" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -643,7 +619,7 @@ const Section5DODetails = ({ loan }) => {
             <Col xs={12} md={6}>
               <InlineField label="Processing Fees (manual / editable)">
                 <Form.Item name="do_processingFees" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -662,6 +638,7 @@ const Section5DODetails = ({ loan }) => {
                     size="small"
                     placeholder="Select"
                     popupMatchSelectWidth={180}
+                    allowClear
                   >
                     <Option value="Private">Private</Option>
                     <Option value="Commercial">Commercial</Option>
@@ -673,7 +650,7 @@ const Section5DODetails = ({ loan }) => {
             <Col xs={24} md={8}>
               <InlineField label="Registration City">
                 <Form.Item name="do_redgCity" style={{ marginBottom: 0 }}>
-                  <Input bordered={false} size="small" placeholder="City" />
+                  <Input bordered={false} size="small" placeholder="City" allowClear />
                 </Form.Item>
               </InlineField>
             </Col>
@@ -686,6 +663,13 @@ const Section5DODetails = ({ loan }) => {
                     size="small"
                     style={{ width: "100%" }}
                     format="DD/MM/YYYY"
+                    allowClear
+                    styles={{
+                      input: {
+                        background: "transparent",
+                        color: isDarkMode ? "#f3f4f6" : "#111827",
+                      },
+                    }}
                   />
                 </Form.Item>
               </InlineField>
@@ -706,7 +690,7 @@ const Section5DODetails = ({ loan }) => {
             <Col xs={24} md={12}>
               <InlineField label="Make">
                 <Form.Item name="do_exchangeMake" style={{ marginBottom: 0 }}>
-                  <Input bordered={false} size="small" />
+                  <Input bordered={false} size="small" allowClear />
                 </Form.Item>
               </InlineField>
             </Col>
@@ -714,7 +698,7 @@ const Section5DODetails = ({ loan }) => {
             <Col xs={24} md={12}>
               <InlineField label="Model">
                 <Form.Item name="do_exchangeModel" style={{ marginBottom: 0 }}>
-                  <Input bordered={false} size="small" />
+                  <Input bordered={false} size="small" allowClear />
                 </Form.Item>
               </InlineField>
             </Col>
@@ -733,7 +717,7 @@ const Section5DODetails = ({ loan }) => {
             <Col xs={6} md={4}>
               <InlineField label="Year">
                 <Form.Item name="do_exchangeYear" style={{ marginBottom: 0 }}>
-                  <Input bordered={false} size="small" placeholder="YYYY" />
+                  <Input bordered={false} size="small" placeholder="YYYY" allowClear />
                 </Form.Item>
               </InlineField>
             </Col>
@@ -744,7 +728,7 @@ const Section5DODetails = ({ loan }) => {
                   name="do_exchangeVehiclePrice"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -760,7 +744,7 @@ const Section5DODetails = ({ loan }) => {
                   name="do_exchangeRcOwnerName"
                   style={{ marginBottom: 0 }}
                 >
-                  <Input bordered={false} size="small" />
+                  <Input bordered={false} size="small" allowClear />
                 </Form.Item>
               </InlineField>
             </Col>
@@ -771,7 +755,7 @@ const Section5DODetails = ({ loan }) => {
                   name="do_exchangeRegdNumber"
                   style={{ marginBottom: 0 }}
                 >
-                  <Input bordered={false} size="small" />
+                  <Input bordered={false} size="small" allowClear />
                 </Form.Item>
               </InlineField>
             </Col>
@@ -787,6 +771,13 @@ const Section5DODetails = ({ loan }) => {
                     size="small"
                     style={{ width: "100%" }}
                     format="DD/MM/YYYY"
+                    allowClear
+                    styles={{
+                      input: {
+                        background: "transparent",
+                        color: isDarkMode ? "#f3f4f6" : "#111827",
+                      },
+                    }}
                   />
                 </Form.Item>
               </InlineField>
@@ -800,6 +791,7 @@ const Section5DODetails = ({ loan }) => {
           lg={10}
           style={{
             paddingLeft: 24,
+            alignSelf: "flex-start",
           }}
         >
           <BreakdownSummaryCard
@@ -822,14 +814,14 @@ const Section5DODetails = ({ loan }) => {
             name="do_netDOAmount"
             style={{ marginBottom: 0, height: 0, visibility: "hidden" }}
           >
-            <InputNumber />
+            <DOAmountInput />
           </Form.Item>
 
           <Form.Item
             name="do_selectedEffectiveTotalDiscount"
             style={{ marginBottom: 0, height: 0, visibility: "hidden" }}
           >
-            <InputNumber />
+            <DOAmountInput />
           </Form.Item>
         </Col>
       </Row>

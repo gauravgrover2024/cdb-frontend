@@ -7,6 +7,7 @@ import dayjs from "dayjs";
 import Icon from "../../../../components/AppIcon";
 import { customersApi } from "../../../../api/customers";
 import { useTheme } from "../../../../context/ThemeContext";
+import DOPillCard from "../shared/DOPillCard";
 
 const HeadingLabel = ({ children }) => (
   <div
@@ -335,36 +336,13 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
           </Tag>
         </div>
 
-        <div
-          style={{
-            padding: "6px 16px",
-            borderRadius: 999,
-            border: `1px solid ${isDarkMode ? "#3a3a3a" : "#d1d5db"}`,
-            background: isDarkMode ? "#202020" : "#fff",
-            minWidth: 170,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              textTransform: "uppercase",
-              letterSpacing: 0.4,
-              color: "#6b7280",
-              marginBottom: 2,
-            }}
-          >
-            DO Number
-          </div>
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              color: isDarkMode ? "#f3f4f6" : "#111827",
-            }}
-          >
-            {doRefNo || "Auto-generated"}
-          </div>
-        </div>
+        <DOPillCard
+          isDarkMode={isDarkMode}
+          label="DO Number"
+          value={doRefNo || "Auto-generated"}
+          accent="violet"
+          minWidth={220}
+        />
       </div>
     ),
     [doRefNo, isDarkMode],
@@ -379,9 +357,14 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
         "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
-        borderRadius: 16,
-        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
+        background: isDarkMode
+          ? "linear-gradient(180deg, rgba(27,27,27,0.98) 0%, rgba(19,19,19,0.98) 100%)"
+          : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,250,255,0.98) 100%)",
+        borderRadius: 24,
+        border: `1px solid ${isDarkMode ? "#303030" : "#dbe7f4"}`,
+        boxShadow: isDarkMode
+          ? "0 22px 48px rgba(0,0,0,0.24)"
+          : "0 22px 48px rgba(37,99,235,0.08)",
       }}
     >
       {TopStrip}
@@ -417,6 +400,16 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
                     allowClear
                     disabled={readOnly}
                     suffixIcon={<Icon name="Calendar" size={14} />}
+                    style={{
+                      background: "transparent",
+                      borderRadius: 10,
+                    }}
+                    styles={{
+                      input: {
+                        background: "transparent",
+                        color: isDarkMode ? "#f3f4f6" : "#111827",
+                      },
+                    }}
                   />
                 </Form.Item>
               </InlineField>
@@ -476,6 +469,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
                     size="small"
                     placeholder="Primary mobile"
                     disabled={readOnly}
+                    allowClear
                   />
                 </Form.Item>
               </InlineField>
@@ -507,6 +501,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
                     size="small"
                     placeholder="Source / showroom / channel name"
                     disabled={readOnly}
+                    allowClear
                   />
                 </Form.Item>
               </InlineField>
@@ -536,6 +531,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
                 bordered={false}
                 placeholder="Customer address"
                 disabled={readOnly}
+                allowClear
                 style={{ padding: 0, resize: "none", background: "transparent" }}
               />
             </Form.Item>
@@ -550,6 +546,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
                     size="small"
                     placeholder="City"
                     disabled={readOnly}
+                    allowClear
                   />
                 </Form.Item>
               </InlineField>
@@ -563,6 +560,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
                     size="small"
                     placeholder="Pincode"
                     disabled={readOnly}
+                    allowClear
                   />
                 </Form.Item>
               </InlineField>

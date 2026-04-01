@@ -155,9 +155,14 @@ const Section2DealerDetails = ({ form, loan }) => {
         "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
-        borderRadius: 16,
-        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
+        background: isDarkMode
+          ? "linear-gradient(180deg, rgba(27,27,27,0.98) 0%, rgba(19,19,19,0.98) 100%)"
+          : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,250,255,0.98) 100%)",
+        borderRadius: 24,
+        border: `1px solid ${isDarkMode ? "#303030" : "#dbe7f4"}`,
+        boxShadow: isDarkMode
+          ? "0 22px 48px rgba(0,0,0,0.24)"
+          : "0 22px 48px rgba(37,99,235,0.08)",
       }}
     >
       {/* Top strip to match Sections 3–5 */}
@@ -249,6 +254,7 @@ const Section2DealerDetails = ({ form, loan }) => {
                     bordered={false}
                     size="small"
                     placeholder="Contact person"
+                    allowClear
                   />
                 </Form.Item>
               </InlineField>
@@ -261,6 +267,7 @@ const Section2DealerDetails = ({ form, loan }) => {
                     bordered={false}
                     size="small"
                     placeholder="Mobile number"
+                    allowClear
                   />
                 </Form.Item>
               </InlineField>
@@ -274,6 +281,7 @@ const Section2DealerDetails = ({ form, loan }) => {
                     rows={1}
                     bordered={false}
                     placeholder="Dealer address"
+                    allowClear
                     style={{ padding: 0, resize: "none" }}
                   />
                 </Form.Item>

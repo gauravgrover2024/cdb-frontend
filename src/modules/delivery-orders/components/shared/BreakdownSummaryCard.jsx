@@ -41,7 +41,8 @@ const BreakdownSummaryCard = ({
 }) => {
   const shellStyle = {
     position: sticky ? "sticky" : "relative",
-    top: sticky ? 16 : "auto",
+    top: sticky ? 20 : "auto",
+    zIndex: sticky ? 2 : "auto",
     borderRadius: 24,
     border: `1px solid ${isDarkMode ? "#2f3640" : "#dbe3ef"}`,
     background: isDarkMode
@@ -51,6 +52,7 @@ const BreakdownSummaryCard = ({
       ? "0 24px 60px rgba(0,0,0,0.35)"
       : "0 24px 60px rgba(15,23,42,0.08)",
     overflow: "hidden",
+    maxHeight: sticky ? "calc(100vh - 44px)" : "none",
   };
 
   const sectionDivider = `1px solid ${isDarkMode ? "#313844" : "#e7edf5"}`;
@@ -138,7 +140,12 @@ const BreakdownSummaryCard = ({
           </div>
         </div>
 
-        <div style={{ padding: compact ? "4px 20px 20px" : "6px 24px 24px" }}>
+        <div
+          style={{
+            padding: compact ? "4px 20px 20px" : "6px 24px 24px",
+            overflowY: sticky ? "auto" : "visible",
+          }}
+        >
           {sections.map((section, index) => {
             const rows = Array.isArray(section?.rows) ? section.rows : [];
             return (

@@ -8,7 +8,6 @@ import {
   Input,
   Select,
   Divider,
-  InputNumber,
   Button,
   Spin,
   Tag,
@@ -23,6 +22,7 @@ import {
 import { useVehicleData } from "../../../../hooks/useVehicleData";
 import { useTheme } from "../../../../context/ThemeContext";
 import BreakdownSummaryCard from "../shared/BreakdownSummaryCard";
+import DOAmountInput from "../shared/DOAmountInput";
 
 const { Option } = Select;
 
@@ -297,9 +297,14 @@ const Section4VehicleDetailsCustomer = () => {
         "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
-        borderRadius: 16,
-        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
+        background: isDarkMode
+          ? "linear-gradient(180deg, rgba(27,27,27,0.98) 0%, rgba(19,19,19,0.98) 100%)"
+          : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,250,255,0.98) 100%)",
+        borderRadius: 24,
+        border: `1px solid ${isDarkMode ? "#303030" : "#dbe7f4"}`,
+        boxShadow: isDarkMode
+          ? "0 22px 48px rgba(0,0,0,0.24)"
+          : "0 22px 48px rgba(37,99,235,0.08)",
       }}
     >
       {/* Top strip same pattern as Section 5 */}
@@ -515,7 +520,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_exShowroomPrice"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -528,7 +533,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="TCS">
                 <Form.Item name="do_tcs" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -541,7 +546,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="EPC">
                 <Form.Item name="do_epc" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -554,7 +559,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Insurance Cost">
                 <Form.Item name="do_insuranceCost" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -567,7 +572,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Road Tax">
                 <Form.Item name="do_roadTax" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -583,7 +588,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_accessoriesAmount"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -596,7 +601,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Fastag">
                 <Form.Item name="do_fastag" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -612,7 +617,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_extendedWarranty"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -671,7 +676,7 @@ const Section4VehicleDetailsCustomer = () => {
                             name={[name, "amount"]}
                             style={{ marginBottom: 0 }}
                           >
-                            <InputNumber
+                            <DOAmountInput
                               bordered={false}
                               size="small"
                               style={{ width: "100%" }}
@@ -716,7 +721,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_onRoadVehicleCost"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -733,7 +738,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_marginMoneyPaid"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -746,7 +751,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Gross DO">
                 <Form.Item name="do_grossDO" style={{ marginBottom: 0 }}>
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -772,7 +777,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_dealerDiscount"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -788,7 +793,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_schemeDiscount"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -804,7 +809,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_insuranceCashback"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -820,7 +825,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_exchange"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -836,7 +841,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_vehicleValue"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -852,7 +857,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_loyalty"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -868,7 +873,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_corporate"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -922,7 +927,7 @@ const Section4VehicleDetailsCustomer = () => {
                             name={[name, "amount"]}
                             style={{ marginBottom: 0 }}
                           >
-                            <InputNumber
+                            <DOAmountInput
                               bordered={false}
                               size="small"
                               style={{ width: "100%" }}
@@ -967,7 +972,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_totalDiscount"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -984,7 +989,7 @@ const Section4VehicleDetailsCustomer = () => {
                   name="do_customer_netOnRoadVehicleCost"
                   style={{ marginBottom: 0 }}
                 >
-                  <InputNumber
+                  <DOAmountInput
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
@@ -1003,6 +1008,7 @@ const Section4VehicleDetailsCustomer = () => {
           lg={10}
           style={{
             paddingLeft: 24,
+            alignSelf: "flex-start",
           }}
         >
           <BreakdownSummaryCard

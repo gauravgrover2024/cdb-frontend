@@ -937,10 +937,15 @@ const DeliveryOrderForm = () => {
           {/* SECTION 4 — Customer account vehicle section toggle */}
           <Card
             style={{
-              borderRadius: 16,
+              borderRadius: 24,
               marginTop: 16,
-              border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
-              background: isDarkMode ? "#1b1b1b" : "#ffffff",
+              border: `1px solid ${isDarkMode ? "#303030" : "#dbe7f4"}`,
+              background: isDarkMode
+                ? "linear-gradient(180deg, rgba(27,27,27,0.98) 0%, rgba(19,19,19,0.98) 100%)"
+                : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,250,255,0.98) 100%)",
+              boxShadow: isDarkMode
+                ? "0 22px 48px rgba(0,0,0,0.24)"
+                : "0 22px 48px rgba(37,99,235,0.08)",
             }}
             bodyStyle={{ padding: 16 }}
           >
