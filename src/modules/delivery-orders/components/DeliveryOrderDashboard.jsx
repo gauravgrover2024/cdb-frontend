@@ -87,17 +87,19 @@ const chunkArray = (arr = [], size = 300) => {
   return out;
 };
 
-const fetchAllDOs = async () => {
+const fetchAllDOs = async (search = "") => {
   const pageSize = 1000;
   let skip = 0;
   let hasMore = true;
   const all = [];
+  const safeSearch = String(search || "").trim();
 
   while (hasMore) {
     const res = await deliveryOrdersApi.getAll({
       limit: pageSize,
       skip,
       noCount: true,
+      ...(safeSearch ? { search: safeSearch } : {}),
     });
     const page = listFromResponse(res);
     all.push(...page);
@@ -677,6 +679,7 @@ const DeliveryOrderDashboard = () => {
   const [statusFilter, setStatusFilter] = useState("All"); // All / Created / NotCreated / MissingLoan
   const [financeFilter, setFinanceFilter] = useState("All"); // All / Financed / Cash
   const [searchText, setSearchText] = useState("");
+  const [serverSearch, setServerSearch] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -693,7 +696,7 @@ const DeliveryOrderDashboard = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const docs = dedupeDOByLoanId(await fetchAllDOs());
+      const docs = dedupeDOByLoanId(await fetchAllDOs(serverSearch));
       setDeliveryOrders(Array.isArray(docs) ? docs : []);
       const initialRows = docs.map((doc) =>
         normalizeLoanRow(buildLoanFallbackFromDO(doc), doc),
@@ -734,11 +737,18 @@ const DeliveryOrderDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [serverSearch]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setServerSearch(String(searchText || "").trim());
+    }, 220);
+    return () => clearTimeout(handle);
+  }, [searchText]);
 
   useEffect(() => {
     setPage(1);
@@ -858,7 +868,7 @@ const DeliveryOrderDashboard = () => {
       if (financeFilter === "Financed" && !financed) return false;
       if (financeFilter === "Cash" && financed) return false;
 
-      if (searchText) {
+      if (searchText && statusFilter === "NotCreated") {
         const vehicle = `${safeText(loan.vehicleMake)} ${safeText(
           loan.vehicleModel,
         )} ${safeText(loan.vehicleVariant)}`.toLowerCase();
