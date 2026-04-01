@@ -1,6 +1,6 @@
 // src/modules/delivery-orders/components/sections/Section4VehicleDetailsCustomer.jsx
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Row,
   Col,
@@ -94,6 +94,7 @@ const InlineField = ({ label, children }) => (
 const Section4VehicleDetailsCustomer = () => {
   const form = Form.useFormInstance();
   const { isDarkMode } = useTheme();
+  const customerSeededRef = useRef(false);
 
   // Centralized vehicle data
   const {
@@ -107,35 +108,36 @@ const Section4VehicleDetailsCustomer = () => {
     showDiscontinuedCars,
     setShowDiscontinuedCars,
   } = useVehicleData(form, {
-    makeFieldName: "do_vehicleMake",
-    modelFieldName: "do_vehicleModel",
-    variantFieldName: "do_vehicleVariant",
+    makeFieldName: "do_customer_vehicleMake",
+    modelFieldName: "do_customer_vehicleModel",
+    variantFieldName: "do_customer_vehicleVariant",
     autofillPricing: false,
   });
 
-  const do_vehicleMake = Form.useWatch("do_vehicleMake", form);
-  const do_vehicleModel = Form.useWatch("do_vehicleModel", form);
+  const do_vehicleMake = Form.useWatch("do_customer_vehicleMake", form);
+  const do_vehicleModel = Form.useWatch("do_customer_vehicleModel", form);
 
   const v = Form.useWatch([], form) || {};
+  const customerAccountEnabled = !!v.do_showCustomerVehicleSection;
 
-  const make = v.do_vehicleMake;
-  const model = v.do_vehicleModel;
-  const variant = v.do_vehicleVariant;
+  const make = v.do_customer_vehicleMake;
+  const model = v.do_customer_vehicleModel;
+  const variant = v.do_customer_vehicleVariant;
 
   // Pricing inputs
-  const exShowroom = asInt(v.do_exShowroomPrice);
-  const tcs = asInt(v.do_tcs);
-  const epc = asInt(v.do_epc);
-  const insuranceCost = asInt(v.do_insuranceCost);
-  const roadTax = asInt(v.do_roadTax);
-  const accessoriesAmount = asInt(v.do_accessoriesAmount);
-  const fastag = asInt(v.do_fastag);
-  const extendedWarranty = asInt(v.do_extendedWarranty);
+  const exShowroom = asInt(v.do_customer_exShowroomPrice);
+  const tcs = asInt(v.do_customer_tcs);
+  const epc = asInt(v.do_customer_epc);
+  const insuranceCost = asInt(v.do_customer_insuranceCost);
+  const roadTax = asInt(v.do_customer_roadTax);
+  const accessoriesAmount = asInt(v.do_customer_accessoriesAmount);
+  const fastag = asInt(v.do_customer_fastag);
+  const extendedWarranty = asInt(v.do_customer_extendedWarranty);
 
-  const marginMoneyPaid = asInt(v.do_marginMoneyPaid);
+  const marginMoneyPaid = asInt(v.do_customer_marginMoneyPaid);
 
-  const additionsOthers = Array.isArray(v.do_additions_others)
-    ? v.do_additions_others
+  const additionsOthers = Array.isArray(v.do_customer_additions_others)
+    ? v.do_customer_additions_others
     : [];
   const additionsOthersTotal = additionsOthers.reduce(
     (sum, x) => sum + asInt(x?.amount),
@@ -182,17 +184,73 @@ const Section4VehicleDetailsCustomer = () => {
     discountsOthersTotal;
 
   const netOnRoadVehicleCost = onRoadVehicleCost - totalDiscount;
+  const grossDO = onRoadVehicleCost - marginMoneyPaid;
+
+  useEffect(() => {
+    if (!customerAccountEnabled) {
+      customerSeededRef.current = false;
+      return;
+    }
+    if (!form || customerSeededRef.current) return;
+
+    const current = form.getFieldsValue(true);
+    const patch = {};
+    const copyIfEmpty = (targetKey, sourceValue) => {
+      const targetValue = current?.[targetKey];
+      const isEmptyArray =
+        Array.isArray(targetValue) && targetValue.length === 0;
+      const isEmptyValue =
+        targetValue === undefined ||
+        targetValue === null ||
+        targetValue === "" ||
+        isEmptyArray;
+      if (isEmptyValue) {
+        patch[targetKey] = sourceValue;
+      }
+    };
+
+    copyIfEmpty("do_customer_vehicleMake", current?.do_vehicleMake || "");
+    copyIfEmpty("do_customer_vehicleModel", current?.do_vehicleModel || "");
+    copyIfEmpty("do_customer_vehicleVariant", current?.do_vehicleVariant || "");
+    copyIfEmpty("do_customer_colour", current?.do_colour || "");
+    copyIfEmpty("do_customer_exShowroomPrice", current?.do_exShowroomPrice ?? "");
+    copyIfEmpty("do_customer_tcs", current?.do_tcs ?? "");
+    copyIfEmpty("do_customer_epc", current?.do_epc ?? "");
+    copyIfEmpty("do_customer_insuranceCost", current?.do_insuranceCost ?? "");
+    copyIfEmpty("do_customer_roadTax", current?.do_roadTax ?? "");
+    copyIfEmpty(
+      "do_customer_accessoriesAmount",
+      current?.do_accessoriesAmount ?? "",
+    );
+    copyIfEmpty("do_customer_fastag", current?.do_fastag ?? "");
+    copyIfEmpty(
+      "do_customer_extendedWarranty",
+      current?.do_extendedWarranty ?? "",
+    );
+    copyIfEmpty(
+      "do_customer_additions_others",
+      Array.isArray(current?.do_additions_others)
+        ? current.do_additions_others.map((item) => ({ ...item }))
+        : [],
+    );
+    copyIfEmpty("do_customer_marginMoneyPaid", current?.do_marginMoneyPaid ?? "");
+
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+    customerSeededRef.current = true;
+  }, [form, customerAccountEnabled]);
 
   // Write computed values
   useEffect(() => {
     if (!form) return;
     form.setFieldsValue({
       do_customer_onRoadVehicleCost: onRoadVehicleCost,
-      do_customer_grossDO: onRoadVehicleCost - marginMoneyPaid,
+      do_customer_grossDO: grossDO,
       do_customer_totalDiscount: totalDiscount,
       do_customer_netOnRoadVehicleCost: netOnRoadVehicleCost,
     });
-  }, [form, onRoadVehicleCost, marginMoneyPaid, totalDiscount, netOnRoadVehicleCost]);
+  }, [form, onRoadVehicleCost, grossDO, totalDiscount, netOnRoadVehicleCost]);
 
   // Right-side summary
   const summarySections = useMemo(() => {
@@ -221,7 +279,6 @@ const Section4VehicleDetailsCustomer = () => {
       { label: "Accessories Amount", value: accessoriesAmount, intent: "addition" },
       { label: "Fastag", value: fastag, intent: "addition" },
       { label: "Extended Warranty", value: extendedWarranty, intent: "addition" },
-      { label: "Others (Additions)", value: additionsOthersTotal, intent: "addition" },
       ...additionsList.map((item) => ({
         label: item.label,
         value: item.amount,
@@ -238,7 +295,6 @@ const Section4VehicleDetailsCustomer = () => {
       { label: "Vehicle Value", value: vehicleValue, intent: "discount" },
       { label: "Loyalty", value: loyalty, intent: "discount" },
       { label: "Corporate", value: corporate, intent: "discount" },
-      { label: "Others (Discounts)", value: discountsOthersTotal, intent: "discount" },
       ...discountsList.map((item) => ({
         label: item.label,
         value: item.amount,
@@ -253,8 +309,15 @@ const Section4VehicleDetailsCustomer = () => {
         title: "Customer on-road summary",
         rows: [
           { label: "OnRoad Vehicle Cost", value: onRoadVehicleCost, intent: "total", strong: true },
+          { label: "Gross DO", value: grossDO, intent: "total", strong: true },
           { label: "Total Discount", value: totalDiscount, intent: "discount", strong: true },
           { label: "Net OnRoad Vehicle Cost", value: netOnRoadVehicleCost, intent: "total", strong: true },
+          {
+            label: "Net Payable to Showroom",
+            value: netOnRoadVehicleCost - marginMoneyPaid,
+            intent: "total",
+            strong: true,
+          },
         ],
       },
     ];
@@ -275,6 +338,7 @@ const Section4VehicleDetailsCustomer = () => {
     additionsOthers,
     discountsOthers,
     onRoadVehicleCost,
+    grossDO,
     marginMoneyPaid,
     dealerDiscount,
     schemeDiscount,
@@ -371,7 +435,10 @@ const Section4VehicleDetailsCustomer = () => {
             {/* Make / Model / Variant / Colour */}
             <Col xs={24} md={8}>
               <InlineField label="Make">
-                <Form.Item name="do_vehicleMake" style={{ marginBottom: 0 }}>
+                <Form.Item
+                  name="do_customer_vehicleMake"
+                  style={{ marginBottom: 0 }}
+                >
                   <Select
                     bordered={false}
                     size="small"
@@ -409,7 +476,10 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="Model">
-                <Form.Item name="do_vehicleModel" style={{ marginBottom: 0 }}>
+                <Form.Item
+                  name="do_customer_vehicleModel"
+                  style={{ marginBottom: 0 }}
+                >
                   <Select
                     bordered={false}
                     size="small"
@@ -450,7 +520,10 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="Variant">
-                <Form.Item name="do_vehicleVariant" style={{ marginBottom: 0 }}>
+                <Form.Item
+                  name="do_customer_vehicleVariant"
+                  style={{ marginBottom: 0 }}
+                >
                   <Select
                     bordered={false}
                     size="small"
@@ -503,7 +576,7 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="Colour">
-                <Form.Item name="do_colour" style={{ marginBottom: 0 }}>
+                <Form.Item name="do_customer_colour" style={{ marginBottom: 0 }}>
                   <Input
                     bordered={false}
                     size="small"
@@ -517,7 +590,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Ex-Showroom Price">
                 <Form.Item
-                  name="do_exShowroomPrice"
+                  name="do_customer_exShowroomPrice"
                   style={{ marginBottom: 0 }}
                 >
                   <DOAmountInput
@@ -532,7 +605,7 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="TCS">
-                <Form.Item name="do_tcs" style={{ marginBottom: 0 }}>
+                <Form.Item name="do_customer_tcs" style={{ marginBottom: 0 }}>
                   <DOAmountInput
                     bordered={false}
                     size="small"
@@ -545,7 +618,7 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="EPC">
-                <Form.Item name="do_epc" style={{ marginBottom: 0 }}>
+                <Form.Item name="do_customer_epc" style={{ marginBottom: 0 }}>
                   <DOAmountInput
                     bordered={false}
                     size="small"
@@ -558,7 +631,10 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="Insurance Cost">
-                <Form.Item name="do_insuranceCost" style={{ marginBottom: 0 }}>
+                <Form.Item
+                  name="do_customer_insuranceCost"
+                  style={{ marginBottom: 0 }}
+                >
                   <DOAmountInput
                     bordered={false}
                     size="small"
@@ -571,7 +647,10 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="Road Tax">
-                <Form.Item name="do_roadTax" style={{ marginBottom: 0 }}>
+                <Form.Item
+                  name="do_customer_roadTax"
+                  style={{ marginBottom: 0 }}
+                >
                   <DOAmountInput
                     bordered={false}
                     size="small"
@@ -585,7 +664,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Accessories Amount">
                 <Form.Item
-                  name="do_accessoriesAmount"
+                  name="do_customer_accessoriesAmount"
                   style={{ marginBottom: 0 }}
                 >
                   <DOAmountInput
@@ -600,7 +679,7 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="Fastag">
-                <Form.Item name="do_fastag" style={{ marginBottom: 0 }}>
+                <Form.Item name="do_customer_fastag" style={{ marginBottom: 0 }}>
                   <DOAmountInput
                     bordered={false}
                     size="small"
@@ -614,7 +693,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Extended Warranty">
                 <Form.Item
-                  name="do_extendedWarranty"
+                  name="do_customer_extendedWarranty"
                   style={{ marginBottom: 0 }}
                 >
                   <DOAmountInput
@@ -637,7 +716,7 @@ const Section4VehicleDetailsCustomer = () => {
             </Col>
 
             <Col xs={24}>
-              <Form.List name="do_additions_others">
+              <Form.List name="do_customer_additions_others">
                 {(fields, { add, remove }) => (
                   <>
                     {fields.length === 0 && (
@@ -718,7 +797,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="OnRoad Vehicle Cost">
                 <Form.Item
-                  name="do_onRoadVehicleCost"
+                  name="do_customer_onRoadVehicleCost"
                   style={{ marginBottom: 0 }}
                 >
                   <DOAmountInput
@@ -735,7 +814,7 @@ const Section4VehicleDetailsCustomer = () => {
             <Col xs={24} md={8}>
               <InlineField label="Margin Money Paid">
                 <Form.Item
-                  name="do_marginMoneyPaid"
+                  name="do_customer_marginMoneyPaid"
                   style={{ marginBottom: 0 }}
                 >
                   <DOAmountInput
@@ -750,7 +829,10 @@ const Section4VehicleDetailsCustomer = () => {
 
             <Col xs={24} md={8}>
               <InlineField label="Gross DO">
-                <Form.Item name="do_grossDO" style={{ marginBottom: 0 }}>
+                <Form.Item
+                  name="do_customer_grossDO"
+                  style={{ marginBottom: 0 }}
+                >
                   <DOAmountInput
                     bordered={false}
                     size="small"

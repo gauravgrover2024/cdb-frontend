@@ -117,13 +117,34 @@ const Section5DODetails = ({ loan }) => {
     safeText(loan?.isFinanced).toLowerCase() === "yes" ||
     safeText(loan?.loanType).toLowerCase() === "financed";
   const netOffDiscount = !!v.do_netOffDiscount;
+  const showroomExchangeVehicleValue = asInt(v.do_exchangeVehiclePrice);
+  const customerExchangeVehicleValue = asInt(v.do_customer_vehicleValue);
+  const showExchangeSection =
+    doAccountType === "Customer"
+      ? customerExchangeVehicleValue > 0
+      : showroomExchangeVehicleValue > 0;
 
   // ── Source values based on account type ──────────────────────────────────
-  const selectedOnRoad = asInt(v.do_onRoadVehicleCost);
-  const selectedGrossDO = asInt(v.do_grossDO);
-  const selectedMarginMoney = asInt(v.do_marginMoneyPaid);
-  const selectedInsuranceCost = asInt(v.do_insuranceCost);
-  const exchangeVehiclePrice = asInt(v.do_exchangeVehiclePrice);
+  const selectedOnRoad =
+    doAccountType === "Customer"
+      ? asInt(v.do_customer_onRoadVehicleCost)
+      : asInt(v.do_onRoadVehicleCost);
+  const selectedGrossDO =
+    doAccountType === "Customer"
+      ? asInt(v.do_customer_grossDO)
+      : asInt(v.do_grossDO);
+  const selectedMarginMoney =
+    doAccountType === "Customer"
+      ? asInt(v.do_customer_marginMoneyPaid)
+      : asInt(v.do_marginMoneyPaid);
+  const selectedInsuranceCost =
+    doAccountType === "Customer"
+      ? asInt(v.do_customer_insuranceCost)
+      : asInt(v.do_insuranceCost);
+  const exchangeVehiclePrice =
+    doAccountType === "Customer"
+      ? asInt(v.do_customer_vehicleValue)
+      : asInt(v.do_exchangeVehiclePrice);
 
   // Total discount from the active account section
   // Section3 totalDiscount already includes exchangeVehiclePrice — we must NOT deduct it again
@@ -225,17 +246,17 @@ const Section5DODetails = ({ loan }) => {
     }
 
     // PF is always manually editable — only prefill if completely empty on first load
-    if (
-      existing?.do_processingFees === undefined ||
-      existing?.do_processingFees === null
-    ) {
+    if (existing?.do_processingFees === undefined) {
       form.setFieldsValue({
         do_processingFees:
           loan?.postFile?.processingFees ??
           loan?.postFile?.postfile_processingFees ??
           loan?.postfile?.processingFees ??
           loan?.postfile?.postfile_processingFees ??
-          loan?.postfile_processingFees ?? loan?.processingFees ?? "",
+          loan?.postfile_processingFees ??
+          loan?.approval_processingFees ??
+          loan?.processingFees ??
+          "",
       });
     }
 
@@ -676,17 +697,18 @@ const Section5DODetails = ({ loan }) => {
             </Col>
           </Row>
 
-          <Divider style={{ margin: "10px 0" }} />
+          {showExchangeSection ? (
+            <>
+              <Divider style={{ margin: "10px 0" }} />
 
-          {/* Exchange Vehicle (inputs only) */}
-          <div style={{ marginBottom: 10 }}>
-            <SectionChip
-              icon={<CarOutlined style={{ color: "#dc2626" }} />}
-              label="Exchange vehicle (optional)"
-            />
-          </div>
+              <div style={{ marginBottom: 10 }}>
+                <SectionChip
+                  icon={<CarOutlined style={{ color: "#dc2626" }} />}
+                  label="Exchange vehicle (optional)"
+                />
+              </div>
 
-          <Row gutter={[16, 6]}>
+              <Row gutter={[16, 6]}>
             <Col xs={24} md={12}>
               <InlineField label="Make">
                 <Form.Item name="do_exchangeMake" style={{ marginBottom: 0 }}>
@@ -782,7 +804,9 @@ const Section5DODetails = ({ loan }) => {
                 </Form.Item>
               </InlineField>
             </Col>
-          </Row>
+              </Row>
+            </>
+          ) : null}
         </Col>
 
         {/* RIGHT: READ-ONLY SUMMARY */}

@@ -209,6 +209,9 @@ const getShowroomNet = (d = {}) =>
     firstMeaningful(d?.do_netOnRoadVehicleCost, d?.do_net_onRoadVehicleCost),
   );
 
+const getShowroomNetPayable = (d = {}) =>
+  getShowroomNet(d) - asInt(d?.do_marginMoneyPaid);
+
 const getCustomerOnRoad = (d = {}) =>
   asInt(
     firstMeaningful(
@@ -218,6 +221,9 @@ const getCustomerOnRoad = (d = {}) =>
       d?.do_onroad_vehicle_cost,
     ),
   );
+
+const getCustomerMarginMoney = (d = {}) =>
+  asInt(firstMeaningful(d?.do_customer_marginMoneyPaid, d?.do_marginMoneyPaid));
 
 const getCustomerGross = (d = {}) =>
   asInt(
@@ -246,6 +252,19 @@ const getCustomerNet = (d = {}) =>
     ),
   );
 
+const getCustomerNetPayable = (d = {}) =>
+  getCustomerNet(d) - getCustomerMarginMoney(d);
+
+const getNamedValueRows = (items = [], intent = "addition", fallbackPrefix = "Item") =>
+  (Array.isArray(items) ? items : [])
+    .filter((item) => (item?.label || item?.amount) && Number(item?.amount) !== 0 && item?.amount !== "" && item?.amount !== null && item?.amount !== undefined)
+    .map((item, index) => ({
+      label: safeText(item?.label) || `${fallbackPrefix} ${index + 1}`,
+      value: asInt(item?.amount),
+      intent,
+    }))
+    .filter((row) => Number.isFinite(Number(row.value)));
+
 const isCustomerAccountEnabled = (d = {}) =>
   isTruthyFlag(
     firstMeaningful(
@@ -254,21 +273,40 @@ const isCustomerAccountEnabled = (d = {}) =>
     ),
   );
 
-const buildNetDOSummarySections = (doDoc = {}, loan = {}) => {
-  const doAccountType = safeText(doDoc?.do_accountType || "Showroom") || "Showroom";
+const buildNetDOSummarySections = (
+  doDoc = {},
+  loan = {},
+  accountTypeOverride = "",
+) => {
+  const doAccountType =
+    safeText(accountTypeOverride || doDoc?.do_accountType || "Showroom") ||
+    "Showroom";
+  const customerAccountEnabled = isCustomerAccountEnabled(doDoc);
   const isFinanced =
     safeText(loan?.isFinanced).toLowerCase() === "yes" ||
     safeText(loan?.loanType).toLowerCase() === "financed";
   const netOffDiscount = isTruthyFlag(doDoc?.do_netOffDiscount);
 
-  const selectedOnRoad = asInt(doDoc?.do_onRoadVehicleCost);
-  const selectedGrossDO = asInt(doDoc?.do_grossDO);
-  const selectedMarginMoney = asInt(doDoc?.do_marginMoneyPaid);
-  const selectedInsuranceCost = asInt(doDoc?.do_insuranceCost);
-  const exchangeVehiclePrice = asInt(doDoc?.do_exchangeVehiclePrice);
+  const useCustomerAccount =
+    doAccountType === "Customer" && customerAccountEnabled;
 
-  const rawTotalDiscount =
-    doAccountType === "Customer"
+  const selectedOnRoad = useCustomerAccount
+    ? getCustomerOnRoad(doDoc)
+    : getShowroomOnRoad(doDoc);
+  const selectedGrossDO = useCustomerAccount
+    ? getCustomerGross(doDoc)
+    : getShowroomGross(doDoc);
+  const selectedMarginMoney = useCustomerAccount
+    ? getCustomerMarginMoney(doDoc)
+    : asInt(doDoc?.do_marginMoneyPaid);
+  const selectedInsuranceCost = useCustomerAccount
+    ? asInt(doDoc?.do_customer_insuranceCost)
+    : asInt(doDoc?.do_insuranceCost);
+  const exchangeVehiclePrice = useCustomerAccount
+    ? asInt(doDoc?.do_customer_vehicleValue)
+    : asInt(doDoc?.do_exchangeVehiclePrice);
+
+  const rawTotalDiscount = useCustomerAccount
       ? asInt(doDoc?.do_customer_totalDiscount)
       : asInt(doDoc?.do_totalDiscount);
 
@@ -303,7 +341,10 @@ const buildNetDOSummarySections = (doDoc = {}, loan = {}) => {
       rows: [
         {
           label: "Account Type",
-          value: doAccountType || "Showroom",
+          value:
+            useCustomerAccount || doAccountType === "Showroom"
+              ? doAccountType || "Showroom"
+              : "Showroom",
           raw: true,
         },
         {
@@ -351,7 +392,9 @@ const buildNetDOSummarySections = (doDoc = {}, loan = {}) => {
       title: "Net DO breakdown",
       rows: [
         {
-          label: "On-road Payable (Showroom)",
+          label: useCustomerAccount
+            ? "On-road Payable (Customer)"
+            : "On-road Payable (Showroom)",
           value: selectedOnRoad,
           intent: "addition",
         },
@@ -643,6 +686,7 @@ const DeliveryOrderDashboard = () => {
     type: "showroom",
     loan: null,
     doDoc: null,
+    accountView: "Showroom",
   });
   const [accountPanelCycle, setAccountPanelCycle] = useState({});
 
@@ -837,11 +881,28 @@ const DeliveryOrderDashboard = () => {
   }, [filteredRows, page, pageSize]);
 
   const openSummaryModal = useCallback((type, loan, doDoc) => {
-    setSummaryModal({ open: true, type, loan, doDoc });
+    setSummaryModal({
+      open: true,
+      type,
+      loan,
+      doDoc,
+      accountView:
+        type === "do"
+          ? safeText(doDoc?.do_accountType || "Showroom") || "Showroom"
+          : type === "customer"
+            ? "Customer"
+            : "Showroom",
+    });
   }, []);
 
   const closeSummaryModal = useCallback(() => {
-    setSummaryModal({ open: false, type: "showroom", loan: null, doDoc: null });
+    setSummaryModal({
+      open: false,
+      type: "showroom",
+      loan: null,
+      doDoc: null,
+      accountView: "Showroom",
+    });
   }, []);
 
   const getAccountPanelStep = useCallback(
@@ -864,7 +925,13 @@ const DeliveryOrderDashboard = () => {
           setAccountPanelCycle((prev) => ({ ...prev, [panelKey]: 0 }));
           return;
         }
-        setSummaryModal({ open: true, type, loan, doDoc });
+        setSummaryModal({
+          open: true,
+          type,
+          loan,
+          doDoc,
+          accountView: type === "customer" ? "Customer" : "Showroom",
+        });
         setAccountPanelCycle((prev) => ({ ...prev, [panelKey]: 2 }));
         return;
       }
@@ -894,6 +961,13 @@ const DeliveryOrderDashboard = () => {
   const summaryRows = useMemo(() => {
     const d = summaryModal?.doDoc || {};
     const customerAccountEnabled = isCustomerAccountEnabled(d);
+    const modalAccountView =
+      summaryModal?.type === "do"
+        ? safeText(summaryModal?.accountView || d?.do_accountType || "Showroom") ||
+          "Showroom"
+        : summaryModal?.type === "customer"
+          ? "Customer"
+          : "Showroom";
     if (!summaryModal?.open)
       return { title: "", subtitle: "", chip: "", sections: [] };
 
@@ -922,6 +996,43 @@ const DeliveryOrderDashboard = () => {
         value: d?.do_extendedWarranty,
         intent: "addition",
       },
+      ...getNamedValueRows(d?.do_additions_others, "addition", "Addition"),
+    ].filter((row) => hasValue(row.value));
+
+    const customerAdditions = [
+      {
+        label: "Ex-Showroom Price",
+        value: d?.do_customer_exShowroomPrice,
+        intent: "addition",
+      },
+      { label: "TCS", value: d?.do_customer_tcs, intent: "addition" },
+      { label: "EPC", value: d?.do_customer_epc, intent: "addition" },
+      {
+        label: "Insurance Cost",
+        value: d?.do_customer_insuranceCost,
+        intent: "addition",
+      },
+      {
+        label: "Road Tax",
+        value: d?.do_customer_roadTax,
+        intent: "addition",
+      },
+      {
+        label: "Accessories Amount",
+        value: d?.do_customer_accessoriesAmount,
+        intent: "addition",
+      },
+      { label: "Fastag", value: d?.do_customer_fastag, intent: "addition" },
+      {
+        label: "Extended Warranty",
+        value: d?.do_customer_extendedWarranty,
+        intent: "addition",
+      },
+      ...getNamedValueRows(
+        d?.do_customer_additions_others,
+        "addition",
+        "Addition",
+      ),
     ].filter((row) => hasValue(row.value));
 
     if (summaryModal.type === "showroom") {
@@ -971,6 +1082,11 @@ const DeliveryOrderDashboard = () => {
                 value: d?.do_corporate,
                 intent: "discount",
               },
+              ...getNamedValueRows(
+                d?.do_discounts_others,
+                "discount",
+                "Discount",
+              ),
             ].filter((row) => hasValue(row.value)),
           },
           {
@@ -1000,6 +1116,12 @@ const DeliveryOrderDashboard = () => {
                 intent: "total",
                 strong: true,
               },
+              {
+                label: "Net Payable to Showroom",
+                value: getShowroomNetPayable(d),
+                intent: "total",
+                strong: true,
+              },
             ],
           },
         ],
@@ -1018,7 +1140,7 @@ const DeliveryOrderDashboard = () => {
         sections: [
           {
             title: "On-road build-up",
-            rows: customerAccountEnabled ? baseAdditions : [],
+            rows: customerAccountEnabled ? customerAdditions : [],
           },
           {
             title: "Discounts / deductions",
@@ -1026,7 +1148,7 @@ const DeliveryOrderDashboard = () => {
               ? [
               {
                 label: "Margin Money Paid",
-                value: d?.do_marginMoneyPaid,
+                value: d?.do_customer_marginMoneyPaid,
                 intent: "discount",
               },
               {
@@ -1064,6 +1186,11 @@ const DeliveryOrderDashboard = () => {
                 value: d?.do_customer_corporate,
                 intent: "discount",
               },
+              ...getNamedValueRows(
+                d?.do_customer_discounts_others,
+                "discount",
+                "Discount",
+              ),
             ].filter((row) => hasValue(row.value))
               : [],
           },
@@ -1094,6 +1221,12 @@ const DeliveryOrderDashboard = () => {
                 intent: "total",
                 strong: true,
               },
+              {
+                label: "Net Payable to Showroom",
+                value: customerAccountEnabled ? getCustomerNetPayable(d) : 0,
+                intent: "total",
+                strong: true,
+              },
             ],
           },
         ],
@@ -1103,7 +1236,7 @@ const DeliveryOrderDashboard = () => {
     return {
       title: safeText(getDoNumber(d)) || "Delivery Order",
       subtitle: "DO summary",
-      chip: safeText(d?.do_accountType || "Showroom"),
+      chip: modalAccountView,
       sections: [
         {
           title: "DO reference",
@@ -1127,7 +1260,11 @@ const DeliveryOrderDashboard = () => {
             },
           ],
         },
-        ...buildNetDOSummarySections(d, summaryModal?.loan || {}),
+        ...buildNetDOSummarySections(
+          d,
+          summaryModal?.loan || {},
+          modalAccountView,
+        ),
       ],
     };
   }, [summaryModal]);
@@ -1440,6 +1577,10 @@ const DeliveryOrderDashboard = () => {
                             : "—"
                         }
                       />
+                      <KeyValue
+                        label="Net Payable to Showroom"
+                        value={money(getShowroomNetPayable(d))}
+                      />
                     </div>
                     <AccountRevealOverlay
                       isDarkMode={isDarkMode}
@@ -1482,6 +1623,10 @@ const DeliveryOrderDashboard = () => {
                             label="Net On-Road"
                             value={money(getCustomerNet(d))}
                           />
+                          <KeyValue
+                            label="Net Payable to Showroom"
+                            value={money(getCustomerNetPayable(d))}
+                          />
                         </>
                       ) : (
                         <>
@@ -1489,6 +1634,10 @@ const DeliveryOrderDashboard = () => {
                           <KeyValue label="Gross DO" value={money(0)} />
                           <KeyValue label="Total Discount" value={money(0)} />
                           <KeyValue label="Net On-Road" value={money(0)} />
+                          <KeyValue
+                            label="Net Payable to Showroom"
+                            value={money(0)}
+                          />
                         </>
                       )}
                     </div>
@@ -1515,7 +1664,7 @@ const DeliveryOrderDashboard = () => {
                   <KeyValue
                     label="Net DO Amount"
                     value={
-                      hasValue(d?.do_netDOAmount)
+                      Number.isFinite(Number(d?.do_netDOAmount))
                         ? money(d?.do_netDOAmount)
                         : "—"
                     }
@@ -1545,6 +1694,14 @@ const DeliveryOrderDashboard = () => {
                       onClick={() => navigate(`/loans/edit/${loan.loanId}`)}
                     >
                       Open Loan
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Open payment file">
+                    <Button
+                      icon={<LinkOutlined />}
+                      onClick={() => navigate(`/payments/${loan.loanId}`)}
+                    >
+                      Open Payment
                     </Button>
                   </Tooltip>
 
@@ -1627,7 +1784,29 @@ const DeliveryOrderDashboard = () => {
           }
           title={summaryRows.title || "Summary"}
           subtitle={summaryRows.subtitle}
-          chipLabel={summaryRows.chip || "Summary"}
+          chipLabel={
+            summaryModal.type === "do" && isCustomerAccountEnabled(summaryModal?.doDoc || {})
+              ? ""
+              : summaryRows.chip || "Summary"
+          }
+          chipContent={
+            summaryModal.type === "do" &&
+            isCustomerAccountEnabled(summaryModal?.doDoc || {}) ? (
+              <Select
+                size="middle"
+                value={summaryModal.accountView || "Showroom"}
+                onChange={(value) =>
+                  setSummaryModal((prev) => ({ ...prev, accountView: value }))
+                }
+                style={{ minWidth: 170 }}
+                popupMatchSelectWidth={false}
+                options={[
+                  { value: "Showroom", label: "Showroom Account" },
+                  { value: "Customer", label: "Customer Account" },
+                ]}
+              />
+            ) : null
+          }
           chipTone={
             summaryModal.type === "showroom"
               ? "blue"

@@ -1,6 +1,6 @@
 // src/modules/delivery-orders/components/sections/Section3VehicleDetailsShowroom.jsx
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Form,
   Input,
@@ -109,6 +109,36 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
   const form = Form.useFormInstance();
   const { isDarkMode } = useTheme();
   const initialLoanPrefillDoneRef = useRef(false);
+  const handleVehicleSelect = useCallback(
+    (vehicleData) => {
+      if (!vehicleData) return;
+      const currentValues = form.getFieldsValue();
+      const fieldsToUpdate = {};
+
+      // Only hydrate when truly uninitialized. If user cleared a value (null/""),
+      // we keep it cleared and never auto-reinsert.
+      if (
+        currentValues.do_exShowroomPrice === undefined &&
+        vehicleData.exShowroom
+      ) {
+        fieldsToUpdate.do_exShowroomPrice = vehicleData.exShowroom;
+      }
+      if (
+        currentValues.do_insuranceCost === undefined &&
+        vehicleData.insurance
+      ) {
+        fieldsToUpdate.do_insuranceCost = vehicleData.insurance;
+      }
+      if (currentValues.do_roadTax === undefined && vehicleData.rto) {
+        fieldsToUpdate.do_roadTax = vehicleData.rto;
+      }
+
+      if (Object.keys(fieldsToUpdate).length > 0) {
+        form.setFieldsValue(fieldsToUpdate);
+      }
+    },
+    [form],
+  );
 
   // Vehicle data hook
   const {
@@ -126,32 +156,7 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
     modelFieldName: "do_vehicleModel",
     variantFieldName: "do_vehicleVariant",
     autofillPricing: true,
-    onVehicleSelect: (vehicleData) => {
-      if (vehicleData) {
-        const currentValues = form.getFieldsValue();
-        const fieldsToUpdate = {};
-
-        if (
-          currentValues.do_exShowroomPrice === undefined &&
-          vehicleData.exShowroom
-        ) {
-          fieldsToUpdate.do_exShowroomPrice = vehicleData.exShowroom;
-        }
-        if (
-          currentValues.do_insuranceCost === undefined &&
-          vehicleData.insurance
-        ) {
-          fieldsToUpdate.do_insuranceCost = vehicleData.insurance;
-        }
-        if (currentValues.do_roadTax === undefined && vehicleData.rto) {
-          fieldsToUpdate.do_roadTax = vehicleData.rto;
-        }
-
-        if (Object.keys(fieldsToUpdate).length > 0) {
-          form.setFieldsValue(fieldsToUpdate);
-        }
-      }
-    },
+    onVehicleSelect: handleVehicleSelect,
   });
 
   const do_vehicleMake = Form.useWatch("do_vehicleMake", form);
@@ -181,26 +186,6 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
         loan?.exShowroom,
         loan?.vehiclePricing?.exShowroom,
         loan?.pricing?.exShowroom,
-        "",
-      );
-    }
-
-    if (existing?.do_insuranceCost === undefined) {
-      patch.do_insuranceCost = pickFirst(
-        loan?.insuranceCost,
-        loan?.insurance,
-        loan?.insurance_amount_cardekho,
-        loan?.vehiclePricing?.insurance,
-        "",
-      );
-    }
-
-    if (existing?.do_roadTax === undefined) {
-      patch.do_roadTax = pickFirst(
-        loan?.roadTax,
-        loan?.rto,
-        loan?.rto_amount_cardekho,
-        loan?.vehiclePricing?.rto,
         "",
       );
     }
@@ -293,6 +278,22 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
 
   // Right summary – same pattern as Section 4/5
   const summarySections = useMemo(() => {
+    const additionsList = additionsOthers
+      .filter((x) => (x?.label || x?.amount) && hasValue(x?.amount))
+      .map((x, idx) => ({
+        key: `add-${idx}`,
+        label: x?.label || `Addition ${idx + 1}`,
+        amount: asInt(x?.amount),
+      }));
+
+    const discountsList = discountsOthers
+      .filter((x) => (x?.label || x?.amount) && hasValue(x?.amount))
+      .map((x, idx) => ({
+        key: `disc-${idx}`,
+        label: x?.label || `Discount ${idx + 1}`,
+        amount: asInt(x?.amount),
+      }));
+
     const additionsRows = [
       { label: "Ex-Showroom Price", value: exShowroom, intent: "addition" },
       { label: "TCS", value: tcs, intent: "addition" },
@@ -302,7 +303,11 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
       { label: "Accessories Amount", value: accessoriesAmount, intent: "addition" },
       { label: "Fastag", value: fastag, intent: "addition" },
       { label: "Extended Warranty", value: extendedWarranty, intent: "addition" },
-      { label: "Others (Additions)", value: additionsOthersTotal, intent: "addition" },
+      ...additionsList.map((item) => ({
+        label: item.label,
+        value: item.amount,
+        intent: "addition",
+      })),
     ].filter((r) => hasValue(r.value));
 
     const discountRows = [
@@ -314,7 +319,11 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
       { label: "Exchange Vehicle Price", value: exchangeVehiclePrice, intent: "discount" },
       { label: "Loyalty", value: loyalty, intent: "discount" },
       { label: "Corporate", value: corporate, intent: "discount" },
-      { label: "Others (Discounts)", value: discountsOthersTotal, intent: "discount" },
+      ...discountsList.map((item) => ({
+        label: item.label,
+        value: item.amount,
+        intent: "discount",
+      })),
     ].filter((r) => hasValue(r.value));
 
     return [
@@ -324,8 +333,15 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
         title: "Showroom on-road summary",
         rows: [
           { label: "OnRoad Vehicle Cost", value: onRoadVehicleCost, intent: "total", strong: true },
+          { label: "Gross DO", value: grossDO, intent: "total", strong: true },
           { label: "Total Discount", value: totalDiscount, intent: "discount", strong: true },
           { label: "Net OnRoad Vehicle Cost", value: netOnRoadVehicleCost, intent: "total", strong: true },
+          {
+            label: "Net Payable to Showroom",
+            value: netOnRoadVehicleCost - marginMoneyPaid,
+            intent: "total",
+            strong: true,
+          },
         ],
       },
     ];
@@ -341,6 +357,7 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
     additionsOthersTotal,
     discountsOthersTotal,
     onRoadVehicleCost,
+    grossDO,
     marginMoneyPaid,
     dealerDiscount,
     schemeDiscount,
@@ -563,18 +580,6 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
                   Show discontinued cars
                 </Checkbox>
               </Form.Item>
-            </Col>
-
-            <Col xs={24} md={16}>
-              <InlineField label="Showroom Name">
-                <Form.Item name="do_dealerName" style={{ marginBottom: 0 }}>
-                  <Input
-                    bordered={false}
-                    size="small"
-                    placeholder="Enter showroom name"
-                  />
-                </Form.Item>
-              </InlineField>
             </Col>
 
             {/* Colour */}

@@ -1,16 +1,7 @@
 // src/modules/delivery-orders/components/DeliveryOrderForm.jsx
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Card,
-  Button,
-  Form,
-  Row,
-  Col,
-  message,
-  Checkbox,
-  Tag,
-} from "antd";
+import { Card, Button, Form, Row, Col, message, Checkbox, Tag } from "antd";
 import {
   ArrowLeftOutlined,
   PrinterOutlined,
@@ -59,6 +50,34 @@ const asNumberOrEmpty = (value) => {
   const normalized = String(value).replace(/,/g, "").trim();
   const n = Number(normalized);
   return Number.isFinite(n) ? n : "";
+};
+const asNullableNumberField = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const normalized = String(value).replace(/,/g, "").trim();
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+};
+const isEmpty = (v) => v === undefined || v === null || v === "";
+const hasOwn = (obj, key) =>
+  !!obj && Object.prototype.hasOwnProperty.call(obj, key);
+const hydrateNullableNumberFromDO = (
+  source,
+  primaryKeys = [],
+  fallbackKeys = [],
+) => {
+  for (const key of primaryKeys) {
+    if (hasOwn(source, key)) {
+      const value = source?.[key];
+      return value === null ? "" : asNumberOrEmpty(value);
+    }
+  }
+  for (const key of fallbackKeys) {
+    if (hasOwn(source, key)) {
+      const value = source?.[key];
+      return value === null ? "" : asNumberOrEmpty(value);
+    }
+  }
+  return undefined;
 };
 const buildLoanContextPrefill = (loan = {}) => ({
   customerName: pickFirstMeaningful(
@@ -285,6 +304,7 @@ const DeliveryOrderForm = () => {
   const [hasLoadedLoanContext, setHasLoadedLoanContext] = useState(false);
   const [existingDO, setExistingDO] = useState(null);
   const lastSaveAtRef = useRef(0);
+  const suppressAutosaveUntilRef = useRef(0);
   const legacyAutoCreateNoticeShownRef = useRef(false);
   const [loanData, setLoanData] = useState(null);
 
@@ -489,27 +509,27 @@ const DeliveryOrderForm = () => {
             patched?.do_vehicleColor,
             patched?.vehicleColor,
           ),
-          do_exShowroomPrice: asNumberOrEmpty(
-            pickFirstMeaningful(
-              patched?.do_exShowroomPrice,
-              patched?.exShowroomPrice,
-              patched?.ex_showroom,
-            ),
-          ),
-          do_insuranceCost: asNumberOrEmpty(
-            pickFirstMeaningful(
-              patched?.do_insuranceCost,
-              patched?.insuranceCost,
-              patched?.insurance,
-            ),
-          ),
-          do_roadTax: asNumberOrEmpty(
-            pickFirstMeaningful(
-              patched?.do_roadTax,
-              patched?.roadTax,
-              patched?.rto,
-            ),
-          ),
+          do_exShowroomPrice: (() => {
+            return hydrateNullableNumberFromDO(
+              patched,
+              ["do_exShowroomPrice"],
+              ["exShowroomPrice", "ex_showroom"],
+            );
+          })(),
+          do_insuranceCost: (() => {
+            return hydrateNullableNumberFromDO(
+              patched,
+              ["do_insuranceCost"],
+              ["insuranceCost", "insurance"],
+            );
+          })(),
+          do_roadTax: (() => {
+            return hydrateNullableNumberFromDO(
+              patched,
+              ["do_roadTax"],
+              ["roadTax", "rto"],
+            );
+          })(),
           do_accountType: pickFirstMeaningful(
             patched?.do_accountType,
             "Showroom",
@@ -522,14 +542,13 @@ const DeliveryOrderForm = () => {
               loanData?.loanAmount,
             ),
           ),
-          do_processingFees: asNumberOrEmpty(
-            pickFirstMeaningful(
-              patched?.do_processingFees,
-              patched?.processingFees,
-              loanData?.postfile_processingFees,
-              loanData?.processingFees,
-            ),
-          ),
+          do_processingFees: (() => {
+            return hydrateNullableNumberFromDO(
+              patched,
+              ["do_processingFees"],
+              ["processingFees"],
+            );
+          })(),
         };
 
         form.setFieldsValue({
@@ -585,7 +604,10 @@ const DeliveryOrderForm = () => {
       "dealerCity",
       "dealerPincode",
     ].forEach((key) => {
-      if (!hasMeaningfulValue(existing[key]) && hasMeaningfulValue(loanPrefill[key])) {
+      if (
+        !hasMeaningfulValue(existing[key]) &&
+        hasMeaningfulValue(loanPrefill[key])
+      ) {
         fieldPatch[key] = loanPrefill[key];
       }
     });
@@ -640,6 +662,7 @@ const DeliveryOrderForm = () => {
     if (!routeLoanId) return;
     if (!hasLoadedLoanContext) return;
     if (!hasLoadedDO) return;
+    if (Date.now() < suppressAutosaveUntilRef.current) return;
 
     const autosave = async () => {
       try {
@@ -672,6 +695,18 @@ const DeliveryOrderForm = () => {
         const payload = {
           ...(existingDO || {}),
           ...values,
+          do_exShowroomPrice: isEmpty(form.getFieldValue("do_exShowroomPrice"))
+            ? null
+            : asNullableNumberField(form.getFieldValue("do_exShowroomPrice")),
+          do_insuranceCost: isEmpty(form.getFieldValue("do_insuranceCost"))
+            ? null
+            : asNullableNumberField(form.getFieldValue("do_insuranceCost")),
+          do_roadTax: isEmpty(form.getFieldValue("do_roadTax"))
+            ? null
+            : asNullableNumberField(form.getFieldValue("do_roadTax")),
+          do_processingFees: isEmpty(form.getFieldValue("do_processingFees"))
+            ? null
+            : asNullableNumberField(form.getFieldValue("do_processingFees")),
           loanId: finalLoanId,
           do_loanId: finalLoanId,
           updatedAt: new Date().toISOString(),
@@ -692,7 +727,15 @@ const DeliveryOrderForm = () => {
     };
 
     autosave();
-  }, [form, routeLoanId, hasLoadedLoanContext, hasLoadedDO, debouncedValues, existingDO, loanData]);
+  }, [
+    form,
+    routeLoanId,
+    hasLoadedLoanContext,
+    hasLoadedDO,
+    debouncedValues,
+    existingDO,
+    loanData,
+  ]);
 
   // Actions
   const handleDiscardAndExit = () => {
@@ -700,11 +743,22 @@ const DeliveryOrderForm = () => {
     navigate("/delivery-orders");
   };
 
-  const handleSave = async () => {
+  const saveDeliveryOrder = async ({ exitAfterSave = false } = {}) => {
     try {
       setLoading(true);
+      suppressAutosaveUntilRef.current = Date.now() + 3000;
+
+      if (
+        typeof document !== "undefined" &&
+        document.activeElement &&
+        typeof document.activeElement.blur === "function"
+      ) {
+        document.activeElement.blur();
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
 
       await form.validateFields();
+      await new Promise((resolve) => setTimeout(resolve, 0));
       const serialized = serializeDatesToISO(form.getFieldsValue(true));
 
       let finalLoanId =
@@ -748,6 +802,27 @@ const DeliveryOrderForm = () => {
       const payload = {
         ...(existingDO || {}),
         ...serialized,
+        do_exShowroomPrice: isEmpty(form.getFieldValue("do_exShowroomPrice"))
+          ? null
+          : asNullableNumberField(form.getFieldValue("do_exShowroomPrice")),
+        do_insuranceCost: isEmpty(form.getFieldValue("do_insuranceCost"))
+          ? null
+          : asNullableNumberField(form.getFieldValue("do_insuranceCost")),
+        do_roadTax: isEmpty(form.getFieldValue("do_roadTax"))
+          ? null
+          : asNullableNumberField(form.getFieldValue("do_roadTax")),
+        do_processingFees: asNullableNumberField(
+          form.getFieldValue("do_processingFees"),
+        ),
+        do_customer_exShowroomPrice: asNullableNumberField(
+          form.getFieldValue("do_customer_exShowroomPrice"),
+        ),
+        do_customer_insuranceCost: asNullableNumberField(
+          form.getFieldValue("do_customer_insuranceCost"),
+        ),
+        do_customer_roadTax: asNullableNumberField(
+          form.getFieldValue("do_customer_roadTax"),
+        ),
         loanId: finalLoanId,
         do_loanId: finalLoanId,
         updatedAt: new Date().toISOString(),
@@ -762,16 +837,31 @@ const DeliveryOrderForm = () => {
         return;
       }
       setExistingDO(saveRes?.data?.data || saveRes?.data || payload);
+      suppressAutosaveUntilRef.current = Date.now() + 3000;
 
       message.success("Delivery Order saved successfully ✅");
+      if (exitAfterSave) {
+        navigate("/delivery-orders");
+        return true;
+      }
       if (!routeLoanId && finalLoanId) {
         navigate(`/delivery-orders/${finalLoanId}`, { replace: true });
       }
+      return true;
     } catch (err) {
       console.error("Save DO Error:", err);
+      return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSave = async () => {
+    await saveDeliveryOrder();
+  };
+
+  const handleSaveAndExit = async () => {
+    await saveDeliveryOrder({ exitAfterSave: true });
   };
 
   const handlePrint = () => {
@@ -787,7 +877,7 @@ const DeliveryOrderForm = () => {
           ? "linear-gradient(180deg, #090b10 0%, #111111 24%, #161616 100%)"
           : "linear-gradient(180deg, #edf5ff 0%, #f8fafc 30%, #ffffff 100%)",
         color: isDarkMode ? "#f5f5f5" : "#111827",
-        padding: "16px 16px 32px",
+        padding: "0 16px 32px",
       }}
     >
       {/* full width, no maxWidth container */}
@@ -800,6 +890,9 @@ const DeliveryOrderForm = () => {
             justifyContent: "space-between",
             marginBottom: 18,
             gap: 12,
+            position: "sticky",
+            top: 64,
+            zIndex: 80,
             color: isDarkMode ? "#f5f5f5" : "#111827",
             padding: "10px 14px",
             borderRadius: 20,
@@ -825,7 +918,16 @@ const DeliveryOrderForm = () => {
             <Button icon={<PrinterOutlined />} onClick={handlePrint}>
               Print DO
             </Button>
-
+            <Button danger onClick={handleDiscardAndExit}>
+              Discard & Exit
+            </Button>
+            <Button
+              icon={<SaveOutlined />}
+              loading={loading}
+              onClick={handleSaveAndExit}
+            >
+              Save & Exit
+            </Button>
             <Button
               type="primary"
               icon={<SaveOutlined />}
@@ -833,10 +935,6 @@ const DeliveryOrderForm = () => {
               onClick={handleSave}
             >
               Save
-            </Button>
-
-            <Button danger onClick={handleDiscardAndExit}>
-              Discard & Exit DO
             </Button>
           </div>
         </div>
@@ -866,66 +964,71 @@ const DeliveryOrderForm = () => {
                   : "radial-gradient(circle at top right, rgba(59,130,246,0.14), transparent 34%), radial-gradient(circle at left center, rgba(16,185,129,0.08), transparent 28%)",
               }}
             >
-            <Row align="middle" justify="space-between">
-              <Col>
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 12px",
-                    borderRadius: 999,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    color: isDarkMode ? "#dbeafe" : "#1d4ed8",
-                    background: isDarkMode
-                      ? "rgba(37,99,235,0.16)"
-                      : "rgba(59,130,246,0.10)",
-                    marginBottom: 12,
-                  }}
-                >
-                  Delivery order
-                </div>
-                <div
-                  style={{
-                    fontWeight: 700,
-                    fontSize: 24,
-                    marginTop: 2,
-                    color: isDarkMode ? "#f8fafc" : "#111827",
-                  }}
-                >
-                  Delivery Order Workspace
-                </div>
-                <div
-                  style={{
-                    fontSize: 14,
-                    color: isDarkMode ? "#a1a1aa" : "#64748b",
-                    marginTop: 8,
-                    maxWidth: 700,
-                  }}
-                >
-                  Review customer, showroom, pricing, and net payable in one place before handing over the vehicle.
-                </div>
-              </Col>
+              <Row align="middle" justify="space-between">
+                <Col>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 12px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: isDarkMode ? "#dbeafe" : "#1d4ed8",
+                      background: isDarkMode
+                        ? "rgba(37,99,235,0.16)"
+                        : "rgba(59,130,246,0.10)",
+                      marginBottom: 12,
+                    }}
+                  >
+                    Delivery order
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 24,
+                      marginTop: 2,
+                      color: isDarkMode ? "#f8fafc" : "#111827",
+                    }}
+                  >
+                    Delivery Order Workspace
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      color: isDarkMode ? "#a1a1aa" : "#64748b",
+                      marginTop: 8,
+                      maxWidth: 700,
+                    }}
+                  >
+                    Review customer, showroom, pricing, and net payable in one
+                    place before handing over the vehicle.
+                  </div>
+                </Col>
 
-              <Col>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <Tag color="blue">Loan ID: {activeLoanId || "Not assigned yet"}</Tag>
-                  <Tag color="purple">DO Ref: {form.getFieldValue("do_refNo") || "Draft"}</Tag>
-                  {existingDO && <Tag color="green">Existing DO</Tag>}
-                </div>
-              </Col>
-            </Row>
+                <Col>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Tag color="blue">
+                      Loan ID: {activeLoanId || "Not assigned yet"}
+                    </Tag>
+                    <Tag color="purple">
+                      DO Ref: {form.getFieldValue("do_refNo") || "Draft"}
+                    </Tag>
+                    {existingDO && <Tag color="green">Existing DO</Tag>}
+                  </div>
+                </Col>
+              </Row>
             </div>
           </Card>
           {/* SECTION 1 — Customer & DO Header */}

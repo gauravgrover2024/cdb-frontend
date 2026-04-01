@@ -8,7 +8,11 @@ const asInt = (value) => {
   return Math.trunc(parsed);
 };
 
-const hasNumericValue = (value) => asInt(value) > 0;
+const hasDisplayableNumber = (value) => {
+  if (value === undefined || value === null || value === "") return false;
+  const parsed = Number(value);
+  return Number.isFinite(parsed);
+};
 
 const formatMoney = (value) => `₹ ${asInt(value).toLocaleString("en-IN")}`;
 
@@ -34,6 +38,7 @@ const BreakdownSummaryCard = ({
   title = "",
   subtitle = "",
   chipLabel = "",
+  chipContent = null,
   chipTone = "blue",
   sections = [],
   sticky = false,
@@ -122,7 +127,9 @@ const BreakdownSummaryCard = ({
               ) : null}
             </div>
 
-            {chipLabel ? (
+            {chipContent ? (
+              chipContent
+            ) : chipLabel ? (
               <Tag
                 color={chipColorMap[chipTone] || "blue"}
                 style={{
@@ -185,7 +192,7 @@ const BreakdownSummaryCard = ({
 
                       const displayValue = item.raw
                         ? String(item.value ?? "—")
-                        : hasNumericValue(item.value) || Number(item.value) === 0
+                        : hasDisplayableNumber(item.value)
                           ? formatMoney(item.value)
                           : "—";
 
