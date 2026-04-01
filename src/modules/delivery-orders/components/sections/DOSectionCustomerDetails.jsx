@@ -1,10 +1,12 @@
 // src/modules/delivery-orders/components/sections/Section1CustomerDetails.jsx
 
-import React, { useEffect, useMemo } from "react";
-import { Row, Col, Form, Tag, Divider, Input, DatePicker } from "antd";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Row, Col, Form, Tag, Divider, Input, DatePicker, AutoComplete, Select, Spin } from "antd";
 import { UserOutlined, IdcardOutlined, HomeOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import Icon from "../../../../components/AppIcon";
+import { customersApi } from "../../../../api/customers";
+import { useTheme } from "../../../../context/ThemeContext";
 
 const HeadingLabel = ({ children }) => (
   <div
@@ -13,7 +15,7 @@ const HeadingLabel = ({ children }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#6b7280",
+      color: "var(--do-muted, #6b7280)",
     }}
   >
     {children}
@@ -25,7 +27,7 @@ const SoftValue = ({ children, strong, color }) => (
     style={{
       fontSize: strong ? 18 : 13,
       fontWeight: strong ? 800 : 600,
-      color: color || "#111827",
+      color: color || "var(--do-text, #111827)",
       lineHeight: 1.2,
     }}
   >
@@ -39,7 +41,7 @@ const InlineField = ({ label, children }) => (
       <div
         style={{
           fontSize: 11,
-          color: "#6b7280",
+          color: "var(--do-muted, #6b7280)",
           marginBottom: 2,
         }}
       >
@@ -48,7 +50,7 @@ const InlineField = ({ label, children }) => (
     )}
     <div
       style={{
-        borderBottom: "1px solid #e5e7eb",
+        borderBottom: "1px solid var(--do-border, #e5e7eb)",
         paddingBottom: 2,
       }}
     >
@@ -67,7 +69,7 @@ const SectionChip = ({ icon, label }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#4b5563",
+      color: "var(--do-chip, #4b5563)",
     }}
   >
     {icon}
@@ -83,7 +85,7 @@ const ReadonlyInput = ({ value, multiline }) =>
       value={value || "-"}
       autoSize={{ minRows: 2, maxRows: 4 }}
       readOnly
-      style={{ padding: 0, resize: "none", background: "transparent" }}
+      style={{ padding: 0, resize: "none", background: "transparent", color: "var(--do-text, #111827)" }}
     />
   ) : (
     <Input
@@ -91,13 +93,15 @@ const ReadonlyInput = ({ value, multiline }) =>
       size="small"
       value={value || "-"}
       readOnly
-      style={{ padding: 0, background: "transparent" }}
+      style={{ padding: 0, background: "transparent", color: "var(--do-text, #111827)" }}
     />
   );
 
 const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
+  const { isDarkMode } = useTheme();
   const customerName = Form.useWatch("customerName", form);
   const doCustomerName = Form.useWatch("do_customerName", form);
+  const primaryMobile = Form.useWatch("primaryMobile", form);
   const residenceAddress = Form.useWatch("residenceAddress", form);
   const doResidenceAddress = Form.useWatch("do_residenceAddress", form);
   const pincode = Form.useWatch("pincode", form);
@@ -112,6 +116,10 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
 
   const doDate = Form.useWatch("do_date", form);
   const doRefNo = Form.useWatch("do_refNo", form);
+  const [customerOptions, setCustomerOptions] = useState([]);
+  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
+  const customerSearchTimerRef = useRef(null);
+  const customerSearchReqRef = useRef(0);
 
   // Auto-generate DO ref and date only if missing
   useEffect(() => {
@@ -136,18 +144,164 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
     }
   }, [form]);
 
-  const resolvedCustomerName = customerName || doCustomerName || "-";
-  const resolvedAddress = residenceAddress || doResidenceAddress || "-";
-  const resolvedPincode = pincode || doPincode || "-";
-  const resolvedCity = city || doCity || "-";
-  const resolvedRecordSource = recordSource || doRecordSource || "";
-  const resolvedSourceName = sourceName || doSourceName || "";
+  const pick = useCallback((...values) => {
+    for (const value of values) {
+      if (value === undefined || value === null) continue;
+      const text = String(value).trim();
+      if (!text) continue;
+      if (
+        ["n/a", "na", "null", "undefined", "-", "--", "not set"].includes(
+          text.toLowerCase(),
+        )
+      ) {
+        continue;
+      }
+      return value;
+    }
+    return "";
+  }, []);
 
-  const sourceText = resolvedRecordSource
-    ? resolvedRecordSource === "Indirect"
-      ? `Indirect (${resolvedSourceName || "-"})`
-      : "Direct"
-    : "-";
+  const applyCustomerAutofill = useCallback(
+    async (seedCustomer = {}) => {
+      let customer = seedCustomer || {};
+      try {
+        const customerId = customer?._id || customer?.id;
+        if (customerId) {
+          const fullRes = await customersApi.getById(customerId);
+          customer = fullRes?.data || customer;
+        }
+      } catch (error) {
+        console.error("Failed to load full customer during DO autofill:", error);
+      }
+
+      form.setFieldsValue({
+        customerName: pick(customer?.customerName, customer?.name, customerName),
+        do_customerName: pick(customer?.customerName, customer?.name, doCustomerName),
+        primaryMobile: pick(customer?.primaryMobile, customer?.mobile, primaryMobile),
+        residenceAddress: pick(
+          customer?.residenceAddress,
+          customer?.currentAddress,
+          customer?.address,
+          residenceAddress,
+        ),
+        do_residenceAddress: pick(
+          customer?.residenceAddress,
+          customer?.currentAddress,
+          customer?.address,
+          doResidenceAddress,
+        ),
+        city: pick(customer?.city, customer?.currentCity, customer?.permanentCity, city),
+        do_city: pick(
+          customer?.city,
+          customer?.currentCity,
+          customer?.permanentCity,
+          doCity,
+        ),
+        pincode: pick(
+          customer?.pincode,
+          customer?.currentPincode,
+          customer?.permanentPincode,
+          pincode,
+        ),
+        do_pincode: pick(
+          customer?.pincode,
+          customer?.currentPincode,
+          customer?.permanentPincode,
+          doPincode,
+        ),
+        recordSource: pick(customer?.recordSource, customer?.source, recordSource),
+        do_recordSource: pick(
+          customer?.recordSource,
+          customer?.source,
+          doRecordSource,
+        ),
+        sourceName: pick(customer?.sourceName, customer?.dealerName, sourceName),
+        do_sourceName: pick(
+          customer?.sourceName,
+          customer?.dealerName,
+          doSourceName,
+        ),
+      });
+    },
+    [
+      city,
+      customerName,
+      doCity,
+      doCustomerName,
+      doPincode,
+      doRecordSource,
+      doResidenceAddress,
+      doSourceName,
+      form,
+      pick,
+      pincode,
+      primaryMobile,
+      recordSource,
+      residenceAddress,
+      sourceName,
+    ],
+  );
+
+  const runCustomerSearch = useCallback(async (term) => {
+    const q = String(term || "").trim();
+    if (q.length < 2) {
+      setCustomerOptions([]);
+      setCustomerSearchLoading(false);
+      return;
+    }
+
+    const reqId = ++customerSearchReqRef.current;
+    setCustomerSearchLoading(true);
+    try {
+      const res = await customersApi.search(q, { limit: 20 });
+      if (reqId !== customerSearchReqRef.current) return;
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      const opts = rows.map((customer) => ({
+        value: customer?.customerName || "",
+        label: `${customer?.customerName || "Unknown"}${
+          customer?.primaryMobile ? ` • ${customer.primaryMobile}` : ""
+        }${customer?.panNumber ? ` • ${customer.panNumber}` : ""}`,
+        customer,
+      }));
+      setCustomerOptions(opts);
+    } catch (error) {
+      if (reqId !== customerSearchReqRef.current) return;
+      console.error("Customer autosuggest failed in DO:", error);
+      setCustomerOptions([]);
+    } finally {
+      if (reqId === customerSearchReqRef.current) {
+        setCustomerSearchLoading(false);
+      }
+    }
+  }, []);
+
+  const handleCustomerSearch = useCallback(
+    (term) => {
+      const q = String(term || "").trim();
+      if (customerSearchTimerRef.current) {
+        clearTimeout(customerSearchTimerRef.current);
+      }
+      if (q.length < 2) {
+        setCustomerOptions([]);
+        setCustomerSearchLoading(false);
+        return;
+      }
+      customerSearchTimerRef.current = setTimeout(() => {
+        runCustomerSearch(q);
+      }, 220);
+    },
+    [runCustomerSearch],
+  );
+
+  useEffect(
+    () => () => {
+      if (customerSearchTimerRef.current) {
+        clearTimeout(customerSearchTimerRef.current);
+      }
+    },
+    [],
+  );
+
 
   const TopStrip = useMemo(
     () => (
@@ -168,10 +322,10 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
             flexWrap: "wrap",
           }}
         >
-          <UserOutlined style={{ color: "#111827" }} />
+          <UserOutlined style={{ color: isDarkMode ? "#f3f4f6" : "#111827" }} />
           <div>
             <HeadingLabel>Customer details</HeadingLabel>
-            <SoftValue>Customer & DO header</SoftValue>
+            <SoftValue color={isDarkMode ? "#f3f4f6" : "#111827"}>Customer & DO header</SoftValue>
           </div>
           <Tag
             color="blue"
@@ -185,8 +339,8 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
           style={{
             padding: "6px 16px",
             borderRadius: 999,
-            border: "1px solid #d1d5db",
-            background: "#fff",
+            border: `1px solid ${isDarkMode ? "#3a3a3a" : "#d1d5db"}`,
+            background: isDarkMode ? "#202020" : "#fff",
             minWidth: 170,
           }}
         >
@@ -205,7 +359,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
             style={{
               fontSize: 16,
               fontWeight: 700,
-              color: "#111827",
+              color: isDarkMode ? "#f3f4f6" : "#111827",
             }}
           >
             {doRefNo || "Auto-generated"}
@@ -213,17 +367,21 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
         </div>
       </div>
     ),
-    [doRefNo],
+    [doRefNo, isDarkMode],
   );
 
   return (
     <div
       style={{
+        "--do-text": isDarkMode ? "#f3f4f6" : "#111827",
+        "--do-muted": isDarkMode ? "#9ca3af" : "#6b7280",
+        "--do-chip": isDarkMode ? "#d1d5db" : "#4b5563",
+        "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: "#f9fafb",
+        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
         borderRadius: 16,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
       }}
     >
       {TopStrip}
@@ -236,7 +394,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
           xs={24}
           lg={14}
           style={{
-            borderRight: "1px solid #e5e7eb",
+            borderRight: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
             paddingRight: 24,
           }}
         >
@@ -285,13 +443,72 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
           <Row gutter={[16, 8]}>
             <Col xs={24} md={12}>
               <InlineField label="Customer Name">
-                <ReadonlyInput value={resolvedCustomerName} />
+                <Form.Item name="customerName" style={{ marginBottom: 0 }}>
+                  <AutoComplete
+                    allowClear
+                    options={customerOptions}
+                    onSearch={handleCustomerSearch}
+                    onSelect={(_, option) => applyCustomerAutofill(option?.customer || {})}
+                    notFoundContent={
+                      customerSearchLoading ? (
+                        <div style={{ padding: 8, textAlign: "center" }}>
+                          <Spin size="small" />
+                        </div>
+                      ) : null
+                    }
+                  >
+                    <Input
+                      bordered={false}
+                      size="small"
+                      placeholder="Search customer by name / mobile / PAN"
+                      disabled={readOnly}
+                    />
+                  </AutoComplete>
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <InlineField label="Mobile Number">
+                <Form.Item name="primaryMobile" style={{ marginBottom: 0 }}>
+                  <Input
+                    bordered={false}
+                    size="small"
+                    placeholder="Primary mobile"
+                    disabled={readOnly}
+                  />
+                </Form.Item>
               </InlineField>
             </Col>
 
             <Col xs={24} md={12}>
               <InlineField label="Source">
-                <ReadonlyInput value={sourceText} />
+                <Form.Item name="recordSource" style={{ marginBottom: 0 }}>
+                  <Select
+                    bordered={false}
+                    size="small"
+                    disabled={readOnly}
+                    options={[
+                      { value: "Direct", label: "Direct" },
+                      { value: "Indirect", label: "Indirect" },
+                    ]}
+                    placeholder="Select source"
+                    allowClear
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <InlineField label="Source Name">
+                <Form.Item name="sourceName" style={{ marginBottom: 0 }}>
+                  <Input
+                    bordered={false}
+                    size="small"
+                    placeholder="Source / showroom / channel name"
+                    disabled={readOnly}
+                  />
+                </Form.Item>
               </InlineField>
             </Col>
           </Row>
@@ -313,19 +530,41 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
           </div>
 
           <InlineField label="Address">
-            <ReadonlyInput value={resolvedAddress} multiline />
+            <Form.Item name="residenceAddress" style={{ marginBottom: 0 }}>
+              <Input.TextArea
+                rows={2}
+                bordered={false}
+                placeholder="Customer address"
+                disabled={readOnly}
+                style={{ padding: 0, resize: "none", background: "transparent" }}
+              />
+            </Form.Item>
           </InlineField>
 
           <Row gutter={[16, 8]}>
             <Col xs={24} md={12}>
               <InlineField label="City">
-                <ReadonlyInput value={resolvedCity} />
+                <Form.Item name="city" style={{ marginBottom: 0 }}>
+                  <Input
+                    bordered={false}
+                    size="small"
+                    placeholder="City"
+                    disabled={readOnly}
+                  />
+                </Form.Item>
               </InlineField>
             </Col>
 
             <Col xs={24} md={12}>
               <InlineField label="Pincode">
-                <ReadonlyInput value={resolvedPincode} />
+                <Form.Item name="pincode" style={{ marginBottom: 0 }}>
+                  <Input
+                    bordered={false}
+                    size="small"
+                    placeholder="Pincode"
+                    disabled={readOnly}
+                  />
+                </Form.Item>
               </InlineField>
             </Col>
           </Row>

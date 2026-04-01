@@ -31,7 +31,8 @@ import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { loansApi } from "../../../api/loans";
-import DirectCreateModal from "../../shared/DirectCreateModal";
+import BreakdownSummaryCard from "./shared/BreakdownSummaryCard";
+import { useTheme } from "../../../context/ThemeContext";
 
 const { Option } = Select;
 
@@ -151,12 +152,13 @@ const fetchAllNewCarLoans = async () => {
 const buildLoanFallbackFromDO = (d = {}) => ({
   loanId: normalizeLoanId(d.loanId || d.do_loanId),
   customerName: safeText(d.customerName || d.do_customerName || d.customer_name),
+  primaryMobile: safeText(d.primaryMobile || d.do_primaryMobile || d.mobile),
   vehicleMake: safeText(d.vehicleMake || d.make),
   vehicleModel: safeText(d.vehicleModel || d.model),
   vehicleVariant: safeText(d.vehicleVariant || d.variant),
   isFinanced: safeText(d.isFinanced || "No"),
   recordSource: safeText(d.recordSource || d.source || d.sourcing),
-  sourceName: safeText(d.sourceName || d.dealerName),
+  sourceName: safeText(d.sourceName || d.do_sourceName),
   _hasLinkedLoan: false,
 });
 
@@ -233,6 +235,15 @@ const normalizeLoanRow = (loan = {}, doDoc = null) => ({
     doDoc?.do_customerName,
     doDoc?.customer_name,
   ),
+  primaryMobile: firstMeaningful(
+    loan?.primaryMobile,
+    loan?.mobile,
+    loan?.phone,
+    loan?.phoneNumber,
+    doDoc?.primaryMobile,
+    doDoc?.do_primaryMobile,
+    doDoc?.mobile,
+  ),
   recordSource: firstMeaningful(
     loan?.recordSource,
     loan?.source,
@@ -298,42 +309,49 @@ const StatCard = ({ id, label, value, subtext, icon, onClick }) => {
 
 const SectionPanel = ({ title, chip, children, tone = "slate", onOpen }) => {
   const tones = {
-    slate: "border-slate-200/80 bg-slate-50/80",
-    blue: "border-sky-200/70 bg-sky-50/70",
-    green: "border-emerald-200/70 bg-emerald-50/70",
-    purple: "border-violet-200/70 bg-violet-50/70",
-    amber: "border-amber-200/70 bg-amber-50/70",
+    slate:
+      "border-slate-200/80 bg-slate-50/80 dark:border-[#303030] dark:bg-[#202020]",
+    blue:
+      "border-sky-200/70 bg-sky-50/70 dark:border-sky-900/40 dark:bg-sky-950/20",
+    green:
+      "border-emerald-200/70 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20",
+    purple:
+      "border-violet-200/70 bg-violet-50/70 dark:border-violet-900/40 dark:bg-violet-950/20",
+    amber:
+      "border-amber-200/70 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20",
   };
+  const Wrapper = onOpen ? "button" : "div";
   return (
-    <div className={`rounded-2xl border p-3 ${tones[tone] || tones.slate}`}>
+    <Wrapper
+      type={onOpen ? "button" : undefined}
+      onClick={onOpen || undefined}
+      className={`rounded-2xl border p-3 text-left transition ${
+        onOpen
+          ? "cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-400/40"
+          : ""
+      } ${tones[tone] || tones.slate}`}
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] font-semibold text-slate-600">
+        <p className="text-[11px] uppercase tracking-[0.16em] font-semibold text-slate-600 dark:text-slate-300">
           {title}
         </p>
-        <div className="flex items-center gap-1">
-          {chip}
-          {onOpen ? (
-            <Button size="small" type="text" onClick={onOpen}>
-              View
-            </Button>
-          ) : null}
-        </div>
+        <div className="flex items-center gap-1">{chip}</div>
       </div>
       <div className="space-y-1.5">{children}</div>
-    </div>
+    </Wrapper>
   );
 };
 
 const KeyValue = ({ label, value, strong = false, subtle = false }) => (
   <div className="flex items-start justify-between gap-3 text-[12px]">
-    <span className="text-slate-500">{label}</span>
+    <span className="text-slate-500 dark:text-slate-400">{label}</span>
     <span
       className={`text-right ${
         strong
-          ? "font-semibold text-slate-900"
+          ? "font-semibold text-slate-900 dark:text-slate-50"
           : subtle
-            ? "text-slate-500"
-            : "text-slate-700"
+            ? "text-slate-500 dark:text-slate-400"
+            : "text-slate-700 dark:text-slate-200"
       }`}
     >
       {value}
@@ -342,6 +360,7 @@ const KeyValue = ({ label, value, strong = false, subtle = false }) => (
 );
 
 const DeliveryOrderDashboard = () => {
+  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
 
   const [rows, setRows] = useState([]);
@@ -354,7 +373,6 @@ const DeliveryOrderDashboard = () => {
   const [searchText, setSearchText] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [summaryModal, setSummaryModal] = useState({
@@ -568,39 +586,120 @@ const DeliveryOrderDashboard = () => {
 
   const summaryRows = useMemo(() => {
     const d = summaryModal?.doDoc || {};
-    if (!summaryModal?.open) return [];
+    if (!summaryModal?.open) return { title: "", subtitle: "", chip: "", sections: [] };
+
+    const baseAdditions = [
+      { label: "Ex-Showroom Price", value: d?.do_exShowroomPrice, intent: "addition" },
+      { label: "TCS", value: d?.do_tcs, intent: "addition" },
+      { label: "EPC", value: d?.do_epc, intent: "addition" },
+      { label: "Insurance Cost", value: d?.do_insuranceCost, intent: "addition" },
+      { label: "Road Tax", value: d?.do_roadTax, intent: "addition" },
+      { label: "Accessories Amount", value: d?.do_accessoriesAmount, intent: "addition" },
+      { label: "Fastag", value: d?.do_fastag, intent: "addition" },
+      { label: "Extended Warranty", value: d?.do_extendedWarranty, intent: "addition" },
+    ].filter((row) => hasValue(row.value));
+
     if (summaryModal.type === "showroom") {
-      return [
-        ["Ex-Showroom", hasValue(d?.do_exShowroomPrice) ? money(d?.do_exShowroomPrice) : "—"],
-        ["Insurance Cost", hasValue(d?.do_insuranceCost) ? money(d?.do_insuranceCost) : "—"],
-        ["Road Tax", hasValue(d?.do_roadTax) ? money(d?.do_roadTax) : "—"],
-        ["On-Road Cost", hasValue(getShowroomOnRoad(d)) ? money(getShowroomOnRoad(d)) : "—"],
-        ["Gross DO", hasValue(getShowroomGross(d)) ? money(getShowroomGross(d)) : "—"],
-        ["Total Discount", hasValue(getShowroomDiscount(d)) ? money(getShowroomDiscount(d)) : "—"],
-        ["Net On-Road", hasValue(getShowroomNet(d)) ? money(getShowroomNet(d)) : "—"],
-      ];
+      return {
+        title: `${safeText(summaryModal?.loan?.vehicleMake)} ${safeText(
+          summaryModal?.loan?.vehicleModel,
+        )} ${safeText(summaryModal?.loan?.vehicleVariant)}`.trim(),
+        subtitle: "Showroom account",
+        chip: "Showroom",
+        sections: [
+          {
+            title: "On-road build-up",
+            rows: baseAdditions,
+          },
+          {
+            title: "Discounts / deductions",
+            rows: [
+              { label: "Margin Money Paid", value: d?.do_marginMoneyPaid, intent: "discount" },
+              { label: "Dealer Discount", value: d?.do_dealerDiscount, intent: "discount" },
+              { label: "Scheme Discount", value: d?.do_schemeDiscount, intent: "discount" },
+              { label: "Insurance Cashback", value: d?.do_insuranceCashback, intent: "discount" },
+              { label: "Exchange", value: d?.do_exchange, intent: "discount" },
+              { label: "Exchange Vehicle Price", value: d?.do_exchangeVehiclePrice, intent: "discount" },
+              { label: "Loyalty", value: d?.do_loyalty, intent: "discount" },
+              { label: "Corporate", value: d?.do_corporate, intent: "discount" },
+            ].filter((row) => hasValue(row.value)),
+          },
+          {
+            title: "Showroom on-road summary",
+            rows: [
+              { label: "On-Road Cost", value: getShowroomOnRoad(d), intent: "total", strong: true },
+              { label: "Gross DO", value: getShowroomGross(d), intent: "total", strong: true },
+              { label: "Total Discount", value: getShowroomDiscount(d), intent: "discount", strong: true },
+              { label: "Net On-Road", value: getShowroomNet(d), intent: "total", strong: true },
+            ],
+          },
+        ],
+      };
     }
+
     if (summaryModal.type === "customer") {
-      return [
-        ["Ex-Showroom", hasValue(d?.do_exShowroomPrice) ? money(d?.do_exShowroomPrice) : "—"],
-        ["Insurance Cost", hasValue(d?.do_insuranceCost) ? money(d?.do_insuranceCost) : "—"],
-        ["Road Tax", hasValue(d?.do_roadTax) ? money(d?.do_roadTax) : "—"],
-        ["On-Road Cost", hasValue(getCustomerOnRoad(d)) ? money(getCustomerOnRoad(d)) : "—"],
-        ["Gross DO", hasValue(getCustomerGross(d)) ? money(getCustomerGross(d)) : "—"],
-        ["Total Discount", hasValue(getCustomerDiscount(d)) ? money(getCustomerDiscount(d)) : "—"],
-        ["Net On-Road", hasValue(getCustomerNet(d)) ? money(getCustomerNet(d)) : "—"],
-      ];
+      return {
+        title: `${safeText(summaryModal?.loan?.vehicleMake)} ${safeText(
+          summaryModal?.loan?.vehicleModel,
+        )} ${safeText(summaryModal?.loan?.vehicleVariant)}`.trim(),
+        subtitle: "Customer account",
+        chip: "Customer",
+        sections: [
+          {
+            title: "On-road build-up",
+            rows: baseAdditions,
+          },
+          {
+            title: "Discounts / deductions",
+            rows: [
+              { label: "Margin Money Paid", value: d?.do_marginMoneyPaid, intent: "discount" },
+              { label: "Dealer Discount", value: d?.do_customer_dealerDiscount, intent: "discount" },
+              { label: "Scheme Discount", value: d?.do_customer_schemeDiscount, intent: "discount" },
+              { label: "Insurance Cashback", value: d?.do_customer_insuranceCashback, intent: "discount" },
+              { label: "Exchange", value: d?.do_customer_exchange, intent: "discount" },
+              { label: "Vehicle Value", value: d?.do_customer_vehicleValue, intent: "discount" },
+              { label: "Loyalty", value: d?.do_customer_loyalty, intent: "discount" },
+              { label: "Corporate", value: d?.do_customer_corporate, intent: "discount" },
+            ].filter((row) => hasValue(row.value)),
+          },
+          {
+            title: "Customer on-road summary",
+            rows: [
+              { label: "On-Road Cost", value: getCustomerOnRoad(d), intent: "total", strong: true },
+              { label: "Gross DO", value: getCustomerGross(d), intent: "total", strong: true },
+              { label: "Total Discount", value: getCustomerDiscount(d), intent: "discount", strong: true },
+              { label: "Net On-Road", value: getCustomerNet(d), intent: "total", strong: true },
+            ],
+          },
+        ],
+      };
     }
-    return [
-      ["DO Number", safeText(getDoNumber(d)) || "—"],
-      ["DO Date", d?.do_date ? dayjs(d.do_date).format("DD/MM/YYYY") : "—"],
-      ["Booking Date", d?.do_bookingDate ? dayjs(d.do_bookingDate).format("DD/MM/YYYY") : "—"],
-      ["Account Type", safeText(d?.do_accountType || "Showroom")],
-      ["Processing Fees", hasValue(d?.do_processingFees) ? money(d?.do_processingFees) : "—"],
-      ["Loan Amount", hasValue(d?.do_loanAmount) ? money(d?.do_loanAmount) : "—"],
-      ["Net DO Amount", hasValue(d?.do_netDOAmount) ? money(d?.do_netDOAmount) : "—"],
-      ["Updated", d?.updatedAt ? dayjs(d.updatedAt).format("DD MMM YYYY, HH:mm") : "—"],
-    ];
+
+    return {
+      title: safeText(getDoNumber(d)) || "Delivery Order",
+      subtitle: "DO summary",
+      chip: safeText(d?.do_accountType || "Showroom"),
+      sections: [
+        {
+          title: "DO header",
+          rows: [
+            { label: "DO Number", value: safeText(getDoNumber(d)) || "—", raw: true },
+            { label: "DO Date", value: d?.do_date ? dayjs(d.do_date).format("DD/MM/YYYY") : "—", raw: true },
+            { label: "Booking Date", value: d?.do_bookingDate ? dayjs(d.do_bookingDate).format("DD/MM/YYYY") : "—", raw: true },
+            { label: "Account Type", value: safeText(d?.do_accountType || "Showroom"), raw: true },
+          ],
+        },
+        {
+          title: "Finance & registration",
+          rows: [
+            { label: "Processing Fees", value: d?.do_processingFees, intent: "warning" },
+            { label: "Loan Amount", value: d?.do_loanAmount, intent: "addition" },
+            { label: "Net DO Amount", value: d?.do_netDOAmount, intent: "total", strong: true },
+            { label: "Updated", value: d?.updatedAt ? dayjs(d.updatedAt).format("DD MMM YYYY, HH:mm") : "—", raw: true },
+          ],
+        },
+      ],
+    };
   }, [summaryModal]);
 
   return (
@@ -631,7 +730,7 @@ const DeliveryOrderDashboard = () => {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => navigate("/delivery-orders/new")}
               size="large"
             >
               New DO
@@ -738,11 +837,21 @@ const DeliveryOrderDashboard = () => {
           const doDate = dayjs(d?.do_date || d?.doDate);
           const doDateLabel = doDate.isValid() ? doDate.format("DD/MM/YYYY") : "—";
           const accountType = d ? safeText(d?.do_accountType || "Showroom") || "Showroom" : "";
+          const showroomName = firstMeaningful(
+            loan?.showroomDealerName,
+            loan?.delivery_dealerName,
+            loan?.dealerName,
+            loan?.showroomName,
+            d?.do_dealerName,
+            d?.dealerName,
+            d?.showroomDealerName,
+            d?.showroomName,
+          );
 
           return (
             <div
               key={loan.loanId}
-              className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+              className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-[#2a2a2a] dark:bg-[#1b1b1b]"
             >
               <div className="flex flex-wrap items-center gap-2 px-4 pt-4 pb-2">
                 <Tag color={d ? "success" : "default"}>{d ? "DO Created" : "Not Created"}</Tag>
@@ -755,6 +864,7 @@ const DeliveryOrderDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 px-4 pb-4">
                 <SectionPanel title="Loan Details" tone="slate">
                   <KeyValue label="Customer" value={safeText(loan.customerName) || "—"} strong />
+                  <KeyValue label="Mobile" value={safeText(loan.primaryMobile) || "—"} />
                   <KeyValue label="Loan ID" value={safeText(loan.loanId) || "—"} />
                   <KeyValue label="Type" value={loanType} />
                   <KeyValue label="Source" value={safeText(loan.recordSource) || "Direct"} />
@@ -763,9 +873,9 @@ const DeliveryOrderDashboard = () => {
 
                 <SectionPanel title="Vehicle Details" tone="blue">
                   <KeyValue label="Vehicle" value={vehicleText || "—"} strong />
+                  <KeyValue label="Showroom" value={safeText(showroomName) || "—"} />
                   <KeyValue label="Reg No" value={safeText(loan?.vehicleRegNo || d?.do_vehicleRegNo) || "—"} />
                   <KeyValue label="Color" value={safeText(d?.do_vehicleColor || d?.vehicleColor) || "—"} />
-                  <KeyValue label="Variant" value={safeText(loan?.vehicleVariant || d?.do_vehicleVariant) || "—"} />
                 </SectionPanel>
 
                 <SectionPanel
@@ -812,8 +922,8 @@ const DeliveryOrderDashboard = () => {
                 </SectionPanel>
               </div>
 
-              <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs text-slate-500">
+              <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-3 flex flex-wrap items-center justify-between gap-3 dark:border-[#2a2a2a] dark:bg-[#202020]">
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   {safeText(loan.customerName) || "Customer"} · {safeText(loan.loanId) || "Loan"}
                 </div>
                 <Space>
@@ -865,7 +975,7 @@ const DeliveryOrderDashboard = () => {
       </div>
 
       {totalCount > 0 && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 flex justify-end">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 flex justify-end dark:border-[#2a2a2a] dark:bg-[#1b1b1b]">
           <Pagination
             current={page}
             pageSize={pageSize}
@@ -885,36 +995,33 @@ const DeliveryOrderDashboard = () => {
         open={summaryModal.open}
         onCancel={closeSummaryModal}
         footer={null}
-        title={
-          summaryModal.type === "showroom"
-            ? "Showroom Account Summary"
-            : summaryModal.type === "customer"
-              ? "Customer Account Summary"
-              : "DO Summary"
-        }
+        width={700}
+        title={null}
       >
-        <div className="space-y-2">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-            {safeText(summaryModal?.loan?.customerName) || "Customer"} ·{" "}
-            {safeText(summaryModal?.loan?.loanId) || "Loan"}
-          </div>
-          <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-            {summaryRows.map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-slate-500">{label}</span>
-                <span className="font-medium text-slate-900">{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <BreakdownSummaryCard
+          isDarkMode={isDarkMode}
+          eyebrow={
+            summaryModal.type === "showroom"
+              ? "Showroom on-road breakdown"
+              : summaryModal.type === "customer"
+                ? "Customer on-road breakdown"
+                : "Net DO breakdown"
+          }
+          title={summaryRows.title || "Summary"}
+          subtitle={summaryRows.subtitle}
+          chipLabel={summaryRows.chip || "Summary"}
+          chipTone={
+            summaryModal.type === "showroom"
+              ? "blue"
+              : summaryModal.type === "customer"
+                ? "purple"
+                : "amber"
+          }
+          sections={summaryRows.sections}
+          compact
+        />
       </Modal>
 
-      <DirectCreateModal
-        open={showCreateModal}
-        mode="DO"
-        onClose={() => setShowCreateModal(false)}
-        onCreated={() => loadData()}
-      />
     </div>
   );
 };

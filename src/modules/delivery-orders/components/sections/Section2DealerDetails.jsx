@@ -1,8 +1,10 @@
 // src/modules/delivery-orders/components/sections/Section2DealerDetails.jsx
 
-import React, { useEffect } from "react";
-import { Form, Input, Row, Col, Divider, Tag } from "antd";
+import React, { useEffect, useMemo, useCallback } from "react";
+import { Form, Input, Row, Col, Divider, Tag, AutoComplete, Spin } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
+import useShowroomAutoSuggest from "../../../../hooks/useShowroomAutoSuggest";
+import { useTheme } from "../../../../context/ThemeContext";
 
 const SectionChip = ({ icon, label }) => (
   <div
@@ -14,7 +16,7 @@ const SectionChip = ({ icon, label }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#4b5563",
+      color: "var(--do-chip, #4b5563)",
     }}
   >
     {icon}
@@ -29,7 +31,7 @@ const HeadingLabel = ({ children }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#6b7280",
+      color: "var(--do-muted, #6b7280)",
     }}
   >
     {children}
@@ -42,7 +44,7 @@ const InlineField = ({ label, children }) => (
       <div
         style={{
           fontSize: 11,
-          color: "#6b7280",
+          color: "var(--do-muted, #6b7280)",
           marginBottom: 2,
         }}
       >
@@ -51,7 +53,7 @@ const InlineField = ({ label, children }) => (
     )}
     <div
       style={{
-        borderBottom: "1px solid #e5e7eb",
+        borderBottom: "1px solid var(--do-border, #e5e7eb)",
         paddingBottom: 2,
       }}
     >
@@ -61,6 +63,52 @@ const InlineField = ({ label, children }) => (
 );
 
 const Section2DealerDetails = ({ form, loan }) => {
+  const { isDarkMode } = useTheme();
+  const doVehicleMake = Form.useWatch("do_vehicleMake", form);
+  const { options, loading, search, getByName } = useShowroomAutoSuggest({
+    limit: 25,
+    brand: doVehicleMake,
+  });
+
+  const pickFirst = useCallback((...values) => {
+    for (const value of values) {
+      if (value === undefined || value === null) continue;
+      const text = String(value).trim();
+      if (!text) continue;
+      if (["na", "n/a", "null", "undefined", "-", "--"].includes(text.toLowerCase())) {
+        continue;
+      }
+      return value;
+    }
+    return "";
+  }, []);
+
+  const showroomOptions = useMemo(
+    () =>
+      (options || []).map((opt) => ({
+        value: opt?.value || "",
+        label: opt?.label || opt?.value || "",
+        showroom: opt?.showroom || null,
+      })),
+    [options],
+  );
+
+  const handleShowroomSelect = useCallback(
+    (_value, option) => {
+      const showroom = option?.showroom || getByName(option?.value || _value);
+      if (!showroom) return;
+      form.setFieldsValue({
+        do_dealerName: showroom?.name || "",
+        do_dealerAddress: showroom?.address || "",
+        do_dealerPincode: showroom?.pincode || "",
+        do_dealerCity: showroom?.city || "",
+        do_dealerContactPerson: showroom?.contactPerson || "",
+        do_dealerMobile: showroom?.mobile || "",
+      });
+    },
+    [form, getByName],
+  );
+
   // Prefill from Delivery fields
   useEffect(() => {
     if (!form || !loan) return;
@@ -69,23 +117,47 @@ const Section2DealerDetails = ({ form, loan }) => {
     if (existing) return;
 
     form.setFieldsValue({
-      do_dealerName: loan?.delivery_dealerName || "",
-      do_dealerAddress: loan?.delivery_dealerAddress || "",
-      do_dealerPincode: loan?.delivery_dealerPincode || loan?.pincode || "",
-      do_dealerCity: loan?.delivery_dealerCity || loan?.city || "",
-      do_dealerContactPerson: loan?.delivery_dealerContactPerson || "",
-      do_dealerMobile: loan?.delivery_dealerContactNumber || "",
+      do_dealerName: pickFirst(
+        loan?.delivery_dealerName,
+        loan?.showroomDealerName,
+        loan?.dealerName,
+      ),
+      do_dealerAddress: pickFirst(
+        loan?.delivery_dealerAddress,
+        loan?.showroomAddress,
+        loan?.dealerAddress,
+      ),
+      do_dealerPincode: pickFirst(
+        loan?.delivery_dealerPincode,
+        loan?.dealerPincode,
+      ),
+      do_dealerCity: pickFirst(
+        loan?.delivery_dealerCity,
+        loan?.dealerCity,
+      ),
+      do_dealerContactPerson: pickFirst(
+        loan?.delivery_dealerContactPerson,
+        loan?.dealerContactPerson,
+      ),
+      do_dealerMobile: pickFirst(
+        loan?.delivery_dealerContactNumber,
+        loan?.dealerMobile,
+      ),
     });
-  }, [form, loan]);
+  }, [form, loan, pickFirst]);
 
   return (
     <div
       style={{
+        "--do-text": isDarkMode ? "#f3f4f6" : "#111827",
+        "--do-muted": isDarkMode ? "#9ca3af" : "#6b7280",
+        "--do-chip": isDarkMode ? "#d1d5db" : "#4b5563",
+        "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: "#f9fafb",
+        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
         borderRadius: 16,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
       }}
     >
       {/* Top strip to match Sections 3–5 */}
@@ -106,14 +178,14 @@ const Section2DealerDetails = ({ form, loan }) => {
             flexWrap: "wrap",
           }}
         >
-          <ShopOutlined style={{ color: "#111827" }} />
+          <ShopOutlined style={{ color: isDarkMode ? "#f3f4f6" : "#111827" }} />
           <div>
             <HeadingLabel>Dealer details</HeadingLabel>
             <div
               style={{
                 fontSize: 14,
                 fontWeight: 700,
-                color: "#111827",
+                color: isDarkMode ? "#f3f4f6" : "#111827",
               }}
             >
               Showroom / dealer information
@@ -144,11 +216,25 @@ const Section2DealerDetails = ({ form, loan }) => {
             <Col xs={24} md={10}>
               <InlineField label="Dealer Name">
                 <Form.Item name="do_dealerName" style={{ marginBottom: 0 }}>
-                  <Input
-                    bordered={false}
-                    size="small"
-                    placeholder="Dealer name"
-                  />
+                  <AutoComplete
+                    allowClear
+                    options={showroomOptions}
+                    onSearch={search}
+                    onSelect={handleShowroomSelect}
+                    notFoundContent={
+                      loading ? (
+                        <div style={{ padding: 8, textAlign: "center" }}>
+                          <Spin size="small" />
+                        </div>
+                      ) : null
+                    }
+                  >
+                    <Input
+                      bordered={false}
+                      size="small"
+                      placeholder="Search showroom / dealer"
+                    />
+                  </AutoComplete>
                 </Form.Item>
               </InlineField>
             </Col>
@@ -180,8 +266,8 @@ const Section2DealerDetails = ({ form, loan }) => {
               </InlineField>
             </Col>
 
-            {/* Row 2: Address + Pincode + City */}
-            <Col xs={24} md={10}>
+            {/* Row 2: Address */}
+            <Col xs={24} md={24}>
               <InlineField label="Address">
                 <Form.Item name="do_dealerAddress" style={{ marginBottom: 0 }}>
                   <Input.TextArea
@@ -190,22 +276,6 @@ const Section2DealerDetails = ({ form, loan }) => {
                     placeholder="Dealer address"
                     style={{ padding: 0, resize: "none" }}
                   />
-                </Form.Item>
-              </InlineField>
-            </Col>
-
-            <Col xs={24} md={7}>
-              <InlineField label="Pincode">
-                <Form.Item name="do_dealerPincode" style={{ marginBottom: 0 }}>
-                  <Input bordered={false} size="small" placeholder="Pincode" />
-                </Form.Item>
-              </InlineField>
-            </Col>
-
-            <Col xs={24} md={7}>
-              <InlineField label="City">
-                <Form.Item name="do_dealerCity" style={{ marginBottom: 0 }}>
-                  <Input bordered={false} size="small" placeholder="City" />
                 </Form.Item>
               </InlineField>
             </Col>

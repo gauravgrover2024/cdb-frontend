@@ -20,6 +20,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { loansApi } from "../../../api/loans";
+import { useTheme } from "../../../context/ThemeContext";
 
 import DOSectionCustomerDetails from "./sections/DOSectionCustomerDetails";
 import Section2DealerDetails from "./sections/Section2DealerDetails";
@@ -70,6 +71,15 @@ const buildLoanContextPrefill = (loan = {}) => ({
     loan?.profile?.customerName,
     loan?.personalDetails?.name,
     loan?.leadName,
+  ),
+  primaryMobile: pickFirstMeaningful(
+    loan?.primaryMobile,
+    loan?.mobile,
+    loan?.phone,
+    loan?.phoneNumber,
+    loan?.do_primaryMobile,
+    loan?.profile?.primaryMobile,
+    loan?.profile?.mobile,
   ),
   residenceAddress: pickFirstMeaningful(
     loan?.residenceAddress,
@@ -137,6 +147,31 @@ const buildLoanContextPrefill = (loan = {}) => ({
     loan?.record_dealerAddress,
     loan?.delivery_dealerAddress,
     loan?.showroomDealerAddress,
+  ),
+  dealerName: pickFirstMeaningful(
+    loan?.showroomDealerName,
+    loan?.delivery_dealerName,
+    loan?.dealerName,
+    loan?.showroomName,
+    loan?.do_dealerName,
+  ),
+  dealerContactPerson: pickFirstMeaningful(
+    loan?.delivery_dealerContactPerson,
+    loan?.dealerContactPerson,
+    loan?.showroomContactPerson,
+    loan?.do_dealerContactPerson,
+  ),
+  dealerCity: pickFirstMeaningful(
+    loan?.delivery_dealerCity,
+    loan?.dealerCity,
+    loan?.showroomCity,
+    loan?.do_dealerCity,
+  ),
+  dealerPincode: pickFirstMeaningful(
+    loan?.delivery_dealerPincode,
+    loan?.dealerPincode,
+    loan?.showroomPincode,
+    loan?.do_dealerPincode,
   ),
 });
 
@@ -233,10 +268,13 @@ const saveDOByLoanId = async (loanId, payload) => {
 // -------------------------------------
 const DeliveryOrderForm = () => {
   const navigate = useNavigate();
-  const { loanId } = useParams();
+  const { loanId: routeLoanId } = useParams();
+  const { isDarkMode } = useTheme();
 
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [createdLoanId, setCreatedLoanId] = useState("");
+  const activeLoanId = String(createdLoanId || routeLoanId || "").trim();
 
   const showCustomerVehicleSection = Form.useWatch(
     "do_showCustomerVehicleSection",
@@ -252,11 +290,11 @@ const DeliveryOrderForm = () => {
 
   // Load Loan from API (prefill) with sessionStorage fallback
   useEffect(() => {
-    if (!loanId) return;
+    if (!routeLoanId) return;
 
     const load = async () => {
       try {
-        const res = await loansApi.getById(loanId);
+        const res = await loansApi.getById(routeLoanId);
         const fromById = res?.data?.loanId || res?.data?._id ? res.data : null;
         if (fromById) {
           setLoanData(fromById);
@@ -272,7 +310,7 @@ const DeliveryOrderForm = () => {
 
       try {
         const listRes = await loansApi.getAll({
-          loanIds: loanId,
+          loanIds: routeLoanId,
           limit: 1,
           noCount: true,
           view: "dashboard",
@@ -301,11 +339,11 @@ const DeliveryOrderForm = () => {
       }
 
       const savedLoansRaw = sessionStorage.getItem("savedLoans");
-      if (savedLoansRaw && loanId) {
+      if (savedLoansRaw && routeLoanId) {
         try {
           const saved = JSON.parse(savedLoansRaw || "[]");
           const match = saved.find(
-            (x) => x.loanId === loanId || x.id === loanId,
+            (x) => x.loanId === routeLoanId || x.id === routeLoanId,
           );
           setLoanData(match || null);
           return;
@@ -320,27 +358,22 @@ const DeliveryOrderForm = () => {
     load().finally(() => {
       setHasLoadedLoanContext(true);
     });
-  }, [loanId]);
+  }, [routeLoanId]);
 
   // Load existing DO
   useEffect(() => {
-    if (!loanId) return;
+    if (!routeLoanId) return;
     if (!hasLoadedLoanContext) return;
-
-    if (!loanData) {
-      setHasLoadedDO(true);
-      return;
-    }
-
-    if (isLegacyNewCarAutoCreateBlocked(loanData || {})) {
-      setHasLoadedDO(true);
-      return;
-    }
 
     const load = async () => {
       try {
-        const foundDO = await fetchDOByLoanId(loanId);
-        if (!foundDO) return;
+        const foundDO = await fetchDOByLoanId(routeLoanId);
+        if (!foundDO) {
+          if (isLegacyNewCarAutoCreateBlocked(loanData || {})) {
+            return;
+          }
+          return;
+        }
 
         setExistingDO(foundDO);
         const patched = patchDateFieldsToDayjs(foundDO);
@@ -352,6 +385,12 @@ const DeliveryOrderForm = () => {
             patched?.do_customerName,
             patched?.customer_name,
             loanPrefill.customerName,
+          ),
+          primaryMobile: pickFirstMeaningful(
+            patched?.primaryMobile,
+            patched?.do_primaryMobile,
+            patched?.mobile,
+            loanPrefill.primaryMobile,
           ),
           residenceAddress: pickFirstMeaningful(
             patched?.residenceAddress,
@@ -396,32 +435,36 @@ const DeliveryOrderForm = () => {
             patched?.do_dealerName,
             patched?.dealerName,
             patched?.delivery_dealerName,
+            loanPrefill.dealerName,
           ),
           do_dealerAddress: pickFirstMeaningful(
             patched?.do_dealerAddress,
             patched?.dealerAddress,
             patched?.delivery_dealerAddress,
+            loanPrefill.dealerAddress,
           ),
           do_dealerMobile: pickFirstMeaningful(
             patched?.do_dealerMobile,
             patched?.do_dealerContactNumber,
             patched?.dealerMobile,
             patched?.delivery_dealerContactNumber,
+            loanPrefill.dealerMobile,
           ),
           do_dealerContactPerson: pickFirstMeaningful(
             patched?.do_dealerContactPerson,
             patched?.dealerContactPerson,
             patched?.delivery_dealerContactPerson,
+            loanPrefill.dealerContactPerson,
           ),
           do_dealerCity: pickFirstMeaningful(
             patched?.do_dealerCity,
             patched?.delivery_dealerCity,
-            patched?.city,
+            loanPrefill.dealerCity,
           ),
           do_dealerPincode: pickFirstMeaningful(
             patched?.do_dealerPincode,
             patched?.delivery_dealerPincode,
-            patched?.pincode,
+            loanPrefill.dealerPincode,
           ),
           do_vehicleMake: pickFirstMeaningful(
             patched?.do_vehicleMake,
@@ -491,8 +534,8 @@ const DeliveryOrderForm = () => {
 
         form.setFieldsValue({
           ...hydrated,
-          do_loanId: hydrated?.do_loanId || hydrated?.loanId || loanId,
-          loanId: hydrated?.loanId || hydrated?.do_loanId || loanId,
+          do_loanId: hydrated?.do_loanId || hydrated?.loanId || routeLoanId,
+          loanId: hydrated?.loanId || hydrated?.do_loanId || routeLoanId,
         });
       } catch (err) {
         console.error("Load DO Error:", err);
@@ -502,12 +545,10 @@ const DeliveryOrderForm = () => {
     };
 
     load();
-  }, [loanId, form, hasLoadedLoanContext, loanData]);
+  }, [routeLoanId, form, hasLoadedLoanContext, loanData]);
 
   // Prefill defaults ONLY when empty
   useEffect(() => {
-    if (!loanId) return;
-
     const existing = form.getFieldsValue(true);
 
     if (!existing.do_date) form.setFieldsValue({ do_date: dayjs() });
@@ -522,7 +563,7 @@ const DeliveryOrderForm = () => {
 
     if (!existing.do_loanId) {
       form.setFieldsValue({
-        do_loanId: loanData?.loanId || loanId || "",
+        do_loanId: loanData?.loanId || routeLoanId || "",
       });
     }
 
@@ -531,6 +572,7 @@ const DeliveryOrderForm = () => {
 
     [
       "customerName",
+      "primaryMobile",
       "residenceAddress",
       "pincode",
       "city",
@@ -538,23 +580,64 @@ const DeliveryOrderForm = () => {
       "sourceName",
       "dealerMobile",
       "dealerAddress",
+      "dealerName",
+      "dealerContactPerson",
+      "dealerCity",
+      "dealerPincode",
     ].forEach((key) => {
       if (!hasMeaningfulValue(existing[key]) && hasMeaningfulValue(loanPrefill[key])) {
         fieldPatch[key] = loanPrefill[key];
       }
     });
 
+    if (
+      !hasMeaningfulValue(existing.do_dealerName) &&
+      hasMeaningfulValue(loanPrefill.dealerName)
+    ) {
+      fieldPatch.do_dealerName = loanPrefill.dealerName;
+    }
+    if (
+      !hasMeaningfulValue(existing.do_dealerAddress) &&
+      hasMeaningfulValue(loanPrefill.dealerAddress)
+    ) {
+      fieldPatch.do_dealerAddress = loanPrefill.dealerAddress;
+    }
+    if (
+      !hasMeaningfulValue(existing.do_dealerMobile) &&
+      hasMeaningfulValue(loanPrefill.dealerMobile)
+    ) {
+      fieldPatch.do_dealerMobile = loanPrefill.dealerMobile;
+    }
+    if (
+      !hasMeaningfulValue(existing.do_dealerContactPerson) &&
+      hasMeaningfulValue(loanPrefill.dealerContactPerson)
+    ) {
+      fieldPatch.do_dealerContactPerson = loanPrefill.dealerContactPerson;
+    }
+    if (
+      !hasMeaningfulValue(existing.do_dealerCity) &&
+      hasMeaningfulValue(loanPrefill.dealerCity)
+    ) {
+      fieldPatch.do_dealerCity = loanPrefill.dealerCity;
+    }
+    if (
+      !hasMeaningfulValue(existing.do_dealerPincode) &&
+      hasMeaningfulValue(loanPrefill.dealerPincode)
+    ) {
+      fieldPatch.do_dealerPincode = loanPrefill.dealerPincode;
+    }
+
     if (Object.keys(fieldPatch).length) {
       form.setFieldsValue(fieldPatch);
     }
-  }, [form, loanData, loanId]);
+  }, [form, loanData, routeLoanId]);
 
   // Autosave DO (Debounced)
   const allValues = Form.useWatch([], form);
   const debouncedValues = useDebounce(allValues, 800);
 
   useEffect(() => {
-    if (!loanId) return;
+    if (!routeLoanId) return;
     if (!hasLoadedLoanContext) return;
     if (!hasLoadedDO) return;
 
@@ -578,13 +661,13 @@ const DeliveryOrderForm = () => {
 
         if (!debouncedValues || typeof debouncedValues !== "object") return;
 
-        const values = serializeDatesToISO(debouncedValues);
+        const values = serializeDatesToISO(form.getFieldsValue(true));
 
         const finalLoanId =
           values?.do_loanId ||
           existingDO?.do_loanId ||
           loanData?.loanId ||
-          loanId;
+          routeLoanId;
 
         const payload = {
           ...(existingDO || {}),
@@ -597,7 +680,7 @@ const DeliveryOrderForm = () => {
 
         const saveRes = await saveDOByLoanId(finalLoanId, payload);
         if (saveRes?.skipped || saveRes?.data === null) return;
-        setExistingDO(payload);
+        setExistingDO(saveRes?.data?.data || saveRes?.data || payload);
 
         const now = Date.now();
         if (now - lastSaveAtRef.current > 5000) {
@@ -609,7 +692,7 @@ const DeliveryOrderForm = () => {
     };
 
     autosave();
-  }, [loanId, hasLoadedLoanContext, hasLoadedDO, debouncedValues, existingDO, loanData]);
+  }, [form, routeLoanId, hasLoadedLoanContext, hasLoadedDO, debouncedValues, existingDO, loanData]);
 
   // Actions
   const handleDiscardAndExit = () => {
@@ -621,14 +704,46 @@ const DeliveryOrderForm = () => {
     try {
       setLoading(true);
 
-      const values = await form.validateFields();
-      const serialized = serializeDatesToISO(values);
+      await form.validateFields();
+      const serialized = serializeDatesToISO(form.getFieldsValue(true));
 
-      const finalLoanId =
+      let finalLoanId =
         serialized?.do_loanId ||
         existingDO?.do_loanId ||
         loanData?.loanId ||
-        loanId;
+        routeLoanId;
+
+      if (!finalLoanId) {
+        if (!serialized?.customerName || !serialized?.primaryMobile) {
+          message.error(
+            "Customer name and mobile are required to create a new DO entry.",
+          );
+          return;
+        }
+
+        const createdRes = await deliveryOrdersApi.createDirect({
+          customerName: serialized?.customerName,
+          primaryMobile: serialized?.primaryMobile,
+          vehicleMake: serialized?.do_vehicleMake || "",
+          vehicleModel: serialized?.do_vehicleModel || "",
+          vehicleVariant: serialized?.do_vehicleVariant || "",
+          typeOfLoan: serialized?.typeOfLoan || "New Car",
+          isFinanced:
+            String(serialized?.isFinanced || "").toLowerCase() === "no"
+              ? "No"
+              : "Yes",
+          dealerName: serialized?.do_dealerName || "",
+          dealerAddress: serialized?.do_dealerAddress || "",
+          vehicleColor: serialized?.do_colour || "",
+        });
+        const createdId = createdRes?.data?.loanId || createdRes?.loanId;
+        if (!createdId) {
+          throw new Error("Unable to create new DO entry");
+        }
+        finalLoanId = createdId;
+        setCreatedLoanId(createdId);
+        form.setFieldsValue({ do_loanId: createdId, loanId: createdId });
+      }
 
       const payload = {
         ...(existingDO || {}),
@@ -646,9 +761,12 @@ const DeliveryOrderForm = () => {
         );
         return;
       }
-      setExistingDO(payload);
+      setExistingDO(saveRes?.data?.data || saveRes?.data || payload);
 
       message.success("Delivery Order saved successfully ✅");
+      if (!routeLoanId && finalLoanId) {
+        navigate(`/delivery-orders/${finalLoanId}`, { replace: true });
+      }
     } catch (err) {
       console.error("Save DO Error:", err);
     } finally {
@@ -665,7 +783,10 @@ const DeliveryOrderForm = () => {
     <div
       style={{
         minHeight: "100vh",
-        background: "#f3f4f6",
+        background: isDarkMode
+          ? "linear-gradient(180deg, #090b10 0%, #111111 24%, #161616 100%)"
+          : "linear-gradient(180deg, #edf5ff 0%, #f8fafc 30%, #ffffff 100%)",
+        color: isDarkMode ? "#f5f5f5" : "#111827",
         padding: "16px 16px 32px",
       }}
     >
@@ -677,8 +798,19 @@ const DeliveryOrderForm = () => {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 16,
+            marginBottom: 18,
             gap: 12,
+            color: isDarkMode ? "#f5f5f5" : "#111827",
+            padding: "10px 14px",
+            borderRadius: 20,
+            border: `1px solid ${isDarkMode ? "#252525" : "#dce8f6"}`,
+            background: isDarkMode
+              ? "rgba(20,20,20,0.82)"
+              : "rgba(255,255,255,0.78)",
+            backdropFilter: "blur(18px)",
+            boxShadow: isDarkMode
+              ? "0 18px 40px rgba(0,0,0,0.28)"
+              : "0 18px 40px rgba(59,130,246,0.08)",
           }}
         >
           <Button
@@ -713,21 +845,45 @@ const DeliveryOrderForm = () => {
           {/* HEADER BANNER */}
           <Card
             style={{
-              borderRadius: 16,
-              marginBottom: 16,
-              border: "1px solid #e5e7eb",
+              borderRadius: 28,
+              marginBottom: 18,
+              overflow: "hidden",
+              border: `1px solid ${isDarkMode ? "#2a2f39" : "#dbe7f4"}`,
+              background: isDarkMode
+                ? "linear-gradient(135deg, rgba(20,24,32,0.98) 0%, rgba(17,17,17,0.98) 100%)"
+                : "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(244,249,255,0.98) 100%)",
+              boxShadow: isDarkMode
+                ? "0 28px 60px rgba(0,0,0,0.35)"
+                : "0 28px 60px rgba(37,99,235,0.10)",
             }}
-            bodyStyle={{ padding: 16 }}
+            bodyStyle={{ padding: 0 }}
           >
+            <div
+              style={{
+                padding: "24px 24px 22px",
+                background: isDarkMode
+                  ? "radial-gradient(circle at top right, rgba(96,165,250,0.12), transparent 34%), radial-gradient(circle at left center, rgba(52,211,153,0.08), transparent 28%)"
+                  : "radial-gradient(circle at top right, rgba(59,130,246,0.14), transparent 34%), radial-gradient(circle at left center, rgba(16,185,129,0.08), transparent 28%)",
+              }}
+            >
             <Row align="middle" justify="space-between">
               <Col>
                 <div
                   style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 12px",
+                    borderRadius: 999,
                     fontSize: 11,
-                    fontWeight: 600,
-                    letterSpacing: 0.4,
+                    fontWeight: 700,
+                    letterSpacing: "0.14em",
                     textTransform: "uppercase",
-                    color: "#6b7280",
+                    color: isDarkMode ? "#dbeafe" : "#1d4ed8",
+                    background: isDarkMode
+                      ? "rgba(37,99,235,0.16)"
+                      : "rgba(59,130,246,0.10)",
+                    marginBottom: 12,
                   }}
                 >
                   Delivery order
@@ -735,22 +891,22 @@ const DeliveryOrderForm = () => {
                 <div
                   style={{
                     fontWeight: 700,
-                    fontSize: 18,
+                    fontSize: 24,
                     marginTop: 2,
-                    color: "#111827",
+                    color: isDarkMode ? "#f8fafc" : "#111827",
                   }}
                 >
-                  Delivery Order for Loan #{loanId}
+                  Delivery Order Workspace
                 </div>
                 <div
                   style={{
-                    fontSize: 12,
-                    color: "#6b7280",
-                    marginTop: 4,
+                    fontSize: 14,
+                    color: isDarkMode ? "#a1a1aa" : "#64748b",
+                    marginTop: 8,
+                    maxWidth: 700,
                   }}
                 >
-                  Review dealer, vehicle and delivery details before handing
-                  over the vehicle.
+                  Review customer, showroom, pricing, and net payable in one place before handing over the vehicle.
                 </div>
               </Col>
 
@@ -764,11 +920,13 @@ const DeliveryOrderForm = () => {
                     flexWrap: "wrap",
                   }}
                 >
-                  <Tag color="blue">Loan ID: {loanId}</Tag>
+                  <Tag color="blue">Loan ID: {activeLoanId || "Not assigned yet"}</Tag>
+                  <Tag color="purple">DO Ref: {form.getFieldValue("do_refNo") || "Draft"}</Tag>
                   {existingDO && <Tag color="green">Existing DO</Tag>}
                 </div>
               </Col>
             </Row>
+            </div>
           </Card>
           {/* SECTION 1 — Customer & DO Header */}
           <DOSectionCustomerDetails form={form} readOnly={false} />
@@ -778,7 +936,12 @@ const DeliveryOrderForm = () => {
           <Section3VehicleDetailsShowroom loan={loanData} />
           {/* SECTION 4 — Customer account vehicle section toggle */}
           <Card
-            style={{ borderRadius: 16, marginTop: 16 }}
+            style={{
+              borderRadius: 16,
+              marginTop: 16,
+              border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
+              background: isDarkMode ? "#1b1b1b" : "#ffffff",
+            }}
             bodyStyle={{ padding: 16 }}
           >
             <Row align="middle" justify="space-between" gutter={[16, 8]}>
@@ -789,7 +952,7 @@ const DeliveryOrderForm = () => {
                     fontWeight: 600,
                     letterSpacing: 0.4,
                     textTransform: "uppercase",
-                    color: "#6b7280",
+                    color: isDarkMode ? "#9ca3af" : "#6b7280",
                     marginBottom: 4,
                   }}
                 >
@@ -799,7 +962,7 @@ const DeliveryOrderForm = () => {
                   style={{
                     fontWeight: 700,
                     fontSize: 16,
-                    color: "#111827",
+                    color: isDarkMode ? "#f3f4f6" : "#111827",
                   }}
                 >
                   Enable customer account vehicle details
@@ -807,7 +970,7 @@ const DeliveryOrderForm = () => {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "#6b7280",
+                    color: isDarkMode ? "#9ca3af" : "#6b7280",
                     marginTop: 4,
                     maxWidth: 520,
                   }}

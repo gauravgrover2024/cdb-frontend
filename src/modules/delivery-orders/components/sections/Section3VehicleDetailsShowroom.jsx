@@ -1,6 +1,6 @@
 // src/modules/delivery-orders/components/sections/Section3VehicleDetailsShowroom.jsx
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Form,
   Input,
@@ -21,6 +21,8 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useVehicleData } from "../../../../hooks/useVehicleData";
+import { useTheme } from "../../../../context/ThemeContext";
+import BreakdownSummaryCard from "../shared/BreakdownSummaryCard";
 
 const { Option } = Select;
 
@@ -57,7 +59,7 @@ const SectionChip = ({ icon, label }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#4b5563",
+      color: "var(--do-chip, #4b5563)",
     }}
   >
     {icon}
@@ -72,7 +74,7 @@ const HeadingLabel = ({ children }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#6b7280",
+      color: "var(--do-muted, #6b7280)",
     }}
   >
     {children}
@@ -85,7 +87,7 @@ const InlineField = ({ label, children }) => (
       <div
         style={{
           fontSize: 11,
-          color: "#6b7280",
+          color: "var(--do-muted, #6b7280)",
           marginBottom: 2,
         }}
       >
@@ -94,7 +96,7 @@ const InlineField = ({ label, children }) => (
     )}
     <div
       style={{
-        borderBottom: "1px solid #e5e7eb",
+        borderBottom: "1px solid var(--do-border, #e5e7eb)",
         paddingBottom: 2,
       }}
     >
@@ -103,41 +105,10 @@ const InlineField = ({ label, children }) => (
   </div>
 );
 
-const SummaryRow = ({
-  label,
-  value = 0,
-  intent = "neutral", // "addition" | "discount" | "total" | "neutral"
-  strong = false,
-}) => {
-  const display = Number.isFinite(Number(value))
-    ? Math.trunc(Number(value))
-    : 0;
-
-  let color = "#4b5563";
-  if (intent === "addition") color = "#15803d";
-  if (intent === "discount") color = "#1d4ed8";
-  if (intent === "total") color = "#0f766e";
-  if (strong && intent === "neutral") color = "#111827";
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 12,
-        marginBottom: 4,
-        fontWeight: strong ? 700 : 500,
-        color,
-      }}
-    >
-      <span>{label}</span>
-      <span>₹ {display.toLocaleString("en-IN")}</span>
-    </div>
-  );
-};
-
 const Section3VehicleDetailsShowroom = ({ loan }) => {
   const form = Form.useFormInstance();
+  const { isDarkMode } = useTheme();
+  const initialLoanPrefillDoneRef = useRef(false);
 
   // Vehicle data hook
   const {
@@ -160,13 +131,19 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
         const currentValues = form.getFieldsValue();
         const fieldsToUpdate = {};
 
-        if (!currentValues.do_exShowroomPrice && vehicleData.exShowroom) {
+        if (
+          currentValues.do_exShowroomPrice === undefined &&
+          vehicleData.exShowroom
+        ) {
           fieldsToUpdate.do_exShowroomPrice = vehicleData.exShowroom;
         }
-        if (!currentValues.do_insuranceCost && vehicleData.insurance) {
+        if (
+          currentValues.do_insuranceCost === undefined &&
+          vehicleData.insurance
+        ) {
           fieldsToUpdate.do_insuranceCost = vehicleData.insurance;
         }
-        if (!currentValues.do_roadTax && vehicleData.rto) {
+        if (currentValues.do_roadTax === undefined && vehicleData.rto) {
           fieldsToUpdate.do_roadTax = vehicleData.rto;
         }
 
@@ -183,59 +160,55 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
   // Prefill from loan
   useEffect(() => {
     if (!form) return;
+    if (initialLoanPrefillDoneRef.current) return;
 
     const existing = form.getFieldsValue(true);
+    const patch = {};
 
     if (!existing?.do_vehicleMake)
-      form.setFieldsValue({ do_vehicleMake: safeText(loan?.vehicleMake) });
+      patch.do_vehicleMake = safeText(loan?.vehicleMake);
 
     if (!existing?.do_vehicleModel)
-      form.setFieldsValue({ do_vehicleModel: safeText(loan?.vehicleModel) });
+      patch.do_vehicleModel = safeText(loan?.vehicleModel);
 
     if (!existing?.do_vehicleVariant)
-      form.setFieldsValue({
-        do_vehicleVariant: safeText(loan?.vehicleVariant),
-      });
+      patch.do_vehicleVariant = safeText(loan?.vehicleVariant);
 
-    if (
-      existing?.do_exShowroomPrice === undefined ||
-      existing?.do_exShowroomPrice === ""
-    ) {
-      form.setFieldsValue({
-        do_exShowroomPrice: pickFirst(
-          loan?.exShowroomPrice,
-          loan?.ex_showroom,
-          loan?.exShowroom,
-          loan?.vehiclePricing?.exShowroom,
-          loan?.pricing?.exShowroom,
-          "",
-        ),
-      });
+    if (existing?.do_exShowroomPrice === undefined) {
+      patch.do_exShowroomPrice = pickFirst(
+        loan?.exShowroomPrice,
+        loan?.ex_showroom,
+        loan?.exShowroom,
+        loan?.vehiclePricing?.exShowroom,
+        loan?.pricing?.exShowroom,
+        "",
+      );
     }
 
-    if (existing?.do_insuranceCost === undefined || existing?.do_insuranceCost === "") {
-      form.setFieldsValue({
-        do_insuranceCost: pickFirst(
-          loan?.insuranceCost,
-          loan?.insurance,
-          loan?.insurance_amount_cardekho,
-          loan?.vehiclePricing?.insurance,
-          "",
-        ),
-      });
+    if (existing?.do_insuranceCost === undefined) {
+      patch.do_insuranceCost = pickFirst(
+        loan?.insuranceCost,
+        loan?.insurance,
+        loan?.insurance_amount_cardekho,
+        loan?.vehiclePricing?.insurance,
+        "",
+      );
     }
 
-    if (existing?.do_roadTax === undefined || existing?.do_roadTax === "") {
-      form.setFieldsValue({
-        do_roadTax: pickFirst(
-          loan?.roadTax,
-          loan?.rto,
-          loan?.rto_amount_cardekho,
-          loan?.vehiclePricing?.rto,
-          "",
-        ),
-      });
+    if (existing?.do_roadTax === undefined) {
+      patch.do_roadTax = pickFirst(
+        loan?.roadTax,
+        loan?.rto,
+        loan?.rto_amount_cardekho,
+        loan?.vehiclePricing?.rto,
+        "",
+      );
     }
+
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+    initialLoanPrefillDoneRef.current = true;
   }, [form, loan]);
 
   // Watch all values
@@ -319,142 +292,44 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
   }, [form, onRoadVehicleCost, grossDO, totalDiscount, netOnRoadVehicleCost]);
 
   // Right summary – same pattern as Section 4/5
-  const SummaryCard = useMemo(() => {
+  const summarySections = useMemo(() => {
     const additionsRows = [
-      { label: "Ex-Showroom Price", value: exShowroom },
-      { label: "TCS", value: tcs },
-      { label: "EPC", value: epc },
-      { label: "Insurance Cost", value: insuranceCost },
-      { label: "Road Tax", value: roadTax },
-      { label: "Accessories Amount", value: accessoriesAmount },
-      { label: "Fastag", value: fastag },
-      { label: "Extended Warranty", value: extendedWarranty },
-      { label: "Others (Additions)", value: additionsOthersTotal },
+      { label: "Ex-Showroom Price", value: exShowroom, intent: "addition" },
+      { label: "TCS", value: tcs, intent: "addition" },
+      { label: "EPC", value: epc, intent: "addition" },
+      { label: "Insurance Cost", value: insuranceCost, intent: "addition" },
+      { label: "Road Tax", value: roadTax, intent: "addition" },
+      { label: "Accessories Amount", value: accessoriesAmount, intent: "addition" },
+      { label: "Fastag", value: fastag, intent: "addition" },
+      { label: "Extended Warranty", value: extendedWarranty, intent: "addition" },
+      { label: "Others (Additions)", value: additionsOthersTotal, intent: "addition" },
     ].filter((r) => hasValue(r.value));
 
     const discountRows = [
-      { label: "Margin Money Paid", value: marginMoneyPaid },
-      { label: "Dealer Discount", value: dealerDiscount },
-      { label: "Scheme Discount", value: schemeDiscount },
-      { label: "Insurance Cashback", value: insuranceCashback },
-      { label: "Exchange", value: exchange },
-      { label: "Exchange Vehicle Price", value: exchangeVehiclePrice },
-      { label: "Loyalty", value: loyalty },
-      { label: "Corporate", value: corporate },
-      { label: "Others (Discounts)", value: discountsOthersTotal },
+      { label: "Margin Money Paid", value: marginMoneyPaid, intent: "discount" },
+      { label: "Dealer Discount", value: dealerDiscount, intent: "discount" },
+      { label: "Scheme Discount", value: schemeDiscount, intent: "discount" },
+      { label: "Insurance Cashback", value: insuranceCashback, intent: "discount" },
+      { label: "Exchange", value: exchange, intent: "discount" },
+      { label: "Exchange Vehicle Price", value: exchangeVehiclePrice, intent: "discount" },
+      { label: "Loyalty", value: loyalty, intent: "discount" },
+      { label: "Corporate", value: corporate, intent: "discount" },
+      { label: "Others (Discounts)", value: discountsOthersTotal, intent: "discount" },
     ].filter((r) => hasValue(r.value));
 
-    return (
-      <>
-        <div style={{ marginBottom: 10 }}>
-          <SectionChip
-            icon={<InfoCircleOutlined style={{ color: "#7c3aed" }} />}
-            label="Showroom on-road breakdown"
-          />
-        </div>
-
-        <div
-          style={{
-            position: "sticky",
-            top: 16,
-            borderRadius: 16,
-            border: "1px solid #e5e7eb",
-            background: "#f9fafb",
-            padding: 14,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: 8,
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontWeight: 700,
-                  fontSize: 14,
-                  marginBottom: 4,
-                }}
-              >
-                {make || "-"} {model || ""} {variant || ""}
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>
-                Showroom account
-              </div>
-            </div>
-            <Tag
-              color="blue"
-              style={{
-                borderRadius: 999,
-                fontSize: 11,
-                borderColor: "#1d4ed8",
-              }}
-            >
-              Showroom
-            </Tag>
-          </div>
-
-          <Divider style={{ margin: "8px 0" }} />
-
-          <div style={{ marginBottom: 8 }}>
-            <HeadingLabel>On-road build-up</HeadingLabel>
-          </div>
-          {additionsRows.map((r) => (
-            <SummaryRow
-              key={r.label}
-              label={r.label}
-              value={r.value}
-              intent="addition"
-            />
-          ))}
-
-          <Divider style={{ margin: "8px 0" }} />
-
-          <div style={{ marginBottom: 8 }}>
-            <HeadingLabel>Discounts / deductions</HeadingLabel>
-          </div>
-          {discountRows.map((r) => (
-            <SummaryRow
-              key={r.label}
-              label={r.label}
-              value={r.value}
-              intent="discount"
-            />
-          ))}
-
-          <Divider style={{ margin: "8px 0" }} />
-
-          <div style={{ marginBottom: 4 }}>
-            <HeadingLabel>Showroom on-road summary</HeadingLabel>
-          </div>
-          <SummaryRow
-            label="OnRoad Vehicle Cost"
-            value={onRoadVehicleCost}
-            intent="total"
-            strong
-          />
-          <SummaryRow
-            label="Total Discount"
-            value={totalDiscount}
-            intent="discount"
-            strong
-          />
-          <SummaryRow
-            label="Net OnRoad Vehicle Cost"
-            value={netOnRoadVehicleCost}
-            intent="total"
-            strong
-          />
-        </div>
-      </>
-    );
+    return [
+      { title: "On-road build-up", rows: additionsRows },
+      { title: "Discounts / deductions", rows: discountRows },
+      {
+        title: "Showroom on-road summary",
+        rows: [
+          { label: "OnRoad Vehicle Cost", value: onRoadVehicleCost, intent: "total", strong: true },
+          { label: "Total Discount", value: totalDiscount, intent: "discount", strong: true },
+          { label: "Net OnRoad Vehicle Cost", value: netOnRoadVehicleCost, intent: "total", strong: true },
+        ],
+      },
+    ];
   }, [
-    make,
-    model,
-    variant,
     exShowroom,
     tcs,
     epc,
@@ -481,11 +356,15 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
   return (
     <div
       style={{
+        "--do-text": isDarkMode ? "#f3f4f6" : "#111827",
+        "--do-muted": isDarkMode ? "#9ca3af" : "#6b7280",
+        "--do-chip": isDarkMode ? "#d1d5db" : "#4b5563",
+        "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: "#f9fafb",
+        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
         borderRadius: 16,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
       }}
     >
       {/* Top strip – same pattern as Section 4/5 */}
@@ -506,14 +385,14 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
             flexWrap: "wrap",
           }}
         >
-          <CarOutlined style={{ color: "#111827" }} />
+          <CarOutlined style={{ color: isDarkMode ? "#f3f4f6" : "#111827" }} />
           <div>
             <HeadingLabel>Vehicle details</HeadingLabel>
             <div
               style={{
                 fontSize: 14,
                 fontWeight: 700,
-                color: "#111827",
+                color: isDarkMode ? "#f3f4f6" : "#111827",
               }}
             >
               Showroom account pricing
@@ -536,7 +415,7 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
           xs={24}
           lg={14}
           style={{
-            borderRight: "1px solid #e5e7eb",
+            borderRight: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
             paddingRight: 24,
           }}
         >
@@ -679,6 +558,18 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
                   Show discontinued cars
                 </Checkbox>
               </Form.Item>
+            </Col>
+
+            <Col xs={24} md={16}>
+              <InlineField label="Showroom Name">
+                <Form.Item name="do_dealerName" style={{ marginBottom: 0 }}>
+                  <Input
+                    bordered={false}
+                    size="small"
+                    placeholder="Enter showroom name"
+                  />
+                </Form.Item>
+              </InlineField>
             </Col>
 
             {/* Colour */}
@@ -1173,7 +1064,16 @@ const Section3VehicleDetailsShowroom = ({ loan }) => {
             paddingLeft: 24,
           }}
         >
-          {SummaryCard}
+          <BreakdownSummaryCard
+            isDarkMode={isDarkMode}
+            eyebrow="Showroom on-road breakdown"
+            title={`${make || "-"} ${model || ""} ${variant || ""}`.trim()}
+            subtitle="Showroom account"
+            chipLabel="Showroom"
+            chipTone="blue"
+            sections={summarySections}
+            sticky
+          />
         </Col>
       </Row>
     </div>

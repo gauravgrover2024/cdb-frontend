@@ -21,6 +21,8 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useVehicleData } from "../../../../hooks/useVehicleData";
+import { useTheme } from "../../../../context/ThemeContext";
+import BreakdownSummaryCard from "../shared/BreakdownSummaryCard";
 
 const { Option } = Select;
 
@@ -43,7 +45,7 @@ const SectionChip = ({ icon, label }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#4b5563",
+      color: "var(--do-chip, #4b5563)",
     }}
   >
     {icon}
@@ -58,7 +60,7 @@ const HeadingLabel = ({ children }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#6b7280",
+      color: "var(--do-muted, #6b7280)",
     }}
   >
     {children}
@@ -71,7 +73,7 @@ const InlineField = ({ label, children }) => (
       <div
         style={{
           fontSize: 11,
-          color: "#6b7280",
+          color: "var(--do-muted, #6b7280)",
           marginBottom: 2,
         }}
       >
@@ -80,7 +82,7 @@ const InlineField = ({ label, children }) => (
     )}
     <div
       style={{
-        borderBottom: "1px solid #e5e7eb",
+        borderBottom: "1px solid var(--do-border, #e5e7eb)",
         paddingBottom: 2,
       }}
     >
@@ -89,41 +91,9 @@ const InlineField = ({ label, children }) => (
   </div>
 );
 
-const SummaryRow = ({
-  label,
-  value,
-  intent = "neutral", // "addition" | "discount" | "total" | "neutral"
-  strong = false,
-}) => {
-  const display = Number.isFinite(Number(value))
-    ? Math.trunc(Number(value))
-    : 0;
-
-  let color = "#4b5563";
-  if (intent === "addition") color = "#15803d";
-  if (intent === "discount") color = "#1d4ed8";
-  if (intent === "total") color = "#0f766e";
-  if (strong && intent === "neutral") color = "#111827";
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 12,
-        marginBottom: 4,
-        fontWeight: strong ? 700 : 500,
-        color,
-      }}
-    >
-      <span>{label}</span>
-      <span>₹ {display.toLocaleString("en-IN")}</span>
-    </div>
-  );
-};
-
 const Section4VehicleDetailsCustomer = () => {
   const form = Form.useFormInstance();
+  const { isDarkMode } = useTheme();
 
   // Centralized vehicle data
   const {
@@ -201,8 +171,6 @@ const Section4VehicleDetailsCustomer = () => {
     extendedWarranty +
     additionsOthersTotal;
 
-  const grossDO = onRoadVehicleCost - marginMoneyPaid;
-
   const totalDiscount =
     dealerDiscount +
     schemeDiscount +
@@ -227,7 +195,7 @@ const Section4VehicleDetailsCustomer = () => {
   }, [form, onRoadVehicleCost, marginMoneyPaid, totalDiscount, netOnRoadVehicleCost]);
 
   // Right-side summary
-  const SummaryCard = useMemo(() => {
+  const summarySections = useMemo(() => {
     const additionsList = additionsOthers
       .filter((x) => (x?.label || x?.amount) && hasValue(x?.amount))
       .map((x, idx) => ({
@@ -245,138 +213,51 @@ const Section4VehicleDetailsCustomer = () => {
       }));
 
     const additionsRows = [
-      { label: "Ex-Showroom Price", value: exShowroom },
-      { label: "TCS", value: tcs },
-      { label: "EPC", value: epc },
-      { label: "Insurance Cost", value: insuranceCost },
-      { label: "Road Tax", value: roadTax },
-      { label: "Accessories Amount", value: accessoriesAmount },
-      { label: "Fastag", value: fastag },
-      { label: "Extended Warranty", value: extendedWarranty },
-      { label: "Others (Additions)", value: additionsOthersTotal },
+      { label: "Ex-Showroom Price", value: exShowroom, intent: "addition" },
+      { label: "TCS", value: tcs, intent: "addition" },
+      { label: "EPC", value: epc, intent: "addition" },
+      { label: "Insurance Cost", value: insuranceCost, intent: "addition" },
+      { label: "Road Tax", value: roadTax, intent: "addition" },
+      { label: "Accessories Amount", value: accessoriesAmount, intent: "addition" },
+      { label: "Fastag", value: fastag, intent: "addition" },
+      { label: "Extended Warranty", value: extendedWarranty, intent: "addition" },
+      { label: "Others (Additions)", value: additionsOthersTotal, intent: "addition" },
+      ...additionsList.map((item) => ({
+        label: item.label,
+        value: item.amount,
+        intent: "addition",
+      })),
     ].filter((r) => hasValue(r.value));
 
     const discountRows = [
-      { label: "Margin Money Paid", value: marginMoneyPaid },
-      { label: "Dealer Discount", value: dealerDiscount },
-      { label: "Scheme Discount", value: schemeDiscount },
-      { label: "Insurance Cashback", value: insuranceCashback },
-      { label: "Exchange", value: exchange },
-      { label: "Vehicle Value", value: vehicleValue },
-      { label: "Loyalty", value: loyalty },
-      { label: "Corporate", value: corporate },
-      { label: "Others (Discounts)", value: discountsOthersTotal },
+      { label: "Margin Money Paid", value: marginMoneyPaid, intent: "discount" },
+      { label: "Dealer Discount", value: dealerDiscount, intent: "discount" },
+      { label: "Scheme Discount", value: schemeDiscount, intent: "discount" },
+      { label: "Insurance Cashback", value: insuranceCashback, intent: "discount" },
+      { label: "Exchange", value: exchange, intent: "discount" },
+      { label: "Vehicle Value", value: vehicleValue, intent: "discount" },
+      { label: "Loyalty", value: loyalty, intent: "discount" },
+      { label: "Corporate", value: corporate, intent: "discount" },
+      { label: "Others (Discounts)", value: discountsOthersTotal, intent: "discount" },
+      ...discountsList.map((item) => ({
+        label: item.label,
+        value: item.amount,
+        intent: "discount",
+      })),
     ].filter((r) => hasValue(r.value));
 
-    return (
-      <>
-        <div style={{ marginBottom: 10 }}>
-          <SectionChip
-            icon={<InfoCircleOutlined style={{ color: "#7c3aed" }} />}
-            label="Customer on-road breakdown"
-          />
-        </div>
-
-        <div
-          style={{
-            position: "sticky",
-            top: 16,
-            borderRadius: 16,
-            border: "1px solid #e5e7eb",
-            background: "#f9fafb",
-            padding: 14,
-          }}
-        >
-          {/* Header line like Section 5 */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: 8,
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontWeight: 700,
-                  fontSize: 14,
-                  marginBottom: 4,
-                }}
-              >
-                {make || "-"} {model || ""} {variant || ""}
-              </div>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>
-                Customer account
-              </div>
-            </div>
-            <Tag
-              color="blue"
-              style={{
-                borderRadius: 999,
-                fontSize: 11,
-                borderColor: "#1d4ed8",
-              }}
-            >
-              Customer
-            </Tag>
-          </div>
-
-          {/* Additions block */}
-          <div style={{ marginBottom: 10 }}>
-            <HeadingLabel>On-road build-up</HeadingLabel>
-          </div>
-          {additionsRows.map((r) => (
-            <SummaryRow
-              key={r.label}
-              label={r.label}
-              value={r.value}
-              intent="addition"
-            />
-          ))}
-
-          <Divider style={{ margin: "8px 0" }} />
-
-          {/* Discounts block */}
-          <div style={{ marginBottom: 8 }}>
-            <HeadingLabel>Discounts / deductions</HeadingLabel>
-          </div>
-          {discountRows.map((r) => (
-            <SummaryRow
-              key={r.label}
-              label={r.label}
-              value={r.value}
-              intent="discount"
-            />
-          ))}
-
-          <Divider style={{ margin: "8px 0" }} />
-
-          {/* Totals (mirroring Net DO amount area) */}
-          <div style={{ marginBottom: 4 }}>
-            <HeadingLabel>Customer on-road summary</HeadingLabel>
-          </div>
-          <SummaryRow
-            label="OnRoad Vehicle Cost"
-            value={onRoadVehicleCost}
-            intent="total"
-            strong
-          />
-          <SummaryRow
-            label="Total Discount"
-            value={totalDiscount}
-            intent="discount"
-            strong
-          />
-          <SummaryRow
-            label="Net OnRoad Vehicle Cost"
-            value={netOnRoadVehicleCost}
-            intent="total"
-            strong
-          />
-        </div>
-      </>
-    );
+    return [
+      { title: "On-road build-up", rows: additionsRows },
+      { title: "Discounts / deductions", rows: discountRows },
+      {
+        title: "Customer on-road summary",
+        rows: [
+          { label: "OnRoad Vehicle Cost", value: onRoadVehicleCost, intent: "total", strong: true },
+          { label: "Total Discount", value: totalDiscount, intent: "discount", strong: true },
+          { label: "Net OnRoad Vehicle Cost", value: netOnRoadVehicleCost, intent: "total", strong: true },
+        ],
+      },
+    ];
   }, [
     make,
     model,
@@ -391,6 +272,8 @@ const Section4VehicleDetailsCustomer = () => {
     extendedWarranty,
     additionsOthersTotal,
     discountsOthersTotal,
+    additionsOthers,
+    discountsOthers,
     onRoadVehicleCost,
     marginMoneyPaid,
     dealerDiscount,
@@ -408,11 +291,15 @@ const Section4VehicleDetailsCustomer = () => {
   return (
     <div
       style={{
+        "--do-text": isDarkMode ? "#f3f4f6" : "#111827",
+        "--do-muted": isDarkMode ? "#9ca3af" : "#6b7280",
+        "--do-chip": isDarkMode ? "#d1d5db" : "#4b5563",
+        "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: "#f9fafb",
+        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
         borderRadius: 16,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
       }}
     >
       {/* Top strip same pattern as Section 5 */}
@@ -433,14 +320,14 @@ const Section4VehicleDetailsCustomer = () => {
             flexWrap: "wrap",
           }}
         >
-          <CarOutlined style={{ color: "#111827" }} />
+          <CarOutlined style={{ color: isDarkMode ? "#f3f4f6" : "#111827" }} />
           <div>
             <HeadingLabel>Vehicle details</HeadingLabel>
             <div
               style={{
                 fontSize: 14,
                 fontWeight: 700,
-                color: "#111827",
+                color: isDarkMode ? "#f3f4f6" : "#111827",
               }}
             >
               Customer account pricing
@@ -463,7 +350,7 @@ const Section4VehicleDetailsCustomer = () => {
           xs={24}
           lg={14}
           style={{
-            borderRight: "1px solid #e5e7eb",
+            borderRight: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
             paddingRight: 24,
           }}
         >
@@ -1118,7 +1005,16 @@ const Section4VehicleDetailsCustomer = () => {
             paddingLeft: 24,
           }}
         >
-          {SummaryCard}
+          <BreakdownSummaryCard
+            isDarkMode={isDarkMode}
+            eyebrow="Customer on-road breakdown"
+            title={`${make || "-"} ${model || ""} ${variant || ""}`.trim()}
+            subtitle="Customer account"
+            chipLabel="Customer"
+            chipTone="purple"
+            sections={summarySections}
+            sticky
+          />
         </Col>
       </Row>
     </div>

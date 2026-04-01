@@ -15,7 +15,6 @@ import {
 } from "antd";
 import {
   FileTextOutlined,
-  SwapOutlined,
   BankOutlined,
   CarOutlined,
   AuditOutlined,
@@ -23,6 +22,8 @@ import {
 import dayjs from "dayjs";
 import { InfoCircleOutlined } from "@ant-design/icons";
 import { Tooltip } from "antd";
+import { useTheme } from "../../../../context/ThemeContext";
+import BreakdownSummaryCard from "../shared/BreakdownSummaryCard";
 
 const { Option } = Select;
 
@@ -45,7 +46,7 @@ const SectionChip = ({ icon, label }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#4b5563",
+      color: "var(--do-chip, #4b5563)",
     }}
   >
     {icon}
@@ -60,7 +61,7 @@ const HeadingLabel = ({ children }) => (
       fontWeight: 600,
       letterSpacing: 0.4,
       textTransform: "uppercase",
-      color: "#6b7280",
+      color: "var(--do-muted, #6b7280)",
     }}
   >
     {children}
@@ -72,7 +73,7 @@ const SoftValue = ({ children, strong, color }) => (
     style={{
       fontSize: strong ? 18 : 13,
       fontWeight: strong ? 800 : 600,
-      color: color || "#111827",
+      color: color || "var(--do-text, #111827)",
       lineHeight: 1.2,
     }}
   >
@@ -86,7 +87,7 @@ const InlineField = ({ label, children }) => (
       <div
         style={{
           fontSize: 11,
-          color: "#6b7280",
+          color: "var(--do-muted, #6b7280)",
           marginBottom: 2,
         }}
       >
@@ -95,7 +96,7 @@ const InlineField = ({ label, children }) => (
     )}
     <div
       style={{
-        borderBottom: "1px solid #e5e7eb",
+        borderBottom: "1px solid var(--do-border, #e5e7eb)",
         paddingBottom: 2,
       }}
     >
@@ -103,39 +104,6 @@ const InlineField = ({ label, children }) => (
     </div>
   </div>
 );
-
-// Summary row with semantic colors (now negative also blue)
-const SummaryRow = ({
-  label,
-  value,
-  intent = "neutral", // "positive" | "negative" | "discount" | "deduction" | "neutral"
-  strong = false,
-}) => {
-  let color = "#4b5563";
-
-  if (intent === "positive") color = "#15803d"; // green
-  if (intent === "discount") color = "#1d4ed8"; // blue
-  if (intent === "deduction") color = "#b45309"; // amber
-  if (intent === "negative") color = "#1d4ed8"; // blue
-
-  if (strong && intent === "neutral") color = "#111827";
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 12,
-        marginBottom: 4,
-        fontWeight: strong ? 700 : 500,
-        color,
-      }}
-    >
-      <span>{label}</span>
-      <span>{money(value)}</span>
-    </div>
-  );
-};
 
 const PillAmount = ({ label, value, danger }) => (
   <div
@@ -175,7 +143,9 @@ const PillAmount = ({ label, value, danger }) => (
 
 const Section5DODetails = ({ loan }) => {
   const form = Form.useFormInstance();
-  const v = Form.useWatch([], form) || {};
+  const { isDarkMode } = useTheme();
+  const watchedValues = Form.useWatch([], form);
+  const v = useMemo(() => watchedValues || {}, [watchedValues]);
 
   const doAccountType = v.do_accountType || "Showroom";
   const isFinanced =
@@ -405,14 +375,116 @@ const Section5DODetails = ({ loan }) => {
     );
   }, [doAccountType, isFinanced, netDOAmountFinal]);
 
+  const doSummarySections = useMemo(
+    () => [
+      {
+        title: "DO header",
+        rows: [
+          { label: "Account Type", value: doAccountType || "Showroom", raw: true },
+          {
+            label: "Booking Date",
+            value: v?.do_bookingDate
+              ? dayjs(v.do_bookingDate).format("DD/MM/YYYY")
+              : "—",
+            raw: true,
+          },
+          {
+            label: "Insurance By",
+            value: safeText(insuranceBy) || "—",
+            raw: true,
+          },
+          {
+            label: "Exchange Purchased By",
+            value: safeText(exchangePurchasedBy) || "—",
+            raw: true,
+          },
+        ],
+      },
+      {
+        title: "Finance & registration",
+        rows: [
+          { label: "Loan Amount", value: loanAmount, intent: "addition" },
+          { label: "Processing Fees", value: processingFees, intent: "warning" },
+          {
+            label: "Hypothecation Bank",
+            value: safeText(v?.do_hypothecation) || "—",
+            raw: true,
+          },
+          {
+            label: "Registration Type",
+            value: safeText(v?.do_redgRequired) || "—",
+            raw: true,
+          },
+          {
+            label: "Registration City",
+            value: safeText(v?.do_redgCity) || "—",
+            raw: true,
+          },
+        ],
+      },
+      {
+        title: "Net DO breakdown",
+        rows: [
+          { label: "On-road Payable (Showroom)", value: showroomOnRoadPayable, intent: "addition" },
+          { label: "Margin Money Paid", value: showroomMarginMoneyPaid, intent: "discount" },
+          {
+            label: netOffDiscount
+              ? "Discount (net-off applied)"
+              : exchangeAddBack > 0
+                ? `Discount Applied (excl. exchange)`
+                : "Discount Applied",
+            value: discountExcludingVehicleValue,
+            intent: "discount",
+            strong: netOffDiscount,
+          },
+          { label: "Net Finance (Loan − PF)", value: financeNetValue, intent: "warning" },
+          {
+            label:
+              insuranceBy.toLowerCase() === "showroom"
+                ? "Insurance (by Showroom — not deducted)"
+                : "Insurance Deduction",
+            value: insuranceDeductForNet,
+            intent: "warning",
+          },
+          {
+            label: "Net DO Amount (Final)",
+            value: netDOAmountFinal,
+            intent: netDOAmountFinal < 0 ? "discount" : "total",
+            strong: true,
+          },
+        ],
+      },
+    ],
+    [
+      discountExcludingVehicleValue,
+      doAccountType,
+      exchangeAddBack,
+      exchangePurchasedBy,
+      financeNetValue,
+      insuranceBy,
+      insuranceDeductForNet,
+      loanAmount,
+      netDOAmountFinal,
+      netOffDiscount,
+      processingFees,
+      showroomMarginMoneyPaid,
+      showroomOnRoadPayable,
+      v,
+    ],
+  );
+
   return (
     <div
       style={{
+        "--do-text": isDarkMode ? "#f3f4f6" : "#111827",
+        "--do-muted": isDarkMode ? "#9ca3af" : "#6b7280",
+        "--do-chip": isDarkMode ? "#d1d5db" : "#4b5563",
+        "--do-border": isDarkMode ? "#303030" : "#e5e7eb",
         marginBottom: 32,
         padding: 18,
-        background: "#f9fafb",
+        background: isDarkMode ? "#1b1b1b" : "#f9fafb",
         borderRadius: 16,
-        border: "1px solid #e5e7eb",
+        border: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
       }}
     >
       {TopStrip}
@@ -425,7 +497,7 @@ const Section5DODetails = ({ loan }) => {
           xs={24}
           lg={14}
           style={{
-            borderRight: "1px solid #e5e7eb",
+            borderRight: `1px solid ${isDarkMode ? "#303030" : "#e5e7eb"}`,
             paddingRight: 24,
           }}
         >
@@ -730,63 +802,19 @@ const Section5DODetails = ({ loan }) => {
             paddingLeft: 24,
           }}
         >
-          <div style={{ marginBottom: 10 }}>
-            <SectionChip
-              icon={<SwapOutlined style={{ color: "#7c3aed" }} />}
-              label="Net DO breakdown"
-            />
-          </div>
-
-          <div style={{ marginBottom: 10 }}>
-            <SummaryRow
-              label="On-road Payable (Showroom)"
-              value={showroomOnRoadPayable}
-              intent="positive"
-            />
-            <SummaryRow
-              label="Margin Money Paid"
-              value={showroomMarginMoneyPaid}
-              intent="discount"
-            />
-            <SummaryRow
-              label={
-                netOffDiscount
-                  ? "Discount (net-off applied — ignored)"
-                  : exchangeAddBack > 0
-                  ? `Discount (excl. exchange ₹${asInt(exchangeAddBack).toLocaleString("en-IN")} — by Autocredits)`
-                  : "Discount Applied"
-              }
-              value={discountExcludingVehicleValue}
-              intent="discount"
-              strong={netOffDiscount}
-            />
-            <SummaryRow
-              label="Net Finance (Loan − PF)"
-              value={financeNetValue}
-              intent="deduction"
-            />
-            <SummaryRow
-              label={
-                insuranceBy.toLowerCase() === "showroom"
-                  ? "Insurance (by Showroom — not deducted)"
-                  : "Insurance Deduction"
-              }
-              value={insuranceDeductForNet}
-              intent="deduction"
-            />
-          </div>
-
-          <Divider style={{ margin: "8px 0" }} />
-
-          <div style={{ marginBottom: 8 }}>
-            <HeadingLabel>Net DO amount</HeadingLabel>
-          </div>
-
-          <SummaryRow
-            label="Net DO Amount (Final)"
-            value={netDOAmountFinal}
-            intent={netDOAmountFinal < 0 ? "negative" : "positive"}
-            strong
+          <BreakdownSummaryCard
+            isDarkMode={isDarkMode}
+            eyebrow="Net DO breakdown"
+            title={safeText(v?.do_refNo) || "Delivery Order"}
+            subtitle={
+              doAccountType === "Customer"
+                ? "Customer account view"
+                : "Showroom account view"
+            }
+            chipLabel={isFinanced ? "Financed" : "Cash"}
+            chipTone={isFinanced ? "blue" : "green"}
+            sections={doSummarySections}
+            sticky
           />
 
           {/* Bind Net DO and Effective Discount to form (hidden controls) */}
