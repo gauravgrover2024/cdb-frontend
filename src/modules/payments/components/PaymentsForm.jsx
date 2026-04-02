@@ -109,10 +109,21 @@ const LEGACY_CUTOFF = dayjs("2026-02-01T00:00:00.000Z");
 const PAYMENTS_AUTO_COMMISSION_META = "payments_negative_balance_commission_auto";
 
 const detectReceivableKey = (loanDoc = {}) => {
-  if (Array.isArray(loanDoc?.loan_receivables)) return "loan_receivables";
-  if (Array.isArray(loanDoc?.loanReceivables)) return "loanReceivables";
-  if (Array.isArray(loanDoc?.receivables)) return "receivables";
-  if (Array.isArray(loanDoc?.loan_payouts)) return "loan_payouts";
+  const keys = [
+    "loan_receivables",
+    "loanReceivables",
+    "receivables",
+    "loan_payouts",
+  ];
+
+  // Prefer key that already has entries to avoid writing into an empty alias
+  // while real receivables live in another legacy key.
+  for (const key of keys) {
+    if (Array.isArray(loanDoc?.[key]) && loanDoc[key].length > 0) return key;
+  }
+  for (const key of keys) {
+    if (Array.isArray(loanDoc?.[key])) return key;
+  }
   return "loan_receivables";
 };
 
@@ -342,21 +353,40 @@ const PaymentForm = () => {
       const existingRows = Array.isArray(freshLoan?.[receivableKey])
         ? freshLoan[receivableKey]
         : [];
+      const existingAutoRow = existingRows.find((row) =>
+        isAutoCommissionReceivable(row, freshLoan?.loanId || loanId),
+      );
       const cleanedRows = existingRows.filter(
         (row) => !isAutoCommissionReceivable(row, freshLoan?.loanId || loanId),
       );
+      const existingHistory = Array.isArray(existingAutoRow?.payment_history)
+        ? existingAutoRow.payment_history
+        : [];
+      const existingHistoryTotal = existingHistory.reduce(
+        (sum, entry) => sum + asInt(entry?.amount || 0),
+        0,
+      );
+      let nextAutoStatus = existingAutoRow?.payout_status || "Expected";
+      if (existingHistoryTotal <= 0) nextAutoStatus = "Expected";
+      else if (existingHistoryTotal >= receivableAmount) nextAutoStatus = "Received";
+      else nextAutoStatus = "Partial";
 
       const nextRows =
         receivableAmount > 0
           ? [
               ...cleanedRows,
               {
-                id: buildAutoCommissionPayoutId(freshLoan?.loanId || loanId),
+                ...(existingAutoRow || {}),
+                id:
+                  existingAutoRow?.id ||
+                  buildAutoCommissionPayoutId(freshLoan?.loanId || loanId),
                 payoutId: buildAutoCommissionPayoutId(
                   freshLoan?.loanId || loanId,
                 ),
-                payout_createdAt: new Date().toISOString(),
-                created_date: new Date().toISOString(),
+                payout_createdAt:
+                  existingAutoRow?.payout_createdAt || new Date().toISOString(),
+                created_date:
+                  existingAutoRow?.created_date || new Date().toISOString(),
                 payout_applicable: "Yes",
                 payout_type: "Commission",
                 payout_party_name: partyName || "Showroom",
@@ -367,18 +397,25 @@ const PaymentForm = () => {
                 tds_percentage: 0,
                 tds_amount: 0,
                 net_payout_amount: receivableAmount,
-                payout_status: "Expected",
-                payout_expected_date: null,
-                payout_received_date: null,
-                payment_history: [],
-                activity_log: [
-                  {
-                    timestamp: new Date().toISOString(),
-                    action: "Auto synced from Payments",
-                    details:
-                      "Created from negative showroom balance in payment ledger.",
-                  },
-                ],
+                payout_status: nextAutoStatus,
+                payout_expected_date: existingAutoRow?.payout_expected_date || null,
+                payout_received_date:
+                  nextAutoStatus === "Received"
+                    ? existingAutoRow?.payout_received_date || new Date().toISOString()
+                    : null,
+                payment_history: existingHistory,
+                activity_log:
+                  Array.isArray(existingAutoRow?.activity_log) &&
+                  existingAutoRow.activity_log.length > 0
+                    ? existingAutoRow.activity_log
+                    : [
+                        {
+                          timestamp: new Date().toISOString(),
+                          action: "Auto synced from Payments",
+                          details:
+                            "Created from negative showroom balance in payment ledger.",
+                        },
+                      ],
                 payout_remarks:
                   "Auto-created from negative showroom balance in payment ledger.",
                 meta_source: PAYMENTS_AUTO_COMMISSION_META,
@@ -387,8 +424,7 @@ const PaymentForm = () => {
           : cleanedRows;
 
       const hasChanged =
-        existingRows.length !== nextRows.length ||
-        existingRows.some((row, idx) => row !== nextRows[idx]);
+        JSON.stringify(existingRows || []) !== JSON.stringify(nextRows || []);
 
       if (!hasChanged) {
         commissionReceivableSyncSignatureRef.current = signature;

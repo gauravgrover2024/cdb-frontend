@@ -35,6 +35,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { loansApi } from "../../../../../api/loans";
+import { paymentsApi } from "../../../../../api/payments";
 
 const { Option } = Select;
 
@@ -43,21 +44,74 @@ const { Option } = Select;
 ============================== */
 const safeArray = (v) => (Array.isArray(v) ? v : []);
 
-const firstNonEmptyArray = (...candidates) => {
-  for (const c of candidates) {
-    const arr = safeArray(c);
-    if (arr.length > 0) return arr;
-  }
-  return [];
+const normalizeDirection = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const normalizeType = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const isLikelyReceivableFromLegacyRow = (row = {}) => {
+  const direction = normalizeDirection(row?.payout_direction);
+  if (direction) return direction === "receivable";
+
+  const payoutId = String(row?.payoutId || row?.id || "")
+    .trim()
+    .toUpperCase();
+  if (payoutId.startsWith("PR-")) return true;
+  if (payoutId.startsWith("PP-")) return false;
+
+  const payoutType = normalizeType(row?.payout_type);
+  if (["bank", "insurance", "commission"].includes(payoutType)) return true;
+
+  // Legacy fallback: if direction is not present, treat as receivable
+  // in Collections dashboard to avoid hidden entries.
+  return true;
 };
 
-const getReceivablesArray = (loan) =>
-  firstNonEmptyArray(
-    loan?.loan_receivables,
-    loan?.loanReceivables,
-    loan?.receivables,
-    loan?.loan_payouts,
-  );
+const collectReceivableRows = (loan = {}) => {
+  const strictKeys = ["loan_receivables", "loanReceivables", "receivables"];
+  const legacyKeys = ["loan_payouts"];
+  const rows = [];
+
+  strictKeys.forEach((key) => {
+    safeArray(loan?.[key]).forEach((entry, index) => {
+      if (!entry || typeof entry !== "object") return;
+      rows.push({
+        ...entry,
+        __receivableSourceKey: key,
+        __receivableSourceIndex: index,
+      });
+    });
+  });
+
+  legacyKeys.forEach((key) => {
+    safeArray(loan?.[key]).forEach((entry, index) => {
+      if (!entry || typeof entry !== "object") return;
+      if (!isLikelyReceivableFromLegacyRow(entry)) return;
+      rows.push({
+        ...entry,
+        __receivableSourceKey: key,
+        __receivableSourceIndex: index,
+      });
+    });
+  });
+
+  // De-dupe by payout id per loan while preserving first source priority.
+  const seen = new Set();
+  return rows.filter((entry) => {
+    const key = String(entry?.payoutId || entry?.id || "")
+      .trim()
+      .toLowerCase();
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 const getReceivablesKey = (loan) => {
   if (Object.prototype.hasOwnProperty.call(loan || {}, "loan_receivables")) {
@@ -92,6 +146,31 @@ const normalizeBankName = (v) =>
     .toLowerCase();
 
 const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
+const AUTO_COMMISSION_META_SOURCE = "payments_negative_balance_commission_auto";
+const COLLECTIONS_AUTO_PAYMENT_KEY_PREFIX = "collections_commission_receivable:";
+const normalizePayoutId = (row = {}) =>
+  String(row?.payoutId || row?.id || "").trim();
+
+const stripReceivableRuntimeFields = (row = {}) => {
+  const {
+    __receivableSourceKey,
+    __receivableSourceIndex,
+    loanId,
+    loanMongoId,
+    customerName,
+    ...rest
+  } = row || {};
+  return rest;
+};
+
+const firstValidDate = (...values) => {
+  for (const value of values) {
+    if (!value) continue;
+    const parsed = dayjs(value);
+    if (parsed.isValid()) return parsed.toISOString();
+  }
+  return null;
+};
 
 const getCreatedDate = (record) =>
   record?.created_date ||
@@ -99,6 +178,134 @@ const getCreatedDate = (record) =>
   record?.payout_created_date ||
   record?.createdAt ||
   null;
+
+const parsePercent = (value) => {
+  const cleaned = String(value ?? "")
+    .replace("%", "")
+    .trim();
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? number : 0;
+};
+
+const buildMissingBankReceivableFromDisbursedBank = (
+  loan = {},
+  existingRows = [],
+) => {
+  const hasBankReceivableAlready = safeArray(existingRows).some((row) => {
+    const type = normalizeType(row?.payout_type);
+    const direction = normalizeDirection(row?.payout_direction || "receivable");
+    return type === "bank" && direction === "receivable";
+  });
+  if (hasBankReceivableAlready) return null;
+
+  const disbursedBank = safeArray(loan?.approval_banksData).find((bank) => {
+    const status = String(bank?.status || "")
+      .trim()
+      .toLowerCase();
+    return status === "disbursed";
+  });
+  if (!disbursedBank) return null;
+
+  const payoutPercent = parsePercent(disbursedBank?.payoutPercent);
+  if (!(payoutPercent > 0)) return null;
+
+  const disbursedAmount = Number(
+    disbursedBank?.disbursedAmount || disbursedBank?.loanAmount || 0,
+  );
+  if (!(Number.isFinite(disbursedAmount) && disbursedAmount > 0)) return null;
+
+  const payoutAmount = Number(
+    ((disbursedAmount * payoutPercent) / 100).toFixed(2),
+  );
+  if (!(payoutAmount > 0)) return null;
+
+  const tdsPercentage = 5;
+  const tdsAmount = Number(((payoutAmount * tdsPercentage) / 100).toFixed(2));
+  const payoutId = `PR-BANK-${String(loan?.loanId || loan?._id || "")
+    .trim()
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase()}`;
+  const createdAt = firstValidDate(
+    disbursedBank?.disbursedDate,
+    loan?.disbursement_date,
+    loan?.approval_disbursedDate,
+    loan?.updatedAt,
+    loan?.createdAt,
+  );
+
+  return {
+    id: payoutId,
+    payoutId,
+    payout_createdAt: createdAt,
+    created_date: createdAt,
+    payout_applicable: "Yes",
+    payout_type: "Bank",
+    payout_party_name:
+      disbursedBank?.bankName ||
+      loan?.disburse_bankName ||
+      loan?.approval_bankName ||
+      "Bank",
+    payout_percentage: String(disbursedBank?.payoutPercent || payoutPercent),
+    payout_amount: payoutAmount,
+    payout_direction: "Receivable",
+    tds_applicable: "Yes",
+    tds_percentage: tdsPercentage,
+    tds_amount: tdsAmount,
+    net_payout_amount: Number((payoutAmount - tdsAmount).toFixed(2)),
+    payout_status: "Expected",
+    payout_expected_date: null,
+    payout_received_date: null,
+    payment_history: [],
+    activity_log: [],
+    payout_remarks: "Auto-generated from disbursed bank payoutPercent.",
+    meta_source: "loan_disbursed_bank_payout_percent",
+    __receivableSourceKey: "loan_receivables",
+    __receivableSourceIndex: -1,
+  };
+};
+
+const resolvePaymentDocFromResponse = (response) => {
+  if (!response) return null;
+  if (response?.data && typeof response.data === "object") {
+    return response.data;
+  }
+  return response;
+};
+
+const buildCommissionRowsForShowroomPayments = ({
+  payoutId,
+  partyName,
+  paymentHistory,
+}) => {
+  const autoKey = `${COLLECTIONS_AUTO_PAYMENT_KEY_PREFIX}${payoutId}`;
+  return safeArray(paymentHistory)
+    .map((payment, index) => {
+      const amount = Number(payment?.amount || 0);
+      if (!(amount > 0)) return null;
+      const paymentDateIso = firstValidDate(payment?.date, payment?.timestamp);
+      return {
+        id: `COLL-COMM-${String(payoutId || "")
+          .replace(/[^A-Za-z0-9]/g, "")
+          .toUpperCase()}-${index + 1}`,
+        paymentType: "Commission",
+        paymentMadeBy: "Showroom",
+        paymentMode: "Collections Dashboard",
+        paymentAmount: String(amount),
+        paymentDate: paymentDateIso,
+        transactionDetails: "",
+        bankName: String(partyName || "").trim(),
+        remarks:
+          String(payment?.remarks || "").trim() ||
+          `Auto from Collections (${payoutId})`,
+        adjustmentDirection: null,
+        crossCaseId: null,
+        crossCaseLabel: "",
+        _auto: true,
+        _autoKey: autoKey,
+      };
+    })
+    .filter(Boolean);
+};
 
 const getExpectedAmount = (record) => {
   const net = Number(record?.net_payout_amount);
@@ -189,48 +396,124 @@ const PayoutReceivablesDashboard = () => {
   const [partialPaymentForm] = Form.useForm();
   const [editPaymentForm] = Form.useForm();
 
+  const syncAutoCommissionReceivableIntoPayments = async ({
+    loanId,
+    receivableRow,
+  }) => {
+    if (!loanId || !receivableRow) return;
+    if (
+      String(receivableRow?.meta_source || "").trim() !== AUTO_COMMISSION_META_SOURCE
+    ) {
+      return;
+    }
+    const payoutId = String(receivableRow?.payoutId || receivableRow?.id || "").trim();
+    if (!payoutId) return;
+
+    const paymentResponse = await paymentsApi.getByLoanId(loanId);
+    const paymentDoc = resolvePaymentDocFromResponse(paymentResponse) || {};
+    const showroomRows = safeArray(paymentDoc?.showroomRows);
+    const autoKey = `${COLLECTIONS_AUTO_PAYMENT_KEY_PREFIX}${payoutId}`;
+    const keptRows = showroomRows.filter(
+      (row) => String(row?._autoKey || "").trim() !== autoKey,
+    );
+    const generatedRows = buildCommissionRowsForShowroomPayments({
+      payoutId,
+      partyName: receivableRow?.payout_party_name,
+      paymentHistory: safeArray(receivableRow?.payment_history),
+    });
+
+    const nextRows = [...keptRows, ...generatedRows];
+    const previousSerialized = JSON.stringify(showroomRows);
+    const nextSerialized = JSON.stringify(nextRows);
+    if (previousSerialized === nextSerialized) return;
+
+    await paymentsApi.update(loanId, { showroomRows: nextRows });
+  };
+
+  const syncAutoCommissionFromServerRow = async ({ loanRef, payoutId }) => {
+    if (!loanRef || !payoutId) return;
+    const loanRes = await loansApi.getById(loanRef);
+    const loanDoc = loanRes?.data || null;
+    if (!loanDoc) return;
+    const row = collectReceivableRows(loanDoc).find(
+      (entry) => String(entry?.payoutId || entry?.id || "") === String(payoutId),
+    );
+    if (!row) return;
+    await syncAutoCommissionReceivableIntoPayments({
+      loanId: loanDoc?.loanId || loanRef,
+      receivableRow: row,
+    });
+  };
+
   const loadReceivables = async () => {
     try {
-      const pageSize = 300;
-      let skip = 0;
-      let hasMore = true;
-      const allLoans = [];
-
-      while (hasMore) {
-        const res = await loansApi.getAll({
-          limit: pageSize,
-          skip,
-          noCount: true,
-          sortBy: "leadDate",
-          sortDir: "desc",
+      let allLoans = [];
+      let usedFastCollectionsEndpoint = false;
+      try {
+        const fastRes = await loansApi.getCollectionsReceivables({
+          limit: 12000,
+          skip: 0,
         });
-        const pageLoans = safeArray(res?.data);
-        allLoans.push(...pageLoans);
-        hasMore = Boolean(res?.hasMore);
-        skip += pageSize;
+        const fastRows = safeArray(fastRes?.data);
+        if (fastRows.length > 0 || Number(fastRes?.total || 0) === 0) {
+          allLoans = fastRows;
+          usedFastCollectionsEndpoint = true;
+        }
+      } catch (_) {
+        // Graceful fallback for older backend deployments that don't have
+        // /api/loans/collections/receivables yet.
+      }
+
+      if (!usedFastCollectionsEndpoint) {
+        const pageSize = 300;
+        let skip = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const res = await loansApi.getAll({
+            limit: pageSize,
+            skip,
+            noCount: true,
+            sortBy: "leadDate",
+            sortDir: "desc",
+          });
+          const pageLoans = safeArray(res?.data);
+          allLoans.push(...pageLoans);
+          hasMore = Boolean(res?.hasMore);
+          skip += pageSize;
+        }
       }
 
       const receivables = allLoans.flatMap((loan) => {
-        const list = getReceivablesArray(loan);
+        const receivableList = collectReceivableRows(loan);
+        const derivedBankReceivable = buildMissingBankReceivableFromDisbursedBank(
+          loan,
+          receivableList,
+        );
+        const mergedRows = derivedBankReceivable
+          ? [...receivableList, derivedBankReceivable]
+          : receivableList;
 
-        const receivableList = list.filter((p) => {
-          const type = p?.payout_type;
-          const direction = p?.payout_direction;
-          return (
-            type === "Bank" ||
-            type === "Insurance" ||
-            direction === "Receivable"
-          );
-        });
-
-        return receivableList.map((p) => ({
+        return mergedRows.map((p) => ({
           ...p,
+          payoutId: p?.payoutId || p?.id,
+          id: p?.id || p?.payoutId,
           loanId: loan.loanId || loan.id || "-",
           loanMongoId: loan._id || loan.id,
           customerName: getCustomerNameFromLoan(loan),
           payment_history: safeArray(p.payment_history),
           activity_log: safeArray(p.activity_log),
-          created_date: getCreatedDate(p),
+          created_date:
+            String(p?.meta_source || "").trim() ===
+            AUTO_COMMISSION_META_SOURCE
+              ? firstValidDate(
+                  loan?.delivery_date,
+                  loan?.deliveryDate,
+                  loan?.vehicleDeliveryDate,
+                  loan?.approval_disbursedDate,
+                  getCreatedDate(p),
+                )
+              : getCreatedDate(p),
         }));
       });
 
@@ -250,36 +533,82 @@ const PayoutReceivablesDashboard = () => {
     payoutId,
     patch,
     activityAction = null,
+    options = {},
   ) => {
+    const shouldReload = options?.reload !== false;
+    const normalizedPayoutId = String(payoutId || "").trim();
+    if (!normalizedPayoutId) return;
+
     const sourceLoans = Array.isArray(loans) ? loans : [];
-    let targetLoan = null;
-    let updatedList = null;
-    let key = "loan_receivables";
+    const sourceMatch = rows.find(
+      (row) => normalizePayoutId(row) === normalizedPayoutId,
+    );
 
-    for (const loan of sourceLoans) {
-      const k = getReceivablesKey(loan);
-      const list = safeArray(loan[k]);
-      if (!list.length) continue;
-      if (list.some((p) => p.payoutId === payoutId)) {
-        key = k;
-        targetLoan = loan;
-        updatedList = list.map((p) => {
-          if (p.payoutId !== payoutId) return p;
-          const updated = { ...p, ...patch };
-          if (activityAction) {
-            updated.activity_log = addActivityLog(
-              p.activity_log,
-              activityAction.action,
-              activityAction.details,
-            );
-          }
-          return updated;
-        });
-        break;
-      }
+    const matchLoanRef = String(
+      sourceMatch?.loanMongoId || sourceMatch?.loanId || "",
+    ).trim();
+
+    let targetLoan =
+      sourceLoans.find((loan) => {
+        const loanMongoId = String(loan?._id || "").trim();
+        const loanBizId = String(loan?.loanId || "").trim();
+        return (
+          (matchLoanRef && loanMongoId && matchLoanRef === loanMongoId) ||
+          (matchLoanRef && loanBizId && matchLoanRef === loanBizId)
+        );
+      }) || null;
+
+    if (!targetLoan) {
+      targetLoan = sourceLoans.find((loan) =>
+        collectReceivableRows(loan).some(
+          (entry) => normalizePayoutId(entry) === normalizedPayoutId,
+        ),
+      );
     }
+    if (!targetLoan) return;
 
-    if (!targetLoan || !updatedList) return;
+    const preferredKey = sourceMatch?.__receivableSourceKey;
+    const key = preferredKey || getReceivablesKey(targetLoan);
+    const list = safeArray(targetLoan[key]);
+    const existingIndex = list.findIndex(
+      (entry) => normalizePayoutId(entry) === normalizedPayoutId,
+    );
+
+    let updatedList = list;
+    if (existingIndex >= 0) {
+      updatedList = list.map((entry, idx) => {
+        if (idx !== existingIndex) return entry;
+        const updated = { ...entry, ...patch };
+        if (activityAction) {
+          updated.activity_log = addActivityLog(
+            entry.activity_log,
+            activityAction.action,
+            activityAction.details,
+          );
+        }
+        return updated;
+      });
+    } else if (sourceMatch) {
+      const seedRow = stripReceivableRuntimeFields(sourceMatch);
+      const created = {
+        ...seedRow,
+        id: seedRow?.id || normalizedPayoutId,
+        payoutId: seedRow?.payoutId || normalizedPayoutId,
+        payment_history: safeArray(seedRow?.payment_history),
+        activity_log: safeArray(seedRow?.activity_log),
+        ...patch,
+      };
+      if (activityAction) {
+        created.activity_log = addActivityLog(
+          created.activity_log,
+          activityAction.action,
+          activityAction.details,
+        );
+      }
+      updatedList = [...list, created];
+    } else {
+      return;
+    }
 
     try {
       await loansApi.update(
@@ -288,32 +617,22 @@ const PayoutReceivablesDashboard = () => {
           [key]: updatedList,
         },
       );
-      await loadReceivables();
+      const updatedRow = safeArray(updatedList).find(
+        (row) => String(row?.payoutId || row?.id || "") === String(payoutId),
+      );
+      if (updatedRow) {
+        await syncAutoCommissionReceivableIntoPayments({
+          loanId: targetLoan?.loanId || targetLoan?._id,
+          receivableRow: updatedRow,
+        });
+      }
+      if (shouldReload) {
+        await loadReceivables();
+      }
     } catch (err) {
       console.error("Failed to update receivable:", err);
       messageApi.error("Failed to update receivable");
     }
-  };
-
-  const applyBulkUpdates = async (updateFactory) => {
-    const updatesByLoan = new Map();
-
-    for (const loan of loans) {
-      const key = getReceivablesKey(loan);
-      const list = safeArray(loan[key]);
-      if (!list.length) continue;
-
-      const updated = list.map((p) => updateFactory(p));
-      if (updated.some((u, idx) => u !== list[idx])) {
-        updatesByLoan.set(loan._id || loan.loanId || loan.id, { key, updated });
-      }
-    }
-
-    await Promise.all(
-      Array.from(updatesByLoan.entries()).map(([loanId, payload]) =>
-        loansApi.update(loanId, { [payload.key]: payload.updated }),
-      ),
-    );
   };
 
   /* ==============================
@@ -467,6 +786,32 @@ const PayoutReceivablesDashboard = () => {
     amountRangeFilter,
   ]);
 
+  const filteredSubtotals = useMemo(() => {
+    const totals = {
+      expected: 0,
+      received: 0,
+      pending: 0,
+      parties: new Set(),
+    };
+    filteredRows.forEach((row) => {
+      const paymentStatus = getPaymentStatus(row);
+      totals.expected += paymentStatus.expectedAmount;
+      totals.received += paymentStatus.totalReceived;
+      totals.pending += paymentStatus.pendingAmount;
+      const party = String(row?.payout_party_name || "")
+        .trim()
+        .toLowerCase();
+      if (party) totals.parties.add(party);
+    });
+    return {
+      expected: totals.expected,
+      received: totals.received,
+      pending: totals.pending,
+      partyCount: totals.parties.size,
+      rowCount: filteredRows.length,
+    };
+  }, [filteredRows]);
+
   /* ==============================
      Payment History Management
   ============================== */
@@ -504,7 +849,7 @@ const PayoutReceivablesDashboard = () => {
     const isFullyPaid = totalReceived >= expectedAmount;
 
     await updateReceivableInBackend(
-      currentRecord.payoutId,
+      normalizePayoutId(currentRecord),
       {
         payment_history: updatedHistory,
         payout_status: toBackendStatus(
@@ -537,7 +882,7 @@ const PayoutReceivablesDashboard = () => {
     const isFullyPaid = totalReceived >= expectedAmount;
 
     await updateReceivableInBackend(
-      currentRecord.payoutId,
+      normalizePayoutId(currentRecord),
       {
         payment_history: updatedHistory,
         payout_status: toBackendStatus(
@@ -571,7 +916,7 @@ const PayoutReceivablesDashboard = () => {
 
     selectedRows.forEach((r) => {
       const paymentStatus = getPaymentStatus(r);
-      initialValues[`amount_${r.payoutId}`] = paymentStatus.pendingAmount;
+      initialValues[`amount_${normalizePayoutId(r)}`] = paymentStatus.pendingAmount;
     });
 
     bulkForm.setFieldsValue(initialValues);
@@ -581,17 +926,13 @@ const PayoutReceivablesDashboard = () => {
   const handleBulkCollectionSave = async () => {
     const values = await bulkForm.validateFields();
     const receivedDate = values.received_date.format("YYYY-MM-DD");
-    const selectedIds = new Set(selectedRows.map((r) => r.payoutId));
-
     let updatedCount = 0;
+    for (const row of selectedRows) {
+      const rowId = normalizePayoutId(row);
+      const amountReceived = Number(values[`amount_${rowId}`] || 0);
+      if (amountReceived <= 0) continue;
 
-    await applyBulkUpdates((p) => {
-      if (!selectedIds.has(p.payoutId)) return p;
-
-      const amountReceived = Number(values[`amount_${p.payoutId}`] || 0);
-      if (amountReceived <= 0) return p;
-
-      const existingHistory = safeArray(p.payment_history);
+      const existingHistory = safeArray(row.payment_history);
       const newHistory = [
         ...existingHistory,
         {
@@ -601,29 +942,56 @@ const PayoutReceivablesDashboard = () => {
           timestamp: new Date().toISOString(),
         },
       ];
-
       const totalReceived = newHistory.reduce(
         (sum, payment) => sum + Number(payment.amount || 0),
         0,
       );
-      const expectedAmount = getExpectedAmount(p);
+      const expectedAmount = getExpectedAmount(row);
       const isFullyPaid = totalReceived >= expectedAmount;
 
+      await updateReceivableInBackend(
+        rowId,
+        {
+          payment_history: newHistory,
+          payout_status: toBackendStatus(isFullyPaid ? "Received" : "Partial"),
+          payout_received_date: isFullyPaid
+            ? receivedDate
+            : row.payout_received_date,
+        },
+        {
+          action: isFullyPaid
+            ? "Full Payment Received"
+            : "Partial Payment Recorded",
+          details: `Received ${formatCurrency(amountReceived)} on ${receivedDate}. Total: ${formatCurrency(totalReceived)} of ${formatCurrency(expectedAmount)}`,
+        },
+        { reload: false },
+      );
       updatedCount += 1;
-      return {
-        ...p,
-        payment_history: newHistory,
-        payout_status: toBackendStatus(isFullyPaid ? "Received" : "Partial"),
-        payout_received_date: isFullyPaid
-          ? receivedDate
-          : p.payout_received_date,
-        activity_log: addActivityLog(
-          p.activity_log,
-          isFullyPaid ? "Full Payment Received" : "Partial Payment Recorded",
-          `Received ${formatCurrency(amountReceived)} on ${receivedDate}. Total: ${formatCurrency(totalReceived)} of ${formatCurrency(expectedAmount)}`,
-        ),
-      };
-    });
+    }
+
+    const autoSyncTargets = Array.from(
+      new Set(
+        selectedRows
+          .filter(
+            (row) =>
+              String(row?.meta_source || "").trim() ===
+              AUTO_COMMISSION_META_SOURCE,
+          )
+          .map(
+            (row) =>
+              `${String(row?.loanMongoId || row?.loanId || "")}::${normalizePayoutId(row)}`,
+          ),
+      ),
+    );
+    await Promise.all(
+      autoSyncTargets.map((target) => {
+        const [loanRef, payoutId] = String(target).split("::");
+        if (!loanRef || !payoutId) return Promise.resolve();
+        return syncAutoCommissionFromServerRow({ loanRef, payoutId }).catch(
+          () => {},
+        );
+      }),
+    );
 
     await loadReceivables();
     setSelectedRowKeys([]);
@@ -667,7 +1035,7 @@ const PayoutReceivablesDashboard = () => {
     const isFullyPaid = totalReceived >= expectedAmount;
 
     await updateReceivableInBackend(
-      currentRecord.payoutId,
+      normalizePayoutId(currentRecord),
       {
         payment_history: newHistory,
         payout_status: toBackendStatus(isFullyPaid ? "Received" : "Partial"),
@@ -914,7 +1282,7 @@ const PayoutReceivablesDashboard = () => {
             value={v ? dayjs(v) : null}
             onChange={(date, dateString) =>
               updateReceivableInBackend(
-                r.payoutId,
+                normalizePayoutId(r),
                 {
                   payout_received_date: dateString,
                   payout_status: dateString ? "Received" : "Expected",
@@ -1146,7 +1514,7 @@ const PayoutReceivablesDashboard = () => {
               className="w-full"
               showSearch
             >
-              <Option value="All">All Banks</Option>
+              <Option value="All">All Parties</Option>
               {bankOptions.map((b) => (
                 <Option key={b} value={b}>
                   {b}
@@ -1202,6 +1570,23 @@ const PayoutReceivablesDashboard = () => {
       )}
 
       <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-[#262626] bg-slate-50/70 dark:bg-[#1a1a1a]">
+          <div className="flex flex-wrap items-center gap-3 text-xs md:text-sm">
+            <Tag color="blue">Rows: {filteredSubtotals.rowCount}</Tag>
+            <Tag color="geekblue">
+              Parties: {filteredSubtotals.partyCount}
+            </Tag>
+            <Tag color="green">
+              Received: {formatCurrency(filteredSubtotals.received)}
+            </Tag>
+            <Tag color="orange">
+              Pending: {formatCurrency(filteredSubtotals.pending)}
+            </Tag>
+            <Tag color="purple">
+              Expected: {formatCurrency(filteredSubtotals.expected)}
+            </Tag>
+          </div>
+        </div>
         <Table
           rowKey={(r) => r.payoutId || r.id}
           rowSelection={{
@@ -1292,9 +1677,10 @@ const PayoutReceivablesDashboard = () => {
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {selectedRows.map((row) => {
               const paymentStatus = getPaymentStatus(row);
+              const payoutRowId = normalizePayoutId(row);
               return (
                 <div
-                  key={row.payoutId}
+                  key={payoutRowId}
                   className="p-3 bg-gray-50 rounded border"
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -1322,7 +1708,7 @@ const PayoutReceivablesDashboard = () => {
                     </div>
                   </div>
                   <Form.Item
-                    name={`amount_${row.payoutId}`}
+                    name={`amount_${payoutRowId}`}
                     rules={[
                       { required: true, message: "Required" },
                       {
