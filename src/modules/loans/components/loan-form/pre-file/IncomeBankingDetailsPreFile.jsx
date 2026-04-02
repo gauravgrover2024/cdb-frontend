@@ -15,7 +15,10 @@ import {
 } from "antd";
 import { BankOutlined, DollarOutlined } from "@ant-design/icons";
 import { banksApi } from "../../../../../api/banks";
-import { lookupIfscDetails, normalizeIfsc } from "../../../../../utils/ifscLookup";
+import {
+  lookupIfscDetails,
+  normalizeIfsc,
+} from "../../../../../utils/ifscLookup";
 import { MAX_ADDITIONAL_BANKS } from "../../../../../utils/bankDetails";
 
 const { Option } = Select;
@@ -24,11 +27,14 @@ const IncomeBankingDetailsPreFile = () => {
   const form = Form.useFormInstance();
   const accountSinceYears = Form.useWatch("accountSinceYears", form);
   const ifsc = Form.useWatch("ifsc", form);
-  const hasAdditionalBankDetails = Form.useWatch("hasAdditionalBankDetails", form);
-  const watchedAdditionalBankDetails = Form.useWatch(
-    "additionalBankDetails",
-    { form, preserve: true },
+  const hasAdditionalBankDetails = Form.useWatch(
+    "hasAdditionalBankDetails",
+    form,
   );
+  const watchedAdditionalBankDetails = Form.useWatch("additionalBankDetails", {
+    form,
+    preserve: true,
+  });
   const additionalBankDetails = useMemo(
     () =>
       Array.isArray(watchedAdditionalBankDetails)
@@ -83,7 +89,8 @@ const IncomeBankingDetailsPreFile = () => {
         if (cancelled || !details) return;
         const patch = { ifsc: normalized, ifscCode: normalized };
         if (details.bankName) patch.bankName = details.bankName;
-        if (details.branch || details.address) patch.branch = details.branch || details.address;
+        if (details.branch || details.address)
+          patch.branch = details.branch || details.address;
         form.setFieldsValue(patch);
       } catch (error) {
         console.error("IFSC lookup failed", error);
@@ -137,7 +144,11 @@ const IncomeBankingDetailsPreFile = () => {
   }, [additionalBankDetails, form]);
 
   useEffect(() => {
-    if (!Array.isArray(additionalBankDetails) || additionalBankDetails.length === 0) return;
+    if (
+      !Array.isArray(additionalBankDetails) ||
+      additionalBankDetails.length === 0
+    )
+      return;
 
     const timers = [];
     additionalBankDetails.forEach((bank, idx) => {
@@ -146,7 +157,10 @@ const IncomeBankingDetailsPreFile = () => {
         form.setFieldValue(["additionalBankDetails", idx, "ifsc"], normalized);
       }
       if (normalized && normalized !== String(bank?.ifscCode || "")) {
-        form.setFieldValue(["additionalBankDetails", idx, "ifscCode"], normalized);
+        form.setFieldValue(
+          ["additionalBankDetails", idx, "ifscCode"],
+          normalized,
+        );
       }
       if (normalized.length !== 11) {
         resolvedAdditionalIfscRef.current.delete(idx);
@@ -166,8 +180,14 @@ const IncomeBankingDetailsPreFile = () => {
           if (!details) return;
 
           resolvedAdditionalIfscRef.current.set(idx, normalized);
-          form.setFieldValue(["additionalBankDetails", idx, "ifsc"], normalized);
-          form.setFieldValue(["additionalBankDetails", idx, "ifscCode"], normalized);
+          form.setFieldValue(
+            ["additionalBankDetails", idx, "ifsc"],
+            normalized,
+          );
+          form.setFieldValue(
+            ["additionalBankDetails", idx, "ifscCode"],
+            normalized,
+          );
           if (details.bankName) {
             form.setFieldValue(
               ["additionalBankDetails", idx, "bankName"],
@@ -198,7 +218,11 @@ const IncomeBankingDetailsPreFile = () => {
     previousHasAdditionalRef.current = hasAdditionalBankDetails;
 
     if (previous !== true || hasAdditionalBankDetails !== false) return;
-    if (!Array.isArray(additionalBankDetails) || additionalBankDetails.length === 0) return;
+    if (
+      !Array.isArray(additionalBankDetails) ||
+      additionalBankDetails.length === 0
+    )
+      return;
     form.setFieldValue("additionalBankDetails", []);
   }, [additionalBankDetails, form, hasAdditionalBankDetails]);
 
@@ -248,7 +272,10 @@ const IncomeBankingDetailsPreFile = () => {
       }}
     >
       {/* HEADER */}
-      <Space className="section-header" style={{ marginBottom: 20, display: "flex", gap: 8 }}>
+      <Space
+        className="section-header"
+        style={{ marginBottom: 20, display: "flex", gap: 8 }}
+      >
         <DollarOutlined style={{ color: "#13c2c2" }} />
         <span style={{ fontWeight: 600 }}>Banking Details</span>
       </Space>
@@ -369,10 +396,12 @@ const IncomeBankingDetailsPreFile = () => {
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Customer ID" name="customerIdDisplay">
+          <Form.Item label="Customer ID">
             <Input
+              value=""
               placeholder="Customer ID"
               className="rounded-xl border-border"
+              disabled
             />
           </Form.Item>
         </Col>
@@ -504,7 +533,11 @@ const IncomeBankingDetailsPreFile = () => {
                   <Col xs={24} md={6}>
                     <Form.Item
                       label="Account Since (Years)"
-                      name={["additionalBankDetails", index, "accountSinceYears"]}
+                      name={[
+                        "additionalBankDetails",
+                        index,
+                        "accountSinceYears",
+                      ]}
                     >
                       <InputNumber
                         style={{ width: "100%" }}

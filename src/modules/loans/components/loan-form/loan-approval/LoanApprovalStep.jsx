@@ -257,15 +257,76 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
   );
 };
 
-const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => {
+const LoanApprovalStep = ({
+  form,
+  banksData,
+  setBanksData,
+  onNext,
+  loanId,
+}) => {
   const [activeView, setActiveView] = useState("cards");
   const [selectedBank, setSelectedBank] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [breakupFieldDefs, setBreakupFieldDefs] = useState(DEFAULT_LOAN_BREAKUP_FIELDS);
+  const [breakupFieldDefs, setBreakupFieldDefs] = useState(
+    DEFAULT_LOAN_BREAKUP_FIELDS,
+  );
   const saveTimeoutRef = useRef(null);
   const fetchedLoanIdRef = useRef(null);
+
+  const normalizeStatus = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase();
+  const isApprovedLikeStatus = (value) =>
+    ["approved", "accepted", "sanctioned", "disbursed"].includes(
+      normalizeStatus(value),
+    );
+
+  const getBankPrimaryKey = (bank) =>
+    String(
+      bank?.id ??
+        bank?._id ??
+        bank?.bankId ??
+        bank?.loanId ??
+        bank?.applicationId ??
+        "",
+    ).trim();
+
+  const isSameBank = (candidate, reference, candidateIndex = 0) => {
+    if (!candidate || !reference) return false;
+
+    const candidateKey = getBankPrimaryKey(candidate);
+    const referenceKey =
+      typeof reference === "object"
+        ? getBankPrimaryKey(reference)
+        : String(reference || "").trim();
+
+    if (candidateKey && referenceKey) return candidateKey === referenceKey;
+
+    const candidateName = String(candidate?.bankName || "")
+      .trim()
+      .toLowerCase();
+    const referenceName = String(reference?.bankName || "")
+      .trim()
+      .toLowerCase();
+    const candidateApplication = String(
+      candidate?.applicationId || candidateIndex,
+    )
+      .trim()
+      .toLowerCase();
+    const referenceApplication = String(reference?.applicationId || "")
+      .trim()
+      .toLowerCase();
+
+    return (
+      candidateName &&
+      referenceName &&
+      candidateName === referenceName &&
+      (!referenceApplication || candidateApplication === referenceApplication)
+    );
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -273,7 +334,9 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
       try {
         const response = await loansApi.getBreakupFields();
         const payload = response?.data ?? response;
-        const defs = buildLoanBreakupFieldDefinitions(payload?.data || payload || []);
+        const defs = buildLoanBreakupFieldDefinitions(
+          payload?.data || payload || [],
+        );
         if (mounted && defs.length) {
           setBreakupFieldDefs(defs);
         }
@@ -296,7 +359,10 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
     const payload = response?.data ?? response;
     const created = payload?.data || null;
     setBreakupFieldDefs((prev) =>
-      buildLoanBreakupFieldDefinitions([...(prev || []), ...(created ? [created] : [])]),
+      buildLoanBreakupFieldDefinitions([
+        ...(prev || []),
+        ...(created ? [created] : []),
+      ]),
     );
     return created;
   };
@@ -307,7 +373,9 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
     await loansApi.deleteBreakupField(safeKey);
     setBreakupFieldDefs((prev) =>
       buildLoanBreakupFieldDefinitions(
-        (prev || []).filter((field) => String(field?.key || "").trim() !== safeKey),
+        (prev || []).filter(
+          (field) => String(field?.key || "").trim() !== safeKey,
+        ),
       ),
     );
     setBanksData((prev) =>
@@ -388,16 +456,18 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
   const exShowroomPrice = Form.useWatch("exShowroomPrice", form);
   const loanType = Form.useWatch("typeOfLoan", form);
 
-  const handleBankNameChange = (bankId, newName) => {
+  const handleBankNameChange = (bankRef, newName) => {
     setBanksData((prev) =>
-      prev.map((b) => (b.id === bankId ? { ...b, bankName: newName } : b)),
+      prev.map((b, index) =>
+        isSameBank(b, bankRef, index) ? { ...b, bankName: newName } : b,
+      ),
     );
   };
 
-  const handleBankUpdate = (bankId, patch) => {
+  const handleBankUpdate = (bankRef, patch) => {
     setBanksData((prev) =>
-      prev.map((b) =>
-        b.id === bankId
+      prev.map((b, index) =>
+        isSameBank(b, bankRef, index)
           ? {
               ...b,
               ...patch, // e.g. { loanAmount, interestRate, tenure, processingFee }
@@ -409,27 +479,46 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
 
   const updateBankStatus = (updatedBank, newStatus, note) => {
     const now = new Date().toISOString(); // ✅ DEFINE ONCE
+    const resolvedStatusDate = (() => {
+      const raw =
+        updatedBank?.approvalDate ||
+        updatedBank?.rejectionDate ||
+        updatedBank?.statusDate ||
+        now;
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? now : parsed.toISOString();
+    })();
+    const normalizedNewStatus = String(newStatus || "").trim();
 
     setBanksData((prev) =>
-      prev.map((b) => {
-        if (b.id !== updatedBank.id) return b;
+      prev.map((b, index) => {
+        if (!isSameBank(b, updatedBank, index)) return b;
         const history = b.statusHistory || [];
         return {
           ...b,
-          status: newStatus,
+          status: normalizedNewStatus,
+          approval_status: normalizedNewStatus,
+          statusNote: note || "",
           approvalDate:
-            (newStatus === "Approved" || newStatus === "Disbursed") &&
+            (normalizedNewStatus === "Approved" ||
+              normalizedNewStatus === "Disbursed") &&
             !b.approvalDate
-              ? now
+              ? resolvedStatusDate
               : b.approvalDate,
+          rejectionDate:
+            normalizedNewStatus === "Rejected"
+              ? updatedBank?.rejectionDate || resolvedStatusDate
+              : b.rejectionDate,
           disbursalDate:
-            newStatus === "Disbursed" && !b.disbursalDate ? now : b.disbursalDate,
+            normalizedNewStatus === "Disbursed" && !b.disbursalDate
+              ? resolvedStatusDate
+              : b.disbursalDate,
 
           statusHistory: [
             ...history,
             {
-              status: newStatus,
-              changedAt: new Date().toISOString(),
+              status: normalizedNewStatus,
+              changedAt: resolvedStatusDate,
               note: note || "",
             },
           ],
@@ -440,7 +529,8 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
 
   const bankWithLiveVehicle = (bank) => ({
     ...bank,
-    vehicleFuelType: vehicleFuelType ?? bank.vehicleFuelType ?? bank.vehicle?.fuel ?? "",
+    vehicleFuelType:
+      vehicleFuelType ?? bank.vehicleFuelType ?? bank.vehicle?.fuel ?? "",
     loanType,
     vehicle: {
       make: vehicleMake ?? bank.vehicle?.make ?? "",
@@ -476,8 +566,10 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
     setRecordDetailsByBank((prev) => {
       const updated = { ...prev };
       banksData.forEach((bank, idx) => {
-        if (!updated[bank.id]) {
-          updated[bank.id] = { ...prefileRecordDetails };
+        const bankKey =
+          getBankPrimaryKey(bank) || `${bank?.bankName || "bank"}-${idx}`;
+        if (!updated[bankKey]) {
+          updated[bankKey] = { ...prefileRecordDetails };
         }
       });
       return updated;
@@ -487,17 +579,18 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
 
   const statusSummary = {
     total: banksData.length,
-    approved: banksData.filter(
-      (b) => b.status === "Approved" || b.status === "Disbursed",
-    ).length,
-    pending: banksData.filter(
-      (b) => b.status === "Pending" || b.status === "Under Review",
-    ).length,
-    rejected: banksData.filter((b) => b.status === "Rejected").length,
+    approved: banksData.filter((b) => isApprovedLikeStatus(b?.status)).length,
+    pending: banksData.filter((b) => {
+      const status = normalizeStatus(b?.status);
+      return status === "pending" || status === "under review";
+    }).length,
+    rejected: banksData.filter((b) => normalizeStatus(b?.status) === "rejected")
+      .length,
   };
   const underProcess =
     statusSummary.pending +
-    banksData.filter((b) => b.status === "Documents Required").length;
+    banksData.filter((b) => normalizeStatus(b?.status) === "documents required")
+      .length;
 
   const handleAddBank = () => {
     setBanksData((prev) => {
@@ -526,10 +619,11 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
       };
 
       setRecordDetailsByBank((old) => {
-        if (old[newBank.id]) return old; // do NOT overwrite once created
+        const newBankKey = getBankPrimaryKey(newBank) || newBank.bankName;
+        if (old[newBankKey]) return old; // do NOT overwrite once created
         return {
           ...old,
-          [newBank.id]: { ...prefileRecordDetails },
+          [newBankKey]: { ...prefileRecordDetails },
         };
       });
 
@@ -593,9 +687,13 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Icon name="Building2" size={14} />
               </span>
-              <span className="truncate text-[11px] font-medium text-muted-foreground">Total Banks</span>
+              <span className="truncate text-[11px] font-medium text-muted-foreground">
+                Total Banks
+              </span>
             </div>
-            <span className="text-xl font-semibold leading-none text-foreground">{statusSummary.total}</span>
+            <span className="text-xl font-semibold leading-none text-foreground">
+              {statusSummary.total}
+            </span>
           </div>
         </div>
         <div className="rounded-xl border border-emerald-300/60 bg-emerald-50/90 px-3 py-2.5 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
@@ -604,9 +702,13 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                 <Icon name="BadgeCheck" size={14} />
               </span>
-              <span className="truncate text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Approved / Disbursed</span>
+              <span className="truncate text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                Approved / Disbursed
+              </span>
             </div>
-            <span className="text-xl font-semibold leading-none text-emerald-700 dark:text-emerald-300">{statusSummary.approved}</span>
+            <span className="text-xl font-semibold leading-none text-emerald-700 dark:text-emerald-300">
+              {statusSummary.approved}
+            </span>
           </div>
         </div>
         <div className="rounded-xl border border-amber-300/60 bg-amber-50/90 px-3 py-2.5 shadow-sm dark:border-amber-900/60 dark:bg-amber-950/20">
@@ -615,9 +717,13 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
                 <Icon name="Clock3" size={14} />
               </span>
-              <span className="truncate text-[11px] font-medium text-amber-700 dark:text-amber-300">In Progress</span>
+              <span className="truncate text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                In Progress
+              </span>
             </div>
-            <span className="text-xl font-semibold leading-none text-amber-700 dark:text-amber-300">{underProcess}</span>
+            <span className="text-xl font-semibold leading-none text-amber-700 dark:text-amber-300">
+              {underProcess}
+            </span>
           </div>
         </div>
         <div className="rounded-xl border border-rose-300/60 bg-rose-50/90 px-3 py-2.5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/20">
@@ -626,9 +732,13 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300">
                 <Icon name="ShieldX" size={14} />
               </span>
-              <span className="truncate text-[11px] font-medium text-rose-700 dark:text-rose-300">Rejected</span>
+              <span className="truncate text-[11px] font-medium text-rose-700 dark:text-rose-300">
+                Rejected
+              </span>
             </div>
-            <span className="text-xl font-semibold leading-none text-rose-700 dark:text-rose-300">{statusSummary.rejected}</span>
+            <span className="text-xl font-semibold leading-none text-rose-700 dark:text-rose-300">
+              {statusSummary.rejected}
+            </span>
           </div>
         </div>
       </div>
@@ -637,9 +747,12 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
         {activeView === "cards" ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {filteredBanks.map((bank) => (
+              {filteredBanks.map((bank, bankIndex) => (
                 <div
-                  key={bank.id}
+                  key={
+                    getBankPrimaryKey(bank) ||
+                    `${bank?.bankName || "bank"}-${bankIndex}`
+                  }
                   className="rounded-2xl bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-xl dark:bg-black/70"
                 >
                   <BankStatusCard
@@ -649,14 +762,21 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
                     onCreateBreakupField={handleCreateBreakupField}
                     onDeleteBreakupField={handleDeleteBreakupField}
                     readOnly={false}
-                    onUpdateStatus={(b) => {
-                      setSelectedBank(b);
+                    onUpdateStatus={() => {
+                      setSelectedBank(bank);
                       setShowStatusModal(true);
                     }}
-                    onBankNameChange={handleBankNameChange}
-                    onBankUpdate={(patch) => handleBankUpdate(bank.id, patch)}
+                    onBankNameChange={(bankRef, value) =>
+                      handleBankNameChange(bankRef || bank, value)
+                    }
+                    onBankUpdate={(patch) => handleBankUpdate(bank, patch)}
                     onDeleteBank={() =>
-                      setBanksData((prev) => prev.filter((b) => b.id !== bank.id))
+                      setBanksData((prev) =>
+                        prev.filter(
+                          (candidate, index) =>
+                            !isSameBank(candidate, bank, index),
+                        ),
+                      )
                     }
                   />
                 </div>
@@ -671,15 +791,21 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
                     <Icon name="Plus" size={24} className="text-primary" />
                   </div>
                   <div className="flex-1 text-center">
-                    <h3 className="mb-1 text-base font-semibold text-foreground">Add Bank</h3>
-                    <p className="text-xs text-muted-foreground">Add another lender for comparison.</p>
+                    <h3 className="mb-1 text-base font-semibold text-foreground">
+                      Add Bank
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Add another lender for comparison.
+                    </p>
                   </div>
                 </div>
               </button>
             </div>
             {filteredBanks.length === 0 && (
               <div className="rounded-2xl border border-dashed border-border/70 bg-background/70 p-10 text-center text-sm text-muted-foreground">
-                No banks added yet. Use <span className="font-semibold text-foreground">Add Bank</span> to begin comparison.
+                No banks added yet. Use{" "}
+                <span className="font-semibold text-foreground">Add Bank</span>{" "}
+                to begin comparison.
               </div>
             )}
           </div>
@@ -696,18 +822,23 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
           <div className="rounded-xl border border-border/70 bg-card/95 px-4 py-3 dark:bg-black/65">
             <div className="flex items-center gap-2">
               <Icon name="FilePenLine" size={16} className="text-primary" />
-              <span className="text-sm font-semibold text-foreground">Bank-Specific Record Details</span>
+              <span className="text-sm font-semibold text-foreground">
+                Bank-Specific Record Details
+              </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Secondary banks can keep individual receiving and reference notes here.
+              Secondary banks can keep individual receiving and reference notes
+              here.
             </p>
           </div>
           {banksData.slice(1).map((bank) => (
             <RecordDetailsEditable
-              key={bank.id}
-              bankId={bank.id}
+              key={getBankPrimaryKey(bank) || bank.bankName}
+              bankId={getBankPrimaryKey(bank) || bank.bankName}
               bankName={bank.bankName || "Bank"}
-              value={recordDetailsByBank[bank.id]}
+              value={
+                recordDetailsByBank[getBankPrimaryKey(bank) || bank.bankName]
+              }
               onChange={(id, newDetails) =>
                 setRecordDetailsByBank((prev) => ({
                   ...prev,
@@ -722,11 +853,19 @@ const LoanApprovalStep = ({ form, banksData, setBanksData, onNext, loanId }) => 
       {showStatusModal && (
         <StatusUpdateModal
           bank={selectedBank}
-          onClose={() => setShowStatusModal(false)}
-          onSave={(updated) => {
-            // updated contains at least { id, status, ... }
-            updateBankStatus(updated, updated.status, updated.statusNote);
+          onClose={() => {
             setShowStatusModal(false);
+            setSelectedBank(null);
+          }}
+          onSave={(updated) => {
+            const bankReference = selectedBank || updated;
+            updateBankStatus(
+              bankReference,
+              updated?.status,
+              updated?.statusNote,
+            );
+            setShowStatusModal(false);
+            setSelectedBank(null);
           }}
         />
       )}

@@ -75,7 +75,7 @@ const BANK_LOGO_DOMAIN_MAP = {
   "tata capital financial services limited": "tatacapital.com",
   "hdb financial services": "hdbfs.com",
   "mahindra & mahindra financial services": "mahindrafinance.com",
-  "mmfsl": "mahindrafinance.com",
+  mmfsl: "mahindrafinance.com",
   "shriram finance": "shriramfinance.in",
   "cholamandalam investment & finance": "cholamandalam.com",
   "cholamandalam finance": "chola.ms",
@@ -116,16 +116,22 @@ const normalizeBankNameKey = (name) =>
     .trim();
 
 const bankLogoSources = (bankName) => {
-  const rawKey = String(bankName || "").toLowerCase().trim();
+  const rawKey = String(bankName || "")
+    .toLowerCase()
+    .trim();
   const normalized = normalizeBankNameKey(bankName);
-  const simpleExact = SIMPLE_ICON_SLUG_MAP[rawKey] || SIMPLE_ICON_SLUG_MAP[normalized];
+  const simpleExact =
+    SIMPLE_ICON_SLUG_MAP[rawKey] || SIMPLE_ICON_SLUG_MAP[normalized];
   const simpleHit = Object.entries(SIMPLE_ICON_SLUG_MAP).find(([key]) =>
     normalized.includes(normalizeBankNameKey(key)),
   );
   const simpleSlug = simpleExact || simpleHit?.[1] || "";
-  const byExact = BANK_LOGO_DOMAIN_MAP[rawKey] || BANK_LOGO_DOMAIN_MAP[normalized];
+  const byExact =
+    BANK_LOGO_DOMAIN_MAP[rawKey] || BANK_LOGO_DOMAIN_MAP[normalized];
   const entries = Object.entries(BANK_LOGO_DOMAIN_MAP);
-  const fallbackHit = entries.find(([key]) => normalized.includes(normalizeBankNameKey(key)));
+  const fallbackHit = entries.find(([key]) =>
+    normalized.includes(normalizeBankNameKey(key)),
+  );
   const domain = byExact || fallbackHit?.[1] || "";
   const sources = [];
   if (domain) {
@@ -149,7 +155,17 @@ const initialsFromBankName = (bankName) => {
     .split(/\s+/)
     .map((t) => t.trim())
     .filter(Boolean)
-    .filter((t) => !["bank", "limited", "ltd", "finance", "financial", "services"].includes(t.toLowerCase()));
+    .filter(
+      (t) =>
+        ![
+          "bank",
+          "limited",
+          "ltd",
+          "finance",
+          "financial",
+          "services",
+        ].includes(t.toLowerCase()),
+    );
 
   if (!tokens.length) return "BK";
   if (tokens.length === 1) return tokens[0].slice(0, 2).toUpperCase();
@@ -178,11 +194,7 @@ const BankLogoBadge = ({ bankName }) => {
           src={logoUrl}
           alt={bankName || "Bank"}
           className={`object-contain ${
-            isSimpleIcon
-              ? "h-8 w-8"
-              : isFaviconFallback
-                ? "h-7 w-7"
-                : "h-9 w-9"
+            isSimpleIcon ? "h-8 w-8" : isFaviconFallback ? "h-7 w-7" : "h-9 w-9"
           }`}
           loading="lazy"
           onError={() => setLogoIndex((prev) => prev + 1)}
@@ -274,18 +286,9 @@ const BankStatusCard = ({
 
   // breakup fields
   const [netLoanApproved, setNetLoanApproved] = useState(0);
-
-  const [creditAssuredFinance, setCreditAssuredFinance] = useState(
-    bank.breakupCreditAssured ?? ""
-  );
-
-  const [insuranceFinance, setInsuranceFinance] = useState(
-    bank.breakupInsuranceFinance ?? ""
-  );
-
-  const [extendedWarrantyFinance, setExtendedWarrantyFinance] = useState(
-    bank.breakupEwFinance ?? ""
-  );
+  const [creditAssuredFinance, setCreditAssuredFinance] = useState(0);
+  const [insuranceFinance, setInsuranceFinance] = useState(0);
+  const [extendedWarrantyFinance, setExtendedWarrantyFinance] = useState(0);
   const [customBreakupFields, setCustomBreakupFields] = useState(() =>
     normalizeLoanBreakupCustomFields(
       bank?.breakupCustomFields || [],
@@ -304,22 +307,28 @@ const BankStatusCard = ({
   const [tenureMonths, setTenureMonths] = useState(
     Number(bank.tenure) ||
       Number(form?.getFieldValue?.("approval_tenureMonths")) ||
-      60
+      60,
   );
   const [interestRate, setInterestRate] = useState(
-    bank.interestRate?.toString() || ""
+    bank.interestRate?.toString() || "",
   );
 
   const [processingFee, setProcessingFee] = useState(bank.processingFee || "");
   const [cibilScore, setCibilScore] = useState(750);
   const [loanBookedIn, setLoanBookedIn] = useState(
-    bank?.loanBookedIn || form?.getFieldValue("approval_loanBookedIn") || "Direct Code",
+    bank?.loanBookedIn ||
+      form?.getFieldValue("approval_loanBookedIn") ||
+      "Direct Code",
   );
   const [brokerName, setBrokerName] = useState(
     bank?.brokerName || form?.getFieldValue("approval_brokerName") || "",
   );
-  const [dsaCode, setDsaCode] = useState(bank?.dsaCode || form?.getFieldValue("dsaCode") || "");
+  const [dsaCode, setDsaCode] = useState(
+    bank?.dsaCode || form?.getFieldValue("dsaCode") || "",
+  );
   const [payoutPercent, setPayoutPercent] = useState(bank.payoutPercent || "");
+  const canOpenDetails = !readOnly || allowDetailsInReadOnly;
+  const canUpdateStatus = !readOnly && typeof onUpdateStatus === "function";
 
   const netFromBreakup = parseInr(netLoanApproved);
   const customBreakupTotal = useMemo(
@@ -332,15 +341,23 @@ const BankStatusCard = ({
     parseInr(extendedWarrantyFinance) +
     customBreakupTotal;
   const loanAmountFromBank = parseInr(bank.loanAmount);
-  const approvedFromForm = parseInr(form?.getFieldValue?.("approval_loanAmountApproved"));
-  const disbursedFromForm = parseInr(form?.getFieldValue?.("approval_loanAmountDisbursed"));
+  const approvedFromForm = parseInr(
+    form?.getFieldValue?.("approval_loanAmountApproved"),
+  );
+  const disbursedFromForm = parseInr(
+    form?.getFieldValue?.("approval_loanAmountDisbursed"),
+  );
   const topLevelBase = Math.max(approvedFromForm, disbursedFromForm, 0);
 
   let displayLoanAmount = 0;
   if (netFromBreakup > 0) {
     displayLoanAmount = netFromBreakup + addOnTotal;
   } else if (loanAmountFromBank > 0) {
-    if (addOnTotal > 0 && loanAmountFromBank <= addOnTotal && topLevelBase > 0) {
+    if (
+      addOnTotal > 0 &&
+      loanAmountFromBank <= addOnTotal &&
+      topLevelBase > 0
+    ) {
       displayLoanAmount = topLevelBase + addOnTotal;
     } else {
       displayLoanAmount = loanAmountFromBank;
@@ -351,14 +368,16 @@ const BankStatusCard = ({
     displayLoanAmount = addOnTotal;
   }
 
-  const topLevelTenure = Number(form?.getFieldValue?.("approval_tenureMonths")) || 0;
+  const topLevelTenure =
+    Number(form?.getFieldValue?.("approval_tenureMonths")) || 0;
   const bankTenure = Number(bank?.tenure) || 0;
-  const tenureDisplay = bankTenure || topLevelTenure || Number(tenureMonths) || 0;
+  const tenureDisplay =
+    bankTenure || topLevelTenure || Number(tenureMonths) || 0;
 
   const emi = calculateEmi(
     displayLoanAmount,
     parseFloat(interestRate) || 0,
-    tenureMonths
+    tenureMonths,
   );
 
   const ltv = calculateLtv(displayLoanAmount, exShowroomPrice);
@@ -371,9 +390,9 @@ const BankStatusCard = ({
             (bank.status || "").toLowerCase() === "under review" ||
             (bank.status || "").toLowerCase() === "documents required"
           ? "bg-amber-50/80 dark:bg-amber-950/30"
-        : (bank.status || "").toLowerCase() === "rejected"
-          ? "bg-rose-50/65 dark:bg-rose-950/28"
-          : "bg-card dark:bg-zinc-950/85";
+          : (bank.status || "").toLowerCase() === "rejected"
+            ? "bg-rose-50/65 dark:bg-rose-950/28"
+            : "bg-card dark:bg-zinc-950/85";
 
   // EXPANDED loan amount (styled like other fields, opens popup editable)
   const ExpandedLoanAmount = (
@@ -421,8 +440,12 @@ const BankStatusCard = ({
     const breakupInsurance = parseInr(bank.breakupInsuranceFinance);
     const breakupEw = parseInr(bank.breakupEwFinance);
     const addons = breakupCredit + breakupInsurance + breakupEw;
-    const formApproved = parseInr(form?.getFieldValue?.("approval_loanAmountApproved"));
-    const formDisbursed = parseInr(form?.getFieldValue?.("approval_loanAmountDisbursed"));
+    const formApproved = parseInr(
+      form?.getFieldValue?.("approval_loanAmountApproved"),
+    );
+    const formDisbursed = parseInr(
+      form?.getFieldValue?.("approval_loanAmountDisbursed"),
+    );
     const baseFromForm = Math.max(formApproved, formDisbursed, 0);
 
     let resolvedNet = 0;
@@ -490,7 +513,7 @@ const BankStatusCard = ({
   }, [bank?.brokerName, form, brokerName]);
 
   return (
-      <div
+    <div
       className={`relative mx-auto flex min-h-[380px] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-border/70 p-4 shadow-sm transition-all md:p-5 dark:border-zinc-800 ${cardSurfaceClass}`}
     >
       {/* SUMMARY */}
@@ -509,9 +532,10 @@ const BankStatusCard = ({
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Application:
-                  {" "}
-                  <span>{bank.applicationId}</span>
+                  Application:{" "}
+                  <span className="font-medium text-foreground/90">
+                    {bank.applicationId}
+                  </span>
                 </p>
               </div>
             </div>
@@ -519,10 +543,14 @@ const BankStatusCard = ({
             <div className="flex items-start pt-0.5">
               <span
                 className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${getStatusClasses(
-                  bank.status
+                  bank.status,
                 )}`}
               >
-                <Icon name={getStatusIcon(bank.status)} size={12} className="mr-1" />
+                <Icon
+                  name={getStatusIcon(bank.status)}
+                  size={12}
+                  className="mr-1"
+                />
                 {bank.status || "Status N/A"}
               </span>
               {onDeleteBank && (
@@ -539,7 +567,7 @@ const BankStatusCard = ({
           </div>
 
           <div
-            className="relative mb-3 cursor-pointer rounded-xl border border-border/70 bg-background p-3"
+            className="relative mb-3 cursor-pointer rounded-xl border border-border/70 bg-white/80 p-3 shadow-sm transition-colors hover:bg-white dark:bg-zinc-900/70 dark:hover:bg-zinc-900"
             onClick={() => {
               setBreakupReadOnly(true);
               setShowBreakup(true);
@@ -551,7 +579,7 @@ const BankStatusCard = ({
             </p>
           </div>
 
-          <div className="relative mb-3 rounded-xl border border-border/70 bg-background p-3 dark:bg-black/45">
+          <div className="relative mb-3 rounded-xl border border-border/70 bg-white/80 p-3 shadow-sm dark:bg-zinc-900/70">
             <div className="grid grid-cols-3 gap-2 text-left">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">EMI</p>
@@ -566,7 +594,9 @@ const BankStatusCard = ({
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Tenure</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Tenure
+                </p>
                 <p className="text-sm font-semibold text-foreground">
                   {tenureDisplay ? `${tenureDisplay}m` : "-"}
                 </p>
@@ -575,14 +605,14 @@ const BankStatusCard = ({
           </div>
 
           <div className="grid flex-1 content-start grid-cols-2 gap-2.5">
-            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
+            <div className="rounded-xl border border-border/60 bg-white/65 p-2.5 dark:bg-zinc-900/60">
               <p className="text-xs text-muted-foreground">Interest Rate</p>
-              <p className="text-sm font-semibold">
+              <p className="text-sm font-semibold text-foreground">
                 {bank.interestRate ? `${bank.interestRate}%` : "-"}
               </p>
             </div>
 
-            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
+            <div className="rounded-xl border border-border/60 bg-white/65 p-2.5 dark:bg-zinc-900/60">
               <p className="text-xs text-muted-foreground">Status History</p>
               <button
                 type="button"
@@ -593,14 +623,14 @@ const BankStatusCard = ({
               </button>
             </div>
 
-            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
+            <div className="rounded-xl border border-border/60 bg-white/65 p-2.5 dark:bg-zinc-900/60">
               <p className="text-xs text-muted-foreground">Processing Fee</p>
-              <p className="text-sm font-semibold">
+              <p className="text-sm font-semibold text-foreground">
                 {bank.processingFee || "0"}
               </p>
             </div>
 
-            <div className="rounded-xl border border-border/60 bg-background/70 p-2.5">
+            <div className="rounded-xl border border-border/60 bg-white/65 p-2.5 dark:bg-zinc-900/60">
               <p className="text-xs text-muted-foreground">CIBIL Score</p>
               <div className="flex items-center gap-2 mt-1">
                 <div className="relative w-10 h-10">
@@ -621,8 +651,8 @@ const BankStatusCard = ({
                         cibilScore >= 750
                           ? "#16a34a"
                           : cibilScore >= 650
-                          ? "#f59e0b"
-                          : "#ef4444"
+                            ? "#f59e0b"
+                            : "#ef4444"
                       }
                       strokeWidth="3"
                       fill="none"
@@ -638,8 +668,8 @@ const BankStatusCard = ({
                         cibilScore >= 750
                           ? "text-success"
                           : cibilScore >= 650
-                          ? "text-warning"
-                          : "text-error"
+                            ? "text-warning"
+                            : "text-error"
                       }`}
                     >
                       {cibilScore || "-"}
@@ -654,8 +684,14 @@ const BankStatusCard = ({
             <Button
               size="sm"
               fullWidth
-              onClick={() => setExpanded(true)}
-              disabled={readOnly && !allowDetailsInReadOnly}
+              className="px-2 text-[11px]"
+              type="button"
+              onClick={(event) => {
+                event?.stopPropagation?.();
+                if (!canOpenDetails) return;
+                setExpanded(true);
+              }}
+              disabled={!canOpenDetails}
               iconName="FileText"
             >
               Loan Details
@@ -664,11 +700,14 @@ const BankStatusCard = ({
               size="sm"
               variant="outline"
               fullWidth
-              onClick={() => {
-                if (typeof onUpdateStatus === "function") onUpdateStatus(bank);
+              className="px-2 text-[11px]"
+              type="button"
+              onClick={(event) => {
+                event?.stopPropagation?.();
+                if (!canUpdateStatus) return;
+                onUpdateStatus(bank);
               }}
-              disabled={readOnly || typeof onUpdateStatus !== "function"}
-              iconName="RefreshCw"
+              disabled={!canUpdateStatus}
             >
               Update Status
             </Button>
@@ -679,11 +718,17 @@ const BankStatusCard = ({
       {expanded && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-foreground">Loan Details</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              Loan Details
+            </h3>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setExpanded(false)}
+              type="button"
+              onClick={(event) => {
+                event?.stopPropagation?.();
+                setExpanded(false);
+              }}
             >
               Back
             </Button>
@@ -696,7 +741,7 @@ const BankStatusCard = ({
               className="w-full mt-1"
               value={bank.bankName}
               options={lenderHypothecationOptions}
-              onChange={(value) => onBankNameChange(bank.id, value)}
+              onChange={(value) => onBankNameChange(bank, value)}
               filterOption={(inputValue, option) =>
                 String(option?.value || "")
                   .toUpperCase()
@@ -708,7 +753,9 @@ const BankStatusCard = ({
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground">Loan Booked In</label>
+            <label className="text-xs text-muted-foreground">
+              Loan Booked In
+            </label>
             <Select
               className="w-full mt-1 h-10 rounded-xl"
               value={loanBookedIn}
@@ -934,7 +981,7 @@ const BankStatusCard = ({
                     onBlur={() => {
                       if (cibilScore === "") return;
                       setCibilScore(
-                        clamp(parseInt(cibilScore, 10) || 0, 300, 900)
+                        clamp(parseInt(cibilScore, 10) || 0, 300, 900),
                       );
                     }}
                   />
@@ -967,8 +1014,8 @@ const BankStatusCard = ({
                         cibilScore >= 750
                           ? "#16a34a"
                           : cibilScore >= 650
-                          ? "#f59e0b"
-                          : "#ef4444"
+                            ? "#f59e0b"
+                            : "#ef4444"
                       }
                       strokeWidth="8"
                       fill="none"
@@ -984,8 +1031,8 @@ const BankStatusCard = ({
                         cibilScore >= 750
                           ? "text-success"
                           : cibilScore >= 650
-                          ? "text-warning"
-                          : "text-error"
+                            ? "text-warning"
+                            : "text-error"
                       }`}
                     >
                       {cibilScore}
@@ -1075,54 +1122,52 @@ const BankStatusCard = ({
           </div>
         ) : (
           <Timeline
-            items={[...(bank.statusHistory || [])]
-              .reverse()
-              .map((entry) => ({
-                // Use status-specific date fallbacks for legacy rows.
-                // Some historical entries have note/status but no changedAt.
-                ts:
-                  entry.changedAt ||
-                  entry.timestamp ||
-                  ((entry.status || "").toLowerCase() === "approved"
-                    ? bank.approvalDate
-                    : null) ||
-                  ((entry.status || "").toLowerCase() === "disbursed"
-                    ? bank.disbursalDate || bank.approvalDate
-                    : null),
-                children: (
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">
-                      {entry.status || "Status Updated"}
-                    </div>
-                    {entry.note ? (
-                      <div className="text-xs text-muted-foreground">
-                        {entry.note}
-                      </div>
-                    ) : null}
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {(entry.changedAt ||
-                        entry.timestamp ||
-                        ((entry.status || "").toLowerCase() === "approved"
-                          ? bank.approvalDate
-                          : null) ||
-                        ((entry.status || "").toLowerCase() === "disbursed"
-                          ? bank.disbursalDate || bank.approvalDate
-                          : null))
-                        ? new Date(
-                            entry.changedAt ||
-                              entry.timestamp ||
-                              ((entry.status || "").toLowerCase() === "approved"
-                                ? bank.approvalDate
-                                : null) ||
-                              ((entry.status || "").toLowerCase() === "disbursed"
-                                ? bank.disbursalDate || bank.approvalDate
-                                : null),
-                          ).toLocaleString("en-IN")
-                        : "NA"}
-                    </div>
+            items={[...(bank.statusHistory || [])].reverse().map((entry) => ({
+              // Use status-specific date fallbacks for legacy rows.
+              // Some historical entries have note/status but no changedAt.
+              ts:
+                entry.changedAt ||
+                entry.timestamp ||
+                ((entry.status || "").toLowerCase() === "approved"
+                  ? bank.approvalDate
+                  : null) ||
+                ((entry.status || "").toLowerCase() === "disbursed"
+                  ? bank.disbursalDate || bank.approvalDate
+                  : null),
+              children: (
+                <div>
+                  <div className="text-sm font-semibold text-foreground">
+                    {entry.status || "Status Updated"}
                   </div>
-                ),
-              }))}
+                  {entry.note ? (
+                    <div className="text-xs text-muted-foreground">
+                      {entry.note}
+                    </div>
+                  ) : null}
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {entry.changedAt ||
+                    entry.timestamp ||
+                    ((entry.status || "").toLowerCase() === "approved"
+                      ? bank.approvalDate
+                      : null) ||
+                    ((entry.status || "").toLowerCase() === "disbursed"
+                      ? bank.disbursalDate || bank.approvalDate
+                      : null)
+                      ? new Date(
+                          entry.changedAt ||
+                            entry.timestamp ||
+                            ((entry.status || "").toLowerCase() === "approved"
+                              ? bank.approvalDate
+                              : null) ||
+                            ((entry.status || "").toLowerCase() === "disbursed"
+                              ? bank.disbursalDate || bank.approvalDate
+                              : null),
+                        ).toLocaleString("en-IN")
+                      : "NA"}
+                  </div>
+                </div>
+              ),
+            }))}
           />
         )}
       </Modal>
@@ -1175,7 +1220,10 @@ const LoanBreakupPopup = ({
   const [localExtendedWarrantyFinance, setLocalExtendedWarrantyFinance] =
     useState(toNum(extendedWarrantyFinance));
   const [localCustomBreakupFields, setLocalCustomBreakupFields] = useState(() =>
-    normalizeLoanBreakupCustomFields(customBreakupFields, breakupFieldDefinitions),
+    normalizeLoanBreakupCustomFields(
+      customBreakupFields,
+      breakupFieldDefinitions,
+    ),
   );
 
   const normalizedCustom = useMemo(
@@ -1189,7 +1237,8 @@ const LoanBreakupPopup = ({
   const customRows = useMemo(
     () =>
       (breakupFieldDefinitions || []).filter(
-        (field) => !DEFAULT_LOAN_BREAKUP_FIELD_KEYS.has(String(field?.key || "")),
+        (field) =>
+          !DEFAULT_LOAN_BREAKUP_FIELD_KEYS.has(String(field?.key || "")),
       ),
     [breakupFieldDefinitions],
   );
@@ -1207,14 +1256,24 @@ const LoanBreakupPopup = ({
 
   const syncBankPatch = (nextState = {}) => {
     const nextNet = toNum(nextState.netLoanApproved ?? netLoanApproved);
-    const nextCredit = toNum(nextState.creditAssuredFinance ?? creditAssuredFinance);
+    const nextCredit = toNum(
+      nextState.creditAssuredFinance ?? creditAssuredFinance,
+    );
     const nextIns = toNum(nextState.insuranceFinance ?? insuranceFinance);
-    const nextEw = toNum(nextState.extendedWarrantyFinance ?? extendedWarrantyFinance);
+    const nextEw = toNum(
+      nextState.extendedWarrantyFinance ?? extendedWarrantyFinance,
+    );
     const nextCustom = normalizeLoanBreakupCustomFields(
       nextState.customBreakupFields ?? normalizedCustom,
       breakupFieldDefinitions,
     );
-    const total = recomputeTotal(nextNet, nextCredit, nextIns, nextEw, nextCustom);
+    const total = recomputeTotal(
+      nextNet,
+      nextCredit,
+      nextIns,
+      nextEw,
+      nextCustom,
+    );
     onBankUpdate &&
       onBankUpdate({
         loanAmount: total,
@@ -1385,7 +1444,8 @@ const LoanBreakupPopup = ({
                 key: "netLoanApproved",
                 label: "Net Loan Amount Approved",
                 value: localNetLoanApproved,
-                onChange: (raw) => handleChangeAndUpdate("netLoanApproved", raw),
+                onChange: (raw) =>
+                  handleChangeAndUpdate("netLoanApproved", raw),
               },
               {
                 key: "creditAssuredFinance",
@@ -1398,7 +1458,8 @@ const LoanBreakupPopup = ({
                 key: "insuranceFinance",
                 label: "Insurance Finance",
                 value: localInsuranceFinance,
-                onChange: (raw) => handleChangeAndUpdate("insuranceFinance", raw),
+                onChange: (raw) =>
+                  handleChangeAndUpdate("insuranceFinance", raw),
               },
               {
                 key: "extendedWarrantyFinance",
@@ -1427,60 +1488,8 @@ const LoanBreakupPopup = ({
                         : formatAmountInput(field.value)
                     }
                     readOnly={readOnly}
-                    onChange={(e) => field.onChange(sanitizeAmountInput(e.target.value))}
-                    onFocus={() => setActiveInputKey(field.key)}
-                    onBlur={() =>
-                      setActiveInputKey((curr) => (curr === field.key ? "" : curr))
-                    }
-                    placeholder="0"
-                    inputMode="numeric"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {customRows.map((field) => {
-            const value = customMap.get(field.key)?.value ?? 0;
-            return (
-              <div
-                key={field.key}
-                className="rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-[11px] font-medium text-muted-foreground">
-                    {field.label}
-                  </label>
-                  {Boolean(field?.canDelete) ? (
-                    <button
-                      type="button"
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
-                      onClick={() => handleDeleteCustomField(field)}
-                      disabled={deletingFieldKey === field.key}
-                      title="Delete this custom field"
-                    >
-                      <Icon name="X" size={12} />
-                    </button>
-                  ) : null}
-                </div>
-                <div className="relative mt-1">
-                  <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                    ₹
-                  </span>
-                  <input
-                    className="w-full rounded-md border border-border bg-card py-1.5 pl-6 pr-2.5 text-right text-sm font-medium text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/55"
-                    value={
-                      activeInputKey === field.key
-                        ? rawAmountInput(value)
-                        : formatAmountInput(value)
-                    }
-                    readOnly={readOnly}
                     onChange={(e) =>
-                      handleCustomFieldValueChange(
-                        field,
-                        sanitizeAmountInput(e.target.value),
-                      )
+                      field.onChange(sanitizeAmountInput(e.target.value))
                     }
                     onFocus={() => setActiveInputKey(field.key)}
                     onBlur={() =>
@@ -1493,8 +1502,64 @@ const LoanBreakupPopup = ({
                   />
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {customRows.map((field) => {
+              const value = customMap.get(field.key)?.value ?? 0;
+              return (
+                <div
+                  key={field.key}
+                  className="rounded-lg border border-border/70 bg-background/80 px-2.5 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      {field.label}
+                    </label>
+                    {Boolean(field?.canDelete) ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
+                        onClick={() => handleDeleteCustomField(field)}
+                        disabled={deletingFieldKey === field.key}
+                        title="Delete this custom field"
+                      >
+                        <Icon name="X" size={12} />
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="relative mt-1">
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                      ₹
+                    </span>
+                    <input
+                      className="w-full rounded-md border border-border bg-card py-1.5 pl-6 pr-2.5 text-right text-sm font-medium text-foreground placeholder:text-muted-foreground outline-none transition-colors focus:border-primary/55"
+                      value={
+                        activeInputKey === field.key
+                          ? rawAmountInput(value)
+                          : formatAmountInput(value)
+                      }
+                      readOnly={readOnly}
+                      onChange={(e) =>
+                        handleCustomFieldValueChange(
+                          field,
+                          sanitizeAmountInput(e.target.value),
+                        )
+                      }
+                      onFocus={() => setActiveInputKey(field.key)}
+                      onBlur={() =>
+                        setActiveInputKey((curr) =>
+                          curr === field.key ? "" : curr,
+                        )
+                      }
+                      placeholder="0"
+                      inputMode="numeric"
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {!readOnly && (
@@ -1539,7 +1604,11 @@ const LoanBreakupPopup = ({
                     >
                       Cancel
                     </Button>
-                    <Button size="sm" onClick={handleAddNewField} disabled={creatingField}>
+                    <Button
+                      size="sm"
+                      onClick={handleAddNewField}
+                      disabled={creatingField}
+                    >
                       {creatingField ? "Adding..." : "Save Field"}
                     </Button>
                   </div>
