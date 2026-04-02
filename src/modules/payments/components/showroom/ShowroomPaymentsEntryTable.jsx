@@ -11,9 +11,8 @@ import {
   Tag,
 } from "antd";
 import {
-  PlusOutlined,
+  CopyOutlined,
   DeleteOutlined,
-  EditOutlined,
   BankOutlined,
   UserOutlined,
   SwapOutlined,
@@ -458,11 +457,21 @@ const ShowroomPaymentsEntryNew = ({
   }, [rows, onRowsChange]);
 
   // ---------- ACTIONS ----------
-  const handleAddRow = () => {
+  const handleDuplicateRow = (rowId) => {
     if (isVerified) return;
-    const newRow = emptyRow();
-    setRows((prev) => [...prev, newRow]);
-    setEditingRowId(newRow.id);
+    const cloneId = `${Date.now()}-${Math.random()}`;
+    setRows((prev) => {
+      const source = prev.find((r) => r.id === rowId);
+      if (!source) return prev;
+      const clone = {
+        ...source,
+        id: cloneId,
+        _auto: false,
+        _autoKey: null,
+      };
+      return [...prev, clone];
+    });
+    setEditingRowId(cloneId);
   };
 
   const handleDeleteRow = (rowId) => {
@@ -756,8 +765,8 @@ const ShowroomPaymentsEntryNew = ({
               <>Verified ✅ Read-only mode enabled.</>
             ) : (
               <>
-                Click a row to expand, or <b>Add payment entry</b> to create a
-                new one.
+                Click a row to expand and edit. Use <b>Duplicate</b> to clone a
+                similar row instantly.
               </>
             )}
           </div>
@@ -1017,20 +1026,10 @@ const ShowroomPaymentsEntryNew = ({
                       <Space size="small">
                         <Button
                           size="small"
-                          icon={<PlusOutlined />}
+                          icon={<CopyOutlined />}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleAddRow();
-                          }}
-                        />
-                        <Button
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingRowId((prev) =>
-                              prev === row.id ? null : row.id,
-                            );
+                            handleDuplicateRow(row.id);
                           }}
                         />
                         <Button
@@ -1593,9 +1592,6 @@ const ShowroomPaymentsEntryNew = ({
             <span style={{ color: "var(--spt-muted)" }}>Total entered:</span>
             <b>{money(totalEntered)}</b>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAddRow}>
-            Add payment entry
-          </Button>
         </div>
       )}
     </Card>

@@ -201,8 +201,6 @@ const PayoutReceivablesDashboard = () => {
           limit: pageSize,
           skip,
           noCount: true,
-          filterLoanType: "New Car",
-          view: "dashboard",
           sortBy: "leadDate",
           sortDir: "desc",
         });

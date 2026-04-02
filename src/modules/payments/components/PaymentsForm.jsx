@@ -1,5 +1,5 @@
 // src/modules/payments/components/PaymentForm.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card, message, Tag } from "antd";
 import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
@@ -106,6 +106,62 @@ const getLoanDisbursementDate = (loan = {}) => {
 };
 
 const LEGACY_CUTOFF = dayjs("2026-02-01T00:00:00.000Z");
+const PAYMENTS_AUTO_COMMISSION_META = "payments_negative_balance_commission_auto";
+
+const detectReceivableKey = (loanDoc = {}) => {
+  if (Array.isArray(loanDoc?.loan_receivables)) return "loan_receivables";
+  if (Array.isArray(loanDoc?.loanReceivables)) return "loanReceivables";
+  if (Array.isArray(loanDoc?.receivables)) return "receivables";
+  if (Array.isArray(loanDoc?.loan_payouts)) return "loan_payouts";
+  return "loan_receivables";
+};
+
+const buildAutoCommissionPayoutId = (loanId) =>
+  `PR-COMM-${String(loanId || "")
+    .trim()
+    .replace(/[^A-Za-z0-9]/g, "")
+    .toUpperCase()}`;
+
+const isAutoCommissionReceivable = (row = {}, loanId = "") => {
+  const payoutId = String(row?.payoutId || "").trim();
+  const expectedId = buildAutoCommissionPayoutId(loanId);
+  return (
+    String(row?.meta_source || "").trim() === PAYMENTS_AUTO_COMMISSION_META ||
+    (expectedId && payoutId === expectedId)
+  );
+};
+
+const computeNegativeShowroomBalance = ({
+  doRec = {},
+  entryTotals = {},
+  crossAdjustmentNet = 0,
+}) => {
+  const showroomNetOnRoadVehicleCost = asInt(doRec?.do_netOnRoadVehicleCost || 0);
+  const customerNetOnRoadVehicleCost = asInt(
+    doRec?.do_customer_netOnRoadVehicleCost || 0,
+  );
+  const exchangeValue = asInt(doRec?.do_exchangeVehiclePrice || 0);
+  const netOnRoadVehicleCost =
+    showroomNetOnRoadVehicleCost > 0
+      ? showroomNetOnRoadVehicleCost + exchangeValue
+      : customerNetOnRoadVehicleCost;
+
+  const insuranceAdj = asInt(entryTotals?.paymentAdjustmentInsuranceApplied || 0);
+  const exchangeAdj = asInt(entryTotals?.paymentAdjustmentExchangeApplied || 0);
+  const baseNetPayableToShowroom = Math.max(
+    0,
+    netOnRoadVehicleCost - insuranceAdj - exchangeAdj,
+  );
+  const netPayableToShowroom = baseNetPayableToShowroom + asInt(crossAdjustmentNet);
+
+  const totalPaidToShowroom =
+    asInt(entryTotals?.paymentAmountLoan || 0) +
+    asInt(entryTotals?.paymentAmountAutocredits || 0) +
+    asInt(entryTotals?.paymentAmountCustomer || 0);
+
+  const balancePayment = netPayableToShowroom - totalPaidToShowroom;
+  return balancePayment < 0 ? Math.abs(balancePayment) : 0;
+};
 
 const shouldBlockLegacyAutoCreate = (loan = {}) => {
   const disbDate = getLoanDisbursementDate(loan);
@@ -225,6 +281,7 @@ const PaymentForm = () => {
 
   // Avoid toast spam
   const lastSaveAtRef = useRef(0);
+  const commissionReceivableSyncSignatureRef = useRef(null);
 
   useEffect(() => {
     existingPaymentRef.current = existingPayment || null;
@@ -253,6 +310,96 @@ const PaymentForm = () => {
   useEffect(() => {
     isAutocreditsVerifiedRef.current = isAutocreditsVerified;
   }, [isAutocreditsVerified]);
+
+  const syncNegativeBalanceCommissionReceivable = useCallback(
+    async ({ totalsValue, crossAdjustmentNetValue, force = false }) => {
+      if (!loanId) return;
+      if (!loan) return;
+
+      const receivableAmount = computeNegativeShowroomBalance({
+        doRec: doRec || {},
+        entryTotals: totalsValue || {},
+        crossAdjustmentNet: crossAdjustmentNetValue || 0,
+      });
+      const partyName = String(
+        doRec?.do_dealerName ||
+          doRec?.dealerName ||
+          loan?.dealerName ||
+          "Showroom",
+      ).trim();
+
+      const signature = `${loanId}|${receivableAmount}|${partyName}`;
+      if (!force && commissionReceivableSyncSignatureRef.current === signature) {
+        return;
+      }
+
+      const loanLookupId = loan?._id || loanId;
+      const loanRes = await loansApi.getById(loanLookupId);
+      const freshLoan = loanRes?.data || null;
+      if (!freshLoan) return;
+
+      const receivableKey = detectReceivableKey(freshLoan);
+      const existingRows = Array.isArray(freshLoan?.[receivableKey])
+        ? freshLoan[receivableKey]
+        : [];
+      const cleanedRows = existingRows.filter(
+        (row) => !isAutoCommissionReceivable(row, freshLoan?.loanId || loanId),
+      );
+
+      const nextRows =
+        receivableAmount > 0
+          ? [
+              ...cleanedRows,
+              {
+                id: buildAutoCommissionPayoutId(freshLoan?.loanId || loanId),
+                payoutId: buildAutoCommissionPayoutId(
+                  freshLoan?.loanId || loanId,
+                ),
+                payout_createdAt: new Date().toISOString(),
+                created_date: new Date().toISOString(),
+                payout_applicable: "Yes",
+                payout_type: "Commission",
+                payout_party_name: partyName || "Showroom",
+                payout_percentage: "",
+                payout_amount: receivableAmount,
+                payout_direction: "Receivable",
+                tds_applicable: "No",
+                tds_percentage: 0,
+                tds_amount: 0,
+                net_payout_amount: receivableAmount,
+                payout_status: "Expected",
+                payout_expected_date: null,
+                payout_received_date: null,
+                payment_history: [],
+                activity_log: [
+                  {
+                    timestamp: new Date().toISOString(),
+                    action: "Auto synced from Payments",
+                    details:
+                      "Created from negative showroom balance in payment ledger.",
+                  },
+                ],
+                payout_remarks:
+                  "Auto-created from negative showroom balance in payment ledger.",
+                meta_source: PAYMENTS_AUTO_COMMISSION_META,
+              },
+            ]
+          : cleanedRows;
+
+      const hasChanged =
+        existingRows.length !== nextRows.length ||
+        existingRows.some((row, idx) => row !== nextRows[idx]);
+
+      if (!hasChanged) {
+        commissionReceivableSyncSignatureRef.current = signature;
+        return;
+      }
+
+      await loansApi.update(loanLookupId, { [receivableKey]: nextRows });
+      commissionReceivableSyncSignatureRef.current = signature;
+    },
+    [doRec, loan, loanId],
+  );
 
   // Load Loan + DO from API (fallback to sessionStorage if needed)
   useEffect(() => {
@@ -488,6 +635,18 @@ const PaymentForm = () => {
         setExistingPayment(latest);
         existingPaymentRef.current = latest;
 
+        const latestCrossAdjustmentNet = (latestShowroomRows || [])
+          .filter((row) => row?.paymentType === "Cross Adjustment")
+          .reduce((sum, row) => {
+            const amount = asInt(row?.paymentAmount || 0);
+            if (!amount) return sum;
+            return sum + (row?.adjustmentDirection === "incoming" ? amount : -amount);
+          }, 0);
+        await syncNegativeBalanceCommissionReceivable({
+          totalsValue: latestEntryTotals,
+          crossAdjustmentNetValue: latestCrossAdjustmentNet,
+        });
+
         // optional toast every 5 sec max
         const now = Date.now();
         if (now - lastSaveAtRef.current > 5000) {
@@ -514,6 +673,7 @@ const PaymentForm = () => {
     debouncedAutocreditsRows,
     debouncedAutocreditsTotals,
     debouncedIsAutocreditsVerified,
+    syncNegativeBalanceCommissionReceivable,
   ]);
 
   const buildPaymentPayload = ({
@@ -599,6 +759,15 @@ const PaymentForm = () => {
         const latest = saveRes?.data || payload;
         setExistingPayment(latest);
         existingPaymentRef.current = latest;
+      }
+      try {
+        await syncNegativeBalanceCommissionReceivable({
+          totalsValue: entryTotals,
+          crossAdjustmentNetValue: crossAdjustmentNet,
+          force: true,
+        });
+      } catch (syncErr) {
+        console.error("Commission receivable sync failed:", syncErr);
       }
       // Guard against a delayed autosave run that may still carry old debounced snapshot
       suppressAutosaveUntilRef.current = Date.now() + 2000;

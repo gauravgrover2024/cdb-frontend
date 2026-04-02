@@ -591,11 +591,13 @@ const ShowroomPaymentHeader = ({
           height: 42,
           borderRadius: 12,
           fontWeight: 800,
+          color: "#ffffff",
+          textShadow: "0 1px 1px rgba(0,0,0,0.22)",
           background: isVerified
             ? undefined
-            : "linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%)",
-          borderColor: isVerified ? undefined : "#1d4ed8",
-          boxShadow: isVerified ? "none" : "0 8px 18px rgba(37,99,235,0.22)",
+            : "linear-gradient(90deg, #15803d 0%, #16a34a 100%)",
+          borderColor: isVerified ? undefined : "#166534",
+          boxShadow: isVerified ? "none" : "0 8px 18px rgba(22,163,74,0.28)",
         }}
       >
         {isVerified ? "Verified ✅ (read-only)" : "Mark showroom as verified"}
