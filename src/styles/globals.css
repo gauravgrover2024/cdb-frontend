@@ -263,6 +263,79 @@ body {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Loan Form Global Field Typography + Vertical Alignment                     */
+/* -------------------------------------------------------------------------- */
+
+.loan-form-workbench .ant-input,
+.loan-form-workbench .ant-input-number-input,
+.loan-form-workbench .ant-input-affix-wrapper > input.ant-input,
+.loan-form-workbench .ant-select-selection-item,
+.loan-form-workbench .ant-select-selection-placeholder,
+.loan-form-workbench .ant-picker-input > input,
+.prefile-workbench .ant-input,
+.prefile-workbench .ant-input-number-input,
+.prefile-workbench .ant-input-affix-wrapper > input.ant-input,
+.prefile-workbench .ant-select-selection-item,
+.prefile-workbench .ant-select-selection-placeholder,
+.prefile-workbench .ant-picker-input > input {
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+}
+
+.loan-form-workbench .ant-input,
+.loan-form-workbench .ant-input-affix-wrapper,
+.loan-form-workbench .ant-picker,
+.loan-form-workbench .ant-select-selector,
+.loan-form-workbench .ant-input-number,
+.prefile-workbench .ant-input,
+.prefile-workbench .ant-input-affix-wrapper,
+.prefile-workbench .ant-picker,
+.prefile-workbench .ant-select-selector,
+.prefile-workbench .ant-input-number {
+  min-height: 40px;
+}
+
+.loan-form-workbench .ant-input,
+.prefile-workbench .ant-input {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+.loan-form-workbench .ant-input-affix-wrapper,
+.prefile-workbench .ant-input-affix-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.loan-form-workbench .ant-picker-input,
+.prefile-workbench .ant-picker-input {
+  display: flex;
+  align-items: center;
+}
+
+.loan-form-workbench .ant-select-selector,
+.prefile-workbench .ant-select-selector {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.loan-form-workbench .ant-input-number-input-wrap,
+.prefile-workbench .ant-input-number-input-wrap {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.loan-form-workbench .ant-input-number-input,
+.prefile-workbench .ant-input-number-input {
+  height: 100% !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
 /* Theme-aware Logo visibility */
 img.logo-theme-aware {
   filter: grayscale(1) brightness(0) !important; /* Unified Black in Light Mode */
@@ -289,4 +362,42 @@ img.logo-theme-aware {
 
 .header-profile-dropdown .ant-dropdown-menu-item:hover {
   background-color: var(--muted) !important;
+}
+
+/* Showroom payments entry table (light + dark compatible) */
+.showroom-payments-entry-table .ant-input,
+.showroom-payments-entry-table .ant-input-affix-wrapper,
+.showroom-payments-entry-table .ant-select-selector,
+.showroom-payments-entry-table .ant-picker {
+  background: var(--spt-card) !important;
+  border-color: var(--spt-border) !important;
+  color: var(--spt-text) !important;
+}
+
+.showroom-payments-entry-table .ant-input::placeholder,
+.showroom-payments-entry-table .ant-select-selection-placeholder,
+.showroom-payments-entry-table .ant-picker-input > input::placeholder {
+  color: var(--spt-muted) !important;
+}
+
+.showroom-payments-entry-table .ant-select-selection-item,
+.showroom-payments-entry-table .ant-picker-input > input {
+  color: var(--spt-text) !important;
+}
+
+.showroom-payments-entry-table .ant-picker-suffix,
+.showroom-payments-entry-table .ant-select-arrow {
+  color: var(--spt-muted) !important;
+}
+
+.showroom-payments-entry-table .ant-btn-default {
+  background: color-mix(in srgb, var(--spt-card) 80%, transparent) !important;
+  border-color: var(--spt-border) !important;
+  color: var(--spt-text) !important;
+}
+
+.showroom-payments-entry-table .ant-btn-default:hover {
+  background: color-mix(in srgb, var(--spt-accent-soft) 65%, transparent) !important;
+  border-color: var(--spt-accent-border) !important;
+  color: var(--spt-accent-text) !important;
 }

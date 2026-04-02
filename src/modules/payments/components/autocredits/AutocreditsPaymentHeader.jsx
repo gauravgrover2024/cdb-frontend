@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Card, Button } from "antd";
+import React, { useMemo, useState } from "react";
+import { Card, Button, Modal } from "antd";
 
 const asInt = (val) => {
   const n = Number(val);
@@ -9,7 +9,7 @@ const asInt = (val) => {
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
-const AmountRow = ({ label, value, highlight }) => (
+const AmountRow = ({ label, value, highlight, onClick }) => (
   <div
     style={{
       display: "flex",
@@ -21,7 +21,23 @@ const AmountRow = ({ label, value, highlight }) => (
       borderTop: "1px dashed #eee",
     }}
   >
-    <div style={{ fontSize: 12 }}>{label}</div>
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        fontSize: 12,
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        margin: 0,
+        color: "inherit",
+        textAlign: "left",
+        cursor: onClick ? "pointer" : "default",
+        textDecoration: onClick ? "underline" : "none",
+      }}
+    >
+      {label}
+    </button>
     <div style={{ fontSize: 12 }}>{money(value)}</div>
   </div>
 );
@@ -34,6 +50,7 @@ const AutocreditsPaymentHeader = ({
   canVerify = false,
   onToggleVerified,
 }) => {
+  const [showMarginModal, setShowMarginModal] = useState(false);
   const summary = useMemo(() => {
     const showroomNet = asInt(data?.showroomNetOnRoadVehicleCost || 0);
     const customerNet = asInt(data?.customerNetOnRoadVehicleCost || 0);
@@ -79,6 +96,14 @@ const AutocreditsPaymentHeader = ({
       breakup: autocreditsTotals?.receiptBreakup || {},
     };
   }, [data, showroomTotals, autocreditsTotals]);
+
+  const marginBreakup = useMemo(
+    () => data?.autocreditsMarginBreakup || {},
+    [data],
+  );
+
+  const isAutocreditsInsuranceMode =
+    marginBreakup?.mode === "autocredits_insurance";
 
   return (
     <Card
@@ -145,6 +170,7 @@ const AutocreditsPaymentHeader = ({
           <AmountRow
             label="Autocredits margin"
             value={summary.autocreditsMargin}
+            onClick={() => setShowMarginModal(true)}
           />
           <AmountRow
             label="Paid by Autocredits to showroom"
@@ -153,6 +179,10 @@ const AutocreditsPaymentHeader = ({
           <AmountRow
             label="Insurance receivable"
             value={summary.insuranceReceivable}
+          />
+          <AmountRow
+            label="Actual insurance premium (info)"
+            value={asInt(marginBreakup?.actualInsurancePremium || 0)}
           />
           <AmountRow
             label="Less: exchange adjustment"
@@ -231,6 +261,77 @@ const AutocreditsPaymentHeader = ({
           🔒 Verified • Autocredits section is now read-only.
         </div>
       )}
+
+      <Modal
+        title="Autocredits Margin Calculation"
+        open={showMarginModal}
+        onCancel={() => setShowMarginModal(false)}
+        footer={null}
+      >
+        <div style={{ display: "grid", gap: 8 }}>
+          {isAutocreditsInsuranceMode ? (
+            <>
+              <AmountRow
+                label="Showroom net on-road"
+                value={marginBreakup?.showroomNetOnRoadVehicleCost || 0}
+              />
+              <AmountRow
+                label="Customer net on-road"
+                value={marginBreakup?.customerNetOnRoadVehicleCost || 0}
+              />
+              <AmountRow
+                label="Less: customer insurance amount"
+                value={marginBreakup?.customerInsuranceAmount || 0}
+              />
+              <AmountRow
+                label="Customer net on-road (without insurance)"
+                value={marginBreakup?.customerNetWithoutInsurance || 0}
+              />
+              <AmountRow
+                label="Part A: (customer w/o insurance - showroom)"
+                value={marginBreakup?.marginPartFromOnRoadDelta || 0}
+              />
+              <AmountRow
+                label="Actual insurance premium"
+                value={marginBreakup?.actualInsurancePremium || 0}
+              />
+              <AmountRow
+                label="Part B: (customer insurance - actual premium)"
+                value={marginBreakup?.marginPartFromInsuranceSpread || 0}
+              />
+            </>
+          ) : (
+            <>
+              <AmountRow
+                label="Showroom net on-road"
+                value={marginBreakup?.showroomNetOnRoadVehicleCost || 0}
+              />
+              <AmountRow
+                label="Customer net on-road"
+                value={marginBreakup?.customerNetOnRoadVehicleCost || 0}
+              />
+              <AmountRow
+                label="Difference (customer - showroom)"
+                value={marginBreakup?.marginPartFromOnRoadDelta || 0}
+              />
+            </>
+          )}
+          <div
+            style={{
+              marginTop: 6,
+              borderRadius: 10,
+              border: "1px solid #dbeafe",
+              background: "#eff6ff",
+              padding: "8px 10px",
+              fontSize: 12,
+              color: "#1e3a8a",
+              fontWeight: 700,
+            }}
+          >
+            Final Autocredits Margin: {money(marginBreakup?.autocreditsMargin || 0)}
+          </div>
+        </div>
+      </Modal>
     </Card>
   );
 };

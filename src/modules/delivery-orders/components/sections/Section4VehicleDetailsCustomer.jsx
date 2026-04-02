@@ -1,11 +1,14 @@
 // src/modules/delivery-orders/components/sections/Section4VehicleDetailsCustomer.jsx
 
 import React, { useEffect, useMemo, useRef } from "react";
+import dayjs from "dayjs";
 import {
   Row,
   Col,
   Form,
   Input,
+  AutoComplete,
+  DatePicker,
   Select,
   Divider,
   Button,
@@ -23,8 +26,14 @@ import { useVehicleData } from "../../../../hooks/useVehicleData";
 import { useTheme } from "../../../../context/ThemeContext";
 import BreakdownSummaryCard from "../shared/BreakdownSummaryCard";
 import DOAmountInput from "../shared/DOAmountInput";
+import { IRDAI_INSURANCE_COMPANIES } from "../../../../constants/irdaiInsuranceCompanies";
 
 const { Option } = Select;
+const POLICY_DURATION_OPTIONS = [
+  { value: "1", label: "1yr OD + 3yr TP" },
+  { value: "2", label: "2yr OD + 3yr TP" },
+  { value: "3", label: "3yr OD + 3yr TP" },
+];
 
 const asInt = (val) => {
   const n = Number(val);
@@ -116,6 +125,14 @@ const Section4VehicleDetailsCustomer = () => {
 
   const do_vehicleMake = Form.useWatch("do_customer_vehicleMake", form);
   const do_vehicleModel = Form.useWatch("do_customer_vehicleModel", form);
+  const insuranceStartDate = Form.useWatch(
+    "do_customer_insurancePolicyStartDate",
+    form,
+  );
+  const insurancePolicyDuration = Form.useWatch(
+    "do_customer_insurancePolicyDurationOD",
+    form,
+  );
 
   const v = Form.useWatch([], form) || {};
   const customerAccountEnabled = !!v.do_showCustomerVehicleSection;
@@ -234,12 +251,64 @@ const Section4VehicleDetailsCustomer = () => {
         : [],
     );
     copyIfEmpty("do_customer_marginMoneyPaid", current?.do_marginMoneyPaid ?? "");
+    copyIfEmpty("do_customer_insuranceBy", current?.do_insuranceBy || "");
+    copyIfEmpty(
+      "do_customer_insuranceCompanyName",
+      current?.insurance_company_name || "",
+    );
+    copyIfEmpty(
+      "do_customer_insurancePolicyNumber",
+      current?.insurance_policy_number || "",
+    );
+    copyIfEmpty(
+      "do_customer_actualInsurancePremium",
+      current?.insurance_premium ?? "",
+    );
+    copyIfEmpty(
+      "do_customer_insurancePolicyStartDate",
+      current?.insurance_policy_start_date || "",
+    );
+    copyIfEmpty(
+      "do_customer_insurancePolicyDurationOD",
+      current?.insurance_policy_duration_od || "",
+    );
+    copyIfEmpty(
+      "do_customer_insurancePolicyEndDateOD",
+      current?.insurance_policy_end_date_od || "",
+    );
 
     if (Object.keys(patch).length) {
       form.setFieldsValue(patch);
     }
     customerSeededRef.current = true;
   }, [form, customerAccountEnabled]);
+
+  useEffect(() => {
+    if (!form) return;
+    if (!insuranceStartDate || !insurancePolicyDuration) {
+      if (form.getFieldValue("do_customer_insurancePolicyEndDateOD")) {
+        form.setFieldValue("do_customer_insurancePolicyEndDateOD", null);
+      }
+      return;
+    }
+    const start = dayjs(insuranceStartDate);
+    if (!start.isValid()) return;
+
+    const nextEndDate = start
+      .add(Number(insurancePolicyDuration || 0), "year")
+      .subtract(1, "day");
+    if (!nextEndDate.isValid()) return;
+
+    const existingEnd = form.getFieldValue("do_customer_insurancePolicyEndDateOD");
+    const existingEndDay = existingEnd ? dayjs(existingEnd) : null;
+    if (
+      !existingEndDay ||
+      !existingEndDay.isValid() ||
+      !existingEndDay.isSame(nextEndDate, "day")
+    ) {
+      form.setFieldValue("do_customer_insurancePolicyEndDateOD", nextEndDate);
+    }
+  }, [form, insuranceStartDate, insurancePolicyDuration]);
 
   // Write computed values
   useEffect(() => {
@@ -1076,6 +1145,143 @@ const Section4VehicleDetailsCustomer = () => {
                     size="small"
                     style={{ width: "100%" }}
                     controls={false}
+                    disabled
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24}>
+              <Divider style={{ margin: "10px 0" }} />
+              <SectionChip
+                icon={<InfoCircleOutlined style={{ fontSize: 11 }} />}
+                label="Insurance details (customer)"
+              />
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Insurance By">
+                <Form.Item name="do_customer_insuranceBy" style={{ marginBottom: 0 }}>
+                  <Select
+                    bordered={false}
+                    size="small"
+                    placeholder="Select"
+                    allowClear
+                    options={[
+                      { label: "Autocredits India LLP", value: "Autocredits India LLP" },
+                      { label: "Customer", value: "Customer" },
+                      { label: "Showroom", value: "Showroom" },
+                      { label: "Broker", value: "Broker" },
+                    ]}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Insurance Company Name">
+                <Form.Item
+                  name="do_customer_insuranceCompanyName"
+                  style={{ marginBottom: 0 }}
+                >
+                  <AutoComplete
+                    options={IRDAI_INSURANCE_COMPANIES.map((company) => ({
+                      value: company,
+                      label: company,
+                    }))}
+                    filterOption={(input, option) =>
+                      String(option?.value || "")
+                        .toLowerCase()
+                        .includes(String(input || "").toLowerCase())
+                    }
+                  >
+                    <Input
+                      bordered={false}
+                      size="small"
+                      placeholder="Start typing insurer name"
+                    />
+                  </AutoComplete>
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Policy Number">
+                <Form.Item
+                  name="do_customer_insurancePolicyNumber"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input
+                    bordered={false}
+                    size="small"
+                    placeholder="e.g., POL123456"
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Actual Insurance Premium">
+                <Form.Item
+                  name="do_customer_actualInsurancePremium"
+                  style={{ marginBottom: 0 }}
+                >
+                  <DOAmountInput
+                    bordered={false}
+                    size="small"
+                    style={{ width: "100%" }}
+                    controls={false}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Policy Start Date">
+                <Form.Item
+                  name="do_customer_insurancePolicyStartDate"
+                  style={{ marginBottom: 0 }}
+                >
+                  <DatePicker
+                    bordered={false}
+                    size="small"
+                    format="DD/MM/YYYY"
+                    style={{ width: "100%" }}
+                    allowClear
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Policy Duration">
+                <Form.Item
+                  name="do_customer_insurancePolicyDurationOD"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Select
+                    bordered={false}
+                    size="small"
+                    placeholder="Select duration"
+                    allowClear
+                    options={POLICY_DURATION_OPTIONS}
+                  />
+                </Form.Item>
+              </InlineField>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <InlineField label="Policy End Date (OD)">
+                <Form.Item
+                  name="do_customer_insurancePolicyEndDateOD"
+                  style={{ marginBottom: 0 }}
+                >
+                  <DatePicker
+                    bordered={false}
+                    size="small"
+                    format="DD/MM/YYYY"
+                    style={{ width: "100%" }}
+                    allowClear
                     disabled
                   />
                 </Form.Item>

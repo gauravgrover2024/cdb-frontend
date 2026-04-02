@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { AutoComplete, DatePicker, Form, Input, Select, Spin, message } from "antd";
+import {
+  AutoComplete,
+  DatePicker,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Spin,
+  message,
+} from "antd";
 import dayjs from "dayjs";
 import Icon from "../../../../../components/AppIcon";
 import { uploadSingleFile } from "../../../../../api/uploads";
@@ -813,7 +822,7 @@ const VehicleDeliveryStep = ({ form }) => {
           title="Insurance Details"
         >
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
               <Form.Item
                 label="Insurance By"
                 name="insurance_by"
@@ -861,6 +870,28 @@ const VehicleDeliveryStep = ({ form }) => {
                 className="mb-0"
               >
                 <Input className={inputClassName} placeholder="e.g., POL123456" />
+              </Form.Item>
+
+              <Form.Item
+                label="Insurance Premium"
+                name="insurance_premium"
+                className="mb-0"
+              >
+                <InputNumber
+                  className="h-10 w-full"
+                  controls={false}
+                  placeholder="e.g., 60,935"
+                  formatter={(value) => {
+                    if (value === undefined || value === null || value === "") return "";
+                    const cleaned = String(value).replace(/[^\d.-]/g, "");
+                    if (!cleaned || cleaned === "-" || cleaned === ".") return "";
+                    const parsed = Number(cleaned);
+                    return Number.isFinite(parsed)
+                      ? parsed.toLocaleString("en-IN")
+                      : cleaned;
+                  }}
+                  parser={(value) => String(value || "").replace(/[^\d.-]/g, "")}
+                />
               </Form.Item>
 
               <Form.Item

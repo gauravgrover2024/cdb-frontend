@@ -1,6 +1,13 @@
 // src/modules/payments/components/showroom/ShowroomPaymentHeader.jsx
 import React, { useMemo } from "react";
-import { Card, Button } from "antd";
+import { Button, Card, Progress, Tag } from "antd";
+import {
+  CarOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  SwapOutlined,
+} from "@ant-design/icons";
+import { useTheme } from "../../../../context/ThemeContext";
 
 const asInt = (val) => {
   const n = Number(val);
@@ -10,35 +17,122 @@ const asInt = (val) => {
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
-const AmountRow = ({ label, value, highlight }) => (
+const sectionTitleStyle = (isDarkMode) => ({
+  marginBottom: 10,
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.14em",
+  textTransform: "uppercase",
+  color: isDarkMode ? "#9ca3af" : "#6b7280",
+});
+
+const valueTone = (tone, isDarkMode) => {
+  if (tone === "positive") return isDarkMode ? "#4ade80" : "#166534";
+  if (tone === "danger") return isDarkMode ? "#fca5a5" : "#dc2626";
+  if (tone === "warning") return isDarkMode ? "#fbbf24" : "#92400e";
+  if (tone === "accent") return isDarkMode ? "#93c5fd" : "#1d4ed8";
+  return isDarkMode ? "#e5e7eb" : "#111827";
+};
+
+const SummaryPill = ({ label, value, tone = "default", isDarkMode = false }) => (
   <div
     style={{
-      display: "flex",
-      justifyContent: "space-between",
-      gap: 12,
-      padding: "6px 0",
-      fontWeight: highlight ? 900 : 650,
-      color: highlight ? "#1d39c4" : "#111",
-      borderTop: "1px dashed #eee",
+      borderRadius: 12,
+      border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`,
+      background: isDarkMode ? "rgba(30,41,59,0.55)" : "#ffffff",
+      padding: "8px 10px",
     }}
   >
-    <div style={{ fontSize: 12 }}>{label}</div>
-    <div style={{ fontSize: 12 }}>{money(value)}</div>
+    <div
+      style={{
+        fontSize: 10.5,
+        textTransform: "uppercase",
+        letterSpacing: 0.32,
+        fontWeight: 700,
+        color: isDarkMode ? "#94a3b8" : "#64748b",
+        marginBottom: 4,
+      }}
+    >
+      {label}
+    </div>
+    <div
+      style={{
+        fontSize: 15,
+        fontWeight: 900,
+        lineHeight: 1.1,
+        color: valueTone(tone, isDarkMode),
+        overflowWrap: "anywhere",
+      }}
+    >
+      {money(value)}
+    </div>
   </div>
 );
 
-const InfoRow = ({ label, value }) => (
+const LedgerRow = ({ label, value, tone = "default", isDarkMode = false }) => (
   <div
     style={{
       display: "flex",
+      alignItems: "center",
       justifyContent: "space-between",
       gap: 12,
+      fontSize: 13,
       padding: "6px 0",
-      borderTop: "1px dashed #eee",
+      borderTop: `1px dashed ${isDarkMode ? "#334155" : "#e5e7eb"}`,
     }}
   >
-    <div style={{ fontSize: 12, color: "#555", fontWeight: 650 }}>{label}</div>
-    <div style={{ fontSize: 12, color: "#111", fontWeight: 700 }}>
+    <span
+      style={{
+        color: isDarkMode ? "#cbd5e1" : "#475569",
+        minWidth: 0,
+        flex: 1,
+      }}
+    >
+      {label}
+    </span>
+    <span
+      style={{
+        fontWeight: 800,
+        color: valueTone(tone, isDarkMode),
+        textAlign: "right",
+        minWidth: 0,
+        maxWidth: "42%",
+        overflowWrap: "anywhere",
+      }}
+    >
+      {money(value)}
+    </span>
+  </div>
+);
+
+const DetailCell = ({ label, value, isDarkMode = false }) => (
+  <div
+    style={{
+      borderRadius: 10,
+      border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`,
+      background: isDarkMode ? "rgba(15,23,42,0.6)" : "#ffffff",
+      padding: "8px 10px",
+    }}
+  >
+    <div
+      style={{
+        fontSize: 10,
+        textTransform: "uppercase",
+        letterSpacing: 0.28,
+        fontWeight: 700,
+        color: isDarkMode ? "#94a3b8" : "#64748b",
+      }}
+    >
+      {label}
+    </div>
+    <div
+      style={{
+        marginTop: 4,
+        fontSize: 12.5,
+        fontWeight: 700,
+        color: isDarkMode ? "#e2e8f0" : "#0f172a",
+      }}
+    >
       {value || "—"}
     </div>
   </div>
@@ -49,11 +143,11 @@ const ShowroomPaymentHeader = ({
   entryTotals = {},
   isVerified = false,
   onVerify,
-  // net impact of all cross adjustments for THIS case (signed)
   crossAdjustmentNet = 0,
-  // full list of cross adjustment rows for display
   crossAdjustmentRows = [],
 }) => {
+  const { isDarkMode } = useTheme();
+
   const summary = useMemo(() => {
     const netOnRoad = asInt(data?.netOnRoadVehicleCost);
 
@@ -67,22 +161,14 @@ const ShowroomPaymentHeader = ({
     const commissionReceived = asInt(entryTotals?.paymentCommissionReceived);
     const crossAdjNet = asInt(crossAdjustmentNet);
 
-    // vehicle + DO-side adjustments only
     const baseNetPayableToShowroom = Math.max(
       0,
       netOnRoad - insAdjApplied - exAdjApplied,
     );
-
-    // ✅ final net payable after cross adjustments on commission
     const netPayableToShowroom = baseNetPayableToShowroom + crossAdjNet;
-
     const totalPaidToShowroom = loanPay + autoPay + custPay;
-
     const balancePayment = netPayableToShowroom - totalPaidToShowroom;
-
-    // closing still includes commission received
     const closingBalance = balancePayment + commissionReceived;
-
     const canVerify = closingBalance === 0;
 
     const exchangeValue = asInt(data?.exchangeValue);
@@ -90,214 +176,299 @@ const ShowroomPaymentHeader = ({
 
     const doMarginMoney = asInt(data?.doMarginMoney);
     const paidMarginMoney = asInt(entryTotals?.paymentAmountMarginMoney);
-
     const marginDiff = doMarginMoney - paidMarginMoney;
     const marginMatched = doMarginMoney > 0 && marginDiff === 0;
+    const marginProgress =
+      doMarginMoney > 0
+        ? Math.min(100, Math.max(0, (paidMarginMoney / doMarginMoney) * 100))
+        : 0;
 
     return {
       netOnRoad,
-
       insAdjApplied,
       exAdjApplied,
-      baseNetPayableToShowroom,
       netPayableToShowroom,
-
       autoPay,
       custPay,
       loanPay,
-
+      totalPaidToShowroom,
       balancePayment,
-
       commissionReceived,
       crossAdjNet,
       closingBalance,
-
       canVerify,
-
       exchangeValue,
       hasExchange,
-
       doMarginMoney,
       paidMarginMoney,
       marginDiff,
       marginMatched,
+      marginProgress,
     };
   }, [data, entryTotals, crossAdjustmentNet]);
 
   const hasCrossAdjustments = (crossAdjustmentRows || []).length > 0;
+  const closingTone =
+    summary.closingBalance === 0
+      ? "positive"
+      : summary.closingBalance > 0
+        ? "warning"
+        : "danger";
+
+  const settlementRatio =
+    summary.netPayableToShowroom > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            (summary.totalPaidToShowroom / summary.netPayableToShowroom) * 100,
+          ),
+        )
+      : 100;
 
   return (
     <Card
       style={{
-        borderRadius: 16,
-        border: "1px solid #e5e7eb",
-        background: "#f9fafb",
+        width: "100%",
+        minWidth: 0,
+        borderRadius: 20,
+        border: `1px solid ${isDarkMode ? "#2f3640" : "#dbe3ef"}`,
+        background: isDarkMode
+          ? "linear-gradient(180deg, rgba(30,34,40,0.98) 0%, rgba(20,22,27,0.98) 100%)"
+          : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,249,253,0.98) 100%)",
+        boxShadow: isDarkMode
+          ? "0 20px 45px rgba(0,0,0,0.35)"
+          : "0 20px 45px rgba(15,23,42,0.08)",
+        overflow: "hidden",
       }}
-      bodyStyle={{ padding: 12 }}
+      bodyStyle={{ padding: 14 }}
     >
-      {/* Header */}
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 8,
+          borderRadius: 14,
+          border: `1px solid ${isDarkMode ? "#334155" : "#dbe4ef"}`,
+          background: isDarkMode
+            ? "linear-gradient(135deg, rgba(82,100,255,0.08) 0%, rgba(34,197,94,0.04) 100%)"
+            : "linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(16,185,129,0.04) 100%)",
+          padding: "10px 12px",
+          marginBottom: 12,
         }}
       >
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: 0.14,
-              color: "#6b7280",
-              marginBottom: 2,
-            }}
-          >
-            Showroom account
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 8,
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            marginBottom: 8,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: isDarkMode ? "#9ca3af" : "#6b7280",
+              }}
+            >
+              Showroom account
+            </div>
+            <div
+              style={{
+                marginTop: 2,
+                fontSize: 20,
+                lineHeight: 1.1,
+                fontWeight: 800,
+                color: isDarkMode ? "#f8fafc" : "#202938",
+              }}
+            >
+              Totals & verification
+            </div>
           </div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>
-            Totals & verification
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <Tag
+              style={{
+                marginInlineEnd: 0,
+                borderRadius: 999,
+                fontWeight: 700,
+                borderColor: isVerified ? "#86efac" : "#93c5fd",
+                color: isVerified ? "#166534" : "#1d4ed8",
+                background: isVerified ? "#f0fdf4" : "#eff6ff",
+              }}
+            >
+              {isVerified ? "Verified" : "In Progress"}
+            </Tag>
+            <Tag
+              style={{
+                marginInlineEnd: 0,
+                borderRadius: 999,
+                fontWeight: 700,
+                borderColor: summary.canVerify ? "#86efac" : "#fdba74",
+                color: summary.canVerify ? "#166534" : "#9a3412",
+                background: summary.canVerify ? "#f0fdf4" : "#fff7ed",
+              }}
+            >
+              {summary.canVerify ? "Ready to Verify" : "Balance Pending"}
+            </Tag>
           </div>
         </div>
+
+        <Progress
+          percent={settlementRatio}
+          showInfo={false}
+          strokeColor={
+            summary.closingBalance === 0
+              ? "#22c55e"
+              : summary.closingBalance > 0
+                ? "#f59e0b"
+                : "#ef4444"
+          }
+          trailColor={isDarkMode ? "#334155" : "#e2e8f0"}
+          size="small"
+        />
       </div>
 
-      {/* Net on-road + adjustments (including cross adjustments now) */}
       <div
         style={{
-          marginTop: 6,
-          padding: 10,
-          borderRadius: 12,
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          marginBottom: 12,
+          minWidth: 0,
         }}
       >
-        <AmountRow
-          label="Net on-road vehicle cost"
-          value={summary.netOnRoad}
-          highlight
+        <SummaryPill
+          label="Net payable"
+          value={summary.netPayableToShowroom}
+          tone="accent"
+          isDarkMode={isDarkMode}
         />
-        <AmountRow
-          label="Adjustment – Insurance"
-          value={summary.insAdjApplied}
+        <SummaryPill
+          label="Total paid"
+          value={summary.totalPaidToShowroom}
+          tone="positive"
+          isDarkMode={isDarkMode}
         />
-        <AmountRow label="Adjustment – Exchange" value={summary.exAdjApplied} />
+        <SummaryPill
+          label="Closing balance"
+          value={summary.closingBalance}
+          tone={closingTone}
+          isDarkMode={isDarkMode}
+        />
+      </div>
 
+      <div
+        style={{
+          borderRadius: 14,
+          border: `1px solid ${isDarkMode ? "#313844" : "#e7edf5"}`,
+          background: isDarkMode ? "rgba(15,23,42,0.45)" : "rgba(255,255,255,0.9)",
+          padding: "10px 12px",
+          marginBottom: 12,
+        }}
+      >
+        <div style={sectionTitleStyle(isDarkMode)}>Totals & verification</div>
+
+        <LedgerRow label="Net on-road vehicle cost" value={summary.netOnRoad} tone="accent" isDarkMode={isDarkMode} />
+        <LedgerRow label="Adjustment - Insurance" value={summary.insAdjApplied} isDarkMode={isDarkMode} />
+        <LedgerRow label="Adjustment - Exchange" value={summary.exAdjApplied} isDarkMode={isDarkMode} />
         {summary.crossAdjNet !== 0 && (
-          <AmountRow
-            label="Cross adjustments on commission"
+          <LedgerRow
+            label="Cross adjustment net"
             value={summary.crossAdjNet}
+            tone={summary.crossAdjNet >= 0 ? "positive" : "danger"}
+            isDarkMode={isDarkMode}
           />
         )}
-
-        <div style={{ marginTop: 4 }}>
-          <AmountRow
-            label="Net payable to showroom"
-            value={summary.netPayableToShowroom}
-            highlight
-          />
-        </div>
-      </div>
-
-      {/* Payments in + commission */}
-      <div
-        style={{
-          marginTop: 10,
-          padding: 10,
-          borderRadius: 12,
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-        }}
-      >
-        <AmountRow label="Paid from Autocredits" value={summary.autoPay} />
-        <AmountRow label="Paid from Customer" value={summary.custPay} />
-        <AmountRow label="Paid from Loan" value={summary.loanPay} />
-
-        <div style={{ marginTop: 4 }}>
-          <AmountRow
-            label="Balance payment"
-            value={summary.balancePayment}
-            highlight
-          />
-        </div>
-
+        <LedgerRow label="Net payable to showroom" value={summary.netPayableToShowroom} tone="accent" isDarkMode={isDarkMode} />
+        <LedgerRow label="Paid from Loan" value={summary.loanPay} isDarkMode={isDarkMode} />
+        <LedgerRow label="Paid from Autocredits" value={summary.autoPay} isDarkMode={isDarkMode} />
+        <LedgerRow label="Paid from Customer" value={summary.custPay} isDarkMode={isDarkMode} />
+        <LedgerRow
+          label="Balance payment"
+          value={summary.balancePayment}
+          tone={summary.balancePayment > 0 ? "warning" : "positive"}
+          isDarkMode={isDarkMode}
+        />
         {summary.commissionReceived > 0 && (
-          <div style={{ marginTop: 4 }}>
-            <AmountRow
-              label="Commission received"
-              value={summary.commissionReceived}
-            />
-          </div>
-        )}
-
-        <div style={{ marginTop: 4 }}>
-          <AmountRow
-            label="Closing balance"
-            value={summary.closingBalance}
-            highlight
+          <LedgerRow
+            label="Commission received"
+            value={summary.commissionReceived}
+            tone="positive"
+            isDarkMode={isDarkMode}
           />
-        </div>
+        )}
+        <LedgerRow
+          label="Closing balance"
+          value={summary.closingBalance}
+          tone={closingTone}
+          isDarkMode={isDarkMode}
+        />
       </div>
 
-      {/* Cross adjustment details list */}
       {hasCrossAdjustments && (
         <div
           style={{
-            marginTop: 10,
-            padding: 10,
-            borderRadius: 12,
-            background: "#ffffff",
-            border: "1px solid #e5e7eb",
+            borderRadius: 14,
+            border: `1px solid ${isDarkMode ? "#313844" : "#e7edf5"}`,
+            background: isDarkMode ? "rgba(15,23,42,0.45)" : "rgba(255,255,255,0.9)",
+            padding: "10px 12px",
+            marginBottom: 12,
           }}
         >
           <div
             style={{
-              fontWeight: 700,
-              fontSize: 13,
-              marginBottom: 4,
-              color: "#111827",
+              ...sectionTitleStyle(isDarkMode),
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
-            Cross adjustment entries
-          </div>
-
-          <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
-            Positive = this case receives commission, negative = this case gives
-            commission.
+            <SwapOutlined />
+            <span>Cross adjustment entries</span>
           </div>
 
           {(crossAdjustmentRows || []).map((row) => {
             const amt = asInt(row.paymentAmount);
             if (!amt) return null;
-
-            const signedAmt =
-              row.adjustmentDirection === "incoming" ? amt : -amt;
-
-            const label = row.crossCaseLabel || "Other case (no label entered)";
-
+            const signedAmt = row.adjustmentDirection === "incoming" ? amt : -amt;
+            const label = row.crossCaseLabel || "Other case";
             return (
               <div
                 key={row.id}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  gap: 12,
-                  padding: "4px 0",
-                  borderTop: "1px dashed #eee",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  padding: "7px 0",
+                  borderTop: `1px dashed ${isDarkMode ? "#334155" : "#e5e7eb"}`,
                 }}
               >
-                <div style={{ fontSize: 12, color: "#111827" }}>
-                  {row.adjustmentDirection === "incoming" ? "From" : "To"}{" "}
-                  {label}
-                  {row.remarks && (
-                    <span style={{ color: "#6b7280" }}> • {row.remarks}</span>
-                  )}
+                <div style={{ fontSize: 12, color: isDarkMode ? "#e2e8f0" : "#0f172a", fontWeight: 600 }}>
+                  {row.adjustmentDirection === "incoming" ? "From" : "To"} {label}
+                  {row.remarks ? (
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: 1,
+                        fontWeight: 500,
+                        color: isDarkMode ? "#94a3b8" : "#64748b",
+                      }}
+                    >
+                      {row.remarks}
+                    </span>
+                  ) : null}
                 </div>
                 <div
                   style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: signedAmt >= 0 ? "#15803d" : "#b91c1c",
+                    whiteSpace: "nowrap",
+                    fontSize: 12.5,
+                    fontWeight: 800,
+                    color: signedAmt >= 0 ? "#16a34a" : "#dc2626",
                   }}
                 >
                   {signedAmt >= 0 ? "+" : "-"} {money(Math.abs(signedAmt))}
@@ -308,94 +479,139 @@ const ShowroomPaymentHeader = ({
         </div>
       )}
 
-      {/* Verify button */}
-      <div style={{ marginTop: 12 }}>
-        <Button
-          type="primary"
-          block
-          disabled={isVerified || !summary.canVerify}
-          onClick={() => onVerify && onVerify()}
-        >
-          {isVerified ? "Verified ✅ (read-only)" : "Mark showroom as verified"}
-        </Button>
-        {!isVerified && !summary.canVerify && (
-          <div
-            style={{
-              marginTop: 6,
-              fontSize: 11,
-              color: "#6b7280",
-              lineHeight: 1.4,
-            }}
-          >
-            Verification is enabled only when <b>Closing balance = ₹ 0</b>.
-          </div>
-        )}
-      </div>
-
-      {/* Margin money tracking */}
       {summary.doMarginMoney > 0 && (
         <div
           style={{
-            marginTop: 14,
-            padding: 10,
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            background: summary.marginMatched ? "#f0fdf4" : "#fef2f2",
+            borderRadius: 14,
+            border: `1px solid ${isDarkMode ? "#313844" : "#e7edf5"}`,
+            background: isDarkMode
+              ? "linear-gradient(140deg, rgba(15,23,42,0.55), rgba(30,41,59,0.45))"
+              : "linear-gradient(140deg, rgba(255,255,255,0.9), rgba(248,250,252,0.9))",
+            padding: "10px 12px",
+            marginBottom: 12,
           }}
         >
           <div
             style={{
-              fontWeight: 700,
-              fontSize: 13,
-              marginBottom: 4,
-              color: "#111827",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 6,
             }}
           >
-            Margin money
+            <div style={sectionTitleStyle(isDarkMode)}>Margin money</div>
+            <Tag
+              style={{
+                marginInlineEnd: 0,
+                borderRadius: 999,
+                fontWeight: 700,
+                borderColor: summary.marginMatched ? "#93c5fd" : "#fdba74",
+                color: summary.marginMatched ? "#1d4ed8" : "#9a3412",
+                background: summary.marginMatched ? "#eff6ff" : "#fff7ed",
+              }}
+            >
+              {summary.marginMatched ? "Matched" : "Pending / Mismatch"}
+            </Tag>
           </div>
 
-          <AmountRow label="As per DO" value={summary.doMarginMoney} />
-          <AmountRow
-            label="Captured in payments"
-            value={summary.paidMarginMoney}
+          <Progress
+            percent={summary.marginProgress}
+            showInfo={false}
+            strokeColor={summary.marginMatched ? "#2563eb" : "#f59e0b"}
+            trailColor={isDarkMode ? "#334155" : "#e2e8f0"}
+            size="small"
+            style={{ marginBottom: 8 }}
           />
-          <div style={{ marginTop: 4 }}>
-            <AmountRow
-              label={summary.marginMatched ? "Matched" : "Pending / mismatch"}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 8,
+              minWidth: 0,
+            }}
+          >
+            <SummaryPill label="As per DO" value={summary.doMarginMoney} isDarkMode={isDarkMode} />
+            <SummaryPill label="Captured" value={summary.paidMarginMoney} isDarkMode={isDarkMode} />
+            <SummaryPill
+              label={summary.marginMatched ? "Matched" : "Pending"}
               value={summary.marginDiff}
-              highlight
+              tone={summary.marginMatched ? "accent" : "warning"}
+              isDarkMode={isDarkMode}
             />
           </div>
         </div>
       )}
 
-      {/* Exchange vehicle block */}
       {summary.hasExchange && (
         <div
           style={{
-            marginTop: 14,
-            padding: 10,
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            background: "#f9fafb",
+            borderRadius: 14,
+            border: `1px solid ${isDarkMode ? "#313844" : "#e7edf5"}`,
+            background: isDarkMode ? "rgba(15,23,42,0.45)" : "rgba(255,255,255,0.9)",
+            padding: "10px 12px",
+            marginBottom: 12,
           }}
         >
           <div
             style={{
-              fontWeight: 700,
-              fontSize: 13,
-              marginBottom: 4,
-              color: "#111827",
+              ...sectionTitleStyle(isDarkMode),
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
-            Exchange vehicle
+            <CarOutlined />
+            <span>Used car details</span>
           </div>
 
-          <InfoRow label="Make" value={data?.do_exchangeMake} />
-          <InfoRow label="Model" value={data?.do_exchangeModel} />
-          <InfoRow label="Variant" value={data?.do_exchangeVariant} />
-          <InfoRow label="Year" value={data?.do_exchangeYear} />
-          <InfoRow label="Reg. number" value={data?.do_exchangeRegdNumber} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <DetailCell label="Make" value={data?.do_exchangeMake} isDarkMode={isDarkMode} />
+            <DetailCell label="Model" value={data?.do_exchangeModel} isDarkMode={isDarkMode} />
+            <DetailCell label="Variant" value={data?.do_exchangeVariant} isDarkMode={isDarkMode} />
+            <DetailCell label="Year" value={data?.do_exchangeYear} isDarkMode={isDarkMode} />
+            <DetailCell
+              label="Registration number"
+              value={data?.do_exchangeRegdNumber}
+              isDarkMode={isDarkMode}
+            />
+            <DetailCell label="Exchange value" value={money(summary.exchangeValue)} isDarkMode={isDarkMode} />
+          </div>
+        </div>
+      )}
+
+      <Button
+        type="primary"
+        block
+        icon={summary.canVerify ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+        disabled={isVerified || !summary.canVerify}
+        onClick={() => onVerify && onVerify()}
+        style={{
+          height: 42,
+          borderRadius: 12,
+          fontWeight: 800,
+          background: isVerified
+            ? undefined
+            : "linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%)",
+          borderColor: isVerified ? undefined : "#1d4ed8",
+          boxShadow: isVerified ? "none" : "0 8px 18px rgba(37,99,235,0.22)",
+        }}
+      >
+        {isVerified ? "Verified ✅ (read-only)" : "Mark showroom as verified"}
+      </Button>
+
+      {!isVerified && !summary.canVerify && (
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 11.5,
+            lineHeight: 1.45,
+            color: isDarkMode ? "#94a3b8" : "#64748b",
+            textAlign: "center",
+          }}
+        >
+          Verification unlocks only when <b>Closing balance = ₹ 0</b>.
         </div>
       )}
     </Card>

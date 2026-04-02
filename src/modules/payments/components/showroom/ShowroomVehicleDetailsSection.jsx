@@ -1,6 +1,7 @@
 // src/modules/payments/components/showroom/ShowroomVehicleDetailsSection.jsx
 import React, { useMemo } from "react";
-import { Card, Divider } from "antd";
+import { useTheme } from "../../../../context/ThemeContext";
+import BreakdownSummaryCard from "../../../delivery-orders/components/shared/BreakdownSummaryCard";
 
 const asInt = (val) => {
   const n = Number(val);
@@ -8,63 +9,18 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
-const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
-
-const RowItem = ({ label, value }) => (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      gap: 12,
-      fontSize: 12,
-    }}
-  >
-    <div style={{ color: "#6b7280" }}>{label}</div>
-    <div
-      style={{
-        fontWeight: 600,
-        color: "#111827",
-        maxWidth: 240,
-        textAlign: "right",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-      }}
-    >
-      {value !== undefined && value !== null && value !== "" ? value : "—"}
-    </div>
-  </div>
-);
-
-const LadderRow = ({ label, value, sign, highlight, subtle }) => (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-      gap: 12,
-      fontSize: 12,
-      fontWeight: highlight ? 700 : 500,
-      color: highlight ? "#1d4ed8" : subtle ? "#6b7280" : "#111827",
-      marginBottom: 3,
-    }}
-  >
-    <div>{label}</div>
-    <div>
-      {sign ? `${sign} ` : ""}
-      {money(value || 0)}
-    </div>
-  </div>
-);
+const safeText = (v) => (v === undefined || v === null ? "" : String(v));
 
 const ShowroomVehicleDetailsSection = ({ data = {} }) => {
-  // Vehicle title
+  const { isDarkMode } = useTheme();
+
   const titleLine = [data?.make, data?.model, data?.variant]
     .filter(Boolean)
-    .join(" · ");
+    .join(" ")
+    .trim();
 
-  const customerName = data?.customerName || "—";
+  const customerName = safeText(data?.customerName) || "—";
 
-  // Summary values from DO / showroomData
   const onRoadVehicleCost = asInt(
     data?.do_onRoadVehicleCost ?? data?.onRoadVehicleCost ?? 0,
   );
@@ -75,10 +31,9 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
       0,
   );
   const netOnRoadDO = asInt(
-    data?.do_netOnRoadVehicleCost ?? data?.netOnRoadVehicleCost ?? 0,
+    data?.do_netOnRoadVehicleCost ?? data?.showroomNetOnRoadVehicleCost ?? 0,
   );
 
-  // Detailed DO components
   const exShowroom = asInt(data?.do_exShowroomPrice);
   const tcs = asInt(data?.do_tcs);
   const epc = asInt(data?.do_epc);
@@ -99,40 +54,113 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
   const corporate = asInt(data?.do_corporate);
   const discountsOthersTotal = asInt(data?.do_discounts_othersTotal || 0);
 
-  // Net used for payments (customer-side, where exchange vehicle price is added back)
-  const customerNetOnRoad = asInt(
-    data?.customerNetOnRoadVehicleCost ?? netOnRoadDO,
+  // Critical fix: add-back must come only from DO showroom account exchange value,
+  // never from customer/showroom net difference.
+  const exchangeAddBackForPayment = asInt(
+    data?.do_exchangeVehiclePrice ?? data?.exchangeValue ?? 0,
   );
+  const netUsedForPayment = Math.max(0, netOnRoadDO + exchangeAddBackForPayment);
 
-  // This should equal: netOnRoadDO + exchangeVehiclePrice (per your rule)
-  const exchangeDeltaForPayment = Math.max(0, customerNetOnRoad - netOnRoadDO);
+  const summarySections = useMemo(() => {
+    const additionsRows = [
+      { label: "Ex-showroom price", value: exShowroom, intent: "addition" },
+      { label: "TCS", value: tcs, intent: "addition" },
+      { label: "EPC", value: epc, intent: "addition" },
+      { label: "Insurance", value: insuranceCost, intent: "addition" },
+      { label: "Road tax", value: roadTax, intent: "addition" },
+      { label: "Accessories", value: accessoriesAmount, intent: "addition" },
+      { label: "Fastag", value: fastag, intent: "addition" },
+      { label: "Extended warranty", value: extendedWarranty, intent: "addition" },
+      { label: "Others (additions)", value: additionsOthersTotal, intent: "addition" },
+    ].filter((row) => row.value > 0);
 
-  const { additions, discounts } = useMemo(() => {
-    const additionsList = [
-      { label: "Ex-showroom price", value: exShowroom },
-      { label: "TCS", value: tcs },
-      { label: "EPC", value: epc },
-      { label: "Insurance", value: insuranceCost },
-      { label: "Road tax", value: roadTax },
-      { label: "Accessories", value: accessoriesAmount },
-      { label: "Fastag", value: fastag },
-      { label: "Extended warranty", value: extendedWarranty },
-      { label: "Others (additions)", value: additionsOthersTotal },
-    ].filter((r) => r.value > 0);
+    const discountsRows = [
+      { label: "Margin money paid", value: marginMoneyPaid, intent: "discount" },
+      { label: "Dealer discount", value: dealerDiscount, intent: "discount" },
+      { label: "Scheme discount", value: schemeDiscount, intent: "discount" },
+      { label: "Insurance cashback", value: insuranceCashback, intent: "discount" },
+      { label: "Exchange bonus", value: exchange, intent: "discount" },
+      { label: "Exchange vehicle price", value: exchangeVehiclePrice, intent: "discount" },
+      { label: "Loyalty", value: loyalty, intent: "discount" },
+      { label: "Corporate", value: corporate, intent: "discount" },
+      { label: "Others (discounts)", value: discountsOthersTotal, intent: "discount" },
+    ].filter((row) => row.value > 0);
 
-    const discountsList = [
-      { label: "Margin money paid", value: marginMoneyPaid },
-      { label: "Dealer discount", value: dealerDiscount },
-      { label: "Scheme discount", value: schemeDiscount },
-      { label: "Insurance cashback", value: insuranceCashback },
-      { label: "Exchange bonus", value: exchange },
-      { label: "Exchange vehicle price", value: exchangeVehiclePrice },
-      { label: "Loyalty", value: loyalty },
-      { label: "Corporate", value: corporate },
-      { label: "Others (discounts)", value: discountsOthersTotal },
-    ].filter((r) => r.value > 0);
-
-    return { additions: additionsList, discounts: discountsList };
+    return [
+      {
+        title: "On-road build-up (DO)",
+        rows: [
+          ...additionsRows,
+          {
+            label: "On-road vehicle cost (DO)",
+            value: onRoadVehicleCost,
+            intent: "total",
+            strong: true,
+          },
+        ],
+      },
+      {
+        title: "Discounts / deductions (DO)",
+        rows: [
+          ...discountsRows,
+          {
+            label: "Total discount (DO)",
+            value: totalDiscountDO,
+            intent: "discount",
+            strong: true,
+          },
+          {
+            label: "Net on-road (DO)",
+            value: netOnRoadDO,
+            intent: "total",
+            strong: true,
+          },
+        ],
+      },
+      {
+        title: "Net used for payments",
+        rows: [
+          ...(exchangeAddBackForPayment > 0
+            ? [
+                {
+                  label: "Exchange vehicle price added back for payment",
+                  value: exchangeAddBackForPayment,
+                  intent: "addition",
+                },
+              ]
+            : []),
+          {
+            label: "Net on-road used for payment",
+            value: netUsedForPayment,
+            intent: "total",
+            strong: true,
+          },
+        ],
+      },
+      {
+        title: "Case context",
+        rows: [
+          { label: "Customer", value: customerName, raw: true },
+          { label: "DO ref no.", value: safeText(data?.doRefNo) || "—", raw: true },
+          { label: "Loan ref no.", value: safeText(data?.loanRefNo) || "—", raw: true },
+          {
+            label: "Colour",
+            value:
+              safeText(data?.do_colour) ||
+              safeText(data?.do_vehicleColor) ||
+              safeText(data?.vehicleColor) ||
+              "—",
+            raw: true,
+          },
+          { label: "Dealer", value: safeText(data?.dealerName) || "—", raw: true },
+          {
+            label: "Hypothecation bank",
+            value: safeText(data?.hypothecationBank) || "—",
+            raw: true,
+          },
+        ],
+      },
+    ];
   }, [
     exShowroom,
     tcs,
@@ -152,246 +180,33 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
     loyalty,
     corporate,
     discountsOthersTotal,
+    onRoadVehicleCost,
+    totalDiscountDO,
+    netOnRoadDO,
+    exchangeAddBackForPayment,
+    netUsedForPayment,
+    customerName,
+    data?.doRefNo,
+    data?.loanRefNo,
+    data?.do_colour,
+    data?.do_vehicleColor,
+    data?.vehicleColor,
+    data?.dealerName,
+    data?.hypothecationBank,
   ]);
 
   return (
-    <Card
-      style={{
-        borderRadius: 14,
-        border: "1px solid #e5e7eb",
-        background: "#f9fafb",
-        padding: 12,
-      }}
-      bodyStyle={{ padding: 12 }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 8,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: 0.12,
-              color: "#6b7280",
-              marginBottom: 2,
-            }}
-          >
-            Vehicle & DO · Showroom account
-          </div>
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: 13,
-              color: "#111827",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: 260,
-            }}
-          >
-            {titleLine || "Vehicle not set"}
-          </div>
-        </div>
-
-        {data?.loanRefNo && (
-          <div
-            style={{
-              fontSize: 11,
-              padding: "3px 8px",
-              borderRadius: 999,
-              border: "1px solid #e5e7eb",
-              background: "#ffffff",
-              color: "#4b5563",
-              maxWidth: 180,
-              textAlign: "right",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {data.loanRefNo}
-          </div>
-        )}
-      </div>
-
-      {/* Two-column layout: left context, right breakup */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.1fr 1.7fr",
-          gap: 12,
-          marginTop: 8,
-        }}
-      >
-        {/* Left: context */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-          }}
-        >
-          <RowItem label="Customer" value={customerName} />
-          <RowItem label="DO ref no." value={data?.doRefNo} />
-          <RowItem label="Loan ref no." value={data?.loanRefNo} />
-          {data?.do_colour && (
-            <RowItem label="Colour" value={data?.do_colour} />
-          )}
-          {data?.dealerName && (
-            <RowItem label="Dealer" value={data?.dealerName} />
-          )}
-          {data?.hypothecationBank && (
-            <RowItem
-              label="Hypothecation bank"
-              value={data?.hypothecationBank}
-            />
-          )}
-        </div>
-
-        {/* Right: full DO + payment net ladder */}
-        <div
-          style={{
-            borderRadius: 10,
-            border: "1px solid #e5e7eb",
-            background: "#ffffff",
-            padding: 10,
-          }}
-        >
-          {/* Stage 1: build on-road */}
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              marginBottom: 4,
-              color: "#111827",
-            }}
-          >
-            1. Build on-road (DO)
-          </div>
-
-          {additions.length > 0 ? (
-            additions.map((r) => (
-              <LadderRow
-                key={r.label}
-                label={r.label}
-                value={r.value}
-                sign="+"
-              />
-            ))
-          ) : (
-            <LadderRow
-              label="On-road vehicle cost (DO)"
-              value={onRoadVehicleCost}
-              highlight
-            />
-          )}
-
-          {additions.length > 0 && (
-            <>
-              <Divider style={{ margin: "6px 0" }} />
-              <LadderRow
-                label="On-road vehicle cost (DO)"
-                value={onRoadVehicleCost}
-                highlight
-              />
-            </>
-          )}
-
-          {/* Stage 2: discounts / deductions */}
-          <Divider style={{ margin: "8px 0" }} />
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              marginBottom: 4,
-              color: "#111827",
-            }}
-          >
-            2. Discounts / deductions (DO)
-          </div>
-
-          {discounts.length > 0 ? (
-            discounts.map((r) => (
-              <LadderRow
-                key={r.label}
-                label={r.label}
-                value={r.value}
-                sign="-"
-              />
-            ))
-          ) : (
-            <LadderRow
-              label="Total discount (DO)"
-              value={totalDiscountDO}
-              sign="-"
-            />
-          )}
-
-          {discounts.length > 0 && (
-            <>
-              <Divider style={{ margin: "6px 0" }} />
-              <LadderRow
-                label="Total discount (DO)"
-                value={totalDiscountDO}
-                highlight
-              />
-            </>
-          )}
-
-          {/* Net DO line */}
-          <LadderRow
-            label="Net on-road (as per DO)"
-            value={netOnRoadDO}
-            highlight
-          />
-
-          {/* Stage 3: adjust to payment net */}
-          <Divider style={{ margin: "8px 0" }} />
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              marginBottom: 4,
-              color: "#111827",
-            }}
-          >
-            3. Net used for payments
-          </div>
-
-          {exchangeDeltaForPayment > 0 && (
-            <LadderRow
-              label="Exchange vehicle price added back for payment"
-              value={exchangeDeltaForPayment}
-              sign="+"
-              subtle
-            />
-          )}
-
-          <LadderRow
-            label="Net on-road used for payment"
-            value={customerNetOnRoad}
-            highlight
-          />
-
-          <div
-            style={{
-              marginTop: 3,
-              fontSize: 10,
-              color: "#6b7280",
-            }}
-          >
-            This is the figure we reconcile in the showroom payments timeline.
-          </div>
-        </div>
-      </div>
-    </Card>
+    <BreakdownSummaryCard
+      isDarkMode={isDarkMode}
+      eyebrow="Showroom account snapshot"
+      title={titleLine || "Vehicle not set"}
+      subtitle="Vehicle & DO · Showroom account"
+      chipLabel="Showroom"
+      chipTone="blue"
+      sections={summarySections}
+      compact
+      sticky={false}
+    />
   );
 };
 

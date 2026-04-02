@@ -90,6 +90,18 @@ const FieldBox = ({ children }) => (
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
+const sanitizeAmountInput = (value) => {
+  const digits = String(value ?? "").replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return digits.replace(/^0+(?=\d)/, "");
+};
+
+const formatAmountInput = (value) => {
+  const digits = String(value ?? "").replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString("en-IN");
+};
+
 const getIconForRow = (row) => {
   const types = Array.isArray(row.receiptTypes) ? row.receiptTypes : [];
   if (types.includes("Insurance")) return <BankOutlined />;
@@ -614,11 +626,13 @@ const AutocreditsPaymentsEntryTable = ({
                       <FieldBox>
                         <FieldLabel>Receipt amount</FieldLabel>
                         <Input
-                          value={row.receiptAmount}
+                          value={formatAmountInput(row.receiptAmount)}
                           placeholder="Amount"
                           onChange={(e) =>
                             updateRow(row.id, {
-                              receiptAmount: e.target.value,
+                              receiptAmount: sanitizeAmountInput(
+                                e.target.value,
+                              ),
                             })
                           }
                           disabled={readOnly}

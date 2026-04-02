@@ -36,6 +36,32 @@ const asInt = (val) => {
 
 const safeText = (v) => (v === undefined || v === null ? "" : String(v));
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
+const pickDisbursedBankName = (loan = {}) => {
+  const banks = Array.isArray(loan?.approval_banksData)
+    ? loan.approval_banksData
+    : [];
+
+  const disbursedBank = banks.find(
+    (b) =>
+      safeText(b?.status).toLowerCase() === "disbursed" &&
+      safeText(b?.bankName).trim(),
+  );
+  const approvedBank = banks.find(
+    (b) =>
+      safeText(b?.status).toLowerCase() === "approved" &&
+      safeText(b?.bankName).trim(),
+  );
+
+  return safeText(
+    loan?.disburse_bankName ||
+      disbursedBank?.bankName ||
+      loan?.postfile_bankName ||
+      loan?.approval_bankName ||
+      approvedBank?.bankName ||
+      loan?.approvalBankName ||
+      "",
+  ).trim();
+};
 
 const SectionChip = ({ icon, label }) => (
   <div
@@ -216,15 +242,11 @@ const Section5DODetails = ({ loan }) => {
       });
     }
 
-    if (!existing?.do_hypothecation) {
-      const hypBank =
-        loan?.delivery_hypothecationBank ||
-        loan?.hypothecationBank ||
-        loan?.approvalBankName ||
-        loan?.bankName ||
-        "";
+    const hypBank = safeText(pickDisbursedBankName(loan)).trim();
+    const existingHyp = safeText(existing?.do_hypothecation).trim();
+    if (hypBank && hypBank !== existingHyp) {
       form.setFieldsValue({
-        do_hypothecation: safeText(hypBank),
+        do_hypothecation: hypBank,
       });
     }
 

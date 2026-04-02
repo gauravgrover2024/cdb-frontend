@@ -9,7 +9,6 @@ import {
   Select,
   Space,
   Tag,
-  Typography,
 } from "antd";
 import {
   PlusOutlined,
@@ -21,8 +20,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useBankDirectoryOptions } from "../../../../hooks/useBankDirectoryOptions";
-
-const { Text } = Typography;
+import { useTheme } from "../../../../context/ThemeContext";
 
 const asInt = (val) => {
   const n = Number(val);
@@ -63,6 +61,16 @@ const isBlankPlaceholderRow = (r) => {
   );
 };
 
+const isMeaningfulShowroomRow = (r = {}) => {
+  return Boolean(
+    String(r?.paymentType || "").trim() ||
+      String(r?.paymentAmount || "").trim() ||
+      String(r?.paymentMode || "").trim() ||
+      String(r?.paymentMadeBy || "").trim() ||
+      String(r?.remarks || "").trim(),
+  );
+};
+
 const removeAutoRowsByType = (prev, type) =>
   prev.filter((r) => !(r._auto === true && r.paymentType === type));
 
@@ -72,15 +80,21 @@ const SectionChip = ({ label, count, active, onClick }) => (
     onClick={onClick}
     style={{
       borderRadius: 999,
-      padding: "4px 10px",
-      border: active ? "1px solid #3b82f6" : "1px solid #e5e7eb",
-      background: active ? "#eff6ff" : "#ffffff",
+      padding: "5px 11px",
+      border: active
+        ? "1px solid var(--spt-accent-border)"
+        : "1px solid var(--spt-border)",
+      background: active ? "var(--spt-accent-soft)" : "var(--spt-card)",
       fontSize: 11,
-      color: active ? "#1d4ed8" : "#4b5563",
+      color: active ? "var(--spt-accent-text)" : "var(--spt-muted-strong)",
       display: "inline-flex",
       alignItems: "center",
       gap: 6,
       cursor: "pointer",
+      boxShadow: active
+        ? "0 0 0 1px color-mix(in srgb, var(--spt-accent-border) 24%, transparent)"
+        : "none",
+      transition: "all 0.2s ease",
     }}
   >
     <span>{label}</span>
@@ -89,7 +103,9 @@ const SectionChip = ({ label, count, active, onClick }) => (
         fontSize: 10,
         padding: "1px 6px",
         borderRadius: 999,
-        background: active ? "#dbeafe" : "#f3f4f6",
+        background: active
+          ? "var(--spt-accent-soft-2)"
+          : "var(--spt-chip-count-bg)",
       }}
     >
       {count}
@@ -98,6 +114,124 @@ const SectionChip = ({ label, count, active, onClick }) => (
 );
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
+
+const sanitizeAmountInput = (value) => {
+  const digits = String(value ?? "").replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return digits.replace(/^0+(?=\d)/, "");
+};
+
+const formatAmountInput = (value) => {
+  const digits = String(value ?? "").replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString("en-IN");
+};
+
+const PAYMENT_TYPE_THEME = {
+  default: {
+    light: {
+      border: "#94a3b8",
+      soft: "#f1f5f9",
+      text: "#334155",
+      amount: "#0f172a",
+    },
+    dark: {
+      border: "#64748b",
+      soft: "#1e293b",
+      text: "#cbd5e1",
+      amount: "#e2e8f0",
+    },
+  },
+  "Margin Money": {
+    light: {
+      border: "#2563eb",
+      soft: "#dbeafe",
+      text: "#1d4ed8",
+      amount: "#1d4ed8",
+    },
+    dark: {
+      border: "#60a5fa",
+      soft: "#172554",
+      text: "#93c5fd",
+      amount: "#93c5fd",
+    },
+  },
+  Loan: {
+    light: {
+      border: "#0f766e",
+      soft: "#ccfbf1",
+      text: "#0f766e",
+      amount: "#0f766e",
+    },
+    dark: {
+      border: "#2dd4bf",
+      soft: "#0f2d2a",
+      text: "#5eead4",
+      amount: "#5eead4",
+    },
+  },
+  "Exchange Vehicle": {
+    light: {
+      border: "#7c3aed",
+      soft: "#ede9fe",
+      text: "#6d28d9",
+      amount: "#6d28d9",
+    },
+    dark: {
+      border: "#a78bfa",
+      soft: "#2b1f4b",
+      text: "#c4b5fd",
+      amount: "#c4b5fd",
+    },
+  },
+  Insurance: {
+    light: {
+      border: "#0369a1",
+      soft: "#e0f2fe",
+      text: "#0369a1",
+      amount: "#0369a1",
+    },
+    dark: {
+      border: "#38bdf8",
+      soft: "#122b3a",
+      text: "#7dd3fc",
+      amount: "#7dd3fc",
+    },
+  },
+  Commission: {
+    light: {
+      border: "#b45309",
+      soft: "#fef3c7",
+      text: "#b45309",
+      amount: "#b45309",
+    },
+    dark: {
+      border: "#fbbf24",
+      soft: "#3a2b14",
+      text: "#fcd34d",
+      amount: "#fcd34d",
+    },
+  },
+  "Cross Adjustment": {
+    light: {
+      border: "#be185d",
+      soft: "#fce7f3",
+      text: "#be185d",
+      amount: "#be185d",
+    },
+    dark: {
+      border: "#f472b6",
+      soft: "#3b1e33",
+      text: "#f9a8d4",
+      amount: "#f9a8d4",
+    },
+  },
+};
+
+const getPaymentTheme = (paymentType, isDarkMode) => {
+  const typeTheme = PAYMENT_TYPE_THEME[paymentType] || PAYMENT_TYPE_THEME.default;
+  return isDarkMode ? typeTheme.dark : typeTheme.light;
+};
 
 const ShowroomPaymentsEntryNew = ({
   isFinanced = false,
@@ -120,6 +254,7 @@ const ShowroomPaymentsEntryNew = ({
    */
   loadCaseOptions,
 }) => {
+  const { isDarkMode } = useTheme();
   const { options: bankDirectoryOptions } = useBankDirectoryOptions();
   const [rows, setRows] = useState([]);
   const [activeSection, setActiveSection] = useState("ALL");
@@ -132,12 +267,28 @@ const ShowroomPaymentsEntryNew = ({
 
   // ---------- HYDRATE FROM INITIAL ----------
   useEffect(() => {
-    if (didHydrateFromStorage.current) return;
-    if (Array.isArray(initialRows) && initialRows.length > 0) {
+    if (!Array.isArray(initialRows) || initialRows.length === 0) return;
+
+    // First hydration pass.
+    if (!didHydrateFromStorage.current) {
       setRows(initialRows);
       didHydrateFromStorage.current = true;
+      return;
     }
-  }, [initialRows]);
+
+    // Recovery hydration:
+    // if current local rows are only auto/default but parent now has
+    // meaningful backend rows, promote backend rows to UI.
+    const incomingHasManualRows = initialRows.some(
+      (r) => !r?._auto && isMeaningfulShowroomRow(r),
+    );
+    const currentHasManualRows = (rows || []).some(
+      (r) => !r?._auto && isMeaningfulShowroomRow(r),
+    );
+    if (incomingHasManualRows && !currentHasManualRows) {
+      setRows(initialRows);
+    }
+  }, [initialRows, rows]);
 
   // ---------- INITIAL AUTO SETUP ----------
   useEffect(() => {
@@ -218,6 +369,28 @@ const ShowroomPaymentsEntryNew = ({
     hypothecationBank,
   ]);
 
+  // Keep loan rows aligned with resolved disbursement bank/date.
+  // This avoids stale values from old saved snapshots.
+  useEffect(() => {
+    const targetBank = String(hypothecationBank || "").trim();
+    const targetDate = loanDisbursementDate
+      ? dayjs(loanDisbursementDate).toISOString()
+      : null;
+    if (!targetBank && !targetDate) return;
+
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.paymentType !== "Loan") return r;
+        const currentBank = String(r.bankName || "").trim();
+        const currentDate = r.paymentDate ? dayjs(r.paymentDate).toISOString() : null;
+        const nextBank = targetBank || currentBank;
+        const nextDate = targetDate || currentDate;
+        if (currentBank === nextBank && currentDate === nextDate) return r;
+        return { ...r, bankName: nextBank, paymentDate: nextDate };
+      }),
+    );
+  }, [hypothecationBank, loanDisbursementDate]);
+
   // ---------- EXCHANGE AUTO ROW ----------
   useEffect(() => {
     if (isVerified) return;
@@ -256,7 +429,7 @@ const ShowroomPaymentsEntryNew = ({
 
     const insuranceAmt = asInt(insuranceAmount);
     const by = String(insuranceBy || "").toLowerCase();
-    const needsAdjustment = insuranceAmt > 0 && by && by !== "showroom";
+    const needsAdjustment = insuranceAmt > 0 && by.includes("autocredits");
 
     setRows((prev) => {
       const cleanedPrev = prev.filter((r) => r._autoKey !== "AUTO_INSURANCE");
@@ -500,6 +673,13 @@ const ShowroomPaymentsEntryNew = ({
     return rows.filter((r) => r.paymentType === activeSection);
   }, [rows, activeSection]);
 
+  useEffect(() => {
+    if (activeSection === "ALL") return;
+    if ((rows || []).length === 0) return;
+    if ((filteredRows || []).length > 0) return;
+    setActiveSection("ALL");
+  }, [activeSection, rows, filteredRows]);
+
   // ---------- AUTOSUGGEST STATE (per row) ----------
   const [caseOptionsCache, setCaseOptionsCache] = useState({}); // rowId -> options
 
@@ -519,12 +699,30 @@ const ShowroomPaymentsEntryNew = ({
   // ---------- RENDER ----------
   return (
     <Card
+      className="showroom-payments-entry-table"
       style={{
-        borderRadius: 16,
-        border: "1px solid #e5e7eb",
-        background: "#f9fafb",
+        "--spt-border": isDarkMode ? "#2a3342" : "#e2e8f0",
+        "--spt-surface": isDarkMode ? "#0f172a" : "#f8fafc",
+        "--spt-card": isDarkMode ? "#111c31" : "#ffffff",
+        "--spt-text": isDarkMode ? "#e2e8f0" : "#0f172a",
+        "--spt-muted": isDarkMode ? "#94a3b8" : "#64748b",
+        "--spt-muted-strong": isDarkMode ? "#cbd5e1" : "#475569",
+        "--spt-accent-border": isDarkMode ? "#60a5fa" : "#2563eb",
+        "--spt-accent-text": isDarkMode ? "#93c5fd" : "#1d4ed8",
+        "--spt-accent-soft": isDarkMode ? "#172741" : "#eaf2ff",
+        "--spt-accent-soft-2": isDarkMode ? "#1f3253" : "#dbeafe",
+        "--spt-chip-count-bg": isDarkMode ? "#1e293b" : "#f1f5f9",
+        "--spt-dashed-border": isDarkMode ? "#3b4f75" : "#c7d2fe",
+        "--spt-dashed-bg": isDarkMode ? "#162238" : "#f3f4ff",
+        borderRadius: 18,
+        border: "1px solid var(--spt-border)",
+        background:
+          "linear-gradient(180deg, color-mix(in srgb, var(--spt-surface) 86%, transparent), var(--spt-surface))",
+        boxShadow: isDarkMode
+          ? "0 16px 36px rgba(2,6,23,0.35)"
+          : "0 16px 30px rgba(2,132,199,0.08)",
       }}
-      bodyStyle={{ padding: 12 }}
+      bodyStyle={{ padding: 14 }}
     >
       {/* Header */}
       <div
@@ -533,6 +731,10 @@ const ShowroomPaymentsEntryNew = ({
           justifyContent: "space-between",
           gap: 12,
           marginBottom: 8,
+          background: "linear-gradient(135deg, var(--spt-accent-soft), transparent 70%)",
+          border: "1px solid var(--spt-border)",
+          borderRadius: 12,
+          padding: "10px 12px",
         }}
       >
         <div>
@@ -541,7 +743,7 @@ const ShowroomPaymentsEntryNew = ({
               fontSize: 11,
               textTransform: "uppercase",
               letterSpacing: 0.14,
-              color: "#6b7280",
+              color: "var(--spt-muted)",
             }}
           >
             Showroom account
@@ -549,7 +751,7 @@ const ShowroomPaymentsEntryNew = ({
           <div style={{ fontWeight: 700, fontSize: 14, marginTop: 2 }}>
             Payments timeline
           </div>
-          <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+          <div style={{ marginTop: 4, fontSize: 12, color: "var(--spt-muted)" }}>
             {isVerified ? (
               <>Verified ✅ Read-only mode enabled.</>
             ) : (
@@ -561,19 +763,7 @@ const ShowroomPaymentsEntryNew = ({
           </div>
         </div>
 
-        <Space>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Total entered: <b>{money(totalEntered)}</b>
-          </Text>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAddRow}
-            disabled={isVerified}
-          >
-            Add payment entry
-          </Button>
-        </Space>
+        <Space />
       </div>
 
       {/* Section chips */}
@@ -646,11 +836,12 @@ const ShowroomPaymentsEntryNew = ({
         }}
       >
         {filteredRows.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#6b7280" }}>
+          <div style={{ fontSize: 12, color: "var(--spt-muted)" }}>
             No payment rows in this section.
           </div>
         ) : (
           filteredRows.map((row) => {
+            const typeTheme = getPaymentTheme(row.paymentType, isDarkMode);
             const icon =
               row.paymentType === "Loan" ? (
                 <BankOutlined />
@@ -666,8 +857,9 @@ const ShowroomPaymentsEntryNew = ({
                 <div
                   style={{
                     borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#ffffff",
+                    border: "1px solid var(--spt-border)",
+                    borderLeft: `3px solid ${typeTheme.border}`,
+                    background: "var(--spt-card)",
                     padding: 10,
                     display: "flex",
                     justifyContent: "space-between",
@@ -694,11 +886,11 @@ const ShowroomPaymentsEntryNew = ({
                         width: 28,
                         height: 28,
                         borderRadius: 999,
-                        background: "#eff6ff",
+                        background: typeTheme.soft,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "#1d4ed8",
+                        color: typeTheme.text,
                         fontSize: 14,
                       }}
                     >
@@ -716,7 +908,7 @@ const ShowroomPaymentsEntryNew = ({
                         style={{
                           fontSize: 12,
                           fontWeight: 600,
-                          color: "#111827",
+                          color: "var(--spt-text)",
                         }}
                       >
                         {row.paymentType || "Payment entry"}{" "}
@@ -732,7 +924,7 @@ const ShowroomPaymentsEntryNew = ({
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#6b7280",
+                          color: "var(--spt-muted)",
                           display: "flex",
                           gap: 8,
                           flexWrap: "wrap",
@@ -759,6 +951,21 @@ const ShowroomPaymentsEntryNew = ({
                             · {dayjs(row.paymentDate).format("DD MMM YYYY")}
                           </span>
                         )}
+                        {row.paymentType === "Loan" && row.bankName && (
+                          <span
+                            style={{
+                              maxWidth: 360,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              display: "inline-block",
+                              verticalAlign: "bottom",
+                            }}
+                            title={row.bankName}
+                          >
+                            · {row.bankName}
+                          </span>
+                        )}
                       </div>
                       {(row.remarks ||
                         row.crossCaseLabel ||
@@ -766,7 +973,7 @@ const ShowroomPaymentsEntryNew = ({
                         <div
                           style={{
                             fontSize: 11,
-                            color: "#4b5563",
+                            color: "var(--spt-muted-strong)",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -793,15 +1000,29 @@ const ShowroomPaymentsEntryNew = ({
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: "#111827",
+                        color: typeTheme.amount,
                         minWidth: 100,
                         textAlign: "right",
+                        background: isDarkMode
+                          ? "rgba(15, 23, 42, 0.6)"
+                          : "rgba(248, 250, 252, 0.9)",
+                        border: "1px solid var(--spt-border)",
+                        borderRadius: 999,
+                        padding: "3px 10px",
                       }}
                     >
                       {row.paymentAmount ? money(row.paymentAmount) : "—"}
                     </div>
                     {!isVerified && (
                       <Space size="small">
+                        <Button
+                          size="small"
+                          icon={<PlusOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddRow();
+                          }}
+                        />
                         <Button
                           size="small"
                           icon={<EditOutlined />}
@@ -834,8 +1055,8 @@ const ShowroomPaymentsEntryNew = ({
                       marginBottom: 4,
                       padding: 10,
                       borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#f9fafb",
+                      border: "1px solid var(--spt-border)",
+                      background: "var(--spt-surface)",
                     }}
                   >
                     {row.paymentType === "Cross Adjustment" ? (
@@ -846,14 +1067,14 @@ const ShowroomPaymentsEntryNew = ({
                             marginBottom: 10,
                             padding: 10,
                             borderRadius: 10,
-                            border: "1px dashed #c7d2fe",
-                            background: "#f3f4ff",
+                            border: "1px dashed var(--spt-dashed-border)",
+                            background: "var(--spt-dashed-bg)",
                           }}
                         >
                           <div
                             style={{
                               fontSize: 11,
-                              color: "#4b5563",
+                              color: "var(--spt-muted-strong)",
                               marginBottom: 6,
                               fontWeight: 500,
                             }}
@@ -862,17 +1083,17 @@ const ShowroomPaymentsEntryNew = ({
                           </div>
 
                           <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1.4fr 1.8fr 0.8fr",
-                              gap: 10,
-                            }}
-                          >
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                            gap: 10,
+                          }}
+                        >
                             <div>
                               <div
                                 style={{
                                   fontSize: 11,
-                                  color: "#6b7280",
+                                  color: "var(--spt-muted)",
                                   marginBottom: 4,
                                 }}
                               >
@@ -912,7 +1133,7 @@ const ShowroomPaymentsEntryNew = ({
                               <div
                                 style={{
                                   fontSize: 11,
-                                  color: "#6b7280",
+                                  color: "var(--spt-muted)",
                                   marginBottom: 4,
                                 }}
                               >
@@ -961,18 +1182,20 @@ const ShowroomPaymentsEntryNew = ({
                               <div
                                 style={{
                                   fontSize: 11,
-                                  color: "#6b7280",
+                                  color: "var(--spt-muted)",
                                   marginBottom: 4,
                                 }}
                               >
                                 Amount
                               </div>
                               <Input
-                                value={row.paymentAmount}
+                                value={formatAmountInput(row.paymentAmount)}
                                 placeholder="Amount"
                                 onChange={(e) =>
                                   updateRow(row.id, {
-                                    paymentAmount: e.target.value,
+                                    paymentAmount: sanitizeAmountInput(
+                                      e.target.value,
+                                    ),
                                   })
                                 }
                               />
@@ -983,7 +1206,7 @@ const ShowroomPaymentsEntryNew = ({
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1.5fr",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                             gap: 12,
                             marginBottom: 10,
                           }}
@@ -992,7 +1215,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1015,7 +1238,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1045,7 +1268,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1091,7 +1314,7 @@ const ShowroomPaymentsEntryNew = ({
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                             gap: 12,
                             marginBottom: 10,
                           }}
@@ -1100,7 +1323,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1143,7 +1366,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1168,7 +1391,7 @@ const ShowroomPaymentsEntryNew = ({
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                             gap: 12,
                             marginBottom: 10,
                           }}
@@ -1177,7 +1400,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1214,18 +1437,20 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
                               Payment amount
                             </div>
                             <Input
-                              value={row.paymentAmount}
+                              value={formatAmountInput(row.paymentAmount)}
                               placeholder="Amount"
                               onChange={(e) =>
                                 updateRow(row.id, {
-                                  paymentAmount: e.target.value,
+                                  paymentAmount: sanitizeAmountInput(
+                                    e.target.value,
+                                  ),
                                 })
                               }
                             />
@@ -1235,7 +1460,7 @@ const ShowroomPaymentsEntryNew = ({
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                             gap: 12,
                             marginBottom: 10,
                           }}
@@ -1244,7 +1469,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1267,7 +1492,7 @@ const ShowroomPaymentsEntryNew = ({
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#6b7280",
+                                color: "var(--spt-muted)",
                                 marginBottom: 4,
                               }}
                             >
@@ -1275,6 +1500,7 @@ const ShowroomPaymentsEntryNew = ({
                             </div>
                             <AutoComplete
                               value={row.bankName}
+                              style={{ width: "100%" }}
                               options={bankDirectoryOptions}
                               placeholder="Bank"
                               filterOption={(inputValue, option) =>
@@ -1295,7 +1521,7 @@ const ShowroomPaymentsEntryNew = ({
                           <div
                             style={{
                               fontSize: 11,
-                              color: "#6b7280",
+                              color: "var(--spt-muted)",
                               marginBottom: 4,
                             }}
                           >
@@ -1316,7 +1542,7 @@ const ShowroomPaymentsEntryNew = ({
                           <div
                             style={{
                               fontSize: 11,
-                              color: "#6b7280",
+                              color: "var(--spt-muted)",
                               marginBottom: 4,
                             }}
                           >
@@ -1341,6 +1567,37 @@ const ShowroomPaymentsEntryNew = ({
           })
         )}
       </div>
+
+      {!isVerified && (
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px dashed var(--spt-border)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--spt-muted-strong)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ color: "var(--spt-muted)" }}>Total entered:</span>
+            <b>{money(totalEntered)}</b>
+          </div>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAddRow}>
+            Add payment entry
+          </Button>
+        </div>
+      )}
     </Card>
   );
 };

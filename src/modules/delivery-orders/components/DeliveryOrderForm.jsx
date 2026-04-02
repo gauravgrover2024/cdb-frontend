@@ -79,6 +79,24 @@ const hydrateNullableNumberFromDO = (
   }
   return undefined;
 };
+const hydrateFieldFromDO = (
+  source,
+  primaryKeys = [],
+  fallbackKeys = [],
+  transform = (value) => value,
+) => {
+  for (const key of primaryKeys) {
+    if (hasOwn(source, key)) {
+      return transform(source?.[key]);
+    }
+  }
+  for (const key of fallbackKeys) {
+    if (hasOwn(source, key)) {
+      return transform(source?.[key]);
+    }
+  }
+  return undefined;
+};
 const buildLoanContextPrefill = (loan = {}) => ({
   customerName: pickFirstMeaningful(
     loan?.customerName,
@@ -192,6 +210,34 @@ const buildLoanContextPrefill = (loan = {}) => ({
     loan?.showroomPincode,
     loan?.do_dealerPincode,
   ),
+  insuranceBy: pickFirstMeaningful(
+    loan?.do_insuranceBy,
+    loan?.insurance_by,
+    loan?.insuranceBy,
+  ),
+  insuranceCompanyName: pickFirstMeaningful(
+    loan?.do_customer_insuranceCompanyName,
+    loan?.insurance_company_name,
+  ),
+  insurancePolicyNumber: pickFirstMeaningful(
+    loan?.do_customer_insurancePolicyNumber,
+    loan?.insurance_policy_number,
+  ),
+  insurancePremium: asNumberOrEmpty(
+    loan?.do_customer_actualInsurancePremium ?? loan?.insurance_premium,
+  ),
+  insurancePolicyStartDate:
+    loan?.do_customer_insurancePolicyStartDate ||
+    loan?.insurance_policy_start_date ||
+    null,
+  insurancePolicyDurationOD: pickFirstMeaningful(
+    loan?.do_customer_insurancePolicyDurationOD,
+    loan?.insurance_policy_duration_od,
+  ),
+  insurancePolicyEndDateOD:
+    loan?.do_customer_insurancePolicyEndDateOD ||
+    loan?.insurance_policy_end_date_od ||
+    null,
 });
 
 const patchDateFieldsToDayjs = (obj = {}) => {
@@ -549,6 +595,80 @@ const DeliveryOrderForm = () => {
               ["processingFees"],
             );
           })(),
+          do_customer_insuranceBy: (() => {
+            const hydratedValue = hydrateFieldFromDO(
+              patched,
+              ["do_customer_insuranceBy"],
+              ["do_insuranceBy", "insurance_by"],
+              safeText,
+            );
+            return hydratedValue !== undefined
+              ? hydratedValue
+              : safeText(loanPrefill.insuranceBy);
+          })(),
+          do_customer_insuranceCompanyName: (() => {
+            const hydratedValue = hydrateFieldFromDO(
+              patched,
+              ["do_customer_insuranceCompanyName"],
+              ["insurance_company_name"],
+              safeText,
+            );
+            return hydratedValue !== undefined
+              ? hydratedValue
+              : safeText(loanPrefill.insuranceCompanyName);
+          })(),
+          do_customer_insurancePolicyNumber: (() => {
+            const hydratedValue = hydrateFieldFromDO(
+              patched,
+              ["do_customer_insurancePolicyNumber"],
+              ["insurance_policy_number"],
+              safeText,
+            );
+            return hydratedValue !== undefined
+              ? hydratedValue
+              : safeText(loanPrefill.insurancePolicyNumber);
+          })(),
+          do_customer_actualInsurancePremium: (() => {
+            const hydratedValue = hydrateNullableNumberFromDO(
+              patched,
+              ["do_customer_actualInsurancePremium"],
+              ["insurance_premium"],
+            );
+            return hydratedValue !== undefined
+              ? hydratedValue
+              : asNumberOrEmpty(loanPrefill.insurancePremium);
+          })(),
+          do_customer_insurancePolicyStartDate: (() => {
+            const hydratedValue = hydrateFieldFromDO(
+              patched,
+              ["do_customer_insurancePolicyStartDate"],
+              ["insurance_policy_start_date"],
+            );
+            return hydratedValue !== undefined
+              ? hydratedValue
+              : loanPrefill.insurancePolicyStartDate;
+          })(),
+          do_customer_insurancePolicyDurationOD: (() => {
+            const hydratedValue = hydrateFieldFromDO(
+              patched,
+              ["do_customer_insurancePolicyDurationOD"],
+              ["insurance_policy_duration_od"],
+              safeText,
+            );
+            return hydratedValue !== undefined
+              ? hydratedValue
+              : safeText(loanPrefill.insurancePolicyDurationOD);
+          })(),
+          do_customer_insurancePolicyEndDateOD: (() => {
+            const hydratedValue = hydrateFieldFromDO(
+              patched,
+              ["do_customer_insurancePolicyEndDateOD"],
+              ["insurance_policy_end_date_od"],
+            );
+            return hydratedValue !== undefined
+              ? hydratedValue
+              : loanPrefill.insurancePolicyEndDateOD;
+          })(),
         };
 
         form.setFieldsValue({
@@ -587,6 +707,9 @@ const DeliveryOrderForm = () => {
     }
 
     const loanPrefill = buildLoanContextPrefill(loanData || {});
+    const hasExistingDORecord = Boolean(
+      existingDO?._id || existingDO?.loanId || existingDO?.do_loanId,
+    );
     const fieldPatch = {};
 
     [
@@ -649,10 +772,61 @@ const DeliveryOrderForm = () => {
       fieldPatch.do_dealerPincode = loanPrefill.dealerPincode;
     }
 
+    if (!hasExistingDORecord) {
+      if (
+        !hasMeaningfulValue(existing.do_customer_insuranceBy) &&
+        hasMeaningfulValue(loanPrefill.insuranceBy)
+      ) {
+        fieldPatch.do_customer_insuranceBy = loanPrefill.insuranceBy;
+      }
+      if (
+        !hasMeaningfulValue(existing.do_customer_insuranceCompanyName) &&
+        hasMeaningfulValue(loanPrefill.insuranceCompanyName)
+      ) {
+        fieldPatch.do_customer_insuranceCompanyName =
+          loanPrefill.insuranceCompanyName;
+      }
+      if (
+        !hasMeaningfulValue(existing.do_customer_insurancePolicyNumber) &&
+        hasMeaningfulValue(loanPrefill.insurancePolicyNumber)
+      ) {
+        fieldPatch.do_customer_insurancePolicyNumber =
+          loanPrefill.insurancePolicyNumber;
+      }
+      if (
+        isEmpty(existing.do_customer_actualInsurancePremium) &&
+        !isEmpty(loanPrefill.insurancePremium)
+      ) {
+        fieldPatch.do_customer_actualInsurancePremium =
+          loanPrefill.insurancePremium;
+      }
+      if (
+        isEmpty(existing.do_customer_insurancePolicyStartDate) &&
+        loanPrefill.insurancePolicyStartDate
+      ) {
+        fieldPatch.do_customer_insurancePolicyStartDate =
+          loanPrefill.insurancePolicyStartDate;
+      }
+      if (
+        isEmpty(existing.do_customer_insurancePolicyDurationOD) &&
+        hasMeaningfulValue(loanPrefill.insurancePolicyDurationOD)
+      ) {
+        fieldPatch.do_customer_insurancePolicyDurationOD =
+          loanPrefill.insurancePolicyDurationOD;
+      }
+      if (
+        isEmpty(existing.do_customer_insurancePolicyEndDateOD) &&
+        loanPrefill.insurancePolicyEndDateOD
+      ) {
+        fieldPatch.do_customer_insurancePolicyEndDateOD =
+          loanPrefill.insurancePolicyEndDateOD;
+      }
+    }
+
     if (Object.keys(fieldPatch).length) {
       form.setFieldsValue(fieldPatch);
     }
-  }, [form, loanData, routeLoanId]);
+  }, [form, loanData, routeLoanId, existingDO]);
 
   // Autosave DO (Debounced)
   const allValues = Form.useWatch([], form);
@@ -707,6 +881,32 @@ const DeliveryOrderForm = () => {
           do_processingFees: isEmpty(form.getFieldValue("do_processingFees"))
             ? null
             : asNullableNumberField(form.getFieldValue("do_processingFees")),
+          do_customer_exShowroomPrice: isEmpty(
+            form.getFieldValue("do_customer_exShowroomPrice"),
+          )
+            ? null
+            : asNullableNumberField(
+                form.getFieldValue("do_customer_exShowroomPrice"),
+              ),
+          do_customer_insuranceCost: isEmpty(
+            form.getFieldValue("do_customer_insuranceCost"),
+          )
+            ? null
+            : asNullableNumberField(
+                form.getFieldValue("do_customer_insuranceCost"),
+              ),
+          do_customer_roadTax: isEmpty(
+            form.getFieldValue("do_customer_roadTax"),
+          )
+            ? null
+            : asNullableNumberField(form.getFieldValue("do_customer_roadTax")),
+          do_customer_actualInsurancePremium: isEmpty(
+            form.getFieldValue("do_customer_actualInsurancePremium"),
+          )
+            ? null
+            : asNullableNumberField(
+                form.getFieldValue("do_customer_actualInsurancePremium"),
+              ),
           loanId: finalLoanId,
           do_loanId: finalLoanId,
           updatedAt: new Date().toISOString(),
@@ -822,6 +1022,9 @@ const DeliveryOrderForm = () => {
         ),
         do_customer_roadTax: asNullableNumberField(
           form.getFieldValue("do_customer_roadTax"),
+        ),
+        do_customer_actualInsurancePremium: asNullableNumberField(
+          form.getFieldValue("do_customer_actualInsurancePremium"),
         ),
         loanId: finalLoanId,
         do_loanId: finalLoanId,

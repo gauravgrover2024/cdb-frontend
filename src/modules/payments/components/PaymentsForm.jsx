@@ -1,11 +1,13 @@
 // src/modules/payments/components/PaymentForm.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Card, message } from "antd";
-import { useParams } from "react-router-dom";
+import { Button, Card, message, Tag } from "antd";
+import { useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
+import { ArrowLeftOutlined, SaveOutlined } from "@ant-design/icons";
 import { paymentsApi } from "../../../api/payments";
 import { loansApi } from "../../../api/loans";
 import { deliveryOrdersApi } from "../../../api/deliveryOrders";
+import { useTheme } from "../../../context/ThemeContext";
 
 import ShowroomPaymentHeader from "./showroom/ShowroomPaymentHeader";
 import ShowroomVehicleDetailsSection from "./showroom/ShowroomVehicleDetailsSection";
@@ -18,10 +20,58 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
+const hasMeaningfulShowroomRows = (rows = []) =>
+  Array.isArray(rows) &&
+  rows.some((r) => {
+    const amount = asInt(r?.paymentAmount);
+    return Boolean(
+      (!r?._auto &&
+        (String(r?.paymentType || "").trim() ||
+          String(r?.paymentMode || "").trim() ||
+          String(r?.paymentMadeBy || "").trim() ||
+          String(r?.remarks || "").trim())) ||
+        amount > 0,
+    );
+  });
+
+const isProvided = (value) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
 const norm = (s) =>
   String(s || "")
     .trim()
     .toLowerCase();
+
+const pickDisbursedBankName = (loan = {}, doRec = {}) => {
+  const banks = Array.isArray(loan?.approval_banksData)
+    ? loan.approval_banksData
+    : [];
+
+  const disbursedBank = banks.find(
+    (b) =>
+      norm(b?.status) === "disbursed" &&
+      String(b?.bankName || "").trim(),
+  );
+  const approvedBank = banks.find(
+    (b) =>
+      norm(b?.status) === "approved" &&
+      String(b?.bankName || "").trim(),
+  );
+
+  const candidates = [
+    loan?.disburse_bankName,
+    disbursedBank?.bankName,
+    loan?.postfile_bankName,
+    loan?.approval_bankName,
+    approvedBank?.bankName,
+    doRec?.do_hypothecation,
+  ];
+  for (const candidate of candidates) {
+    const text = String(candidate || "").trim();
+    if (text) return text;
+  }
+  return "";
+};
 
 const getShowroomCommissionDate = (rows = []) => {
   if (!Array.isArray(rows)) return null;
@@ -39,18 +89,12 @@ const getShowroomCommissionDate = (rows = []) => {
 
 const getLoanDisbursementDate = (loan = {}) => {
   const candidates = [
-    loan?.latestBusinessDate,
-    loan?.delivery_date,
-    loan?.deliveryDate,
-    loan?.do_date,
-    loan?.doDate,
-    loan?.invoice_date,
-    loan?.invoiceDate,
-    loan?.approval_disbursedDate,
+    loan?.disburse_date,
     loan?.disbursement_date,
     loan?.disbursementDate,
     loan?.disbursedDate,
     loan?.disburseDate,
+    loan?.approval_disbursedDate,
     loan?.postfile_disbursementDate,
   ];
   for (const candidate of candidates) {
@@ -72,7 +116,14 @@ const shouldBlockLegacyAutoCreate = (loan = {}) => {
 // ---- API helpers (Mongo via Vercel API) ----
 const fetchPaymentByLoanId = async (loanId) => {
   const res = await paymentsApi.getByLoanId(loanId);
-  return res.data || null;
+  if (!res) return null;
+  // Support both response shapes:
+  // 1) { success: true, data: <paymentDoc|null> }
+  // 2) direct paymentDoc
+  if (Object.prototype.hasOwnProperty.call(res, "data")) {
+    return res.data || null;
+  }
+  return res;
 };
 
 const savePaymentByLoanId = async (loanId, payload) => {
@@ -91,7 +142,10 @@ const useDebounce = (value, delay = 800) => {
 };
 
 const PaymentForm = () => {
+  const navigate = useNavigate();
   const { loanId } = useParams();
+  const { isDarkMode } = useTheme();
+  const [saving, setSaving] = useState(false);
 
   const [loan, setLoan] = useState(null);
   const [doRec, setDoRec] = useState(null);
@@ -143,10 +197,19 @@ const PaymentForm = () => {
 
   const [hasLoadedLoanContext, setHasLoadedLoanContext] = useState(false);
   const [hasLoadedPayments, setHasLoadedPayments] = useState(false);
+  const [paymentsLoadFailed, setPaymentsLoadFailed] = useState(false);
 
   // Keep latest saved doc in memory (so we don't GET before every autosave)
   const [existingPayment, setExistingPayment] = useState(null);
+  const existingPaymentRef = useRef(null);
+  const suppressAutosaveUntilRef = useRef(0);
   const legacyAutoCreateNoticeShownRef = useRef(false);
+  const showroomRowsRef = useRef(showroomRows);
+  const entryTotalsRef = useRef(entryTotals);
+  const isVerifiedRef = useRef(isVerified);
+  const autocreditsRowsRef = useRef(autocreditsRows);
+  const autocreditsTotalsRef = useRef(autocreditsTotals);
+  const isAutocreditsVerifiedRef = useRef(isAutocreditsVerified);
 
   // Debounced values (prevents saving on every keystroke)
   const debouncedShowroomRows = useDebounce(showroomRows, 800);
@@ -162,6 +225,34 @@ const PaymentForm = () => {
 
   // Avoid toast spam
   const lastSaveAtRef = useRef(0);
+
+  useEffect(() => {
+    existingPaymentRef.current = existingPayment || null;
+  }, [existingPayment]);
+
+  useEffect(() => {
+    showroomRowsRef.current = showroomRows;
+  }, [showroomRows]);
+
+  useEffect(() => {
+    entryTotalsRef.current = entryTotals;
+  }, [entryTotals]);
+
+  useEffect(() => {
+    isVerifiedRef.current = isVerified;
+  }, [isVerified]);
+
+  useEffect(() => {
+    autocreditsRowsRef.current = autocreditsRows;
+  }, [autocreditsRows]);
+
+  useEffect(() => {
+    autocreditsTotalsRef.current = autocreditsTotals;
+  }, [autocreditsTotals]);
+
+  useEffect(() => {
+    isAutocreditsVerifiedRef.current = isAutocreditsVerified;
+  }, [isAutocreditsVerified]);
 
   // Load Loan + DO from API (fallback to sessionStorage if needed)
   useEffect(() => {
@@ -229,36 +320,53 @@ const PaymentForm = () => {
 
       try {
         const found = await fetchPaymentByLoanId(loanId);
+        const paymentDoc =
+          found?.showroomRows ||
+          found?.autocreditsRows ||
+          found?.entryTotals ||
+          found?.autocreditsTotals
+            ? found
+            : found?.data && typeof found.data === "object"
+              ? found.data
+              : null;
 
-        setExistingPayment(found || null);
+        setExistingPayment(paymentDoc || null);
+        existingPaymentRef.current = paymentDoc || null;
+        if (paymentDoc) {
+          // Guard autosave while local state hydrates + debounce catches up
+          suppressAutosaveUntilRef.current = Date.now() + 1800;
+        }
 
         // Showroom
-        if (Array.isArray(found?.showroomRows))
-          setShowroomRows(found.showroomRows);
+        if (Array.isArray(paymentDoc?.showroomRows))
+          setShowroomRows(paymentDoc.showroomRows);
 
-        if (found?.entryTotals) {
-          setEntryTotals((prev) => ({ ...prev, ...found.entryTotals }));
+        if (paymentDoc?.entryTotals) {
+          setEntryTotals((prev) => ({ ...prev, ...paymentDoc.entryTotals }));
         }
 
-        if (found?.isVerified === true) setIsVerified(true);
+        if (paymentDoc?.isVerified === true) setIsVerified(true);
+        if (paymentDoc?.isVerified === false) setIsVerified(false);
 
         // Autocredits
-        if (Array.isArray(found?.autocreditsRows)) {
-          setAutocreditsRows(found.autocreditsRows);
+        if (Array.isArray(paymentDoc?.autocreditsRows)) {
+          setAutocreditsRows(paymentDoc.autocreditsRows);
         }
 
-        if (found?.autocreditsTotals) {
+        if (paymentDoc?.autocreditsTotals) {
           setAutocreditsTotals((prev) => ({
             ...prev,
-            ...found.autocreditsTotals,
+            ...paymentDoc.autocreditsTotals,
           }));
         }
 
-        if (typeof found?.isAutocreditsVerified === "boolean") {
-          setIsAutocreditsVerified(found.isAutocreditsVerified);
+        if (typeof paymentDoc?.isAutocreditsVerified === "boolean") {
+          setIsAutocreditsVerified(paymentDoc.isAutocreditsVerified);
         }
+        setPaymentsLoadFailed(false);
       } catch (err) {
         console.error("Load Payments Error:", err);
+        setPaymentsLoadFailed(true);
       } finally {
         setHasLoadedPayments(true);
       }
@@ -272,11 +380,15 @@ const PaymentForm = () => {
     if (!loanId) return;
     if (!hasLoadedLoanContext) return;
     if (!hasLoadedPayments) return;
+    if (paymentsLoadFailed) return;
+    if (Date.now() < suppressAutosaveUntilRef.current) return;
 
     const autosave = async () => {
       try {
         const hasExistingPaymentDoc = Boolean(
-          existingPayment?._id || existingPayment?.loanId || existingPayment?.id,
+          existingPaymentRef.current?._id ||
+            existingPaymentRef.current?.loanId ||
+            existingPaymentRef.current?.id,
         );
         if (!hasExistingPaymentDoc && !loan) return;
         const blockLegacyAutoCreate =
@@ -291,17 +403,40 @@ const PaymentForm = () => {
           return;
         }
 
-        const existing = existingPayment || null;
+        const existing = existingPaymentRef.current || null;
 
         // ---- Commission replicate logic: showroom -> autocredits ----
-        const showroomCommission = asInt(
-          debouncedEntryTotals?.paymentCommissionReceived || 0,
+        const latestShowroomRows = showroomRowsRef.current || [];
+        const latestEntryTotals = entryTotalsRef.current || {};
+        const latestIsVerified = Boolean(isVerifiedRef.current);
+        const latestAutocreditsRows = autocreditsRowsRef.current || [];
+        const latestAutocreditsTotals = autocreditsTotalsRef.current || {};
+        const latestIsAutocreditsVerified = Boolean(
+          isAutocreditsVerifiedRef.current,
         );
 
-        const commissionDate = getShowroomCommissionDate(debouncedShowroomRows);
+        const existingShowroomRows = Array.isArray(existing?.showroomRows)
+          ? existing.showroomRows
+          : [];
+        const existingHasMeaningfulRows =
+          hasMeaningfulShowroomRows(existingShowroomRows);
+        const latestHasMeaningfulRows =
+          hasMeaningfulShowroomRows(latestShowroomRows);
+        // Critical safety:
+        // never overwrite a meaningful saved sheet with a temporary default snapshot
+        // (common during initial mount before full hydration).
+        if (existingHasMeaningfulRows && !latestHasMeaningfulRows) {
+          return;
+        }
 
-        const baseAutocreditsRows = Array.isArray(debouncedAutocreditsRows)
-          ? debouncedAutocreditsRows
+        const showroomCommission = asInt(
+          latestEntryTotals?.paymentCommissionReceived || 0,
+        );
+
+        const commissionDate = getShowroomCommissionDate(latestShowroomRows);
+
+        const baseAutocreditsRows = Array.isArray(latestAutocreditsRows)
+          ? latestAutocreditsRows
           : [];
 
         const hasCommissionRow = baseAutocreditsRows.some(
@@ -335,21 +470,23 @@ const PaymentForm = () => {
           updatedAt: new Date().toISOString(),
 
           // Showroom
-          showroomRows: debouncedShowroomRows,
-          entryTotals: debouncedEntryTotals,
-          isVerified: debouncedIsVerified,
+          showroomRows: latestShowroomRows,
+          entryTotals: latestEntryTotals,
+          isVerified: latestIsVerified,
 
           // Autocredits
           autocreditsRows: autocreditsRowsToSave,
-          autocreditsTotals: debouncedAutocreditsTotals,
-          isAutocreditsVerified: debouncedIsAutocreditsVerified,
+          autocreditsTotals: latestAutocreditsTotals,
+          isAutocreditsVerified: latestIsAutocreditsVerified,
         };
 
         const saveRes = await savePaymentByLoanId(loanId, payload);
         if (saveRes?.skipped || saveRes?.data === null) return;
 
         // update cache for next autosave
-        setExistingPayment(payload);
+        const latest = saveRes?.data || payload;
+        setExistingPayment(latest);
+        existingPaymentRef.current = latest;
 
         // optional toast every 5 sec max
         const now = Date.now();
@@ -369,8 +506,8 @@ const PaymentForm = () => {
     loan,
     hasLoadedPayments,
     hasLoadedLoanContext,
+    paymentsLoadFailed,
     doRec,
-    existingPayment,
     debouncedShowroomRows,
     debouncedEntryTotals,
     debouncedIsVerified,
@@ -379,12 +516,120 @@ const PaymentForm = () => {
     debouncedIsAutocreditsVerified,
   ]);
 
+  const buildPaymentPayload = ({
+    rowsValue,
+    totalsValue,
+    verifiedValue,
+    autocreditsRowsValue,
+    autocreditsTotalsValue,
+    autocreditsVerifiedValue,
+  }) => {
+    const existing = existingPaymentRef.current || {};
+    const showroomCommission = asInt(totalsValue?.paymentCommissionReceived || 0);
+    const commissionDate = getShowroomCommissionDate(rowsValue);
+    const baseAutocreditsRows = Array.isArray(autocreditsRowsValue)
+      ? autocreditsRowsValue
+      : [];
+    const hasCommissionRow = baseAutocreditsRows.some(
+      (r) => Array.isArray(r.receiptTypes) && r.receiptTypes.includes("Commission"),
+    );
+    const autocreditsRowsToSave =
+      !hasCommissionRow && showroomCommission > 0
+        ? [
+            ...baseAutocreditsRows,
+            {
+              id: `auto-commission-${Date.now()}`,
+              receiptTypes: ["Commission"],
+              receiptMode: "Online Transfer/UPI",
+              receiptAmount: String(showroomCommission),
+              receiptDate: commissionDate || null,
+              transactionDetails: "",
+              bankName: "",
+              remarks: "Commission received from dealer",
+            },
+          ]
+        : baseAutocreditsRows;
+
+    return {
+      ...existing,
+      loanId,
+      do_loanId: doRec?.do_loanId || loanId,
+      updatedAt: new Date().toISOString(),
+      showroomRows: rowsValue,
+      entryTotals: totalsValue,
+      isVerified: verifiedValue,
+      autocreditsRows: autocreditsRowsToSave,
+      autocreditsTotals: autocreditsTotalsValue,
+      isAutocreditsVerified: autocreditsVerifiedValue,
+    };
+  };
+
+  const persistPaymentNow = async ({ exitAfterSave = false } = {}) => {
+    if (!loanId) return;
+    setSaving(true);
+    try {
+      const hasExistingPaymentDoc = Boolean(
+        existingPaymentRef.current?._id ||
+          existingPaymentRef.current?.loanId ||
+          existingPaymentRef.current?.id,
+      );
+      if (!hasExistingPaymentDoc && !loan) {
+        message.warning("Loan context missing. Please refresh.");
+        return;
+      }
+      const blockLegacyAutoCreate =
+        !hasExistingPaymentDoc && shouldBlockLegacyAutoCreate(loan || {});
+      if (blockLegacyAutoCreate) {
+        message.info(
+          "Payment creation is paused for cases delivered/disbursed before 1 Feb 2026.",
+        );
+        return;
+      }
+
+      const payload = buildPaymentPayload({
+        rowsValue: showroomRows,
+        totalsValue: entryTotals,
+        verifiedValue: isVerified,
+        autocreditsRowsValue: autocreditsRows,
+        autocreditsTotalsValue: autocreditsTotals,
+        autocreditsVerifiedValue: isAutocreditsVerified,
+      });
+      const saveRes = await savePaymentByLoanId(loanId, payload);
+      if (!saveRes?.skipped && saveRes?.data !== null) {
+        const latest = saveRes?.data || payload;
+        setExistingPayment(latest);
+        existingPaymentRef.current = latest;
+      }
+      // Guard against a delayed autosave run that may still carry old debounced snapshot
+      suppressAutosaveUntilRef.current = Date.now() + 2000;
+      message.success("Payment saved");
+      if (exitAfterSave) navigate("/payments");
+    } catch (err) {
+      console.error("Manual save payment error:", err);
+      message.error("Unable to save payment");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscardAndExit = () => {
+    navigate("/payments");
+  };
+
   const showroomData = useMemo(() => {
     const financed = norm(loan?.isFinanced) === "yes";
 
     const customerName = loan?.customerName || doRec?.customerName || "—";
 
-    const insuranceAmount = asInt(doRec?.do_insuranceCost || 0);
+    const showroomInsuranceAmount = asInt(doRec?.do_insuranceCost || 0);
+    const hasCustomerInsurance = isProvided(doRec?.do_customer_insuranceCost);
+    const customerInsuranceAmount = asInt(doRec?.do_customer_insuranceCost || 0);
+    const actualInsurancePremium = asInt(
+      doRec?.do_customer_actualInsurancePremium || 0,
+    );
+    const insuranceAmountForReceivable = hasCustomerInsurance
+      ? customerInsuranceAmount
+      : showroomInsuranceAmount;
 
     const doRefNo =
       doRec?.do_refNo || doRec?.doRefNo || doRec?.refNo || doRec?.ref_no || "—";
@@ -396,10 +641,6 @@ const PaymentForm = () => {
     const dealerContactPerson = doRec?.do_dealerContactPerson || "";
     const dealerContactNumber = doRec?.do_dealerMobile || "";
     const dealerAddress = doRec?.do_dealerAddress || "";
-
-    const netOnRoadVehicleCost = asInt(
-      doRec?.do_customer_netOnRoadVehicleCost || 0,
-    );
 
     const onRoadVehicleCost = asInt(doRec?.do_onRoadVehicleCost || 0);
     // Point 3: use the corrected effective discount stored by Section5 (after exchange add-back)
@@ -413,42 +654,84 @@ const PaymentForm = () => {
     const make = doRec?.do_vehicleMake || loan?.vehicleMake || "—";
     const model = doRec?.do_vehicleModel || loan?.vehicleModel || "—";
     const variant = doRec?.do_vehicleVariant || loan?.vehicleVariant || "—";
+    const color =
+      doRec?.do_colour ||
+      doRec?.do_vehicleColor ||
+      doRec?.vehicleColor ||
+      loan?.vehicleColor ||
+      loan?.colour ||
+      loan?.color ||
+      "";
 
-    const hypothecationBank =
-      doRec?.do_hypothecation ||
-      loan?.approval_bankName ||
-      loan?.postfile_bankName ||
-      "—";
+    const hypothecationBank = pickDisbursedBankName(loan, doRec) || "—";
 
     const exchangeValue = asInt(doRec?.do_exchangeVehiclePrice || 0);
     const purchaseDate = doRec?.do_exchangePurchaseDate || null;
     const exchangePurchasedBy = String(doRec?.do_exchangePurchasedBy || "");
 
-    const loanPaymentPrefill = asInt(doRec?.do_financeDeduction || 0);
-    const loanDisbursementDate =
-      loan?.approval_disbursedDate || loan?.updatedAt || null;
-
-    const doMarginMoney = asInt(doRec?.do_marginMoneyPaid || 0);
-
     const customerNetOnRoadVehicleCost = asInt(
       doRec?.do_customer_netOnRoadVehicleCost || 0,
     );
+    const loanPaymentPrefill = asInt(doRec?.do_financeDeduction || 0);
+    const disbursementDateObj = getLoanDisbursementDate(loan);
+    const loanDisbursementDate = disbursementDateObj
+      ? disbursementDateObj.toISOString()
+      : null;
+
+    const doMarginMoney = asInt(doRec?.do_marginMoneyPaid || 0);
+
     const showroomNetOnRoadVehicleCost = asInt(
       doRec?.do_netOnRoadVehicleCost || 0,
     );
-
-    const autocreditsMargin =
-      customerNetOnRoadVehicleCost - showroomNetOnRoadVehicleCost;
+    // Critical fix: showroom payment net should follow showroom DO account plus
+    // showroom exchange add-back value (not customer-net fallback differences).
+    const netOnRoadVehicleCost =
+      showroomNetOnRoadVehicleCost > 0
+        ? showroomNetOnRoadVehicleCost + exchangeValue
+        : customerNetOnRoadVehicleCost;
 
     const autocreditsExchangeDeduction =
       norm(exchangePurchasedBy) === "autocredits" ? exchangeValue : 0;
 
-    const insuranceBy = String(doRec?.do_insuranceBy || "");
+    const insuranceBy = String(
+      doRec?.do_customer_insuranceBy || doRec?.do_insuranceBy || "",
+    );
     const insuranceByNorm = norm(insuranceBy);
     const isAutocreditsInsurance = insuranceByNorm.includes("autocredits");
 
+    const customerNetWithoutInsurance =
+      customerNetOnRoadVehicleCost - customerInsuranceAmount;
+    const marginPartFromOnRoadDelta = isAutocreditsInsurance
+      ? customerNetWithoutInsurance - showroomNetOnRoadVehicleCost
+      : customerNetOnRoadVehicleCost - showroomNetOnRoadVehicleCost;
+    const marginPartFromInsuranceSpread = isAutocreditsInsurance
+      ? customerInsuranceAmount - actualInsurancePremium
+      : 0;
+    const autocreditsMargin =
+      marginPartFromOnRoadDelta + marginPartFromInsuranceSpread;
+    const autocreditsMarginBreakup = {
+      mode: isAutocreditsInsurance ? "autocredits_insurance" : "standard",
+      insuranceBy,
+      showroomNetOnRoadVehicleCost,
+      customerNetOnRoadVehicleCost,
+      customerInsuranceAmount,
+      actualInsurancePremium,
+      customerNetWithoutInsurance,
+      marginPartFromOnRoadDelta,
+      marginPartFromInsuranceSpread,
+      autocreditsMargin,
+    };
+
+    // Rules:
+    // 1) Showroom adjustment entry uses SHOWROOM insurance only (no customer fallback)
+    //    and only when insurance is by Autocredits.
+    // 2) Autocredits receivable uses customer insurance first, else showroom insurance,
+    //    and only when insurance is by Autocredits.
+    const showroomInsuranceForAdjustment = isAutocreditsInsurance
+      ? showroomInsuranceAmount
+      : 0;
     const autocreditsInsuranceReceivable = isAutocreditsInsurance
-      ? insuranceAmount
+      ? insuranceAmountForReceivable
       : 0;
 
     // Detailed DO breakup fields (for payment side summary)
@@ -481,7 +764,7 @@ const PaymentForm = () => {
       dealerContactNumber,
       dealerAddress,
 
-      insuranceAmount,
+      insuranceAmount: showroomInsuranceForAdjustment,
       insuranceBy,
 
       make,
@@ -510,14 +793,18 @@ const PaymentForm = () => {
       do_exchangeVariant: doRec?.do_exchangeVariant || "",
       do_exchangeYear: doRec?.do_exchangeYear || "",
       do_exchangeRegdNumber: doRec?.do_exchangeRegdNumber || "",
+      do_colour: color,
+      do_vehicleColor: color,
 
       customerNetOnRoadVehicleCost,
       showroomNetOnRoadVehicleCost,
+      do_customer_actualInsurancePremium: actualInsurancePremium,
 
       autocreditsExchangeDeduction,
       autocreditsInsuranceReceivable,
 
       autocreditsMargin,
+      autocreditsMarginBreakup,
 
       // Detailed DO breakup fields
       do_onRoadVehicleCost: onRoadVehicleCost,
@@ -527,7 +814,7 @@ const PaymentForm = () => {
       do_exShowroomPrice: exShowroomPrice,
       do_tcs: tcs,
       do_epc: epc,
-      do_insuranceCost: insuranceAmount,
+      do_insuranceCost: showroomInsuranceAmount,
       do_roadTax: roadTax,
       do_accessoriesAmount: accessoriesAmount,
       do_fastag: fastag,
@@ -547,75 +834,188 @@ const PaymentForm = () => {
   }, [loan, doRec, loanId, entryTotals]);
 
   return (
-    <div style={{ padding: 20 }}>
-      <Card style={{ borderRadius: 14 }}>
-        {/* SHOWROOM */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>
-            SECTION — Payment Details (Showroom Account)
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 350px",
-              gap: 16,
-              alignItems: "start",
-            }}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: isDarkMode
+          ? "linear-gradient(180deg, #090b10 0%, #111111 24%, #161616 100%)"
+          : "linear-gradient(180deg, #edf5ff 0%, #f8fafc 30%, #ffffff 100%)",
+        color: isDarkMode ? "#f5f5f5" : "#111827",
+        padding: "0 16px 32px",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 18,
+            gap: 12,
+            position: "sticky",
+            top: 64,
+            zIndex: 80,
+            color: isDarkMode ? "#f5f5f5" : "#111827",
+            padding: "10px 14px",
+            borderRadius: 20,
+            border: `1px solid ${isDarkMode ? "#252525" : "#dce8f6"}`,
+            background: isDarkMode
+              ? "rgba(20,20,20,0.82)"
+              : "rgba(255,255,255,0.78)",
+            backdropFilter: "blur(18px)",
+            boxShadow: isDarkMode
+              ? "0 18px 40px rgba(0,0,0,0.28)"
+              : "0 18px 40px rgba(59,130,246,0.08)",
+          }}
+        >
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate("/payments")}
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <ShowroomVehicleDetailsSection data={showroomData} />
+            Back
+          </Button>
 
-              <ShowroomPaymentsEntryTable
-                isFinanced={showroomData?.isFinanced}
-                loanPaymentPrefill={showroomData?.loanPaymentPrefill || 0}
-                loanDisbursementDate={showroomData?.loanDisbursementDate}
-                hypothecationBank={showroomData?.hypothecationBank || ""}
-                exchangeValue={showroomData?.exchangeValue || 0}
-                purchaseDate={showroomData?.purchaseDate || null}
-                exchangePurchasedBy={showroomData?.exchangePurchasedBy || ""}
-                insuranceAmount={showroomData?.insuranceAmount || 0}
-                insuranceBy={showroomData?.insuranceBy || ""}
-                onTotalsChange={(t) => setEntryTotals(t)}
-                onRowsChange={(r) => setShowroomRows(r)}
-                initialRows={showroomRows}
-                isVerified={isVerified}
-              />
-            </div>
-
-            <div style={{ position: "sticky", top: 130, alignSelf: "start" }}>
-              <ShowroomPaymentHeader
-                data={showroomData}
-                entryTotals={entryTotals}
-                isVerified={isVerified}
-                crossAdjustmentNet={crossAdjustmentNet}
-                crossAdjustmentRows={crossAdjustmentRows}
-                onVerify={() => {
-                  setIsVerified(true);
-                  message.success("Verified ✅ File is now Read-only");
-                }}
-              />
-            </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Button danger onClick={handleDiscardAndExit}>
+              Discard & Exit
+            </Button>
+            <Button
+              icon={<SaveOutlined />}
+              loading={saving}
+              onClick={() => persistPaymentNow({ exitAfterSave: true })}
+            >
+              Save & Exit
+            </Button>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={saving}
+              onClick={() => persistPaymentNow()}
+            >
+              Save
+            </Button>
           </div>
         </div>
 
-        {/* AUTOCREDITS */}
-        <div style={{ marginTop: 26 }}>
-          <AutocreditsPaymentSection
-            loanId={loanId}
-            doLoanId={doRec?.do_loanId || loanId}
-            showroomData={showroomData}
-            showroomTotals={entryTotals}
-            hasLoadedPayments={hasLoadedPayments}
-            autocreditsRows={autocreditsRows}
-            setAutocreditsRows={setAutocreditsRows}
-            autocreditsTotals={autocreditsTotals}
-            setAutocreditsTotals={setAutocreditsTotals}
-            isAutocreditsVerified={isAutocreditsVerified}
-            setIsAutocreditsVerified={setIsAutocreditsVerified}
-          />
-        </div>
-      </Card>
+        <Card
+          style={{
+            borderRadius: 28,
+            marginBottom: 18,
+            overflow: "hidden",
+            border: `1px solid ${isDarkMode ? "#2a2f39" : "#dbe7f4"}`,
+            background: isDarkMode
+              ? "linear-gradient(135deg, rgba(20,24,32,0.98) 0%, rgba(17,17,17,0.98) 100%)"
+              : "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(244,249,255,0.98) 100%)",
+            boxShadow: isDarkMode
+              ? "0 28px 60px rgba(0,0,0,0.35)"
+              : "0 28px 60px rgba(37,99,235,0.10)",
+          }}
+          bodyStyle={{ padding: 0 }}
+        >
+          <div style={{ padding: 20 }}>
+            <Tag color="cyan" style={{ marginBottom: 8 }}>
+              PAYMENT WORKSPACE
+            </Tag>
+            <div style={{ fontSize: 34, fontWeight: 900, lineHeight: 1.08 }}>
+              Payments Workspace
+            </div>
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 15,
+                color: isDarkMode ? "#cbd5e1" : "#64748b",
+              }}
+            >
+              Review showroom and autocredits ledgers in one place before settlement.
+            </div>
+            <div
+              style={{
+                marginTop: 14,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              <Tag color="blue">Loan ID: {loanId || "—"}</Tag>
+              <Tag color="purple">DO Ref: {showroomData?.doRefNo || "—"}</Tag>
+              <Tag color={existingPayment ? "green" : "orange"}>
+                {existingPayment ? "Existing Payment" : "New Payment"}
+              </Tag>
+            </div>
+          </div>
+        </Card>
+
+        <Card style={{ borderRadius: 14 }}>
+          {/* SHOWROOM */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>
+              SECTION — Payment Details (Showroom Account)
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 350px",
+                gap: 16,
+                alignItems: "start",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <ShowroomVehicleDetailsSection data={showroomData} />
+
+                <ShowroomPaymentsEntryTable
+                  key={`showroom-entry-${loanId || "new"}`}
+                  isFinanced={showroomData?.isFinanced}
+                  loanPaymentPrefill={showroomData?.loanPaymentPrefill || 0}
+                  loanDisbursementDate={showroomData?.loanDisbursementDate}
+                  hypothecationBank={showroomData?.hypothecationBank || ""}
+                  exchangeValue={showroomData?.exchangeValue || 0}
+                  purchaseDate={showroomData?.purchaseDate || null}
+                  exchangePurchasedBy={showroomData?.exchangePurchasedBy || ""}
+                  insuranceAmount={showroomData?.insuranceAmount || 0}
+                  insuranceBy={showroomData?.insuranceBy || ""}
+                  onTotalsChange={(t) => setEntryTotals(t)}
+                  onRowsChange={(r) => setShowroomRows(r)}
+                  initialRows={showroomRows}
+                  isVerified={isVerified}
+                />
+              </div>
+
+              <div style={{ position: "sticky", top: 130, alignSelf: "start" }}>
+                <ShowroomPaymentHeader
+                  data={showroomData}
+                  entryTotals={entryTotals}
+                  isVerified={isVerified}
+                  crossAdjustmentNet={crossAdjustmentNet}
+                  crossAdjustmentRows={crossAdjustmentRows}
+                  onVerify={() => {
+                    setIsVerified(true);
+                    message.success("Verified ✅ File is now Read-only");
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* AUTOCREDITS */}
+          <div style={{ marginTop: 26 }}>
+            <AutocreditsPaymentSection
+              loanId={loanId}
+              doLoanId={doRec?.do_loanId || loanId}
+              showroomData={showroomData}
+              showroomTotals={entryTotals}
+              hasLoadedPayments={hasLoadedPayments}
+              autocreditsRows={autocreditsRows}
+              setAutocreditsRows={setAutocreditsRows}
+              autocreditsTotals={autocreditsTotals}
+              setAutocreditsTotals={setAutocreditsTotals}
+              isAutocreditsVerified={isAutocreditsVerified}
+              setIsAutocreditsVerified={setIsAutocreditsVerified}
+            />
+          </div>
+        </Card>
+      </div>
     </div>
   );
 };
