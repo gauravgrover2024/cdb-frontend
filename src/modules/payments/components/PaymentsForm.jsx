@@ -987,6 +987,7 @@ const PaymentForm = () => {
 
                 <ShowroomPaymentsEntryTable
                   key={`showroom-entry-${loanId || "new"}`}
+                  hasLoadedPayments={hasLoadedPayments}
                   isFinanced={showroomData?.isFinanced}
                   allowAutoLoanEntry={Boolean(showroomData?.hasDOForAutoLoan)}
                   loanPaymentPrefill={showroomData?.loanPaymentPrefill || 0}

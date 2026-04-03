@@ -112,6 +112,7 @@ const AutocreditsPaymentSection = ({
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <AutocreditsPaymentsEntryTable
+            hasLoadedPayments={hasLoadedPayments}
             insuranceReceivable={insuranceRecv}
             exchangeReceivable={exchangeAdj}
             marginReceivable={marginReceivable}

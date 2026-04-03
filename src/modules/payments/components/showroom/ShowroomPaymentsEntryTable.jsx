@@ -247,6 +247,7 @@ const ShowroomPaymentsEntryNew = ({
   onTotalsChange,
   onRowsChange,
   initialRows = [],
+  hasLoadedPayments = false,
   isVerified = false,
   /**
    * Optional async loader for other cases used by Cross Adjustment.
@@ -268,6 +269,7 @@ const ShowroomPaymentsEntryNew = ({
 
   // ---------- HYDRATE FROM INITIAL ----------
   useEffect(() => {
+    if (!hasLoadedPayments) return;
     if (!Array.isArray(initialRows) || initialRows.length === 0) return;
 
     // First hydration pass.
@@ -289,10 +291,11 @@ const ShowroomPaymentsEntryNew = ({
     if (incomingHasManualRows && !currentHasManualRows) {
       setRows(initialRows);
     }
-  }, [initialRows, rows]);
+  }, [initialRows, rows, hasLoadedPayments]);
 
   // ---------- INITIAL AUTO SETUP ----------
   useEffect(() => {
+    if (!hasLoadedPayments) return;
     if (isVerified) return;
     if (didHydrateFromStorage.current) return;
 
@@ -324,6 +327,7 @@ const ShowroomPaymentsEntryNew = ({
       return [emptyRow()];
     });
   }, [
+    hasLoadedPayments,
     isVerified,
     allowAutoLoanEntry,
     isFinanced,
@@ -464,8 +468,9 @@ const ShowroomPaymentsEntryNew = ({
 
   // ---------- PUSH ROWS UP ----------
   useEffect(() => {
+    if (!hasLoadedPayments) return;
     if (typeof onRowsChange === "function") onRowsChange(rows);
-  }, [rows, onRowsChange]);
+  }, [rows, onRowsChange, hasLoadedPayments]);
 
   // ---------- ACTIONS ----------
   const handleDuplicateRow = (rowId) => {

@@ -161,6 +161,7 @@ const AutocreditsPaymentsEntryTable = ({
   onTotalsChange,
   onRowsChange,
   initialRows = [],
+  hasLoadedPayments = false,
   readOnly = false,
 }) => {
   const { options: bankDirectoryOptions } = useBankDirectoryOptions();
@@ -171,6 +172,7 @@ const AutocreditsPaymentsEntryTable = ({
   const didHydrate = useRef(false);
 
   useEffect(() => {
+    if (!hasLoadedPayments) return;
     if (didHydrate.current) return;
     if (Array.isArray(initialRows) && initialRows.length > 0) {
       const cleaned = initialRows.filter(isMeaningfulAutocreditsRow);
@@ -180,13 +182,25 @@ const AutocreditsPaymentsEntryTable = ({
     }
     setRows([]);
     didHydrate.current = true;
-  }, [initialRows]);
+  }, [initialRows, hasLoadedPayments]);
 
   useEffect(() => {
+    if (!hasLoadedPayments) return;
+    if (!didHydrate.current) return;
+    if (!Array.isArray(initialRows) || initialRows.length === 0) return;
+    const cleaned = initialRows.filter(isMeaningfulAutocreditsRow);
+    const currentHasMeaningful = (rows || []).some(isMeaningfulAutocreditsRow);
+    if (cleaned.length > 0 && !currentHasMeaningful) {
+      setRows(cleaned);
+    }
+  }, [initialRows, rows, hasLoadedPayments]);
+
+  useEffect(() => {
+    if (!hasLoadedPayments) return;
     if (typeof onRowsChange === "function") {
       onRowsChange((rows || []).filter(isMeaningfulAutocreditsRow));
     }
-  }, [rows, onRowsChange]);
+  }, [rows, onRowsChange, hasLoadedPayments]);
 
   const updateRow = (rowId, patch) => {
     if (readOnly) return;
