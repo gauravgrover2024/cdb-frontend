@@ -59,6 +59,9 @@ const AutocreditsPaymentSection = ({
   const insuranceAdjustment = asInt(
     autocreditsTotals?.insuranceAdjustmentTotal || 0,
   );
+  const receivableFromShowroom = asInt(
+    showroomData?.autocreditsReceivableFromShowroom || 0,
+  );
 
   // Net margin receivable component = margin + showroomAutoPaid - exchangeAdj
   // (insurance receivable is handled separately)
@@ -70,7 +73,8 @@ const AutocreditsPaymentSection = ({
       showroomAutoPaid +
       insuranceRecv -
       exchangeAdj -
-      insuranceAdjustment;
+      insuranceAdjustment -
+      receivableFromShowroom;
 
     const receiptTotal = asInt(autocreditsTotals?.receiptAmountTotal || 0);
 
@@ -81,6 +85,7 @@ const AutocreditsPaymentSection = ({
     insuranceRecv,
     exchangeAdj,
     insuranceAdjustment,
+    receivableFromShowroom,
     autocreditsTotals,
   ]);
 

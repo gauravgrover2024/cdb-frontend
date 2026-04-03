@@ -41,8 +41,8 @@ const hasMeaningfulShowroomRows = (rows = []) =>
 
 const isMeaningfulAutocreditsRow = (row = {}) => {
   if (!row || typeof row !== "object") return false;
-  if (row?._auto) return true;
   const amount = asInt(row?.receiptAmount || 0);
+  if (row?._auto && amount <= 0) return false;
   return Boolean(
     amount > 0 ||
       (Array.isArray(row?.receiptTypes) && row.receiptTypes.length > 0) ||
@@ -244,17 +244,6 @@ const savePaymentByLoanId = async (loanId, payload) => {
   return await paymentsApi.update(loanId, payload);
 };
 
-const useDebounce = (value, delay = 800) => {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-
-  return debounced;
-};
-
 const PaymentForm = () => {
   const navigate = useNavigate();
   const { loanId } = useParams();
@@ -313,61 +302,14 @@ const PaymentForm = () => {
   const [hasLoadedPayments, setHasLoadedPayments] = useState(false);
   const [paymentsLoadFailed, setPaymentsLoadFailed] = useState(false);
 
-  // Keep latest saved doc in memory (so we don't GET before every autosave)
+  // Keep latest saved doc in memory for stable manual saves
   const [existingPayment, setExistingPayment] = useState(null);
   const existingPaymentRef = useRef(null);
-  const suppressAutosaveUntilRef = useRef(0);
-  const legacyAutoCreateNoticeShownRef = useRef(false);
-  const showroomRowsRef = useRef(showroomRows);
-  const entryTotalsRef = useRef(entryTotals);
-  const isVerifiedRef = useRef(isVerified);
-  const autocreditsRowsRef = useRef(autocreditsRows);
-  const autocreditsTotalsRef = useRef(autocreditsTotals);
-  const isAutocreditsVerifiedRef = useRef(isAutocreditsVerified);
-
-  // Debounced values (prevents saving on every keystroke)
-  const debouncedShowroomRows = useDebounce(showroomRows, 800);
-  const debouncedEntryTotals = useDebounce(entryTotals, 800);
-  const debouncedIsVerified = useDebounce(isVerified, 800);
-
-  const debouncedAutocreditsRows = useDebounce(autocreditsRows, 800);
-  const debouncedAutocreditsTotals = useDebounce(autocreditsTotals, 800);
-  const debouncedIsAutocreditsVerified = useDebounce(
-    isAutocreditsVerified,
-    800,
-  );
-
-  // Avoid toast spam
-  const lastSaveAtRef = useRef(0);
   const commissionReceivableSyncSignatureRef = useRef(null);
 
   useEffect(() => {
     existingPaymentRef.current = existingPayment || null;
   }, [existingPayment]);
-
-  useEffect(() => {
-    showroomRowsRef.current = showroomRows;
-  }, [showroomRows]);
-
-  useEffect(() => {
-    entryTotalsRef.current = entryTotals;
-  }, [entryTotals]);
-
-  useEffect(() => {
-    isVerifiedRef.current = isVerified;
-  }, [isVerified]);
-
-  useEffect(() => {
-    autocreditsRowsRef.current = autocreditsRows;
-  }, [autocreditsRows]);
-
-  useEffect(() => {
-    autocreditsTotalsRef.current = autocreditsTotals;
-  }, [autocreditsTotals]);
-
-  useEffect(() => {
-    isAutocreditsVerifiedRef.current = isAutocreditsVerified;
-  }, [isAutocreditsVerified]);
 
   const syncNegativeBalanceCommissionReceivable = useCallback(
     async ({ totalsValue, crossAdjustmentNetValue, force = false }) => {
@@ -501,15 +443,8 @@ const PaymentForm = () => {
 
     const load = async () => {
       if (!loan) {
-        setExistingPayment(null);
-        setHasLoadedPayments(true);
-        return;
-      }
-
-      if (shouldBlockLegacyAutoCreate(loan || {})) {
-        setExistingPayment(null);
-        setHasLoadedPayments(true);
-        return;
+        // Loan context can fail to load intermittently;
+        // still attempt to hydrate payment by loanId.
       }
 
       try {
@@ -526,10 +461,6 @@ const PaymentForm = () => {
 
         setExistingPayment(paymentDoc || null);
         existingPaymentRef.current = paymentDoc || null;
-        if (paymentDoc) {
-          // Guard autosave while local state hydrates + debounce catches up
-          suppressAutosaveUntilRef.current = Date.now() + 1800;
-        }
 
         // Showroom
         if (Array.isArray(paymentDoc?.showroomRows))
@@ -568,139 +499,6 @@ const PaymentForm = () => {
 
     load();
   }, [loanId, hasLoadedLoanContext, loan]);
-
-  // Autosave (FULL DOC) via API (Debounced + Single Document)
-  useEffect(() => {
-    if (!loanId) return;
-    if (!hasLoadedLoanContext) return;
-    if (!hasLoadedPayments) return;
-    if (paymentsLoadFailed) return;
-    if (Date.now() < suppressAutosaveUntilRef.current) return;
-
-    const autosave = async () => {
-      try {
-        const hasExistingPaymentDoc = Boolean(
-          existingPaymentRef.current?._id ||
-            existingPaymentRef.current?.loanId ||
-            existingPaymentRef.current?.id,
-        );
-        if (!hasExistingPaymentDoc && !loan) return;
-        const blockLegacyAutoCreate =
-          !hasExistingPaymentDoc && shouldBlockLegacyAutoCreate(loan || {});
-        if (blockLegacyAutoCreate) {
-          if (!legacyAutoCreateNoticeShownRef.current) {
-            legacyAutoCreateNoticeShownRef.current = true;
-            message.info(
-              "Auto payment creation is paused for cases delivered/disbursed before 1 Feb 2026.",
-            );
-          }
-          return;
-        }
-
-        const existing = existingPaymentRef.current || null;
-
-        // ---- Commission replicate logic: showroom -> autocredits ----
-        const latestShowroomRows = showroomRowsRef.current || [];
-        const latestEntryTotals = entryTotalsRef.current || {};
-        const latestIsVerified = Boolean(isVerifiedRef.current);
-        const latestAutocreditsRows = autocreditsRowsRef.current || [];
-        const latestAutocreditsTotals = autocreditsTotalsRef.current || {};
-        const latestIsAutocreditsVerified = Boolean(
-          isAutocreditsVerifiedRef.current,
-        );
-
-        const existingShowroomRows = Array.isArray(existing?.showroomRows)
-          ? existing.showroomRows
-          : [];
-        const existingHasMeaningfulRows =
-          hasMeaningfulShowroomRows(existingShowroomRows);
-        const latestHasMeaningfulRows =
-          hasMeaningfulShowroomRows(latestShowroomRows);
-        // Critical safety:
-        // never overwrite a meaningful saved sheet with a temporary default snapshot
-        // (common during initial mount before full hydration).
-        if (existingHasMeaningfulRows && !latestHasMeaningfulRows) {
-          return;
-        }
-
-        const showroomCommission = asInt(
-          latestEntryTotals?.paymentCommissionReceived || 0,
-        );
-
-        const commissionDate = getShowroomCommissionDate(latestShowroomRows);
-
-        const autocreditsRowsToSave = syncShowroomCommissionIntoAutocreditsRows({
-          rows: sanitizeAutocreditsRows(latestAutocreditsRows),
-          showroomCommission,
-          commissionDate,
-        });
-
-        // ---- Build full Mongo document payload ----
-        const payload = {
-          ...(existing || {}),
-          loanId,
-          do_loanId: doRec?.do_loanId || loanId,
-          updatedAt: new Date().toISOString(),
-
-          // Showroom
-          showroomRows: latestShowroomRows,
-          entryTotals: latestEntryTotals,
-          isVerified: latestIsVerified,
-
-          // Autocredits
-          autocreditsRows: autocreditsRowsToSave,
-          autocreditsTotals: latestAutocreditsTotals,
-          isAutocreditsVerified: latestIsAutocreditsVerified,
-        };
-
-        const saveRes = await savePaymentByLoanId(loanId, payload);
-        if (saveRes?.skipped || saveRes?.data === null) return;
-
-        // update cache for next autosave
-        const latest = saveRes?.data || payload;
-        setExistingPayment(latest);
-        existingPaymentRef.current = latest;
-
-        const latestCrossAdjustmentNet = (latestShowroomRows || [])
-          .filter((row) => row?.paymentType === "Cross Adjustment")
-          .reduce((sum, row) => {
-            const amount = asInt(row?.paymentAmount || 0);
-            if (!amount) return sum;
-            return sum + (row?.adjustmentDirection === "incoming" ? amount : -amount);
-          }, 0);
-        await syncNegativeBalanceCommissionReceivable({
-          totalsValue: latestEntryTotals,
-          crossAdjustmentNetValue: latestCrossAdjustmentNet,
-        });
-
-        // optional toast every 5 sec max
-        const now = Date.now();
-        if (now - lastSaveAtRef.current > 5000) {
-          lastSaveAtRef.current = now;
-          // message.success("Auto-saved ✅"); // uncomment if you want
-        }
-      } catch (err) {
-        console.error("Autosave Payments Error:", err);
-        // keep silent to avoid spam
-      }
-    };
-
-    autosave();
-  }, [
-    loanId,
-    loan,
-    hasLoadedPayments,
-    hasLoadedLoanContext,
-    paymentsLoadFailed,
-    doRec,
-    debouncedShowroomRows,
-    debouncedEntryTotals,
-    debouncedIsVerified,
-    debouncedAutocreditsRows,
-    debouncedAutocreditsTotals,
-    debouncedIsAutocreditsVerified,
-    syncNegativeBalanceCommissionReceivable,
-  ]);
 
   const buildPaymentPayload = ({
     rowsValue,
@@ -778,8 +576,6 @@ const PaymentForm = () => {
       } catch (syncErr) {
         console.error("Commission receivable sync failed:", syncErr);
       }
-      // Guard against a delayed autosave run that may still carry old debounced snapshot
-      suppressAutosaveUntilRef.current = Date.now() + 2000;
       message.success("Payment saved");
       if (exitAfterSave) navigate("/payments");
     } catch (err) {
@@ -876,6 +672,27 @@ const PaymentForm = () => {
       showroomNetOnRoadVehicleCost > 0
         ? showroomNetOnRoadVehicleCost + exchangeValue
         : customerNetOnRoadVehicleCost;
+    const insuranceAdjustmentFromLedger = asInt(
+      entryTotals?.paymentAdjustmentInsuranceApplied || 0,
+    );
+    const exchangeAdjustmentFromLedger = asInt(
+      entryTotals?.paymentAdjustmentExchangeApplied || 0,
+    );
+    const totalPaidToShowroom =
+      asInt(entryTotals?.paymentAmountLoan || 0) +
+      asInt(entryTotals?.paymentAmountAutocredits || 0) +
+      asInt(entryTotals?.paymentAmountCustomer || 0);
+    const netPayableToShowroomForBalance =
+      Math.max(
+        0,
+        netOnRoadVehicleCost -
+          insuranceAdjustmentFromLedger -
+          exchangeAdjustmentFromLedger,
+      ) + asInt(crossAdjustmentNet || 0);
+    const receivableFromShowroom = Math.max(
+      0,
+      totalPaidToShowroom - netPayableToShowroomForBalance,
+    );
 
     const autocreditsExchangeDeduction =
       norm(exchangePurchasedBy) === "autocredits" ? exchangeValue : 0;
@@ -1001,6 +818,8 @@ const PaymentForm = () => {
       autocreditsExchangeDeduction,
       autocreditsInsuranceReceivable,
       autocreditsInsurancePremiumReceivable: autocreditsInsuranceReceivable,
+      autocreditsReceivableFromShowroom: receivableFromShowroom,
+      crossAdjustmentNet: asInt(crossAdjustmentNet || 0),
 
       autocreditsMargin,
       autocreditsMarginBreakup,
@@ -1033,7 +852,7 @@ const PaymentForm = () => {
       do_discounts_others: discountsOthers,
       do_discounts_othersTotal: discountsOthersTotal,
     };
-  }, [loan, doRec, loanId, entryTotals]);
+  }, [loan, doRec, loanId, entryTotals, crossAdjustmentNet]);
 
   return (
     <div

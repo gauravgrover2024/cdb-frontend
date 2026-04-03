@@ -158,13 +158,17 @@ const AutocreditsPaymentHeader = ({
     const insuranceAdjustment = asInt(
       autocreditsTotals?.insuranceAdjustmentTotal || 0,
     );
+    const receivableFromShowroom = asInt(
+      data?.autocreditsReceivableFromShowroom || 0,
+    );
 
     const netReceivable =
       autocreditsMargin +
       showroomAutoPaid +
       insuranceReceivable -
       exchangeAdjustment -
-      insuranceAdjustment;
+      insuranceAdjustment -
+      receivableFromShowroom;
     const receiptTotal = asInt(autocreditsTotals?.receiptAmountTotal || 0);
     const closingBalance = netReceivable - receiptTotal;
 
@@ -174,6 +178,7 @@ const AutocreditsPaymentHeader = ({
       insuranceReceivable,
       exchangeAdjustment,
       insuranceAdjustment,
+      receivableFromShowroom,
       netReceivable,
       receiptTotal,
       closingBalance,
@@ -366,6 +371,11 @@ const AutocreditsPaymentHeader = ({
         <LedgerRow
           label="Less: insurance adjustment (customer-paid)"
           value={summary.insuranceAdjustment}
+          isDarkMode={isDarkMode}
+        />
+        <LedgerRow
+          label="Less: receivable from showroom (negative balance)"
+          value={summary.receivableFromShowroom}
           isDarkMode={isDarkMode}
         />
         <LedgerRow
