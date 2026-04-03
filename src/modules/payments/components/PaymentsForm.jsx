@@ -39,8 +39,24 @@ const hasMeaningfulShowroomRows = (rows = []) =>
     );
   });
 
-const isProvided = (value) =>
-  value !== undefined && value !== null && String(value).trim() !== "";
+const isMeaningfulAutocreditsRow = (row = {}) => {
+  if (!row || typeof row !== "object") return false;
+  if (row?._auto) return true;
+  const amount = asInt(row?.receiptAmount || 0);
+  return Boolean(
+    amount > 0 ||
+      (Array.isArray(row?.receiptTypes) && row.receiptTypes.length > 0) ||
+      String(row?.insurancePaymentMadeBy || "").trim() ||
+      String(row?.receiptMode || "").trim() ||
+      row?.receiptDate ||
+      String(row?.transactionDetails || "").trim() ||
+      String(row?.bankName || "").trim() ||
+      String(row?.remarks || "").trim(),
+  );
+};
+
+const sanitizeAutocreditsRows = (rows = []) =>
+  (Array.isArray(rows) ? rows : []).filter(isMeaningfulAutocreditsRow);
 
 const norm = (s) =>
   String(s || "")
@@ -112,12 +128,57 @@ const getLoanDisbursementDate = (loan = {}) => {
 
 const LEGACY_CUTOFF = dayjs("2026-02-01T00:00:00.000Z");
 const PAYMENTS_AUTO_COMMISSION_META = "payments_negative_balance_commission_auto";
+const AUTO_AC_COMMISSION_KEY = "auto_showroom_commission_adjustment";
 
 const buildAutoCommissionPayoutId = (loanId) =>
   `PR-COMM-${String(loanId || "")
     .trim()
     .replace(/[^A-Za-z0-9]/g, "")
     .toUpperCase()}`;
+
+const syncShowroomCommissionIntoAutocreditsRows = ({
+  rows = [],
+  showroomCommission = 0,
+  commissionDate = null,
+}) => {
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  const existingAutoIdx = sourceRows.findIndex(
+    (row) =>
+      String(row?._autoKey || "") === AUTO_AC_COMMISSION_KEY ||
+      (row?._auto === true &&
+        Array.isArray(row?.receiptTypes) &&
+        row.receiptTypes.includes("Commission") &&
+        norm(row?.remarks || "").includes("commission")),
+  );
+
+  if (showroomCommission <= 0) {
+    if (existingAutoIdx < 0) return sourceRows;
+    return sourceRows.filter((_, idx) => idx !== existingAutoIdx);
+  }
+
+  const base = existingAutoIdx >= 0 ? sourceRows[existingAutoIdx] || {} : {};
+  const autoRow = {
+    ...base,
+    id: base?.id || `auto-commission-${Date.now()}`,
+    receiptTypes: ["Commission"],
+    receiptMode: "Adjustment",
+    receiptAmount: String(asInt(showroomCommission)),
+    receiptDate: commissionDate || base?.receiptDate || null,
+    transactionDetails: "",
+    bankName: "",
+    remarks: "Auto-adjustment from showroom commission entry",
+    insurancePaymentMadeBy: "",
+    _auto: true,
+    _autoKey: AUTO_AC_COMMISSION_KEY,
+  };
+
+  if (existingAutoIdx >= 0) {
+    const next = [...sourceRows];
+    next[existingAutoIdx] = autoRow;
+    return next;
+  }
+  return [...sourceRows, autoRow];
+};
 
 const firstValidIsoDate = (...values) => {
   for (const value of values) {
@@ -483,7 +544,7 @@ const PaymentForm = () => {
 
         // Autocredits
         if (Array.isArray(paymentDoc?.autocreditsRows)) {
-          setAutocreditsRows(paymentDoc.autocreditsRows);
+          setAutocreditsRows(sanitizeAutocreditsRows(paymentDoc.autocreditsRows));
         }
 
         if (paymentDoc?.autocreditsTotals) {
@@ -568,32 +629,11 @@ const PaymentForm = () => {
 
         const commissionDate = getShowroomCommissionDate(latestShowroomRows);
 
-        const baseAutocreditsRows = Array.isArray(latestAutocreditsRows)
-          ? latestAutocreditsRows
-          : [];
-
-        const hasCommissionRow = baseAutocreditsRows.some(
-          (r) =>
-            Array.isArray(r.receiptTypes) &&
-            r.receiptTypes.includes("Commission"),
-        );
-
-        const autocreditsRowsToSave =
-          !hasCommissionRow && showroomCommission > 0
-            ? [
-                ...baseAutocreditsRows,
-                {
-                  id: `auto-commission-${Date.now()}`,
-                  receiptTypes: ["Commission"],
-                  receiptMode: "Online Transfer/UPI",
-                  receiptAmount: String(showroomCommission),
-                  receiptDate: commissionDate || null,
-                  transactionDetails: "",
-                  bankName: "",
-                  remarks: "Commission received from dealer",
-                },
-              ]
-            : baseAutocreditsRows;
+        const autocreditsRowsToSave = syncShowroomCommissionIntoAutocreditsRows({
+          rows: sanitizeAutocreditsRows(latestAutocreditsRows),
+          showroomCommission,
+          commissionDate,
+        });
 
         // ---- Build full Mongo document payload ----
         const payload = {
@@ -673,28 +713,11 @@ const PaymentForm = () => {
     const existing = existingPaymentRef.current || {};
     const showroomCommission = asInt(totalsValue?.paymentCommissionReceived || 0);
     const commissionDate = getShowroomCommissionDate(rowsValue);
-    const baseAutocreditsRows = Array.isArray(autocreditsRowsValue)
-      ? autocreditsRowsValue
-      : [];
-    const hasCommissionRow = baseAutocreditsRows.some(
-      (r) => Array.isArray(r.receiptTypes) && r.receiptTypes.includes("Commission"),
-    );
-    const autocreditsRowsToSave =
-      !hasCommissionRow && showroomCommission > 0
-        ? [
-            ...baseAutocreditsRows,
-            {
-              id: `auto-commission-${Date.now()}`,
-              receiptTypes: ["Commission"],
-              receiptMode: "Online Transfer/UPI",
-              receiptAmount: String(showroomCommission),
-              receiptDate: commissionDate || null,
-              transactionDetails: "",
-              bankName: "",
-              remarks: "Commission received from dealer",
-            },
-          ]
-        : baseAutocreditsRows;
+    const autocreditsRowsToSave = syncShowroomCommissionIntoAutocreditsRows({
+      rows: sanitizeAutocreditsRows(autocreditsRowsValue),
+      showroomCommission,
+      commissionDate,
+    });
 
     return {
       ...existing,
@@ -777,14 +800,10 @@ const PaymentForm = () => {
     const customerName = loan?.customerName || doRec?.customerName || "—";
 
     const showroomInsuranceAmount = asInt(doRec?.do_insuranceCost || 0);
-    const hasCustomerInsurance = isProvided(doRec?.do_customer_insuranceCost);
     const customerInsuranceAmount = asInt(doRec?.do_customer_insuranceCost || 0);
     const actualInsurancePremium = asInt(
       doRec?.do_customer_actualInsurancePremium || 0,
     );
-    const insuranceAmountForReceivable = hasCustomerInsurance
-      ? customerInsuranceAmount
-      : showroomInsuranceAmount;
 
     const doRefNo =
       doRec?.do_refNo || doRec?.doRefNo || doRec?.refNo || doRec?.ref_no || "—";
@@ -893,13 +912,13 @@ const PaymentForm = () => {
     // Rules:
     // 1) Showroom adjustment entry uses SHOWROOM insurance only (no customer fallback)
     //    and only when insurance is by Autocredits.
-    // 2) Autocredits receivable uses customer insurance first, else showroom insurance,
+    // 2) Autocredits receivable uses actual insurance premium only,
     //    and only when insurance is by Autocredits.
     const showroomInsuranceForAdjustment = isAutocreditsInsurance
       ? showroomInsuranceAmount
       : 0;
     const autocreditsInsuranceReceivable = isAutocreditsInsurance
-      ? insuranceAmountForReceivable
+      ? actualInsurancePremium
       : 0;
 
     // Detailed DO breakup fields (for payment side summary)
@@ -981,6 +1000,7 @@ const PaymentForm = () => {
 
       autocreditsExchangeDeduction,
       autocreditsInsuranceReceivable,
+      autocreditsInsurancePremiumReceivable: autocreditsInsuranceReceivable,
 
       autocreditsMargin,
       autocreditsMarginBreakup,

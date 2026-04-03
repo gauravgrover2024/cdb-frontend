@@ -7,7 +7,7 @@ import {
   DatePicker,
   Select,
   Space,
-  Typography,
+  Tag,
 } from "antd";
 import {
   PlusOutlined,
@@ -15,11 +15,11 @@ import {
   UserOutlined,
   BankOutlined,
   SwapOutlined,
+  CopyOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useBankDirectoryOptions } from "../../../../hooks/useBankDirectoryOptions";
-
-const { Text } = Typography;
+import { useTheme } from "../../../../context/ThemeContext";
 
 const asInt = (val) => {
   const n = Number(val);
@@ -27,66 +27,10 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
-const emptyRow = () => ({
-  id: `${Date.now()}-${Math.random()}`,
-  receiptTypes: [],
-  receiptMode: "",
-  receiptAmount: "",
-  receiptDate: null,
-  transactionDetails: "",
-  bankName: "",
-  remarks: "",
-});
-
-const SectionChip = ({ label, count, active, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    style={{
-      borderRadius: 999,
-      padding: "4px 10px",
-      border: active ? "1px solid #3b82f6" : "1px solid #e5e7eb",
-      background: active ? "#eff6ff" : "#ffffff",
-      fontSize: 11,
-      color: active ? "#1d4ed8" : "#4b5563",
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      cursor: "pointer",
-    }}
-  >
-    <span>{label}</span>
-    <span
-      style={{
-        fontSize: 10,
-        padding: "1px 6px",
-        borderRadius: 999,
-        background: active ? "#dbeafe" : "#f3f4f6",
-      }}
-    >
-      {count}
-    </span>
-  </button>
-);
-
-const FieldLabel = ({ children }) => (
-  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
-    {children}
-  </div>
-);
-
-const FieldBox = ({ children }) => (
-  <div
-    style={{
-      border: "1px solid #f0f0f0",
-      borderRadius: 12,
-      padding: 10,
-      background: "#fff",
-    }}
-  >
-    {children}
-  </div>
-);
+const norm = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
 
@@ -102,6 +46,80 @@ const formatAmountInput = (value) => {
   return Number(digits).toLocaleString("en-IN");
 };
 
+const emptyRow = () => ({
+  id: `${Date.now()}-${Math.random()}`,
+  receiptTypes: [],
+  insurancePaymentMadeBy: "",
+  receiptMode: "",
+  receiptAmount: "",
+  receiptDate: null,
+  transactionDetails: "",
+  bankName: "",
+  remarks: "",
+  _auto: false,
+  _autoKey: null,
+});
+
+const isMeaningfulAutocreditsRow = (row = {}) => {
+  if (!row || typeof row !== "object") return false;
+  if (row?._auto) return true;
+  const amount = asInt(row?.receiptAmount || 0);
+  return Boolean(
+    amount > 0 ||
+      (Array.isArray(row?.receiptTypes) && row.receiptTypes.length > 0) ||
+      String(row?.insurancePaymentMadeBy || "").trim() ||
+      String(row?.receiptMode || "").trim() ||
+      row?.receiptDate ||
+      String(row?.transactionDetails || "").trim() ||
+      String(row?.bankName || "").trim() ||
+      String(row?.remarks || "").trim(),
+  );
+};
+
+const isInsuranceCustomerAdjustment = (row = {}) => {
+  const types = Array.isArray(row?.receiptTypes) ? row.receiptTypes : [];
+  return types.includes("Insurance") && norm(row?.insurancePaymentMadeBy) === "customer";
+};
+
+const SectionChip = ({ label, count, active, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      borderRadius: 999,
+      padding: "5px 11px",
+      border: active
+        ? "1px solid var(--apt-accent-border)"
+        : "1px solid var(--apt-border)",
+      background: active ? "var(--apt-accent-soft)" : "var(--apt-card)",
+      fontSize: 11,
+      color: active ? "var(--apt-accent-text)" : "var(--apt-muted-strong)",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      cursor: "pointer",
+      boxShadow: active
+        ? "0 0 0 1px color-mix(in srgb, var(--apt-accent-border) 24%, transparent)"
+        : "none",
+      transition: "all 0.2s ease",
+    }}
+  >
+    <span>{label}</span>
+    <span
+      style={{
+        fontSize: 10,
+        padding: "1px 6px",
+        borderRadius: 999,
+        background: active
+          ? "var(--apt-accent-soft-2)"
+          : "var(--apt-chip-count-bg)",
+      }}
+    >
+      {count}
+    </span>
+  </button>
+);
+
 const getIconForRow = (row) => {
   const types = Array.isArray(row.receiptTypes) ? row.receiptTypes : [];
   if (types.includes("Insurance")) return <BankOutlined />;
@@ -109,9 +127,36 @@ const getIconForRow = (row) => {
   return <UserOutlined />;
 };
 
+const getRowTheme = (row, isDarkMode) => {
+  const types = Array.isArray(row?.receiptTypes) ? row.receiptTypes : [];
+  if (types.includes("Commission")) {
+    return isDarkMode
+      ? { border: "#fbbf24", soft: "#3a2b14", text: "#fcd34d", amount: "#fcd34d" }
+      : { border: "#b45309", soft: "#fef3c7", text: "#b45309", amount: "#b45309" };
+  }
+  if (isInsuranceCustomerAdjustment(row)) {
+    return isDarkMode
+      ? { border: "#f97316", soft: "#3f2a14", text: "#fdba74", amount: "#fdba74" }
+      : { border: "#ea580c", soft: "#fff7ed", text: "#c2410c", amount: "#c2410c" };
+  }
+  if (types.includes("Insurance")) {
+    return isDarkMode
+      ? { border: "#38bdf8", soft: "#122b3a", text: "#7dd3fc", amount: "#7dd3fc" }
+      : { border: "#0369a1", soft: "#e0f2fe", text: "#0369a1", amount: "#0369a1" };
+  }
+  if (types.includes("Exchange Vehicle")) {
+    return isDarkMode
+      ? { border: "#a78bfa", soft: "#2b1f4b", text: "#c4b5fd", amount: "#c4b5fd" }
+      : { border: "#6d28d9", soft: "#ede9fe", text: "#6d28d9", amount: "#6d28d9" };
+  }
+  return isDarkMode
+    ? { border: "#60a5fa", soft: "#172554", text: "#93c5fd", amount: "#93c5fd" }
+    : { border: "#1d4ed8", soft: "#dbeafe", text: "#1d4ed8", amount: "#1d4ed8" };
+};
+
 const AutocreditsPaymentsEntryTable = ({
   insuranceReceivable = 0,
-  exchangeReceivable = 0, // reserved
+  exchangeReceivable = 0,
   marginReceivable = 0,
   onTotalsChange,
   onRowsChange,
@@ -119,51 +164,70 @@ const AutocreditsPaymentsEntryTable = ({
   readOnly = false,
 }) => {
   const { options: bankDirectoryOptions } = useBankDirectoryOptions();
+  const { isDarkMode } = useTheme();
   const [rows, setRows] = useState([]);
   const [activeSection, setActiveSection] = useState("ALL");
   const [editingRowId, setEditingRowId] = useState(null);
   const didHydrate = useRef(false);
 
-  // hydrate
   useEffect(() => {
     if (didHydrate.current) return;
     if (Array.isArray(initialRows) && initialRows.length > 0) {
-      setRows(initialRows);
+      const cleaned = initialRows.filter(isMeaningfulAutocreditsRow);
+      setRows(cleaned);
       didHydrate.current = true;
       return;
     }
+    setRows([]);
+    didHydrate.current = true;
   }, [initialRows]);
 
-  // init
   useEffect(() => {
-    if (didHydrate.current) return;
-    setRows([emptyRow()]);
-  }, []);
-
-  // push rows up
-  useEffect(() => {
-    if (typeof onRowsChange === "function") onRowsChange(rows);
+    if (typeof onRowsChange === "function") {
+      onRowsChange((rows || []).filter(isMeaningfulAutocreditsRow));
+    }
   }, [rows, onRowsChange]);
 
-  const handleAddRow = () => {
+  const updateRow = (rowId, patch) => {
     if (readOnly) return;
-    const r = emptyRow();
-    setRows((p) => [...p, r]);
-    setEditingRowId(r.id);
+    setRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, ...patch } : row)));
   };
 
   const handleDeleteRow = (rowId) => {
     if (readOnly) return;
-    setRows((p) => (p.length <= 1 ? p : p.filter((r) => r.id !== rowId)));
+    setRows((prev) => {
+      const next = prev.filter((row) => row.id !== rowId);
+      return next;
+    });
     setEditingRowId((prev) => (prev === rowId ? null : prev));
   };
 
-  const updateRow = (rowId, patch) => {
+  const handleAddRow = () => {
     if (readOnly) return;
-    setRows((p) => p.map((r) => (r.id === rowId ? { ...r, ...patch } : r)));
+    const newRow = emptyRow();
+    setRows((prev) => [...prev, newRow]);
+    setEditingRowId(newRow.id);
   };
 
-  // allocation logic
+  const handleDuplicateRow = (rowId) => {
+    if (readOnly) return;
+    setRows((prev) => {
+      const idx = prev.findIndex((row) => row.id === rowId);
+      if (idx < 0) return prev;
+      const source = prev[idx];
+      const clone = {
+        ...source,
+        id: `${Date.now()}-${Math.random()}`,
+        _auto: false,
+        _autoKey: null,
+      };
+      const next = [...prev];
+      next.splice(idx + 1, 0, clone);
+      setEditingRowId(clone.id);
+      return next;
+    });
+  };
+
   const totals = useMemo(() => {
     const breakup = {
       Insurance: 0,
@@ -172,81 +236,77 @@ const AutocreditsPaymentsEntryTable = ({
       Commission: 0,
     };
 
-    let receiptAmountTotal = 0;
-
     const insuranceTarget = asInt(insuranceReceivable);
     const marginTarget = asInt(marginReceivable);
 
-    rows.forEach((r) => {
-      const amt = asInt(r.receiptAmount);
-      if (!amt) return;
+    let receiptAmountTotal = 0;
+    let insuranceAdjustmentTotal = 0;
 
-      const selected = Array.isArray(r.receiptTypes) ? r.receiptTypes : [];
-      const isAdjustment = r.receiptMode === "Adjustment";
+    (rows || []).forEach((row) => {
+      const amount = asInt(row?.receiptAmount || 0);
+      if (!amount) return;
+      const types = Array.isArray(row?.receiptTypes) ? row.receiptTypes : [];
+      const customerInsuranceAdjustment = isInsuranceCustomerAdjustment(row);
 
-      if (!isAdjustment) {
-        receiptAmountTotal += amt;
+      if (customerInsuranceAdjustment) {
+        insuranceAdjustmentTotal += amount;
+        return;
       }
 
-      if (!selected.length) return;
+      receiptAmountTotal += amount;
+      if (!types.length) return;
 
-      let remaining = amt;
+      let remaining = amount;
 
-      if (selected.length === 1 && selected.includes("Commission")) {
+      if (types.length === 1 && types.includes("Commission")) {
         breakup.Commission += remaining;
         return;
       }
 
-      if (selected.includes("Insurance") && insuranceTarget > 0) {
-        const alreadyAllocIns = breakup.Insurance;
-        const remainingInsTarget = Math.max(
-          0,
-          insuranceTarget - alreadyAllocIns,
-        );
-        if (remainingInsTarget > 0 && remaining > 0) {
-          const insAlloc = Math.min(remaining, remainingInsTarget);
-          breakup.Insurance += insAlloc;
-          remaining -= insAlloc;
-        }
+      if (types.includes("Insurance")) {
+        const onlyInsurance = types.length === 1;
+        const current = asInt(breakup.Insurance);
+        const cap =
+          onlyInsurance || insuranceTarget <= 0
+            ? remaining
+            : Math.max(0, insuranceTarget - current);
+        const insuranceAlloc = Math.min(remaining, cap || remaining);
+        breakup.Insurance += insuranceAlloc;
+        remaining -= insuranceAlloc;
       }
 
-      if (remaining > 0 && selected.includes("Margin Money")) {
-        const alreadyAllocMargin = breakup["Margin Money"];
-        const remainingMarginTarget = Math.max(
-          0,
-          marginTarget - alreadyAllocMargin,
-        );
-        const marginAlloc =
-          remainingMarginTarget > 0
-            ? Math.min(remaining, remainingMarginTarget)
-            : remaining;
-
+      if (remaining > 0 && types.includes("Margin Money")) {
+        const current = asInt(breakup["Margin Money"]);
+        const cap = marginTarget > 0 ? Math.max(0, marginTarget - current) : remaining;
+        const marginAlloc = Math.min(remaining, cap || remaining);
         breakup["Margin Money"] += marginAlloc;
         remaining -= marginAlloc;
       }
 
-      if (remaining > 0 && selected.includes("Commission")) {
-        breakup.Commission += remaining;
+      if (remaining > 0 && types.includes("Exchange Vehicle")) {
+        breakup["Exchange Vehicle"] += remaining;
         remaining = 0;
+      }
+
+      if (remaining > 0 && types.includes("Commission")) {
+        breakup.Commission += remaining;
       }
     });
 
     return {
       receiptAmountTotal,
       receiptBreakup: breakup,
+      insuranceAdjustmentTotal,
+      exchangeReceivable: asInt(exchangeReceivable || 0),
     };
-  }, [rows, insuranceReceivable, marginReceivable]);
+  }, [rows, insuranceReceivable, marginReceivable, exchangeReceivable]);
 
   useEffect(() => {
     if (typeof onTotalsChange === "function") onTotalsChange(totals);
   }, [totals, onTotalsChange]);
 
-  const totalEntered = useMemo(
-    () => asInt(totals.receiptAmountTotal),
-    [totals],
-  );
+  const totalEntered = useMemo(() => asInt(totals.receiptAmountTotal), [totals]);
 
-  // section counts
   const sectionCounts = useMemo(() => {
     const counts = {
       ALL: rows.length,
@@ -257,64 +317,83 @@ const AutocreditsPaymentsEntryTable = ({
       OTHER: 0,
     };
 
-    rows.forEach((r) => {
-      const types = Array.isArray(r.receiptTypes) ? r.receiptTypes : [];
+    rows.forEach((row) => {
+      const types = Array.isArray(row.receiptTypes) ? row.receiptTypes : [];
       if (!types.length) {
         counts.OTHER += 1;
         return;
       }
-
-      let tagged = false;
-      types.forEach((t) => {
-        if (counts[t] !== undefined) {
-          counts[t] += 1;
-          tagged = true;
+      let matched = false;
+      types.forEach((type) => {
+        if (Object.prototype.hasOwnProperty.call(counts, type)) {
+          counts[type] += 1;
+          matched = true;
         }
       });
-      if (!tagged) counts.OTHER += 1;
+      if (!matched) counts.OTHER += 1;
     });
-
     return counts;
   }, [rows]);
 
   const filteredRows = useMemo(() => {
     if (activeSection === "ALL") return rows;
     if (activeSection === "OTHER") {
-      return rows.filter((r) => {
-        const t = Array.isArray(r.receiptTypes) ? r.receiptTypes : [];
-        if (!t.length) return true;
-        return !t.some((x) =>
-          [
-            "Insurance",
-            "Margin Money",
-            "Exchange Vehicle",
-            "Commission",
-          ].includes(x),
+      return rows.filter((row) => {
+        const types = Array.isArray(row.receiptTypes) ? row.receiptTypes : [];
+        if (!types.length) return true;
+        return !types.some((type) =>
+          ["Insurance", "Margin Money", "Exchange Vehicle", "Commission"].includes(type),
         );
       });
     }
-    return rows.filter((r) => {
-      const t = Array.isArray(r.receiptTypes) ? r.receiptTypes : [];
-      return t.includes(activeSection);
+    return rows.filter((row) => {
+      const types = Array.isArray(row.receiptTypes) ? row.receiptTypes : [];
+      return types.includes(activeSection);
     });
   }, [rows, activeSection]);
 
+  useEffect(() => {
+    if (activeSection === "ALL") return;
+    if ((rows || []).length === 0) return;
+    if ((filteredRows || []).length > 0) return;
+    setActiveSection("ALL");
+  }, [activeSection, rows, filteredRows]);
+
   return (
     <Card
+      className="autocredits-payments-entry-table"
       style={{
-        borderRadius: 16,
-        border: "1px solid #e5e7eb",
-        background: "#f9fafb",
+        "--apt-border": isDarkMode ? "#2a3342" : "#e2e8f0",
+        "--apt-surface": isDarkMode ? "#0f172a" : "#f8fafc",
+        "--apt-card": isDarkMode ? "#111c31" : "#ffffff",
+        "--apt-text": isDarkMode ? "#e2e8f0" : "#0f172a",
+        "--apt-muted": isDarkMode ? "#94a3b8" : "#64748b",
+        "--apt-muted-strong": isDarkMode ? "#cbd5e1" : "#475569",
+        "--apt-accent-border": isDarkMode ? "#a78bfa" : "#7c3aed",
+        "--apt-accent-text": isDarkMode ? "#c4b5fd" : "#6d28d9",
+        "--apt-accent-soft": isDarkMode ? "#241b44" : "#f3e8ff",
+        "--apt-accent-soft-2": isDarkMode ? "#31245e" : "#e9d5ff",
+        "--apt-chip-count-bg": isDarkMode ? "#1e293b" : "#f1f5f9",
+        borderRadius: 18,
+        border: "1px solid var(--apt-border)",
+        background:
+          "linear-gradient(180deg, color-mix(in srgb, var(--apt-surface) 86%, transparent), var(--apt-surface))",
+        boxShadow: isDarkMode
+          ? "0 16px 36px rgba(2,6,23,0.35)"
+          : "0 16px 30px rgba(124,58,237,0.08)",
       }}
-      bodyStyle={{ padding: 12 }}
+      bodyStyle={{ padding: 14 }}
     >
-      {/* Header */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           gap: 12,
           marginBottom: 8,
+          background: "linear-gradient(135deg, var(--apt-accent-soft), transparent 70%)",
+          border: "1px solid var(--apt-border)",
+          borderRadius: 12,
+          padding: "10px 12px",
         }}
       >
         <div>
@@ -323,7 +402,7 @@ const AutocreditsPaymentsEntryTable = ({
               fontSize: 11,
               textTransform: "uppercase",
               letterSpacing: 0.14,
-              color: "#6b7280",
+              color: "var(--apt-muted)",
             }}
           >
             Autocredits account
@@ -331,34 +410,19 @@ const AutocreditsPaymentsEntryTable = ({
           <div style={{ fontWeight: 700, fontSize: 14, marginTop: 2 }}>
             Receipts timeline
           </div>
-          <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+          <div style={{ marginTop: 4, fontSize: 12, color: "var(--apt-muted)" }}>
             {readOnly ? (
               <>Verified ✅ Read-only mode enabled.</>
             ) : (
               <>
-                Click a row to expand, or <b>Add receipt entry</b> to create a
-                new one.
+                Click a row to expand and edit. Use <b>Duplicate</b> for quick repetition.
               </>
             )}
           </div>
         </div>
-
-        <Space>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Total entered: <b>{money(totalEntered)}</b>
-          </Text>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAddRow}
-            disabled={readOnly}
-          >
-            Add receipt entry
-          </Button>
-        </Space>
+        <Space />
       </div>
 
-      {/* Section chips */}
       <div
         style={{
           marginTop: 6,
@@ -406,7 +470,6 @@ const AutocreditsPaymentsEntryTable = ({
         />
       </div>
 
-      {/* Timeline list with icons + inline editor */}
       <div
         style={{
           marginTop: 8,
@@ -416,44 +479,46 @@ const AutocreditsPaymentsEntryTable = ({
         }}
       >
         {filteredRows.length === 0 ? (
-          <div style={{ fontSize: 12, color: "#6b7280" }}>
+          <div style={{ fontSize: 12, color: "var(--apt-muted)" }}>
             No receipt rows in this section.
           </div>
         ) : (
           filteredRows.map((row, idx) => {
             const isEditing = editingRowId === row.id;
-
-            const typesLabel =
-              (row.receiptTypes || []).join(", ") || "Receipt entry";
+            const typesLabel = (row.receiptTypes || []).join(", ") || "Receipt entry";
             const modeLabel = row.receiptMode || "";
             const dateLabel = row.receiptDate
               ? dayjs(row.receiptDate).format("DD MMM YYYY")
               : "";
             const remarksShort = row.remarks || row.transactionDetails || "";
-
             const icon = getIconForRow(row);
+            const typeTheme = getRowTheme(row, isDarkMode);
+            const insurancePayerLabel =
+              (row.receiptTypes || []).includes("Insurance") &&
+              row.insurancePaymentMadeBy
+                ? row.insurancePaymentMadeBy
+                : "";
 
             return (
               <div key={row.id}>
                 <div
                   style={{
                     borderRadius: 12,
-                    border: "1px solid #e5e7eb",
-                    background: "#ffffff",
+                    border: "1px solid var(--apt-border)",
+                    borderLeft: `3px solid ${typeTheme.border}`,
+                    background: "var(--apt-card)",
                     padding: 10,
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                     gap: 10,
                     cursor: readOnly ? "default" : "pointer",
-                    opacity: readOnly ? 0.95 : 1,
                   }}
                   onClick={() =>
                     !readOnly &&
                     setEditingRowId((prev) => (prev === row.id ? null : row.id))
                   }
                 >
-                  {/* Left: icon + text */}
                   <div
                     style={{
                       display: "flex",
@@ -467,17 +532,16 @@ const AutocreditsPaymentsEntryTable = ({
                         width: 28,
                         height: 28,
                         borderRadius: 999,
-                        background: "#eff6ff",
+                        background: typeTheme.soft,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "#1d4ed8",
+                        color: typeTheme.text,
                         fontSize: 14,
                       }}
                     >
                       {icon}
                     </div>
-
                     <div
                       style={{
                         display: "flex",
@@ -486,19 +550,18 @@ const AutocreditsPaymentsEntryTable = ({
                         minWidth: 0,
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: "#111827",
-                        }}
-                      >
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--apt-text)" }}>
                         {typesLabel} #{idx + 1}
+                        {row._auto && (
+                          <Tag color="blue" style={{ marginLeft: 6, fontSize: 10 }}>
+                            Auto
+                          </Tag>
+                        )}
                       </div>
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#6b7280",
+                          color: "var(--apt-muted)",
                           display: "flex",
                           gap: 8,
                           flexWrap: "wrap",
@@ -506,16 +569,17 @@ const AutocreditsPaymentsEntryTable = ({
                       >
                         {modeLabel && <span>{modeLabel}</span>}
                         {dateLabel && <span>· {dateLabel}</span>}
+                        {insurancePayerLabel && <span>· By {insurancePayerLabel}</span>}
                       </div>
                       {remarksShort && (
                         <div
                           style={{
                             fontSize: 11,
-                            color: "#4b5563",
+                            color: "var(--apt-muted-strong)",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
-                            maxWidth: 260,
+                            maxWidth: 280,
                           }}
                         >
                           {remarksShort}
@@ -524,35 +588,44 @@ const AutocreditsPaymentsEntryTable = ({
                     </div>
                   </div>
 
-                  {/* Right: amount + delete */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                  >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div
                       style={{
                         fontSize: 13,
                         fontWeight: 700,
-                        color: "#111827",
+                        color: typeTheme.amount,
                         minWidth: 100,
                         textAlign: "right",
+                        background: isDarkMode
+                          ? "rgba(15, 23, 42, 0.6)"
+                          : "rgba(248, 250, 252, 0.9)",
+                        border: "1px solid var(--apt-border)",
+                        borderRadius: 999,
+                        padding: "3px 10px",
                       }}
                     >
                       {row.receiptAmount ? money(row.receiptAmount) : "—"}
                     </div>
                     {!readOnly && (
-                      <Button
-                        size="small"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteRow(row.id);
-                        }}
-                      />
+                      <Space size="small">
+                        <Button
+                          size="small"
+                          icon={<CopyOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicateRow(row.id);
+                          }}
+                        />
+                        <Button
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRow(row.id);
+                          }}
+                        />
+                      </Space>
                     )}
                   </div>
                 </div>
@@ -564,56 +637,100 @@ const AutocreditsPaymentsEntryTable = ({
                       marginBottom: 4,
                       padding: 10,
                       borderRadius: 12,
-                      border: "1px solid #e5e7eb",
-                      background: "#f9fafb",
+                      border: "1px solid var(--apt-border)",
+                      background: "var(--apt-surface)",
                     }}
                   >
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(3, 1fr)",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                         gap: 12,
                         marginBottom: 10,
                       }}
                     >
-                      <FieldBox>
-                        <FieldLabel>Receipt type (multi select)</FieldLabel>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--apt-muted)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Receipt type (multi select)
+                        </div>
                         <Select
                           mode="multiple"
                           value={row.receiptTypes}
                           placeholder="Select"
                           style={{ width: "100%" }}
                           onChange={(val) =>
-                            updateRow(row.id, { receiptTypes: val })
+                            updateRow(row.id, {
+                              receiptTypes: val,
+                              insurancePaymentMadeBy: val.includes("Insurance")
+                                ? row.insurancePaymentMadeBy || "Autocredits India LLP"
+                                : "",
+                            })
                           }
-                          disabled={readOnly}
                           options={[
                             { value: "Insurance", label: "Insurance" },
                             { value: "Margin Money", label: "Margin Money" },
-                            {
-                              value: "Exchange Vehicle",
-                              label: "Exchange Vehicle",
-                            },
+                            { value: "Exchange Vehicle", label: "Exchange Vehicle" },
                             { value: "Commission", label: "Commission" },
                           ]}
                         />
-                      </FieldBox>
+                      </div>
 
-                      <FieldBox>
-                        <FieldLabel>Receipt mode</FieldLabel>
+                      {(row.receiptTypes || []).includes("Insurance") && (
+                        <div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "var(--apt-muted)",
+                              marginBottom: 4,
+                            }}
+                          >
+                            Payment made by
+                          </div>
+                          <Select
+                            value={row.insurancePaymentMadeBy || undefined}
+                            placeholder="Select payer"
+                            style={{ width: "100%" }}
+                            onChange={(val) =>
+                              updateRow(row.id, {
+                                insurancePaymentMadeBy: val,
+                                receiptMode:
+                                  val === "Customer" ? "Adjustment" : row.receiptMode,
+                              })
+                            }
+                            options={[
+                              {
+                                value: "Autocredits India LLP",
+                                label: "Autocredits India LLP",
+                              },
+                              { value: "Customer", label: "Customer" },
+                            ]}
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--apt-muted)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Receipt mode
+                        </div>
                         <Select
                           value={row.receiptMode || undefined}
                           placeholder="Select"
                           style={{ width: "100%" }}
-                          onChange={(val) =>
-                            updateRow(row.id, { receiptMode: val })
-                          }
-                          disabled={readOnly}
+                          onChange={(val) => updateRow(row.id, { receiptMode: val })}
                           options={[
-                            {
-                              value: "Online Transfer/UPI",
-                              label: "Online Transfer/UPI",
-                            },
+                            { value: "Online Transfer/UPI", label: "Online Transfer/UPI" },
                             { value: "Cash", label: "Cash" },
                             { value: "Cheque", label: "Cheque" },
                             { value: "DD", label: "DD" },
@@ -621,58 +738,91 @@ const AutocreditsPaymentsEntryTable = ({
                             { value: "Adjustment", label: "Adjustment" },
                           ]}
                         />
-                      </FieldBox>
+                      </div>
 
-                      <FieldBox>
-                        <FieldLabel>Receipt amount</FieldLabel>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--apt-muted)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Receipt amount
+                        </div>
                         <Input
                           value={formatAmountInput(row.receiptAmount)}
                           placeholder="Amount"
                           onChange={(e) =>
                             updateRow(row.id, {
-                              receiptAmount: sanitizeAmountInput(
-                                e.target.value,
-                              ),
+                              receiptAmount: sanitizeAmountInput(e.target.value),
                             })
                           }
-                          disabled={readOnly}
                         />
-                      </FieldBox>
+                      </div>
+                    </div>
 
-                      <FieldBox>
-                        <FieldLabel>Receipt date</FieldLabel>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                        gap: 12,
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--apt-muted)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Receipt date
+                        </div>
                         <DatePicker
-                          value={
-                            row.receiptDate ? dayjs(row.receiptDate) : null
-                          }
+                          value={row.receiptDate ? dayjs(row.receiptDate) : null}
                           style={{ width: "100%" }}
-                          onChange={(d) =>
+                          onChange={(dateValue) =>
                             updateRow(row.id, {
-                              receiptDate: d ? d.toISOString() : null,
+                              receiptDate: dateValue ? dateValue.toISOString() : null,
                             })
                           }
-                          disabled={readOnly}
                         />
-                      </FieldBox>
+                      </div>
 
-                      <FieldBox>
-                        <FieldLabel>Transaction details</FieldLabel>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--apt-muted)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Transaction details
+                        </div>
                         <Input
                           value={row.transactionDetails}
                           placeholder="Txn / UTR / Ref"
                           onChange={(e) =>
-                            updateRow(row.id, {
-                              transactionDetails: e.target.value,
-                            })
+                            updateRow(row.id, { transactionDetails: e.target.value })
                           }
-                          disabled={readOnly}
                         />
-                      </FieldBox>
+                      </div>
 
-                      <FieldBox>
-                        <FieldLabel>Bank name</FieldLabel>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "var(--apt-muted)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Bank name
+                        </div>
                         <AutoComplete
                           value={row.bankName}
+                          style={{ width: "100%" }}
                           options={bankDirectoryOptions}
                           placeholder="Bank"
                           filterOption={(inputValue, option) =>
@@ -680,25 +830,27 @@ const AutocreditsPaymentsEntryTable = ({
                               .toUpperCase()
                               .includes(String(inputValue || "").toUpperCase())
                           }
-                          onChange={(value) =>
-                            updateRow(row.id, { bankName: value })
-                          }
-                          disabled={readOnly}
+                          onChange={(value) => updateRow(row.id, { bankName: value })}
                         />
-                      </FieldBox>
+                      </div>
                     </div>
 
-                    <FieldBox>
-                      <FieldLabel>Remarks</FieldLabel>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--apt-muted)",
+                          marginBottom: 4,
+                        }}
+                      >
+                        Remarks
+                      </div>
                       <Input
                         value={row.remarks}
                         placeholder="Remarks"
-                        onChange={(e) =>
-                          updateRow(row.id, { remarks: e.target.value })
-                        }
-                        disabled={readOnly}
+                        onChange={(e) => updateRow(row.id, { remarks: e.target.value })}
                       />
-                    </FieldBox>
+                    </div>
                   </div>
                 )}
               </div>
@@ -706,6 +858,37 @@ const AutocreditsPaymentsEntryTable = ({
           })
         )}
       </div>
+
+      {!readOnly && (
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px dashed var(--apt-border)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--apt-muted-strong)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ color: "var(--apt-muted)" }}>Total entered:</span>
+            <b>{money(totalEntered)}</b>
+          </div>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAddRow}>
+            Add receipt entry
+          </Button>
+        </div>
+      )}
     </Card>
   );
 };

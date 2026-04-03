@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Collapse, message } from "antd";
+import { message } from "antd";
 
 import AutocreditsPaymentHeader from "./AutocreditsPaymentHeader";
 import AutocreditsPaymentsEntryTable from "./AutocreditsPaymentsEntryTable";
@@ -52,7 +52,12 @@ const AutocreditsPaymentSection = ({
   const exchangeAdj = asInt(showroomData?.autocreditsExchangeDeduction || 0);
   const showroomAutoPaid = asInt(showroomTotals?.paymentAmountAutocredits || 0);
   const insuranceRecv = asInt(
-    showroomData?.autocreditsInsuranceReceivable || 0,
+    showroomData?.autocreditsInsurancePremiumReceivable ??
+      showroomData?.autocreditsInsuranceReceivable ??
+      0,
+  );
+  const insuranceAdjustment = asInt(
+    autocreditsTotals?.insuranceAdjustmentTotal || 0,
   );
 
   // Net margin receivable component = margin + showroomAutoPaid - exchangeAdj
@@ -61,7 +66,11 @@ const AutocreditsPaymentSection = ({
 
   const canVerify = useMemo(() => {
     const netReceivable =
-      autocreditsMargin + showroomAutoPaid + insuranceRecv - exchangeAdj;
+      autocreditsMargin +
+      showroomAutoPaid +
+      insuranceRecv -
+      exchangeAdj -
+      insuranceAdjustment;
 
     const receiptTotal = asInt(autocreditsTotals?.receiptAmountTotal || 0);
 
@@ -71,6 +80,7 @@ const AutocreditsPaymentSection = ({
     showroomAutoPaid,
     insuranceRecv,
     exchangeAdj,
+    insuranceAdjustment,
     autocreditsTotals,
   ]);
 
@@ -84,73 +94,52 @@ const AutocreditsPaymentSection = ({
 
   return (
     <div style={{ marginTop: 26 }}>
-      <Collapse
-        defaultActiveKey={["autocredits"]}
-        items={[
-          {
-            key: "autocredits",
-            label: (
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.14,
-                }}
-              >
-                Autocredits account — receipts
-              </div>
-            ),
-            children: (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 350px",
-                  gap: 16,
-                  alignItems: "flex-start",
-                }}
-              >
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
-                >
-                  <AutocreditsPaymentsEntryTable
-                    insuranceReceivable={insuranceRecv}
-                    exchangeReceivable={exchangeAdj}
-                    marginReceivable={marginReceivable}
-                    onTotalsChange={handleTotalsChange}
-                    onRowsChange={(r) => setAutocreditsRows(r)}
-                    initialRows={autocreditsRows}
-                    readOnly={!!isAutocreditsVerified}
-                  />
-                </div>
+      <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 12 }}>
+        SECTION — Receipt Details (Autocredits Account)
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 350px",
+          gap: 16,
+          alignItems: "flex-start",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <AutocreditsPaymentsEntryTable
+            insuranceReceivable={insuranceRecv}
+            exchangeReceivable={exchangeAdj}
+            marginReceivable={marginReceivable}
+            onTotalsChange={handleTotalsChange}
+            onRowsChange={(r) => setAutocreditsRows(r)}
+            initialRows={autocreditsRows}
+            readOnly={!!isAutocreditsVerified}
+          />
+        </div>
 
-                <div
-                  style={{
-                    position: "sticky",
-                    top: 130,
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  <AutocreditsPaymentHeader
-                    data={showroomData}
-                    showroomTotals={showroomTotals}
-                    autocreditsTotals={autocreditsTotals}
-                    isVerified={!!isAutocreditsVerified}
-                    canVerify={canVerify}
-                    onToggleVerified={() => {
-                      if (!isAutocreditsVerified && !canVerify) {
-                        message.warning("Closing Balance must be 0 to verify.");
-                        return;
-                      }
-                      setIsAutocreditsVerified((v) => !v);
-                    }}
-                  />
-                </div>
-              </div>
-            ),
-          },
-        ]}
-      />
+        <div
+          style={{
+            position: "sticky",
+            top: 130,
+            alignSelf: "flex-start",
+          }}
+        >
+          <AutocreditsPaymentHeader
+            data={showroomData}
+            showroomTotals={showroomTotals}
+            autocreditsTotals={autocreditsTotals}
+            isVerified={!!isAutocreditsVerified}
+            canVerify={canVerify}
+            onToggleVerified={() => {
+              if (!isAutocreditsVerified && !canVerify) {
+                message.warning("Closing Balance must be 0 to verify.");
+                return;
+              }
+              setIsAutocreditsVerified((v) => !v);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 };
