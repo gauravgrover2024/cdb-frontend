@@ -143,6 +143,15 @@ export const apiClient = {
     return handleResponse(res);
   },
 
+  patch: async (endpoint, body, options) => {
+    const res = await fetch(buildUrl(endpoint), {
+      method: "PATCH",
+      headers: getHeaders(options),
+      body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+  },
+
   delete: async (endpoint, options) => {
     const res = await fetch(buildUrl(endpoint, options?.params || {}), {
       method: "DELETE",
