@@ -211,7 +211,7 @@ const BankLogoBadge = ({ bankName }) => {
 const getStatusClasses = (status) => {
   const s = (status || "").toLowerCase();
 
-  if (s === "approved")
+  if (s === "approved" || s === "accepted" || s === "sanctioned")
     return "border border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300";
   if (s === "disbursed")
     return "border border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/45 dark:text-teal-300";
@@ -227,7 +227,8 @@ const getStatusClasses = (status) => {
 
 const getStatusIcon = (status) => {
   const s = (status || "").toLowerCase();
-  if (s === "approved") return "BadgeCheck";
+  if (s === "approved" || s === "accepted" || s === "sanctioned")
+    return "BadgeCheck";
   if (s === "disbursed") return "WalletCards";
   if (s === "documents required") return "FileWarning";
   if (s === "rejected") return "ShieldX";
@@ -382,7 +383,9 @@ const BankStatusCard = ({
 
   const ltv = calculateLtv(displayLoanAmount, exShowroomPrice);
   const cardSurfaceClass =
-    (bank.status || "").toLowerCase() === "approved"
+    (bank.status || "").toLowerCase() === "approved" ||
+    (bank.status || "").toLowerCase() === "accepted" ||
+    (bank.status || "").toLowerCase() === "sanctioned"
       ? "bg-emerald-50/65 dark:bg-emerald-950/28"
       : (bank.status || "").toLowerCase() === "disbursed"
         ? "bg-teal-50/75 dark:bg-teal-950/30"

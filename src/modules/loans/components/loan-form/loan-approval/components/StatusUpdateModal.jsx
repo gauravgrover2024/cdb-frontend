@@ -115,6 +115,8 @@ const normalizeStatusLabel = (value) => {
     .trim()
     .toLowerCase();
   if (raw === "approved") return "Approved";
+  if (raw === "accepted") return "Accepted";
+  if (raw === "sanctioned") return "Sanctioned";
   if (raw === "rejected") return "Rejected";
   if (raw === "disbursed") return "Disbursed";
   return "Pending";
@@ -147,6 +149,8 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
   const statusOptions = [
     { value: "Pending", label: "Pending" },
     { value: "Approved", label: "Approved" },
+    { value: "Accepted", label: "Accepted" },
+    { value: "Sanctioned", label: "Sanctioned" },
     { value: "Rejected", label: "Rejected" },
     // Disbursed status is now handled only via footer disburse action
   ];
@@ -189,7 +193,11 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
         help: "Select the disbursal date",
       };
     }
-    if (status === "Approved") {
+    if (
+      status === "Approved" ||
+      status === "Accepted" ||
+      status === "Sanctioned"
+    ) {
       return {
         field: "approvalDate",
         label: "Approval Date",
