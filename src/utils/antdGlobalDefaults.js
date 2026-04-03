@@ -32,5 +32,8 @@ applyDefaults(Select, {
 applyDefaults(TreeSelect, { allowClear: true });
 applyDefaults(Cascader, { allowClear: true });
 applyDefaults(Mentions, { allowClear: true });
-applyDefaults(DatePicker, { allowClear: true });
-applyDefaults(DatePicker.RangePicker, { allowClear: true });
+applyDefaults(DatePicker, { allowClear: true, format: "DD-MM-YYYY" });
+applyDefaults(DatePicker.RangePicker, {
+  allowClear: true,
+  format: "DD-MM-YYYY",
+});

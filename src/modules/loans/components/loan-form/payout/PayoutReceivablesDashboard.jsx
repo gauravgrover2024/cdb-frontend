@@ -263,6 +263,14 @@ const resolvePaymentDocFromResponse = (response) => {
   return response;
 };
 
+const buildAutoCommissionNarration = ({ payoutId, amount, isoDate, remarks }) => {
+  const explicitRemarks = String(remarks || "").trim();
+  if (explicitRemarks) return explicitRemarks;
+  const labelDate = isoDate ? dayjs(isoDate).format("DD MMM YYYY") : dayjs().format("DD MMM YYYY");
+  const amountLabel = `₹${Number(amount || 0).toLocaleString("en-IN")}`;
+  return `Auto receipt sync from Collections (${labelDate}) • ${amountLabel} • Payout ${payoutId}`;
+};
+
 const buildCommissionRowsForShowroomPayments = ({
   payoutId,
   partyName,
@@ -285,9 +293,12 @@ const buildCommissionRowsForShowroomPayments = ({
         paymentDate: paymentDateIso,
         transactionDetails: "",
         bankName: String(partyName || "").trim(),
-        remarks:
-          String(payment?.remarks || "").trim() ||
-          `Auto from Collections (${payoutId})`,
+        remarks: buildAutoCommissionNarration({
+          payoutId,
+          amount,
+          isoDate: paymentDateIso,
+          remarks: payment?.remarks,
+        }),
         adjustmentDirection: null,
         crossCaseId: null,
         crossCaseLabel: "",

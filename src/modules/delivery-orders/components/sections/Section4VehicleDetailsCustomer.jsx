@@ -1368,7 +1368,7 @@ const Section4VehicleDetailsCustomer = () => {
                   <DatePicker
                     bordered={false}
                     size="small"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     style={{ width: "100%" }}
                     allowClear
                   />
@@ -1402,7 +1402,7 @@ const Section4VehicleDetailsCustomer = () => {
                   <DatePicker
                     bordered={false}
                     size="small"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     style={{ width: "100%" }}
                     allowClear
                     disabled

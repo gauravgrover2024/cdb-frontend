@@ -16,6 +16,7 @@ import {
   BankOutlined,
   UserOutlined,
   SwapOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useBankDirectoryOptions } from "../../../../hooks/useBankDirectoryOptions";
@@ -234,6 +235,7 @@ const getPaymentTheme = (paymentType, isDarkMode) => {
 
 const ShowroomPaymentsEntryNew = ({
   isFinanced = false,
+  allowAutoLoanEntry = true,
   loanPaymentPrefill = 0,
   loanDisbursementDate = null,
   exchangeValue = 0,
@@ -297,7 +299,7 @@ const ShowroomPaymentsEntryNew = ({
     setRows((prev) => {
       if (prev.length > 0) return prev;
 
-      if (isFinanced && asInt(loanPaymentPrefill) > 0) {
+      if (allowAutoLoanEntry && isFinanced && asInt(loanPaymentPrefill) > 0) {
         return [
           {
             ...emptyRow(),
@@ -323,6 +325,7 @@ const ShowroomPaymentsEntryNew = ({
     });
   }, [
     isVerified,
+    allowAutoLoanEntry,
     isFinanced,
     loanPaymentPrefill,
     loanDisbursementDate,
@@ -333,6 +336,7 @@ const ShowroomPaymentsEntryNew = ({
   // ---------- ENSURE AUTO LOAN ROW ----------
   useEffect(() => {
     if (isVerified) return;
+    if (!allowAutoLoanEntry) return;
     if (!isFinanced) return;
     if (asInt(loanPaymentPrefill) <= 0) return;
 
@@ -362,11 +366,18 @@ const ShowroomPaymentsEntryNew = ({
     });
   }, [
     isVerified,
+    allowAutoLoanEntry,
     isFinanced,
     loanPaymentPrefill,
     loanDisbursementDate,
     hypothecationBank,
   ]);
+
+  // If DO is not available yet, ensure auto loan row is not created/stuck.
+  useEffect(() => {
+    if (allowAutoLoanEntry) return;
+    setRows((prev) => prev.filter((r) => !(r._auto === true && r.paymentType === "Loan")));
+  }, [allowAutoLoanEntry]);
 
   // Keep loan rows aligned with resolved disbursement bank/date.
   // This avoids stale values from old saved snapshots.
@@ -488,6 +499,13 @@ const ShowroomPaymentsEntryNew = ({
     setRows((prev) =>
       prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
     );
+  };
+
+  const handleAddPaymentRow = () => {
+    if (isVerified) return;
+    const nextId = `${Date.now()}-${Math.random()}`;
+    setRows((prev) => [...prev, { ...emptyRow(), id: nextId }]);
+    setEditingRowId(nextId);
   };
 
   const onPaymentTypeChange = (rowId, val) => {
@@ -1592,6 +1610,13 @@ const ShowroomPaymentsEntryNew = ({
             <span style={{ color: "var(--spt-muted)" }}>Total entered:</span>
             <b>{money(totalEntered)}</b>
           </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleAddPaymentRow}
+          >
+            Add payment entry
+          </Button>
         </div>
       )}
     </Card>

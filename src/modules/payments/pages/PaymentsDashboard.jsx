@@ -325,7 +325,7 @@ const formatDateTime = (value) => {
   if (!value) return "—";
   const parsed = dayjs(value);
   if (!parsed.isValid()) return "—";
-  return parsed.format("DD/MM/YYYY HH:mm");
+  return parsed.format("DD-MM-YYYY HH:mm");
 };
 
 const resolveShowroomEntrySignedAmount = (entry = {}) => {
@@ -345,7 +345,7 @@ const buildShowroomLedgerRows = (rows = []) =>
       const paymentMode = safeText(entry?.paymentMode) || "—";
       const paymentDate = dayjs(entry?.paymentDate);
       const dateLabel = paymentDate.isValid()
-        ? paymentDate.format("DD/MM/YY")
+        ? paymentDate.format("DD-MM-YY")
         : "No date";
 
       let intent = signedAmount < 0 ? "discount" : "addition";
@@ -383,7 +383,7 @@ const buildAutocreditsLedgerRows = (rows = []) =>
       const receiptMode = safeText(entry?.receiptMode) || "—";
       const receiptDate = dayjs(entry?.receiptDate);
       const dateLabel = receiptDate.isValid()
-        ? receiptDate.format("DD/MM/YY")
+        ? receiptDate.format("DD-MM-YY")
         : "No date";
 
       return {
@@ -1572,7 +1572,7 @@ const PaymentsDashboard = () => {
                       onChange={(d) => setModalDate(d || dayjs())}
                       style={{ width: "100%" }}
                       bordered={false}
-                      format="DD/MM/YYYY"
+                      format="DD-MM-YYYY"
                     />
                   </QuickFieldBox>
                 </div>
@@ -1674,7 +1674,7 @@ const PaymentsDashboard = () => {
                       onChange={(d) => setModalDate(d || dayjs())}
                       style={{ width: "100%" }}
                       bordered={false}
-                      format="DD/MM/YYYY"
+                      format="DD-MM-YYYY"
                     />
                   </QuickFieldBox>
                 </div>

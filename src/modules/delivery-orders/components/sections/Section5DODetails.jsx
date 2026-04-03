@@ -394,7 +394,7 @@ const Section5DODetails = ({ loan }) => {
           {
             label: "Booking Date",
             value: v?.do_bookingDate
-              ? dayjs(v.do_bookingDate).format("DD/MM/YYYY")
+              ? dayjs(v.do_bookingDate).format("DD-MM-YYYY")
               : "—",
             raw: true,
           },
@@ -705,7 +705,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     allowClear
                     styles={{
                       input: {
@@ -814,7 +814,7 @@ const Section5DODetails = ({ loan }) => {
                     bordered={false}
                     size="small"
                     style={{ width: "100%" }}
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     allowClear
                     styles={{
                       input: {

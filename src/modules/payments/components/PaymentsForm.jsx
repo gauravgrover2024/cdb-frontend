@@ -827,13 +827,26 @@ const PaymentForm = () => {
     const customerNetOnRoadVehicleCost = asInt(
       doRec?.do_customer_netOnRoadVehicleCost || 0,
     );
-    const loanPaymentPrefill = asInt(doRec?.do_financeDeduction || 0);
+    const loanAmountFromDO = asInt(doRec?.do_loanAmount || 0);
+    const processingFeesFromDO = asInt(doRec?.do_processingFees || 0);
+    const financeDeductionFromDO = asInt(doRec?.do_financeDeduction || 0);
+    const loanPaymentPrefill =
+      loanAmountFromDO > 0 && processingFeesFromDO > 0
+        ? Math.max(0, loanAmountFromDO - processingFeesFromDO)
+        : financeDeductionFromDO > 0
+          ? financeDeductionFromDO
+          : loanAmountFromDO;
     const disbursementDateObj = getLoanDisbursementDate(loan);
     const loanDisbursementDate = disbursementDateObj
       ? disbursementDateObj.toISOString()
       : null;
 
     const doMarginMoney = asInt(doRec?.do_marginMoneyPaid || 0);
+    const hasDOForAutoLoan = Boolean(
+      (doRec?._id || doRec?.loanId || doRec?.do_loanId) &&
+        (asInt(doRec?.do_onRoadVehicleCost || 0) > 0 ||
+          asInt(doRec?.do_netOnRoadVehicleCost || 0) > 0),
+    );
 
     const showroomNetOnRoadVehicleCost = asInt(
       doRec?.do_netOnRoadVehicleCost || 0,
@@ -945,6 +958,7 @@ const PaymentForm = () => {
 
       isFinanced: financed,
       loanPaymentPrefill,
+      hasDOForAutoLoan,
       loanDisbursementDate,
       hypothecationBank,
 
@@ -1135,6 +1149,7 @@ const PaymentForm = () => {
                 <ShowroomPaymentsEntryTable
                   key={`showroom-entry-${loanId || "new"}`}
                   isFinanced={showroomData?.isFinanced}
+                  allowAutoLoanEntry={Boolean(showroomData?.hasDOForAutoLoan)}
                   loanPaymentPrefill={showroomData?.loanPaymentPrefill || 0}
                   loanDisbursementDate={showroomData?.loanDisbursementDate}
                   hypothecationBank={showroomData?.hypothecationBank || ""}

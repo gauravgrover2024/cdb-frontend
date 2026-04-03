@@ -352,7 +352,7 @@ const buildNetDOSummarySections = (
         {
           label: "Booking Date",
           value: doDoc?.do_bookingDate
-            ? dayjs(doDoc.do_bookingDate).format("DD/MM/YYYY")
+            ? dayjs(doDoc.do_bookingDate).format("DD-MM-YYYY")
             : "—",
           raw: true,
         },
@@ -1258,7 +1258,7 @@ const DeliveryOrderDashboard = () => {
             },
             {
               label: "DO Date",
-              value: d?.do_date ? dayjs(d.do_date).format("DD/MM/YYYY") : "—",
+              value: d?.do_date ? dayjs(d.do_date).format("DD-MM-YYYY") : "—",
               raw: true,
             },
             {
@@ -1462,7 +1462,7 @@ const DeliveryOrderDashboard = () => {
           )} ${safeText(loan.vehicleVariant)}`.trim();
           const doDate = dayjs(d?.do_date || d?.doDate);
           const doDateLabel = doDate.isValid()
-            ? doDate.format("DD/MM/YYYY")
+            ? doDate.format("DD-MM-YYYY")
             : "—";
           const accountType = d
             ? safeText(d?.do_accountType || "Showroom") || "Showroom"

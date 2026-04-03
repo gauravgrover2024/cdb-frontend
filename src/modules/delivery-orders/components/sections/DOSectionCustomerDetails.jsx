@@ -394,7 +394,7 @@ const DOSectionCustomerDetails = ({ form, readOnly = false }) => {
                 <Form.Item name="do_date" style={{ marginBottom: 0 }}>
                   <DatePicker
                     className="h-9 w-full"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     value={doDate ? dayjs(doDate) : null}
                     onChange={(date) => form.setFieldsValue({ do_date: date || null })}
                     allowClear

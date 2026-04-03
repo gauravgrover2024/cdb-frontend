@@ -53,7 +53,6 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
   const accessoriesAmount = asInt(data?.do_accessoriesAmount);
   const fastag = asInt(data?.do_fastag);
   const extendedWarranty = asInt(data?.do_extendedWarranty);
-  const processingFees = asInt(data?.do_processingFees);
   const namedAdditionsRows = buildNamedRows(data?.do_additions_others, "Addition");
   const namedDiscountRows = buildNamedRows(data?.do_discounts_others, "Discount").map(
     (row) => ({ ...row, intent: "discount" }),
@@ -159,15 +158,6 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
                 },
               ]
             : []),
-          ...(processingFees > 0
-            ? [
-                {
-                  label: "Processing fees (DO)",
-                  value: processingFees,
-                  intent: "discount",
-                },
-              ]
-            : []),
           {
             label: "Net on-road used for payment",
             value: netUsedForPayment,
@@ -221,7 +211,6 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
     loyalty,
     corporate,
     discountsOthersTotal,
-    processingFees,
     onRoadVehicleCost,
     totalDiscountDO,
     netOnRoadDO,

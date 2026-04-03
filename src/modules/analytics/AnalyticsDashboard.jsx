@@ -173,11 +173,11 @@ const parseMaybeDate = (value) => {
   if (native.isValid()) return native;
 
   const formats = [
-    "DD/MM/YYYY",
+    "DD-MM-YYYY",
     "D/M/YYYY",
     "DD-MM-YYYY",
     "D-M-YYYY",
-    "DD/MM/YY",
+    "DD-MM-YY",
     "D/M/YY",
     "DD-MM-YY",
     "D-M-YY",

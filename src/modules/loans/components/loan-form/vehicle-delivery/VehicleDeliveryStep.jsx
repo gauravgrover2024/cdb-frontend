@@ -78,7 +78,7 @@ const DateInput = ({ value, onChange, ...props }) => {
   return (
     <DatePicker
       className="h-10 w-full"
-      format="DD/MM/YYYY"
+      format="DD-MM-YYYY"
       value={parsedValue || null}
       onChange={(date) => onChange?.(date ? date.format("YYYY-MM-DD") : "")}
       allowClear
