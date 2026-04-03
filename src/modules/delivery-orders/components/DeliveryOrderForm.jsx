@@ -1,6 +1,6 @@
 // src/modules/delivery-orders/components/DeliveryOrderForm.jsx
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, Button, Form, Row, Col, message, Checkbox, Tag } from "antd";
 import {
   ArrowLeftOutlined,
@@ -309,15 +309,6 @@ const isLegacyNewCarAutoCreateBlocked = (loan = {}) => {
   return disbDate.isBefore(LEGACY_CUTOFF);
 };
 
-const useDebounce = (value, delay = 800) => {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-};
-
 // ---- API helpers for DOs ----
 const fetchDOByLoanId = async (loanId) => {
   const res = await deliveryOrdersApi.getByLoanId(loanId);
@@ -326,6 +317,16 @@ const fetchDOByLoanId = async (loanId) => {
 
 const saveDOByLoanId = async (loanId, payload) => {
   return await deliveryOrdersApi.update(loanId, payload);
+};
+
+const sanitizeNamedAmountList = (list = []) => {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => ({
+      label: safeText(item?.label).trim(),
+      amount: asNullableNumberField(item?.amount),
+    }))
+    .filter((item) => item.label || item.amount !== null);
 };
 
 // -------------------------------------
@@ -346,12 +347,8 @@ const DeliveryOrderForm = () => {
     form,
   );
 
-  const [hasLoadedDO, setHasLoadedDO] = useState(false);
   const [hasLoadedLoanContext, setHasLoadedLoanContext] = useState(false);
   const [existingDO, setExistingDO] = useState(null);
-  const lastSaveAtRef = useRef(0);
-  const suppressAutosaveUntilRef = useRef(0);
-  const legacyAutoCreateNoticeShownRef = useRef(false);
   const [loanData, setLoanData] = useState(null);
 
   // Load Loan from API (prefill) with sessionStorage fallback
@@ -678,8 +675,6 @@ const DeliveryOrderForm = () => {
         });
       } catch (err) {
         console.error("Load DO Error:", err);
-      } finally {
-        setHasLoadedDO(true);
       }
     };
 
@@ -828,115 +823,6 @@ const DeliveryOrderForm = () => {
     }
   }, [form, loanData, routeLoanId, existingDO]);
 
-  // Autosave DO (Debounced)
-  const allValues = Form.useWatch([], form);
-  const debouncedValues = useDebounce(allValues, 800);
-
-  useEffect(() => {
-    if (!routeLoanId) return;
-    if (!hasLoadedLoanContext) return;
-    if (!hasLoadedDO) return;
-    if (Date.now() < suppressAutosaveUntilRef.current) return;
-
-    const autosave = async () => {
-      try {
-        const hasExistingDODoc = Boolean(
-          existingDO?._id || existingDO?.loanId || existingDO?.do_loanId,
-        );
-        if (!hasExistingDODoc && !loanData) return;
-        const blockLegacyAutoCreate =
-          !hasExistingDODoc && isLegacyNewCarAutoCreateBlocked(loanData || {});
-        if (blockLegacyAutoCreate) {
-          if (!legacyAutoCreateNoticeShownRef.current) {
-            legacyAutoCreateNoticeShownRef.current = true;
-            message.info(
-              "Auto DO creation is paused for New Car loans delivered/disbursed before 1 Feb 2026.",
-            );
-          }
-          return;
-        }
-
-        if (!debouncedValues || typeof debouncedValues !== "object") return;
-
-        const values = serializeDatesToISO(form.getFieldsValue(true));
-
-        const finalLoanId =
-          values?.do_loanId ||
-          existingDO?.do_loanId ||
-          loanData?.loanId ||
-          routeLoanId;
-
-        const payload = {
-          ...(existingDO || {}),
-          ...values,
-          do_exShowroomPrice: isEmpty(form.getFieldValue("do_exShowroomPrice"))
-            ? null
-            : asNullableNumberField(form.getFieldValue("do_exShowroomPrice")),
-          do_insuranceCost: isEmpty(form.getFieldValue("do_insuranceCost"))
-            ? null
-            : asNullableNumberField(form.getFieldValue("do_insuranceCost")),
-          do_roadTax: isEmpty(form.getFieldValue("do_roadTax"))
-            ? null
-            : asNullableNumberField(form.getFieldValue("do_roadTax")),
-          do_processingFees: isEmpty(form.getFieldValue("do_processingFees"))
-            ? null
-            : asNullableNumberField(form.getFieldValue("do_processingFees")),
-          do_customer_exShowroomPrice: isEmpty(
-            form.getFieldValue("do_customer_exShowroomPrice"),
-          )
-            ? null
-            : asNullableNumberField(
-                form.getFieldValue("do_customer_exShowroomPrice"),
-              ),
-          do_customer_insuranceCost: isEmpty(
-            form.getFieldValue("do_customer_insuranceCost"),
-          )
-            ? null
-            : asNullableNumberField(
-                form.getFieldValue("do_customer_insuranceCost"),
-              ),
-          do_customer_roadTax: isEmpty(
-            form.getFieldValue("do_customer_roadTax"),
-          )
-            ? null
-            : asNullableNumberField(form.getFieldValue("do_customer_roadTax")),
-          do_customer_actualInsurancePremium: isEmpty(
-            form.getFieldValue("do_customer_actualInsurancePremium"),
-          )
-            ? null
-            : asNullableNumberField(
-                form.getFieldValue("do_customer_actualInsurancePremium"),
-              ),
-          loanId: finalLoanId,
-          do_loanId: finalLoanId,
-          updatedAt: new Date().toISOString(),
-          createdAt: existingDO?.createdAt || new Date().toISOString(),
-        };
-
-        const saveRes = await saveDOByLoanId(finalLoanId, payload);
-        if (saveRes?.skipped || saveRes?.data === null) return;
-        setExistingDO(saveRes?.data?.data || saveRes?.data || payload);
-
-        const now = Date.now();
-        if (now - lastSaveAtRef.current > 5000) {
-          lastSaveAtRef.current = now;
-        }
-      } catch (err) {
-        console.error("Autosave DO Error:", err);
-      }
-    };
-
-    autosave();
-  }, [
-    form,
-    routeLoanId,
-    hasLoadedLoanContext,
-    hasLoadedDO,
-    debouncedValues,
-    existingDO,
-    loanData,
-  ]);
-
   // Actions
   const handleDiscardAndExit = () => {
     form.resetFields();
@@ -946,7 +832,6 @@ const DeliveryOrderForm = () => {
   const saveDeliveryOrder = async ({ exitAfterSave = false } = {}) => {
     try {
       setLoading(true);
-      suppressAutosaveUntilRef.current = Date.now() + 3000;
 
       if (
         typeof document !== "undefined" &&
@@ -960,6 +845,7 @@ const DeliveryOrderForm = () => {
       await form.validateFields();
       await new Promise((resolve) => setTimeout(resolve, 0));
       const serialized = serializeDatesToISO(form.getFieldsValue(true));
+      const currentValues = form.getFieldsValue(true);
 
       let finalLoanId =
         serialized?.do_loanId ||
@@ -1002,29 +888,34 @@ const DeliveryOrderForm = () => {
       const payload = {
         ...(existingDO || {}),
         ...serialized,
-        do_exShowroomPrice: isEmpty(form.getFieldValue("do_exShowroomPrice"))
+        do_exShowroomPrice: isEmpty(currentValues?.do_exShowroomPrice)
           ? null
-          : asNullableNumberField(form.getFieldValue("do_exShowroomPrice")),
-        do_insuranceCost: isEmpty(form.getFieldValue("do_insuranceCost"))
+          : asNullableNumberField(currentValues?.do_exShowroomPrice),
+        do_insuranceCost: isEmpty(currentValues?.do_insuranceCost)
           ? null
-          : asNullableNumberField(form.getFieldValue("do_insuranceCost")),
-        do_roadTax: isEmpty(form.getFieldValue("do_roadTax"))
+          : asNullableNumberField(currentValues?.do_insuranceCost),
+        do_roadTax: isEmpty(currentValues?.do_roadTax)
           ? null
-          : asNullableNumberField(form.getFieldValue("do_roadTax")),
-        do_processingFees: asNullableNumberField(
-          form.getFieldValue("do_processingFees"),
-        ),
+          : asNullableNumberField(currentValues?.do_roadTax),
+        do_processingFees: asNullableNumberField(currentValues?.do_processingFees),
         do_customer_exShowroomPrice: asNullableNumberField(
-          form.getFieldValue("do_customer_exShowroomPrice"),
+          currentValues?.do_customer_exShowroomPrice,
         ),
         do_customer_insuranceCost: asNullableNumberField(
-          form.getFieldValue("do_customer_insuranceCost"),
+          currentValues?.do_customer_insuranceCost,
         ),
         do_customer_roadTax: asNullableNumberField(
-          form.getFieldValue("do_customer_roadTax"),
+          currentValues?.do_customer_roadTax,
         ),
         do_customer_actualInsurancePremium: asNullableNumberField(
-          form.getFieldValue("do_customer_actualInsurancePremium"),
+          currentValues?.do_customer_actualInsurancePremium,
+        ),
+        do_marginMoneyPaid: asNullableNumberField(currentValues?.do_marginMoneyPaid),
+        do_additions_others: sanitizeNamedAmountList(
+          currentValues?.do_additions_others,
+        ),
+        do_discounts_others: sanitizeNamedAmountList(
+          currentValues?.do_discounts_others,
         ),
         loanId: finalLoanId,
         do_loanId: finalLoanId,
@@ -1040,7 +931,6 @@ const DeliveryOrderForm = () => {
         return;
       }
       setExistingDO(saveRes?.data?.data || saveRes?.data || payload);
-      suppressAutosaveUntilRef.current = Date.now() + 3000;
 
       message.success("Delivery Order saved successfully ✅");
       if (exitAfterSave) {

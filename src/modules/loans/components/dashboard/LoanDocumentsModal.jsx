@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Spin } from "antd";
 import Icon from "../../../../components/AppIcon";
 import { loansApi } from "../../../../api/loans";
+import API_BASE_URL from "../../../../config/apiBaseUrl";
 import LoanDocumentViewerModal from "../shared/LoanDocumentViewerModal";
 
 const FILTERS = [
@@ -51,6 +52,30 @@ const looksLikeUrl = (v) => {
 
 const isImageUrl = (url = "") => /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(url) || url.startsWith("data:image/");
 const isPdfUrl = (url = "") => /\.pdf(\?|#|$)/i.test(url) || url.startsWith("data:application/pdf");
+const API_BASE = String(API_BASE_URL || "").replace(/\/+$/, "");
+
+const looksLikeR2Host = (value = "") => {
+  try {
+    const parsed = new URL(String(value || ""));
+    const host = String(parsed.hostname || "").toLowerCase();
+    return host.includes("r2.dev") || host.includes("cloudflarestorage.com");
+  } catch {
+    return false;
+  }
+};
+
+const buildAccessibleDocumentUrl = (value = "") => {
+  const url = String(value || "").trim();
+  if (!url || url.startsWith("data:")) return url;
+
+  const isR2Path =
+    looksLikeR2Host(url) ||
+    url.startsWith("/uploads/") ||
+    url.startsWith("uploads/");
+
+  if (!isR2Path || !API_BASE) return url;
+  return `${API_BASE}/api/upload/file?url=${encodeURIComponent(url)}`;
+};
 
 const getSourceFromPath = (path = "") => {
   const p = String(path).toLowerCase();
@@ -102,7 +127,8 @@ const extractAllDocuments = (loan) => {
     found.push({
       id: `${path}:${url}`,
       path,
-      url,
+      rawUrl: url,
+      url: buildAccessibleDocumentUrl(url),
       tag: hasValue(tag) ? String(tag) : "",
       source: source || getSourceFromPath(path),
       isImage: isImageUrl(url),
@@ -148,11 +174,12 @@ const extractAllDocuments = (loan) => {
 
   const seenByUrl = new Map();
   found.forEach((doc) => {
-    if (!seenByUrl.has(doc.url)) {
-      seenByUrl.set(doc.url, doc);
+    const dedupeKey = doc.rawUrl || doc.url;
+    if (!seenByUrl.has(dedupeKey)) {
+      seenByUrl.set(dedupeKey, doc);
       return;
     }
-    const existing = seenByUrl.get(doc.url);
+    const existing = seenByUrl.get(dedupeKey);
     if (!existing.tag && doc.tag) existing.tag = doc.tag;
     if (existing.source === "Other Documents" && doc.source !== "Other Documents") existing.source = doc.source;
   });
@@ -409,7 +436,16 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
                           }}
                         >
                           {doc.isImage ? (
-                            <img src={doc.url} alt={getDocTagText(doc)} className="h-full w-full object-cover transition duration-300 hover:scale-[1.03]" />
+                            <img
+                              src={doc.url}
+                              alt={getDocTagText(doc)}
+                              className="h-full w-full object-cover transition duration-300 hover:scale-[1.03]"
+                              onError={(event) => {
+                                if (doc.rawUrl && event.currentTarget.src !== doc.rawUrl) {
+                                  event.currentTarget.src = doc.rawUrl;
+                                }
+                              }}
+                            />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                               <Icon name={doc.isPdf ? "FileText" : "File"} size={24} />
@@ -424,7 +460,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
                           <div className="flex items-center justify-between gap-2">
                             <p className="truncate text-sm font-semibold text-foreground">{getDocTagText(doc)}</p>
                             <a
-                              href={doc.url}
+                              href={doc.rawUrl || doc.url}
                               target="_blank"
                               rel="noopener noreferrer"
                               download

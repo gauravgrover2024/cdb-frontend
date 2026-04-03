@@ -11,6 +11,17 @@ const asInt = (val) => {
 
 const safeText = (v) => (v === undefined || v === null ? "" : String(v));
 
+const buildNamedRows = (list = [], fallbackLabel = "Other") => {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item, idx) => {
+      const amount = asInt(item?.amount || 0);
+      const label = safeText(item?.label).trim() || `${fallbackLabel} ${idx + 1}`;
+      return { label, value: amount, intent: "addition" };
+    })
+    .filter((row) => row.value > 0);
+};
+
 const ShowroomVehicleDetailsSection = ({ data = {} }) => {
   const { isDarkMode } = useTheme();
 
@@ -42,6 +53,11 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
   const accessoriesAmount = asInt(data?.do_accessoriesAmount);
   const fastag = asInt(data?.do_fastag);
   const extendedWarranty = asInt(data?.do_extendedWarranty);
+  const processingFees = asInt(data?.do_processingFees);
+  const namedAdditionsRows = buildNamedRows(data?.do_additions_others, "Addition");
+  const namedDiscountRows = buildNamedRows(data?.do_discounts_others, "Discount").map(
+    (row) => ({ ...row, intent: "discount" }),
+  );
   const additionsOthersTotal = asInt(data?.do_additions_othersTotal || 0);
 
   const marginMoneyPaid = asInt(data?.do_marginMoneyPaid);
@@ -71,7 +87,14 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
       { label: "Accessories", value: accessoriesAmount, intent: "addition" },
       { label: "Fastag", value: fastag, intent: "addition" },
       { label: "Extended warranty", value: extendedWarranty, intent: "addition" },
-      { label: "Others (additions)", value: additionsOthersTotal, intent: "addition" },
+      ...namedAdditionsRows,
+      {
+        label: "Others (additions)",
+        value:
+          additionsOthersTotal ||
+          namedAdditionsRows.reduce((sum, row) => sum + asInt(row?.value || 0), 0),
+        intent: "addition",
+      },
     ].filter((row) => row.value > 0);
 
     const discountsRows = [
@@ -83,7 +106,14 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
       { label: "Exchange vehicle price", value: exchangeVehiclePrice, intent: "discount" },
       { label: "Loyalty", value: loyalty, intent: "discount" },
       { label: "Corporate", value: corporate, intent: "discount" },
-      { label: "Others (discounts)", value: discountsOthersTotal, intent: "discount" },
+      ...namedDiscountRows,
+      {
+        label: "Others (discounts)",
+        value:
+          discountsOthersTotal ||
+          namedDiscountRows.reduce((sum, row) => sum + asInt(row?.value || 0), 0),
+        intent: "discount",
+      },
     ].filter((row) => row.value > 0);
 
     return [
@@ -129,6 +159,15 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
                 },
               ]
             : []),
+          ...(processingFees > 0
+            ? [
+                {
+                  label: "Processing fees (DO)",
+                  value: processingFees,
+                  intent: "discount",
+                },
+              ]
+            : []),
           {
             label: "Net on-road used for payment",
             value: netUsedForPayment,
@@ -171,6 +210,8 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
     fastag,
     extendedWarranty,
     additionsOthersTotal,
+    namedAdditionsRows,
+    namedDiscountRows,
     marginMoneyPaid,
     dealerDiscount,
     schemeDiscount,
@@ -180,6 +221,7 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
     loyalty,
     corporate,
     discountsOthersTotal,
+    processingFees,
     onRoadVehicleCost,
     totalDiscountDO,
     netOnRoadDO,

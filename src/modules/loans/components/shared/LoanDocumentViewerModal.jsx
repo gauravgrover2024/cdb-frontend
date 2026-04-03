@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import Icon from "../../../../components/AppIcon";
 import Button from "../../../../components/ui/Button";
+import API_BASE_URL from "../../../../config/apiBaseUrl";
 
 const hasValue = (value) =>
   value !== undefined &&
@@ -14,6 +15,28 @@ const isImageUrl = (url = "") =>
 
 const isPdfUrl = (url = "") =>
   /\.pdf(\?|#|$)/i.test(url) || String(url).startsWith("data:application/pdf");
+const API_BASE = String(API_BASE_URL || "").replace(/\/+$/, "");
+
+const looksLikeR2Host = (value = "") => {
+  try {
+    const parsed = new URL(String(value || ""));
+    const host = String(parsed.hostname || "").toLowerCase();
+    return host.includes("r2.dev") || host.includes("cloudflarestorage.com");
+  } catch {
+    return false;
+  }
+};
+
+const buildAccessibleDocumentUrl = (value = "") => {
+  const url = String(value || "").trim();
+  if (!url || url.startsWith("data:")) return url;
+  const isR2Path =
+    looksLikeR2Host(url) ||
+    url.startsWith("/uploads/") ||
+    url.startsWith("uploads/");
+  if (!isR2Path || !API_BASE) return url;
+  return `${API_BASE}/api/upload/file?url=${encodeURIComponent(url)}`;
+};
 
 const clampZoomValue = (value) => {
   const n = Number(value);
@@ -50,7 +73,8 @@ const normalizeDocs = (documents = []) =>
       id: doc?.id || `${doc?.url}-${index}`,
       name: doc?.name || doc?.tag || `Document ${index + 1}`,
       tag: doc?.tag || "",
-      url: doc?.url,
+      rawUrl: doc?.rawUrl || doc?.url,
+      url: buildAccessibleDocumentUrl(doc?.url),
       size: doc?.size || "",
       uploadedBy: doc?.uploadedBy || "",
       isImage: doc?.isImage ?? isImageUrl(doc?.url),
@@ -247,7 +271,7 @@ const LoanDocumentViewerModal = ({
       .replace(/[^a-zA-Z0-9_-]/g, "")
       .toLowerCase();
     const link = document.createElement("a");
-    link.href = activeDoc.url;
+    link.href = activeDoc.url || activeDoc.rawUrl;
     link.download = label || `document_${activeIndex + 1}`;
     link.rel = "noopener noreferrer";
     document.body.appendChild(link);
@@ -503,6 +527,11 @@ const LoanDocumentViewerModal = ({
                   draggable={false}
                   loading="lazy"
                   decoding="async"
+                  onError={(event) => {
+                    if (activeDoc.rawUrl && event.currentTarget.src !== activeDoc.rawUrl) {
+                      event.currentTarget.src = activeDoc.rawUrl;
+                    }
+                  }}
                   onLoad={(e) => {
                     const target = e.currentTarget;
                     const naturalWidth = Number(target?.naturalWidth || 0);
@@ -565,6 +594,11 @@ const LoanDocumentViewerModal = ({
                             src={doc.url}
                             alt={getDocDisplayLabel(doc, idx)}
                             className="h-full w-full object-cover"
+                            onError={(event) => {
+                              if (doc.rawUrl && event.currentTarget.src !== doc.rawUrl) {
+                                event.currentTarget.src = doc.rawUrl;
+                              }
+                            }}
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-muted-foreground">

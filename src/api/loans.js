@@ -12,6 +12,21 @@ export const loansApi = {
       params,
     });
   },
+  upsertCollectionReceivable: async (data = {}) => {
+    return await apiClient.post("/api/loans/collections/receivables/upsert", data);
+  },
+  updateCollectionReceivable: async (payoutId, data = {}) => {
+    return await apiClient.patch(
+      `/api/loans/collections/receivables/${encodeURIComponent(String(payoutId || "").trim())}`,
+      data,
+    );
+  },
+  deleteCollectionReceivable: async (payoutId, params = {}) => {
+    return await apiClient.delete(
+      `/api/loans/collections/receivables/${encodeURIComponent(String(payoutId || "").trim())}`,
+      { params },
+    );
+  },
   getAnalyticsOverview: async (params = {}, options = {}) => {
     return await apiClient.get("/api/loans/analytics/overview", { params, ...options });
   },

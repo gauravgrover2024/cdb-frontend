@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Table,
   Tag,
   Select,
   Input,
   Button,
+  Checkbox,
+  Empty,
   Space,
   DatePicker,
   Modal,
@@ -111,17 +113,6 @@ const collectReceivableRows = (loan = {}) => {
     seen.add(key);
     return true;
   });
-};
-
-const getReceivablesKey = (loan) => {
-  if (Object.prototype.hasOwnProperty.call(loan || {}, "loan_receivables")) {
-    return "loan_receivables";
-  }
-  if (safeArray(loan?.loan_receivables).length > 0) return "loan_receivables";
-  if (safeArray(loan?.loanReceivables).length > 0) return "loanReceivables";
-  if (safeArray(loan?.receivables).length > 0) return "receivables";
-  if (safeArray(loan?.loan_payouts).length > 0) return "loan_payouts";
-  return "loan_receivables";
 };
 
 const getCustomerNameFromLoan = (loan) => {
@@ -320,19 +311,6 @@ const calculateDaysPending = (receivedDate, createdDate) => {
   return today.diff(start, "day");
 };
 
-const addActivityLog = (existingLog, action, details) => {
-  const log = safeArray(existingLog);
-  return [
-    ...log,
-    {
-      timestamp: new Date().toISOString(),
-      action,
-      details,
-      date: dayjs().format("DD MMM YYYY, hh:mm A"),
-    },
-  ];
-};
-
 const toUiStatus = (rawStatus, paymentStatus) => {
   if (paymentStatus.isFullyPaid) return "Received";
   if (paymentStatus.isPartial) return "Partial";
@@ -371,7 +349,6 @@ const getPaymentStatus = (record) => {
 const PayoutReceivablesDashboard = () => {
   const [messageApi, messageContextHolder] = message.useMessage();
   const [rows, setRows] = useState([]);
-  const [loans, setLoans] = useState([]);
   const [statusFilter, setStatusFilter] = useState("All");
   const [bankFilter, setBankFilter] = useState("All");
   const [searchText, setSearchText] = useState("");
@@ -428,21 +405,6 @@ const PayoutReceivablesDashboard = () => {
     if (previousSerialized === nextSerialized) return;
 
     await paymentsApi.update(loanId, { showroomRows: nextRows });
-  };
-
-  const syncAutoCommissionFromServerRow = async ({ loanRef, payoutId }) => {
-    if (!loanRef || !payoutId) return;
-    const loanRes = await loansApi.getById(loanRef);
-    const loanDoc = loanRes?.data || null;
-    if (!loanDoc) return;
-    const row = collectReceivableRows(loanDoc).find(
-      (entry) => String(entry?.payoutId || entry?.id || "") === String(payoutId),
-    );
-    if (!row) return;
-    await syncAutoCommissionReceivableIntoPayments({
-      loanId: loanDoc?.loanId || loanRef,
-      receivableRow: row,
-    });
   };
 
   const loadReceivables = async () => {
@@ -516,8 +478,6 @@ const PayoutReceivablesDashboard = () => {
               : getCreatedDate(p),
         }));
       });
-
-      setLoans(allLoans);
       setRows(receivables);
     } catch (err) {
       console.error("Failed to load receivables:", err);
@@ -538,100 +498,68 @@ const PayoutReceivablesDashboard = () => {
     const shouldReload = options?.reload !== false;
     const normalizedPayoutId = String(payoutId || "").trim();
     if (!normalizedPayoutId) return;
-
-    const sourceLoans = Array.isArray(loans) ? loans : [];
     const sourceMatch = rows.find(
       (row) => normalizePayoutId(row) === normalizedPayoutId,
     );
+    if (!sourceMatch?.loanId) return;
 
-    const matchLoanRef = String(
-      sourceMatch?.loanMongoId || sourceMatch?.loanId || "",
-    ).trim();
-
-    let targetLoan =
-      sourceLoans.find((loan) => {
-        const loanMongoId = String(loan?._id || "").trim();
-        const loanBizId = String(loan?.loanId || "").trim();
-        return (
-          (matchLoanRef && loanMongoId && matchLoanRef === loanMongoId) ||
-          (matchLoanRef && loanBizId && matchLoanRef === loanBizId)
-        );
-      }) || null;
-
-    if (!targetLoan) {
-      targetLoan = sourceLoans.find((loan) =>
-        collectReceivableRows(loan).some(
-          (entry) => normalizePayoutId(entry) === normalizedPayoutId,
-        ),
-      );
-    }
-    if (!targetLoan) return;
-
-    const preferredKey = sourceMatch?.__receivableSourceKey;
-    const key = preferredKey || getReceivablesKey(targetLoan);
-    const list = safeArray(targetLoan[key]);
-    const existingIndex = list.findIndex(
-      (entry) => normalizePayoutId(entry) === normalizedPayoutId,
-    );
-
-    let updatedList = list;
-    if (existingIndex >= 0) {
-      updatedList = list.map((entry, idx) => {
-        if (idx !== existingIndex) return entry;
-        const updated = { ...entry, ...patch };
-        if (activityAction) {
-          updated.activity_log = addActivityLog(
-            entry.activity_log,
-            activityAction.action,
-            activityAction.details,
-          );
-        }
-        return updated;
-      });
-    } else if (sourceMatch) {
-      const seedRow = stripReceivableRuntimeFields(sourceMatch);
-      const created = {
-        ...seedRow,
-        id: seedRow?.id || normalizedPayoutId,
-        payoutId: seedRow?.payoutId || normalizedPayoutId,
-        payment_history: safeArray(seedRow?.payment_history),
-        activity_log: safeArray(seedRow?.activity_log),
-        ...patch,
-      };
-      if (activityAction) {
-        created.activity_log = addActivityLog(
-          created.activity_log,
-          activityAction.action,
-          activityAction.details,
-        );
-      }
-      updatedList = [...list, created];
-    } else {
-      return;
-    }
+    const seedRow = stripReceivableRuntimeFields(sourceMatch);
+    const nextPatch = { ...patch };
 
     try {
-      await loansApi.update(
-        targetLoan._id || targetLoan.loanId || targetLoan.id,
+      const saveRes = await loansApi.updateCollectionReceivable(
+        normalizedPayoutId,
         {
-          [key]: updatedList,
+          loanId: sourceMatch.loanId,
+          patch: nextPatch,
+          seedRow,
+          activityAction,
         },
       );
-      const updatedRow = safeArray(updatedList).find(
-        (row) => String(row?.payoutId || row?.id || "") === String(payoutId),
-      );
+
+      const savedDoc = saveRes?.data || null;
+      const updatedRow = savedDoc
+        ? {
+            ...(savedDoc?.payload && typeof savedDoc.payload === "object"
+              ? savedDoc.payload
+              : {}),
+            id:
+              savedDoc?.payload?.id ||
+              savedDoc?.payoutId ||
+              normalizedPayoutId,
+            payoutId: savedDoc?.payoutId || normalizedPayoutId,
+            payout_type: savedDoc?.payout_type,
+            payout_party_name: savedDoc?.payout_party_name,
+            payout_direction: savedDoc?.payout_direction,
+            payout_status: savedDoc?.payout_status,
+            payout_percentage: savedDoc?.payout_percentage,
+            payout_amount: savedDoc?.payout_amount,
+            net_payout_amount: savedDoc?.net_payout_amount,
+            tds_amount: savedDoc?.tds_amount,
+            tds_percentage: savedDoc?.tds_percentage,
+            payout_received_date: savedDoc?.payout_received_date,
+            created_date: savedDoc?.created_date,
+            payout_createdAt: savedDoc?.payout_createdAt,
+            payment_history: safeArray(savedDoc?.payment_history),
+            activity_log: safeArray(savedDoc?.activity_log),
+            meta_source: savedDoc?.meta_source,
+          }
+        : null;
+
       if (updatedRow) {
         await syncAutoCommissionReceivableIntoPayments({
-          loanId: targetLoan?.loanId || targetLoan?._id,
+          loanId: sourceMatch.loanId,
           receivableRow: updatedRow,
         });
       }
       if (shouldReload) {
         await loadReceivables();
       }
+      return updatedRow;
     } catch (err) {
       console.error("Failed to update receivable:", err);
       messageApi.error("Failed to update receivable");
+      return null;
     }
   };
 
@@ -969,30 +897,6 @@ const PayoutReceivablesDashboard = () => {
       updatedCount += 1;
     }
 
-    const autoSyncTargets = Array.from(
-      new Set(
-        selectedRows
-          .filter(
-            (row) =>
-              String(row?.meta_source || "").trim() ===
-              AUTO_COMMISSION_META_SOURCE,
-          )
-          .map(
-            (row) =>
-              `${String(row?.loanMongoId || row?.loanId || "")}::${normalizePayoutId(row)}`,
-          ),
-      ),
-    );
-    await Promise.all(
-      autoSyncTargets.map((target) => {
-        const [loanRef, payoutId] = String(target).split("::");
-        if (!loanRef || !payoutId) return Promise.resolve();
-        return syncAutoCommissionFromServerRow({ loanRef, payoutId }).catch(
-          () => {},
-        );
-      }),
-    );
-
     await loadReceivables();
     setSelectedRowKeys([]);
     setSelectedRows([]);
@@ -1122,6 +1026,62 @@ const PayoutReceivablesDashboard = () => {
 
     messageApi.success("Data exported to CSV successfully");
   };
+
+  const getRowKey = (record) => String(record?.payoutId || record?.id || "").trim();
+
+  const rowMap = useMemo(() => {
+    const map = new Map();
+    rows.forEach((row) => {
+      const key = getRowKey(row);
+      if (key) map.set(key, row);
+    });
+    return map;
+  }, [rows]);
+
+  const applySelection = useCallback(
+    (keys = []) => {
+      const normalizedKeys = Array.from(
+        new Set(keys.map((key) => String(key).trim()).filter(Boolean)),
+      );
+      setSelectedRowKeys(normalizedKeys);
+      setSelectedRows(
+        normalizedKeys.map((key) => rowMap.get(key)).filter(Boolean),
+      );
+    },
+    [rowMap],
+  );
+
+  const toggleRowSelection = useCallback(
+    (record, checked) => {
+      const key = getRowKey(record);
+      if (!key) return;
+      if (checked) {
+        applySelection([...selectedRowKeys, key]);
+      } else {
+        applySelection(selectedRowKeys.filter((item) => String(item) !== key));
+      }
+    },
+    [applySelection, selectedRowKeys],
+  );
+
+  useEffect(() => {
+    if (!selectedRowKeys.length && selectedRows.length) {
+      setSelectedRows([]);
+      return;
+    }
+    if (!selectedRowKeys.length) return;
+    const hydrated = selectedRowKeys
+      .map((key) => rowMap.get(String(key)))
+      .filter(Boolean);
+    if (hydrated.length !== selectedRows.length) {
+      setSelectedRows(hydrated);
+    }
+  }, [rowMap, selectedRowKeys, selectedRows.length]);
+
+  const selectedKeySet = useMemo(
+    () => new Set(selectedRowKeys.map((key) => String(key).trim())),
+    [selectedRowKeys],
+  );
 
   /* ==============================
      Columns
@@ -1371,49 +1331,42 @@ const PayoutReceivablesDashboard = () => {
   };
 
   return (
-    <div className="px-4 md:px-6 py-6 bg-slate-50 dark:bg-[#171717] min-h-screen">
+    <div className="min-h-screen bg-slate-50 px-3 py-4 dark:bg-[#171717] md:px-6 md:py-6">
       {messageContextHolder}
-      <div className="mb-6">
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-[#262626] text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-2">
-              <DollarOutlined style={{ fontSize: 11 }} />
-              Payouts
+      <div className="mx-auto w-full max-w-[1700px] space-y-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm dark:border-[#2a2a2a] dark:bg-[#1f1f1f] md:p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-1 inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:bg-[#262626] dark:text-slate-300">
+                <DollarOutlined style={{ fontSize: 11 }} />
+                Unified Receivables
+              </div>
+              <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-50 md:text-2xl">
+                Collections Dashboard
+              </h1>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 md:text-sm">
+                Loan, commission, and insurance receivables with full payment tracking.
+              </p>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-1">
-              Collections Dashboard
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Manage receivables and track collections
-            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button icon={<DownloadOutlined />} onClick={handleExport}>
+                Export
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={loadReceivables}>
+                Refresh
+              </Button>
+            </div>
           </div>
-          <Space>
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={handleExport}
-              size="large"
-            >
-              Export
-            </Button>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={loadReceivables}
-              size="large"
-            >
-              Refresh
-            </Button>
-          </Space>
         </div>
 
-        {/* ── Gradient Stat Cards ── */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((stat) => {
             const gradient =
               STAT_GRADIENTS[stat.id] || "from-slate-600 to-slate-800";
             return (
               <div
                 key={stat.id}
-                className={`relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${gradient} p-4 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl`}
+                className={`relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${gradient} p-3 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl md:p-4`}
               >
                 <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
                 <div className="relative flex items-start justify-between gap-3">
@@ -1421,7 +1374,7 @@ const PayoutReceivablesDashboard = () => {
                     <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/70">
                       {stat.label}
                     </p>
-                    <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums leading-none">
+                    <p className="mt-1 text-xl font-black leading-none tabular-nums text-white md:text-3xl">
                       {stat.value}
                     </p>
                     {stat.subtext && (
@@ -1440,15 +1393,15 @@ const PayoutReceivablesDashboard = () => {
         </div>
 
         {bankSummary.length > 0 && (
-          <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl p-4 mb-6 shadow-sm">
-            <h3 className="text-sm font-semibold mb-3 text-slate-700 dark:text-slate-200">
-              Bank-wise Pending Summary
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
+            <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Party-wise Pending Summary
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
               {bankSummary.slice(0, 8).map((bank, idx) => (
                 <div
                   key={idx}
-                  className="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-[#262626] rounded-xl border border-slate-100 dark:border-[#303030]"
+                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-2.5 dark:border-[#303030] dark:bg-[#262626]"
                 >
                   <div>
                     <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
@@ -1472,8 +1425,8 @@ const PayoutReceivablesDashboard = () => {
           </div>
         )}
 
-        <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl p-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
             <div className="xl:col-span-2">
               <Input
                 prefix={<SearchOutlined />}
@@ -1521,13 +1474,25 @@ const PayoutReceivablesDashboard = () => {
                 </Option>
               ))}
             </Select>
+            <Select
+              value={amountRangeFilter}
+              onChange={setAmountRangeFilter}
+              size="large"
+              className="w-full"
+            >
+              <Option value="All">All Amounts</Option>
+              <Option value="0-50k">0 - 50K</Option>
+              <Option value="50k-1L">50K - 1L</Option>
+              <Option value="1L-5L">1L - 5L</Option>
+              <Option value="5L+">5L+</Option>
+            </Select>
           </div>
           {(statusFilter !== "All" ||
             bankFilter !== "All" ||
             searchText ||
             ageFilter !== "All" ||
             amountRangeFilter !== "All") && (
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#262626]">
+            <div className="mt-3 border-t border-slate-100 pt-3 dark:border-[#262626]">
               <Button
                 onClick={() => {
                   setStatusFilter("All");
@@ -1542,76 +1507,236 @@ const PayoutReceivablesDashboard = () => {
             </div>
           )}
         </div>
-      </div>
 
-      {selectedRows.length > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-2xl p-4 mb-4">
-          <div className="flex justify-between items-center">
-            <span className="font-medium text-slate-800 dark:text-slate-100">
-              {selectedRows.length} receivable(s) selected
-            </span>
-            <Space>
-              <Button
-                onClick={() => {
-                  setSelectedRowKeys([]);
-                  setSelectedRows([]);
-                }}
-              >
-                Clear Selection
-              </Button>
-              <Dropdown overlay={bulkActionsMenu} trigger={["click"]}>
-                <Button type="primary">
-                  Bulk Actions <DownOutlined />
+        {selectedRows.length > 0 && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/40 dark:bg-blue-950/20 md:p-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                {selectedRows.length} receivable(s) selected
+              </span>
+              <Space>
+                <Button
+                  onClick={() => {
+                    setSelectedRowKeys([]);
+                    setSelectedRows([]);
+                  }}
+                >
+                  Clear Selection
                 </Button>
-              </Dropdown>
-            </Space>
+                <Dropdown overlay={bulkActionsMenu} trigger={["click"]}>
+                  <Button type="primary">
+                    Bulk Actions <DownOutlined />
+                  </Button>
+                </Dropdown>
+              </Space>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl overflow-hidden shadow-sm">
-        <div className="px-4 py-3 border-b border-slate-100 dark:border-[#262626] bg-slate-50/70 dark:bg-[#1a1a1a]">
-          <div className="flex flex-wrap items-center gap-3 text-xs md:text-sm">
-            <Tag color="blue">Rows: {filteredSubtotals.rowCount}</Tag>
-            <Tag color="geekblue">
-              Parties: {filteredSubtotals.partyCount}
-            </Tag>
-            <Tag color="green">
-              Received: {formatCurrency(filteredSubtotals.received)}
-            </Tag>
-            <Tag color="orange">
-              Pending: {formatCurrency(filteredSubtotals.pending)}
-            </Tag>
-            <Tag color="purple">
-              Expected: {formatCurrency(filteredSubtotals.expected)}
-            </Tag>
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
+          <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3 dark:border-[#262626] dark:bg-[#1a1a1a]">
+            <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
+              <Tag color="blue">Rows: {filteredSubtotals.rowCount}</Tag>
+              <Tag color="geekblue">Parties: {filteredSubtotals.partyCount}</Tag>
+              <Tag color="green">
+                Received: {formatCurrency(filteredSubtotals.received)}
+              </Tag>
+              <Tag color="orange">
+                Pending: {formatCurrency(filteredSubtotals.pending)}
+              </Tag>
+              <Tag color="purple">
+                Expected: {formatCurrency(filteredSubtotals.expected)}
+              </Tag>
+            </div>
+          </div>
+
+          <div className="space-y-3 p-3 md:hidden">
+            {filteredRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center dark:border-[#343434] dark:bg-[#232323]">
+                <Empty description="No receivables found for current filters" />
+              </div>
+            ) : (
+              filteredRows.map((record) => {
+                const rowKey = getRowKey(record);
+                const paymentStatus = getPaymentStatus(record);
+                const uiStatus = toUiStatus(record.payout_status, paymentStatus);
+                const days = calculateDaysPending(
+                  record.payout_received_date,
+                  record.created_date,
+                );
+                const agingColor =
+                  days === null
+                    ? "default"
+                    : days <= 7
+                      ? "blue"
+                      : days <= 15
+                        ? "orange"
+                        : "red";
+                return (
+                  <div
+                    key={rowKey}
+                    className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-[#343434] dark:bg-[#232323]"
+                  >
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          checked={selectedKeySet.has(rowKey)}
+                          disabled={paymentStatus.isFullyPaid}
+                          onChange={(e) =>
+                            toggleRowSelection(record, e.target.checked)
+                          }
+                        />
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {record.customerName}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {record.loanId} · {record.payoutId}
+                          </div>
+                        </div>
+                      </div>
+                      <Tag
+                        color={
+                          uiStatus === "Received"
+                            ? "success"
+                            : uiStatus === "Partial"
+                              ? "warning"
+                              : "default"
+                        }
+                      >
+                        {uiStatus}
+                      </Tag>
+                    </div>
+
+                    <div className="mb-3 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-slate-50 p-2 dark:bg-[#1b1b1b]">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Party
+                        </div>
+                        <div className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                          {record.payout_party_name || "-"}
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2 dark:bg-[#1b1b1b]">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Amount
+                        </div>
+                        <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                          {formatCurrency(paymentStatus.expectedAmount)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2 dark:bg-[#1b1b1b]">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Received
+                        </div>
+                        <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(paymentStatus.totalReceived)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 p-2 dark:bg-[#1b1b1b]">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Pending
+                        </div>
+                        <div className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                          {formatCurrency(paymentStatus.pendingAmount)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-2 flex items-center justify-between">
+                      <Tag color={agingColor}>
+                        {days === null ? "Collected" : `${days} days`}
+                      </Tag>
+                      {safeArray(record.activity_log).length > 0 && (
+                        <Tag color="geekblue">
+                          Activity {safeArray(record.activity_log).length}
+                        </Tag>
+                      )}
+                    </div>
+
+                    <DatePicker
+                      size="small"
+                      value={record.payout_received_date ? dayjs(record.payout_received_date) : null}
+                      onChange={(_date, dateString) =>
+                        updateReceivableInBackend(
+                          normalizePayoutId(record),
+                          {
+                            payout_received_date: dateString,
+                            payout_status: dateString ? "Received" : "Expected",
+                          },
+                          dateString
+                            ? {
+                                action: "Received Date Set",
+                                details: `Date: ${dateString}`,
+                              }
+                            : null,
+                        )
+                      }
+                      style={{ width: "100%", marginBottom: 8 }}
+                      format="DD MMM YY"
+                      placeholder="Not received"
+                      disabled={paymentStatus.isFullyPaid}
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                      {safeArray(record.payment_history).length > 0 && (
+                        <Button
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => openPaymentHistoryModal(record)}
+                        >
+                          Payments ({safeArray(record.payment_history).length})
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        icon={<HistoryOutlined />}
+                        onClick={() => openTimelineModal(record)}
+                      >
+                        Timeline
+                      </Button>
+                      {!paymentStatus.isFullyPaid && (
+                        <Button
+                          size="small"
+                          type="primary"
+                          icon={<DollarOutlined />}
+                          onClick={() => openPartialPaymentModal(record)}
+                        >
+                          Record
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="hidden md:block">
+            <Table
+              rowKey={(r) => r.payoutId || r.id}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: (keys) => applySelection(keys),
+                getCheckboxProps: (record) => {
+                  const paymentStatus = getPaymentStatus(record);
+                  return {
+                    disabled: paymentStatus.isFullyPaid,
+                  };
+                },
+              }}
+              columns={columns}
+              dataSource={filteredRows}
+              pagination={{
+                pageSize: 15,
+                showTotal: (total) => `Total ${total} receivables`,
+                showSizeChanger: true,
+                pageSizeOptions: ["10", "15", "25", "50"],
+              }}
+              scroll={{ x: 1400 }}
+            />
           </div>
         </div>
-        <Table
-          rowKey={(r) => r.payoutId || r.id}
-          rowSelection={{
-            selectedRowKeys,
-            onChange: (keys, rowsSelected) => {
-              setSelectedRowKeys(keys);
-              setSelectedRows(rowsSelected);
-            },
-            getCheckboxProps: (record) => {
-              const paymentStatus = getPaymentStatus(record);
-              return {
-                disabled: paymentStatus.isFullyPaid,
-              };
-            },
-          }}
-          columns={columns}
-          dataSource={filteredRows}
-          pagination={{
-            pageSize: 15,
-            showTotal: (total) => `Total ${total} receivables`,
-            showSizeChanger: true,
-            pageSizeOptions: ["10", "15", "25", "50"],
-          }}
-          scroll={{ x: 1400 }}
-        />
       </div>
 
       <Modal

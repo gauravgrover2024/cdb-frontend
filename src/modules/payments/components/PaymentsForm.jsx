@@ -20,6 +20,11 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
+const sumNamedAmountList = (list = []) => {
+  if (!Array.isArray(list)) return 0;
+  return list.reduce((sum, item) => sum + asInt(item?.amount || 0), 0);
+};
+
 const hasMeaningfulShowroomRows = (rows = []) =>
   Array.isArray(rows) &&
   rows.some((r) => {
@@ -108,38 +113,19 @@ const getLoanDisbursementDate = (loan = {}) => {
 const LEGACY_CUTOFF = dayjs("2026-02-01T00:00:00.000Z");
 const PAYMENTS_AUTO_COMMISSION_META = "payments_negative_balance_commission_auto";
 
-const detectReceivableKey = (loanDoc = {}) => {
-  const keys = [
-    "loan_receivables",
-    "loanReceivables",
-    "receivables",
-    "loan_payouts",
-  ];
-
-  // Prefer key that already has entries to avoid writing into an empty alias
-  // while real receivables live in another legacy key.
-  for (const key of keys) {
-    if (Array.isArray(loanDoc?.[key]) && loanDoc[key].length > 0) return key;
-  }
-  for (const key of keys) {
-    if (Array.isArray(loanDoc?.[key])) return key;
-  }
-  return "loan_receivables";
-};
-
 const buildAutoCommissionPayoutId = (loanId) =>
   `PR-COMM-${String(loanId || "")
     .trim()
     .replace(/[^A-Za-z0-9]/g, "")
     .toUpperCase()}`;
 
-const isAutoCommissionReceivable = (row = {}, loanId = "") => {
-  const payoutId = String(row?.payoutId || "").trim();
-  const expectedId = buildAutoCommissionPayoutId(loanId);
-  return (
-    String(row?.meta_source || "").trim() === PAYMENTS_AUTO_COMMISSION_META ||
-    (expectedId && payoutId === expectedId)
-  );
+const firstValidIsoDate = (...values) => {
+  for (const value of values) {
+    if (!value) continue;
+    const parsed = dayjs(value);
+    if (parsed.isValid()) return parsed.toISOString();
+  }
+  return null;
 };
 
 const computeNegativeShowroomBalance = ({
@@ -343,95 +329,59 @@ const PaymentForm = () => {
       if (!force && commissionReceivableSyncSignatureRef.current === signature) {
         return;
       }
+      const canonicalLoanId = String(loan?.loanId || loanId).trim();
+      const payoutId = buildAutoCommissionPayoutId(canonicalLoanId);
 
-      const loanLookupId = loan?._id || loanId;
-      const loanRes = await loansApi.getById(loanLookupId);
-      const freshLoan = loanRes?.data || null;
-      if (!freshLoan) return;
+      if (receivableAmount > 0) {
+        const createdDate = firstValidIsoDate(
+          loan?.delivery_date,
+          loan?.deliveryDate,
+          loan?.vehicleDeliveryDate,
+          doRec?.do_deliveryDate,
+          loan?.approval_disbursedDate,
+          loan?.disbursement_date,
+          loan?.updatedAt,
+          loan?.createdAt,
+          new Date().toISOString(),
+        );
 
-      const receivableKey = detectReceivableKey(freshLoan);
-      const existingRows = Array.isArray(freshLoan?.[receivableKey])
-        ? freshLoan[receivableKey]
-        : [];
-      const existingAutoRow = existingRows.find((row) =>
-        isAutoCommissionReceivable(row, freshLoan?.loanId || loanId),
-      );
-      const cleanedRows = existingRows.filter(
-        (row) => !isAutoCommissionReceivable(row, freshLoan?.loanId || loanId),
-      );
-      const existingHistory = Array.isArray(existingAutoRow?.payment_history)
-        ? existingAutoRow.payment_history
-        : [];
-      const existingHistoryTotal = existingHistory.reduce(
-        (sum, entry) => sum + asInt(entry?.amount || 0),
-        0,
-      );
-      let nextAutoStatus = existingAutoRow?.payout_status || "Expected";
-      if (existingHistoryTotal <= 0) nextAutoStatus = "Expected";
-      else if (existingHistoryTotal >= receivableAmount) nextAutoStatus = "Received";
-      else nextAutoStatus = "Partial";
-
-      const nextRows =
-        receivableAmount > 0
-          ? [
-              ...cleanedRows,
-              {
-                ...(existingAutoRow || {}),
-                id:
-                  existingAutoRow?.id ||
-                  buildAutoCommissionPayoutId(freshLoan?.loanId || loanId),
-                payoutId: buildAutoCommissionPayoutId(
-                  freshLoan?.loanId || loanId,
-                ),
-                payout_createdAt:
-                  existingAutoRow?.payout_createdAt || new Date().toISOString(),
-                created_date:
-                  existingAutoRow?.created_date || new Date().toISOString(),
-                payout_applicable: "Yes",
-                payout_type: "Commission",
-                payout_party_name: partyName || "Showroom",
-                payout_percentage: "",
-                payout_amount: receivableAmount,
-                payout_direction: "Receivable",
-                tds_applicable: "No",
-                tds_percentage: 0,
-                tds_amount: 0,
-                net_payout_amount: receivableAmount,
-                payout_status: nextAutoStatus,
-                payout_expected_date: existingAutoRow?.payout_expected_date || null,
-                payout_received_date:
-                  nextAutoStatus === "Received"
-                    ? existingAutoRow?.payout_received_date || new Date().toISOString()
-                    : null,
-                payment_history: existingHistory,
-                activity_log:
-                  Array.isArray(existingAutoRow?.activity_log) &&
-                  existingAutoRow.activity_log.length > 0
-                    ? existingAutoRow.activity_log
-                    : [
-                        {
-                          timestamp: new Date().toISOString(),
-                          action: "Auto synced from Payments",
-                          details:
-                            "Created from negative showroom balance in payment ledger.",
-                        },
-                      ],
-                payout_remarks:
-                  "Auto-created from negative showroom balance in payment ledger.",
-                meta_source: PAYMENTS_AUTO_COMMISSION_META,
-              },
-            ]
-          : cleanedRows;
-
-      const hasChanged =
-        JSON.stringify(existingRows || []) !== JSON.stringify(nextRows || []);
-
-      if (!hasChanged) {
-        commissionReceivableSyncSignatureRef.current = signature;
-        return;
+        await loansApi.upsertCollectionReceivable({
+          loanId: canonicalLoanId,
+          payoutId,
+          receivableKind: "commission",
+          sourceModule: "payments",
+          sourceArrayKey: "payments_auto_commission",
+          receivable: {
+            id: payoutId,
+            payoutId,
+            payout_applicable: "Yes",
+            payout_type: "Commission",
+            payout_party_name: partyName || "Showroom",
+            payout_percentage: "",
+            payout_amount: receivableAmount,
+            payout_direction: "Receivable",
+            tds_applicable: "No",
+            tds_percentage: 0,
+            tds_amount: 0,
+            net_payout_amount: receivableAmount,
+            payout_status: "Expected",
+            created_date: createdDate,
+            payout_createdAt: createdDate,
+            payout_remarks:
+              "Auto-created from negative showroom balance in payment ledger.",
+            meta_source: PAYMENTS_AUTO_COMMISSION_META,
+          },
+        });
+      } else {
+        try {
+          await loansApi.deleteCollectionReceivable(payoutId, {
+            loanId: canonicalLoanId,
+          });
+        } catch (_) {
+          // Already removed or not created yet.
+        }
       }
 
-      await loansApi.update(loanLookupId, { [receivableKey]: nextRows });
       commissionReceivableSyncSignatureRef.current = signature;
     },
     [doRec, loan, loanId],
@@ -955,9 +905,19 @@ const PaymentForm = () => {
     const loyalty = asInt(doRec?.do_loyalty || 0);
     const corporate = asInt(doRec?.do_corporate || 0);
 
-    // If you later store totals for others, wire them here; for now 0
-    const additionsOthersTotal = asInt(doRec?.do_additions_othersTotal || 0);
-    const discountsOthersTotal = asInt(doRec?.do_discounts_othersTotal || 0);
+    const additionsOthers = Array.isArray(doRec?.do_additions_others)
+      ? doRec.do_additions_others
+      : [];
+    const discountsOthers = Array.isArray(doRec?.do_discounts_others)
+      ? doRec.do_discounts_others
+      : [];
+    const additionsOthersTotal = asInt(
+      doRec?.do_additions_othersTotal || sumNamedAmountList(additionsOthers),
+    );
+    const discountsOthersTotal = asInt(
+      doRec?.do_discounts_othersTotal || sumNamedAmountList(discountsOthers),
+    );
+    const processingFees = asInt(doRec?.do_processingFees || 0);
 
     return {
       customerName,
@@ -1025,6 +985,7 @@ const PaymentForm = () => {
       do_fastag: fastag,
       do_extendedWarranty: extendedWarranty,
       do_marginMoneyPaid: doMarginMoney,
+      do_processingFees: processingFees,
 
       do_dealerDiscount: dealerDiscount,
       do_schemeDiscount: schemeDiscount,
@@ -1033,7 +994,9 @@ const PaymentForm = () => {
       do_exchangeVehiclePrice: exchangeValue,
       do_loyalty: loyalty,
       do_corporate: corporate,
+      do_additions_others: additionsOthers,
       do_additions_othersTotal: additionsOthersTotal,
+      do_discounts_others: discountsOthers,
       do_discounts_othersTotal: discountsOthersTotal,
     };
   }, [loan, doRec, loanId, entryTotals]);

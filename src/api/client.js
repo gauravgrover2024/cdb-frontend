@@ -144,7 +144,7 @@ export const apiClient = {
   },
 
   delete: async (endpoint, options) => {
-    const res = await fetch(buildUrl(endpoint), {
+    const res = await fetch(buildUrl(endpoint, options?.params || {}), {
       method: "DELETE",
       headers: getHeaders(options),
     });

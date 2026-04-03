@@ -41,6 +41,20 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
+const isMeaningfulText = (value) => {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  const lc = text.toLowerCase();
+  return !["na", "n/a", "null", "undefined", "-", "--", "not set"].includes(lc);
+};
+
+const pickFirstMeaningfulText = (...values) => {
+  for (const value of values) {
+    if (isMeaningfulText(value)) return String(value).trim();
+  }
+  return "";
+};
+
 const hasValue = (val) => asInt(val) > 0;
 
 // Shared UI helpers (same style as Section 5)
@@ -251,30 +265,54 @@ const Section4VehicleDetailsCustomer = () => {
         : [],
     );
     copyIfEmpty("do_customer_marginMoneyPaid", current?.do_marginMoneyPaid ?? "");
-    copyIfEmpty("do_customer_insuranceBy", current?.do_insuranceBy || "");
+    copyIfEmpty(
+      "do_customer_insuranceBy",
+      pickFirstMeaningfulText(
+        current?.do_insuranceBy,
+        current?.insuranceBy,
+        current?.insurance_by,
+      ),
+    );
     copyIfEmpty(
       "do_customer_insuranceCompanyName",
-      current?.insurance_company_name || "",
+      pickFirstMeaningfulText(
+        current?.do_customer_insuranceCompanyName,
+        current?.insurance_company_name,
+        current?.insuranceCompanyName,
+      ),
     );
     copyIfEmpty(
       "do_customer_insurancePolicyNumber",
-      current?.insurance_policy_number || "",
+      pickFirstMeaningfulText(
+        current?.do_customer_insurancePolicyNumber,
+        current?.insurance_policy_number,
+        current?.insurancePolicyNumber,
+      ),
     );
     copyIfEmpty(
       "do_customer_actualInsurancePremium",
-      current?.insurance_premium ?? "",
+      current?.do_customer_actualInsurancePremium ??
+        current?.insurance_premium ??
+        "",
     );
     copyIfEmpty(
       "do_customer_insurancePolicyStartDate",
-      current?.insurance_policy_start_date || "",
+      current?.do_customer_insurancePolicyStartDate ||
+        current?.insurance_policy_start_date ||
+        "",
     );
     copyIfEmpty(
       "do_customer_insurancePolicyDurationOD",
-      current?.insurance_policy_duration_od || "",
+      pickFirstMeaningfulText(
+        current?.do_customer_insurancePolicyDurationOD,
+        current?.insurance_policy_duration_od,
+      ),
     );
     copyIfEmpty(
       "do_customer_insurancePolicyEndDateOD",
-      current?.insurance_policy_end_date_od || "",
+      current?.do_customer_insurancePolicyEndDateOD ||
+        current?.insurance_policy_end_date_od ||
+        "",
     );
 
     if (Object.keys(patch).length) {
@@ -282,6 +320,91 @@ const Section4VehicleDetailsCustomer = () => {
     }
     customerSeededRef.current = true;
   }, [form, customerAccountEnabled]);
+
+  useEffect(() => {
+    if (!form || !customerAccountEnabled) return;
+    const current = form.getFieldsValue(true);
+    const patch = {};
+    const isEmpty = (value) => value === undefined || value === null || value === "";
+
+    const insuranceBySource = pickFirstMeaningfulText(
+      current?.do_insuranceBy,
+      current?.insuranceBy,
+      current?.insurance_by,
+    );
+    if (isEmpty(current?.do_customer_insuranceBy) && insuranceBySource) {
+      patch.do_customer_insuranceBy = insuranceBySource;
+    }
+
+    const companySource = pickFirstMeaningfulText(
+      current?.insurance_company_name,
+      current?.insuranceCompanyName,
+    );
+    if (isEmpty(current?.do_customer_insuranceCompanyName) && companySource) {
+      patch.do_customer_insuranceCompanyName = companySource;
+    }
+
+    const policyNumberSource = pickFirstMeaningfulText(
+      current?.insurance_policy_number,
+      current?.insurancePolicyNumber,
+    );
+    if (isEmpty(current?.do_customer_insurancePolicyNumber) && policyNumberSource) {
+      patch.do_customer_insurancePolicyNumber = policyNumberSource;
+    }
+
+    if (
+      isEmpty(current?.do_customer_actualInsurancePremium) &&
+      current?.insurance_premium !== undefined &&
+      current?.insurance_premium !== null &&
+      current?.insurance_premium !== ""
+    ) {
+      patch.do_customer_actualInsurancePremium = current.insurance_premium;
+    }
+
+    if (
+      isEmpty(current?.do_customer_insurancePolicyStartDate) &&
+      current?.insurance_policy_start_date
+    ) {
+      patch.do_customer_insurancePolicyStartDate =
+        current.insurance_policy_start_date;
+    }
+
+    const policyDurationSource = pickFirstMeaningfulText(
+      current?.insurance_policy_duration_od,
+    );
+    if (
+      isEmpty(current?.do_customer_insurancePolicyDurationOD) &&
+      policyDurationSource
+    ) {
+      patch.do_customer_insurancePolicyDurationOD = policyDurationSource;
+    }
+
+    if (
+      isEmpty(current?.do_customer_insurancePolicyEndDateOD) &&
+      current?.insurance_policy_end_date_od
+    ) {
+      patch.do_customer_insurancePolicyEndDateOD =
+        current.insurance_policy_end_date_od;
+    }
+
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  }, [
+    form,
+    customerAccountEnabled,
+    v?.do_insuranceBy,
+    v?.insuranceBy,
+    v?.insurance_by,
+    v?.insurance_company_name,
+    v?.insuranceCompanyName,
+    v?.insurance_policy_number,
+    v?.insurancePolicyNumber,
+    v?.insurance_premium,
+    v?.insurance_policy_start_date,
+    v?.insurance_policy_duration_od,
+    v?.insurance_policy_end_date_od,
+  ]);
 
   useEffect(() => {
     if (!form) return;
