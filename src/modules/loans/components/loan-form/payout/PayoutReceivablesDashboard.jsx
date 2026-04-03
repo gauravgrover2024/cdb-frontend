@@ -517,6 +517,7 @@ const PayoutReceivablesDashboard = () => {
     const seedRow = stripReceivableRuntimeFields(sourceMatch);
     const nextPatch = { ...patch };
 
+    let updatedRow = null;
     try {
       const saveRes = await loansApi.updateCollectionReceivable(
         normalizedPayoutId,
@@ -529,7 +530,7 @@ const PayoutReceivablesDashboard = () => {
       );
 
       const savedDoc = saveRes?.data || null;
-      const updatedRow = savedDoc
+      updatedRow = savedDoc
         ? {
             ...(savedDoc?.payload && typeof savedDoc.payload === "object"
               ? savedDoc.payload
@@ -556,22 +557,32 @@ const PayoutReceivablesDashboard = () => {
             meta_source: savedDoc?.meta_source,
           }
         : null;
-
-      if (updatedRow) {
-        await syncAutoCommissionReceivableIntoPayments({
-          loanId: sourceMatch.loanId,
-          receivableRow: updatedRow,
-        });
-      }
-      if (shouldReload) {
-        await loadReceivables();
-      }
-      return updatedRow;
     } catch (err) {
       console.error("Failed to update receivable:", err);
       messageApi.error("Failed to update receivable");
       return null;
     }
+
+    if (updatedRow) {
+      try {
+        // Keep frontend sync best-effort only; backend now owns canonical sync.
+        await syncAutoCommissionReceivableIntoPayments({
+          loanId: sourceMatch.loanId,
+          receivableRow: updatedRow,
+        });
+      } catch (syncError) {
+        console.warn("Auto sync into Payments failed (non-blocking):", syncError);
+      }
+    }
+
+    if (shouldReload) {
+      try {
+        await loadReceivables();
+      } catch (reloadErr) {
+        console.warn("Receivables reload failed after save:", reloadErr);
+      }
+    }
+    return updatedRow;
   };
 
   /* ==============================
@@ -787,7 +798,7 @@ const PayoutReceivablesDashboard = () => {
     const expectedAmount = getExpectedAmount(currentRecord);
     const isFullyPaid = totalReceived >= expectedAmount;
 
-    await updateReceivableInBackend(
+    const updated = await updateReceivableInBackend(
       normalizePayoutId(currentRecord),
       {
         payment_history: updatedHistory,
@@ -803,6 +814,7 @@ const PayoutReceivablesDashboard = () => {
         details: `Updated payment: ${formatCurrency(values.payment_amount)} on ${values.payment_date.format("DD MMM YYYY")}`,
       },
     );
+    if (!updated) return;
 
     setEditPaymentModalVisible(false);
     messageApi.success("Payment updated successfully");
@@ -820,7 +832,7 @@ const PayoutReceivablesDashboard = () => {
     const expectedAmount = getExpectedAmount(currentRecord);
     const isFullyPaid = totalReceived >= expectedAmount;
 
-    await updateReceivableInBackend(
+    const updated = await updateReceivableInBackend(
       normalizePayoutId(currentRecord),
       {
         payment_history: updatedHistory,
@@ -836,6 +848,7 @@ const PayoutReceivablesDashboard = () => {
         details: `Deleted payment: ${formatCurrency(deletedPayment.amount)} dated ${dayjs(deletedPayment.date).format("DD MMM YYYY")}`,
       },
     );
+    if (!updated) return;
 
     messageApi.success("Payment deleted successfully");
   };
@@ -888,7 +901,7 @@ const PayoutReceivablesDashboard = () => {
       const expectedAmount = getExpectedAmount(row);
       const isFullyPaid = totalReceived >= expectedAmount;
 
-      await updateReceivableInBackend(
+      const updated = await updateReceivableInBackend(
         rowId,
         {
           payment_history: newHistory,
@@ -905,14 +918,18 @@ const PayoutReceivablesDashboard = () => {
         },
         { reload: false },
       );
-      updatedCount += 1;
+      if (updated) updatedCount += 1;
     }
 
     await loadReceivables();
     setSelectedRowKeys([]);
     setSelectedRows([]);
     setBulkCollectionModalVisible(false);
-    messageApi.success(`${updatedCount} receivables updated`);
+    if (updatedCount > 0) {
+      messageApi.success(`${updatedCount} receivables updated`);
+    } else {
+      messageApi.error("Failed to update selected receivables");
+    }
   };
 
   /* ==============================
@@ -949,7 +966,7 @@ const PayoutReceivablesDashboard = () => {
     const expectedAmount = getExpectedAmount(currentRecord);
     const isFullyPaid = totalReceived >= expectedAmount;
 
-    await updateReceivableInBackend(
+    const updated = await updateReceivableInBackend(
       normalizePayoutId(currentRecord),
       {
         payment_history: newHistory,
@@ -965,6 +982,7 @@ const PayoutReceivablesDashboard = () => {
         details: `Received ${formatCurrency(payment.amount)} on ${payment.date}. Total: ${formatCurrency(totalReceived)} of ${formatCurrency(expectedAmount)}`,
       },
     );
+    if (!updated) return;
 
     setPartialPaymentModalVisible(false);
     messageApi.success(
@@ -1267,7 +1285,7 @@ const PayoutReceivablesDashboard = () => {
               )
             }
             style={{ width: "100%" }}
-            format="DD MMM YY"
+            format="DD-MM-YYYY"
             placeholder="Not received"
             disabled={paymentStatus.isFullyPaid}
           />
@@ -1684,7 +1702,7 @@ const PayoutReceivablesDashboard = () => {
                         )
                       }
                       style={{ width: "100%", marginBottom: 8 }}
-                      format="DD MMM YY"
+                      format="DD-MM-YYYY"
                       placeholder="Not received"
                       disabled={paymentStatus.isFullyPaid}
                     />
