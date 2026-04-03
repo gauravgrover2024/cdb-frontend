@@ -105,7 +105,10 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
           {/* Bank selection */}
           {approvedBanks?.length > 1 ? (
             <div>
-              <label htmlFor="bank-selection" className="text-xs font-medium text-muted-foreground mb-2 block">
+              <label
+                htmlFor="bank-selection"
+                className="text-xs font-medium text-muted-foreground mb-2 block"
+              >
                 Approved Banks
               </label>
 
@@ -114,7 +117,9 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
                 name="bank-selection"
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background"
                 value={selectedBankId || ""}
-                onChange={(e) => setSelectedBankId(String(e.target.value || ""))}
+                onChange={(e) =>
+                  setSelectedBankId(String(e.target.value || ""))
+                }
                 autoComplete="off"
               >
                 <option value="">Select bank</option>
@@ -141,7 +146,10 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
 
           {/* Date */}
           <div>
-            <label htmlFor="disbursement-date" className="text-xs font-medium text-muted-foreground mb-2 block">
+            <label
+              htmlFor="disbursement-date"
+              className="text-xs font-medium text-muted-foreground mb-2 block"
+            >
               Disbursement Date
             </label>
             <DatePicker
@@ -161,7 +169,10 @@ const DisburseModal = ({ approvedBanks = [], onDisburse, onClose }) => {
 
           {/* Remarks - Optional */}
           <div>
-            <label htmlFor="disbursement-remarks" className="text-xs font-medium text-muted-foreground mb-2 block">
+            <label
+              htmlFor="disbursement-remarks"
+              className="text-xs font-medium text-muted-foreground mb-2 block"
+            >
               Remarks (optional)
             </label>
             <textarea
@@ -284,9 +295,9 @@ const StageFooter = ({
     );
 
     const PrintBtn = (
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         key="print-btn"
         onClick={onPrint}
         className="border-border dark:border-border/60 hover:bg-muted dark:hover:bg-muted/80"
@@ -312,7 +323,7 @@ const StageFooter = ({
     const DiscardBtn = (
       <Button
         variant="outline"
-        size="sm" 
+        size="sm"
         key="discard-btn"
         onClick={onDiscard}
         className="border-destructive/40 dark:border-destructive/30 text-destructive dark:text-destructive/90 hover:bg-destructive/10 dark:hover:bg-destructive/20"
@@ -323,9 +334,9 @@ const StageFooter = ({
     );
 
     const SaveBtn = (
-      <Button 
-        variant="default" 
-        size="sm" 
+      <Button
+        variant="default"
+        size="sm"
         key="save-btn"
         onClick={onSave}
         className="bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/30"
@@ -344,9 +355,9 @@ const StageFooter = ({
             {SaveBtn}
             {ExitBtn}
             {DiscardBtn}
-            <Button 
-              variant="default" 
-              size="sm" 
+            <Button
+              variant="default"
+              size="sm"
               onClick={onProcessLoan}
               className={
                 "bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
@@ -364,9 +375,9 @@ const StageFooter = ({
             {SaveBtn}
             {ExitBtn}
             {DiscardBtn}
-            <Button 
-              variant="default" 
-              size="sm" 
+            <Button
+              variant="default"
+              size="sm"
               onClick={onMoveToApproval}
               className="bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
             >
@@ -414,9 +425,9 @@ const StageFooter = ({
             {SaveBtn}
             {ExitBtn}
             {DiscardBtn}
-            <Button 
-              variant="default" 
-              size="sm" 
+            <Button
+              variant="default"
+              size="sm"
               onClick={onMoveToDelivery}
               className="bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-600/30"
             >
@@ -502,17 +513,22 @@ const StageFooter = ({
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-[930] border-t border-border bg-card/98 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-        <div className="w-full px-4 md:px-6 py-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="fixed bottom-0 left-0 right-0 z-[930] border-t border-border bg-transparent backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        <div className="w-full px-3 sm:px-4 md:px-6 py-3 md:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
             {/* Left side - Optional info or empty */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Icon name="Info" size={14} />
-              <span>Stage: <span className="font-semibold capitalize text-foreground">{currentStage}</span></span>
+              <span>
+                Stage:{" "}
+                <span className="font-semibold capitalize text-foreground">
+                  {currentStage}
+                </span>
+              </span>
             </div>
-            
+
             {/* Right side - Action buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-full sm:w-auto flex items-center justify-end gap-2 flex-wrap">
               {actions}
             </div>
           </div>

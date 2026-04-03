@@ -9,10 +9,10 @@ import Select from "../../../../../../components/ui/Select";
 
 /**
  * STATUS UPDATE MODAL COMPONENT
- * 
+ *
  * PURPOSE:
  * Updates bank application status during loan approval process
- * 
+ *
  * BACKEND INTEGRATION:
  * - Updates: approval_banksData array in Loan model
  * - Fields Updated for each bank:
@@ -24,7 +24,7 @@ import Select from "../../../../../../components/ui/Select";
  *     - status: New status value
  *     - changedAt: Timestamp of change
  *     - note: Remarks provided by user
- * 
+ *
  * IMPORTANT CHANGE:
  * - "Disbursed" status REMOVED from dropdown
  * - Reason: Disbursement is now a separate action (not just a status)
@@ -33,12 +33,12 @@ import Select from "../../../../../../components/ui/Select";
  *   ✓ Proper workflow separation (Approval → Disbursement)
  *   ✓ Mandatory remarks for disbursement (audit trail)
  *   ✓ Better data integrity and tracking
- * 
+ *
  * AVAILABLE STATUS OPTIONS:
  * - "Pending": Initial state / Under review
  * - "Approved": Application approved by bank
  * - "Rejected": Application rejected by bank
- * 
+ *
  * WORKFLOW:
  * 1. User clicks "Update Status" button on bank card
  * 2. Modal opens with current bank details
@@ -110,10 +110,35 @@ const toDayjsValue = (value) => {
   return parsed.isValid() ? parsed : null;
 };
 
+const normalizeStatusLabel = (value) => {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (raw === "approved") return "Approved";
+  if (raw === "accepted") return "Accepted";
+  if (raw === "sanctioned") return "Sanctioned";
+  if (raw === "rejected") return "Rejected";
+  if (raw === "disbursed") return "Disbursed";
+  return "Pending";
+};
+
+const extractStatusValue = (value) => {
+  if (typeof value === "string") return normalizeStatusLabel(value);
+  if (value && typeof value === "object") {
+    if (typeof value.value === "string") {
+      return normalizeStatusLabel(value.value);
+    }
+    if (typeof value.target?.value === "string") {
+      return normalizeStatusLabel(value.target.value);
+    }
+  }
+  return "Pending";
+};
+
 const StatusUpdateModal = ({ bank, onClose, onSave }) => {
   const modalRef = useRef(null);
   const [formData, setFormData] = useState({
-    status: bank?.status || "Pending",
+    status: normalizeStatusLabel(bank?.status),
     remarks: "",
     approvalDate: "",
     rejectionDate: "",
@@ -124,12 +149,17 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
   const statusOptions = [
     { value: "Pending", label: "Pending" },
     { value: "Approved", label: "Approved" },
+    { value: "Accepted", label: "Accepted" },
+    { value: "Sanctioned", label: "Sanctioned" },
     { value: "Rejected", label: "Rejected" },
     // Disbursed status is now handled only via footer disburse action
   ];
 
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: field === "status" ? extractStatusValue(value) : value,
+    }));
   };
 
   const handleSubmit = (e) => {
@@ -139,10 +169,10 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
     onSave({
       ...bank,
       ...formData,
+      status: normalizeStatusLabel(formData.status),
       statusNote: formData.remarks,
       lastUpdated: new Date()?.toLocaleString("en-IN"),
     });
-    onClose();
   };
 
   if (!bank) return null;
@@ -163,7 +193,11 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
         help: "Select the disbursal date",
       };
     }
-    if (status === "Approved") {
+    if (
+      status === "Approved" ||
+      status === "Accepted" ||
+      status === "Sanctioned"
+    ) {
       return {
         field: "approvalDate",
         label: "Approval Date",
@@ -184,13 +218,16 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
       title: event.status || "Status Update",
       description: event.note || "No notes",
       date: resolveTimelineDate(event, bank)
-        ? new Date(resolveTimelineDate(event, bank)).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })
+        ? new Date(resolveTimelineDate(event, bank)).toLocaleDateString(
+            "en-IN",
+            {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            },
+          )
         : "NA",
     }));
 
@@ -247,9 +284,13 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
     <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
       <div className="bg-card rounded-2xl border border-border shadow-elevation-4 w-full max-w-xl max-h-[82vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className={`flex items-center justify-between p-4 md:p-6 border-b ${getStatusSurface(status)}`}>
+        <div
+          className={`flex items-center justify-between p-4 md:p-6 border-b ${getStatusSurface(status)}`}
+        >
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusBg(status)}`}>
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center ${getStatusBg(status)}`}
+            >
               <Icon
                 name={getStatusIcon(status)}
                 size={20}
@@ -283,7 +324,11 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
             {/* Status Update Form */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Icon name={getStatusIcon(status)} size={16} className={getStatusColor(status)} />
+                <Icon
+                  name={getStatusIcon(status)}
+                  size={16}
+                  className={getStatusColor(status)}
+                />
                 Update Status
               </h3>
 
@@ -347,7 +392,7 @@ const StatusUpdateModal = ({ bank, onClose, onSave }) => {
             Cancel
           </Button>
           <Button
-            type="submit"
+            type="button"
             variant="default"
             iconName="Save"
             iconPosition="left"

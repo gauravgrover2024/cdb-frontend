@@ -3,7 +3,10 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Form, message } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
-import { useFormAutoSave, AutoSaveIndicator } from "../../../utils/formDataProtection";
+import {
+  useFormAutoSave,
+  AutoSaveIndicator,
+} from "../../../utils/formDataProtection";
 
 import LeadDetails from "./loan-form/customer-profile/LeadDetails";
 import VehicleDetailsForm from "./loan-form/customer-profile/VehicleDetailsForm";
@@ -49,7 +52,6 @@ import {
 
 // ... (existing imports/code) ...
 
-
 // Date helpers (safe for AntD)
 // ----------------------------
 const toDayjs = (val) => {
@@ -77,7 +79,10 @@ const convertAnyDateToDayjsDeep = (value, key = "") => {
 
   if (dayjs.isDayjs(value)) return value;
   if (value instanceof Date) return dayjs(value);
-  if (typeof value === "object" && (value?.$date || value?.date || value?.value)) {
+  if (
+    typeof value === "object" &&
+    (value?.$date || value?.date || value?.value)
+  ) {
     const rawDate = value?.$date || value?.date || value?.value;
     const parsed = dayjs(rawDate);
     if (parsed.isValid()) {
@@ -163,7 +168,10 @@ const hasMeaningfulValue = (value) => {
   if (dayjs.isDayjs(value)) return value.isValid();
   if (value instanceof Date) return !Number.isNaN(value.getTime());
   if (typeof value === "string") return value.trim() !== "";
-  if (typeof value === "object" && (value?.$date || value?.date || value?.value)) {
+  if (
+    typeof value === "object" &&
+    (value?.$date || value?.date || value?.value)
+  ) {
     return hasMeaningfulValue(value?.$date || value?.date || value?.value);
   }
   return true;
@@ -178,24 +186,36 @@ const STEP_DISPLAY_NAMES = {
   payout: "Payout",
 };
 
-const toLower = (value) => String(value || "").trim().toLowerCase();
+const toLower = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const normalizeLoanTypeLabel = (value) => {
-  const text = String(value || "").trim().toLowerCase();
+  const text = String(value || "")
+    .trim()
+    .toLowerCase();
   if (!text) return value;
-  if (text.includes("cash-in") || text.includes("cash in")) return "Car Cash-in";
-  if (text.includes("refinance") || text.includes("re-finance")) return "Refinance";
+  if (text.includes("cash-in") || text.includes("cash in"))
+    return "Car Cash-in";
+  if (text.includes("refinance") || text.includes("re-finance"))
+    return "Refinance";
   if (text.includes("used")) return "Used Car";
-  if (text.includes("new") || text.includes("cash sale") || text === "cash") return "New Car";
+  if (text.includes("new") || text.includes("cash sale") || text === "cash")
+    return "New Car";
   return value;
 };
 
 const normalizeOccupationLabel = (value) => {
-  const text = String(value || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  const text = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ");
   if (!text) return value;
   if (text.includes("salaried")) return "Salaried";
   if (text.includes("professional")) return "Self Employed Professional";
-  if (text.includes("self employed") || text.includes("selfemployed")) return "Self Employed";
+  if (text.includes("self employed") || text.includes("selfemployed"))
+    return "Self Employed";
   return value;
 };
 
@@ -204,7 +224,12 @@ const normalizeKnownDateFields = (value, key = "") => {
     return value.map((item) => normalizeKnownDateFields(item));
   }
 
-  if (value && typeof value === "object" && !dayjs.isDayjs(value) && !(value instanceof Date)) {
+  if (
+    value &&
+    typeof value === "object" &&
+    !dayjs.isDayjs(value) &&
+    !(value instanceof Date)
+  ) {
     const out = {};
     for (const [childKey, childValue] of Object.entries(value)) {
       out[childKey] = normalizeKnownDateFields(childValue, childKey);
@@ -232,14 +257,18 @@ const cleanEmptyValues = (obj, omitFields = []) => {
   const cleaned = {};
   for (const key in obj) {
     if (omitFields.includes(key)) continue;
-    
+
     const value = obj[key];
-    
+
     // Skip nulls, undefined, empty strings
     if (value === null || value === undefined || value === "") continue;
-    
+
     // Recursively clean nested objects
-    if (typeof value === "object" && !dayjs.isDayjs(value) && !(value instanceof Date)) {
+    if (
+      typeof value === "object" &&
+      !dayjs.isDayjs(value) &&
+      !(value instanceof Date)
+    ) {
       const nested = cleanEmptyValues(value, omitFields);
       if (Object.keys(nested).length > 0) {
         cleaned[key] = nested;
@@ -265,7 +294,12 @@ const cleanPayloadForSubmit = (obj, omitFields = []) => {
     const value = obj[key];
     // Only skip undefined (keep "", null, 0, false so DB reflects user feed)
     if (value === undefined) continue;
-    if (typeof value === "object" && value !== null && !dayjs.isDayjs(value) && !(value instanceof Date)) {
+    if (
+      typeof value === "object" &&
+      value !== null &&
+      !dayjs.isDayjs(value) &&
+      !(value instanceof Date)
+    ) {
       const nested = cleanPayloadForSubmit(value, omitFields);
       cleaned[key] = nested;
     } else {
@@ -358,7 +392,8 @@ const PREFILE_SECTIONS = [
     title: "Applicant Snapshot",
     description: "Core identity, address and company-facing applicant details.",
     icon: "User",
-    accent: "from-sky-500/20 via-cyan-500/10 to-transparent dark:from-sky-400/20 dark:via-cyan-400/10 dark:to-transparent",
+    accent:
+      "from-sky-500/20 via-cyan-500/10 to-transparent dark:from-sky-400/20 dark:via-cyan-400/10 dark:to-transparent",
     chip: "bg-sky-500/12 text-sky-700 ring-sky-500/20 dark:bg-sky-400/12 dark:text-sky-200 dark:ring-sky-400/20",
     panel: "border-sky-200/70 dark:border-sky-900/70",
     iconWrap: "bg-sky-500 text-white dark:bg-sky-400 dark:text-slate-950",
@@ -367,20 +402,25 @@ const PREFILE_SECTIONS = [
   {
     id: "occupational",
     title: "Occupation & Business",
-    description: "Business constitution, profession, vintage and partner structure.",
+    description:
+      "Business constitution, profession, vintage and partner structure.",
     icon: "Building2",
-    accent: "from-emerald-500/18 via-teal-500/10 to-transparent dark:from-emerald-400/18 dark:via-teal-400/10 dark:to-transparent",
+    accent:
+      "from-emerald-500/18 via-teal-500/10 to-transparent dark:from-emerald-400/18 dark:via-teal-400/10 dark:to-transparent",
     chip: "bg-emerald-500/12 text-emerald-700 ring-emerald-500/20 dark:bg-emerald-400/12 dark:text-emerald-200 dark:ring-emerald-400/20",
     panel: "border-emerald-200/70 dark:border-emerald-900/70",
-    iconWrap: "bg-emerald-500 text-white dark:bg-emerald-400 dark:text-slate-950",
+    iconWrap:
+      "bg-emerald-500 text-white dark:bg-emerald-400 dark:text-slate-950",
     glow: "shadow-[0_18px_45px_-24px_rgba(16,185,129,0.4)] dark:shadow-[0_22px_55px_-28px_rgba(52,211,153,0.32)]",
   },
   {
     id: "income_banking",
     title: "Banking Backbone",
-    description: "PAN, income, account details and banking proofs in one place.",
+    description:
+      "PAN, income, account details and banking proofs in one place.",
     icon: "Wallet",
-    accent: "from-violet-500/18 via-fuchsia-500/10 to-transparent dark:from-violet-400/18 dark:via-fuchsia-400/10 dark:to-transparent",
+    accent:
+      "from-violet-500/18 via-fuchsia-500/10 to-transparent dark:from-violet-400/18 dark:via-fuchsia-400/10 dark:to-transparent",
     chip: "bg-violet-500/12 text-violet-700 ring-violet-500/20 dark:bg-violet-400/12 dark:text-violet-200 dark:ring-violet-400/20",
     panel: "border-violet-200/70 dark:border-violet-900/70",
     iconWrap: "bg-violet-500 text-white dark:bg-violet-400 dark:text-slate-950",
@@ -391,7 +431,8 @@ const PREFILE_SECTIONS = [
     title: "Vehicle & Loan Structure",
     description: "Vehicle pricing, showroom mapping and registration logic.",
     icon: "CarFront",
-    accent: "from-amber-500/20 via-orange-500/10 to-transparent dark:from-amber-400/20 dark:via-orange-400/10 dark:to-transparent",
+    accent:
+      "from-amber-500/20 via-orange-500/10 to-transparent dark:from-amber-400/20 dark:via-orange-400/10 dark:to-transparent",
     chip: "bg-amber-500/12 text-amber-700 ring-amber-500/20 dark:bg-amber-400/12 dark:text-amber-200 dark:ring-amber-400/20",
     panel: "border-amber-200/70 dark:border-amber-900/70",
     iconWrap: "bg-amber-500 text-white dark:bg-amber-400 dark:text-slate-950",
@@ -402,7 +443,8 @@ const PREFILE_SECTIONS = [
     title: "References",
     description: "Relationship-backed references and reachable contacts.",
     icon: "Users",
-    accent: "from-rose-500/18 via-pink-500/10 to-transparent dark:from-rose-400/18 dark:via-pink-400/10 dark:to-transparent",
+    accent:
+      "from-rose-500/18 via-pink-500/10 to-transparent dark:from-rose-400/18 dark:via-pink-400/10 dark:to-transparent",
     chip: "bg-rose-500/12 text-rose-700 ring-rose-500/20 dark:bg-rose-400/12 dark:text-rose-200 dark:ring-rose-400/20",
     panel: "border-rose-200/70 dark:border-rose-900/70",
     iconWrap: "bg-rose-500 text-white dark:bg-rose-400 dark:text-slate-950",
@@ -413,7 +455,8 @@ const PREFILE_SECTIONS = [
     title: "KYC Documents",
     description: "Proof stack for applicant validation and audit readiness.",
     icon: "ShieldCheck",
-    accent: "from-indigo-500/18 via-blue-500/10 to-transparent dark:from-indigo-400/18 dark:via-blue-400/10 dark:to-transparent",
+    accent:
+      "from-indigo-500/18 via-blue-500/10 to-transparent dark:from-indigo-400/18 dark:via-blue-400/10 dark:to-transparent",
     chip: "bg-indigo-500/12 text-indigo-700 ring-indigo-500/20 dark:bg-indigo-400/12 dark:text-indigo-200 dark:ring-indigo-400/20",
     panel: "border-indigo-200/70 dark:border-indigo-900/70",
     iconWrap: "bg-indigo-500 text-white dark:bg-indigo-400 dark:text-slate-950",
@@ -424,7 +467,8 @@ const PREFILE_SECTIONS = [
     title: "Record Control",
     description: "Record source, prepared-by trail and legacy intake details.",
     icon: "FileCheck",
-    accent: "from-slate-500/18 via-zinc-500/10 to-transparent dark:from-slate-400/18 dark:via-zinc-400/10 dark:to-transparent",
+    accent:
+      "from-slate-500/18 via-zinc-500/10 to-transparent dark:from-slate-400/18 dark:via-zinc-400/10 dark:to-transparent",
     chip: "bg-slate-500/12 text-slate-700 ring-slate-500/20 dark:bg-slate-400/12 dark:text-slate-200 dark:ring-slate-400/20",
     panel: "border-slate-200/80 dark:border-slate-800/80",
     iconWrap: "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-950",
@@ -433,9 +477,11 @@ const PREFILE_SECTIONS = [
   {
     id: "co_applicant",
     title: "Co-Applicant",
-    description: "Secondary applicant identity, profession and linked risk view.",
+    description:
+      "Secondary applicant identity, profession and linked risk view.",
     icon: "UserCheck",
-    accent: "from-cyan-500/18 via-sky-500/10 to-transparent dark:from-cyan-400/18 dark:via-sky-400/10 dark:to-transparent",
+    accent:
+      "from-cyan-500/18 via-sky-500/10 to-transparent dark:from-cyan-400/18 dark:via-sky-400/10 dark:to-transparent",
     chip: "bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:bg-cyan-400/12 dark:text-cyan-200 dark:ring-cyan-400/20",
     panel: "border-cyan-200/70 dark:border-cyan-900/70",
     iconWrap: "bg-cyan-500 text-white dark:bg-cyan-400 dark:text-slate-950",
@@ -444,9 +490,11 @@ const PREFILE_SECTIONS = [
   {
     id: "guarantor",
     title: "Guarantor",
-    description: "Guarantee support, fallback identity and backup liability trail.",
+    description:
+      "Guarantee support, fallback identity and backup liability trail.",
     icon: "UserRoundSearch",
-    accent: "from-lime-500/18 via-green-500/10 to-transparent dark:from-lime-400/18 dark:via-green-400/10 dark:to-transparent",
+    accent:
+      "from-lime-500/18 via-green-500/10 to-transparent dark:from-lime-400/18 dark:via-green-400/10 dark:to-transparent",
     chip: "bg-lime-500/12 text-lime-700 ring-lime-500/20 dark:bg-lime-400/12 dark:text-lime-200 dark:ring-lime-400/20",
     panel: "border-lime-200/70 dark:border-lime-900/70",
     iconWrap: "bg-lime-500 text-white dark:bg-lime-400 dark:text-slate-950",
@@ -455,12 +503,15 @@ const PREFILE_SECTIONS = [
   {
     id: "auth_signatory",
     title: "Authorised Signatory",
-    description: "Signatory authority, same-as-co-applicant sync and execution details.",
+    description:
+      "Signatory authority, same-as-co-applicant sync and execution details.",
     icon: "Stamp",
-    accent: "from-fuchsia-500/18 via-purple-500/10 to-transparent dark:from-fuchsia-400/18 dark:via-purple-400/10 dark:to-transparent",
+    accent:
+      "from-fuchsia-500/18 via-purple-500/10 to-transparent dark:from-fuchsia-400/18 dark:via-purple-400/10 dark:to-transparent",
     chip: "bg-fuchsia-500/12 text-fuchsia-700 ring-fuchsia-500/20 dark:bg-fuchsia-400/12 dark:text-fuchsia-200 dark:ring-fuchsia-400/20",
     panel: "border-fuchsia-200/70 dark:border-fuchsia-900/70",
-    iconWrap: "bg-fuchsia-500 text-white dark:bg-fuchsia-400 dark:text-slate-950",
+    iconWrap:
+      "bg-fuchsia-500 text-white dark:bg-fuchsia-400 dark:text-slate-950",
     glow: "shadow-[0_18px_45px_-24px_rgba(217,70,239,0.36)] dark:shadow-[0_22px_55px_-28px_rgba(232,121,249,0.3)]",
   },
 ];
@@ -471,7 +522,8 @@ const PROFILE_SECTIONS = [
     title: "Lead Details",
     description: "Source, ownership and intake metadata for the case.",
     icon: "Target",
-    accent: "from-sky-500/18 via-cyan-500/10 to-transparent dark:from-sky-400/14 dark:via-cyan-400/8 dark:to-transparent",
+    accent:
+      "from-sky-500/18 via-cyan-500/10 to-transparent dark:from-sky-400/14 dark:via-cyan-400/8 dark:to-transparent",
     chip: "bg-sky-500/12 text-sky-700 ring-sky-500/20 dark:bg-sky-400/12 dark:text-sky-200 dark:ring-sky-400/20",
     panel: "border-sky-200/70 dark:border-sky-900/70",
     iconWrap: "bg-sky-500 text-white dark:bg-sky-400 dark:text-slate-950",
@@ -482,10 +534,12 @@ const PROFILE_SECTIONS = [
     title: "Vehicle Details",
     description: "Vehicle type, variant and base case characteristics.",
     icon: "CarFront",
-    accent: "from-emerald-500/18 via-teal-500/10 to-transparent dark:from-emerald-400/14 dark:via-teal-400/8 dark:to-transparent",
+    accent:
+      "from-emerald-500/18 via-teal-500/10 to-transparent dark:from-emerald-400/14 dark:via-teal-400/8 dark:to-transparent",
     chip: "bg-emerald-500/12 text-emerald-700 ring-emerald-500/20 dark:bg-emerald-400/12 dark:text-emerald-200 dark:ring-emerald-400/20",
     panel: "border-emerald-200/70 dark:border-emerald-900/70",
-    iconWrap: "bg-emerald-500 text-white dark:bg-emerald-400 dark:text-slate-950",
+    iconWrap:
+      "bg-emerald-500 text-white dark:bg-emerald-400 dark:text-slate-950",
     glow: "shadow-[0_18px_45px_-24px_rgba(16,185,129,0.35)] dark:shadow-[0_22px_55px_-28px_rgba(52,211,153,0.24)]",
   },
   {
@@ -493,7 +547,8 @@ const PROFILE_SECTIONS = [
     title: "Finance Details",
     description: "Financing intent and high-level credit context.",
     icon: "Wallet",
-    accent: "from-violet-500/18 via-fuchsia-500/10 to-transparent dark:from-violet-400/14 dark:via-fuchsia-400/8 dark:to-transparent",
+    accent:
+      "from-violet-500/18 via-fuchsia-500/10 to-transparent dark:from-violet-400/14 dark:via-fuchsia-400/8 dark:to-transparent",
     chip: "bg-violet-500/12 text-violet-700 ring-violet-500/20 dark:bg-violet-400/12 dark:text-violet-200 dark:ring-violet-400/20",
     panel: "border-violet-200/70 dark:border-violet-900/70",
     iconWrap: "bg-violet-500 text-white dark:bg-violet-400 dark:text-slate-950",
@@ -504,7 +559,8 @@ const PROFILE_SECTIONS = [
     title: "Personal Details",
     description: "Identity, address and personal profile for the applicant.",
     icon: "User",
-    accent: "from-amber-500/18 via-orange-500/10 to-transparent dark:from-amber-400/14 dark:via-orange-400/8 dark:to-transparent",
+    accent:
+      "from-amber-500/18 via-orange-500/10 to-transparent dark:from-amber-400/14 dark:via-orange-400/8 dark:to-transparent",
     chip: "bg-amber-500/12 text-amber-700 ring-amber-500/20 dark:bg-amber-400/12 dark:text-amber-200 dark:ring-amber-400/20",
     panel: "border-amber-200/70 dark:border-amber-900/70",
     iconWrap: "bg-amber-500 text-white dark:bg-amber-400 dark:text-slate-950",
@@ -515,7 +571,8 @@ const PROFILE_SECTIONS = [
     title: "Employment Details",
     description: "Employer or business occupation details and tenure.",
     icon: "Building2",
-    accent: "from-cyan-500/18 via-sky-500/10 to-transparent dark:from-cyan-400/14 dark:via-sky-400/8 dark:to-transparent",
+    accent:
+      "from-cyan-500/18 via-sky-500/10 to-transparent dark:from-cyan-400/14 dark:via-sky-400/8 dark:to-transparent",
     chip: "bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:bg-cyan-400/12 dark:text-cyan-200 dark:ring-cyan-400/20",
     panel: "border-cyan-200/70 dark:border-cyan-900/70",
     iconWrap: "bg-cyan-500 text-white dark:bg-cyan-400 dark:text-slate-950",
@@ -526,7 +583,8 @@ const PROFILE_SECTIONS = [
     title: "Income Details",
     description: "Income profile and earnings-backed eligibility details.",
     icon: "IndianRupee",
-    accent: "from-rose-500/18 via-pink-500/10 to-transparent dark:from-rose-400/14 dark:via-pink-400/8 dark:to-transparent",
+    accent:
+      "from-rose-500/18 via-pink-500/10 to-transparent dark:from-rose-400/14 dark:via-pink-400/8 dark:to-transparent",
     chip: "bg-rose-500/12 text-rose-700 ring-rose-500/20 dark:bg-rose-400/12 dark:text-rose-200 dark:ring-rose-400/20",
     panel: "border-rose-200/70 dark:border-rose-900/70",
     iconWrap: "bg-rose-500 text-white dark:bg-rose-400 dark:text-slate-950",
@@ -537,7 +595,8 @@ const PROFILE_SECTIONS = [
     title: "Bank Details",
     description: "Account, IFSC and banking linkage for processing.",
     icon: "Landmark",
-    accent: "from-indigo-500/18 via-blue-500/10 to-transparent dark:from-indigo-400/14 dark:via-blue-400/8 dark:to-transparent",
+    accent:
+      "from-indigo-500/18 via-blue-500/10 to-transparent dark:from-indigo-400/14 dark:via-blue-400/8 dark:to-transparent",
     chip: "bg-indigo-500/12 text-indigo-700 ring-indigo-500/20 dark:bg-indigo-400/12 dark:text-indigo-200 dark:ring-indigo-400/20",
     panel: "border-indigo-200/70 dark:border-indigo-900/70",
     iconWrap: "bg-indigo-500 text-white dark:bg-indigo-400 dark:text-slate-950",
@@ -548,7 +607,8 @@ const PROFILE_SECTIONS = [
     title: "References",
     description: "Relationship-backed references and alternate contacts.",
     icon: "Users",
-    accent: "from-lime-500/18 via-green-500/10 to-transparent dark:from-lime-400/14 dark:via-green-400/8 dark:to-transparent",
+    accent:
+      "from-lime-500/18 via-green-500/10 to-transparent dark:from-lime-400/14 dark:via-green-400/8 dark:to-transparent",
     chip: "bg-lime-500/12 text-lime-700 ring-lime-500/20 dark:bg-lime-400/12 dark:text-lime-200 dark:ring-lime-400/20",
     panel: "border-lime-200/70 dark:border-lime-900/70",
     iconWrap: "bg-lime-500 text-white dark:bg-lime-400 dark:text-slate-950",
@@ -559,7 +619,8 @@ const PROFILE_SECTIONS = [
     title: "KYC Details",
     description: "KYC identity and proof document references.",
     icon: "ShieldCheck",
-    accent: "from-slate-500/18 via-zinc-500/10 to-transparent dark:from-slate-400/14 dark:via-zinc-400/8 dark:to-transparent",
+    accent:
+      "from-slate-500/18 via-zinc-500/10 to-transparent dark:from-slate-400/14 dark:via-zinc-400/8 dark:to-transparent",
     chip: "bg-slate-500/12 text-slate-700 ring-slate-500/20 dark:bg-slate-400/12 dark:text-slate-200 dark:ring-slate-400/20",
     panel: "border-slate-200/80 dark:border-zinc-800",
     iconWrap: "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-950",
@@ -621,11 +682,17 @@ const StageWorkbench = ({
 
   return (
     <div className="loan-form-workbench space-y-5 md:space-y-6">
-      <div className={`relative overflow-hidden rounded-[32px] border border-border/70 bg-gradient-to-br px-5 py-5 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.28)] dark:border-slate-800 ${styles.panel}`}>
-        <div className={`pointer-events-none absolute inset-0 ${styles.overlay}`} />
+      <div
+        className={`relative overflow-hidden rounded-[32px] border border-border/70 bg-gradient-to-br px-5 py-5 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.28)] dark:border-slate-800 ${styles.panel}`}
+      >
+        <div
+          className={`pointer-events-none absolute inset-0 ${styles.overlay}`}
+        />
         <div className="relative flex items-end justify-between gap-4">
           <div className="max-w-3xl">
-            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] ${styles.badge}`}>
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] ${styles.badge}`}
+            >
               <Icon name={icon} size={14} />
               {eyebrow}
             </div>
@@ -636,7 +703,9 @@ const StageWorkbench = ({
               {description}
             </p>
           </div>
-          <div className={`hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-[0_18px_40px_-22px_rgba(15,23,42,0.32)] lg:flex ${styles.iconWrap}`}>
+          <div
+            className={`hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-[0_18px_40px_-22px_rgba(15,23,42,0.32)] lg:flex ${styles.iconWrap}`}
+          >
             <Icon name={icon} size={24} />
           </div>
         </div>
@@ -663,20 +732,30 @@ const PrefileSectionShell = ({
     id={id}
     className={`group relative overflow-hidden rounded-2xl border bg-card/95 dark:bg-black/90 backdrop-blur-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-36px_rgba(15,23,42,0.35)] ${panel} ${glow}`}
   >
-    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent}`} />
+    <div
+      className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent}`}
+    />
     <div className="relative border-b border-border/50 px-4 py-3 md:px-5 md:py-3.5">
       <div className="flex items-center gap-3">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-md ${iconWrap}`}>
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-md ${iconWrap}`}
+        >
           <Icon name={icon} size={16} />
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-foreground md:text-base">{title}</h3>
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ring-1 ${chip}`}>
+            <h3 className="text-sm font-semibold text-foreground md:text-base">
+              {title}
+            </h3>
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ring-1 ${chip}`}
+            >
               S{String(index || 0).padStart(2, "0")}
             </span>
           </div>
-          <p className="mt-0.5 max-w-3xl text-[11px] leading-5 text-muted-foreground md:text-xs">{description}</p>
+          <p className="mt-0.5 max-w-3xl text-[11px] leading-5 text-muted-foreground md:text-xs">
+            {description}
+          </p>
         </div>
       </div>
     </div>
@@ -703,7 +782,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     [location.search],
   );
   const requestedRouteSection = useMemo(
-    () => String(new URLSearchParams(location.search).get("section") || "").trim(),
+    () =>
+      String(new URLSearchParams(location.search).get("section") || "").trim(),
     [location.search],
   );
   const isValidRequestedRouteStep = useMemo(
@@ -732,7 +812,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     clearSavedFormData,
     restoreSavedFormData,
     handleFormValuesChange,
-  } = useFormAutoSave('LOAN_FORM_DATA', form, isEditMode);
+  } = useFormAutoSave("LOAN_FORM_DATA", form, isEditMode);
 
   // Watch finance flag early
   const watchedIsFinanced = Form.useWatch("isFinanced", form);
@@ -745,16 +825,28 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedDlDocUrl = Form.useWatch("dlDocUrl", form);
   const watchedAddressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
   const watchedGstDocUrl = Form.useWatch("gstDocUrl", form);
-  const watchedCoAadhaarCardDocUrl = Form.useWatch("co_aadhaarCardDocUrl", form);
+  const watchedCoAadhaarCardDocUrl = Form.useWatch(
+    "co_aadhaarCardDocUrl",
+    form,
+  );
   const watchedCoPanCardDocUrl = Form.useWatch("co_panCardDocUrl", form);
   const watchedCoPassportDocUrl = Form.useWatch("co_passportDocUrl", form);
   const watchedCoDlDocUrl = Form.useWatch("co_dlDocUrl", form);
-  const watchedCoAddressProofDocUrl = Form.useWatch("co_addressProofDocUrl", form);
-  const watchedGuAadhaarCardDocUrl = Form.useWatch("gu_aadhaarCardDocUrl", form);
+  const watchedCoAddressProofDocUrl = Form.useWatch(
+    "co_addressProofDocUrl",
+    form,
+  );
+  const watchedGuAadhaarCardDocUrl = Form.useWatch(
+    "gu_aadhaarCardDocUrl",
+    form,
+  );
   const watchedGuPanCardDocUrl = Form.useWatch("gu_panCardDocUrl", form);
   const watchedGuPassportDocUrl = Form.useWatch("gu_passportDocUrl", form);
   const watchedGuDlDocUrl = Form.useWatch("gu_dlDocUrl", form);
-  const watchedGuAddressProofDocUrl = Form.useWatch("gu_addressProofDocUrl", form);
+  const watchedGuAddressProofDocUrl = Form.useWatch(
+    "gu_addressProofDocUrl",
+    form,
+  );
   const watchedLeadDate = Form.useWatch("leadDate", form);
   const watchedLeadTime = Form.useWatch("leadTime", form);
   const [activeStep, setActiveStep] = useState("profile");
@@ -828,8 +920,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
     const now = dayjs();
     const patch = {};
-    if (!hasMeaningfulValue(watchedLeadDate) && !leadDateTouched) patch.leadDate = now;
-    if (!hasMeaningfulValue(watchedLeadTime) && !leadTimeTouched) patch.leadTime = now;
+    if (!hasMeaningfulValue(watchedLeadDate) && !leadDateTouched)
+      patch.leadDate = now;
+    if (!hasMeaningfulValue(watchedLeadTime) && !leadTimeTouched)
+      patch.leadTime = now;
 
     if (Object.keys(patch).length) {
       form.setFieldsValue(patch);
@@ -838,7 +932,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   // Notes Modal Component
   const NotesModal = ({ open, onClose }) => {
-    const [notes, setNotes] = useState(() => form?.getFieldValue("loan_notes") || "");
+    const [notes, setNotes] = useState(
+      () => form?.getFieldValue("loan_notes") || "",
+    );
 
     if (!open) return null;
 
@@ -854,7 +950,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
               <Icon name="MessageSquare" size={18} className="text-primary" />
-              <div className="text-sm font-semibold text-foreground">Loan Notes</div>
+              <div className="text-sm font-semibold text-foreground">
+                Loan Notes
+              </div>
             </div>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted">
               <Icon name="X" size={18} />
@@ -897,7 +995,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
               <Icon name="FileText" size={18} className="text-primary" />
-              <div className="text-sm font-semibold text-foreground">Loan Documents</div>
+              <div className="text-sm font-semibold text-foreground">
+                Loan Documents
+              </div>
             </div>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted">
               <Icon name="X" size={18} />
@@ -906,27 +1006,72 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           <div className="flex-1 overflow-auto p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
-                { title: "Customer KYC", icon: "UserCheck", count: 5, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-                { title: "Bank Documents", icon: "Building", count: 3, color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-                { title: "Vehicle Documents", icon: "Car", count: 4, color: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-                { title: "Approval Letters", icon: "FileCheck", count: 2, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
-                { title: "Disbursement Docs", icon: "CreditCard", count: 3, color: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" },
-                { title: "Post-File Records", icon: "FileText", count: 6, color: "bg-rose-500/10 text-rose-600 border-rose-500/20" },
+                {
+                  title: "Customer KYC",
+                  icon: "UserCheck",
+                  count: 5,
+                  color: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+                },
+                {
+                  title: "Bank Documents",
+                  icon: "Building",
+                  count: 3,
+                  color:
+                    "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+                },
+                {
+                  title: "Vehicle Documents",
+                  icon: "Car",
+                  count: 4,
+                  color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+                },
+                {
+                  title: "Approval Letters",
+                  icon: "FileCheck",
+                  count: 2,
+                  color:
+                    "bg-purple-500/10 text-purple-600 border-purple-500/20",
+                },
+                {
+                  title: "Disbursement Docs",
+                  icon: "CreditCard",
+                  count: 3,
+                  color:
+                    "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
+                },
+                {
+                  title: "Post-File Records",
+                  icon: "FileText",
+                  count: 6,
+                  color: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+                },
               ].map((category, idx) => (
-                <div key={idx} className={`p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${category.color}`}>
+                <div
+                  key={idx}
+                  className={`p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${category.color}`}
+                >
                   <div className="flex items-start justify-between mb-2">
                     <Icon name={category.icon} size={20} />
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-background/50">{category.count}</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-background/50">
+                      {category.count}
+                    </span>
                   </div>
-                  <h3 className="text-sm font-semibold mb-1">{category.title}</h3>
+                  <h3 className="text-sm font-semibold mb-1">
+                    {category.title}
+                  </h3>
                   <p className="text-xs opacity-70">Click to view all</p>
                 </div>
               ))}
             </div>
           </div>
           <div className="flex justify-between items-center gap-2 px-4 py-3 border-t border-border bg-muted/20">
-            <span className="text-xs text-muted-foreground">All documents are stored securely</span>
-            <button onClick={onClose} className="px-4 py-2 border border-border rounded-xl text-sm hover:bg-muted">
+            <span className="text-xs text-muted-foreground">
+              All documents are stored securely
+            </span>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-border rounded-xl text-sm hover:bg-muted"
+            >
               Close
             </button>
           </div>
@@ -976,9 +1121,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     const ctxApproved = toNum(context?.approval_loanAmountApproved);
     const ctxDisbursed = toNum(context?.approval_loanAmountDisbursed);
 
-    const derivedApproved = net || ctxApproved || (bankLoan > addOns ? bankLoan - addOns : bankLoan) || 0;
+    const derivedApproved =
+      net ||
+      ctxApproved ||
+      (bankLoan > addOns ? bankLoan - addOns : bankLoan) ||
+      0;
     const derivedTotal = derivedApproved + addOns;
-    const derivedDisbursed = bankDisbursed || ctxDisbursed || derivedTotal || derivedApproved;
+    const derivedDisbursed =
+      bankDisbursed || ctxDisbursed || derivedTotal || derivedApproved;
 
     return {
       derivedApproved,
@@ -993,93 +1143,105 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     };
   }, []);
 
-  const buildAutoBankCardFromApproval = useCallback((values = {}, index = 0) => {
-    const bankName = String(values?.approval_bankName || "").trim();
-    if (!bankName) return null;
+  const buildAutoBankCardFromApproval = useCallback(
+    (values = {}, index = 0) => {
+      const bankName = String(values?.approval_bankName || "").trim();
+      if (!bankName) return null;
 
-    const toNum = (val) => {
-      const n = Number(String(val ?? "").replace(/[^0-9.]/g, ""));
-      return Number.isFinite(n) ? n : 0;
-    };
+      const toNum = (val) => {
+        const n = Number(String(val ?? "").replace(/[^0-9.]/g, ""));
+        return Number.isFinite(n) ? n : 0;
+      };
 
-    const toIso = (val) => {
-      if (!val) return "";
-      if (dayjs.isDayjs(val)) return val.toISOString();
-      const d = dayjs(val);
-      return d.isValid() ? d.toISOString() : "";
-    };
+      const toIso = (val) => {
+        if (!val) return "";
+        if (dayjs.isDayjs(val)) return val.toISOString();
+        const d = dayjs(val);
+        return d.isValid() ? d.toISOString() : "";
+      };
 
-    const approvedAt = toIso(values?.approval_approvalDate);
-    const disbursedAt = toIso(values?.approval_disbursedDate);
-    const nowIso = new Date().toISOString();
-    const rawStatus = String(values?.approval_status || "").trim();
-    const status =
-      rawStatus || (disbursedAt ? "Disbursed" : approvedAt ? "Approved" : "Pending");
-    const normalizedApprovedAt = approvedAt || disbursedAt || nowIso;
-    const statusHistory = [];
-    if (status === "Disbursed" || disbursedAt) {
-      statusHistory.push({
-        status: "Approved",
-        changedAt: normalizedApprovedAt,
-        date: normalizedApprovedAt,
-        note: "Auto-created from approval bank fields",
-      });
-      statusHistory.push({
-        status: "Disbursed",
-        changedAt: disbursedAt || normalizedApprovedAt,
-        date: disbursedAt || normalizedApprovedAt,
-        note: "Auto-created from approval bank fields",
-      });
-    } else if (status === "Approved" || approvedAt) {
-      statusHistory.push({
-        status: "Approved",
-        changedAt: normalizedApprovedAt,
-        date: normalizedApprovedAt,
-        note: "Auto-created from approval bank fields",
-      });
-    } else {
-      statusHistory.push({
-        status: "Pending",
-        changedAt: nowIso,
-        date: nowIso,
-        note: "Auto-created from approval bank fields",
-      });
-    }
+      const approvedAt = toIso(values?.approval_approvalDate);
+      const disbursedAt = toIso(values?.approval_disbursedDate);
+      const nowIso = new Date().toISOString();
+      const rawStatus = String(values?.approval_status || "").trim();
+      const status =
+        rawStatus ||
+        (disbursedAt ? "Disbursed" : approvedAt ? "Approved" : "Pending");
+      const normalizedApprovedAt = approvedAt || disbursedAt || nowIso;
+      const statusHistory = [];
+      if (status === "Disbursed" || disbursedAt) {
+        statusHistory.push({
+          status: "Approved",
+          changedAt: normalizedApprovedAt,
+          date: normalizedApprovedAt,
+          note: "Auto-created from approval bank fields",
+        });
+        statusHistory.push({
+          status: "Disbursed",
+          changedAt: disbursedAt || normalizedApprovedAt,
+          date: disbursedAt || normalizedApprovedAt,
+          note: "Auto-created from approval bank fields",
+        });
+      } else if (status === "Approved" || approvedAt) {
+        statusHistory.push({
+          status: "Approved",
+          changedAt: normalizedApprovedAt,
+          date: normalizedApprovedAt,
+          note: "Auto-created from approval bank fields",
+        });
+      } else {
+        statusHistory.push({
+          status: "Pending",
+          changedAt: nowIso,
+          date: nowIso,
+          note: "Auto-created from approval bank fields",
+        });
+      }
 
-    return {
-      id: Date.now() + index,
-      bankName,
-      applicationId: `ACILLP-Loan-${String(index + 1).padStart(4, "0")}`,
-      status,
-      loanBookedIn: values?.approval_loanBookedIn || "Direct Code",
-      brokerName: values?.approval_brokerName || "",
-      interestRate: String(values?.approval_roi ?? ""),
-      loanAmount: toNum(values?.approval_loanAmountApproved),
-      processingFee: toNum(values?.approval_processingFees),
-      tenure: String(values?.approval_tenureMonths ?? ""),
-      disbursedAmount: toNum(values?.approval_loanAmountDisbursed),
-      approvalDate: approvedAt || undefined,
-      disbursalDate: disbursedAt || undefined,
-      breakupNetLoanApproved: toNum(values?.approval_breakup_netLoanApproved),
-      breakupCreditAssured: toNum(values?.approval_breakup_creditAssured),
-      breakupInsuranceFinance: toNum(values?.approval_breakup_insuranceFinance),
-      breakupEwFinance: toNum(values?.approval_breakup_ewFinance),
-      breakupCustomFields: normalizeLoanBreakupCustomFields(
-        values?.approval_breakup_custom || [],
-      ),
-      payoutPercent: values?.payoutPercentage ?? "",
-      vehicle: {},
-      statusHistory,
-    };
-  }, []);
+      return {
+        id: Date.now() + index,
+        bankName,
+        applicationId: `ACILLP-Loan-${String(index + 1).padStart(4, "0")}`,
+        status,
+        loanBookedIn: values?.approval_loanBookedIn || "Direct Code",
+        brokerName: values?.approval_brokerName || "",
+        interestRate: String(values?.approval_roi ?? ""),
+        loanAmount: toNum(values?.approval_loanAmountApproved),
+        processingFee: toNum(values?.approval_processingFees),
+        tenure: String(values?.approval_tenureMonths ?? ""),
+        disbursedAmount: toNum(values?.approval_loanAmountDisbursed),
+        approvalDate: approvedAt || undefined,
+        disbursalDate: disbursedAt || undefined,
+        breakupNetLoanApproved: toNum(values?.approval_breakup_netLoanApproved),
+        breakupCreditAssured: toNum(values?.approval_breakup_creditAssured),
+        breakupInsuranceFinance: toNum(
+          values?.approval_breakup_insuranceFinance,
+        ),
+        breakupEwFinance: toNum(values?.approval_breakup_ewFinance),
+        breakupCustomFields: normalizeLoanBreakupCustomFields(
+          values?.approval_breakup_custom || [],
+        ),
+        payoutPercent: values?.payoutPercentage ?? "",
+        vehicle: {},
+        statusHistory,
+      };
+    },
+    [],
+  );
 
   const normalizeApprovalSequence = useCallback((bank = {}) => {
     const currentStatus = String(bank?.status || "").trim();
     const approvalDate = bank?.approvalDate || null;
     const disbursedDate = bank?.disbursedDate || bank?.disbursalDate || null;
-    const rawHistory = Array.isArray(bank?.statusHistory) ? bank.statusHistory : [];
-    const hasApproved = rawHistory.some((h) => String(h?.status || "") === "Approved");
-    const hasDisbursed = rawHistory.some((h) => String(h?.status || "") === "Disbursed");
+    const rawHistory = Array.isArray(bank?.statusHistory)
+      ? bank.statusHistory
+      : [];
+    const hasApproved = rawHistory.some(
+      (h) => String(h?.status || "") === "Approved",
+    );
+    const hasDisbursed = rawHistory.some(
+      (h) => String(h?.status || "") === "Disbursed",
+    );
     const nowIso = new Date().toISOString();
     const approvedAt = approvalDate || disbursedDate || nowIso;
 
@@ -1115,9 +1277,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     }
 
     let normalizedStatus = currentStatus || "Pending";
-    if (disbursedDate || normalizedHistory.some((h) => String(h?.status || "") === "Disbursed")) {
+    if (
+      disbursedDate ||
+      normalizedHistory.some((h) => String(h?.status || "") === "Disbursed")
+    ) {
       normalizedStatus = "Disbursed";
-    } else if (approvalDate || normalizedHistory.some((h) => String(h?.status || "") === "Approved")) {
+    } else if (
+      approvalDate ||
+      normalizedHistory.some((h) => String(h?.status || "") === "Approved")
+    ) {
       normalizedStatus = "Approved";
     }
 
@@ -1141,7 +1309,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const getStageFlags = useCallback(() => {
     const approvalStatus = toLower(form.getFieldValue("approval_status"));
     const disburseStatus = toLower(form.getFieldValue("disburse_status"));
-    const disbursementStatus = toLower(form.getFieldValue("disbursement_status"));
+    const disbursementStatus = toLower(
+      form.getFieldValue("disbursement_status"),
+    );
     const approvalDisbursedDate = form.getFieldValue("approval_disbursedDate");
     const disbursementDate = form.getFieldValue("disbursement_date");
     const hasDisbursedBank = banksData.some(
@@ -1171,7 +1341,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const canNavigateToStep = useCallback(
     (targetStep, { notify = false } = {}) => {
       if (!visibleSteps.includes(targetStep)) return false;
-      if (targetStep === "profile" || targetStep === "prefile" || targetStep === "approval") {
+      if (
+        targetStep === "profile" ||
+        targetStep === "prefile" ||
+        targetStep === "approval"
+      ) {
         return true;
       }
 
@@ -1179,7 +1353,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       if (!isCashCase && targetStep === "postfile" && !isDisbursed) {
         if (notify) {
-          message.warning("Move to Post-File is enabled only after loan disbursement.");
+          message.warning(
+            "Move to Post-File is enabled only after loan disbursement.",
+          );
         }
         return false;
       }
@@ -1188,7 +1364,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         if (isCashCase) return true;
         if (!isDisbursed) {
           if (notify) {
-            message.warning("Move to Delivery is enabled only after loan disbursement.");
+            message.warning(
+              "Move to Delivery is enabled only after loan disbursement.",
+            );
           }
           return false;
         }
@@ -1197,7 +1375,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       if (!isCashCase && targetStep === "payout") {
         if (!isDisbursed) {
           if (notify) {
-            message.warning("Move to Payout is enabled only after loan disbursement.");
+            message.warning(
+              "Move to Payout is enabled only after loan disbursement.",
+            );
           }
           return false;
         }
@@ -1273,14 +1453,30 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       ],
       prefile: [
         { id: "personal_pre", label: "Personal Details", visible: !isCashCase },
-        { id: "occupational", label: "Occupational Details", visible: !isCashCase },
-        { id: "income_banking", label: "Income & Banking", visible: !isCashCase },
+        {
+          id: "occupational",
+          label: "Occupational Details",
+          visible: !isCashCase,
+        },
+        {
+          id: "income_banking",
+          label: "Income & Banking",
+          visible: !isCashCase,
+        },
         { id: "vehicle_loan", label: "Vehicle & Loan", visible: true },
         { id: "references", label: "References", visible: !isCashCase },
         { id: "kyc", label: "KYC Details", visible: !isCashCase },
         { id: "section7", label: "Record Details", visible: !isCashCase },
-        { id: "co_applicant", label: "Co-Applicant", visible: !isCashCase && showPrefileCoApplicant },
-        { id: "guarantor", label: "Guarantor", visible: !isCashCase && showPrefileGuarantor },
+        {
+          id: "co_applicant",
+          label: "Co-Applicant",
+          visible: !isCashCase && showPrefileCoApplicant,
+        },
+        {
+          id: "guarantor",
+          label: "Guarantor",
+          visible: !isCashCase && showPrefileGuarantor,
+        },
         {
           id: "auth_signatory",
           label: "Authorised Signatory",
@@ -1387,7 +1583,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
         // If initialData is provided (from EditLoan), use it directly
         let loan = initialData;
-        
+
         // Otherwise fetch from API if we have loanIdFromRoute
         if (!loan && loanIdFromRoute) {
           loan = await fetchLoanById(loanIdFromRoute);
@@ -1398,68 +1594,89 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
         const hydratedLoan = {
           ...(loan || {}),
-          typeOfLoan: normalizeLoanTypeLabel(loan?.typeOfLoan || loan?.loanType) || loan?.typeOfLoan || "",
+          typeOfLoan:
+            normalizeLoanTypeLabel(loan?.typeOfLoan || loan?.loanType) ||
+            loan?.typeOfLoan ||
+            "",
           occupationType: normalizeOccupationLabel(loan?.occupationType),
           co_occupation: normalizeOccupationLabel(loan?.co_occupation),
           gu_occupation: normalizeOccupationLabel(loan?.gu_occupation),
-          dispatch_date:
-            loan?.dispatch_date || loan?.dispatchDate || "",
+          dispatch_date: loan?.dispatch_date || loan?.dispatchDate || "",
           disbursement_date:
             loan?.disbursement_date || loan?.approval_disbursedDate || "",
           instrumentType:
             loan?.instrumentType ||
             (loan?.si_accountNumber ? "SI" : "") ||
             (loan?.ecs_accountNumber || loan?.ecs_bankName ? "ECS" : "") ||
-            (loan?.cheque_1_number || loan?.cheque_1_bankName || loan?.cheque_1_accountNumber ? "Cheque" : ""),
+            (loan?.cheque_1_number ||
+            loan?.cheque_1_bankName ||
+            loan?.cheque_1_accountNumber
+              ? "Cheque"
+              : ""),
           signatorySameAsCoApplicant:
             typeof loan?.signatorySameAsCoApplicant === "boolean"
               ? loan.signatorySameAsCoApplicant
-              : (loan?.applicantType === "Company" && Boolean(
-                  loan?.co_customerName || loan?.co_name || loan?.co_primaryMobile || loan?.co_mobile
-                )),
+              : loan?.applicantType === "Company" &&
+                Boolean(
+                  loan?.co_customerName ||
+                  loan?.co_name ||
+                  loan?.co_primaryMobile ||
+                  loan?.co_mobile,
+                ),
           primaryMobile:
             loan?.primaryMobile || loan?.mobileNo || loan?.customerMobile || "",
           vehicleRegNo:
-            loan?.vehicleRegNo || loan?.vehicleRegdNumber || loan?.rc_redg_no || "",
+            loan?.vehicleRegNo ||
+            loan?.vehicleRegdNumber ||
+            loan?.rc_redg_no ||
+            "",
           rc_redg_no:
-            loan?.rc_redg_no || loan?.vehicleRegNo || loan?.vehicleRegdNumber || "",
+            loan?.rc_redg_no ||
+            loan?.vehicleRegNo ||
+            loan?.vehicleRegdNumber ||
+            "",
           co_customerName:
-            loan?.co_customerName || loan?.co_name || loan?.coApplicant_name || "",
+            loan?.co_customerName ||
+            loan?.co_name ||
+            loan?.coApplicant_name ||
+            "",
           co_primaryMobile:
-            loan?.co_primaryMobile || loan?.co_mobile || loan?.coApplicant_mobile || "",
+            loan?.co_primaryMobile ||
+            loan?.co_mobile ||
+            loan?.coApplicant_mobile ||
+            "",
           co_currentExperience:
             loan?.co_currentExperience || loan?.co_currentExp || "",
           co_totalExperience:
             loan?.co_totalExperience || loan?.co_totalExp || "",
           co_yearsAtCurrentResidence:
-            loan?.co_yearsAtCurrentResidence || loan?.co_yearsInCurrentResidence || "",
-          co_houseType:
-            loan?.co_houseType || loan?.houseType || "",
+            loan?.co_yearsAtCurrentResidence ||
+            loan?.co_yearsInCurrentResidence ||
+            "",
+          co_houseType: loan?.co_houseType || loan?.houseType || "",
           co_dob:
             loan?.co_dob ||
             loan?.coApplicant?.dob ||
             loan?.co_applicant?.dob ||
             "",
-          signatory_dob:
-            loan?.signatory_dob ||
-            loan?.signatory?.dob ||
-            "",
+          signatory_dob: loan?.signatory_dob || loan?.signatory?.dob || "",
           showroomDealerName:
             loan?.showroomDealerName || loan?.delivery_dealerName || "",
           showroomDealerContactPerson:
-            loan?.showroomDealerContactPerson || loan?.delivery_dealerContactPerson || "",
+            loan?.showroomDealerContactPerson ||
+            loan?.delivery_dealerContactPerson ||
+            "",
           showroomDealerContactNumber:
-            loan?.showroomDealerContactNumber || loan?.delivery_dealerContactNumber || "",
+            loan?.showroomDealerContactNumber ||
+            loan?.delivery_dealerContactNumber ||
+            "",
           showroomDealerAddress:
             loan?.showroomDealerAddress || loan?.delivery_dealerAddress || "",
           rc_inv_storage_number:
             loan?.rc_inv_storage_number || loan?.rcStorageNumber || "",
-          docsPreparedBy:
-            loan?.docsPreparedBy || loan?.docs_prepared_by || "",
-          postfile_emiPlan:
-            loan?.postfile_emiPlan || loan?.emiPlan || "",
-          postfile_emiMode:
-            loan?.postfile_emiMode || loan?.emiMode || "",
+          docsPreparedBy: loan?.docsPreparedBy || loan?.docs_prepared_by || "",
+          postfile_emiPlan: loan?.postfile_emiPlan || loan?.emiPlan || "",
+          postfile_emiMode: loan?.postfile_emiMode || loan?.emiMode || "",
           reference1:
             loan?.reference1 && typeof loan.reference1 === "object"
               ? loan.reference1
@@ -1505,18 +1722,33 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         );
         form.setFieldsValue(fixed);
 
-
         // Hydrate each bank in approval_banksData with vehicle/prefile fields if missing.
         // If legacy/import has only approval_bankName, auto-create one bank card.
-        if (Array.isArray(loan?.approval_banksData) && loan.approval_banksData.length) {
+        if (
+          Array.isArray(loan?.approval_banksData) &&
+          loan.approval_banksData.length
+        ) {
           const vehicleFields = [
-            'vehicleMake', 'vehicleModel', 'vehicleVariant', 'vehicleFuelType', 'exShowroomPrice',
-            'typeOfLoan', 'onRoadPrice', 'downPayment', 'financeExpectation',
-            'customerName', 'primaryMobile', 'customerEmail', 'customerPan', 'customerAadhar', 'customerAddress', 'city'
+            "vehicleMake",
+            "vehicleModel",
+            "vehicleVariant",
+            "vehicleFuelType",
+            "exShowroomPrice",
+            "typeOfLoan",
+            "onRoadPrice",
+            "downPayment",
+            "financeExpectation",
+            "customerName",
+            "primaryMobile",
+            "customerEmail",
+            "customerPan",
+            "customerAadhar",
+            "customerAddress",
+            "city",
           ];
-          const hydratedBanks = loan.approval_banksData.map(bank => {
+          const hydratedBanks = loan.approval_banksData.map((bank) => {
             const hydrated = { ...bank };
-            vehicleFields.forEach(field => {
+            vehicleFields.forEach((field) => {
               if (hydrated[field] === undefined && loan[field] !== undefined) {
                 hydrated[field] = loan[field];
               }
@@ -1529,7 +1761,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             hydrated.breakupCustomFields = amt.customFields;
             hydrated.loanAmount = amt.derivedTotal || amt.derivedApproved;
             hydrated.disbursedAmount = amt.derivedDisbursed;
-            hydrated.tenure = Number(hydrated.tenure) || Number(loan.approval_tenureMonths) || Number(loan.postfile_tenureMonths) || "";
+            hydrated.tenure =
+              Number(hydrated.tenure) ||
+              Number(loan.approval_tenureMonths) ||
+              Number(loan.postfile_tenureMonths) ||
+              "";
             return normalizeApprovalSequence(hydrated);
           });
           setBanksData(hydratedBanks);
@@ -1564,13 +1800,24 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             hasMeaningfulValue(loan?.delivery_date);
 
           let safeStep = requestedStep;
-          if (isCashFromLoan && ["approval", "postfile", "payout"].includes(safeStep)) {
+          if (
+            isCashFromLoan &&
+            ["approval", "postfile", "payout"].includes(safeStep)
+          ) {
             safeStep = "delivery";
           }
-          if (!isCashFromLoan && safeStep === "postfile" && !isDisbursedFromLoan) {
+          if (
+            !isCashFromLoan &&
+            safeStep === "postfile" &&
+            !isDisbursedFromLoan
+          ) {
             safeStep = "approval";
           }
-          if (!isCashFromLoan && safeStep === "delivery" && !isDisbursedFromLoan) {
+          if (
+            !isCashFromLoan &&
+            safeStep === "delivery" &&
+            !isDisbursedFromLoan
+          ) {
             safeStep = "approval";
           }
           if (!isCashFromLoan && safeStep === "payout") {
@@ -1578,9 +1825,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             else if (!isDeliveryActivatedFromLoan) safeStep = "delivery";
           }
           if (
-            !["profile", "prefile", "approval", "postfile", "delivery", "payout"].includes(
-              safeStep,
-            )
+            ![
+              "profile",
+              "prefile",
+              "approval",
+              "postfile",
+              "delivery",
+              "payout",
+            ].includes(safeStep)
           ) {
             safeStep = "profile";
           }
@@ -1600,7 +1852,18 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     return () => {
       mounted = false;
     };
-  }, [isEditMode, loanIdFromRoute, fetchLoanById, form, initialData, buildAutoBankCardFromApproval, normalizeApprovalSequence, resolveBankAmounts, isValidRequestedRouteStep, requestedRouteStep]);
+  }, [
+    isEditMode,
+    loanIdFromRoute,
+    fetchLoanById,
+    form,
+    initialData,
+    buildAutoBankCardFromApproval,
+    normalizeApprovalSequence,
+    resolveBankAmounts,
+    isValidRequestedRouteStep,
+    requestedRouteStep,
+  ]);
 
   useEffect(() => {
     if (!requestedRouteSection) return;
@@ -1692,9 +1955,20 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   // Sync primary bank -> form fields
   // ----------------------------
   const syncPrimaryApprovalToForm = useCallback(() => {
+    const normalizeBankStatus = (value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+    const isDisbursedLike = (value) =>
+      normalizeBankStatus(value) === "disbursed";
+    const isApprovedLike = (value) =>
+      ["approved", "accepted", "sanctioned", "disbursed"].includes(
+        normalizeBankStatus(value),
+      );
+
     const primaryBank =
-      banksData.find((b) => b.status === "Disbursed") ||
-      banksData.find((b) => b.status === "Approved") ||
+      banksData.find((b) => isDisbursedLike(b?.status)) ||
+      banksData.find((b) => isApprovedLike(b?.status)) ||
       banksData[0] ||
       null;
 
@@ -1730,7 +2004,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       undefined;
 
     form.setFieldsValue({
-      approval_bankId: primaryBank.id,
+      approval_bankId:
+        primaryBank?.id ||
+        primaryBank?._id ||
+        primaryBank?.bankId ||
+        primaryBank?.loanId ||
+        primaryBank?.applicationId ||
+        primaryBank?.bankName ||
+        "",
       approval_bankName: primaryBank.bankName || "",
       approval_status: primaryBank.status || "Pending",
       approval_loanBookedIn: primaryBank.loanBookedIn || "Direct Code",
@@ -1775,7 +2056,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       // \ud83d\udd27 FIX: Flatten nested reference objects to match backend schema
       // Backend expects: reference1_name, reference1_mobile, etc.
       // Form has: reference1: { name, mobile, ... }
-      if (raw.reference1 && typeof raw.reference1 === 'object') {
+      if (raw.reference1 && typeof raw.reference1 === "object") {
         raw.reference1_name = raw.reference1.name;
         raw.reference1_mobile = raw.reference1.mobile;
         raw.reference1_address = raw.reference1.address;
@@ -1784,8 +2065,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         raw.reference1_relation = raw.reference1.relation;
         delete raw.reference1; // Remove nested object
       }
-      
-      if (raw.reference2 && typeof raw.reference2 === 'object') {
+
+      if (raw.reference2 && typeof raw.reference2 === "object") {
         raw.reference2_name = raw.reference2.name;
         raw.reference2_mobile = raw.reference2.mobile;
         raw.reference2_address = raw.reference2.address;
@@ -1796,7 +2077,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       }
 
       // 🧹 For submit: keep "" and false so every section's data is stored according to user feed
-      const cleaned = cleanPayloadForSubmit(raw, ['_id', '__v']);
+      const cleaned = cleanPayloadForSubmit(raw, ["_id", "__v"]);
 
       if (cleaned.postfile_emiPlan && !cleaned.emiPlan) {
         cleaned.emiPlan = cleaned.postfile_emiPlan;
@@ -1813,7 +2094,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       // 🚫 DO NOT reconvert values already strings
       const sanitized = convertDatesToStringsDeep(cleaned);
-      
+
       // Cleanup internal fields
       delete sanitized._id;
       delete sanitized.__v;
@@ -1832,7 +2113,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       }
 
       const normalizeFinanced = (value) => {
-        const v = String(value ?? "").trim().toLowerCase();
+        const v = String(value ?? "")
+          .trim()
+          .toLowerCase();
         if (!v) return "Yes";
         if (
           v === "no" ||
@@ -1843,7 +2126,13 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         ) {
           return "No";
         }
-        if (v === "yes" || v === "y" || v === "true" || v === "1" || v.includes("finance")) {
+        if (
+          v === "yes" ||
+          v === "y" ||
+          v === "true" ||
+          v === "1" ||
+          v.includes("finance")
+        ) {
           return "Yes";
         }
         return "Yes";
@@ -1851,11 +2140,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       const payload = {
         ...sanitized,
-        typeOfLoan: normalizeLoanTypeLabel(sanitized?.typeOfLoan) || sanitized?.typeOfLoan,
+        typeOfLoan:
+          normalizeLoanTypeLabel(sanitized?.typeOfLoan) ||
+          sanitized?.typeOfLoan,
         currentStage: activeStep,
         isFinanced: normalizeFinanced(sanitized?.isFinanced),
-        docsPreparedBy: sanitized?.docsPreparedBy ?? sanitized?.docs_prepared_by ?? undefined,
-        docs_prepared_by: sanitized?.docs_prepared_by ?? sanitized?.docsPreparedBy ?? undefined,
+        docsPreparedBy:
+          sanitized?.docsPreparedBy ?? sanitized?.docs_prepared_by ?? undefined,
+        docs_prepared_by:
+          sanitized?.docs_prepared_by ?? sanitized?.docsPreparedBy ?? undefined,
         // Ensure Yes/No and Switch choices are always stored (including "No" and false)
         hasCoApplicant: Boolean(sanitized?.hasCoApplicant),
         hasGuarantor: Boolean(sanitized?.hasGuarantor),
@@ -1863,15 +2156,18 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         source: sanitized?.source ?? undefined,
         sourceName: sanitized?.sourceName ?? undefined,
         payoutApplicable: sanitized?.payoutApplicable ?? undefined,
-        prefile_sourcePayoutPercentage: sanitized?.prefile_sourcePayoutPercentage ?? undefined,
+        prefile_sourcePayoutPercentage:
+          sanitized?.prefile_sourcePayoutPercentage ?? undefined,
         approval_banksData: banksData,
       };
       const payloadWithBankDetails = enrichPayloadWithBankDetails(payload);
-      return mergeInstrumentFallback(payloadWithBankDetails, loadedLoanRef.current);
+      return mergeInstrumentFallback(
+        payloadWithBankDetails,
+        loadedLoanRef.current,
+      );
     },
     [activeStep, banksData, form, syncPrimaryApprovalToForm],
   );
-
 
   // ----------------------------
   // Helper: Sync Customer Data
@@ -1879,350 +2175,403 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   /* =========================================================
      SYNC HELPERS (Map Loan Form -> Customer Schema)
      ========================================================= */
-  const syncCustomerData = useCallback(async ({ allowCreate = true } = {}) => {
-    try {
-      const formValues = form.getFieldsValue(true);
-      const bankSyncPayload = enrichPayloadWithBankDetails({
-        bankName: formValues.bankName,
-        accountNumber: formValues.accountNumber,
-        ifscCode: formValues.ifscCode,
-        ifsc: formValues.ifsc,
-        branch: formValues.branch,
-        accountType: formValues.accountType,
-        accountSinceYears: formValues.accountSinceYears,
-        openedIn: formValues.openedIn,
-        bankDetails: formValues.bankDetails,
-        additionalBankDetails: formValues.additionalBankDetails,
-        hasAdditionalBankDetails: formValues.hasAdditionalBankDetails,
-      });
-      const hasIdentityPair = ({ normalizedName, normalizedMobile, normalizedPan }) =>
-        Boolean(
-          (normalizedName && normalizedMobile) ||
+  const syncCustomerData = useCallback(
+    async ({ allowCreate = true } = {}) => {
+      try {
+        const formValues = form.getFieldsValue(true);
+        const bankSyncPayload = enrichPayloadWithBankDetails({
+          bankName: formValues.bankName,
+          accountNumber: formValues.accountNumber,
+          ifscCode: formValues.ifscCode,
+          ifsc: formValues.ifsc,
+          branch: formValues.branch,
+          accountType: formValues.accountType,
+          accountSinceYears: formValues.accountSinceYears,
+          openedIn: formValues.openedIn,
+          bankDetails: formValues.bankDetails,
+          additionalBankDetails: formValues.additionalBankDetails,
+          hasAdditionalBankDetails: formValues.hasAdditionalBankDetails,
+        });
+        const hasIdentityPair = ({
+          normalizedName,
+          normalizedMobile,
+          normalizedPan,
+        }) =>
+          Boolean(
+            (normalizedName && normalizedMobile) ||
             (normalizedName && normalizedPan) ||
             (normalizedPan && normalizedMobile),
-        );
+          );
 
-      const isIdentityPairMatch = ({
-        normalizedName,
-        normalizedMobile,
-        normalizedPan,
-        customer,
-        strictNameMatch = false,
-      }) => {
-        const customerMobile = normalizePhoneValue(customer?.primaryMobile);
-        const customerPan = normalizeIdentityValue(customer?.panNumber).toUpperCase();
-        const customerName = normalizeIdentityValue(customer?.customerName);
+        const isIdentityPairMatch = ({
+          normalizedName,
+          normalizedMobile,
+          normalizedPan,
+          customer,
+          strictNameMatch = false,
+        }) => {
+          const customerMobile = normalizePhoneValue(customer?.primaryMobile);
+          const customerPan = normalizeIdentityValue(
+            customer?.panNumber,
+          ).toUpperCase();
+          const customerName = normalizeIdentityValue(customer?.customerName);
 
-        if (strictNameMatch && normalizedName && customerName && customerName !== normalizedName) {
-          return false;
-        }
+          if (
+            strictNameMatch &&
+            normalizedName &&
+            customerName &&
+            customerName !== normalizedName
+          ) {
+            return false;
+          }
 
-        const nameMobileMatch = Boolean(
-          normalizedName &&
+          const nameMobileMatch = Boolean(
+            normalizedName &&
             customerName &&
             normalizedName === customerName &&
             normalizedMobile &&
             customerMobile &&
             normalizedMobile === customerMobile,
-        );
-        const namePanMatch = Boolean(
-          normalizedName &&
+          );
+          const namePanMatch = Boolean(
+            normalizedName &&
             customerName &&
             normalizedName === customerName &&
             normalizedPan &&
             customerPan &&
             normalizedPan === customerPan,
-        );
-        const panMobileMatch = Boolean(
-          normalizedPan &&
+          );
+          const panMobileMatch = Boolean(
+            normalizedPan &&
             customerPan &&
             normalizedPan === customerPan &&
             normalizedMobile &&
             customerMobile &&
             normalizedMobile === customerMobile,
-        );
+          );
 
-        return nameMobileMatch || namePanMatch || panMobileMatch;
-      };
+          return nameMobileMatch || namePanMatch || panMobileMatch;
+        };
 
-      const findExistingCustomerId = async ({ name, mobile, panNumber, existingId, respectExistingId = true, strictNameMatch = false }) => {
-        if (respectExistingId && existingId) return existingId;
-
-        const normalizedName = normalizeIdentityValue(name);
-        const normalizedMobile = normalizePhoneValue(mobile);
-        const normalizedPan = normalizeIdentityValue(panNumber).toUpperCase();
-        if (!hasIdentityPair({ normalizedName, normalizedMobile, normalizedPan })) return null;
-
-        const queries = [];
-        if (normalizedMobile.length >= 10) queries.push(normalizedMobile);
-        if (normalizedPan) queries.push(normalizedPan);
-        if (normalizedName.length >= 2) queries.push(name);
-
-        for (const query of queries) {
-          try {
-            const res = await customersApi.search(query);
-            const matches = Array.isArray(res?.data) ? res.data : [];
-            const matched = matches.find((customer) =>
-              isIdentityPairMatch({
-                normalizedName,
-                normalizedMobile,
-                normalizedPan,
-                customer,
-                strictNameMatch,
-              }),
-            );
-
-            if (matched?._id || matched?.id) {
-              return matched._id || matched.id;
-            }
-          } catch (searchError) {
-            console.error("Customer search failed during sync:", searchError);
-          }
-        }
-
-        return null;
-      };
-
-      const upsertCustomerRecord = async ({
-        payload,
-        name,
-        mobile,
-        panNumber,
-        idFieldName,
-        respectCurrentId = true,
-        strictNameMatch = false,
-      }) => {
-        const currentId = form.getFieldValue(idFieldName);
-        const normalizedName = normalizeIdentityValue(name);
-        const normalizedMobile = normalizePhoneValue(mobile);
-        const normalizedPan = normalizeIdentityValue(panNumber).toUpperCase();
-
-        if (!hasIdentityPair({ normalizedName, normalizedMobile, normalizedPan }) && !currentId) return null;
-
-        const cleanData = convertDatesToStringsDeep(cleanEmptyValues(payload));
-
-        if (Array.isArray(cleanData.companyType)) {
-          cleanData.companyType = cleanData.companyType[0] || "";
-        }
-
-        let matchedId = await findExistingCustomerId({
+        const findExistingCustomerId = async ({
           name,
           mobile,
           panNumber,
-          existingId: currentId,
-          respectExistingId: respectCurrentId,
-          strictNameMatch,
-        });
+          existingId,
+          respectExistingId = true,
+          strictNameMatch = false,
+        }) => {
+          if (respectExistingId && existingId) return existingId;
 
-        if (matchedId) {
-          await customersApi.update(matchedId, cleanData);
-          if (matchedId !== currentId) {
-            form.setFieldsValue({ [idFieldName]: matchedId });
+          const normalizedName = normalizeIdentityValue(name);
+          const normalizedMobile = normalizePhoneValue(mobile);
+          const normalizedPan = normalizeIdentityValue(panNumber).toUpperCase();
+          if (
+            !hasIdentityPair({
+              normalizedName,
+              normalizedMobile,
+              normalizedPan,
+            })
+          )
+            return null;
+
+          const queries = [];
+          if (normalizedMobile.length >= 10) queries.push(normalizedMobile);
+          if (normalizedPan) queries.push(normalizedPan);
+          if (normalizedName.length >= 2) queries.push(name);
+
+          for (const query of queries) {
+            try {
+              const res = await customersApi.search(query);
+              const matches = Array.isArray(res?.data) ? res.data : [];
+              const matched = matches.find((customer) =>
+                isIdentityPairMatch({
+                  normalizedName,
+                  normalizedMobile,
+                  normalizedPan,
+                  customer,
+                  strictNameMatch,
+                }),
+              );
+
+              if (matched?._id || matched?.id) {
+                return matched._id || matched.id;
+              }
+            } catch (searchError) {
+              console.error("Customer search failed during sync:", searchError);
+            }
           }
-          return matchedId;
-        }
 
-        if (!allowCreate || !normalizedName) return currentId || null;
-
-        const res = await customersApi.create(cleanData);
-        const newId = res?.data?._id || res?.data?.id || res?._id || res?.id;
-        if (newId) {
-          form.setFieldsValue({ [idFieldName]: newId });
-          return newId;
-        }
-
-        return null;
-      };
-
-      const primaryPayload = {
-        applicantType: formValues.applicantType || "Individual",
-        customerName: formValues.customerName,
-        primaryMobile: formValues.primaryMobile,
-        email: formValues.email,
-        emailAddress: formValues.email,
-        whatsappNumber: formValues.whatsappNumber,
-        sdwOf: formValues.sdwOf,
-        fatherName: formValues.fatherName,
-        gender: formValues.gender,
-        dob: formValues.dob,
-        motherName: formValues.motherName,
-        contactPersonName: formValues.contactPersonName,
-        contactPersonMobile: formValues.contactPersonMobile,
-        sameAsCurrentAddress: formValues.sameAsCurrentAddress,
-
-        residenceAddress: formValues.residenceAddress,
-        pincode: formValues.pincode,
-        city: formValues.city,
-        state: formValues.state,
-        yearsInCurrentHouse: formValues.yearsInCurrentHouse,
-        yearsInCurrentCity: formValues.yearsInCurrentCity,
-        houseType: formValues.houseType,
-        permanentAddress: formValues.permanentAddress,
-        permanentPincode: formValues.permanentPincode,
-        permanentCity: formValues.permanentCity,
-        currentAddress: formValues.currentAddress,
-
-        education: formValues.education,
-        educationOther: formValues.educationOther,
-        maritalStatus: formValues.maritalStatus,
-        dependents: formValues.dependents,
-        extraMobiles: formValues.extraMobiles,
-
-        nomineeName: formValues.nomineeName,
-        nomineeDob: formValues.nomineeDob,
-        nomineeRelation: formValues.nomineeRelation,
-
-        occupationType: formValues.occupationType,
-        employmentType: formValues.employmentType,
-        professionalType: formValues.professionalType,
-        companyName: formValues.companyName,
-        designation: formValues.designation,
-        companyPartners: formValues.companyPartners,
-        companyType: formValues.companyType,
-        businessNature: formValues.businessNature,
-        currentExp: formValues.currentExp || formValues.experienceCurrent,
-        totalExp: formValues.totalExp || formValues.totalExperience,
-        experienceCurrent: formValues.experienceCurrent || formValues.currentExp,
-        totalExperience: formValues.totalExperience || formValues.totalExp,
-        incorporationYear: formValues.incorporationYear,
-        isMSME: formValues.isMSME,
-
-        employmentAddress: formValues.employmentAddress,
-        employmentPincode: formValues.employmentPincode,
-        employmentCity: formValues.employmentCity,
-        employmentPhone: formValues.employmentPhone,
-        companyAddress: formValues.employmentAddress || formValues.companyAddress,
-        companyPincode: formValues.employmentPincode || formValues.companyPincode,
-        companyCity: formValues.employmentCity || formValues.companyCity,
-        companyPhone: formValues.employmentPhone || formValues.companyPhone,
-        officialEmail: formValues.officialEmail,
-        officeAddress: formValues.officeAddress,
-
-        monthlyIncome: formValues.monthlyIncome,
-        salaryMonthly: formValues.salaryMonthly,
-        monthlySalary: formValues.monthlySalary,
-        annualIncome: formValues.annualIncome,
-        totalIncomeITR: formValues.totalIncomeITR,
-        annualTurnover: formValues.annualTurnover,
-        netProfit: formValues.netProfit,
-        otherIncome: formValues.otherIncome,
-        otherIncomeSource: formValues.otherIncomeSource,
-
-        typeOfLoan: formValues.typeOfLoan,
-        financeExpectation: formValues.financeExpectation,
-        loanTenureMonths: formValues.loanTenureMonths,
-
-        aadhaarNumber: formValues.aadhaarNumber,
-        aadharNumber: formValues.aadhaarNumber || formValues.aadharNumber,
-        panNumber: formValues.panNumber,
-        passportNumber: formValues.passportNumber,
-        dlNumber: formValues.dlNumber,
-        gstNumber: formValues.gstNumber,
-        voterId: formValues.voterId,
-
-        aadhaarCardDocUrl: formValues.aadhaarCardDocUrl,
-        panCardDocUrl: formValues.panCardDocUrl,
-        passportDocUrl: formValues.passportDocUrl,
-        dlDocUrl: formValues.dlDocUrl,
-        gstDocUrl: formValues.gstDocUrl,
-        addressProofDocUrl: formValues.addressProofDocUrl,
-
-        bankName: bankSyncPayload.bankName,
-        accountNumber: bankSyncPayload.accountNumber,
-        ifscCode: bankSyncPayload.ifscCode,
-        ifsc: bankSyncPayload.ifscCode || bankSyncPayload.ifsc,
-        branch: bankSyncPayload.branch,
-        accountType: bankSyncPayload.accountType,
-        accountSinceYears: bankSyncPayload.accountSinceYears,
-        openedIn: bankSyncPayload.openedIn,
-        bankDetails: bankSyncPayload.bankDetails,
-
-        reference1_name: formValues.reference1_name || formValues.reference1?.name,
-        reference1_mobile: formValues.reference1_mobile || formValues.reference1?.mobile,
-        reference1_address: formValues.reference1_address || formValues.reference1?.address,
-        reference1_pincode: formValues.reference1_pincode || formValues.reference1?.pincode,
-        reference1_city: formValues.reference1_city || formValues.reference1?.city,
-        reference1_relation: formValues.reference1_relation || formValues.reference1?.relation,
-        reference2_name: formValues.reference2_name || formValues.reference2?.name,
-        reference2_mobile: formValues.reference2_mobile || formValues.reference2?.mobile,
-        reference2_address: formValues.reference2_address || formValues.reference2?.address,
-        reference2_pincode: formValues.reference2_pincode || formValues.reference2?.pincode,
-        reference2_city: formValues.reference2_city || formValues.reference2?.city,
-        reference2_relation: formValues.reference2_relation || formValues.reference2?.relation,
-
-        identityProofType: formValues.identityProofType,
-        identityProofNumber: formValues.identityProofNumber,
-        addressProofType: formValues.addressProofType,
-        addressProofNumber: formValues.addressProofNumber,
-        identityProofExpiry: formValues.identityProofExpiry,
-        addressType: formValues.addressType,
-
-        customerType: formValues.customerType,
-        loan_notes: formValues.loan_notes,
-        kycStatus: formValues.kycStatus,
-      };
-
-      const primaryCustomerId = await upsertCustomerRecord({
-        payload: primaryPayload,
-        name: formValues.customerName,
-        mobile: formValues.primaryMobile,
-        panNumber: formValues.panNumber,
-        idFieldName: "customerId",
-      });
-
-      if (formValues.hasCoApplicant) {
-        const coApplicantPayload = {
-          applicantType: "Individual",
-          customerName: formValues.co_customerName,
-          primaryMobile: formValues.co_primaryMobile,
-          motherName: formValues.co_motherName,
-          sdwOf: formValues.co_fatherName,
-          gender: formValues.co_gender,
-          dob: formValues.co_dob,
-          maritalStatus: formValues.co_maritalStatus,
-          dependents: formValues.co_dependents,
-          education: formValues.co_education,
-          houseType: formValues.co_houseType,
-          residenceAddress: formValues.co_address,
-          pincode: formValues.co_pincode,
-          city: formValues.co_city,
-          panNumber: formValues.co_pan,
-          aadhaarNumber: formValues.co_aadhaar,
-          occupationType: formValues.co_occupation,
-          professionalType: formValues.co_professionalType,
-          companyType: formValues.co_companyType,
-          businessNature: formValues.co_businessNature,
-          designation: formValues.co_designation,
-          currentExp: formValues.co_currentExperience,
-          experienceCurrent: formValues.co_currentExperience,
-          totalExp: formValues.co_totalExperience,
-          totalExperience: formValues.co_totalExperience,
-          companyName: formValues.co_companyName,
-          employmentAddress: formValues.co_companyAddress,
-          employmentPincode: formValues.co_companyPincode,
-          employmentCity: formValues.co_companyCity,
-          employmentPhone: formValues.co_companyPhone,
-          isMSME: formValues.co_isMSME,
+          return null;
         };
 
-        await upsertCustomerRecord({
-          payload: coApplicantPayload,
-          name: formValues.co_customerName,
-          mobile: formValues.co_primaryMobile,
-          panNumber: formValues.co_pan,
-          idFieldName: "co_id",
-          respectCurrentId: false,
-          strictNameMatch: true,
-        });
-      }
+        const upsertCustomerRecord = async ({
+          payload,
+          name,
+          mobile,
+          panNumber,
+          idFieldName,
+          respectCurrentId = true,
+          strictNameMatch = false,
+        }) => {
+          const currentId = form.getFieldValue(idFieldName);
+          const normalizedName = normalizeIdentityValue(name);
+          const normalizedMobile = normalizePhoneValue(mobile);
+          const normalizedPan = normalizeIdentityValue(panNumber).toUpperCase();
 
-      return primaryCustomerId;
-    } catch (e) {
-      console.error("Failed to sync customer profile:", e);
-      // Non-blocking error
-    }
-    return null;
-  }, [form]);
+          if (
+            !hasIdentityPair({
+              normalizedName,
+              normalizedMobile,
+              normalizedPan,
+            }) &&
+            !currentId
+          )
+            return null;
+
+          const cleanData = convertDatesToStringsDeep(
+            cleanEmptyValues(payload),
+          );
+
+          if (Array.isArray(cleanData.companyType)) {
+            cleanData.companyType = cleanData.companyType[0] || "";
+          }
+
+          let matchedId = await findExistingCustomerId({
+            name,
+            mobile,
+            panNumber,
+            existingId: currentId,
+            respectExistingId: respectCurrentId,
+            strictNameMatch,
+          });
+
+          if (matchedId) {
+            await customersApi.update(matchedId, cleanData);
+            if (matchedId !== currentId) {
+              form.setFieldsValue({ [idFieldName]: matchedId });
+            }
+            return matchedId;
+          }
+
+          if (!allowCreate || !normalizedName) return currentId || null;
+
+          const res = await customersApi.create(cleanData);
+          const newId = res?.data?._id || res?.data?.id || res?._id || res?.id;
+          if (newId) {
+            form.setFieldsValue({ [idFieldName]: newId });
+            return newId;
+          }
+
+          return null;
+        };
+
+        const primaryPayload = {
+          applicantType: formValues.applicantType || "Individual",
+          customerName: formValues.customerName,
+          primaryMobile: formValues.primaryMobile,
+          email: formValues.email,
+          emailAddress: formValues.email,
+          whatsappNumber: formValues.whatsappNumber,
+          sdwOf: formValues.sdwOf,
+          fatherName: formValues.fatherName,
+          gender: formValues.gender,
+          dob: formValues.dob,
+          motherName: formValues.motherName,
+          contactPersonName: formValues.contactPersonName,
+          contactPersonMobile: formValues.contactPersonMobile,
+          sameAsCurrentAddress: formValues.sameAsCurrentAddress,
+
+          residenceAddress: formValues.residenceAddress,
+          pincode: formValues.pincode,
+          city: formValues.city,
+          state: formValues.state,
+          yearsInCurrentHouse: formValues.yearsInCurrentHouse,
+          yearsInCurrentCity: formValues.yearsInCurrentCity,
+          houseType: formValues.houseType,
+          permanentAddress: formValues.permanentAddress,
+          permanentPincode: formValues.permanentPincode,
+          permanentCity: formValues.permanentCity,
+          currentAddress: formValues.currentAddress,
+
+          education: formValues.education,
+          educationOther: formValues.educationOther,
+          maritalStatus: formValues.maritalStatus,
+          dependents: formValues.dependents,
+          extraMobiles: formValues.extraMobiles,
+
+          nomineeName: formValues.nomineeName,
+          nomineeDob: formValues.nomineeDob,
+          nomineeRelation: formValues.nomineeRelation,
+
+          occupationType: formValues.occupationType,
+          employmentType: formValues.employmentType,
+          professionalType: formValues.professionalType,
+          companyName: formValues.companyName,
+          designation: formValues.designation,
+          companyPartners: formValues.companyPartners,
+          companyType: formValues.companyType,
+          businessNature: formValues.businessNature,
+          currentExp: formValues.currentExp || formValues.experienceCurrent,
+          totalExp: formValues.totalExp || formValues.totalExperience,
+          experienceCurrent:
+            formValues.experienceCurrent || formValues.currentExp,
+          totalExperience: formValues.totalExperience || formValues.totalExp,
+          incorporationYear: formValues.incorporationYear,
+          isMSME: formValues.isMSME,
+
+          employmentAddress: formValues.employmentAddress,
+          employmentPincode: formValues.employmentPincode,
+          employmentCity: formValues.employmentCity,
+          employmentPhone: formValues.employmentPhone,
+          companyAddress:
+            formValues.employmentAddress || formValues.companyAddress,
+          companyPincode:
+            formValues.employmentPincode || formValues.companyPincode,
+          companyCity: formValues.employmentCity || formValues.companyCity,
+          companyPhone: formValues.employmentPhone || formValues.companyPhone,
+          officialEmail: formValues.officialEmail,
+          officeAddress: formValues.officeAddress,
+
+          monthlyIncome: formValues.monthlyIncome,
+          salaryMonthly: formValues.salaryMonthly,
+          monthlySalary: formValues.monthlySalary,
+          annualIncome: formValues.annualIncome,
+          totalIncomeITR: formValues.totalIncomeITR,
+          annualTurnover: formValues.annualTurnover,
+          netProfit: formValues.netProfit,
+          otherIncome: formValues.otherIncome,
+          otherIncomeSource: formValues.otherIncomeSource,
+
+          typeOfLoan: formValues.typeOfLoan,
+          financeExpectation: formValues.financeExpectation,
+          loanTenureMonths: formValues.loanTenureMonths,
+
+          aadhaarNumber: formValues.aadhaarNumber,
+          aadharNumber: formValues.aadhaarNumber || formValues.aadharNumber,
+          panNumber: formValues.panNumber,
+          passportNumber: formValues.passportNumber,
+          dlNumber: formValues.dlNumber,
+          gstNumber: formValues.gstNumber,
+          voterId: formValues.voterId,
+
+          aadhaarCardDocUrl: formValues.aadhaarCardDocUrl,
+          panCardDocUrl: formValues.panCardDocUrl,
+          passportDocUrl: formValues.passportDocUrl,
+          dlDocUrl: formValues.dlDocUrl,
+          gstDocUrl: formValues.gstDocUrl,
+          addressProofDocUrl: formValues.addressProofDocUrl,
+
+          bankName: bankSyncPayload.bankName,
+          accountNumber: bankSyncPayload.accountNumber,
+          ifscCode: bankSyncPayload.ifscCode,
+          ifsc: bankSyncPayload.ifscCode || bankSyncPayload.ifsc,
+          branch: bankSyncPayload.branch,
+          accountType: bankSyncPayload.accountType,
+          accountSinceYears: bankSyncPayload.accountSinceYears,
+          openedIn: bankSyncPayload.openedIn,
+          bankDetails: bankSyncPayload.bankDetails,
+
+          reference1_name:
+            formValues.reference1_name || formValues.reference1?.name,
+          reference1_mobile:
+            formValues.reference1_mobile || formValues.reference1?.mobile,
+          reference1_address:
+            formValues.reference1_address || formValues.reference1?.address,
+          reference1_pincode:
+            formValues.reference1_pincode || formValues.reference1?.pincode,
+          reference1_city:
+            formValues.reference1_city || formValues.reference1?.city,
+          reference1_relation:
+            formValues.reference1_relation || formValues.reference1?.relation,
+          reference2_name:
+            formValues.reference2_name || formValues.reference2?.name,
+          reference2_mobile:
+            formValues.reference2_mobile || formValues.reference2?.mobile,
+          reference2_address:
+            formValues.reference2_address || formValues.reference2?.address,
+          reference2_pincode:
+            formValues.reference2_pincode || formValues.reference2?.pincode,
+          reference2_city:
+            formValues.reference2_city || formValues.reference2?.city,
+          reference2_relation:
+            formValues.reference2_relation || formValues.reference2?.relation,
+
+          identityProofType: formValues.identityProofType,
+          identityProofNumber: formValues.identityProofNumber,
+          addressProofType: formValues.addressProofType,
+          addressProofNumber: formValues.addressProofNumber,
+          identityProofExpiry: formValues.identityProofExpiry,
+          addressType: formValues.addressType,
+
+          customerType: formValues.customerType,
+          loan_notes: formValues.loan_notes,
+          kycStatus: formValues.kycStatus,
+        };
+
+        const primaryCustomerId = await upsertCustomerRecord({
+          payload: primaryPayload,
+          name: formValues.customerName,
+          mobile: formValues.primaryMobile,
+          panNumber: formValues.panNumber,
+          idFieldName: "customerId",
+        });
+
+        if (formValues.hasCoApplicant) {
+          const coApplicantPayload = {
+            applicantType: "Individual",
+            customerName: formValues.co_customerName,
+            primaryMobile: formValues.co_primaryMobile,
+            motherName: formValues.co_motherName,
+            sdwOf: formValues.co_fatherName,
+            gender: formValues.co_gender,
+            dob: formValues.co_dob,
+            maritalStatus: formValues.co_maritalStatus,
+            dependents: formValues.co_dependents,
+            education: formValues.co_education,
+            houseType: formValues.co_houseType,
+            residenceAddress: formValues.co_address,
+            pincode: formValues.co_pincode,
+            city: formValues.co_city,
+            panNumber: formValues.co_pan,
+            aadhaarNumber: formValues.co_aadhaar,
+            occupationType: formValues.co_occupation,
+            professionalType: formValues.co_professionalType,
+            companyType: formValues.co_companyType,
+            businessNature: formValues.co_businessNature,
+            designation: formValues.co_designation,
+            currentExp: formValues.co_currentExperience,
+            experienceCurrent: formValues.co_currentExperience,
+            totalExp: formValues.co_totalExperience,
+            totalExperience: formValues.co_totalExperience,
+            companyName: formValues.co_companyName,
+            employmentAddress: formValues.co_companyAddress,
+            employmentPincode: formValues.co_companyPincode,
+            employmentCity: formValues.co_companyCity,
+            employmentPhone: formValues.co_companyPhone,
+            isMSME: formValues.co_isMSME,
+          };
+
+          await upsertCustomerRecord({
+            payload: coApplicantPayload,
+            name: formValues.co_customerName,
+            mobile: formValues.co_primaryMobile,
+            panNumber: formValues.co_pan,
+            idFieldName: "co_id",
+            respectCurrentId: false,
+            strictNameMatch: true,
+          });
+        }
+
+        return primaryCustomerId;
+      } catch (e) {
+        console.error("Failed to sync customer profile:", e);
+        // Non-blocking error
+      }
+      return null;
+    },
+    [form],
+  );
 
   const handleSaveLoan = useCallback(
     async (shouldExit = false, extraData = {}, silent = false) => {
@@ -2235,8 +2584,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           // Prevent background/edit saves from re-creating deleted or stale customer rows.
           allowCreate: !isEditMode && !silent,
         });
-        const effectiveCustomerId = form.getFieldValue("customerId") || syncedCustomerId;
-        
+        const effectiveCustomerId =
+          form.getFieldValue("customerId") || syncedCustomerId;
+
         // Set customerId if we have one from sync
         if (effectiveCustomerId && !form.getFieldValue("customerId")) {
           form.setFieldsValue({ customerId: effectiveCustomerId });
@@ -2252,44 +2602,51 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
           // BULK SUCCESS CASE
           if (numberOfCars > 1) {
-             if (!silent) {
-                 alert(result?.message || `Successfully created ${numberOfCars} loan applications.`);
-                 navigate("/loans");
-             }
-             return true;
+            if (!silent) {
+              alert(
+                result?.message ||
+                  `Successfully created ${numberOfCars} loan applications.`,
+              );
+              navigate("/loans");
+            }
+            return true;
           }
 
           // SINGLE SUCCESS CASE (result = full API response: { loanId, data, customerLinked, message, ... })
           const loanData = result?.data || result;
           let newLoanId = result?.loanId || loanData?.loanId;
           if (!newLoanId) {
-            if (result?.id || loanData?.id) newLoanId = result?.id || loanData?.id;
+            if (result?.id || loanData?.id)
+              newLoanId = result?.id || loanData?.id;
             else throw new Error("Loan created but loanId not returned");
           }
 
           form.setFieldsValue({
             loanId: newLoanId,
-            createdAt: (loanData?.createdAt || result?.createdAt) || new Date().toISOString(),
+            createdAt:
+              loanData?.createdAt ||
+              result?.createdAt ||
+              new Date().toISOString(),
           });
 
           // Clear cached draft after successful save
           clearSavedFormData();
 
           // 🔗 Clear customer-related caches so synced data shows everywhere
-          sessionStorage.removeItem('customer_form_draft');
-          sessionStorage.removeItem('customers_list_cache');
+          sessionStorage.removeItem("customer_form_draft");
+          sessionStorage.removeItem("customers_list_cache");
 
           if (!silent && result?.customerLinked?.createdNew) {
             message.success(
-              `Loan created. Customer "${result.customerLinked.customerName || 'New'}" was created from this form and will appear in the Customer dashboard.`,
-              5
+              `Loan created. Customer "${result.customerLinked.customerName || "New"}" was created from this form and will appear in the Customer dashboard.`,
+              5,
             );
           }
 
           if (shouldExit) {
             if (!silent) navigate("/loans");
           } else {
-             navigate(`/loans/edit/${newLoanId}`, { replace: true });
+            navigate(`/loans/edit/${newLoanId}`, { replace: true });
           }
 
           return true;
@@ -2305,8 +2662,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         clearSavedFormData();
 
         // 🔗 Clear customer-related caches so synced data shows everywhere
-        sessionStorage.removeItem('customer_form_draft');
-        sessionStorage.removeItem('customers_list_cache');
+        sessionStorage.removeItem("customer_form_draft");
+        sessionStorage.removeItem("customers_list_cache");
 
         if (shouldExit && !silent) navigate("/loans");
         return true;
@@ -2381,17 +2738,24 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const handleDisburseLoan = async (bankId, disbursementDate, remarks = "") => {
     try {
       const normalizedBankId = String(bankId ?? "").trim();
-      const bankToDisburse = banksData.find((b) => {
+      const bankMatchesIdentifier = (bank, identifier) => {
+        const normalizedIdentifier = String(identifier ?? "").trim();
+        if (!normalizedIdentifier) return false;
         const candidates = [
-          b?.id,
-          b?._id,
-          b?.bankId,
-          b?.loanId,
-          b?.bankName,
+          bank?.id,
+          bank?._id,
+          bank?.bankId,
+          bank?.loanId,
+          bank?.applicationId,
+          bank?.bankName,
         ]
           .map((value) => String(value ?? "").trim())
           .filter(Boolean);
-        return candidates.includes(normalizedBankId);
+        return candidates.includes(normalizedIdentifier);
+      };
+
+      const bankToDisburse = banksData.find((b) => {
+        return bankMatchesIdentifier(b, normalizedBankId);
       });
 
       if (!bankToDisburse) {
@@ -2436,7 +2800,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       // Now update local state AFTER successful API call
       const updatedBanks = banksData.map((bank) => {
-        if (bank.id === bankId) {
+        if (bankMatchesIdentifier(bank, normalizedBankId)) {
           return {
             ...bank,
             status: "Disbursed",
@@ -2459,7 +2823,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       // ONLY set non-date fields
       form.setFieldsValue({
-        approval_bankId: bankToDisburse.id,
+        approval_bankId:
+          bankToDisburse?.id ||
+          bankToDisburse?._id ||
+          bankToDisburse?.bankId ||
+          bankToDisburse?.loanId ||
+          bankToDisburse?.applicationId ||
+          bankToDisburse?.bankName ||
+          "",
         approval_bankName: bankToDisburse.bankName || "",
         approval_status: "Disbursed",
         approval_loanAmountApproved: loanAmount,
@@ -2469,7 +2840,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         approval_processingFees: cleanNumber(bankToDisburse.processingFee),
         approval_breakup_netLoanApproved:
           bankToDisburse.breakupNetLoanApproved || 0,
-        approval_breakup_creditAssured: bankToDisburse.breakupCreditAssured || 0,
+        approval_breakup_creditAssured:
+          bankToDisburse.breakupCreditAssured || 0,
         approval_breakup_insuranceFinance:
           bankToDisburse.breakupInsuranceFinance || 0,
         approval_breakup_ewFinance: bankToDisburse.breakupEwFinance || 0,
@@ -2497,10 +2869,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       // ✅ Save loan with disbursement details
       const success = await handleSaveLoan(false, {}, true);
       if (!success) {
-        alert("⚠️ Disbursement succeeded but saving failed. Please refresh to verify.");
+        alert(
+          "⚠️ Disbursement succeeded but saving failed. Please refresh to verify.",
+        );
       }
 
-      alert("✅ Loan disbursed successfully! Receivables have been created and saved.");
+      alert(
+        "✅ Loan disbursed successfully! Receivables have been created and saved.",
+      );
       navigateToStep("postfile", { notify: false });
     } catch (e) {
       console.error("❌ Disbursement failed:", e);
@@ -2510,17 +2886,20 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   const handleMoveToDelivery = async () => {
     const success = await handleSaveLoan(false);
-    if (success) navigateToStep("delivery", { notify: true, fallbackToNearest: false });
+    if (success)
+      navigateToStep("delivery", { notify: true, fallbackToNearest: false });
   };
 
   const handleMoveToPostFile = async () => {
     const success = await handleSaveLoan(false);
-    if (success) navigateToStep("postfile", { notify: true, fallbackToNearest: false });
+    if (success)
+      navigateToStep("postfile", { notify: true, fallbackToNearest: false });
   };
 
   const handleMoveToPayout = async () => {
     const success = await handleSaveLoan(false);
-    if (success) navigateToStep("payout", { notify: true, fallbackToNearest: false });
+    if (success)
+      navigateToStep("payout", { notify: true, fallbackToNearest: false });
   };
 
   const handleCloseLead = () => {
@@ -2547,25 +2926,37 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             <div className="pointer-events-none absolute inset-x-0 -top-6 h-24 bg-gradient-to-b from-sky-500/6 via-cyan-500/4 to-transparent dark:from-zinc-900 dark:via-sky-900/20 dark:to-transparent" />
 
             <PrefileSectionShell {...PROFILE_SECTIONS[0]} index={1}>
-              <div id="lead" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+              <div
+                id="lead"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
                 <LeadDetails />
               </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PROFILE_SECTIONS[1]} index={2}>
-              <div id="vehicle" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+              <div
+                id="vehicle"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
                 <VehicleDetailsForm />
               </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PROFILE_SECTIONS[2]} index={3}>
-              <div id="finance" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+              <div
+                id="finance"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
                 <FinanceDetailsForm />
               </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PROFILE_SECTIONS[3]} index={4}>
-              <div id="personal" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+              <div
+                id="personal"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
                 <PersonalDetailsWithSearch
                   excludeFields={isCashCase ? true : isFinancedValue !== "Yes"}
                   cashMinimalMode={isCashCase}
@@ -2576,31 +2967,46 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             {!isCashCase && (
               <>
                 <PrefileSectionShell {...PROFILE_SECTIONS[4]} index={5}>
-                  <div id="employment" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+                  <div
+                    id="employment"
+                    className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                  >
                     <EmploymentDetails />
                   </div>
                 </PrefileSectionShell>
 
                 <PrefileSectionShell {...PROFILE_SECTIONS[5]} index={6}>
-                  <div id="income" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+                  <div
+                    id="income"
+                    className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                  >
                     <IncomeDetails />
                   </div>
                 </PrefileSectionShell>
 
                 <PrefileSectionShell {...PROFILE_SECTIONS[6]} index={7}>
-                  <div id="bank" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+                  <div
+                    id="bank"
+                    className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                  >
                     <BankDetails />
                   </div>
                 </PrefileSectionShell>
 
                 <PrefileSectionShell {...PROFILE_SECTIONS[7]} index={8}>
-                  <div id="references" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+                  <div
+                    id="references"
+                    className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                  >
                     <ReferenceDetails />
                   </div>
                 </PrefileSectionShell>
 
                 <PrefileSectionShell {...PROFILE_SECTIONS[8]} index={9}>
-                  <div id="kyc" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+                  <div
+                    id="kyc"
+                    className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                  >
                     <KycDetails />
                   </div>
                 </PrefileSectionShell>
@@ -2615,7 +3021,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             <div className="prefile-workbench prefile-elegance relative space-y-3 md:space-y-4">
               <div className="pointer-events-none absolute inset-x-0 -top-6 h-24 bg-gradient-to-b from-sky-500/6 via-cyan-500/4 to-transparent dark:from-zinc-900 dark:via-sky-900/20 dark:to-transparent" />
               <PrefileSectionShell {...PREFILE_SECTIONS[3]} index={1}>
-                <div id="vehicle_loan" className="[&_.section-header]:hidden [&_.section-header]:mb-0">
+                <div
+                  id="vehicle_loan"
+                  className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                >
                   <VehiclePricingLoanDetails cashPrefileMode />
                 </div>
               </PrefileSectionShell>
@@ -2627,52 +3036,105 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             <div className="pointer-events-none absolute inset-x-0 -top-6 h-24 bg-gradient-to-b from-sky-500/6 via-cyan-500/4 to-transparent dark:from-zinc-900 dark:via-sky-900/20 dark:to-transparent" />
 
             <PrefileSectionShell {...PREFILE_SECTIONS[0]} index={1}>
-              <div id="personal_pre" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><PersonalDetailsPreFile /></div>
+              <div
+                id="personal_pre"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <PersonalDetailsPreFile />
+              </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PREFILE_SECTIONS[1]} index={2}>
-              <div id="occupational" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><OccupationalDetailsPreFile /></div>
+              <div
+                id="occupational"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <OccupationalDetailsPreFile />
+              </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PREFILE_SECTIONS[2]} index={3}>
-              <div id="income_banking" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><IncomeBankingDetailsPreFile /></div>
+              <div
+                id="income_banking"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <IncomeBankingDetailsPreFile />
+              </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PREFILE_SECTIONS[3]} index={4}>
-              <div id="vehicle_loan" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><VehiclePricingLoanDetails cashPrefileMode={false} /></div>
+              <div
+                id="vehicle_loan"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <VehiclePricingLoanDetails cashPrefileMode={false} />
+              </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PREFILE_SECTIONS[4]} index={5}>
-              <div id="references" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><ReferenceDetails /></div>
+              <div
+                id="references"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <ReferenceDetails />
+              </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PREFILE_SECTIONS[5]} index={6}>
-              <div id="kyc" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><KycDetails /></div>
+              <div
+                id="kyc"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <KycDetails />
+              </div>
             </PrefileSectionShell>
 
             <PrefileSectionShell {...PREFILE_SECTIONS[6]} index={7}>
-              <div id="section7" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><Section7RecordDetails /></div>
+              <div
+                id="section7"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <Section7RecordDetails />
+              </div>
             </PrefileSectionShell>
 
             {showPrefileCoApplicant && (
               <PrefileSectionShell {...PREFILE_SECTIONS[7]} index={8}>
-                <div id="co_applicant" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><CoApplicantSection /></div>
+                <div
+                  id="co_applicant"
+                  className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                >
+                  <CoApplicantSection />
+                </div>
               </PrefileSectionShell>
             )}
 
             {showPrefileGuarantor && (
               <PrefileSectionShell {...PREFILE_SECTIONS[8]} index={9}>
-                <div id="guarantor" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><GuarantorSection /></div>
+                <div
+                  id="guarantor"
+                  className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                >
+                  <GuarantorSection />
+                </div>
               </PrefileSectionShell>
             )}
 
             {showPrefileAuthorisedSignatory && (
               <PrefileSectionShell {...PREFILE_SECTIONS[9]} index={10}>
-                <div id="auth_signatory" className="[&_.section-header]:hidden [&_.section-header]:mb-0"><AuthorisedSignatorySection /></div>
+                <div
+                  id="auth_signatory"
+                  className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                >
+                  <AuthorisedSignatorySection />
+                </div>
               </PrefileSectionShell>
             )}
 
-            <div id="bulk_loan" className="rounded-2xl border border-dashed border-border/70 bg-card/75 p-2 dark:border-zinc-800 dark:bg-black/70">
+            <div
+              id="bulk_loan"
+              className="rounded-2xl border border-dashed border-border/70 bg-card/75 p-2 dark:border-zinc-800 dark:bg-black/70"
+            >
               <BulkLoanCreationSection form={form} />
             </div>
           </div>
@@ -2699,7 +3161,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       case "postfile":
         return (
           <div className="prefile-workbench prefile-elegance relative space-y-3 md:space-y-4">
-            <PostFileStep form={form} banksData={banksData} loanId={loanIdFromRoute} isEditMode={isEditMode} />
+            <PostFileStep
+              form={form}
+              banksData={banksData}
+              loanId={loanIdFromRoute}
+              isEditMode={isEditMode}
+            />
           </div>
         );
 
@@ -2708,7 +3175,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           <StageWorkbench
             eyebrow="Delivery Desk"
             title="Track invoice, RC, insurance and vehicle handover"
-            
             icon="Truck"
             tone="emerald"
           >
@@ -2834,39 +3300,52 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   // Calculate completed steps based on form values
   const completedSteps = useMemo(() => {
     const completed = [];
-    
+
     // Profile stage - check if basic customer info is filled
     if (customerName && mobileNo && vehicleMake && vehicleModel) {
-      completed.push('profile');
+      completed.push("profile");
     }
-    
+
     // Pre-file stage - check if loan details are filled
     if (loanAmount && bankName && tenure) {
-      completed.push('prefile');
+      completed.push("prefile");
     }
-    
+
     // Approval stage - check if approval status is set
-    if (approvalStatus && approvalStatus !== 'Pending') {
-      completed.push('approval');
+    if (approvalStatus && approvalStatus !== "Pending") {
+      completed.push("approval");
     }
-    
+
     // Post-file stage - check if post-file is marked
-    if (postFileStatus === 'Completed') {
-      completed.push('postfile');
+    if (postFileStatus === "Completed") {
+      completed.push("postfile");
     }
-    
+
     // Delivery stage - check if delivery is completed
-    if (deliveryStatus === 'Completed') {
-      completed.push('delivery');
+    if (deliveryStatus === "Completed") {
+      completed.push("delivery");
     }
-    
+
     // Payout stage - check if payout is done
-    if (!isCashCase && payoutStatus === 'Completed') {
-      completed.push('payout');
+    if (!isCashCase && payoutStatus === "Completed") {
+      completed.push("payout");
     }
-    
+
     return completed;
-  }, [customerName, mobileNo, vehicleMake, vehicleModel, loanAmount, bankName, tenure, approvalStatus, postFileStatus, deliveryStatus, payoutStatus, isCashCase]);
+  }, [
+    customerName,
+    mobileNo,
+    vehicleMake,
+    vehicleModel,
+    loanAmount,
+    bankName,
+    tenure,
+    approvalStatus,
+    postFileStatus,
+    deliveryStatus,
+    payoutStatus,
+    isCashCase,
+  ]);
 
   const handleStageClick = useCallback(
     (stageKey) => {
@@ -2886,9 +3365,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       `section-${key}`,
       `section-${key}-details`,
       `section-customer-${key}`,
-      key === 'references' ? 'section-other' : null,
+      key === "references" ? "section-other" : null,
     ].filter(Boolean);
-    
+
     let element = null;
     for (const id of patterns) {
       element = document.getElementById(id);
@@ -2896,7 +3375,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     }
 
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
@@ -2911,10 +3390,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       <HiddenFields />
 
       {/* Two-column layout: Sidebar + Main Content */}
-      <div
-        className="flex flex-col md:flex-row gap-0 bg-muted/20 min-h-screen"
-        style={{ maxWidth: 3000, margin: "0 auto", paddingTop: "4px" }}
-      >
+      <div className="w-screen max-w-none flex flex-col md:flex-row gap-0 min-h-screen">
         {/* Sidebar Stepper - COMMENTED OUT
         <div 
           className={`hidden md:flex shrink-0 p-4 overflow-y-auto no-scrollbar transition-all duration-300 z-[90] ${
@@ -2937,7 +3413,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         */}
 
         {/* Main Form Content */}
-        <div className="flex-1 min-w-0 bg-background dark:bg-black md:mb-4 md:mr-4 md:rounded-3xl border-x md:border border-border shadow-sm flex flex-col min-h-screen">
+        <div className="w-full flex-1 min-w-0 border-x md:border border-border shadow-sm flex flex-col min-h-screen md:min-h-[calc(100vh-1rem)] md:m-4 md:rounded-3xl overflow-hidden">
           <LoanStickyHeader
             title={headerTitle}
             activeStep={activeStep}
@@ -2956,13 +3432,13 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           {/* Form Body - Scrollable Content */}
           <div className="flex-1 overflow-y-auto no-scrollbar">
             <div
-              className={`px-3 md:px-8 bg-[linear-gradient(180deg,rgba(56,189,248,0.12)_0px,rgba(16,185,129,0.08)_56px,rgba(255,255,255,0)_130px)] dark:bg-[linear-gradient(180deg,rgba(14,116,144,0.22)_0px,rgba(4,120,87,0.14)_56px,rgba(2,6,23,0)_130px)] ${
-                activeStep === "prefile" ? "pt-14 pb-28 md:pt-16 md:pb-32" : "pt-14 pb-32 md:pt-16 md:pb-36"
+              className={`px-3 sm:px-4 md:px-8 ${
+                activeStep === "prefile"
+                  ? "pt-16 pb-44 md:pt-20 md:pb-36"
+                  : "pt-16 pb-48 md:pt-20 md:pb-40"
               }`}
             >
-              <div className="w-full space-y-1">
-                {renderStep()}
-              </div>
+              <div className="w-full space-y-1">{renderStep()}</div>
             </div>
           </div>
 
@@ -2984,8 +3460,18 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             onMoveToDelivery={handleMoveToDelivery}
             onMoveToPayout={handleMoveToPayout}
             onCloseLead={handleCloseLead}
-            approvedBanks={banksData.filter((b) => b.status === "Approved")}
-            hasDisbursed={banksData.some((b) => b.status === "Disbursed")}
+            approvedBanks={banksData.filter((b) => {
+              const status = String(b?.status || "")
+                .trim()
+                .toLowerCase();
+              return ["approved", "accepted", "sanctioned"].includes(status);
+            })}
+            hasDisbursed={banksData.some(
+              (b) =>
+                String(b?.status || "")
+                  .trim()
+                  .toLowerCase() === "disbursed",
+            )}
             form={form}
           />
         </div>
@@ -2997,72 +3483,76 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       )}
 
       {/* Quick Actions Floating Toolbar - All Steps */}
-      <div className="fixed bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 bg-card dark:bg-black/90 border border-border rounded-2xl shadow-elevation-4 w-[calc(100%-1rem)] md:w-auto max-w-[960px] overflow-visible">
+      <div className="fixed bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 bg-transparent border border-border rounded-2xl shadow-elevation-4 w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-auto max-w-[960px] overflow-x-auto no-scrollbar">
         {visibleSteps.map((step, index) => {
-        const stepIcons = {
-          profile: "User",
-          prefile: "ClipboardList",
-          approval: "BadgeCheck",
-          postfile: "Files",
-          delivery: "Truck",
-          payout: "Wallet",
-        };
+          const stepIcons = {
+            profile: "User",
+            prefile: "ClipboardList",
+            approval: "BadgeCheck",
+            postfile: "Files",
+            delivery: "Truck",
+            payout: "Wallet",
+          };
 
-        const sections = (stepperSections[step] || []).filter(
-          (section) => section.visible !== false,
-        );
-        return (
-          <React.Fragment key={step}>
-            {index > 0 && <div className="w-px h-6 bg-border/30" />}
-            <div className="relative group/stepnav">
-              <button
-                type="button"
-                onClick={() => handleStageClick(step)}
-                className={`inline-flex items-center gap-1.5 text-[11px] md:text-xs font-medium px-2 py-1 rounded-lg transition-colors duration-150 whitespace-nowrap ${
-                  activeStep === step
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-              >
-                <Icon name={stepIcons[step] || "Circle"} size={12} />
-                {STEP_DISPLAY_NAMES[step] || step.charAt(0).toUpperCase() + step.slice(1)}
-              </button>
-              {/* Dropdown menu on hover - now stays open on dropdown hover */}
-              {sections.length > 0 && (
-                <div
-                  className="step-dropdown absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/stepnav:opacity-100 group-hover/stepnav:visible group-focus-within/stepnav:opacity-100 group-focus-within/stepnav:visible transition-[opacity,transform,visibility] duration-150"
+          const sections = (stepperSections[step] || []).filter(
+            (section) => section.visible !== false,
+          );
+          return (
+            <React.Fragment key={step}>
+              {index > 0 && <div className="w-px h-6 bg-border/30" />}
+              <div className="relative group/stepnav">
+                <button
+                  type="button"
+                  onClick={() => handleStageClick(step)}
+                  className={`inline-flex items-center gap-1.5 text-[11px] md:text-xs font-medium px-2 py-1 rounded-lg transition-colors duration-150 whitespace-nowrap ${
+                    activeStep === step
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
                 >
-                  <div className="bg-card border border-border rounded-xl shadow-elevation-3 p-2 min-w-[180px] max-h-[400px] overflow-y-auto">
-                    {sections.map((section) => (
-                      <button
-                        key={section.id}
-                        type="button"
-                        onClick={() => {
-                          const moved = navigateToStep(step, {
-                            notify: true,
-                            smoothScroll: false,
-                            fallbackToNearest: false,
-                          });
-                          if (!moved) return;
-                          setTimeout(() => {
-                            const element = document.getElementById(section.id);
-                            if (element) {
-                              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                          }, 100);
-                        }}
-                        className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted/50 text-foreground hover:text-primary transition-colors"
-                      >
-                        {section.label}
-                      </button>
-                    ))}
+                  <Icon name={stepIcons[step] || "Circle"} size={12} />
+                  {STEP_DISPLAY_NAMES[step] ||
+                    step.charAt(0).toUpperCase() + step.slice(1)}
+                </button>
+                {/* Dropdown menu on hover - now stays open on dropdown hover */}
+                {sections.length > 0 && (
+                  <div className="step-dropdown absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/stepnav:opacity-100 group-hover/stepnav:visible group-focus-within/stepnav:opacity-100 group-focus-within/stepnav:visible transition-[opacity,transform,visibility] duration-150">
+                    <div className="bg-card border border-border rounded-xl shadow-elevation-3 p-2 min-w-[180px] max-h-[400px] overflow-y-auto">
+                      {sections.map((section) => (
+                        <button
+                          key={section.id}
+                          type="button"
+                          onClick={() => {
+                            const moved = navigateToStep(step, {
+                              notify: true,
+                              smoothScroll: false,
+                              fallbackToNearest: false,
+                            });
+                            if (!moved) return;
+                            setTimeout(() => {
+                              const element = document.getElementById(
+                                section.id,
+                              );
+                              if (element) {
+                                element.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "center",
+                                });
+                              }
+                            }, 100);
+                          }}
+                          className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted/50 text-foreground hover:text-primary transition-colors"
+                        >
+                          {section.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </React.Fragment>
-        );
-      })}
+                )}
+              </div>
+            </React.Fragment>
+          );
+        })}
       </div>
     </Form>
   );
