@@ -3,7 +3,6 @@ import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
 import { customersApi } from "../../../../../api/customers";
-import { loansApi } from "../../../../../api/loans";
 import { uploadSingleFile } from "../../../../../api/uploads";
 import LoanDocumentViewerModal from "../../shared/LoanDocumentViewerModal";
 import LoanDocumentUploadModal from "../../shared/LoanDocumentUploadModal";
@@ -66,7 +65,7 @@ const getDocDisplayLabel = (doc, index = -1) => {
   return index >= 0 ? `Document ${index + 1}` : "Document";
 };
 
-const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
+const PostFileDocumentManagement = ({ form }) => {
   const [documents, setDocuments] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTagFilter, setSelectedTagFilter] = useState("All");
@@ -74,7 +73,6 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isFetchingDocs, setIsFetchingDocs] = useState(false);
   const [didHydrateFromForm, setDidHydrateFromForm] = useState(false);
-  const lastPersistedSignatureRef = useRef("");
   const lastHydratedSignatureRef = useRef("");
   const lastFormSyncSignatureRef = useRef("");
 
@@ -308,9 +306,6 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
     setTags((prev) =>
       tagsSignature(existingTags) !== tagsSignature(prev) ? existingTags : prev,
     );
-    if (!didHydrateFromForm) {
-      lastPersistedSignatureRef.current = incomingSignature;
-    }
     lastHydratedSignatureRef.current = incomingSignature;
     lastFormSyncSignatureRef.current = incomingSignature;
     setDidHydrateFromForm(true);
@@ -480,58 +475,9 @@ const PostFileDocumentManagement = ({ form, loanId, isEditMode = false }) => {
     setDocuments((prev) => prev.filter((d) => d.id !== docId));
   };
 
-  // Auto-persist post-file docs/tags for edit mode so refresh does not lose uploads.
-  useEffect(() => {
-    if (!didHydrateFromForm) return;
-    if (!isEditMode) return;
-    if (!loanId) return;
-
-    const persistableDocs = (Array.isArray(documents) ? documents : [])
-      .filter((doc) => !(typeof doc?.url === "string" && doc.url.startsWith("blob:")))
-      .map((doc) => ({
-        id: doc?.id,
-        name: doc?.name || "",
-        size: doc?.size || "",
-        uploadedBy: doc?.uploadedBy || "",
-        uploadedAt: doc?.uploadedAt || "",
-        status: doc?.status || "",
-        tagId: doc?.tagId || null,
-        tag: doc?.tag || null,
-        url: doc?.url || "",
-        format: doc?.format || "",
-        publicId: doc?.publicId || null,
-        isPreFile: Boolean(doc?.isPreFile),
-      }));
-    const persistableTags = (Array.isArray(tags) ? tags : []).map((tag) => ({
-      id: tag?.id,
-      name: tag?.name || "",
-      documentCount: Number(tag?.documentCount) || 0,
-    }));
-    const persistSignature = `${docsSignature(persistableDocs)}|${tagsSignature(persistableTags)}`;
-    if (persistSignature === lastPersistedSignatureRef.current) return;
-
-    const timer = setTimeout(async () => {
-      try {
-        await loansApi.update(loanId, {
-          postfile_documents: persistableDocs,
-          postfile_tags: persistableTags,
-        });
-        lastPersistedSignatureRef.current = persistSignature;
-      } catch (error) {
-        console.error("Failed to auto-persist post-file documents:", error);
-      }
-    }, 700);
-
-    return () => clearTimeout(timer);
-  }, [
-    didHydrateFromForm,
-    isEditMode,
-    loanId,
-    documents,
-    tags,
-    docsSignature,
-    tagsSignature,
-  ]);
+  // NOTE:
+  // Post-file Documents Manager now follows manual-save flow only.
+  // We intentionally do not auto-persist here to avoid repeated re-paints/flicker.
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
