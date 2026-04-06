@@ -1207,7 +1207,7 @@ const PaymentsDashboard = () => {
       className={`min-h-screen ${
         isDarkMode
           ? "bg-gradient-to-b from-slate-950 via-zinc-950 to-zinc-900 text-zinc-100"
-          : "bg-gradient-to-b from-slate-100 via-white to-slate-50 text-slate-900"
+          : "bg-white text-slate-900"
       }`}
     >
       <div
