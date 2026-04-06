@@ -1,32 +1,19 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   AutoComplete,
-  Tag,
   Space,
   Button,
   Input,
   Modal,
   DatePicker,
-  Select,
   Empty,
   Pagination,
-  Tooltip,
   message,
 } from "antd";
 import {
   ReloadOutlined,
   PlusOutlined,
-  EditOutlined,
-  EyeOutlined,
   DownloadOutlined,
-  DollarOutlined,
-  CheckCircleOutlined,
-  HourglassOutlined,
-  SearchOutlined,
-  LinkOutlined,
-  FileTextOutlined,
-  BankOutlined,
-  WarningOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -35,10 +22,13 @@ import { deliveryOrdersApi } from "../../../api/deliveryOrders";
 import { paymentsApi } from "../../../api/payments";
 import { useBankDirectoryOptions } from "../../../hooks/useBankDirectoryOptions";
 import { useTheme } from "../../../context/ThemeContext";
-import BreakdownSummaryCard from "../../delivery-orders/components/shared/BreakdownSummaryCard";
+import BreakdownSummaryCard from "../components/shared/BreakdownSummaryCard";
 import DirectCreateModal from "../../shared/DirectCreateModal";
+import PaymentsCaseCard from "../components/PaymentsCaseCard/PaymentCaseCard";
+import PaymentsMetricCard from "../components/PaymentsMetricCard";
+import PaymentsFilterBar from "../components/PaymentsFilterBar";
+import { buildPaymentCaseSnapshot } from "../utils/paymentCaseSnapshot";
 
-const { Option } = Select;
 const PAYMENT_TYPE_OPTIONS = [
   "Margin Money",
   "Loan",
@@ -70,7 +60,8 @@ const asInt = (val) => {
   return Math.trunc(n);
 };
 
-const money = (n) => `₹ ${asInt(n).toLocaleString("en-IN")}`;
+const RUPEE = "\u20B9";
+const money = (n) => `${RUPEE} ${asInt(n).toLocaleString("en-IN")}`;
 
 const normalizeLoanId = (value = "") => String(value || "").trim();
 
@@ -81,7 +72,27 @@ const listFromResponse = (res) => {
 };
 
 const hasDisplayValue = (value) =>
-  value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+  value !== undefined &&
+  value !== null &&
+  value !== "" &&
+  Number.isFinite(Number(value));
+
+const isManualShowroomRow = (row = {}) =>
+  !row?._auto &&
+  Boolean(
+    asInt(row?.paymentAmount) > 0 ||
+      String(row?.paymentType || "").trim() ||
+      String(row?.paymentMadeBy || "").trim() ||
+      String(row?.paymentMode || "").trim(),
+  );
+
+const isManualAcRow = (row = {}) =>
+  !row?._auto &&
+  Boolean(
+    asInt(row?.receiptAmount) > 0 ||
+      (Array.isArray(row?.receiptTypes) && row.receiptTypes.length > 0) ||
+      String(row?.receiptMode || "").trim(),
+  );
 
 const chunkArray = (arr = [], size = 250) => {
   const out = [];
@@ -101,7 +112,8 @@ const dedupeDOByLoanId = (rows = []) => {
     const prev = byLoanId.get(key);
     const prevTs =
       new Date(prev?.updatedAt || prev?.createdAt || 0).getTime() || 0;
-    const nextTs = new Date(row?.updatedAt || row?.createdAt || 0).getTime() || 0;
+    const nextTs =
+      new Date(row?.updatedAt || row?.createdAt || 0).getTime() || 0;
     if (nextTs >= prevTs) byLoanId.set(key, row);
   });
   return Array.from(byLoanId.values());
@@ -165,93 +177,6 @@ const fetchPaymentsByLoanIds = async (loanIds = []) => {
   return payloads.flatMap((payload) => listFromResponse(payload));
 };
 
-const StatCard = ({ id, label, value, subtext, icon, onClick }) => {
-  const gradients = {
-    total: "from-sky-500 to-indigo-600",
-    nopayment: "from-slate-600 to-slate-800",
-    outstanding: "from-amber-500 to-orange-600",
-    acpending: "from-fuchsia-500 to-violet-600",
-    settled: "from-emerald-500 to-green-600",
-  };
-  const gradient = gradients[id] || "from-slate-600 to-slate-800";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group relative text-left overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${gradient} p-4 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl focus:outline-none`}
-    >
-      <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-      <div className="relative flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/70">
-            {label}
-          </p>
-          <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums leading-none">
-            {value}
-          </p>
-          {subtext ? <p className="mt-1 text-xs text-white/80">{subtext}</p> : null}
-        </div>
-        <div className="mt-1 h-10 w-10 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm shrink-0">
-          <span className="text-lg">{icon}</span>
-        </div>
-      </div>
-    </button>
-  );
-};
-
-const SectionPanel = ({ title, chip, children, tone = "slate", onOpen }) => {
-  const tones = {
-    slate:
-      "border-slate-200/80 bg-slate-50/80 dark:border-[#303030] dark:bg-[#202020]",
-    blue: "border-sky-200/70 bg-sky-50/70 dark:border-sky-900/40 dark:bg-sky-950/20",
-    green:
-      "border-emerald-200/70 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20",
-    purple:
-      "border-violet-200/70 bg-violet-50/70 dark:border-violet-900/40 dark:bg-violet-950/20",
-    amber:
-      "border-amber-200/70 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-950/20",
-  };
-  const Wrapper = onOpen ? "button" : "div";
-
-  return (
-    <Wrapper
-      type={onOpen ? "button" : undefined}
-      onClick={onOpen || undefined}
-      className={`relative overflow-hidden rounded-2xl border p-3 text-left transition ${
-        onOpen
-          ? "cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-sky-400/40"
-          : ""
-      } ${tones[tone] || tones.slate}`}
-    >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-[0.16em] font-semibold text-slate-600 dark:text-slate-300">
-          {title}
-        </p>
-        <div className="flex items-center gap-1">{chip}</div>
-      </div>
-      <div className="space-y-1.5">{children}</div>
-    </Wrapper>
-  );
-};
-
-const KeyValue = ({ label, value, strong = false, subtle = false }) => (
-  <div className="flex items-start justify-between gap-3 text-[12px]">
-    <span className="text-slate-500 dark:text-slate-400">{label}</span>
-    <span
-      className={`text-right ${
-        strong
-          ? "font-semibold text-slate-900 dark:text-slate-50"
-          : subtle
-            ? "text-slate-500 dark:text-slate-400"
-            : "text-slate-700 dark:text-slate-200"
-      }`}
-    >
-      {value}
-    </span>
-  </div>
-);
-
 const QuickFieldLabel = ({ children }) => (
   <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400 mb-1">
     {children}
@@ -300,9 +225,10 @@ const groupShowroomRowsByType = (rows = []) => {
 const groupReceiptRowsByType = (rows = []) => {
   const map = new Map();
   (Array.isArray(rows) ? rows : []).forEach((row) => {
-    const labels = Array.isArray(row?.receiptTypes) && row.receiptTypes.length
-      ? row.receiptTypes
-      : ["Other"];
+    const labels =
+      Array.isArray(row?.receiptTypes) && row.receiptTypes.length
+        ? row.receiptTypes
+        : ["Other"];
     const amount = asInt(row?.receiptAmount);
     labels.forEach((labelRaw) => {
       const label = safeText(labelRaw) || "Other";
@@ -360,97 +286,77 @@ const buildShowroomLedgerRows = (rows = []) =>
     })
     .sort((a, b) => Math.abs(asInt(b.value)) - Math.abs(asInt(a.value)));
 
-const buildShowroomTraceRows = (rows = []) =>
-  (Array.isArray(rows) ? rows : [])
-    .map((entry, index) => {
-      const bank = safeText(entry?.bankName) || "Bank not set";
-      const txn = safeText(entry?.transactionDetails) || "Txn not set";
-      const remarks = safeText(entry?.remarks) || "—";
-      return {
-        label: `${index + 1}. ${bank} · ${txn}`,
-        value: remarks,
-        raw: true,
-      };
-    })
-    .filter((item) => safeText(item?.label).trim() || safeText(item?.value).trim());
-
-const buildAutocreditsLedgerRows = (rows = []) =>
-  (Array.isArray(rows) ? rows : [])
-    .map((entry, index) => {
-      const types = Array.isArray(entry?.receiptTypes) && entry.receiptTypes.length
-        ? entry.receiptTypes.join(", ")
-        : "Other";
-      const receiptMode = safeText(entry?.receiptMode) || "—";
-      const receiptDate = dayjs(entry?.receiptDate);
-      const dateLabel = receiptDate.isValid()
-        ? receiptDate.format("DD-MM-YY")
-        : "No date";
-
-      return {
-        label: `${index + 1}. ${types} · ${receiptMode} · ${dateLabel}`,
-        value: asInt(entry?.receiptAmount),
-        intent: "addition",
-      };
-    })
-    .sort((a, b) => Math.abs(asInt(b.value)) - Math.abs(asInt(a.value)));
-
-const buildAutocreditsTraceRows = (rows = []) =>
-  (Array.isArray(rows) ? rows : [])
-    .map((entry, index) => {
-      const bank = safeText(entry?.bankName) || "Bank not set";
-      const txn = safeText(entry?.transactionDetails) || "Txn not set";
-      const remarks = safeText(entry?.remarks) || "—";
-      return {
-        label: `${index + 1}. ${bank} · ${txn}`,
-        value: remarks,
-        raw: true,
-      };
-    })
-    .filter((item) => safeText(item?.label).trim() || safeText(item?.value).trim());
-
 const buildShowroomSummarySections = (row = {}, { withLedger = true } = {}) => {
   const payment = row?.payment || {};
-  const entryTotals = payment?.entryTotals || {};
+  const ss = row?.snapshot?.showroomSummary || {};
   const grouped = groupShowroomRowsByType(payment?.showroomRows || []);
   const sections = [
     {
       title: "Showroom payment ladder",
       rows: [
-        { label: "Net DO amount", value: row?.netDO || 0, intent: "addition" },
         {
-          label: "Paid by bank (loan)",
-          value: asInt(entryTotals?.paymentAmountLoan),
+          label: "Net on-road vehicle cost",
+          value: asInt(ss?.netOnRoad),
+          intent: "addition",
+        },
+        {
+          label: "Adjustment — Insurance",
+          value: asInt(ss?.insAdjApplied),
+          intent: "discount",
+        },
+        {
+          label: "Adjustment — Exchange",
+          value: asInt(ss?.exAdjApplied),
+          intent: "discount",
+        },
+        ...(asInt(ss?.crossAdjNet) !== 0
+          ? [
+              {
+                label: "Cross adjustment net",
+                value: asInt(ss?.crossAdjNet),
+                intent: asInt(ss?.crossAdjNet) >= 0 ? "addition" : "discount",
+              },
+            ]
+          : []),
+        {
+          label: "Net payable to showroom",
+          value: asInt(ss?.netPayableToShowroom),
+          intent: "total",
+          strong: true,
+        },
+        {
+          label: "Paid from Loan",
+          value: asInt(ss?.loanPay),
           intent: "total",
         },
         {
-          label: "Paid by customer",
-          value: asInt(entryTotals?.paymentAmountCustomer),
+          label: "Paid from Autocredits",
+          value: asInt(ss?.autoPay),
           intent: "addition",
         },
         {
-          label: "Paid by Autocredits",
-          value: asInt(entryTotals?.paymentAmountAutocredits),
+          label: "Paid from Customer",
+          value: asInt(ss?.custPay),
           intent: "addition",
         },
         {
-          label: "Exchange adjustment",
-          value: asInt(entryTotals?.paymentAdjustmentExchangeApplied),
-          intent: "discount",
+          label: "Balance payment",
+          value: asInt(ss?.balancePayment),
+          intent: asInt(ss?.balancePayment) > 0 ? "warning" : "positive",
         },
+        ...(asInt(ss?.commissionReceived) > 0
+          ? [
+              {
+                label: "Commission received",
+                value: asInt(ss?.commissionReceived),
+                intent: "addition",
+              },
+            ]
+          : []),
         {
-          label: "Insurance adjustment",
-          value: asInt(entryTotals?.paymentAdjustmentInsuranceApplied),
-          intent: "discount",
-        },
-        {
-          label: "Cross adjustment net",
-          value: asInt(row?.crossAdjustmentNet),
-          intent: asInt(row?.crossAdjustmentNet) >= 0 ? "addition" : "discount",
-        },
-        {
-          label: "Current balance to showroom",
-          value: asInt(row?.balanceToShowroom),
-          intent: asInt(row?.balanceToShowroom) > 0 ? "warning" : "total",
+          label: "Closing balance",
+          value: asInt(ss?.closingBalance),
+          intent: asInt(ss?.closingBalance) > 0 ? "warning" : "total",
           strong: true,
         },
       ],
@@ -492,18 +398,18 @@ const buildShowroomSummarySections = (row = {}, { withLedger = true } = {}) => {
       title: "Payment ledger entries",
       rows: buildShowroomLedgerRows(payment?.showroomRows || []),
     },
-    {
-      title: "Bank / transaction trace",
-      rows: buildShowroomTraceRows(payment?.showroomRows || []),
-    },
   ];
 };
 
-const buildAutocreditsSummarySections = (row = {}, { withLedger = true } = {}) => {
+const buildAutocreditsSummarySections = (
+  row = {},
+  { withLedger = true } = {},
+) => {
   const payment = row?.payment || {};
   const receiptTotals = payment?.autocreditsTotals || {};
   const grouped = groupReceiptRowsByType(payment?.autocreditsRows || []);
   const receiptBreakup = receiptTotals?.receiptBreakup || {};
+  const ac = row?.snapshot?.autocreditsSummary || {};
 
   const breakupRows = Object.entries(receiptBreakup)
     .filter(([, value]) => hasDisplayValue(value) && asInt(value) !== 0)
@@ -518,9 +424,26 @@ const buildAutocreditsSummarySections = (row = {}, { withLedger = true } = {}) =
       title: "Autocredits receipts",
       rows: [
         {
+          label: "Net receivable (Autocredits)",
+          value: asInt(ac?.netReceivable),
+          intent: "addition",
+          strong: true,
+        },
+        {
           label: "Receipt total",
           value: asInt(receiptTotals?.receiptAmountTotal),
           intent: "addition",
+          strong: true,
+        },
+        {
+          label: "Closing balance",
+          value: asInt(ac?.closingBalance),
+          intent:
+            asInt(ac?.closingBalance) === 0
+              ? "total"
+              : asInt(ac?.closingBalance) > 0
+                ? "warning"
+                : "danger",
           strong: true,
         },
         {
@@ -531,21 +454,56 @@ const buildAutocreditsSummarySections = (row = {}, { withLedger = true } = {}) =
           raw: true,
         },
         {
-          label: "Moved to showroom",
-          value: asInt(payment?.entryTotals?.paymentAmountAutocredits),
+          label: "Paid by Autocredits to showroom",
+          value: asInt(ac?.showroomAutoPaid),
           intent: "addition",
-        },
-        {
-          label: "In transit at AC",
-          value: asInt(row?.acInTransit),
-          intent: asInt(row?.acInTransit) > 0 ? "warning" : "total",
-          strong: asInt(row?.acInTransit) > 0,
         },
         {
           label: "Verification",
           value: row?.autocreditsSettled ? "Verified" : "Pending",
           raw: true,
           intent: row?.autocreditsSettled ? "total" : "warning",
+          strong: true,
+        },
+      ],
+    },
+    {
+      title: "Net receivable formula",
+      rows: [
+        {
+          label: "Autocredits margin",
+          value: asInt(ac?.autocreditsMargin),
+          intent: "addition",
+        },
+        {
+          label: "Paid by Autocredits to showroom",
+          value: asInt(ac?.showroomAutoPaid),
+          intent: "addition",
+        },
+        {
+          label: "Insurance receivable",
+          value: asInt(ac?.insuranceReceivable),
+          intent: "addition",
+        },
+        {
+          label: "Less: exchange adjustment",
+          value: asInt(ac?.exchangeAdjustment),
+          intent: "discount",
+        },
+        {
+          label: "Less: insurance adjustment (customer-paid)",
+          value: asInt(ac?.insuranceAdjustment),
+          intent: "discount",
+        },
+        {
+          label: "Less: receivable from showroom (negative balance)",
+          value: asInt(ac?.receivableFromShowroom),
+          intent: "discount",
+        },
+        {
+          label: "Net receivable (Autocredits)",
+          value: asInt(ac?.netReceivable),
+          intent: "addition",
           strong: true,
         },
       ],
@@ -568,22 +526,14 @@ const buildAutocreditsSummarySections = (row = {}, { withLedger = true } = {}) =
 
   if (!withLedger) return sections;
 
-  return [
-    ...sections,
-    {
-      title: "Receipt ledger entries",
-      rows: buildAutocreditsLedgerRows(payment?.autocreditsRows || []),
-    },
-    {
-      title: "Bank / transaction trace",
-      rows: buildAutocreditsTraceRows(payment?.autocreditsRows || []),
-    },
-  ];
+  return [...sections];
 };
 
 const buildPaymentDetailsSections = (row = {}) => {
   const payment = row?.payment || {};
   const doRec = row?.doRec || {};
+  const ss = row?.snapshot?.showroomSummary || {};
+  const ac = row?.snapshot?.autocreditsSummary || {};
   const showroomRowsCount = Array.isArray(payment?.showroomRows)
     ? payment.showroomRows.length
     : 0;
@@ -595,7 +545,12 @@ const buildPaymentDetailsSections = (row = {}) => {
     {
       title: "Case header",
       rows: [
-        { label: "Loan ID", value: row?.loanId || "—", raw: true, strong: true },
+        {
+          label: "Loan ID",
+          value: row?.loanId || "—",
+          raw: true,
+          strong: true,
+        },
         { label: "DO Ref", value: row?.doRef || "—", raw: true },
         {
           label: "DO Date",
@@ -625,19 +580,40 @@ const buildPaymentDetailsSections = (row = {}) => {
           strong: true,
         },
         {
-          label: "Net DO",
-          value: row?.netDO || 0,
+          label: "Net payable to showroom",
+          value: asInt(ss?.netPayableToShowroom),
           intent: "addition",
         },
         {
-          label: "Paid to showroom",
-          value: row?.paidShowroom || 0,
+          label: "Total paid to showroom",
+          value: asInt(ss?.totalPaidToShowroom),
           intent: "addition",
         },
         {
-          label: "Balance to showroom",
-          value: row?.balanceToShowroom || 0,
-          intent: row?.balanceToShowroom > 0 ? "warning" : "total",
+          label: "Closing balance (showroom)",
+          value: asInt(ss?.closingBalance),
+          intent: asInt(ss?.closingBalance) > 0 ? "warning" : "total",
+          strong: true,
+        },
+        {
+          label: "Net receivable (Autocredits)",
+          value: asInt(ac?.netReceivable),
+          intent: "addition",
+        },
+        {
+          label: "Receipts total",
+          value: asInt(ac?.receiptTotal),
+          intent: "addition",
+        },
+        {
+          label: "Closing balance (Autocredits)",
+          value: asInt(ac?.closingBalance),
+          intent:
+            asInt(ac?.closingBalance) === 0
+              ? "total"
+              : asInt(ac?.closingBalance) > 0
+                ? "warning"
+                : "danger",
           strong: true,
         },
         {
@@ -694,8 +670,8 @@ const PaymentsDashboard = () => {
 
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [financeFilter, setFinanceFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
@@ -713,7 +689,9 @@ const PaymentsDashboard = () => {
   const [modalPaymentType, setModalPaymentType] = useState("Margin Money");
   const [modalReceiptType, setModalReceiptType] = useState("Margin Money");
   const [modalPaymentMadeBy, setModalPaymentMadeBy] = useState("Customer");
-  const [modalPaymentMode, setModalPaymentMode] = useState("Online Transfer/UPI");
+  const [modalPaymentMode, setModalPaymentMode] = useState(
+    "Online Transfer/UPI",
+  );
   const [modalAmount, setModalAmount] = useState("");
   const [modalDate, setModalDate] = useState(dayjs());
   const [modalBank, setModalBank] = useState("");
@@ -810,7 +788,7 @@ const PaymentsDashboard = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, financeFilter, searchQuery, pageSize]);
+  }, [statusFilter, typeFilter, searchQuery, pageSize]);
 
   const loanMap = useMemo(() => {
     const map = new Map();
@@ -836,7 +814,7 @@ const PaymentsDashboard = () => {
     return (savedDOs || []).map((doRec) => {
       const loanId = normalizeLoanId(doRec?.loanId || doRec?.do_loanId);
       const loan = loanMap.get(loanId) || {};
-      const payment = paymentMap.get(loanId) || {};
+      const paymentRaw = paymentMap.get(loanId) || {};
 
       const customerName =
         safeText(doRec?.do_customerName) ||
@@ -850,10 +828,16 @@ const PaymentsDashboard = () => {
         "";
 
       const vehicle = [
-        safeText(doRec?.do_vehicleMake || doRec?.vehicleMake || loan?.vehicleMake),
-        safeText(doRec?.do_vehicleModel || doRec?.vehicleModel || loan?.vehicleModel),
         safeText(
-          doRec?.do_vehicleVariant || doRec?.vehicleVariant || loan?.vehicleVariant,
+          doRec?.do_vehicleMake || doRec?.vehicleMake || loan?.vehicleMake,
+        ),
+        safeText(
+          doRec?.do_vehicleModel || doRec?.vehicleModel || loan?.vehicleModel,
+        ),
+        safeText(
+          doRec?.do_vehicleVariant ||
+            doRec?.vehicleVariant ||
+            loan?.vehicleVariant,
         ),
       ]
         .filter(Boolean)
@@ -866,39 +850,47 @@ const PaymentsDashboard = () => {
         safeText(loan?.delivery_dealerName) ||
         "Showroom not set";
 
-      const doRef = safeText(doRec?.do_refNo) || safeText(doRec?.doNumber) || "";
+      const doRef =
+        safeText(doRec?.do_refNo) || safeText(doRec?.doNumber) || "";
 
       const netDO = asInt(doRec?.do_netDOAmount);
-      const entryTotals = payment?.entryTotals || {};
+      const snapshot = buildPaymentCaseSnapshot(doRec, loan, paymentRaw);
+      const payment = snapshot?.normalizedPayment || paymentRaw;
+      const ss = snapshot.showroomSummary;
+      const ac = snapshot.autocreditsSummary;
+      const showroomRows = Array.isArray(payment?.showroomRows)
+        ? payment.showroomRows
+        : [];
+      const acRows = Array.isArray(payment?.autocreditsRows)
+        ? payment.autocreditsRows
+        : [];
+      const manualShowroomCount = showroomRows.filter(isManualShowroomRow).length;
+      const manualAcCount = acRows.filter(isManualAcRow).length;
+      const hasManualActivity = manualShowroomCount > 0 || manualAcCount > 0;
 
-      const paidByBank = asInt(entryTotals?.paymentAmountLoan);
-      const paidByCustomer = asInt(entryTotals?.paymentAmountCustomer);
-      const paidByAutocredits = asInt(entryTotals?.paymentAmountAutocredits);
-      const exchangeAdjustment = asInt(entryTotals?.paymentAdjustmentExchangeApplied);
-      const insuranceAdjustment = asInt(entryTotals?.paymentAdjustmentInsuranceApplied);
-      const commissionReceived = asInt(entryTotals?.paymentCommissionReceived);
-
-      const crossAdjustmentNet = (Array.isArray(payment?.showroomRows) ? payment.showroomRows : [])
-        .filter((entry) => safeText(entry?.paymentType) === "Cross Adjustment")
-        .reduce((sum, entry) => sum + resolveShowroomEntrySignedAmount(entry), 0);
-
-      const paidShowroom = paidByBank + paidByAutocredits + paidByCustomer;
-      const balanceToShowroom = netDO - paidShowroom;
-      const outstandingShowroom = Math.max(0, balanceToShowroom);
-      const advanceWithShowroom = Math.max(0, -balanceToShowroom);
-      const receivedAutocredits = asInt(payment?.autocreditsTotals?.receiptAmountTotal);
-      const acInTransit = receivedAutocredits - paidByAutocredits;
-
-      const showroomSettled = Boolean(payment?.isVerified) && outstandingShowroom === 0;
-      const autocreditsSettled = Boolean(payment?.isAutocreditsVerified);
+      const showroomSettled = Boolean(payment?.isVerified) && ss.canVerify;
+      const autocreditsSettled =
+        Boolean(payment?.isAutocreditsVerified) && ac.canVerify;
 
       let overallStatus = "DRAFT";
       if (showroomSettled && autocreditsSettled) overallStatus = "SETTLED";
       else if (showroomSettled || autocreditsSettled) overallStatus = "PARTIAL";
-      else if (paidShowroom > 0 || receivedAutocredits > 0) overallStatus = "IN_PROGRESS";
+      else if (hasManualActivity && (ss.totalPaidToShowroom > 0 || ac.receiptTotal > 0))
+        overallStatus = "IN_PROGRESS";
 
       const isFinanced =
-        safeText(loan?.isFinanced || doRec?.isFinanced).trim().toLowerCase() === "yes";
+        safeText(loan?.isFinanced || doRec?.isFinanced)
+          .trim()
+          .toLowerCase() === "yes";
+
+      const outstandingShowroom = Math.max(0, asInt(ss.closingBalance));
+
+      const lastActivityTs = Math.max(
+        new Date(payment?.updatedAt || 0).getTime(),
+        new Date(doRec?.updatedAt || 0).getTime(),
+        new Date(doRec?.do_date || doRec?.doDate || 0).getTime(),
+        0,
+      );
 
       return {
         key: loanId,
@@ -909,74 +901,122 @@ const PaymentsDashboard = () => {
         dealerName,
         vehicle,
         netDO,
-        paidShowroom,
-        paidByBank,
-        paidByCustomer,
-        paidByAutocredits,
-        exchangeAdjustment,
-        insuranceAdjustment,
-        commissionReceived,
-        crossAdjustmentNet,
-        balanceToShowroom,
+        paidShowroom: ss.totalPaidToShowroom,
+        balanceToShowroom: asInt(ss.closingBalance),
         outstandingShowroom,
-        advanceWithShowroom,
-        receivedAutocredits,
-        acInTransit,
+        receivedAutocredits: ac.receiptTotal,
         showroomSettled,
         autocreditsSettled,
         overallStatus,
         hasPayment: Boolean(payment?._id || payment?.loanId),
         payment,
+        loan,
         doRec,
         isFinanced,
+        hasManualActivity,
+        manualShowroomCount,
+        manualAcCount,
+        snapshot,
+        lastActivityTs,
       };
     });
   }, [savedDOs, loanMap, paymentMap]);
 
   const stats = useMemo(() => {
     const totalCases = rows.length;
-    const noPayment = rows.filter((row) => !row.hasPayment).length;
-    const outstandingCases = rows.filter((row) => row.outstandingShowroom > 0).length;
-    const acPending = rows.filter((row) => !row.autocreditsSettled).length;
-    const settled = rows.filter(
-      (row) => row.showroomSettled && row.autocreditsSettled,
-    ).length;
-    const outstandingAmount = rows.reduce(
-      (sum, row) => sum + asInt(row.outstandingShowroom),
+    const grossNetPayableToShowroom = rows.reduce(
+      (sum, row) => sum + asInt(row.snapshot?.showroomSummary?.netPayableToShowroom),
       0,
     );
+    const grossPaymentsToShowroom = rows.reduce(
+      (sum, row) => sum + asInt(row.snapshot?.showroomSummary?.totalPaidToShowroom),
+      0,
+    );
+    const netPayableToShowroom = grossNetPayableToShowroom - grossPaymentsToShowroom;
+    const netReceivableFromShowroom = rows.reduce(
+      (sum, row) => sum + asInt(row.snapshot?.autocreditsSummary?.receivableFromShowroom),
+      0,
+    );
+    const netReceivableFromCustomer = rows.reduce(
+      (sum, row) => sum + Math.max(0, asInt(row.snapshot?.autocreditsSummary?.closingBalance)),
+      0,
+    );
+    const verifyQueueCount = rows.filter((row) => {
+      if (!row.hasManualActivity) return false;
+      const ss = row.snapshot?.showroomSummary;
+      const ac = row.snapshot?.autocreditsSummary;
+      const p = row.payment;
+      const zeroOutstanding =
+        asInt(ss?.closingBalance) === 0 && asInt(ac?.closingBalance) === 0;
+      if (!zeroOutstanding) return false;
+      return (
+        (ss?.canVerify && !p?.isVerified) ||
+        (ac?.canVerify && !p?.isAutocreditsVerified)
+      );
+    }).length;
 
     return {
       totalCases,
-      noPayment,
-      outstandingCases,
-      acPending,
-      settled,
-      outstandingAmount,
+      grossNetPayableToShowroom,
+      grossPaymentsToShowroom,
+      netPayableToShowroom,
+      netReceivableFromShowroom,
+      netReceivableFromCustomer,
+      verifyQueueCount,
     };
   }, [rows]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      if (statusFilter === "NoPayment" && row.hasPayment) return false;
-      if (statusFilter === "Draft" && row.overallStatus !== "DRAFT") return false;
-      if (statusFilter === "InProgress" && row.overallStatus !== "IN_PROGRESS") return false;
-      if (statusFilter === "Partial" && row.overallStatus !== "PARTIAL") return false;
-      if (statusFilter === "Settled" && row.overallStatus !== "SETTLED") return false;
-      if (statusFilter === "Outstanding" && row.outstandingShowroom <= 0) return false;
+      if (typeFilter === "financed" && !row.isFinanced) return false;
+      if (typeFilter === "cash" && row.isFinanced) return false;
 
-      if (financeFilter === "Financed" && !row.isFinanced) return false;
-      if (financeFilter === "Cash" && row.isFinanced) return false;
+      if (statusFilter === "nofile" && row.hasPayment) return false;
 
+      if (statusFilter === "progress") {
+        if (!row.hasManualActivity) return false;
+        if (row.overallStatus !== "IN_PROGRESS" && row.overallStatus !== "PARTIAL") {
+          return false;
+        }
+      }
+
+      if (statusFilter === "acpending") {
+        if (!row.hasManualActivity) return false;
+        const ac = row.snapshot?.autocreditsSummary;
+        const closingPending = asInt(ac?.closingBalance) > 0;
+        const verificationPending =
+          Boolean(ac?.canVerify) && !row?.payment?.isAutocreditsVerified;
+        if (!closingPending && !verificationPending) return false;
+      }
+
+      if (statusFilter === "settled" && row.overallStatus !== "SETTLED")
+        return false;
+
+      if (statusFilter === "verify") {
+        if (!row.hasManualActivity) return false;
+        const ss = row.snapshot?.showroomSummary;
+        const ac = row.snapshot?.autocreditsSummary;
+        const p = row.payment;
+        const needsVerify =
+          (ss?.canVerify && !p?.isVerified) ||
+          (ac?.canVerify && !p?.isAutocreditsVerified);
+        if (!needsVerify) return false;
+      }
       return true;
     });
-  }, [rows, statusFilter, financeFilter]);
+  }, [rows, statusFilter, typeFilter]);
 
-  const totalCount = filteredRows.length;
+  const orderedRows = useMemo(() => {
+    return [...filteredRows].sort(
+      (a, b) => (b.lastActivityTs || 0) - (a.lastActivityTs || 0),
+    );
+  }, [filteredRows]);
+
+  const totalCount = orderedRows.length;
   const pagedRows = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, page, pageSize]);
+    return orderedRows.slice(start, start + pageSize);
+  }, [orderedRows, page, pageSize]);
 
   const handleQuickAddSubmit = async () => {
     if (!activeLoanForModal || !paymentModalMode) return;
@@ -989,7 +1029,9 @@ const PaymentsDashboard = () => {
       const currentShowroomRows = Array.isArray(existingSafe?.showroomRows)
         ? existingSafe.showroomRows
         : [];
-      const currentAutocreditsRows = Array.isArray(existingSafe?.autocreditsRows)
+      const currentAutocreditsRows = Array.isArray(
+        existingSafe?.autocreditsRows,
+      )
         ? existingSafe.autocreditsRows
         : [];
 
@@ -1040,6 +1082,73 @@ const PaymentsDashboard = () => {
     }
   };
 
+  const exportPaymentsCsv = useCallback(() => {
+    const esc = (v) => {
+      const s = String(v ?? "");
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+    const headers = [
+      "Loan ID",
+      "DO Ref",
+      "Customer",
+      "Mobile",
+      "Showroom",
+      "Vehicle",
+      "Financed",
+      "Net DO (DO field)",
+      "Net payable to showroom",
+      "Total paid to showroom",
+      "Closing balance showroom",
+      "Net receivable Autocredits",
+      "Receipts total",
+      "Closing balance Autocredits",
+      "Showroom verified",
+      "Autocredits verified",
+      "Status",
+      "DO Date",
+      "Payment Updated",
+    ];
+    const lines = [headers.join(",")];
+    orderedRows.forEach((row) => {
+      const ss = row?.snapshot?.showroomSummary || {};
+      const ac = row?.snapshot?.autocreditsSummary || {};
+      lines.push(
+        [
+          esc(row.loanId),
+          esc(row.doRef),
+          esc(row.customerName),
+          esc(row.primaryMobile),
+          esc(row.dealerName),
+          esc(row.vehicle),
+          esc(row.isFinanced ? "Yes" : "No"),
+          esc(asInt(row.netDO)),
+          esc(asInt(ss.netPayableToShowroom)),
+          esc(asInt(ss.totalPaidToShowroom)),
+          esc(asInt(ss.closingBalance)),
+          esc(asInt(ac.netReceivable)),
+          esc(asInt(ac.receiptTotal)),
+          esc(asInt(ac.closingBalance)),
+          esc(row.showroomSettled ? "Yes" : "No"),
+          esc(row.autocreditsSettled ? "Yes" : "No"),
+          esc(row.overallStatus),
+          esc(row?.doRec?.do_date || row?.doRec?.doDate || ""),
+          esc(row?.payment?.updatedAt || ""),
+        ].join(","),
+      );
+    });
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `payments-cases-${dayjs().format("YYYY-MM-DD-HHmm")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    message.success(`Exported ${orderedRows.length} rows`);
+  }, [orderedRows]);
+
   const summaryModalConfig = useMemo(() => {
     const row = summaryModal?.row;
     const type = summaryModal?.type;
@@ -1060,8 +1169,10 @@ const PaymentsDashboard = () => {
         eyebrow: "Showroom settlement breakdown",
         title: row.dealerName || "Showroom account",
         subtitle: `${row.customerName || "Customer"} · ${row.loanId || "Loan ID"}`,
-        chipLabel: row.showroomSettled ? "Showroom verified" : "Showroom pending",
-        chipTone: row.showroomSettled ? "green" : "amber",
+        chipLabel: row.showroomSettled
+          ? "Showroom verified"
+          : "Showroom pending",
+        chipTone: row.showroomSettled ? "green" : "blue",
         sections: buildShowroomSummarySections(row, { withLedger: true }),
       };
     }
@@ -1072,7 +1183,7 @@ const PaymentsDashboard = () => {
         title: row.customerName || "Autocredits account",
         subtitle: `${row.dealerName || "Showroom"} · ${row.loanId || "Loan ID"}`,
         chipLabel: row.autocreditsSettled ? "AC verified" : "AC pending",
-        chipTone: row.autocreditsSettled ? "purple" : "amber",
+        chipTone: row.autocreditsSettled ? "purple" : "blue",
         sections: buildAutocreditsSummarySections(row, { withLedger: true }),
       };
     }
@@ -1092,356 +1203,197 @@ const PaymentsDashboard = () => {
   }, [summaryModal]);
 
   return (
-    <div className="p-4 md:p-6 bg-background min-h-screen">
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              Payments Command Center
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              Showroom settlements, Autocredits receipts and payment status in one place.
-            </p>
+    <div
+      className={`min-h-screen ${
+        isDarkMode
+          ? "bg-gradient-to-b from-slate-950 via-zinc-950 to-zinc-900 text-zinc-100"
+          : "bg-gradient-to-b from-slate-100 via-white to-slate-50 text-slate-900"
+      }`}
+    >
+      <div
+        className={`border-b ${
+          isDarkMode
+            ? "border-white/10 bg-black/20"
+            : "border-slate-200/80 bg-white"
+        }`}
+      >
+        <div className="mx-auto max-w-[1920px] px-4 py-6 md:px-8 md:py-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p
+                className={`text-[9px] font-semibold uppercase tracking-[0.24em] ${
+                  isDarkMode ? "text-sky-300" : "text-sky-700"
+                }`}
+              >
+                Finance · Payments Control
+              </p>
+              <div className="mt-1 inline-flex items-center gap-2">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    isDarkMode ? "bg-emerald-400" : "bg-emerald-500"
+                  }`}
+                />
+                <span
+                  className={`text-[10px] font-medium ${
+                    isDarkMode ? "text-zinc-400" : "text-slate-500"
+                  }`}
+                >
+                  Live ledger sync
+                </span>
+              </div>
+              <h1 className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">
+                Payments Dashboard
+              </h1>
+              <p
+                className={`mt-2 max-w-xl text-xs leading-relaxed md:text-sm ${
+                  isDarkMode ? "text-zinc-400" : "text-slate-600"
+                }`}
+              >
+                Payment-form accurate settlement view for showroom and
+                Autocredits ledgers, with fast verification and drilldowns.
+              </p>
+            </div>
+            <Space wrap className="lg:pb-1">
+              <Button
+                size="small"
+                icon={<DownloadOutlined />}
+                onClick={exportPaymentsCsv}
+              >
+                Export CSV
+              </Button>
+              <Button
+                size="small"
+                icon={<ReloadOutlined />}
+                loading={loading}
+                onClick={loadData}
+              >
+                Refresh
+              </Button>
+              <Button
+                size="small"
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setShowCreateModal(true)}
+              >
+                New payment
+              </Button>
+            </Space>
           </div>
-          <Space>
-            <Button icon={<DownloadOutlined />}>Export</Button>
-            <Button icon={<ReloadOutlined />} loading={loading} onClick={loadData}>
-              Refresh
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowCreateModal(true)}>
-              New Payment
-            </Button>
-          </Space>
-        </div>
 
-        <div className="grid grid-cols-2 xl:grid-cols-5 gap-3 mb-6">
-          <StatCard
-            id="total"
-            label="Total Cases"
-            value={stats.totalCases}
-            subtext="DO-linked payment universe"
-            icon={<FileTextOutlined />}
-            onClick={() => setStatusFilter("All")}
-          />
-          <StatCard
-            id="nopayment"
-            label="No Payment File"
-            value={stats.noPayment}
-            subtext="Needs payment creation"
-            icon={<WarningOutlined />}
-            onClick={() => setStatusFilter("NoPayment")}
-          />
-          <StatCard
-            id="outstanding"
-            label="Outstanding"
-            value={money(stats.outstandingAmount)}
-            subtext={`${stats.outstandingCases} cases`}
-            icon={<HourglassOutlined />}
-            onClick={() => setStatusFilter("Outstanding")}
-          />
-          <StatCard
-            id="acpending"
-            label="AC Pending"
-            value={stats.acPending}
-            subtext="Autocredits verification pending"
-            icon={<BankOutlined />}
-            onClick={() => setStatusFilter("InProgress")}
-          />
-          <StatCard
-            id="settled"
-            label="Fully Settled"
-            value={stats.settled}
-            subtext="Showroom + AC verified"
-            icon={<CheckCircleOutlined />}
-            onClick={() => setStatusFilter("Settled")}
-          />
-        </div>
+          <div
+            className={`mt-6 rounded-2xl border p-3 md:p-4 ${
+              isDarkMode
+                ? "border-[#273141] bg-black/25"
+                : "border-slate-200 bg-white"
+            }`}
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <PaymentsMetricCard
+                id="NetPayableToShowroom"
+                label="Net Payable to Showroom"
+                subtitle={`Net payable ${money(stats.grossNetPayableToShowroom)} - payments ${money(stats.grossPaymentsToShowroom)}`}
+                value={money(stats.netPayableToShowroom)}
+                accent="slate"
+                dark={isDarkMode}
+                loading={loading}
+              />
+              <PaymentsMetricCard
+                id="NetReceivableFromShowroom"
+                label="Net Receivable from Showroom"
+                subtitle="Across all cases"
+                value={money(stats.netReceivableFromShowroom)}
+                accent="blue"
+                dark={isDarkMode}
+                loading={loading}
+              />
+              <PaymentsMetricCard
+                id="NetReceivableFromCustomer"
+                label="Net Receivable from Customer"
+                subtitle="Customer side outstanding"
+                value={money(stats.netReceivableFromCustomer)}
+                accent="green"
+                dark={isDarkMode}
+                loading={loading}
+              />
+              <PaymentsMetricCard
+                id="VerifyQueue"
+                label="Pending Verification (0 Outstanding)"
+                subtitle="Manual entry cases only"
+                value={stats.verifyQueueCount}
+                accent="amber"
+                dark={isDarkMode}
+                loading={loading}
+              />
+            </div>
+          </div>
 
-        <div className="bg-white dark:bg-[#1f1f1f] border border-slate-100 dark:border-[#262626] rounded-2xl p-4 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-            <div className="xl:col-span-2">
-              <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-sky-300 focus-within:bg-white">
-                <SearchOutlined className="text-slate-400" />
-                <Input
-                  bordered={false}
-                  placeholder="Search Loan ID, DO Ref, customer, mobile, showroom or vehicle..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  allowClear
-                  className="bg-transparent"
+          <div className="mt-5">
+            <PaymentsFilterBar
+              searchQuery={searchInput}
+              onSearchChange={setSearchInput}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              totalCount={rows.length}
+              visibleCount={orderedRows.length}
+              dark={isDarkMode}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-[1920px] space-y-5 px-4 py-8 md:px-8">
+        {pagedRows.length === 0 ? (
+          <div
+            className={`rounded-[24px] border p-16 text-center ${
+              isDarkMode
+                ? "border-zinc-800 bg-zinc-900/30"
+                : "border-slate-200 bg-white"
+            }`}
+          >
+            <Empty
+              description={
+                loading
+                  ? "Loading delivery orders and payment ledgers..."
+                  : "No cases match these filters."
+              }
+            />
+          </div>
+        ) : (
+          <>
+            {pagedRows.map((row) => (
+              <div key={row.loanId} className="mb-4">
+                <PaymentsCaseCard
+                  row={row}
+                  isDarkMode={isDarkMode}
+                  onOpenSummary={openSummaryModal}
+                  navigate={navigate}
+                  onQuickAdd={openQuickAddModal}
                 />
               </div>
-            </div>
-
-            <Select
-              value={statusFilter}
-              onChange={setStatusFilter}
-              size="large"
-              className="w-full"
-            >
-              <Option value="All">All Payment Status</Option>
-              <Option value="NoPayment">No Payment File</Option>
-              <Option value="Draft">Draft</Option>
-              <Option value="InProgress">In Progress</Option>
-              <Option value="Partial">Partial</Option>
-              <Option value="Outstanding">Outstanding</Option>
-              <Option value="Settled">Settled</Option>
-            </Select>
-
-            <Select
-              value={financeFilter}
-              onChange={setFinanceFilter}
-              size="large"
-              className="w-full"
-            >
-              <Option value="All">All Types</Option>
-              <Option value="Financed">Financed</Option>
-              <Option value="Cash">Cash</Option>
-            </Select>
-          </div>
-
-          {(statusFilter !== "All" || financeFilter !== "All" || searchInput) && (
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#262626]">
-              <Button
-                onClick={() => {
-                  setStatusFilter("All");
-                  setFinanceFilter("All");
-                  setSearchInput("");
-                }}
-              >
-                Clear All Filters
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {pagedRows.length === 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-10 dark:border-[#2a2a2a] dark:bg-[#1b1b1b]">
-            <Empty description={loading ? "Loading payment entries..." : "No payment entries found"} />
-          </div>
+            ))}
+            {totalCount > 0 ? (
+              <div className="flex justify-end pt-2">
+                <Pagination
+                  current={page}
+                  pageSize={pageSize}
+                  total={totalCount}
+                  showSizeChanger
+                  pageSizeOptions={["5", "10", "15", "25"]}
+                  showTotal={(total, range) =>
+                    `${range[0]}-${range[1]} of ${total} cases`
+                  }
+                  onChange={(nextPage, nextSize) => {
+                    setPage(nextPage);
+                    if (nextSize !== pageSize) setPageSize(nextSize);
+                  }}
+                />
+              </div>
+            ) : null}
+          </>
         )}
-
-        {pagedRows.map((row) => {
-          const statusTone =
-            row.overallStatus === "SETTLED"
-              ? "success"
-              : row.overallStatus === "PARTIAL"
-                ? "gold"
-                : row.overallStatus === "IN_PROGRESS"
-                  ? "processing"
-                  : "default";
-
-          return (
-            <div
-              key={row.loanId}
-              className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-[#2a2a2a] dark:bg-[#1b1b1b]"
-            >
-              <div className="flex flex-wrap items-center gap-2 px-4 pt-4 pb-2">
-                <Tag color={row.hasPayment ? "success" : "default"}>
-                  {row.hasPayment ? "Payment Created" : "Payment Pending"}
-                </Tag>
-                <Tag color={row.isFinanced ? "blue" : "green"}>
-                  {row.isFinanced ? "Financed" : "Cash"}
-                </Tag>
-                <Tag color={statusTone}>
-                  {row.overallStatus === "SETTLED"
-                    ? "Settled"
-                    : row.overallStatus === "PARTIAL"
-                      ? "Partial"
-                      : row.overallStatus === "IN_PROGRESS"
-                        ? "In Progress"
-                        : "Draft"}
-                </Tag>
-                {row.doRef ? <Tag>{row.doRef}</Tag> : null}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 px-4 pb-4">
-                <SectionPanel title="Loan Details" tone="slate">
-                  <KeyValue label="Customer" value={row.customerName || "—"} strong />
-                  <KeyValue label="Mobile" value={row.primaryMobile || "—"} />
-                  <KeyValue label="Loan ID" value={row.loanId || "—"} />
-                  <KeyValue label="Type" value={row.isFinanced ? "Financed" : "Cash"} />
-                </SectionPanel>
-
-                <SectionPanel title="Vehicle & Showroom" tone="blue">
-                  <KeyValue label="Vehicle" value={row.vehicle || "—"} strong />
-                  <KeyValue label="Showroom" value={row.dealerName || "—"} />
-                  <KeyValue label="DO Ref" value={row.doRef || "—"} />
-                </SectionPanel>
-
-                <SectionPanel
-                  title="Showroom Account"
-                  tone="green"
-                  onOpen={() => openSummaryModal("showroom", row)}
-                >
-                  <KeyValue label="Net DO" value={money(row.netDO)} strong />
-                  <KeyValue label="Paid by bank" value={money(row.paidByBank)} />
-                  <KeyValue label="Paid by customer" value={money(row.paidByCustomer)} />
-                  <KeyValue label="Paid by AC" value={money(row.paidByAutocredits)} />
-                  <KeyValue label="Balance" value={money(row.balanceToShowroom)} />
-                  <KeyValue
-                    label="Verification"
-                    value={row.showroomSettled ? "Verified" : "Pending"}
-                    strong
-                  />
-                </SectionPanel>
-
-                <SectionPanel
-                  title="Autocredits Account"
-                  tone="purple"
-                  onOpen={() => openSummaryModal("ac", row)}
-                >
-                  <KeyValue
-                    label="Receipts total"
-                    value={money(row.receivedAutocredits)}
-                    strong
-                  />
-                  <KeyValue label="Moved to showroom" value={money(row.paidByAutocredits)} />
-                  <KeyValue label="In transit" value={money(row.acInTransit)} />
-                  <KeyValue
-                    label="Rows"
-                    value={Array.isArray(row?.payment?.autocreditsRows)
-                      ? row.payment.autocreditsRows.length
-                      : 0}
-                  />
-                  <KeyValue
-                    label="Verification"
-                    value={row.autocreditsSettled ? "Verified" : "Pending"}
-                    strong
-                  />
-                </SectionPanel>
-
-                <SectionPanel
-                  title="Payment Details"
-                  tone="amber"
-                  onOpen={() => openSummaryModal("details", row)}
-                >
-                  <KeyValue
-                    label="Payment file"
-                    value={row.hasPayment ? "Available" : "Not created"}
-                    strong
-                  />
-                  <KeyValue
-                    label="Status"
-                    value={
-                      row.overallStatus === "SETTLED"
-                        ? "Settled"
-                        : row.overallStatus === "PARTIAL"
-                          ? "Partial"
-                          : row.overallStatus === "IN_PROGRESS"
-                            ? "In Progress"
-                            : "Draft"
-                    }
-                  />
-                  <KeyValue
-                    label="DO Date"
-                    value={formatDateTime(row?.doRec?.do_date || row?.doRec?.doDate)}
-                    subtle
-                  />
-                  <KeyValue
-                    label="Updated"
-                    value={
-                      row?.payment?.updatedAt
-                        ? dayjs(row.payment.updatedAt).format("DD MMM, HH:mm")
-                        : "—"
-                    }
-                    subtle
-                  />
-                </SectionPanel>
-              </div>
-
-              <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-3 flex flex-wrap items-center justify-between gap-3 dark:border-[#2a2a2a] dark:bg-[#202020]">
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  {row.customerName || "Customer"} · {row.loanId || "Loan"}
-                </div>
-                <Space wrap>
-                  <Tooltip title="Quick full summary">
-                    <Button
-                      icon={<EyeOutlined />}
-                      onClick={() => openSummaryModal("details", row)}
-                    >
-                      Quick View
-                    </Button>
-                  </Tooltip>
-
-                  <Tooltip title="Open loan file">
-                    <Button
-                      icon={<LinkOutlined />}
-                      onClick={() => navigate(`/loans/edit/${row.loanId}`)}
-                    >
-                      Open Loan
-                    </Button>
-                  </Tooltip>
-                  <Tooltip title="Open delivery order">
-                    <Button
-                      icon={<LinkOutlined />}
-                      onClick={() => navigate(`/delivery-orders/${row.loanId}`)}
-                    >
-                      Open DO
-                    </Button>
-                  </Tooltip>
-
-                  {row.hasPayment ? (
-                    <>
-                      <Button
-                        icon={<EditOutlined />}
-                        onClick={() => navigate(`/payments/${row.loanId}`)}
-                      >
-                        Open Payment
-                      </Button>
-                      <Button
-                        icon={<EyeOutlined />}
-                        onClick={() => navigate(`/payments/${row.loanId}?view=1`)}
-                      >
-                        Open View Page
-                      </Button>
-                      <Button
-                        icon={<DollarOutlined />}
-                        onClick={() => openQuickAddModal(row, "SHOWROOM")}
-                      >
-                        Add Payment
-                      </Button>
-                      <Button
-                        icon={<CheckCircleOutlined />}
-                        onClick={() => openQuickAddModal(row, "AC")}
-                      >
-                        Add Receipt
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      onClick={() => navigate(`/payments/${row.loanId}`)}
-                    >
-                      Create Payment
-                    </Button>
-                  )}
-                </Space>
-              </div>
-            </div>
-          );
-        })}
       </div>
-
-      {totalCount > 0 && (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 flex justify-end dark:border-[#2a2a2a] dark:bg-[#1b1b1b]">
-          <Pagination
-            current={page}
-            pageSize={pageSize}
-            total={totalCount}
-            showSizeChanger
-            pageSizeOptions={["10", "15", "25", "50"]}
-            showTotal={(total) => `Total ${total} payment entries`}
-            onChange={(nextPage, nextSize) => {
-              setPage(nextPage);
-              if (nextSize !== pageSize) setPageSize(nextSize);
-            }}
-          />
-        </div>
-      )}
 
       <Modal
         open={summaryModal.open}
@@ -1494,8 +1446,10 @@ const PaymentsDashboard = () => {
               {activeLoanForModal && (
                 <>
                   Loan{" "}
-                  <span className="font-semibold">{activeLoanForModal.loanId}</span> ·{" "}
-                  {activeLoanForModal.customerName || "Customer"} ·{" "}
+                  <span className="font-semibold">
+                    {activeLoanForModal.loanId}
+                  </span>{" "}
+                  · {activeLoanForModal.customerName || "Customer"} ·{" "}
                   {activeLoanForModal.doRef || "DO not mapped"}
                 </>
               )}
@@ -1505,7 +1459,8 @@ const PaymentsDashboard = () => {
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {activeLoanForModal && (
               <>
-                Add this entry directly to the payment ledger. You can edit everything later in the full Payment form.
+                Add this entry directly to the payment ledger. You can edit
+                everything later in the full Payment form.
               </>
             )}
           </div>
@@ -1714,12 +1669,12 @@ const PaymentsDashboard = () => {
               <div>
                 <QuickFieldLabel>Remarks</QuickFieldLabel>
                 <QuickFieldBox>
-                    <Input
-                      value={modalRemarks}
-                      onChange={(e) => setModalRemarks(e.target.value)}
-                      placeholder="Remarks"
-                      bordered={false}
-                    />
+                  <Input
+                    value={modalRemarks}
+                    onChange={(e) => setModalRemarks(e.target.value)}
+                    placeholder="Remarks"
+                    bordered={false}
+                  />
                 </QuickFieldBox>
               </div>
             </>

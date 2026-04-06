@@ -1,30 +1,31 @@
 import React from "react";
 import { Tag } from "antd";
-import { InfoCircleOutlined } from "@ant-design/icons";
 
+/* ─── helpers ─────────────────────────────────────────────────────────── */
 const asInt = (value) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return Math.trunc(parsed);
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
 };
 
 const hasDisplayableNumber = (value) => {
   if (value === undefined || value === null || value === "") return false;
-  const parsed = Number(value);
-  return Number.isFinite(parsed);
+  return Number.isFinite(Number(value));
 };
 
 const formatMoney = (value) => `₹ ${asInt(value).toLocaleString("en-IN")}`;
 
-const resolveTextColor = (intent, isDarkMode) => {
-  if (intent === "addition") return isDarkMode ? "#86efac" : "#15803d";
-  if (intent === "discount") return isDarkMode ? "#93c5fd" : "#1d4ed8";
-  if (intent === "total") return isDarkMode ? "#5eead4" : "#0f766e";
-  if (intent === "warning") return isDarkMode ? "#fcd34d" : "#b45309";
-  return isDarkMode ? "#e5e7eb" : "#111827";
-};
+const intentColor = (intent, dark) =>
+  ({
+    addition: dark ? "#86efac" : "#15803d",
+    discount: dark ? "#93c5fd" : "#1d4ed8",
+    total: dark ? "#5eead4" : "#0f766e",
+    warning: dark ? "#fcd34d" : "#b45309",
+    danger: dark ? "#fca5a5" : "#dc2626",
+    positive: dark ? "#86efac" : "#15803d",
+    accent: dark ? "#93c5fd" : "#1d4ed8",
+  })[intent] || (dark ? "#e5e7eb" : "#111827");
 
-const chipColorMap = {
+const chipColors = {
   blue: "blue",
   purple: "purple",
   green: "green",
@@ -32,6 +33,113 @@ const chipColorMap = {
   slate: "default",
 };
 
+/* ─── Section component ───────────────────────────────────────────────── */
+const Section = ({ section, index, isDarkMode, compact }) => {
+  const rows = Array.isArray(section?.rows) ? section.rows : [];
+  const borderColor = isDarkMode ? "#2a2d34" : "#edf0f5";
+
+  return (
+    <div
+      style={{
+        borderTop: `1px solid ${borderColor}`,
+        paddingTop: 16,
+        marginTop: index === 0 ? 0 : 8,
+      }}
+    >
+      {/* Section title */}
+      <div
+        style={{
+          marginBottom: 10,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: isDarkMode ? "#6b7280" : "#94a3b8",
+        }}
+      >
+        {section?.title}
+      </div>
+
+      {rows.length ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          {rows.map((row, rowIndex) => {
+            const item = Array.isArray(row)
+              ? {
+                  label: row[0],
+                  value: row[1],
+                  intent: row[2] || "neutral",
+                  strong: Boolean(row[3]),
+                  raw: typeof row[1] === "string",
+                }
+              : row || {};
+
+            const displayValue = item.raw
+              ? String(item.value ?? "—")
+              : hasDisplayableNumber(item.value)
+                ? formatMoney(item.value)
+                : "—";
+
+            const isTotal = item.strong;
+            const rowBg = isTotal
+              ? isDarkMode
+                ? "rgba(255,255,255,0.03)"
+                : "rgba(0,0,0,0.02)"
+              : "transparent";
+
+            return (
+              <div
+                key={`${item.label || "row"}-${rowIndex}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  fontSize: compact ? 12 : 13,
+                  padding: isTotal ? "5px 8px" : "2px 0",
+                  borderRadius: isTotal ? 8 : 0,
+                  background: rowBg,
+                  borderTop: isTotal
+                    ? `1px solid ${isDarkMode ? "#2a2d34" : "#edf0f5"}`
+                    : "none",
+                  marginTop: isTotal ? 4 : 0,
+                }}
+              >
+                <span
+                  style={{
+                    color: isDarkMode ? "#9ca3af" : "#6b7280",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {item.label}
+                </span>
+                <span
+                  style={{
+                    fontWeight: item.strong ? 800 : 600,
+                    fontVariantNumeric: "tabular-nums",
+                    whiteSpace: "nowrap",
+                    color: intentColor(item.intent, isDarkMode),
+                  }}
+                >
+                  {displayValue}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          style={{ fontSize: 12, color: isDarkMode ? "#6b7280" : "#94a3b8" }}
+        >
+          No values captured yet
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BreakdownSummaryCard
+════════════════════════════════════════════════════════════════════════ */
 const BreakdownSummaryCard = ({
   isDarkMode = false,
   eyebrow = "",
@@ -44,54 +152,48 @@ const BreakdownSummaryCard = ({
   sticky = false,
   compact = false,
 }) => {
-  const shellStyle = {
+  const shell = {
     position: sticky ? "sticky" : "relative",
     top: sticky ? 20 : "auto",
     zIndex: sticky ? 2 : "auto",
-    borderRadius: 24,
-    border: `1px solid ${isDarkMode ? "#2f3640" : "#dbe3ef"}`,
-    background: isDarkMode
-      ? "linear-gradient(180deg, rgba(30,34,40,0.98) 0%, rgba(20,22,27,0.98) 100%)"
-      : "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,249,253,0.98) 100%)",
+    borderRadius: 20,
+    border: `1px solid ${isDarkMode ? "#242830" : "#e4e9f2"}`,
+    background: isDarkMode ? "#16181d" : "#ffffff",
     boxShadow: isDarkMode
-      ? "0 24px 60px rgba(0,0,0,0.35)"
-      : "0 24px 60px rgba(15,23,42,0.08)",
+      ? "0 2px 8px rgba(0,0,0,0.35), 0 12px 40px rgba(0,0,0,0.25)"
+      : "0 2px 8px rgba(15,23,42,0.06), 0 12px 40px rgba(15,23,42,0.06)",
     overflow: "hidden",
     maxHeight: sticky ? "calc(100vh - 44px)" : "none",
   };
 
-  const sectionDivider = `1px solid ${isDarkMode ? "#313844" : "#e7edf5"}`;
-
   return (
     <div>
-      {eyebrow ? (
+      {/* Eyebrow label above the card */}
+      {eyebrow && (
         <div
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 8,
-            marginBottom: 12,
-            fontSize: 11,
+            gap: 6,
+            marginBottom: 10,
+            fontSize: 10,
             fontWeight: 700,
-            letterSpacing: "0.16em",
+            letterSpacing: "0.18em",
             textTransform: "uppercase",
-            color: isDarkMode ? "#cbd5e1" : "#5b6472",
+            color: isDarkMode ? "#9ca3af" : "#6b7280",
           }}
         >
-          <InfoCircleOutlined
-            style={{ color: isDarkMode ? "#a78bfa" : "#7c3aed" }}
-          />
-          <span>{eyebrow}</span>
+          {eyebrow}
         </div>
-      ) : null}
+      )}
 
-      <div style={shellStyle}>
+      <div style={shell}>
+        {/* Header */}
         <div
           style={{
-            padding: compact ? 20 : 24,
-            background: isDarkMode
-              ? "linear-gradient(135deg, rgba(82,100,255,0.08) 0%, rgba(34,197,94,0.04) 100%)"
-              : "linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(16,185,129,0.04) 100%)",
+            padding: compact ? "16px 20px 14px" : "20px 24px 18px",
+            borderBottom: `1px solid ${isDarkMode ? "#242830" : "#edf0f5"}`,
+            background: isDarkMode ? "#1a1d24" : "#f9fafb",
           }}
         >
           <div
@@ -99,46 +201,49 @@ const BreakdownSummaryCard = ({
               display: "flex",
               alignItems: "flex-start",
               justifyContent: "space-between",
-              gap: 16,
+              gap: 12,
             }}
           >
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: compact ? 22 : 28,
-                  lineHeight: 1.1,
+                  fontSize: compact ? 18 : 22,
+                  lineHeight: 1.15,
                   fontWeight: 800,
-                  color: isDarkMode ? "#f8fafc" : "#202938",
+                  letterSpacing: "-0.01em",
+                  color: isDarkMode ? "#f1f5f9" : "#0f172a",
                   wordBreak: "break-word",
                 }}
               >
                 {title || "Summary"}
               </div>
-              {subtitle ? (
+              {subtitle && (
                 <div
                   style={{
-                    marginTop: 8,
-                    fontSize: compact ? 15 : 18,
-                    color: isDarkMode ? "#9ca3af" : "#6b7280",
+                    marginTop: 5,
+                    fontSize: compact ? 12 : 13,
+                    color: isDarkMode ? "#6b7280" : "#94a3b8",
+                    lineHeight: 1.4,
                   }}
                 >
                   {subtitle}
                 </div>
-              ) : null}
+              )}
             </div>
 
             {chipContent ? (
               chipContent
             ) : chipLabel ? (
               <Tag
-                color={chipColorMap[chipTone] || "blue"}
+                color={chipColors[chipTone] || "blue"}
                 style={{
                   borderRadius: 999,
-                  paddingInline: 16,
-                  paddingBlock: 8,
-                  fontSize: compact ? 12 : 15,
+                  paddingInline: 12,
+                  paddingBlock: 4,
+                  fontSize: compact ? 11 : 12,
                   fontWeight: 600,
                   marginInlineEnd: 0,
+                  flexShrink: 0,
                 }}
               >
                 {chipLabel}
@@ -147,94 +252,23 @@ const BreakdownSummaryCard = ({
           </div>
         </div>
 
+        {/* Body */}
         <div
           style={{
-            padding: compact ? "4px 20px 20px" : "6px 24px 24px",
+            padding: compact ? "12px 20px 20px" : "14px 24px 24px",
             overflowY: sticky ? "auto" : "visible",
+            maxHeight: sticky ? "calc(100vh - 140px)" : "none",
           }}
         >
-          {sections.map((section, index) => {
-            const rows = Array.isArray(section?.rows) ? section.rows : [];
-            return (
-              <div
-                key={`${section?.title || "section"}-${index}`}
-                style={{
-                  borderTop: sectionDivider,
-                  paddingTop: 18,
-                  marginTop: index === 0 ? 0 : 8,
-                }}
-              >
-                <div
-                  style={{
-                    marginBottom: 12,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    color: isDarkMode ? "#9ca3af" : "#6b7280",
-                  }}
-                >
-                  {section?.title}
-                </div>
-
-                {rows.length ? (
-                  <div style={{ display: "grid", gap: 8 }}>
-                    {rows.map((row, rowIndex) => {
-                      const item = Array.isArray(row)
-                        ? {
-                            label: row[0],
-                            value: row[1],
-                            intent: row[2] || "neutral",
-                            strong: Boolean(row[3]),
-                            raw: typeof row[1] === "string",
-                          }
-                        : row || {};
-
-                      const displayValue = item.raw
-                        ? String(item.value ?? "—")
-                        : hasDisplayableNumber(item.value)
-                          ? formatMoney(item.value)
-                          : "—";
-
-                      return (
-                        <div
-                          key={`${item.label || "row"}-${rowIndex}`}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 16,
-                            fontSize: compact ? 13 : 14,
-                            color: isDarkMode ? "#cbd5e1" : "#475569",
-                          }}
-                        >
-                          <span>{item.label}</span>
-                          <span
-                            style={{
-                              fontWeight: item.strong ? 800 : 700,
-                              color: resolveTextColor(item.intent, isDarkMode),
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {displayValue}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: isDarkMode ? "#6b7280" : "#94a3b8",
-                    }}
-                  >
-                    No values captured yet
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {sections.map((section, index) => (
+            <Section
+              key={`${section?.title || "section"}-${index}`}
+              section={section}
+              index={index}
+              isDarkMode={isDarkMode}
+              compact={compact}
+            />
+          ))}
         </div>
       </div>
     </div>

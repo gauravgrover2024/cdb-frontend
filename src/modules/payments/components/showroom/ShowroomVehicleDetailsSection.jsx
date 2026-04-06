@@ -1,7 +1,7 @@
 // src/modules/payments/components/showroom/ShowroomVehicleDetailsSection.jsx
 import React, { useMemo } from "react";
 import { useTheme } from "../../../../context/ThemeContext";
-import BreakdownSummaryCard from "../../../delivery-orders/components/shared/BreakdownSummaryCard";
+import BreakdownSummaryCard from "../shared/BreakdownSummaryCard";
 
 const asInt = (val) => {
   const n = Number(val);
@@ -59,7 +59,6 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
   );
   const additionsOthersTotal = asInt(data?.do_additions_othersTotal || 0);
 
-  const marginMoneyPaid = asInt(data?.do_marginMoneyPaid);
   const dealerDiscount = asInt(data?.do_dealerDiscount);
   const schemeDiscount = asInt(data?.do_schemeDiscount);
   const insuranceCashback = asInt(data?.do_insuranceCashback);
@@ -97,7 +96,6 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
     ].filter((row) => row.value > 0);
 
     const discountsRows = [
-      { label: "Margin money paid", value: marginMoneyPaid, intent: "discount" },
       { label: "Dealer discount", value: dealerDiscount, intent: "discount" },
       { label: "Scheme discount", value: schemeDiscount, intent: "discount" },
       { label: "Insurance cashback", value: insuranceCashback, intent: "discount" },
@@ -202,7 +200,6 @@ const ShowroomVehicleDetailsSection = ({ data = {} }) => {
     additionsOthersTotal,
     namedAdditionsRows,
     namedDiscountRows,
-    marginMoneyPaid,
     dealerDiscount,
     schemeDiscount,
     insuranceCashback,
