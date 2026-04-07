@@ -36,6 +36,8 @@ import SuperadminChannelsPage from "./pages/superadmin/SuperadminChannelsPage";
 import SuperadminBanksPage from "./pages/superadmin/SuperadminBanksPage";
 import DetailedBankViewPage from "./pages/superadmin/DetailedBankViewPage";
 import ProfilePage from "./pages/ProfilePage";
+import InsuranceDashboardPage from "./pages/insurance/InsuranceDashboardPage";
+import InsuranceCasePage from "./pages/insurance/InsuranceCasePage";
 
 // NEW: booking pages
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
@@ -86,6 +88,20 @@ function App() {
             <Route
               path="analytics"
               element={R(FEATURE_ACCESS.ANALYTICS, <AnalyticsDashboard />)}
+            />
+
+            {/* Insurance */}
+            <Route
+              path="insurance"
+              element={R(FEATURE_ACCESS.INSURANCE, <InsuranceDashboardPage />)}
+            />
+            <Route
+              path="insurance/new"
+              element={R(FEATURE_ACCESS.INSURANCE, <InsuranceCasePage />)}
+            />
+            <Route
+              path="insurance/edit/:caseId"
+              element={R(FEATURE_ACCESS.INSURANCE, <InsuranceCasePage />)}
             />
 
             {/* Customers */}
