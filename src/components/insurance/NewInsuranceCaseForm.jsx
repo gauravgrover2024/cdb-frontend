@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Check } from "lucide-react";
 
 const STEP_TITLES = [
   "Step 1: Customer Information",
@@ -438,36 +439,93 @@ const NewInsuranceCaseForm = ({
         </p>
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-        {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).map(
-          (title, idx) => {
-            const originalIndex = STEP_TITLES.indexOf(title) + 1;
-            const index = idx + 1;
-            const active = step === originalIndex;
-            const shortTitle = title.replace(/^Step\s*\d+\s*:\s*/i, "");
-            return (
-              <button
-                type="button"
-                key={title}
-                onClick={() => setStep(originalIndex)}
-                className={`rounded-lg border px-2 py-2 text-left transition ${
-                  active
-                    ? "border-sky-600 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/40 dark:text-sky-300"
-                    : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-200 px-1 text-[10px] font-black dark:bg-slate-700">
-                    {index}
-                  </span>
-                  <span className="text-[11px] font-bold leading-tight">
-                    {shortTitle}
-                  </span>
-                </div>
-              </button>
-            );
-          },
-        )}
+      {/* Step Progress Stepper */}
+      <div className="mb-6">
+        {/* Desktop stepper */}
+        <div className="hidden items-start md:flex">
+          {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).map(
+            (title, idx, arr) => {
+              const originalIndex = STEP_TITLES.indexOf(title) + 1;
+              const isActive = step === originalIndex;
+              const isCompleted = step > originalIndex;
+              const isLast = idx === arr.length - 1;
+              const shortTitle = title.replace(/^Step\s*\d+\s*:\s*/i, "");
+              return (
+                <React.Fragment key={title}>
+                  <button
+                    type="button"
+                    onClick={() => setStep(originalIndex)}
+                    className="group flex flex-col items-center gap-1.5"
+                  >
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black transition-all ${
+                        isCompleted
+                          ? "bg-sky-600 text-white"
+                          : isActive
+                            ? "border-2 border-sky-600 bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                            : "border-2 border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
+                      }`}
+                    >
+                      {isCompleted ? <Check size={13} strokeWidth={3} /> : idx + 1}
+                    </span>
+                    <span
+                      className={`max-w-[72px] text-center text-[10px] font-bold leading-tight transition-colors ${
+                        isActive
+                          ? "text-sky-700 dark:text-sky-300"
+                          : isCompleted
+                            ? "text-slate-600 dark:text-slate-300"
+                            : "text-slate-400 dark:text-slate-500"
+                      }`}
+                    >
+                      {shortTitle}
+                    </span>
+                  </button>
+                  {!isLast && (
+                    <div
+                      className={`mx-1 mt-3.5 h-0.5 flex-1 transition-all ${
+                        isCompleted
+                          ? "bg-sky-500"
+                          : "bg-slate-200 dark:bg-slate-700"
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            },
+          )}
+        </div>
+
+        {/* Mobile: pill progress + step label */}
+        <div className="flex items-center gap-3 md:hidden">
+          <div className="flex gap-1">
+            {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).map(
+              (title, idx) => {
+                const originalIndex = STEP_TITLES.indexOf(title) + 1;
+                const isActive = step === originalIndex;
+                const isCompleted = step > originalIndex;
+                return (
+                  <button
+                    key={title}
+                    type="button"
+                    onClick={() => setStep(originalIndex)}
+                    className={`h-2 rounded-full transition-all ${
+                      isActive
+                        ? "w-6 bg-sky-600"
+                        : isCompleted
+                          ? "w-2 bg-sky-400"
+                          : "w-2 bg-slate-200 dark:bg-slate-700"
+                    }`}
+                  />
+                );
+              },
+            )}
+          </div>
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {isNewCar && step === 4
+              ? "Step 3: Insurance Quotes"
+              : STEP_TITLES[step - 1]}
+          </span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmitFinal} className="space-y-4">
@@ -1549,10 +1607,6 @@ const NewInsuranceCaseForm = ({
                       <option key={d}>{d}</option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    mapped key:{" "}
-                    {mapDurationToKey(formData.newInsuranceDuration)}
-                  </p>
                 </div>
                 <div>
                   <label className={labelClassName}>OD Expiry Date *</label>
@@ -1714,28 +1768,34 @@ const NewInsuranceCaseForm = ({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5 dark:border-slate-800">
           <button
             type="button"
             onClick={step === 1 ? onCancel : goBack}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            {step === 1 ? "Cancel" : "Previous"}
+            {step === 1 ? "Cancel" : "← Previous"}
           </button>
+
+          <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+            Step {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).findIndex((t) => STEP_TITLES.indexOf(t) + 1 === step) + 1} of{" "}
+            {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).length}
+          </div>
 
           {step < 6 ? (
             <button
               type="button"
               onClick={goNext}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700"
+              className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 active:scale-95"
             >
-              Next Step
+              Next Step →
             </button>
           ) : (
             <button
               type="submit"
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"
             >
+              <Check size={15} strokeWidth={3} />
               {mode === "edit" ? "Save Changes" : "Create Case"}
             </button>
           )}
