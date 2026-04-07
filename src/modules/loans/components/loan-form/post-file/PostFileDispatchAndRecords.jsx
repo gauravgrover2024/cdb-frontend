@@ -102,6 +102,7 @@ const PostFileDispatchAndRecords = ({ form }) => {
 
   return (
     <div className="space-y-4 md:space-y-5">
+      <Form.Item name="loan_number" hidden><input /></Form.Item>
       <Form.Item name="dispatch_date" hidden><input /></Form.Item>
       <Form.Item name="dispatch_time" hidden><input /></Form.Item>
       <Form.Item name="disbursement_date" hidden><input /></Form.Item>
@@ -341,4 +342,4 @@ const EmployeeAutosuggest = ({ label, name, form, employees }) => {
   );
 };
 
-export default PostFileDispatchAndRecords;
+export default React.memo(PostFileDispatchAndRecords);

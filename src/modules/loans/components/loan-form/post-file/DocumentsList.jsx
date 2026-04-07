@@ -5,9 +5,29 @@ import Button from "../../../../../components/ui/Button";
 
 const getDocumentId = (doc, index) => doc?.id || doc?.publicId || `${doc?.tag || "doc"}_${index}`;
 
+const normalizeDocumentStage = (value, fallback = "Post-File") => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw.includes("pre")) return "Pre-File";
+  if (raw.includes("post")) return "Post-File";
+  return fallback;
+};
+
+const getScopedTagLabel = (tag, stage) => {
+  const trimmedTag = String(tag || "").trim();
+  if (!trimmedTag) return "";
+  return `${trimmedTag} (${normalizeDocumentStage(stage)})`;
+};
+
 const getLedgerLabel = (doc, index) => {
   const tag = String(doc?.tag || "").trim();
-  if (tag) return tag;
+  if (tag) {
+    return getScopedTagLabel(
+      tag,
+      doc?.documentStage || doc?.scope || (doc?.isPreFile ? "Pre-File" : "Post-File"),
+    );
+  }
+  const fileName = String(doc?.name || "").trim();
+  if (fileName) return fileName;
   return `Untagged ${index + 1}`;
 };
 
@@ -17,6 +37,18 @@ const normalizeDocsForLedger = (docs) =>
     ledgerId: getDocumentId(doc, index),
     ledgerLabel: getLedgerLabel(doc, index),
   }));
+
+const ledgerSignature = (docs = []) =>
+  JSON.stringify(
+    (Array.isArray(docs) ? docs : []).map((doc) => ({
+      ledgerId: doc?.ledgerId || "",
+      ledgerLabel: doc?.ledgerLabel || "",
+      url: doc?.url || "",
+      tag: doc?.tag || "",
+      status: doc?.status || "",
+      isManualLedger: Boolean(doc?.isManualLedger),
+    })),
+  );
 
 const DocumentsList = ({ form }) => {
   const watchedPostfileDocuments = Form.useWatch("postfile_documents", form);
@@ -46,15 +78,29 @@ const DocumentsList = ({ form }) => {
         }
       });
 
-      return merged;
+      return ledgerSignature(merged) === ledgerSignature(prev) ? prev : merged;
     });
   }, [watchedPostfileDocuments, watchedLedgerDocuments]);
 
   const totalDocuments = ledgerDocuments.length;
   const updateLedgerOrder = (nextDocs) => {
-    setLedgerDocuments(nextDocs);
+    const normalizedNextDocs = Array.isArray(nextDocs) ? nextDocs : [];
+    setLedgerDocuments((prev) =>
+      ledgerSignature(normalizedNextDocs) === ledgerSignature(prev)
+        ? prev
+        : normalizedNextDocs,
+    );
+    const nextLedgerPayload = normalizedNextDocs.map(
+      ({ ledgerId, ledgerLabel, ...doc }) => doc,
+    );
+    const currentLedgerPayload = Array.isArray(form.getFieldValue("postfile_documents_ledger"))
+      ? form.getFieldValue("postfile_documents_ledger")
+      : [];
+    if (ledgerSignature(normalizeDocsForLedger(currentLedgerPayload)) === ledgerSignature(normalizeDocsForLedger(nextLedgerPayload))) {
+      return;
+    }
     form.setFieldsValue({
-      postfile_documents_ledger: nextDocs.map(({ ledgerId, ledgerLabel, ...doc }) => doc),
+      postfile_documents_ledger: nextLedgerPayload,
     });
   };
 
@@ -140,6 +186,7 @@ const DocumentsList = ({ form }) => {
   if (totalDocuments === 0) {
     return (
       <div className="rounded-[24px] border border-dashed border-border/80 bg-muted/20 px-6 py-12 text-center">
+        <Form.Item name="postfile_documents_ledger" hidden />
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
           <Icon name="ListOrdered" size={28} />
         </div>
@@ -152,7 +199,8 @@ const DocumentsList = ({ form }) => {
   }
 
   return (
-    <div className="rounded-[24px] border border-border/70 bg-card p-5 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.14)] dark:bg-black/20 md:p-6">
+    <div className="rounded-[24px] border border-border/70 bg-card p-5 md:p-6">
+      <Form.Item name="postfile_documents_ledger" hidden />
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
@@ -324,4 +372,4 @@ const DocumentsList = ({ form }) => {
   );
 };
 
-export default DocumentsList;
+export default React.memo(DocumentsList);

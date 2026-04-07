@@ -160,8 +160,22 @@ const PostFileApprovalDetails = ({ form }) => {
     Form.useWatch("postfile_disbursedInsurance", form) || 0
   );
   const disbursedEw = Number(Form.useWatch("postfile_disbursedEw", form) || 0);
-  const watchedApprovalCustomBreakup = Form.useWatch("approval_breakup_custom", form) || [];
-  const watchedDisbursedCustomBreakup = Form.useWatch("postfile_disbursed_custom", form) || [];
+  const watchedApprovalCustomBreakupRaw = Form.useWatch("approval_breakup_custom", form);
+  const watchedDisbursedCustomBreakupRaw = Form.useWatch("postfile_disbursed_custom", form);
+  const watchedApprovalCustomBreakup = useMemo(
+    () =>
+      Array.isArray(watchedApprovalCustomBreakupRaw)
+        ? watchedApprovalCustomBreakupRaw
+        : [],
+    [watchedApprovalCustomBreakupRaw],
+  );
+  const watchedDisbursedCustomBreakup = useMemo(
+    () =>
+      Array.isArray(watchedDisbursedCustomBreakupRaw)
+        ? watchedDisbursedCustomBreakupRaw
+        : [],
+    [watchedDisbursedCustomBreakupRaw],
+  );
   const approvalCustomBreakup = useMemo(
     () => normalizeLoanBreakupCustomFields(watchedApprovalCustomBreakup, breakupFieldDefs),
     [watchedApprovalCustomBreakup, breakupFieldDefs],
@@ -1293,4 +1307,4 @@ const DisbursalBreakupPopup = ({
   );
 };
 
-export default PostFileApprovalDetails;
+export default React.memo(PostFileApprovalDetails);

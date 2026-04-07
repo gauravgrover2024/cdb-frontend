@@ -426,4 +426,4 @@ const RepaymentIntelligencePanel = ({ form, loanData = null }) => {
   );
 };
 
-export default RepaymentIntelligencePanel;
+export default React.memo(RepaymentIntelligencePanel);

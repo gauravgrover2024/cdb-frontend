@@ -107,11 +107,14 @@ const PreFileStep = () => {
 
           // Sync Documents
           aadhaarCardDocUrl: freshCustomer.aadhaarCardDocUrl || form.getFieldValue("aadhaarCardDocUrl"),
+          aadhaarCardBackDocUrl: freshCustomer.aadhaarCardBackDocUrl || form.getFieldValue("aadhaarCardBackDocUrl"),
           panCardDocUrl: freshCustomer.panCardDocUrl || form.getFieldValue("panCardDocUrl"),
           passportDocUrl: freshCustomer.passportDocUrl || form.getFieldValue("passportDocUrl"),
           dlDocUrl: freshCustomer.dlDocUrl || form.getFieldValue("dlDocUrl"),
           addressProofDocUrl: freshCustomer.addressProofDocUrl || form.getFieldValue("addressProofDocUrl"),
           gstDocUrl: freshCustomer.gstDocUrl || form.getFieldValue("gstDocUrl"),
+          gstDocUrlPage2: freshCustomer.gstDocUrlPage2 || form.getFieldValue("gstDocUrlPage2"),
+          gstDocUrlPage3: freshCustomer.gstDocUrlPage3 || form.getFieldValue("gstDocUrlPage3"),
           photoUrl: freshCustomer.photoUrl || form.getFieldValue("photoUrl"),
           signatureUrl: freshCustomer.signatureUrl || form.getFieldValue("signatureUrl"),
           reference1: freshCustomer.reference1 || {
@@ -215,11 +218,14 @@ const PreFileStep = () => {
         
         // Sync Documents
         aadhaarCardDocUrl: freshCustomer.aadhaarCardDocUrl,
+        aadhaarCardBackDocUrl: freshCustomer.aadhaarCardBackDocUrl,
         panCardDocUrl: freshCustomer.panCardDocUrl,
         passportDocUrl: freshCustomer.passportDocUrl,
         dlDocUrl: freshCustomer.dlDocUrl,
         addressProofDocUrl: freshCustomer.addressProofDocUrl,
         gstDocUrl: freshCustomer.gstDocUrl,
+        gstDocUrlPage2: freshCustomer.gstDocUrlPage2,
+        gstDocUrlPage3: freshCustomer.gstDocUrlPage3,
         photoUrl: freshCustomer.photoUrl,
         signatureUrl: freshCustomer.signatureUrl,
         reference1: freshCustomer.reference1 || {

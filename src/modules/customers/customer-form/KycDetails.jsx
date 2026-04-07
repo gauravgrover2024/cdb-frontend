@@ -2,7 +2,32 @@ import { Col, Form, Input, Row } from "antd";
 import Icon from "../../../components/AppIcon";
 import DocumentUpload from "../../../components/ui/DocumentUpload";
 
-const KycItem = ({ label, icon, nameInput, nameDoc, placeholder, maxLength, styleInput }) => (
+const UploadSlot = ({ name, uploadTitle, viewerTitle, docTag, label }) => (
+  <Form.Item name={name} style={{ marginBottom: 0 }}>
+    <div className="space-y-1">
+      <DocumentUpload
+        uploadTitle={uploadTitle}
+        viewerTitle={viewerTitle}
+        docTag={docTag}
+      />
+      <div className="max-w-24 text-center text-[10px] font-medium text-muted-foreground">
+        {label}
+      </div>
+    </div>
+  </Form.Item>
+);
+
+const KycItem = ({
+  label,
+  icon,
+  nameInput,
+  nameDoc,
+  placeholder,
+  maxLength,
+  styleInput,
+  extraUploads = [],
+  primaryDocTag,
+}) => (
   <Col xs={24} md={12} lg={12}>
     <div className="flex items-start gap-4 p-4 border border-border rounded-2xl bg-foreground/5 hover:bg-foreground/[0.08] transition-all">
       <div className="flex-1 space-y-1">
@@ -21,13 +46,25 @@ const KycItem = ({ label, icon, nameInput, nameDoc, placeholder, maxLength, styl
       </div>
 
       <div className="flex-none pt-1">
-        <Form.Item name={nameDoc} style={{ marginBottom: 0 }}>
-          <DocumentUpload
+        <div className="flex flex-wrap justify-end gap-3">
+          <UploadSlot
+            name={nameDoc}
             uploadTitle={`Upload ${label}`}
             viewerTitle="Post-File Document Viewer"
-            docTag={label}
+            docTag={primaryDocTag || label}
+            label={primaryDocTag || label}
           />
-        </Form.Item>
+          {extraUploads.map((upload) => (
+            <UploadSlot
+              key={upload.name}
+              name={upload.name}
+              uploadTitle={upload.uploadTitle}
+              viewerTitle={upload.viewerTitle || "Post-File Document Viewer"}
+              docTag={upload.docTag}
+              label={upload.label || upload.docTag}
+            />
+          ))}
+        </div>
       </div>
     </div>
   </Col>
@@ -72,6 +109,14 @@ const KycDetails = () => {
             nameDoc="aadhaarCardDocUrl"
             placeholder="12-Digit Aadhaar No"
             maxLength={12}
+            primaryDocTag="Aadhar Front"
+            extraUploads={[
+              {
+                name: "aadhaarCardBackDocUrl",
+                uploadTitle: "Upload Aadhaar Back",
+                docTag: "Aadhar Back",
+              },
+            ]}
           />
         )}
 
@@ -95,6 +140,19 @@ const KycDetails = () => {
           placeholder="GST Number"
           maxLength={15}
           styleInput={{ textTransform: "" }}
+          primaryDocTag="GST Page 1"
+          extraUploads={[
+            {
+              name: "gstDocUrlPage2",
+              uploadTitle: "Upload GST Page 2",
+              docTag: "GST Page 2",
+            },
+            {
+              name: "gstDocUrlPage3",
+              uploadTitle: "Upload GST Page 3",
+              docTag: "GST Page 3",
+            },
+          ]}
         />
 
         {!isCompany && (

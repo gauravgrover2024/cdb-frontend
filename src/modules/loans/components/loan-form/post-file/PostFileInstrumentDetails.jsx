@@ -158,8 +158,14 @@ const PostFileInstrumentDetails = ({ form }) => {
       }
     }
     if (existing.length > 0) {
-      setCheques(existing);
-      setExpandedCheque(existing[0].id);
+      const nextIds = existing.map((item) => item.id).join(",");
+      const currentIds = cheques.map((item) => item.id).join(",");
+      if (nextIds !== currentIds) {
+        setCheques(existing);
+      }
+      if (!existing.some((item) => item.id === expandedCheque)) {
+        setExpandedCheque(existing[0].id);
+      }
     }
     if (Object.keys(patch).length) {
       form.setFieldsValue(patch);
@@ -176,6 +182,8 @@ const PostFileInstrumentDetails = ({ form }) => {
     cheque1Number,
     cheque1BankName,
     cheque1AccountNumber,
+    cheques,
+    expandedCheque,
   ]);
 
   useEffect(() => {
@@ -742,4 +750,4 @@ const PostFileInstrumentDetails = ({ form }) => {
   );
 };
 
-export default PostFileInstrumentDetails;
+export default React.memo(PostFileInstrumentDetails);

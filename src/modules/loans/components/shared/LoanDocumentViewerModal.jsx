@@ -73,6 +73,7 @@ const normalizeDocs = (documents = []) =>
       id: doc?.id || `${doc?.url}-${index}`,
       name: doc?.name || doc?.tag || `Document ${index + 1}`,
       tag: doc?.tag || "",
+      documentStage: doc?.documentStage || doc?.scope || (doc?.isPreFile ? "Pre-File" : "Post-File"),
       rawUrl: doc?.rawUrl || doc?.url,
       url: buildAccessibleDocumentUrl(doc?.url),
       size: doc?.size || "",
@@ -81,9 +82,24 @@ const normalizeDocs = (documents = []) =>
       isPdf: doc?.isPdf ?? isPdfUrl(doc?.url),
     }));
 
+const normalizeDocumentStage = (value, fallback = "Post-File") => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw.includes("pre")) return "Pre-File";
+  if (raw.includes("post")) return "Post-File";
+  return fallback;
+};
+
+const getScopedTagLabel = (tag, stage) => {
+  const trimmedTag = String(tag || "").trim();
+  if (!trimmedTag) return "";
+  return `${trimmedTag} (${normalizeDocumentStage(stage)})`;
+};
+
 const getDocDisplayLabel = (doc, index = -1) => {
   const tag = String(doc?.tag || "").trim();
-  if (tag) return tag;
+  if (tag) return getScopedTagLabel(tag, doc?.documentStage);
+  const fileName = String(doc?.name || "").trim();
+  if (fileName) return fileName;
   return index >= 0 ? `Document ${index + 1}` : "Document";
 };
 
@@ -362,7 +378,7 @@ const LoanDocumentViewerModal = ({
 
   const modalNode = (
     <div
-      className="fixed inset-0 z-[1300] flex items-center justify-center bg-background/90 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[1300] flex items-center justify-center bg-background/90 p-4"
       onWheelCapture={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
@@ -372,7 +388,7 @@ const LoanDocumentViewerModal = ({
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
                 <Icon name="Eye" size={18} />
               </div>
               <div className="min-w-0">
@@ -492,7 +508,7 @@ const LoanDocumentViewerModal = ({
 
           <div
             ref={viewportRef}
-            className="h-full min-h-[260px] w-full overflow-auto rounded-2xl border border-border/70 bg-background shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
+            className="h-full min-h-[260px] w-full overflow-auto rounded-2xl border border-border/70 bg-background shadow-sm"
             onWheelCapture={(e) => e.stopPropagation()}
             onWheel={(e) => {
               if (e.ctrlKey) {
@@ -574,7 +590,7 @@ const LoanDocumentViewerModal = ({
 
           {showThumbnailRail && docs.length > 1 && (
             <div className="pointer-events-none absolute inset-x-4 bottom-4 z-30 opacity-0 transition-all duration-200 ease-out group-hover/viewer:pointer-events-auto group-hover/viewer:opacity-100 group-focus-within/viewer:pointer-events-auto group-focus-within/viewer:opacity-100">
-              <div className="rounded-xl border border-border/80 bg-background/94 p-2 shadow-xl backdrop-blur-sm">
+              <div className="rounded-xl border border-border/80 bg-background p-2 shadow-lg">
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {docs.map((doc, idx) => (
                     <button
@@ -623,4 +639,4 @@ const LoanDocumentViewerModal = ({
   return createPortal(modalNode, document.body);
 };
 
-export default LoanDocumentViewerModal;
+export default React.memo(LoanDocumentViewerModal);

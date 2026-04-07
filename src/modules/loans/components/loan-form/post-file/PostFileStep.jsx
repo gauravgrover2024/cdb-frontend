@@ -144,12 +144,11 @@ const PostFileSectionShell = ({
 }) => (
   <section
     id={id}
-    className={`group relative overflow-hidden rounded-2xl border bg-card/95 dark:bg-black/90 backdrop-blur-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-36px_rgba(15,23,42,0.35)] ${panel} ${glow}`}
+    className={`relative overflow-hidden rounded-2xl border bg-card dark:bg-card ${panel}`}
   >
-    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${accent}`} />
     <div className="relative border-b border-border/50 px-4 py-3 md:px-5 md:py-3.5">
       <div className="flex items-center gap-3">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-md ${iconWrap}`}>
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${iconWrap}`}>
           <Icon name={icon} size={16} />
         </div>
         <div className="min-w-0">
@@ -173,8 +172,6 @@ const PostFileStep = ({ form, loanId, isEditMode }) => {
 
   return (
     <div className="postfile-workbench relative space-y-3 md:space-y-4">
-      <div className="pointer-events-none absolute inset-x-0 -top-6 h-24 bg-gradient-to-b from-amber-500/6 via-orange-500/4 to-transparent dark:from-zinc-900 dark:via-amber-900/18 dark:to-transparent" />
-
       <div className="grid grid-cols-1 gap-3 md:gap-4 xl:grid-cols-2">
         <PostFileSectionShell {...POSTFILE_SECTIONS[0]} index={1}>
           <div className={contentConsistencyClass}><SafePostFileApprovalDetails form={form} /></div>
@@ -210,4 +207,4 @@ const PostFileStep = ({ form, loanId, isEditMode }) => {
   );
 };
 
-export default PostFileStep;
+export default React.memo(PostFileStep);

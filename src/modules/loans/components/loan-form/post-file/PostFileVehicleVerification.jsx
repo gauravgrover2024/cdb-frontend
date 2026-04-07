@@ -828,4 +828,4 @@ const PostFileVehicleVerification = ({ form }) => {
   );
 };
 
-export default PostFileVehicleVerification;
+export default React.memo(PostFileVehicleVerification);

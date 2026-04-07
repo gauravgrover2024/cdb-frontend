@@ -112,24 +112,61 @@ const getDocFilterType = (doc = {}) => {
   return "all";
 };
 
+const normalizeDocumentStage = (value, fallback = "Post-File") => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw.includes("pre")) return "Pre-File";
+  if (raw.includes("post")) return "Post-File";
+  return fallback;
+};
+
+const getScopedTagLabel = (tag, stage) => {
+  const trimmedTag = String(tag || "").trim();
+  if (!trimmedTag) return "";
+  return `${trimmedTag} (${normalizeDocumentStage(stage)})`;
+};
+
 const getDocTagText = (doc = {}, index = -1) => {
   const tag = String(doc?.tag || "").trim();
-  if (tag) return tag;
+  if (tag) {
+    return getScopedTagLabel(
+      tag,
+      doc?.documentStage || doc?.scope || (doc?.source?.toLowerCase().includes("kyc") ? "Pre-File" : "Post-File"),
+    );
+  }
+  const fileName = String(doc?.name || "").trim();
+  if (fileName) return fileName;
   return index >= 0 ? `Document ${index + 1}` : "Document";
 };
+
+const uniqueCandidates = (values = []) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  );
 
 const extractAllDocuments = (loan) => {
   if (!loan || typeof loan !== "object") return [];
   const found = [];
 
-  const pushDoc = ({ path, url, tag, source }) => {
+  const pushDoc = ({ path, url, tag, source, documentStage, name }) => {
     if (!looksLikeUrl(url)) return;
     found.push({
       id: `${path}:${url}`,
       path,
+      name: hasValue(name) ? String(name) : "",
       rawUrl: url,
       url: buildAccessibleDocumentUrl(url),
       tag: hasValue(tag) ? String(tag) : "",
+      documentStage:
+        documentStage ||
+        (source?.toLowerCase().includes("kyc") ||
+        path.toLowerCase().includes("aadhaar") ||
+        path.toLowerCase().includes("pan")
+          ? "Pre-File"
+          : "Post-File"),
       source: source || getSourceFromPath(path),
       isImage: isImageUrl(url),
       isPdf: isPdfUrl(url),
@@ -144,6 +181,8 @@ const extractAllDocuments = (loan) => {
         path,
         url: value,
         tag: parent?.tag || parent?.label || parent?.documentTag,
+        documentStage: parent?.documentStage || parent?.scope,
+        name: parent?.name || parent?.fileName,
       });
       return;
     }
@@ -161,6 +200,8 @@ const extractAllDocuments = (loan) => {
           url: objectUrl,
           tag: value.tag || value.label || value.documentTag,
           source: value.source,
+          documentStage: value.documentStage || value.scope,
+          name: value.name || value.fileName,
         });
       }
 
@@ -181,13 +222,15 @@ const extractAllDocuments = (loan) => {
     }
     const existing = seenByUrl.get(dedupeKey);
     if (!existing.tag && doc.tag) existing.tag = doc.tag;
+    if (!existing.documentStage && doc.documentStage) existing.documentStage = doc.documentStage;
+    if (!existing.name && doc.name) existing.name = doc.name;
     if (existing.source === "Other Documents" && doc.source !== "Other Documents") existing.source = doc.source;
   });
 
   return Array.from(seenByUrl.values());
 };
 
-const LoanDocumentsModal = ({ loan, open, onClose }) => {
+const LoanDocumentsModal = ({ loan, loanId, open, onClose }) => {
   const [localLoan, setLocalLoan] = useState(loan || null);
   const [loading, setLoading] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(-1);
@@ -198,18 +241,38 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
     setLocalLoan(loan || null);
   }, [loan]);
 
+  const fetchCandidateIds = useMemo(
+    () =>
+      uniqueCandidates([
+        loan?._id,
+        loan?.id,
+        loanId,
+        loan?.loanId,
+        loan?.loan_number,
+      ]),
+    [loanId, loan],
+  );
+
   useEffect(() => {
-    if (!open || !loan) return;
-    const loanId = loan?._id || loan?.loanId;
-    if (!loanId) return;
+    if (!open || !fetchCandidateIds.length) return;
     let cancelled = false;
 
     const loadFullLoan = async () => {
       setLoading(true);
       try {
-        const res = await loansApi.getById(loanId);
+        let full = null;
+        for (const candidateId of fetchCandidateIds) {
+          try {
+            const res = await loansApi.getById(candidateId);
+            full = res?.data ?? res;
+            if (full && typeof full === "object") {
+              break;
+            }
+          } catch (_) {
+            // keep trying next candidate
+          }
+        }
         if (cancelled) return;
-        const full = res?.data ?? res;
         if (full && typeof full === "object") {
           setLocalLoan((prev) => ({ ...(prev || {}), ...full }));
         }
@@ -224,7 +287,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
     return () => {
       cancelled = true;
     };
-  }, [open, loan]);
+  }, [open, fetchCandidateIds]);
 
   useEffect(() => {
     if (!open) {
@@ -304,7 +367,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/55 p-4" onClick={onClose}>
       <div
         className="relative flex max-h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-3xl border border-border bg-white shadow-2xl dark:bg-card"
         onClick={(e) => e.stopPropagation()}
@@ -423,7 +486,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
                     {group.docs.map((doc) => (
                       <article
                         key={doc.id}
-                        className="w-[250px] shrink-0 overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                        className="w-[250px] shrink-0 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm"
                         title={doc.path}
                       >
                         <div
@@ -439,7 +502,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
                             <img
                               src={doc.url}
                               alt={getDocTagText(doc)}
-                              className="h-full w-full object-cover transition duration-300 hover:scale-[1.03]"
+                              className="h-full w-full object-cover"
                               onError={(event) => {
                                 if (doc.rawUrl && event.currentTarget.src !== doc.rawUrl) {
                                   event.currentTarget.src = doc.rawUrl;
@@ -451,7 +514,7 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
                               <Icon name={doc.isPdf ? "FileText" : "File"} size={24} />
                             </div>
                           )}
-                          <span className="absolute left-2 top-2 inline-flex items-center rounded-full border border-black/20 bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                          <span className="absolute left-2 top-2 inline-flex items-center rounded-full border border-black/20 bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white">
                             {doc.isPdf ? "PDF" : "Image"}
                           </span>
                         </div>
@@ -501,4 +564,4 @@ const LoanDocumentsModal = ({ loan, open, onClose }) => {
   );
 };
 
-export default LoanDocumentsModal;
+export default React.memo(LoanDocumentsModal);

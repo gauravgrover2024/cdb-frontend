@@ -2,7 +2,7 @@ import React from "react";
 import * as LucideIcons from "lucide-react";
 import { HelpCircle } from "lucide-react";
 
-function Icon({
+const Icon = React.memo(function Icon({
   name,
   size = 24,
   color = "currentColor",
@@ -33,5 +33,5 @@ function Icon({
       {...props}
     />
   );
-}
+});
 export default Icon;

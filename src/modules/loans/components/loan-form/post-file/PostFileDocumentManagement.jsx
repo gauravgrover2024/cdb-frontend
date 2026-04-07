@@ -26,6 +26,25 @@ const SUGGESTED_TAGS = [
 
 const normalizeTagKey = (value) => String(value || "").trim().toLowerCase();
 
+const normalizeDocumentStage = (value, fallback = "Post-File") => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw.includes("pre")) return "Pre-File";
+  if (raw.includes("post")) return "Post-File";
+  return fallback;
+};
+
+const getDocumentStage = (doc = {}) =>
+  normalizeDocumentStage(
+    doc?.documentStage || doc?.scope,
+    doc?.isPreFile ? "Pre-File" : "Post-File",
+  );
+
+const getScopedTagLabel = (tag, stage) => {
+  const trimmedTag = String(tag || "").trim();
+  if (!trimmedTag) return "";
+  return `${trimmedTag} (${normalizeDocumentStage(stage)})`;
+};
+
 const toCanonicalTagName = (value, existingTagNames = [], suggestedTagNames = []) => {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "";
@@ -61,26 +80,37 @@ const getStableDocId = (doc, fallback = "") =>
 
 const getDocDisplayLabel = (doc, index = -1) => {
   const tag = String(doc?.tag || "").trim();
-  if (tag) return tag;
+  if (tag) return getScopedTagLabel(tag, getDocumentStage(doc));
+  const fileName = String(doc?.name || "").trim();
+  if (fileName) return fileName;
   return index >= 0 ? `Document ${index + 1}` : "Document";
 };
 
+const sameFieldValue = (left, right) => String(left || "").trim() === String(right || "").trim();
+
 const PostFileDocumentManagement = ({ form }) => {
-  const [documents, setDocuments] = useState([]);
-  const [tags, setTags] = useState([]);
   const [selectedTagFilter, setSelectedTagFilter] = useState("All");
   const [showAddTagsModal, setShowAddTagsModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isFetchingDocs, setIsFetchingDocs] = useState(false);
-  const [didHydrateFromForm, setDidHydrateFromForm] = useState(false);
-  const lastHydratedSignatureRef = useRef("");
-  const lastFormSyncSignatureRef = useRef("");
+  const autoFetchAttemptedForCustomerRef = useRef("");
+  const systemUploadDateLabel = useMemo(
+    () => new Date().toLocaleDateString("en-IN"),
+    [],
+  );
 
   const customerId = Form.useWatch("customerId", form);
   const watchedPostFileDocuments = Form.useWatch("postfile_documents", form);
   const watchedPostFileTags = Form.useWatch("postfile_tags", form);
+  const formDocuments = useMemo(
+    () => (Array.isArray(watchedPostFileDocuments) ? watchedPostFileDocuments : []),
+    [watchedPostFileDocuments],
+  );
+  const tags = useMemo(
+    () => (Array.isArray(watchedPostFileTags) ? watchedPostFileTags : []),
+    [watchedPostFileTags],
+  );
   
-  // 🔄 FETCH DOCUMENTS from Customer Record
   const fetchCustomerDocuments = useCallback(async (isManual = false) => {
     if (!customerId) return;
     
@@ -94,78 +124,30 @@ const PostFileDocumentManagement = ({ form }) => {
          // 1. Update Form Fields
          const updates = {
           aadhaarCardDocUrl: freshCustomer.aadhaarCardDocUrl,
+          aadhaarCardBackDocUrl: freshCustomer.aadhaarCardBackDocUrl,
           panCardDocUrl: freshCustomer.panCardDocUrl,
           passportDocUrl: freshCustomer.passportDocUrl,
           dlDocUrl: freshCustomer.dlDocUrl,
           addressProofDocUrl: freshCustomer.addressProofDocUrl,
           gstDocUrl: freshCustomer.gstDocUrl,
+          gstDocUrlPage2: freshCustomer.gstDocUrlPage2,
+          gstDocUrlPage3: freshCustomer.gstDocUrlPage3,
           photoUrl: freshCustomer.photoUrl,
           signatureUrl: freshCustomer.signatureUrl,
          };
          
          const validUpdates = {};
          let hasUpdates = false;
-         Object.keys(updates).forEach(key => {
-           if (updates[key]) {
-             validUpdates[key] = updates[key];
-             hasUpdates = true;
-           }
+         Object.keys(updates).forEach((key) => {
+           const nextValue = updates[key];
+           if (!nextValue) return;
+           if (sameFieldValue(form.getFieldValue(key), nextValue)) return;
+           validUpdates[key] = nextValue;
+           hasUpdates = true;
          });
          
          if (hasUpdates) {
            form.setFieldsValue(validUpdates);
-           
-           // 2. Direct State Update (Bypassing Watcher Lag)
-           const preFileDocs = [];
-           const addPreFile = (url, name, tagName) => {
-              if (url && typeof url === 'string') {
-                preFileDocs.push({
-                  id: name.toLowerCase().replace(/\s/g, '_'), 
-                  name: name,
-                  size: "Pre-File",
-                  uploadedBy: "System",
-                  uploadedAt: new Date().toLocaleDateString("en-IN"),
-                  status: "submitted",
-                  tagId: "prefile_" + name,
-                  tag: tagName,
-                  url: url,
-                  format: url.split('.').pop() || 'jpg',
-                  publicId: null,
-                  isPreFile: true,
-                });
-              }
-            };
-
-            addPreFile(updates.aadhaarCardDocUrl, "Aadhaar Card", "Aadhaar");
-            addPreFile(updates.panCardDocUrl, "PAN Card", "PAN");
-            addPreFile(updates.passportDocUrl, "Passport", "Passport");
-            addPreFile(updates.dlDocUrl, "Driving License", "Driving License");
-            addPreFile(updates.addressProofDocUrl, "Address Proof", "Address Proof");
-            addPreFile(updates.gstDocUrl, "GST Certificate", "GST");
-            addPreFile(updates.photoUrl, "Customer Photo", "Photo");
-            addPreFile(updates.signatureUrl, "Signature", "Signature");
-
-            if (preFileDocs.length > 0) {
-              setDocuments(prevDocs => {
-                const mergedDocs = [...prevDocs];
-                let changed = false;
-                preFileDocs.forEach(pDoc => {
-                  if (!mergedDocs.some(d => d.url === pDoc.url)) {
-                    mergedDocs.push(pDoc);
-                    changed = true;
-                  }
-                });
-                return changed ? mergedDocs : prevDocs;
-              });
-            }
-
-           if (isManual) {
-              // message is global in antd usually, or imports
-              // message.success(`Synced ${preFileDocs.length} documents from customer record`);
-              // We'll use alert for visibility if message is not available contextually, or assume message is usable
-              // Since I can't guarantee message import, I'll log.
-              console.log(`Synced ${preFileDocs.length} documents.`);
-           }
          }
       }
     } catch (err) {
@@ -175,24 +157,64 @@ const PostFileDocumentManagement = ({ form }) => {
     }
   }, [customerId, form]);
 
-  // 🔄 SAFETY FETCH: If docs are missing in form but we have a customerId, fetch them!
-  useEffect(() => {
-    fetchCustomerDocuments(false);
-  }, [fetchCustomerDocuments]);
-
   // Get company type to show GST/MSME tags
   const customerType = Form.useWatch("customerType", form);
   const isCompany = customerType === "Company";
 
   // Watch Pre-File Documents to auto-populate
   const aadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
+  const aadhaarCardBackDocUrl = Form.useWatch("aadhaarCardBackDocUrl", form);
   const panCardDocUrl = Form.useWatch("panCardDocUrl", form);
   const passportDocUrl = Form.useWatch("passportDocUrl", form);
   const dlDocUrl = Form.useWatch("dlDocUrl", form);
   const addressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
   const gstDocUrl = Form.useWatch("gstDocUrl", form);
+  const gstDocUrlPage2 = Form.useWatch("gstDocUrlPage2", form);
+  const gstDocUrlPage3 = Form.useWatch("gstDocUrlPage3", form);
   const photoUrl = Form.useWatch("photoUrl", form);
   const signatureUrl = Form.useWatch("signatureUrl", form);
+
+  useEffect(() => {
+    if (!customerId) return;
+    const hasPreFileDocLinks = [
+      aadhaarCardDocUrl,
+      aadhaarCardBackDocUrl,
+      panCardDocUrl,
+      passportDocUrl,
+      dlDocUrl,
+      addressProofDocUrl,
+      gstDocUrl,
+      gstDocUrlPage2,
+      gstDocUrlPage3,
+      photoUrl,
+      signatureUrl,
+    ].some((value) => Boolean(String(value || "").trim()));
+    const hasPostFileDocs =
+      Array.isArray(watchedPostFileDocuments) && watchedPostFileDocuments.length > 0;
+
+    if (hasPreFileDocLinks || hasPostFileDocs) {
+      autoFetchAttemptedForCustomerRef.current = "";
+      return;
+    }
+    if (autoFetchAttemptedForCustomerRef.current === String(customerId)) return;
+    autoFetchAttemptedForCustomerRef.current = String(customerId);
+    fetchCustomerDocuments(false);
+  }, [
+    customerId,
+    aadhaarCardDocUrl,
+    aadhaarCardBackDocUrl,
+    panCardDocUrl,
+    passportDocUrl,
+    dlDocUrl,
+    addressProofDocUrl,
+    gstDocUrl,
+    gstDocUrlPage2,
+    gstDocUrlPage3,
+    photoUrl,
+    signatureUrl,
+    watchedPostFileDocuments,
+    fetchCustomerDocuments,
+  ]);
 
   const docsSignature = useCallback((docs = []) => {
     try {
@@ -231,9 +253,10 @@ const PostFileDocumentManagement = ({ form }) => {
         preFileDocs.push({
           id: name.toLowerCase().replace(/\s/g, "_"),
           name,
+          originalName: name,
           size: "Pre-File",
           uploadedBy: "System",
-          uploadedAt: new Date().toLocaleDateString("en-IN"),
+          uploadedAt: systemUploadDateLabel,
           status: "submitted",
           tagId: `prefile_${name}`,
           tag: tagName,
@@ -241,27 +264,35 @@ const PostFileDocumentManagement = ({ form }) => {
           format: url.split(".").pop() || "jpg",
           publicId: null,
           isPreFile: true,
+          documentStage: "Pre-File",
         });
       }
     };
-    addPreFile(aadhaarCardDocUrl, "Aadhaar Card", "KYC");
+    addPreFile(aadhaarCardDocUrl, "Aadhar Front", "Aadhar Front");
+    addPreFile(aadhaarCardBackDocUrl, "Aadhar Back", "Aadhar Back");
     addPreFile(panCardDocUrl, "PAN Card", "KYC");
     addPreFile(passportDocUrl, "Passport", "KYC");
     addPreFile(dlDocUrl, "Driving License", "KYC");
     addPreFile(addressProofDocUrl, "Address Proof", "KYC");
-    addPreFile(gstDocUrl, "GST Certificate", "Business");
+    addPreFile(gstDocUrl, "GST Page 1", "GST Page 1");
+    addPreFile(gstDocUrlPage2, "GST Page 2", "GST Page 2");
+    addPreFile(gstDocUrlPage3, "GST Page 3", "GST Page 3");
     addPreFile(photoUrl, "Customer Photo", "Photo");
     addPreFile(signatureUrl, "Signature", "Signature");
     return preFileDocs;
   }, [
     aadhaarCardDocUrl,
+    aadhaarCardBackDocUrl,
     panCardDocUrl,
     passportDocUrl,
     dlDocUrl,
     addressProofDocUrl,
     gstDocUrl,
+    gstDocUrlPage2,
+    gstDocUrlPage3,
     photoUrl,
     signatureUrl,
+    systemUploadDateLabel,
   ]);
 
   const mergeDocuments = useCallback((existing = [], preFile = []) => {
@@ -285,51 +316,35 @@ const PostFileDocumentManagement = ({ form }) => {
     return merged;
   }, []);
 
-  // LOAD INITIAL FROM FORM & PRE-FILE
-  useEffect(() => {
-    const existingDocs = Array.isArray(watchedPostFileDocuments)
-      ? watchedPostFileDocuments
-      : [];
-    const existingTags = Array.isArray(watchedPostFileTags)
-      ? watchedPostFileTags
-      : [];
-    const mergedDocs = mergeDocuments(existingDocs, buildPreFileDocuments());
-    const incomingSignature = `${docsSignature(mergedDocs)}|${tagsSignature(existingTags)}`;
+  const preFileDocuments = useMemo(
+    () => buildPreFileDocuments(),
+    [buildPreFileDocuments],
+  );
 
-    if (didHydrateFromForm && incomingSignature === lastHydratedSignatureRef.current) {
-      return;
-    }
+  const documents = useMemo(
+    () => mergeDocuments(formDocuments, preFileDocuments),
+    [formDocuments, preFileDocuments, mergeDocuments],
+  );
 
-    setDocuments((prev) =>
-      docsSignature(mergedDocs) !== docsSignature(prev) ? mergedDocs : prev,
-    );
-    setTags((prev) =>
-      tagsSignature(existingTags) !== tagsSignature(prev) ? existingTags : prev,
-    );
-    lastHydratedSignatureRef.current = incomingSignature;
-    lastFormSyncSignatureRef.current = incomingSignature;
-    setDidHydrateFromForm(true);
-  }, [
-    watchedPostFileDocuments,
-    watchedPostFileTags,
-    buildPreFileDocuments,
-    mergeDocuments,
-    docsSignature,
-    tagsSignature,
-    didHydrateFromForm,
-  ]);
+  const applyCollections = useCallback(
+    (nextDocs = documents, nextTags = tags) => {
+      const normalizedDocs = Array.isArray(nextDocs) ? nextDocs : [];
+      const normalizedTags = Array.isArray(nextTags) ? nextTags : [];
+      const patch = {};
 
-  // Keep form in sync once initial hydration has happened.
-  useEffect(() => {
-    if (!didHydrateFromForm) return;
-    const nextSignature = `${docsSignature(documents)}|${tagsSignature(tags)}`;
-    if (lastFormSyncSignatureRef.current === nextSignature) return;
-    lastFormSyncSignatureRef.current = nextSignature;
-    form.setFieldsValue({
-      postfile_documents: documents,
-      postfile_tags: tags,
-    });
-  }, [didHydrateFromForm, documents, tags, form, docsSignature, tagsSignature]);
+      if (docsSignature(formDocuments) !== docsSignature(normalizedDocs)) {
+        patch.postfile_documents = normalizedDocs;
+      }
+      if (tagsSignature(tags) !== tagsSignature(normalizedTags)) {
+        patch.postfile_tags = normalizedTags;
+      }
+
+      if (Object.keys(patch).length) {
+        form.setFieldsValue(patch);
+      }
+    },
+    [documents, tags, formDocuments, form, docsSignature, tagsSignature],
+  );
 
   const availableTags = isCompany
     ? SUGGESTED_TAGS
@@ -354,16 +369,23 @@ const PostFileDocumentManagement = ({ form }) => {
       name: tagName,
       documentCount: 0,
     }));
-    setTags((prev) => [...prev, ...tagObjects]);
+    if (!tagObjects.length) return;
+    applyCollections(documents, [...tags, ...tagObjects]);
   };
 
   const deleteTag = (tagId) => {
-    setTags((prev) => prev.filter((t) => t.id !== tagId));
-    setDocuments((prev) =>
-      prev.map((doc) =>
-        doc.tagId === tagId ? { ...doc, tagId: null, tag: null } : doc
-      )
+    const nextTags = tags.filter((t) => t.id !== tagId);
+    const nextDocs = documents.map((doc) =>
+      doc.tagId === tagId
+        ? {
+            ...doc,
+            name: doc.originalName || doc.name,
+            tagId: null,
+            tag: null,
+          }
+        : doc,
     );
+    applyCollections(nextDocs, nextTags);
   };
 
   const [uploading, setUploading] = useState(false);
@@ -393,6 +415,7 @@ const PostFileDocumentManagement = ({ form }) => {
               uploadedData?.public_id ||
               `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
             name: file.name,
+            originalName: file.name,
             size: formatFileSize(file.size),
             uploadedBy: "Current User", // Replace with actual user
             uploadedAt: new Date().toLocaleString("en-IN"),
@@ -403,6 +426,7 @@ const PostFileDocumentManagement = ({ form }) => {
             format: uploadedData?.format || file.type.split('/')[1] || 'unknown',
             publicId: uploadedData?.public_id,
             file: file,
+            documentStage: "Post-File",
           });
 
         } catch (error) {
@@ -415,7 +439,7 @@ const PostFileDocumentManagement = ({ form }) => {
       }
       
       if (newDocs.length > 0) {
-        setDocuments((prev) => [...prev, ...newDocs]);
+        applyCollections([...documents, ...newDocs], tags);
       }
       setShowUploadModal(false);
     } finally {
@@ -424,7 +448,7 @@ const PostFileDocumentManagement = ({ form }) => {
     }
   };
 
-  const assignTag = (docId, tagName) => {
+  const assignTag = (docId, tagName, documentStage) => {
     const canonicalBaseName = toCanonicalTagName(
       tagName,
       tags.map((t) => t.name),
@@ -433,14 +457,18 @@ const PostFileDocumentManagement = ({ form }) => {
 
     if (!canonicalBaseName) return;
 
-    // 🏷️ Auto-Increment Tag Name if used (e.g., Aadhaar -> Aadhaar 2)
+    const resolvedStage = normalizeDocumentStage(documentStage);
+
+    // 🏷️ Auto-increment only when the same base tag is already used in the same stage.
     let finalTagName = canonicalBaseName;
     let counter = 2;
     
-    // Check if any OTHER document already uses this tag name
     const isUsed = (name) =>
       documents.some(
-        (d) => normalizeTagKey(d.tag) === normalizeTagKey(name) && d.id !== docId,
+        (d) =>
+          normalizeTagKey(d.tag) === normalizeTagKey(name) &&
+          normalizeDocumentStage(d.documentStage, getDocumentStage(d)) === resolvedStage &&
+          d.id !== docId,
       );
     
     while (isUsed(finalTagName)) {
@@ -452,27 +480,38 @@ const PostFileDocumentManagement = ({ form }) => {
     let tag = tags.find(
       (t) => normalizeTagKey(t.name) === normalizeTagKey(finalTagName),
     );
+    let createdTag = null;
 
     if (!tag) {
-      // Create new tag if it doesn't exist (e.g. Aadhaar 2)
-      const newTag = {
+      createdTag = {
         id: Date.now() + Math.random(),
         name: finalTagName,
         documentCount: 0,
       };
-      setTags((prev) => [...prev, newTag]);
-      tag = newTag;
+      tag = createdTag;
     }
 
-    setDocuments((prev) =>
-      prev.map((doc) =>
-        doc.id === docId ? { ...doc, tagId: tag.id, tag: tag.name } : doc
-      )
+    const nextTags = createdTag ? [...tags, createdTag] : tags;
+    const nextDocs = documents.map((doc) =>
+      doc.id === docId
+        ? {
+            ...doc,
+            originalName: doc.originalName || doc.name,
+            name: getScopedTagLabel(tag.name, resolvedStage),
+            tagId: tag.id,
+            tag: tag.name,
+            documentStage: resolvedStage,
+          }
+        : doc,
     );
+    applyCollections(nextDocs, nextTags);
   };
 
   const deleteDocument = (docId) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    applyCollections(
+      documents.filter((d) => d.id !== docId),
+      tags,
+    );
   };
 
   // NOTE:
@@ -490,6 +529,18 @@ const PostFileDocumentManagement = ({ form }) => {
   // 🎨 Dynamic Tag Colors (Using Global Helper)
   const [viewDocument, setViewDocument] = useState(null);
   const [showAllDocumentsModal, setShowAllDocumentsModal] = useState(false);
+  const handleCloseViewer = useCallback(() => setViewDocument(null), []);
+  const handleViewerIndexChange = useCallback(
+    (idx) => {
+      setViewDocument((current) => {
+        const nextDocument = documents[idx];
+        if (!nextDocument) return current;
+        return current?.id === nextDocument.id ? current : nextDocument;
+      });
+    },
+    [documents],
+  );
+  const handleCloseUploadModal = useCallback(() => setShowUploadModal(false), []);
   const viewerIndex = useMemo(() => {
     if (!viewDocument) return 0;
     const idx = documents.findIndex(
@@ -533,35 +584,14 @@ const PostFileDocumentManagement = ({ form }) => {
   const preFileCount = documents.filter((d) => d.isPreFile).length;
   const uploadedCount = documents.length - preFileCount;
 
-  useEffect(() => {
-    const counts = documents.reduce((acc, doc) => {
-      if (doc.tag) {
-        acc[doc.tag] = (acc[doc.tag] || 0) + 1;
-      }
-      return acc;
-    }, {});
-
-    setTags((prev) => {
-      let changed = false;
-      const next = prev.map((tag) => {
-        const nextCount = counts[tag.name] || 0;
-        if ((Number(tag.documentCount) || 0) !== nextCount) {
-          changed = true;
-          return { ...tag, documentCount: nextCount };
-        }
-        return tag;
-      });
-      return changed ? next : prev;
-    });
-  }, [documents]);
-
   return (
-    <div className="relative overflow-hidden rounded-[24px] border border-border/70 bg-card p-5 shadow-[0_20px_50px_-38px_rgba(15,23,42,0.16)] dark:bg-black/20 dark:shadow-[0_24px_60px_-42px_rgba(2,6,23,0.7)] md:p-6">
+    <div className="relative overflow-hidden rounded-[24px] border border-border/70 bg-card p-5 dark:bg-card md:p-6">
+      <Form.Item name="postfile_tags" hidden />
       <div className="relative">
         <div className="documents-header mb-6 flex flex-col gap-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 via-pink-500 to-orange-400 text-white shadow-[0_18px_40px_-22px_rgba(244,63,94,0.65)] dark:text-slate-950">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
                 <Icon name="FolderOpen" size={20} />
               </div>
               <div>
@@ -614,7 +644,7 @@ const PostFileDocumentManagement = ({ form }) => {
                 iconPosition="left"
                 size="sm"
                 onClick={() => setShowUploadModal(true)}
-                className="h-10 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 px-4 text-white shadow-[0_16px_34px_-18px_rgba(244,63,94,0.6)] hover:opacity-95 dark:text-slate-950"
+                className="h-10 rounded-xl bg-rose-600 px-4 text-white hover:bg-rose-700"
               >
                 Add Document
               </Button>
@@ -767,7 +797,7 @@ const PostFileDocumentManagement = ({ form }) => {
           {filteredDocuments.map((doc, index) => (
             <div
               key={getStableDocId(doc, `doc_${index}`)}
-              className="group rounded-[24px] border border-border/70 bg-white/80 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-[0_22px_50px_-34px_rgba(244,63,94,0.28)] dark:bg-white/5 dark:hover:border-rose-900/60"
+              className="group rounded-[24px] border border-border/70 bg-white p-4 shadow-sm dark:bg-card"
             >
               <div className="flex flex-col gap-4 lg:flex-row">
                 <div
@@ -783,7 +813,7 @@ const PostFileDocumentManagement = ({ form }) => {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-rose-500/10 via-transparent to-sky-500/10">
+                    <div className="flex h-full w-full items-center justify-center bg-muted/30">
                       <Icon
                         name={doc.url?.toLowerCase().endsWith(".pdf") ? "FileText" : "File"}
                         size={32}
@@ -806,7 +836,7 @@ const PostFileDocumentManagement = ({ form }) => {
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-1 items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
                         <Icon name="FileText" size={18} />
                       </div>
                       <div className="min-w-0 flex-1">
@@ -829,18 +859,24 @@ const PostFileDocumentManagement = ({ form }) => {
                             <div className="flex items-center gap-2">
                               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-500/10 dark:text-emerald-200">
                                 <Icon name="Tag" size={12} className="text-emerald-600 dark:text-emerald-300" />
-                                {doc.tag}
+                                {getDocDisplayLabel(doc, index)}
                               </span>
                               <button
-                                onClick={() => {
-                                  setDocuments(
+                                onClick={() =>
+                                  applyCollections(
                                     documents.map((d) =>
                                       d.id === doc.id
-                                        ? { ...d, tagId: null, tag: null }
-                                        : d
-                                    )
-                                  );
-                                }}
+                                        ? {
+                                            ...d,
+                                            name: d.originalName || d.name,
+                                            tagId: null,
+                                            tag: null,
+                                          }
+                                        : d,
+                                    ),
+                                    tags,
+                                  )
+                                }
                                 className="rounded-full border border-border/70 px-2 py-1 text-[11px] text-muted-foreground transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                               >
                                 Remove tag
@@ -850,7 +886,8 @@ const PostFileDocumentManagement = ({ form }) => {
                             <TagInputWithSuggestions
                               docId={doc.id}
                               availableTags={tags.map((t) => t.name)}
-                              onAssign={(tagName) => assignTag(doc.id, tagName)}
+                              defaultScope={getDocumentStage(doc)}
+                              onAssign={(tagName, scope) => assignTag(doc.id, tagName, scope)}
                             />
                           )}
                         </div>
@@ -903,8 +940,8 @@ const PostFileDocumentManagement = ({ form }) => {
           ))}
 
           {documents.length === 0 && (
-            <div className="overflow-hidden rounded-[28px] border border-dashed border-rose-200/80 bg-gradient-to-br from-white via-rose-50/70 to-orange-50/60 px-6 py-14 text-center shadow-inner dark:border-rose-900/60 dark:from-white/5 dark:via-rose-500/5 dark:to-orange-500/5 md:px-10 md:py-16">
-              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 shadow-sm dark:text-rose-300">
+            <div className="overflow-hidden rounded-[28px] border border-dashed border-rose-200/80 bg-white px-6 py-14 text-center dark:border-rose-900/60 dark:bg-card md:px-10 md:py-16">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[28px] bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
                 <Icon name="FolderOpen" size={34} />
               </div>
               <p className="text-lg font-semibold text-foreground">
@@ -920,7 +957,7 @@ const PostFileDocumentManagement = ({ form }) => {
                   iconPosition="left"
                   size="sm"
                   onClick={() => setShowUploadModal(true)}
-                  className="h-11 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-orange-400 px-5 text-white shadow-[0_18px_40px_-22px_rgba(244,63,94,0.6)] hover:opacity-95 dark:text-slate-950"
+                  className="h-11 rounded-xl bg-rose-600 px-5 text-white hover:bg-rose-700"
                 >
                   Add Document
                 </Button>
@@ -970,17 +1007,17 @@ const PostFileDocumentManagement = ({ form }) => {
             title="Post-File Document Viewer"
             documents={documents}
             currentIndex={viewerIndex}
-            onIndexChange={(idx) => setViewDocument(documents[idx])}
-            onClose={() => setViewDocument(null)}
+            onIndexChange={handleViewerIndexChange}
+            onClose={handleCloseViewer}
           />
         )}
 
         {showAllDocumentsModal && (
-          <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 p-4">
             <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-border bg-card shadow-elevation-4">
               <div className="flex items-center justify-between border-b border-border px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
                     <Icon name="FolderOpen" size={18} />
                   </div>
                   <div>
@@ -1005,7 +1042,7 @@ const PostFileDocumentManagement = ({ form }) => {
                   {documents.map((doc, index) => (
                     <div
                       key={getStableDocId(doc, `all_${index}`)}
-                      className="overflow-hidden rounded-[22px] border border-border bg-white/80 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-white/5"
+                      className="overflow-hidden rounded-[22px] border border-border bg-white shadow-sm dark:bg-card"
                       onClick={() => {
                         setViewDocument(doc);
                         setShowAllDocumentsModal(false);
@@ -1034,7 +1071,7 @@ const PostFileDocumentManagement = ({ form }) => {
                           <div className="mt-2">
                             <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
                               <Icon name="Tag" size={10} />
-                              {doc.tag}
+                              {getDocDisplayLabel(doc, index)}
                             </span>
                           </div>
                         )}
@@ -1074,7 +1111,7 @@ const PostFileDocumentManagement = ({ form }) => {
             open={showUploadModal}
             title="Upload Documents"
             onUpload={uploadDocuments}
-            onClose={() => setShowUploadModal(false)}
+            onClose={handleCloseUploadModal}
             uploading={uploading}
             progress={uploadProgress}
             multiple
@@ -1112,16 +1149,23 @@ const PostFileDocumentManagement = ({ form }) => {
   );
 };
 
-const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
+const TagInputWithSuggestions = ({ docId, availableTags, onAssign, defaultScope = "Post-File" }) => {
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedScope, setSelectedScope] = useState(
+    normalizeDocumentStage(defaultScope),
+  );
+
+  useEffect(() => {
+    setSelectedScope(normalizeDocumentStage(defaultScope));
+  }, [defaultScope]);
 
   const filteredTags = availableTags.filter((tag) =>
     tag.toLowerCase().includes(inputValue.toLowerCase())
   );
 
   const handleSelect = (tag) => {
-    onAssign(tag);
+    onAssign(tag, selectedScope);
     setInputValue("");
     setShowSuggestions(false);
   };
@@ -1129,14 +1173,35 @@ const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
   const handleSubmit = () => {
     const trimmed = inputValue.trim();
     if (trimmed) {
-      onAssign(trimmed);
+      onAssign(trimmed, selectedScope);
       setInputValue("");
       setShowSuggestions(false);
     }
   };
 
   return (
-    <div className="relative flex items-center gap-2">
+    <div className="relative space-y-2">
+      <div className="inline-flex rounded-xl border border-sky-200/80 bg-white/80 p-1 dark:border-sky-900/60 dark:bg-sky-500/10">
+        {["Pre-File", "Post-File"].map((scope) => {
+          const isActive = selectedScope === scope;
+          return (
+            <button
+              key={`${docId}_${scope}`}
+              type="button"
+              onClick={() => setSelectedScope(scope)}
+              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition ${
+                isActive
+                  ? "bg-sky-600 text-white dark:bg-sky-300 dark:text-slate-950"
+                  : "text-slate-600 hover:bg-sky-50 dark:text-slate-300 dark:hover:bg-sky-500/10"
+              }`}
+            >
+              {scope}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="relative flex items-center gap-2">
       <div className="relative flex-1">
         <input
           type="text"
@@ -1180,12 +1245,14 @@ const TagInputWithSuggestions = ({ docId, availableTags, onAssign }) => {
       </div>
 
       <button
+        type="button"
         onClick={handleSubmit}
         className="rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-50 dark:text-slate-950"
         disabled={!inputValue.trim()}
       >
         Tag
       </button>
+      </div>
     </div>
   );
 };
@@ -1219,11 +1286,11 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-background/80 p-4">
       <div className="w-full max-w-3xl rounded-[28px] border border-sky-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,250,255,0.96))] shadow-elevation-4 dark:border-sky-900/60 dark:bg-[linear-gradient(180deg,rgba(10,10,10,0.98),rgba(8,18,28,0.96))]">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/15 to-cyan-400/15 text-sky-700 dark:text-sky-300">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
               <Icon name="Tag" size={18} />
             </div>
             <div>
@@ -1347,4 +1414,4 @@ const AddTagsModal = ({ availableTags, existingTags, onAdd, onClose }) => {
   );
 };
 
-export default PostFileDocumentManagement;
+export default React.memo(PostFileDocumentManagement);

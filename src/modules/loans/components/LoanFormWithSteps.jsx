@@ -820,11 +820,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedHasGuarantor = Form.useWatch("hasGuarantor", form);
   const watchedApplicantType = Form.useWatch("applicantType", form);
   const watchedAadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
+  const watchedAadhaarCardBackDocUrl = Form.useWatch("aadhaarCardBackDocUrl", form);
   const watchedPanCardDocUrl = Form.useWatch("panCardDocUrl", form);
   const watchedPassportDocUrl = Form.useWatch("passportDocUrl", form);
   const watchedDlDocUrl = Form.useWatch("dlDocUrl", form);
   const watchedAddressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
   const watchedGstDocUrl = Form.useWatch("gstDocUrl", form);
+  const watchedGstDocUrlPage2 = Form.useWatch("gstDocUrlPage2", form);
+  const watchedGstDocUrlPage3 = Form.useWatch("gstDocUrlPage3", form);
   const watchedCoAadhaarCardDocUrl = Form.useWatch(
     "co_aadhaarCardDocUrl",
     form,
@@ -1889,11 +1892,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
     const docPatch = {
       aadhaarCardDocUrl: watchedAadhaarCardDocUrl || "",
+      aadhaarCardBackDocUrl: watchedAadhaarCardBackDocUrl || "",
       panCardDocUrl: watchedPanCardDocUrl || "",
       passportDocUrl: watchedPassportDocUrl || "",
       dlDocUrl: watchedDlDocUrl || "",
       addressProofDocUrl: watchedAddressProofDocUrl || "",
       gstDocUrl: watchedGstDocUrl || "",
+      gstDocUrlPage2: watchedGstDocUrlPage2 || "",
+      gstDocUrlPage3: watchedGstDocUrlPage3 || "",
       co_aadhaarCardDocUrl: watchedCoAadhaarCardDocUrl || "",
       co_panCardDocUrl: watchedCoPanCardDocUrl || "",
       co_passportDocUrl: watchedCoPassportDocUrl || "",
@@ -1929,11 +1935,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     loanIdFromRoute,
     form,
     watchedAadhaarCardDocUrl,
+    watchedAadhaarCardBackDocUrl,
     watchedPanCardDocUrl,
     watchedPassportDocUrl,
     watchedDlDocUrl,
     watchedAddressProofDocUrl,
     watchedGstDocUrl,
+    watchedGstDocUrlPage2,
+    watchedGstDocUrlPage3,
     watchedCoAadhaarCardDocUrl,
     watchedCoPanCardDocUrl,
     watchedCoPassportDocUrl,
@@ -2456,10 +2465,13 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           voterId: formValues.voterId,
 
           aadhaarCardDocUrl: formValues.aadhaarCardDocUrl,
+          aadhaarCardBackDocUrl: formValues.aadhaarCardBackDocUrl,
           panCardDocUrl: formValues.panCardDocUrl,
           passportDocUrl: formValues.passportDocUrl,
           dlDocUrl: formValues.dlDocUrl,
           gstDocUrl: formValues.gstDocUrl,
+          gstDocUrlPage2: formValues.gstDocUrlPage2,
+          gstDocUrlPage3: formValues.gstDocUrlPage3,
           addressProofDocUrl: formValues.addressProofDocUrl,
 
           bankName: bankSyncPayload.bankName,
@@ -3250,7 +3262,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       <Form.Item name="delivery_invoiceFile" hidden />
       <Form.Item name="delivery_rcFile" hidden />
+      <Form.Item name="loan_number" hidden />
       <Form.Item name="postfile_documents" hidden />
+      <Form.Item name="postfile_tags" hidden />
+      <Form.Item name="postfile_documents_ledger" hidden />
 
       <Form.Item name="postfile_bankName" hidden />
       <Form.Item name="postfile_loanAmountApproved" hidden />
@@ -3491,7 +3506,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       )}
 
       {/* Quick Actions Floating Toolbar - All Steps */}
-      <div className="fixed bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 bg-transparent border border-border rounded-2xl shadow-elevation-4 w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-auto max-w-[960px] overflow-x-auto no-scrollbar">
+      <div className="fixed bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 bg-white dark:bg-slate-950 border border-border rounded-2xl shadow-elevation-4 w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-auto max-w-[960px] overflow-x-auto no-scrollbar">
         {visibleSteps.map((step, index) => {
           const stepIcons = {
             profile: "User",

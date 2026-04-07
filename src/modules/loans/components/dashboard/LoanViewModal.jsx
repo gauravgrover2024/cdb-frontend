@@ -1,4 +1,11 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Spin } from "antd";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
@@ -2705,10 +2712,10 @@ const ContinuousPageSection = ({
     <section
       ref={registerRef}
       data-tab-key={tab?.key}
-      className={`scroll-mt-6 rounded-[26px] border px-4 py-4 transition-all md:px-5 md:py-5 ${
+      className={`scroll-mt-6 rounded-[26px] border px-4 py-4 md:px-5 md:py-5 ${
         isActive
-          ? "border-indigo-300/80 bg-indigo-50/60 shadow-[0_10px_30px_rgba(79,70,229,0.08)] dark:border-indigo-800/70 dark:bg-indigo-950/18"
-          : "border-border/70 bg-card/88 shadow-sm"
+          ? "border-indigo-300/80 bg-indigo-50/50 dark:border-indigo-800/70 dark:bg-indigo-950/12"
+          : "border-border/70 bg-card"
       }`}
     >
       <div className="flex flex-col gap-3 border-b border-border/60 pb-3 md:flex-row md:items-start md:justify-between">
@@ -2749,18 +2756,18 @@ const ContinuousPageSection = ({
 // Stage pill colors
 const stagePillClass = (stageKey, active) => {
   const base =
-    "group inline-flex min-w-0 items-center gap-2 rounded-2xl border px-3 py-2 text-left transition-all duration-200 cursor-pointer select-none";
+    "group inline-flex min-w-0 items-center gap-2 rounded-2xl border px-3 py-2 text-left cursor-pointer select-none";
   if (!active)
     return `${base} border-border/60 bg-background/70 text-muted-foreground hover:border-border hover:bg-muted/35 hover:text-foreground`;
   const map = {
     prefile:
-      "border-sky-300/80 bg-sky-50 text-sky-900 shadow-[0_8px_24px_-18px_rgba(14,165,233,0.65)] dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-100",
+      "border-sky-300/80 bg-sky-50 text-sky-900 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-100",
     approval:
-      "border-emerald-300/80 bg-emerald-50 text-emerald-900 shadow-[0_8px_24px_-18px_rgba(16,185,129,0.65)] dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-100",
+      "border-emerald-300/80 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-100",
     postfile:
-      "border-amber-300/80 bg-amber-50 text-amber-900 shadow-[0_8px_24px_-18px_rgba(245,158,11,0.65)] dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-100",
+      "border-amber-300/80 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-100",
     delivery:
-      "border-violet-300/80 bg-violet-50 text-violet-900 shadow-[0_8px_24px_-18px_rgba(139,92,246,0.65)] dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-100",
+      "border-violet-300/80 bg-violet-50 text-violet-900 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-100",
   };
   return `${base} ${map[stageKey] || map.prefile}`;
 };
@@ -2781,6 +2788,8 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
   );
   const contentScrollRef = useRef(null);
   const sectionRefs = useRef({});
+  const activeTabKeyRef = useRef(null);
+  const suppressScrollSyncUntilRef = useRef(0);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const seedLoanData = useMemo(
     () => (loan && typeof loan === "object" ? loan : null),
@@ -2819,6 +2828,10 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    activeTabKeyRef.current = activeTabKey;
+  }, [activeTabKey]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -3093,13 +3106,28 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
       return "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
     return "bg-muted text-muted-foreground";
   };
+  const suppressScrollSync = useCallback((duration = 500) => {
+    suppressScrollSyncUntilRef.current = Date.now() + duration;
+  }, []);
+  const activateTab = useCallback(
+    (tabKey, options = {}) => {
+      const { stage = null, highlight = null, clearSearch = false } = options;
+      suppressScrollSync();
+      if (stage) setActiveStage(stage);
+      setPreferredTabKey(tabKey || null);
+      setActiveTabKey(tabKey || null);
+      if (typeof highlight === "string") setHighlightKey(highlight);
+      if (clearSearch) setSearchQuery("");
+    },
+    [suppressScrollSync],
+  );
   const handleSearchSelection = (item) => {
     if (!item) return;
-    setActiveStage(item.stage);
-    setPreferredTabKey(item.tabKey);
-    setActiveTabKey(item.tabKey);
-    setHighlightKey(item.highlightKey || item.path || item.label);
-    setSearchQuery("");
+    activateTab(item.tabKey, {
+      stage: item.stage,
+      highlight: item.highlightKey || item.path || item.label,
+      clearSearch: true,
+    });
   };
   const handleOpenFile = () => {
     const targetId = loan?._id || loanData?._id || loanData?.loanId || resolvedLoanId;
@@ -3110,6 +3138,7 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
 
   useEffect(() => {
     if (!open || loading || !loanData || !preferredTabKey || isAllFieldsView) return;
+    suppressScrollSync();
     const frame = window.requestAnimationFrame(() => {
       const container = contentScrollRef.current;
       const section = sectionRefs.current[preferredTabKey];
@@ -3120,7 +3149,7 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [open, loading, loanData, preferredTabKey, isAllFieldsView]);
+  }, [open, loading, loanData, preferredTabKey, isAllFieldsView, suppressScrollSync]);
 
   useEffect(() => {
     if (!open || loading || isAllFieldsView) return undefined;
@@ -3130,15 +3159,17 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
     let frame = null;
     const syncActiveTabFromScroll = () => {
       if (!contentScrollRef.current) return;
+      if (Date.now() < suppressScrollSyncUntilRef.current) return;
       const scrollTop = contentScrollRef.current.scrollTop;
+      const activationLine = scrollTop + 140;
       const candidate = flowTabs.reduce((current, tab) => {
         const node = sectionRefs.current[tab.key];
         if (!node) return current;
-        if (node.offsetTop - 96 <= scrollTop) return tab.key;
+        if (node.offsetTop - 96 <= activationLine) return tab.key;
         return current;
       }, flowTabs[0]?.key || null);
 
-      if (candidate && candidate !== activeTabKey) {
+      if (candidate && candidate !== activeTabKeyRef.current) {
         setActiveTabKey(candidate);
       }
     };
@@ -3154,7 +3185,7 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
       if (frame) window.cancelAnimationFrame(frame);
       container.removeEventListener("scroll", onScroll);
     };
-  }, [open, loading, isAllFieldsView, flowTabs, activeTabKey]);
+  }, [open, loading, isAllFieldsView, flowTabs]);
 
   if (!open) return null;
 
@@ -3162,7 +3193,7 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/50"
         onClick={onClose}
       />
 
@@ -3180,12 +3211,12 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
         }}
       >
         {/* ── HEADER ─────────────────────────────────────────────────── */}
-        <div className="border-b border-border bg-gradient-to-b from-card via-card to-background/96 flex-shrink-0">
+        <div className="border-b border-border bg-card flex-shrink-0">
           <div className="px-3 py-3 md:px-5 md:py-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-500 to-violet-600 text-white shadow-[0_12px_30px_-18px_rgba(79,70,229,0.8)]">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white">
                     {loading ? (
                       <Icon name="Loader2" size={16} className="animate-spin" />
                     ) : (
@@ -3247,6 +3278,7 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
                     key={sk}
                     className={stagePillClass(sk, isActive)}
                     onClick={() => {
+                      suppressScrollSync();
                       setPreferredTabKey(null);
                       setActiveStage(sk);
                       setHighlightKey("");
@@ -3336,6 +3368,7 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
                 <button
                   key={sk}
                   onClick={() => {
+                    suppressScrollSync();
                     setPreferredTabKey(null);
                     setActiveStage(sk);
                     setHighlightKey("");
@@ -3359,10 +3392,7 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
               {subTabs.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => {
-                    setPreferredTabKey(tab.key);
-                    setActiveTabKey(tab.key);
-                  }}
+                  onClick={() => activateTab(tab.key)}
                   className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     activeTabKey === tab.key
                       ? "bg-indigo-600 text-white"
@@ -3460,7 +3490,8 @@ const LoanViewModal = ({ open, onClose, loanId, loan, initialTab }) => {
         <LoanDocumentsModal
           open={docsOpen}
           onClose={() => setDocsOpen(false)}
-          loanId={resolvedLoanId}
+          loan={loanData}
+          loanId={loanData?._id || resolvedLoanId}
         />
       )}
     </>

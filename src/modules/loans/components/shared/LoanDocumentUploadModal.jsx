@@ -62,11 +62,11 @@ const LoanDocumentUploadModal = ({
   };
 
   const modalNode = (
-    <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-background/80 p-4">
       <div className="pointer-events-auto w-full max-w-2xl rounded-[28px] border border-border bg-card shadow-elevation-4">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
               <Icon name="Upload" size={18} />
             </div>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -82,7 +82,7 @@ const LoanDocumentUploadModal = ({
 
         <div className="space-y-4 p-5">
           {!uploading && (
-            <div className="rounded-[24px] border-2 border-dashed border-rose-200/80 bg-gradient-to-br from-white via-rose-50/60 to-orange-50/40 p-8 text-center transition-colors hover:border-rose-300 dark:border-rose-900/60 dark:from-white/5 dark:via-rose-500/5 dark:to-orange-500/5">
+            <div className="rounded-[24px] border-2 border-dashed border-rose-200/80 bg-white p-8 text-center dark:border-rose-900/60 dark:bg-card">
               <input
                 type="file"
                 id="loanDocumentUploadInput"
@@ -92,7 +92,7 @@ const LoanDocumentUploadModal = ({
                 accept={accept}
               />
               <label htmlFor="loanDocumentUploadInput" className="flex cursor-pointer flex-col items-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
                   <Icon name="Upload" size={24} />
                 </div>
                 <p className="mb-1 text-sm font-medium text-foreground">Click to upload or drag and drop</p>
@@ -103,7 +103,7 @@ const LoanDocumentUploadModal = ({
 
           {uploading && (
             <div className="space-y-3 py-8 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-rose-500/15 to-orange-400/15 text-rose-600 dark:text-rose-300">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300">
                 <Icon name="Upload" size={24} />
               </div>
               <p className="font-medium">Uploading {selectedFiles.length} files...</p>
@@ -166,4 +166,4 @@ const LoanDocumentUploadModal = ({
   return createPortal(modalNode, document.body);
 };
 
-export default LoanDocumentUploadModal;
+export default React.memo(LoanDocumentUploadModal);
