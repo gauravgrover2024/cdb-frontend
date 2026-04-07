@@ -1219,7 +1219,8 @@ const LoanDashboard = () => {
     [extractShowroomFields, hasMeaningfulText],
   );
 
-  const fetchLoans = useCallback(async () => {
+  const fetchLoans = useCallback(async (options = {}) => {
+    const { force = false } = options;
     const extractRows = (payload) => {
       if (Array.isArray(payload)) return payload;
       if (Array.isArray(payload?.data)) return payload.data;
@@ -1324,7 +1325,7 @@ const LoanDashboard = () => {
       const cacheKey = isExpandedFetchMode
         ? `expanded:${searchKey}|${apiSort.sortBy}|${apiSort.sortDir}${filterFingerprint ? "|" + filterFingerprint : ""}`
         : `${searchKey}|${page}|${pageSize}|${apiSort.sortBy}|${apiSort.sortDir}${filterFingerprint ? "|" + filterFingerprint : ""}`;
-      const cached = pageCacheRef.current.get(cacheKey);
+      const cached = force ? null : pageCacheRef.current.get(cacheKey);
       if (cached) {
         setLoans(cached.rows);
         setServerTotal(cached.total);
@@ -1610,7 +1611,7 @@ const LoanDashboard = () => {
     };
     const apiSort = mapSortToApi(sortConfig);
     const cacheKey = `expanded:|${apiSort.sortBy}|${apiSort.sortDir}`;
-    if (pageCacheRef.current.has(cacheKey)) return;
+      if (pageCacheRef.current.has(cacheKey)) return;
 
     let cancelled = false;
     const extractRows = (payload) => {
@@ -1777,12 +1778,14 @@ const LoanDashboard = () => {
 
   const refreshDashboard = useCallback(() => {
     pageCacheRef.current.clear();
+    showroomHydrationCacheRef.current.clear();
+    showroomHydrationInFlightRef.current.clear();
     cpvEvaluationCacheRef.current.clear();
     try {
       sessionStorage.removeItem(PAGE1_CACHE_KEY);
       sessionStorage.removeItem(STATS_CACHE_KEY);
     } catch (_) {}
-    fetchLoans();
+    fetchLoans({ force: true });
     fetchDashboardStats({ force: true });
   }, [fetchLoans, fetchDashboardStats]);
 

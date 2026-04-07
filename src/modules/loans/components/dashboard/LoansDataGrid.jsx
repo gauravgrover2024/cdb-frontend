@@ -196,11 +196,18 @@ const formatDateShort = (date) =>
 
 const isCashCaseLoan = (loan) => {
   const typeText = normalizeLoanType(loan);
-  if (typeText.includes("cash")) return true;
+  if (typeText.includes("cash-in") || typeText.includes("cash in")) return false;
+  if (
+    typeText === "cash" ||
+    typeText.includes("cash car") ||
+    typeText.includes("cash sale")
+  ) {
+    return true;
+  }
   const financedRaw = String(loan?.isFinanced ?? loan?.isFinanceRequired ?? "")
     .trim()
     .toLowerCase();
-  if (["no", "false", "0"].includes(financedRaw)) return true;
+  if (["no", "false", "0"].includes(financedRaw)) return !typeText.includes("refinance");
   return loan?.isFinanced === false || loan?.isFinanceRequired === false;
 };
 
@@ -524,23 +531,18 @@ const getPendencyGateInfo = (loan) => {
   const deliveryDate = getDeliveryDate(loan);
   const disbursementDate = getDisbursementDate(loan);
 
-  if (isNewCar) {
-    if (isCash) {
-      return {
-        active: Boolean(deliveryDate),
-        message: "Pendency starts after Delivery Date is captured.",
-      };
-    }
+  if (isCash) {
     return {
-      active: Boolean(disbursementDate && deliveryDate),
-      message:
-        "Pendency starts after both Disbursement Date and Delivery Date are captured.",
+      active: Boolean(deliveryDate),
+      message: "Pendency starts after Delivery Date is captured for cash cases.",
     };
   }
 
   return {
     active: Boolean(disbursementDate),
-    message: "Pendency starts after Disbursement Date is captured.",
+    message: isNewCar
+      ? "Pendency starts after Disbursement Date is captured for financed cases."
+      : "Pendency starts after Disbursement Date is captured.",
   };
 };
 
@@ -1182,7 +1184,19 @@ const LoansDataGrid = ({
                   return true;
                 if (isFinancedText === "yes" || isFinancedText === "true")
                   return false;
-                if (loanTypeText.includes("cash")) return true;
+                if (
+                  loanTypeText === "cash" ||
+                  loanTypeText.includes("cash car") ||
+                  loanTypeText.includes("cash sale")
+                ) {
+                  return true;
+                }
+                if (
+                  loanTypeText.includes("cash-in") ||
+                  loanTypeText.includes("cash in")
+                ) {
+                  return false;
+                }
                 if (
                   loan?.isFinanced === false ||
                   loan?.isFinanceRequired === false

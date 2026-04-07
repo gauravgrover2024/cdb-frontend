@@ -450,17 +450,24 @@ const buildRepaymentViewerValues = (loanData = {}) => {
   ]);
   setFallback("postfile_maturityDate", [
     "postfile_maturityDate",
+    "postfileMaturityDate",
     "postfile_maturity_date",
     "postfile_maturity",
     "postfile_loanMaturityDate",
+    "postfile_loan_maturity_date",
     "loanMaturityDate",
     "loan_maturity_date",
+    "loanMaturity",
     "approval_maturityDate",
+    "approvalMaturityDate",
     "approval_maturity_date",
+    "approval_maturity",
     "approval_loanMaturityDate",
     "approval_loan_maturity_date",
     "maturityDate",
+    "maturityOn",
     "maturity_date",
+    "maturity_on",
     "maturity",
   ]);
   setFallback("postfile_bankName", ["approval_bankName"]);
@@ -509,9 +516,12 @@ const buildRepaymentViewerValues = (loanData = {}) => {
     if (!hasValue(mapped.postfile_maturityDate))
       mapped.postfile_maturityDate = firstFilled(
         primaryBank.maturityDate,
+        primaryBank.maturityOn,
         primaryBank.maturity_date,
+        primaryBank.maturity_on,
         primaryBank.loanMaturityDate,
         primaryBank.loan_maturity_date,
+        primaryBank.loanMaturity,
       );
   }
   if (!hasValue(mapped.postfile_maturityDate)) {
@@ -1804,7 +1814,7 @@ const getStageSubTabs = (stage, data, context = {}) => {
       {
         key: "po_maturityDate",
         label: "Maturity Date",
-        paths: ["postfile_maturityDate"],
+        paths: ["postfile_maturityDate", "approval_maturityDate", "maturityDate"],
         format: "date",
       },
       {

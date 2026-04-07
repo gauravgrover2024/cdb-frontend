@@ -2126,6 +2126,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           .trim()
           .toLowerCase();
         if (!v) return "Yes";
+        if (v.includes("cash-in") || v.includes("cash in")) {
+          return "Yes";
+        }
         if (
           v === "no" ||
           v === "n" ||
