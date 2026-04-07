@@ -43,28 +43,29 @@ export const PERMISSIONS = {
 // Feature access map — used by ProtectedRoute and Header nav filtering
 export const FEATURE_ACCESS = {
   // Accessible to all authenticated staff+
-  ANALYTICS:        ["staff", "admin", "superadmin"],
-  CUSTOMERS:        ["staff", "admin", "superadmin"],
-  LOANS:            ["staff", "admin", "superadmin"],
-  TOOLS:            ["staff", "admin", "superadmin"],
-  PAYMENTS:         ["staff", "admin", "superadmin"],
-  PENDENCY:         ["staff", "admin", "superadmin"],
+  ANALYTICS: ["staff", "admin", "superadmin"],
+  INSURANCE: ["staff", "admin", "superadmin"],
+  CUSTOMERS: ["staff", "admin", "superadmin"],
+  LOANS: ["staff", "admin", "superadmin"],
+  TOOLS: ["staff", "admin", "superadmin"],
+  PAYMENTS: ["staff", "admin", "superadmin"],
+  PENDENCY: ["staff", "admin", "superadmin"],
 
   // Admin + Superadmin only
-  PAYOUTS:          ["admin", "superadmin"],
-  DELIVERY_ORDERS:  ["admin", "superadmin"],
-  VEHICLES:         ["admin", "superadmin"],
+  PAYOUTS: ["admin", "superadmin"],
+  DELIVERY_ORDERS: ["admin", "superadmin"],
+  VEHICLES: ["admin", "superadmin"],
 
   // Superadmin only
-  FIELD_MAPPING:    ["superadmin"],
-  SUPERADMIN_USERS:     ["superadmin"],
-  SUPERADMIN_SETTINGS:  ["superadmin"],
+  FIELD_MAPPING: ["superadmin"],
+  SUPERADMIN_USERS: ["superadmin"],
+  SUPERADMIN_SETTINGS: ["superadmin"],
   SUPERADMIN_SHOWROOMS: ["superadmin"],
-  SUPERADMIN_CHANNELS:  ["superadmin"],
-  SUPERADMIN_BANKS:     ["superadmin"],
+  SUPERADMIN_CHANNELS: ["superadmin"],
+  SUPERADMIN_BANKS: ["superadmin"],
   SUPERADMIN_AUDIT_LOG: ["superadmin"],
-  SUPERADMIN_SYSTEM:    ["superadmin"],
+  SUPERADMIN_SYSTEM: ["superadmin"],
 
   // All authenticated users (no role restriction — just needs login)
-  PROFILE:          [],
+  PROFILE: [],
 };

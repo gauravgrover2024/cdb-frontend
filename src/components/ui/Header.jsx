@@ -38,11 +38,29 @@ const getInitials = (name) => {
 };
 
 const ROLE_META = {
-  superadmin: { label: "Superadmin", color: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" },
-  admin:       { label: "Admin",      color: "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300" },
-  staff:       { label: "Staff",      color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
-  user:        { label: "User",       color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
-  demo:        { label: "Demo",       color: "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300" },
+  superadmin: {
+    label: "Superadmin",
+    color:
+      "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
+  },
+  admin: {
+    label: "Admin",
+    color: "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300",
+  },
+  staff: {
+    label: "Staff",
+    color:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+  },
+  user: {
+    label: "User",
+    color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  },
+  demo: {
+    label: "Demo",
+    color:
+      "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300",
+  },
 };
 
 // Initials avatar — used in header button and mobile footer
@@ -78,7 +96,9 @@ const Header = () => {
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [mobileMenuOpen]);
 
   // Close profile dropdown on outside click
@@ -108,12 +128,28 @@ const Header = () => {
       roles: FEATURE_ACCESS.ANALYTICS,
     },
     {
+      label: "Insurance",
+      path: "/insurance",
+      icon: <Icon name="Shield" size={18} />,
+      roles: FEATURE_ACCESS.INSURANCE,
+    },
+    {
       label: "Customers",
       icon: <Icon name="Users" size={18} />,
       roles: FEATURE_ACCESS.CUSTOMERS,
       children: [
-        { label: "Dashboard",         path: "/customers",     desc: "View all customer records", roles: FEATURE_ACCESS.CUSTOMERS },
-        { label: "New Registration",  path: "/customers/new", desc: "Register a new client",      roles: FEATURE_ACCESS.CUSTOMERS },
+        {
+          label: "Dashboard",
+          path: "/customers",
+          desc: "View all customer records",
+          roles: FEATURE_ACCESS.CUSTOMERS,
+        },
+        {
+          label: "New Registration",
+          path: "/customers/new",
+          desc: "Register a new client",
+          roles: FEATURE_ACCESS.CUSTOMERS,
+        },
       ],
     },
     {
@@ -121,8 +157,18 @@ const Header = () => {
       icon: <Icon name="Wallet" size={18} />,
       roles: FEATURE_ACCESS.LOANS,
       children: [
-        { label: "Loan Dashboard",   path: "/loans",     desc: "Lifecycle management",  roles: FEATURE_ACCESS.LOANS },
-        { label: "New Application",  path: "/loans/new", desc: "Start a new loan file", roles: FEATURE_ACCESS.LOANS },
+        {
+          label: "Loan Dashboard",
+          path: "/loans",
+          desc: "Lifecycle management",
+          roles: FEATURE_ACCESS.LOANS,
+        },
+        {
+          label: "New Application",
+          path: "/loans/new",
+          desc: "Start a new loan file",
+          roles: FEATURE_ACCESS.LOANS,
+        },
       ],
     },
     {
@@ -130,22 +176,73 @@ const Header = () => {
       icon: <Icon name="Wrench" size={18} />,
       roles: FEATURE_ACCESS.TOOLS,
       children: [
-        { label: "EMI Calculator",     path: "/loans/emi-calculator", desc: "Calculate loan EMI",       roles: FEATURE_ACCESS.TOOLS },
-        { label: "Quotations",         path: "/loans/quotations",     desc: "Manage vehicle quotes",    roles: FEATURE_ACCESS.TOOLS },
-        { label: "Features Catalog",   path: "/loans/features",       desc: "Compare variant features", roles: FEATURE_ACCESS.TOOLS },
-        { label: "Vehicle Price List", path: "/vehicles/price-list",  desc: "Browse pricing catalog",   roles: FEATURE_ACCESS.TOOLS },
+        {
+          label: "EMI Calculator",
+          path: "/loans/emi-calculator",
+          desc: "Calculate loan EMI",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+        {
+          label: "Quotations",
+          path: "/loans/quotations",
+          desc: "Manage vehicle quotes",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+        {
+          label: "Features Catalog",
+          path: "/loans/features",
+          desc: "Compare variant features",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+        {
+          label: "Vehicle Price List",
+          path: "/vehicles/price-list",
+          desc: "Browse pricing catalog",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
       ],
     },
     {
       label: "Finance",
       icon: <Icon name="Coins" size={18} />,
-      roles: [...new Set([...FEATURE_ACCESS.PAYOUTS, ...FEATURE_ACCESS.DELIVERY_ORDERS, ...FEATURE_ACCESS.PAYMENTS])],
+      roles: [
+        ...new Set([
+          ...FEATURE_ACCESS.PAYOUTS,
+          ...FEATURE_ACCESS.DELIVERY_ORDERS,
+          ...FEATURE_ACCESS.PAYMENTS,
+        ]),
+      ],
       children: [
-        { label: "Receivables",     path: "/payouts/receivables", desc: "Track incoming funds",   roles: FEATURE_ACCESS.PAYOUTS },
-        { label: "Payables",        path: "/payouts/payables",    desc: "Track outgoing funds",   roles: FEATURE_ACCESS.PAYOUTS },
-        { label: "Delivery Orders", path: "/delivery-orders",     desc: "Manage DO dispatch",     roles: FEATURE_ACCESS.DELIVERY_ORDERS },
-        { label: "Payments",        path: "/payments",            desc: "Process installments",   roles: FEATURE_ACCESS.PAYMENTS },
-        { label: "Bookings",        path: "/bookings",            desc: "Manage vehicle bookings", roles: FEATURE_ACCESS.PAYMENTS },
+        {
+          label: "Receivables",
+          path: "/payouts/receivables",
+          desc: "Track incoming funds",
+          roles: FEATURE_ACCESS.PAYOUTS,
+        },
+        {
+          label: "Payables",
+          path: "/payouts/payables",
+          desc: "Track outgoing funds",
+          roles: FEATURE_ACCESS.PAYOUTS,
+        },
+        {
+          label: "Delivery Orders",
+          path: "/delivery-orders",
+          desc: "Manage DO dispatch",
+          roles: FEATURE_ACCESS.DELIVERY_ORDERS,
+        },
+        {
+          label: "Payments",
+          path: "/payments",
+          desc: "Process installments",
+          roles: FEATURE_ACCESS.PAYMENTS,
+        },
+        {
+          label: "Bookings",
+          path: "/bookings",
+          desc: "Manage vehicle bookings",
+          roles: FEATURE_ACCESS.PAYMENTS,
+        },
       ],
     },
     {
@@ -153,10 +250,30 @@ const Header = () => {
       icon: <Icon name="ShieldCheck" size={18} />,
       roles: FEATURE_ACCESS.SUPERADMIN_USERS,
       children: [
-        { label: "User Management", path: "/superadmin/users",     desc: "Manage user roles & access", roles: FEATURE_ACCESS.SUPERADMIN_USERS },
-        { label: "Showrooms",       path: "/superadmin/showrooms", desc: "Manage all showrooms",       roles: FEATURE_ACCESS.SUPERADMIN_SHOWROOMS },
-        { label: "Channels",        path: "/superadmin/channels",  desc: "Manage partner channels",    roles: FEATURE_ACCESS.SUPERADMIN_CHANNELS },
-        { label: "Banks",           path: "/superadmin/banks",     desc: "Configure finance partners", roles: FEATURE_ACCESS.SUPERADMIN_BANKS },
+        {
+          label: "User Management",
+          path: "/superadmin/users",
+          desc: "Manage user roles & access",
+          roles: FEATURE_ACCESS.SUPERADMIN_USERS,
+        },
+        {
+          label: "Showrooms",
+          path: "/superadmin/showrooms",
+          desc: "Manage all showrooms",
+          roles: FEATURE_ACCESS.SUPERADMIN_SHOWROOMS,
+        },
+        {
+          label: "Channels",
+          path: "/superadmin/channels",
+          desc: "Manage partner channels",
+          roles: FEATURE_ACCESS.SUPERADMIN_CHANNELS,
+        },
+        {
+          label: "Banks",
+          path: "/superadmin/banks",
+          desc: "Configure finance partners",
+          roles: FEATURE_ACCESS.SUPERADMIN_BANKS,
+        },
       ],
     },
   ];
@@ -166,25 +283,55 @@ const Header = () => {
     .filter((group) => canAccess(group.roles))
     .map((group) => {
       if (!group.children) return group;
-      const visibleChildren = group.children.filter((child) => canAccess(child.roles));
+      const visibleChildren = group.children.filter((child) =>
+        canAccess(child.roles),
+      );
       if (visibleChildren.length === 0) return null;
       return { ...group, children: visibleChildren };
     })
     .filter(Boolean);
 
   const isActive = (path) => location?.pathname === path;
-  const isGroupActive = (children) => children?.some((child) => isActive(child.path));
+  const isGroupActive = (children) =>
+    children?.some((child) => isActive(child.path));
 
   const groupAccent = (label) => {
     const map = {
-      Analytics:       { icon: "bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 dark:from-sky-500/20 dark:to-indigo-500/20 dark:text-sky-300",     dot: "bg-sky-500 dark:bg-sky-400"     },
-      Customers:       { icon: "bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700 dark:from-emerald-500/20 dark:to-teal-500/20 dark:text-emerald-300", dot: "bg-emerald-500 dark:bg-emerald-400" },
-      Loans:           { icon: "bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-700 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:text-violet-300", dot: "bg-violet-500 dark:bg-violet-400" },
-      Tools:           { icon: "bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 dark:from-amber-500/20 dark:to-orange-500/20 dark:text-amber-300", dot: "bg-amber-500 dark:bg-amber-400"   },
-      Finance:         { icon: "bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-700 dark:from-cyan-500/20 dark:to-blue-500/20 dark:text-cyan-300",         dot: "bg-cyan-500 dark:bg-cyan-400"     },
-      "Control Panel": { icon: "bg-gradient-to-br from-slate-200 to-slate-100 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",   dot: "bg-slate-500 dark:bg-slate-300"   },
+      Analytics: {
+        icon: "bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 dark:from-sky-500/20 dark:to-indigo-500/20 dark:text-sky-300",
+        dot: "bg-sky-500 dark:bg-sky-400",
+      },
+      Insurance: {
+        icon: "bg-gradient-to-br from-cyan-100 to-teal-100 text-cyan-700 dark:from-cyan-500/20 dark:to-teal-500/20 dark:text-cyan-300",
+        dot: "bg-cyan-500 dark:bg-cyan-400",
+      },
+      Customers: {
+        icon: "bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700 dark:from-emerald-500/20 dark:to-teal-500/20 dark:text-emerald-300",
+        dot: "bg-emerald-500 dark:bg-emerald-400",
+      },
+      Loans: {
+        icon: "bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-700 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:text-violet-300",
+        dot: "bg-violet-500 dark:bg-violet-400",
+      },
+      Tools: {
+        icon: "bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 dark:from-amber-500/20 dark:to-orange-500/20 dark:text-amber-300",
+        dot: "bg-amber-500 dark:bg-amber-400",
+      },
+      Finance: {
+        icon: "bg-gradient-to-br from-cyan-100 to-blue-100 text-cyan-700 dark:from-cyan-500/20 dark:to-blue-500/20 dark:text-cyan-300",
+        dot: "bg-cyan-500 dark:bg-cyan-400",
+      },
+      "Control Panel": {
+        icon: "bg-gradient-to-br from-slate-200 to-slate-100 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",
+        dot: "bg-slate-500 dark:bg-slate-300",
+      },
     };
-    return map[label] || { icon: "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300", dot: "bg-sky-500 dark:bg-sky-400" };
+    return (
+      map[label] || {
+        icon: "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 dark:from-slate-500/20 dark:to-slate-400/20 dark:text-slate-300",
+        dot: "bg-sky-500 dark:bg-sky-400",
+      }
+    );
   };
 
   const handleNavigation = (path) => {
@@ -207,9 +354,7 @@ const Header = () => {
     <>
       <header className="sticky top-0 z-[1000] py-0">
         <div className="app-max-wrap w-full">
-          <div
-            className="relative flex h-12 items-center gap-2 rounded-2xl bg-white dark:bg-black px-2 md:h-14 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)]"
-          >
+          <div className="relative flex h-12 items-center gap-2 rounded-2xl bg-white dark:bg-black px-2 md:h-14 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)]">
             {/* Brand Logo */}
             <button
               type="button"
@@ -217,7 +362,12 @@ const Header = () => {
               onClick={() => handleNavigation("/")}
             >
               <img
-                src={process.env.PUBLIC_URL + (isDarkMode ? "/acillp-logo-dark.svg" : "/acillp-logo-without-car.svg")}
+                src={
+                  process.env.PUBLIC_URL +
+                  (isDarkMode
+                    ? "/acillp-logo-dark.svg"
+                    : "/acillp-logo-without-car.svg")
+                }
                 alt="ACILLP"
                 className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105 md:h-8 xl:h-11"
               />
@@ -238,11 +388,16 @@ const Header = () => {
                               : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
                           }`}
                         >
-                          <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}>
+                          <span
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}
+                          >
                             {group.icon}
                           </span>
                           {group.label}
-                          <ChevronDown size={14} className="opacity-60 transition-transform duration-300 group-hover/nav:rotate-180" />
+                          <ChevronDown
+                            size={14}
+                            className="opacity-60 transition-transform duration-300 group-hover/nav:rotate-180"
+                          />
                         </button>
 
                         {/* Dropdown */}
@@ -252,7 +407,9 @@ const Header = () => {
                               <span className="text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-400">
                                 {group.label}
                               </span>
-                              <span className={`h-1.5 w-1.5 rounded-full ${accent.dot}`} />
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${accent.dot}`}
+                              />
                             </div>
                             {group.children.map((child) => (
                               <button
@@ -265,10 +422,16 @@ const Header = () => {
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[13px] font-bold tracking-tight">{child.label}</span>
-                                  <span className={`h-1.5 w-1.5 rounded-full ${accent.dot} transition-all ${isActive(child.path) ? "opacity-100" : "opacity-0 group-hover/item:opacity-45"}`} />
+                                  <span className="text-[13px] font-bold tracking-tight">
+                                    {child.label}
+                                  </span>
+                                  <span
+                                    className={`h-1.5 w-1.5 rounded-full ${accent.dot} transition-all ${isActive(child.path) ? "opacity-100" : "opacity-0 group-hover/item:opacity-45"}`}
+                                  />
                                 </div>
-                                <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">{child.desc}</span>
+                                <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                  {child.desc}
+                                </span>
                               </button>
                             ))}
                           </div>
@@ -283,7 +446,9 @@ const Header = () => {
                             : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
                         }`}
                       >
-                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}>
+                        <span
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}
+                        >
                           {group.icon}
                         </span>
                         {group.label}
@@ -350,7 +515,9 @@ const Header = () => {
                           <p className="truncate text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                             {userData?.email || "—"}
                           </p>
-                          <span className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${roleMeta.color}`}>
+                          <span
+                            className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${roleMeta.color}`}
+                          >
                             {roleMeta.label}
                           </span>
                         </div>
@@ -362,14 +529,20 @@ const Header = () => {
                           onClick={() => handleNavigation("/profile")}
                           className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900"
                         >
-                          <UserCircle2 size={16} className="text-slate-400 dark:text-slate-500" />
+                          <UserCircle2
+                            size={16}
+                            className="text-slate-400 dark:text-slate-500"
+                          />
                           My Profile
                         </button>
                         <button
                           onClick={() => handleNavigation("/settings")}
                           className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900"
                         >
-                          <Settings size={16} className="text-slate-400 dark:text-slate-500" />
+                          <Settings
+                            size={16}
+                            className="text-slate-400 dark:text-slate-500"
+                          />
                           Settings
                         </button>
                       </div>
@@ -427,7 +600,12 @@ const Header = () => {
             <div className="p-6 flex items-center justify-between border-b border-border/50">
               <div className="rounded-lg px-2 py-1">
                 <img
-                  src={process.env.PUBLIC_URL + (isDarkMode ? "/acillp-logo-dark.svg" : "/acillp-logo-without-car.svg")}
+                  src={
+                    process.env.PUBLIC_URL +
+                    (isDarkMode
+                      ? "/acillp-logo-dark.svg"
+                      : "/acillp-logo-without-car.svg")
+                  }
                   alt="ACILLP"
                   className="h-12 w-auto object-contain"
                 />
@@ -449,7 +627,9 @@ const Header = () => {
                       <div>
                         <div className="px-4 py-3 flex items-center gap-3 text-muted-foreground">
                           <span className="opacity-50">{group.icon}</span>
-                          <span className="text-xs font-black uppercase tracking-[0.2em]">{group.label}</span>
+                          <span className="text-xs font-black uppercase tracking-[0.2em]">
+                            {group.label}
+                          </span>
                         </div>
                         <div className="space-y-1 ml-4 pl-4 border-l-2 border-border/40">
                           {group.children.map((child) => (
@@ -462,7 +642,9 @@ const Header = () => {
                                   : "text-foreground hover:bg-muted"
                               }`}
                             >
-                              <span className="text-sm font-bold tracking-tight">{child.label}</span>
+                              <span className="text-sm font-bold tracking-tight">
+                                {child.label}
+                              </span>
                               {!isActive(child.path) && (
                                 <span className="text-[10px] text-muted-foreground font-medium opacity-60 mt-1 uppercase tracking-wider">
                                   {child.desc?.split(" ").slice(0, 2).join(" ")}
@@ -481,10 +663,14 @@ const Header = () => {
                             : "text-foreground hover:bg-muted"
                         }`}
                       >
-                        <span className={`opacity-60 ${isActive(group.path) ? "text-white" : ""}`}>
+                        <span
+                          className={`opacity-60 ${isActive(group.path) ? "text-white" : ""}`}
+                        >
                           {group.icon}
                         </span>
-                        <span className="text-sm tracking-tight">{group.label}</span>
+                        <span className="text-sm tracking-tight">
+                          {group.label}
+                        </span>
                       </button>
                     )}
                   </div>
@@ -507,7 +693,9 @@ const Header = () => {
                   <p className="truncate text-[11px] text-muted-foreground mt-0.5">
                     {userData?.email || "—"}
                   </p>
-                  <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${roleMeta.color}`}>
+                  <span
+                    className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${roleMeta.color}`}
+                  >
                     {roleMeta.label}
                   </span>
                 </div>
@@ -520,21 +708,27 @@ const Header = () => {
                   className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-muted text-foreground hover:bg-muted/80 transition-colors"
                 >
                   <UserCircle2 size={16} className="opacity-60" />
-                  <span className="text-[10px] font-bold opacity-70">Profile</span>
+                  <span className="text-[10px] font-bold opacity-70">
+                    Profile
+                  </span>
                 </button>
                 <button
                   onClick={toggleTheme}
                   className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-muted text-foreground hover:text-primary transition-colors"
                 >
                   {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                  <span className="text-[10px] font-bold opacity-70">{isDarkMode ? "Light" : "Dark"}</span>
+                  <span className="text-[10px] font-bold opacity-70">
+                    {isDarkMode ? "Light" : "Dark"}
+                  </span>
                 </button>
                 <button
                   onClick={handleLogout}
                   className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
                 >
                   <LogOut size={16} />
-                  <span className="text-[10px] font-black uppercase tracking-wide">Quit</span>
+                  <span className="text-[10px] font-black uppercase tracking-wide">
+                    Quit
+                  </span>
                 </button>
               </div>
             </div>
