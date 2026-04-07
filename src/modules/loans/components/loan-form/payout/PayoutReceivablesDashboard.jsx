@@ -138,7 +138,8 @@ const normalizeBankName = (v) =>
 
 const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
 const AUTO_COMMISSION_META_SOURCE = "payments_negative_balance_commission_auto";
-const COLLECTIONS_AUTO_PAYMENT_KEY_PREFIX = "collections_commission_receivable:";
+const COLLECTIONS_AUTO_PAYMENT_KEY_PREFIX =
+  "collections_commission_receivable:";
 const normalizePayoutId = (row = {}) =>
   String(row?.payoutId || row?.id || "").trim();
 
@@ -263,10 +264,17 @@ const resolvePaymentDocFromResponse = (response) => {
   return response;
 };
 
-const buildAutoCommissionNarration = ({ payoutId, amount, isoDate, remarks }) => {
+const buildAutoCommissionNarration = ({
+  payoutId,
+  amount,
+  isoDate,
+  remarks,
+}) => {
   const explicitRemarks = String(remarks || "").trim();
   if (explicitRemarks) return explicitRemarks;
-  const labelDate = isoDate ? dayjs(isoDate).format("DD MMM YYYY") : dayjs().format("DD MMM YYYY");
+  const labelDate = isoDate
+    ? dayjs(isoDate).format("DD MMM YYYY")
+    : dayjs().format("DD MMM YYYY");
   const amountLabel = `₹${Number(amount || 0).toLocaleString("en-IN")}`;
   return `Auto receipt sync from Collections (${labelDate}) • ${amountLabel} • Payout ${payoutId}`;
 };
@@ -390,11 +398,14 @@ const PayoutReceivablesDashboard = () => {
   }) => {
     if (!loanId || !receivableRow) return;
     if (
-      String(receivableRow?.meta_source || "").trim() !== AUTO_COMMISSION_META_SOURCE
+      String(receivableRow?.meta_source || "").trim() !==
+      AUTO_COMMISSION_META_SOURCE
     ) {
       return;
     }
-    const payoutId = String(receivableRow?.payoutId || receivableRow?.id || "").trim();
+    const payoutId = String(
+      receivableRow?.payoutId || receivableRow?.id || "",
+    ).trim();
     if (!payoutId) return;
 
     const paymentResponse = await paymentsApi.getByLoanId(loanId);
@@ -459,10 +470,8 @@ const PayoutReceivablesDashboard = () => {
 
       const receivables = allLoans.flatMap((loan) => {
         const receivableList = collectReceivableRows(loan);
-        const derivedBankReceivable = buildMissingBankReceivableFromDisbursedBank(
-          loan,
-          receivableList,
-        );
+        const derivedBankReceivable =
+          buildMissingBankReceivableFromDisbursedBank(loan, receivableList);
         const mergedRows = derivedBankReceivable
           ? [...receivableList, derivedBankReceivable]
           : receivableList;
@@ -477,8 +486,7 @@ const PayoutReceivablesDashboard = () => {
           payment_history: safeArray(p.payment_history),
           activity_log: safeArray(p.activity_log),
           created_date:
-            String(p?.meta_source || "").trim() ===
-            AUTO_COMMISSION_META_SOURCE
+            String(p?.meta_source || "").trim() === AUTO_COMMISSION_META_SOURCE
               ? firstValidDate(
                   loan?.delivery_date,
                   loan?.deliveryDate,
@@ -536,9 +544,7 @@ const PayoutReceivablesDashboard = () => {
               ? savedDoc.payload
               : {}),
             id:
-              savedDoc?.payload?.id ||
-              savedDoc?.payoutId ||
-              normalizedPayoutId,
+              savedDoc?.payload?.id || savedDoc?.payoutId || normalizedPayoutId,
             payoutId: savedDoc?.payoutId || normalizedPayoutId,
             payout_type: savedDoc?.payout_type,
             payout_party_name: savedDoc?.payout_party_name,
@@ -571,7 +577,10 @@ const PayoutReceivablesDashboard = () => {
           receivableRow: updatedRow,
         });
       } catch (syncError) {
-        console.warn("Auto sync into Payments failed (non-blocking):", syncError);
+        console.warn(
+          "Auto sync into Payments failed (non-blocking):",
+          syncError,
+        );
       }
     }
 
@@ -868,7 +877,8 @@ const PayoutReceivablesDashboard = () => {
 
     selectedRows.forEach((r) => {
       const paymentStatus = getPaymentStatus(r);
-      initialValues[`amount_${normalizePayoutId(r)}`] = paymentStatus.pendingAmount;
+      initialValues[`amount_${normalizePayoutId(r)}`] =
+        paymentStatus.pendingAmount;
     });
 
     bulkForm.setFieldsValue(initialValues);
@@ -1056,7 +1066,8 @@ const PayoutReceivablesDashboard = () => {
     messageApi.success("Data exported to CSV successfully");
   };
 
-  const getRowKey = (record) => String(record?.payoutId || record?.id || "").trim();
+  const getRowKey = (record) =>
+    String(record?.payoutId || record?.id || "").trim();
 
   const rowMap = useMemo(() => {
     const map = new Map();
@@ -1374,7 +1385,8 @@ const PayoutReceivablesDashboard = () => {
                 Collections Dashboard
               </h1>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 md:text-sm">
-                Loan, commission, and insurance receivables with full payment tracking.
+                Loan, commission, and insurance receivables with full payment
+                tracking.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1566,7 +1578,9 @@ const PayoutReceivablesDashboard = () => {
           <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3 dark:border-[#262626] dark:bg-[#1a1a1a]">
             <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
               <Tag color="blue">Rows: {filteredSubtotals.rowCount}</Tag>
-              <Tag color="geekblue">Parties: {filteredSubtotals.partyCount}</Tag>
+              <Tag color="geekblue">
+                Parties: {filteredSubtotals.partyCount}
+              </Tag>
               <Tag color="green">
                 Received: {formatCurrency(filteredSubtotals.received)}
               </Tag>
@@ -1588,7 +1602,10 @@ const PayoutReceivablesDashboard = () => {
               filteredRows.map((record) => {
                 const rowKey = getRowKey(record);
                 const paymentStatus = getPaymentStatus(record);
-                const uiStatus = toUiStatus(record.payout_status, paymentStatus);
+                const uiStatus = toUiStatus(
+                  record.payout_status,
+                  paymentStatus,
+                );
                 const days = calculateDaysPending(
                   record.payout_received_date,
                   record.created_date,
@@ -1685,7 +1702,11 @@ const PayoutReceivablesDashboard = () => {
 
                     <DatePicker
                       size="small"
-                      value={record.payout_received_date ? dayjs(record.payout_received_date) : null}
+                      value={
+                        record.payout_received_date
+                          ? dayjs(record.payout_received_date)
+                          : null
+                      }
                       onChange={(_date, dateString) =>
                         updateReceivableInBackend(
                           normalizePayoutId(record),
