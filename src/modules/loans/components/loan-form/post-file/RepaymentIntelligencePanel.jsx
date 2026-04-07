@@ -13,20 +13,33 @@ const toNumber = (val) => Number(String(val ?? "").replace(/[^0-9.]/g, "")) || 0
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`;
 
-const RepaymentIntelligencePanel = ({ form }) => {
+const RepaymentIntelligencePanel = ({ form, loanData = null }) => {
   const [showClosureCalc, setShowClosureCalc] = useState(false);
   const [preClosurePct, setPreClosurePct] = useState("");
   const monthlyContainerRef = useRef(null);
   const currentMonthlyRowRef = useRef(null);
   const lastSyncedEmiRef = useRef(null);
   const lastCenteredIndexRef = useRef(null);
+  const watchForm = form || undefined;
 
-  const approvedAmount = Form.useWatch("postfile_loanAmountApproved", form) || 0;
-  const disbursedAmountRaw = Form.useWatch("postfile_loanAmountDisbursed", form);
-  const interestRateRaw = Form.useWatch("postfile_roi", form);
-  const tenureMonthsRaw = Form.useWatch("postfile_tenureMonths", form);
-  const firstEmiDate = Form.useWatch("postfile_firstEmiDate", form);
-  const roiType = Form.useWatch("postfile_roiType", form);
+  const approvedAmountWatch = Form.useWatch("postfile_loanAmountApproved", watchForm);
+  const disbursedAmountWatch = Form.useWatch("postfile_loanAmountDisbursed", watchForm);
+  const interestRateWatch = Form.useWatch("postfile_roi", watchForm);
+  const tenureMonthsWatch = Form.useWatch("postfile_tenureMonths", watchForm);
+  const firstEmiDateWatch = Form.useWatch("postfile_firstEmiDate", watchForm);
+  const roiTypeWatch = Form.useWatch("postfile_roiType", watchForm);
+
+  const approvedAmount = approvedAmountWatch ?? loanData?.postfile_loanAmountApproved ?? 0;
+  const disbursedAmountRaw =
+    disbursedAmountWatch ??
+    loanData?.postfile_loanAmountDisbursed ??
+    loanData?.postfile_disbursedLoanTotal ??
+    loanData?.postfile_disbursedLoan;
+  const interestRateRaw =
+    interestRateWatch ?? loanData?.postfile_roi ?? loanData?.postfile_interestRate;
+  const tenureMonthsRaw = tenureMonthsWatch ?? loanData?.postfile_tenureMonths;
+  const firstEmiDate = firstEmiDateWatch ?? loanData?.postfile_firstEmiDate;
+  const roiType = roiTypeWatch ?? loanData?.postfile_roiType;
 
   const disbursedAmount = toNumber(disbursedAmountRaw) || toNumber(approvedAmount);
   const interestRate = toNumber(interestRateRaw);

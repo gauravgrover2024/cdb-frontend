@@ -3379,13 +3379,21 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     }
   };
 
+  const handleLoanFormValuesChange = React.useCallback(
+    (...args) => {
+      if (activeStep === "postfile") return;
+      handleFormValuesChange?.(...args);
+    },
+    [activeStep, handleFormValuesChange],
+  );
+
   return (
     <Form
       form={form}
       layout="vertical"
       preserve
       style={{ margin: 0, padding: 0 }}
-      onValuesChange={handleFormValuesChange}
+      onValuesChange={handleLoanFormValuesChange}
     >
       <HiddenFields />
 

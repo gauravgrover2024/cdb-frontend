@@ -1531,6 +1531,7 @@ const CustomerViewModal = ({ open, customer, onClose, onEdit }) => {
       <LoanViewModal
         open={isViewModalOpen}
         loan={viewLoan}
+        loanId={viewLoan?.loanId || viewLoan?._id}
         initialTab={initialViewTab}
         onClose={() => {
           setIsViewModalOpen(false);
