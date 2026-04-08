@@ -129,9 +129,22 @@ const Header = () => {
     },
     {
       label: "Insurance",
-      path: "/insurance",
       icon: <Icon name="Shield" size={18} />,
       roles: FEATURE_ACCESS.INSURANCE,
+      children: [
+        {
+          label: "Dashboard",
+          path: "/insurance",
+          desc: "View all insurance cases",
+          roles: FEATURE_ACCESS.INSURANCE,
+        },
+        {
+          label: "New Case",
+          path: "/insurance/new",
+          desc: "Create a new insurance case",
+          roles: FEATURE_ACCESS.INSURANCE,
+        },
+      ],
     },
     {
       label: "Customers",

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import {
@@ -110,7 +116,10 @@ const formatINR = (value) => `₹ ${Number(value || 0).toLocaleString("en-IN")}`
 const pick = (obj, path) =>
   String(path || "")
     .split(".")
-    .reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj);
+    .reduce(
+      (acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined),
+      obj,
+    );
 
 const getRangeParams = (preset, customRange) => {
   const params = { range: preset };
@@ -142,10 +151,15 @@ const stageKey = (stage) => {
   return "profile";
 };
 
-const normalizeTypeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeTypeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const isCashDeliveryBasedCase = (loan) => {
-  const t = normalizeTypeText(loan?.typeOfLoan || loan?.loanType || loan?.caseType);
+  const t = normalizeTypeText(
+    loan?.typeOfLoan || loan?.loanType || loan?.caseType,
+  );
   const financed = normalizeTypeText(loan?.isFinanced);
   const bankText = normalizeTypeText(
     loan?.approval_bankName || loan?.postfile_bankName || loan?.bankName,
@@ -220,13 +234,17 @@ const collectStatusHistoryDates = (loan, statusNeedle) => {
       )
     : [];
   const rootHistory = [
-    ...(Array.isArray(loan?.approval_statusHistory) ? loan.approval_statusHistory : []),
+    ...(Array.isArray(loan?.approval_statusHistory)
+      ? loan.approval_statusHistory
+      : []),
     ...(Array.isArray(loan?.statusHistory) ? loan.statusHistory : []),
   ];
   const all = [...rootHistory, ...bankHistory];
   const hits = all
     .filter((entry) =>
-      String(entry?.status || "").toLowerCase().includes(needle),
+      String(entry?.status || "")
+        .toLowerCase()
+        .includes(needle),
     )
     .map((entry) => entry?.changedAt || entry?.date || entry?.updatedAt)
     .filter(Boolean);
@@ -273,14 +291,18 @@ const getLifecycleDates = (loan) => ({
 });
 
 const getPrimaryBusinessDate = (loan) => {
-  const { createdAt, approvedAt, disbursedAt, deliveryAt, invoiceAt } = getLifecycleDates(loan);
-  if (isCashDeliveryBasedCase(loan)) return deliveryAt || invoiceAt || approvedAt || createdAt;
+  const { createdAt, approvedAt, disbursedAt, deliveryAt, invoiceAt } =
+    getLifecycleDates(loan);
+  if (isCashDeliveryBasedCase(loan))
+    return deliveryAt || invoiceAt || approvedAt || createdAt;
   return disbursedAt || approvedAt || createdAt;
 };
 
 const getDisbursalOrDeliveryDate = (loan) => {
-  const { approvedAt, disbursedAt, deliveryAt, invoiceAt, createdAt } = getLifecycleDates(loan);
-  if (isCashDeliveryBasedCase(loan)) return deliveryAt || invoiceAt || approvedAt || createdAt;
+  const { approvedAt, disbursedAt, deliveryAt, invoiceAt, createdAt } =
+    getLifecycleDates(loan);
+  if (isCashDeliveryBasedCase(loan))
+    return deliveryAt || invoiceAt || approvedAt || createdAt;
   return disbursedAt || approvedAt || deliveryAt || invoiceAt || createdAt;
 };
 
@@ -288,7 +310,8 @@ const statusKey = (loan) => {
   const s = String(loan?.status || loan?.approval_status || "").toLowerCase();
   if (s.includes("disburs")) return "disbursed";
   if (s.includes("approv")) return "approved";
-  if (s.includes("reject") || s.includes("declin") || s.includes("fail")) return "rejected";
+  if (s.includes("reject") || s.includes("declin") || s.includes("fail"))
+    return "rejected";
   if (s.includes("complete") || s.includes("close")) return "completed";
   return "pending";
 };
@@ -304,7 +327,11 @@ const isDisbursed = (loan) =>
   statusKey(loan) === "disbursed" ||
   num(loan?.disburse_amount) > 0 ||
   num(loan?.approval_loanAmountDisbursed) > 0 ||
-  Boolean(loan?.disbursement_date || loan?.approval_disbursedDate || loan?.disburse_date);
+  Boolean(
+    loan?.disbursement_date ||
+    loan?.approval_disbursedDate ||
+    loan?.disburse_date,
+  );
 
 const isBusinessCompletedCash = (loan) => {
   if (!isCashDeliveryBasedCase(loan)) return false;
@@ -327,7 +354,8 @@ const getRangeWindow = (rangePreset, customRange) => {
   let start = now.startOf("month");
   let end = now.endOf("day");
   if (rangePreset === "1m") start = now.subtract(1, "month").startOf("day");
-  else if (rangePreset === "3m") start = now.subtract(3, "month").startOf("day");
+  else if (rangePreset === "3m")
+    start = now.subtract(3, "month").startOf("day");
   else if (rangePreset === "1y") start = now.subtract(1, "year").startOf("day");
   else if (rangePreset === "custom" && customRange?.[0] && customRange?.[1]) {
     start = customRange[0].startOf("day");
@@ -353,7 +381,10 @@ const getTimeframeLabel = (rangePreset, customRange) => {
 
 const isWithinRange = (value, start, end) => {
   if (!value) return false;
-  return (value.isAfter(start) || value.isSame(start)) && (value.isBefore(end) || value.isSame(end));
+  return (
+    (value.isAfter(start) || value.isSame(start)) &&
+    (value.isBefore(end) || value.isSame(end))
+  );
 };
 
 const filterLoansByRange = (loans, rangePreset, customRange) => {
@@ -365,10 +396,17 @@ const filterLoansByRange = (loans, rangePreset, customRange) => {
   return { rows, start, end };
 };
 
-const keyLower = (value) => String(value || "").trim().toLowerCase();
+const keyLower = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
-  const { rows, start, end } = filterLoansByRange(loans, rangePreset, customRange);
+  const { rows, start, end } = filterLoansByRange(
+    loans,
+    rangePreset,
+    customRange,
+  );
 
   const monthBuckets = [];
   let cursor = start.startOf("month");
@@ -379,8 +417,17 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
   }
 
   const totalLoansTrendMap = new Map(monthBuckets.map((m) => [m, 0]));
-  const disbursedTrendMap = new Map(monthBuckets.map((m) => [m, { amount: 0, count: 0 }]));
-  const stageMap = new Map([["profile", 0], ["prefile", 0], ["approval", 0], ["postfile", 0], ["delivery", 0], ["payout", 0]]);
+  const disbursedTrendMap = new Map(
+    monthBuckets.map((m) => [m, { amount: 0, count: 0 }]),
+  );
+  const stageMap = new Map([
+    ["profile", 0],
+    ["prefile", 0],
+    ["approval", 0],
+    ["postfile", 0],
+    ["delivery", 0],
+    ["payout", 0],
+  ]);
   const loanTypeMap = new Map();
   const bankMap = new Map();
   const sourceMap = new Map();
@@ -400,7 +447,8 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
   rows.forEach((loan) => {
     const isCashCar = isCashDeliveryBasedCase(loan);
     const m = monthKey(getPrimaryBusinessDate(loan));
-    if (m && totalLoansTrendMap.has(m)) totalLoansTrendMap.set(m, (totalLoansTrendMap.get(m) || 0) + 1);
+    if (m && totalLoansTrendMap.has(m))
+      totalLoansTrendMap.set(m, (totalLoansTrendMap.get(m) || 0) + 1);
 
     const stg = stageKey(loan?.currentStage);
     stageMap.set(stg, (stageMap.get(stg) || 0) + 1);
@@ -408,18 +456,32 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
     const st = statusKey(loan);
     statusMap.set(st, (statusMap.get(st) || 0) + 1);
 
-    const lt = String(loan?.typeOfLoan || loan?.loanType || loan?.caseType || "Unknown").trim() || "Unknown";
+    const lt =
+      String(
+        loan?.typeOfLoan || loan?.loanType || loan?.caseType || "Unknown",
+      ).trim() || "Unknown";
     loanTypeMap.set(lt, (loanTypeMap.get(lt) || 0) + 1);
 
     if (!isCashCar) {
-      const bank = String(
-        loan?.approval_bankName ||
-          loan?.postfile_bankName ||
-          loan?.bankName ||
-          (Array.isArray(loan?.approval_banksData) ? loan.approval_banksData[0]?.bankName : "") ||
-          "Unknown",
-      ).trim() || "Unknown";
-      if (!bankMap.has(bank)) bankMap.set(bank, { bankName: bank, total: 0, approved: 0, disbursed: 0, pending: 0, totalLoanAmount: 0 });
+      const bank =
+        String(
+          loan?.approval_bankName ||
+            loan?.postfile_bankName ||
+            loan?.bankName ||
+            (Array.isArray(loan?.approval_banksData)
+              ? loan.approval_banksData[0]?.bankName
+              : "") ||
+            "Unknown",
+        ).trim() || "Unknown";
+      if (!bankMap.has(bank))
+        bankMap.set(bank, {
+          bankName: bank,
+          total: 0,
+          approved: 0,
+          disbursed: 0,
+          pending: 0,
+          totalLoanAmount: 0,
+        });
       const bankNode = bankMap.get(bank);
       bankNode.total += 1;
       bankNode.totalLoanAmount += amountValue(loan);
@@ -433,24 +495,55 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       else cashCarPending += 1;
     }
 
-    const srcRaw = String(loan?.approval_loanBookedIn || loan?.recordSource || loan?.source || "").toLowerCase();
-    const src = srcRaw.includes("indirect") ? "Indirect" : srcRaw.includes("direct") ? "Direct" : "Unknown";
-    if (!sourceMap.has(src)) sourceMap.set(src, { source: src, total: 0, approved: 0, disbursed: 0, pending: 0, conversionRate: 0 });
+    const srcRaw = String(
+      loan?.approval_loanBookedIn || loan?.recordSource || loan?.source || "",
+    ).toLowerCase();
+    const src = srcRaw.includes("indirect")
+      ? "Indirect"
+      : srcRaw.includes("direct")
+        ? "Direct"
+        : "Unknown";
+    if (!sourceMap.has(src))
+      sourceMap.set(src, {
+        source: src,
+        total: 0,
+        approved: 0,
+        disbursed: 0,
+        pending: 0,
+        conversionRate: 0,
+      });
     const sourceNode = sourceMap.get(src);
     sourceNode.total += 1;
     if (st === "approved") sourceNode.approved += 1;
     if (st === "pending") sourceNode.pending += 1;
     if (isDisbursed(loan)) sourceNode.disbursed += 1;
 
-    const dealer = String(loan?.dealerName || loan?.showroomDealerName || loan?.showroomName || "Unknown").trim() || "Unknown";
-    if (!dealerMap.has(dealer)) dealerMap.set(dealer, { dealerName: dealer, total: 0, disbursed: 0, totalLoanAmount: 0 });
+    const dealer =
+      String(
+        loan?.dealerName ||
+          loan?.showroomDealerName ||
+          loan?.showroomName ||
+          "Unknown",
+      ).trim() || "Unknown";
+    if (!dealerMap.has(dealer))
+      dealerMap.set(dealer, {
+        dealerName: dealer,
+        total: 0,
+        disbursed: 0,
+        totalLoanAmount: 0,
+      });
     const dealerNode = dealerMap.get(dealer);
     dealerNode.total += 1;
     dealerNode.totalLoanAmount += amountValue(loan);
     if (isDisbursed(loan)) dealerNode.disbursed += 1;
 
     const vehicle = `${String(loan?.vehicleMake || "Unknown")} | ${String(loan?.vehicleModel || "Unknown")} | ${String(loan?.vehicleVariant || "Unknown")}`;
-    if (!vehicleMap.has(vehicle)) vehicleMap.set(vehicle, { segment: vehicle, total: 0, totalLoanAmount: 0 });
+    if (!vehicleMap.has(vehicle))
+      vehicleMap.set(vehicle, {
+        segment: vehicle,
+        total: 0,
+        totalLoanAmount: 0,
+      });
     const vehicleNode = vehicleMap.get(vehicle);
     vehicleNode.total += 1;
     vehicleNode.totalLoanAmount += amountValue(loan);
@@ -464,7 +557,9 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       approvalPendingAmount += amountValue(loan);
     }
 
-    const regNo = String(loan?.rc_redg_no || loan?.registrationNumber || loan?.vehicleRegNo || "").trim();
+    const regNo = String(
+      loan?.rc_redg_no || loan?.registrationNumber || loan?.vehicleRegNo || "",
+    ).trim();
     if (!regNo) missingRegCount += 1;
 
     const hasMissingDelivery = [
@@ -475,7 +570,10 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       loan?.insurance_company_name,
       loan?.rc_redg_no,
     ].some((v) => v === null || v === undefined || String(v).trim() === "");
-    if ((stg === "delivery" || stg === "payout" || isDisbursed(loan)) && hasMissingDelivery) {
+    if (
+      (stg === "delivery" || stg === "payout" || isDisbursed(loan)) &&
+      hasMissingDelivery
+    ) {
       missingDeliveryCount += 1;
     }
 
@@ -483,32 +581,78 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       const dm = monthKey(getDisbursalOrDeliveryDate(loan));
       if (dm && disbursedTrendMap.has(dm)) {
         const node = disbursedTrendMap.get(dm);
-        node.amount += num(loan?.disburse_amount || loan?.approval_loanAmountDisbursed || amountValue(loan));
+        node.amount += num(
+          loan?.disburse_amount ||
+            loan?.approval_loanAmountDisbursed ||
+            amountValue(loan),
+        );
         node.count += 1;
       }
     }
   });
 
-  const totalLoansTrend = monthBuckets.map((bucket) => ({ bucket, label: monthLabel(bucket), value: totalLoansTrendMap.get(bucket) || 0 }));
-  const disbursedAmountTrend = monthBuckets.map((bucket) => ({ bucket, label: monthLabel(bucket), amount: disbursedTrendMap.get(bucket)?.amount || 0, count: disbursedTrendMap.get(bucket)?.count || 0 }));
-  const stageFunnel = Array.from(stageMap.entries()).map(([stage, count]) => ({ stage, count }));
-  const loanTypeMix = Array.from(loanTypeMap.entries()).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
-  const bankPipeline = Array.from(bankMap.values()).sort((a, b) => b.total - a.total);
-  const sourcePerformance = Array.from(sourceMap.values()).map((item) => ({ ...item, conversionRate: item.total > 0 ? Number(((item.disbursed / item.total) * 100).toFixed(1)) : 0 })).sort((a, b) => b.total - a.total);
-  const dealerPerformance = Array.from(dealerMap.values()).sort((a, b) => b.total - a.total);
-  const caseStatusDistribution = Array.from(statusMap.entries()).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count);
-  const vehicleSegmentTrends = Array.from(vehicleMap.values()).map((item) => ({ ...item, avgLoanAmount: item.total > 0 ? item.totalLoanAmount / item.total : 0 })).sort((a, b) => b.total - a.total);
+  const totalLoansTrend = monthBuckets.map((bucket) => ({
+    bucket,
+    label: monthLabel(bucket),
+    value: totalLoansTrendMap.get(bucket) || 0,
+  }));
+  const disbursedAmountTrend = monthBuckets.map((bucket) => ({
+    bucket,
+    label: monthLabel(bucket),
+    amount: disbursedTrendMap.get(bucket)?.amount || 0,
+    count: disbursedTrendMap.get(bucket)?.count || 0,
+  }));
+  const stageFunnel = Array.from(stageMap.entries()).map(([stage, count]) => ({
+    stage,
+    count,
+  }));
+  const loanTypeMix = Array.from(loanTypeMap.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+  const bankPipeline = Array.from(bankMap.values()).sort(
+    (a, b) => b.total - a.total,
+  );
+  const sourcePerformance = Array.from(sourceMap.values())
+    .map((item) => ({
+      ...item,
+      conversionRate:
+        item.total > 0
+          ? Number(((item.disbursed / item.total) * 100).toFixed(1))
+          : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+  const dealerPerformance = Array.from(dealerMap.values()).sort(
+    (a, b) => b.total - a.total,
+  );
+  const caseStatusDistribution = Array.from(statusMap.entries())
+    .map(([status, count]) => ({ status, count }))
+    .sort((a, b) => b.count - a.count);
+  const vehicleSegmentTrends = Array.from(vehicleMap.values())
+    .map((item) => ({
+      ...item,
+      avgLoanAmount: item.total > 0 ? item.totalLoanAmount / item.total : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
 
   const mobileCount = new Map();
   rows.forEach((loan) => {
     const m = String(loan?.primaryMobile || "").replace(/\D/g, "");
     if (m.length >= 10) mobileCount.set(m, (mobileCount.get(m) || 0) + 1);
   });
-  const repeatedCaseCount = rows.filter((loan) => mobileCount.get(String(loan?.primaryMobile || "").replace(/\D/g, "")) > 1).length;
-  const repeatedIdentityCount = Array.from(mobileCount.values()).filter((count) => count > 1).length;
+  const repeatedCaseCount = rows.filter(
+    (loan) =>
+      mobileCount.get(String(loan?.primaryMobile || "").replace(/\D/g, "")) > 1,
+  ).length;
+  const repeatedIdentityCount = Array.from(mobileCount.values()).filter(
+    (count) => count > 1,
+  ).length;
 
   return {
-    timeframe: { range: rangePreset, start: start.toISOString(), end: end.toISOString() },
+    timeframe: {
+      range: rangePreset,
+      start: start.toISOString(),
+      end: end.toISOString(),
+    },
     totals: {
       totalCases: rows.length,
       totalLoanAmount: rows.reduce((acc, loan) => acc + amountValue(loan), 0),
@@ -516,7 +660,11 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
         (acc, loan) =>
           acc +
           (isDisbursed(loan) || isBusinessCompletedCash(loan)
-            ? num(loan?.disburse_amount || loan?.approval_loanAmountDisbursed || amountValue(loan))
+            ? num(
+                loan?.disburse_amount ||
+                  loan?.approval_loanAmountDisbursed ||
+                  amountValue(loan),
+              )
             : 0),
         0,
       ),
@@ -525,7 +673,10 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       totalLoansTrend,
       disbursedAmountTrend,
       stageFunnel,
-      approvalPendingDisbursal: { count: approvalPendingCount, amount: approvalPendingAmount },
+      approvalPendingDisbursal: {
+        count: approvalPendingCount,
+        amount: approvalPendingAmount,
+      },
       missingRegNumber: { count: missingRegCount },
       missingCriticalDeliveryFields: { count: missingDeliveryCount },
       cashCarSummary: {
@@ -542,19 +693,29 @@ const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
       vehicleSegmentTrends,
       repeatedCustomers: { repeatedIdentityCount, repeatedCaseCount },
       bankWiseTotalLoanAmount: bankPipeline
-        .map((row) => ({ bankName: row.bankName, totalLoanAmount: row.totalLoanAmount }))
+        .map((row) => ({
+          bankName: row.bankName,
+          totalLoanAmount: row.totalLoanAmount,
+        }))
         .sort((a, b) => b.totalLoanAmount - a.totalLoanAmount),
     },
   };
 };
 
-const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, bucket, key }) => {
+const buildLocalDrillRows = (
+  loans = [],
+  rangePreset,
+  customRange,
+  { widget, bucket, key },
+) => {
   const { rows } = filterLoansByRange(loans, rangePreset, customRange);
 
   if (!widget) return rows.slice(0, 1000);
 
   if (widget === "total_loan_trend" && bucket) {
-    return rows.filter((loan) => monthKey(getPrimaryBusinessDate(loan)) === bucket).slice(0, 1000);
+    return rows
+      .filter((loan) => monthKey(getPrimaryBusinessDate(loan)) === bucket)
+      .slice(0, 1000);
   }
 
   if (widget === "disbursed_amount_trend" && bucket) {
@@ -571,7 +732,8 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
     return rows
       .filter(
         (loan) =>
-          (statusKey(loan) === "approved" || num(loan?.approval_loanAmountApproved) > 0) &&
+          (statusKey(loan) === "approved" ||
+            num(loan?.approval_loanAmountApproved) > 0) &&
           !isDisbursed(loan) &&
           !isBusinessCompletedCash(loan),
       )
@@ -580,7 +742,15 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
 
   if (widget === "missing_reg_number") {
     return rows
-      .filter((loan) => !String(loan?.rc_redg_no || loan?.registrationNumber || loan?.vehicleRegNo || "").trim())
+      .filter(
+        (loan) =>
+          !String(
+            loan?.rc_redg_no ||
+              loan?.registrationNumber ||
+              loan?.vehicleRegNo ||
+              "",
+          ).trim(),
+      )
       .slice(0, 1000);
   }
 
@@ -596,14 +766,24 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
           loan?.insurance_company_name,
           loan?.rc_redg_no,
         ].some((v) => v === null || v === undefined || String(v).trim() === "");
-        return (stg === "delivery" || stg === "payout" || isDisbursed(loan) || isBusinessCompletedCash(loan)) && hasMissingDelivery;
+        return (
+          (stg === "delivery" ||
+            stg === "payout" ||
+            isDisbursed(loan) ||
+            isBusinessCompletedCash(loan)) &&
+          hasMissingDelivery
+        );
       })
       .slice(0, 1000);
   }
 
   if (widget === "loan_type_mix" && key) {
     return rows
-      .filter((loan) => keyLower(loan?.typeOfLoan || loan?.loanType || loan?.caseType) === keyLower(key))
+      .filter(
+        (loan) =>
+          keyLower(loan?.typeOfLoan || loan?.loanType || loan?.caseType) ===
+          keyLower(key),
+      )
       .slice(0, 1000);
   }
 
@@ -615,7 +795,9 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
           loan?.approval_bankName ||
             loan?.postfile_bankName ||
             loan?.bankName ||
-            (Array.isArray(loan?.approval_banksData) ? loan.approval_banksData[0]?.bankName : "") ||
+            (Array.isArray(loan?.approval_banksData)
+              ? loan.approval_banksData[0]?.bankName
+              : "") ||
             "Unknown",
         ).trim();
         return keyLower(bank) === keyLower(key);
@@ -629,21 +811,36 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
 
   if (widget === "cash_car_delivered") {
     return rows
-      .filter((loan) => isCashDeliveryBasedCase(loan) && isBusinessCompletedCash(loan))
+      .filter(
+        (loan) =>
+          isCashDeliveryBasedCase(loan) && isBusinessCompletedCash(loan),
+      )
       .slice(0, 1000);
   }
 
   if (widget === "cash_car_pending_delivery") {
     return rows
-      .filter((loan) => isCashDeliveryBasedCase(loan) && !isBusinessCompletedCash(loan))
+      .filter(
+        (loan) =>
+          isCashDeliveryBasedCase(loan) && !isBusinessCompletedCash(loan),
+      )
       .slice(0, 1000);
   }
 
   if (widget === "source_performance" && key) {
     return rows
       .filter((loan) => {
-        const srcRaw = String(loan?.approval_loanBookedIn || loan?.recordSource || loan?.source || "").toLowerCase();
-        const src = srcRaw.includes("indirect") ? "indirect" : srcRaw.includes("direct") ? "direct" : "unknown";
+        const srcRaw = String(
+          loan?.approval_loanBookedIn ||
+            loan?.recordSource ||
+            loan?.source ||
+            "",
+        ).toLowerCase();
+        const src = srcRaw.includes("indirect")
+          ? "indirect"
+          : srcRaw.includes("direct")
+            ? "direct"
+            : "unknown";
         return src === keyLower(key);
       })
       .slice(0, 1000);
@@ -651,12 +848,22 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
 
   if (widget === "dealer_performance" && key) {
     return rows
-      .filter((loan) => keyLower(loan?.dealerName || loan?.showroomDealerName || loan?.showroomName || "unknown") === keyLower(key))
+      .filter(
+        (loan) =>
+          keyLower(
+            loan?.dealerName ||
+              loan?.showroomDealerName ||
+              loan?.showroomName ||
+              "unknown",
+          ) === keyLower(key),
+      )
       .slice(0, 1000);
   }
 
   if (widget === "case_status_distribution" && key) {
-    return rows.filter((loan) => keyLower(statusKey(loan)) === keyLower(key)).slice(0, 1000);
+    return rows
+      .filter((loan) => keyLower(statusKey(loan)) === keyLower(key))
+      .slice(0, 1000);
   }
 
   if (widget === "vehicle_segment" && key) {
@@ -669,7 +876,9 @@ const buildLocalDrillRows = (loans = [], rangePreset, customRange, { widget, buc
   }
 
   if (widget === "stage_funnel" && key) {
-    return rows.filter((loan) => stageKey(loan?.currentStage) === keyLower(key)).slice(0, 1000);
+    return rows
+      .filter((loan) => stageKey(loan?.currentStage) === keyLower(key))
+      .slice(0, 1000);
   }
 
   if (widget === "repeated_customers") {
@@ -764,7 +973,13 @@ const VerticalBarChart = ({
                 stroke="var(--border)"
                 strokeWidth="1"
               />
-              <text x={m.left - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--muted-foreground)">
+              <text
+                x={m.left - 8}
+                y={y + 4}
+                textAnchor="end"
+                fontSize="10"
+                fill="var(--muted-foreground)"
+              >
                 {compactNumber(tickValue)}
               </text>
             </g>
@@ -824,16 +1039,26 @@ const AreaLineChart = ({
   const chartW = width - m.left - m.right;
   const chartH = height - m.top - m.bottom;
   const x = (idx) =>
-    points.length <= 1 ? m.left + chartW / 2 : m.left + (idx / (points.length - 1)) * chartW;
+    points.length <= 1
+      ? m.left + chartW / 2
+      : m.left + (idx / (points.length - 1)) * chartW;
   const y = (v) => m.top + ((max - v) / Math.max(max - min, 1)) * chartH;
   const linePath = points
-    .map((point, idx) => `${idx === 0 ? "M" : "L"} ${x(idx)} ${y(Number(point[valueKey] || 0))}`)
+    .map(
+      (point, idx) =>
+        `${idx === 0 ? "M" : "L"} ${x(idx)} ${y(Number(point[valueKey] || 0))}`,
+    )
     .join(" ");
   const areaPath = `${linePath} L ${x(points.length - 1)} ${m.top + chartH} L ${x(0)} ${m.top + chartH} Z`;
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card px-2 py-2">
-      <svg width={width} height={height} role="img" aria-label="area line chart">
+      <svg
+        width={width}
+        height={height}
+        role="img"
+        aria-label="area line chart"
+      >
         <defs>
           <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.30" />
@@ -855,7 +1080,13 @@ const AreaLineChart = ({
           );
         })}
         <path d={areaPath} fill={`url(#grad-${id})`} />
-        <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+        <path
+          d={linePath}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
         {points.map((point, idx) => (
           <circle
             key={point.bucket || point.label || idx}
@@ -886,7 +1117,14 @@ const AreaLineChart = ({
 
 const FunnelChart = ({ rows = [], onSelect }) => {
   if (!rows.length) return <ChartNoData />;
-  const stageOrder = ["profile", "prefile", "approval", "postfile", "delivery", "payout"];
+  const stageOrder = [
+    "profile",
+    "prefile",
+    "approval",
+    "postfile",
+    "delivery",
+    "payout",
+  ];
   const ordered = [...rows].sort(
     (a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage),
   );
@@ -907,7 +1145,9 @@ const FunnelChart = ({ rows = [], onSelect }) => {
         {ordered.map((row, idx) => {
           const topW = toW(row.count);
           const next = ordered[idx + 1];
-          const bottomW = next ? toW(next.count) : Math.max(minW * 0.8, topW * 0.72);
+          const bottomW = next
+            ? toW(next.count)
+            : Math.max(minW * 0.8, topW * 0.72);
           const y = 4 + idx * (rowH + gap);
           const color = CHART_PALETTE[idx % CHART_PALETTE.length];
           const x1 = centerX - topW / 2;
@@ -926,10 +1166,24 @@ const FunnelChart = ({ rows = [], onSelect }) => {
                 style={{ cursor: onSelect ? "pointer" : "default" }}
                 onClick={() => onSelect?.(row)}
               />
-              <text x={centerX} y={y + rowH / 2 - 3} textAnchor="middle" fontSize="11" fill="#ffffff" fontWeight="700">
+              <text
+                x={centerX}
+                y={y + rowH / 2 - 3}
+                textAnchor="middle"
+                fontSize="11"
+                fill="#ffffff"
+                fontWeight="700"
+              >
                 {String(row.stage || "").toUpperCase()}
               </text>
-              <text x={centerX} y={y + rowH / 2 + 12} textAnchor="middle" fontSize="11" fill="#ffffff" fontWeight="700">
+              <text
+                x={centerX}
+                y={y + rowH / 2 + 12}
+                textAnchor="middle"
+                fontSize="11"
+                fill="#ffffff"
+                fontWeight="700"
+              >
                 {Number(row.count || 0).toLocaleString("en-IN")}
               </text>
             </g>
@@ -968,65 +1222,141 @@ const DonutBreakdown = ({
 }) => {
   if (!rows.length) return <ChartNoData text="No segments available" />;
   const data = rows.slice(0, 6);
-  const total = data.reduce((sum, row) => sum + Number(row[valueKey] || 0), 0) || 1;
-  const cx = 86;
-  const cy = 86;
-  const rOuter = 70;
-  const rInner = 42;
-  let start = -90;
-  const arcs = data.map((row, idx) => {
-    const ratio = Number(row[valueKey] || 0) / total;
-    const sweep = ratio * 360;
-    const end = start + sweep;
-    const arc = {
-      row,
-      path: donutArcPath(cx, cy, rOuter, rInner, start, end),
-      color: CHART_PALETTE[idx % CHART_PALETTE.length],
-      pct: ratio * 100,
-    };
-    start = end;
-    return arc;
-  });
+  const total =
+    data.reduce((sum, row) => sum + Number(row[valueKey] || 0), 0) || 1;
 
   return (
-    <div className="grid grid-cols-1 gap-2 text-foreground md:grid-cols-[180px_minmax(0,1fr)]">
-      <div className="flex items-center justify-center">
-        <svg width="180" height="180" role="img" aria-label="donut chart">
-          {arcs.map((arc, idx) => (
-            <path
-              key={`arc-${idx}`}
-              d={arc.path}
-              fill={arc.color}
-              opacity="0.9"
-              style={{ cursor: onClick ? "pointer" : "default" }}
-              onClick={() => onClick?.(arc.row)}
-            />
-          ))}
-          <text x={cx} y={cy - 4} textAnchor="middle" fontSize="11" fill="var(--muted-foreground)">Total</text>
-          <text x={cx} y={cy + 16} textAnchor="middle" fontSize="18" fill="currentColor" fontWeight="700">
-            {Number(total).toLocaleString("en-IN")}
-          </text>
-        </svg>
+    <div className="space-y-4">
+      <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 p-4 text-center">
+        <div className="text-sm font-medium text-muted-foreground">
+          Total Cases
+        </div>
+        <div className="mt-1 text-3xl font-bold text-foreground">
+          {Number(total).toLocaleString("en-IN")}
+        </div>
       </div>
+      <div className="space-y-2.5">
+        {data.map((row, idx) => {
+          const count = Number(row[valueKey] || 0);
+          const pct = (count / total) * 100;
+          const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+          return (
+            <button
+              key={`status-${idx}`}
+              type="button"
+              onClick={() => onClick?.(row)}
+              className="w-full rounded-lg border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3 flex-1">
+                  <div
+                    className="relative h-10 w-10 flex-shrink-0 rounded-lg"
+                    style={{
+                      backgroundColor: color + "20",
+                      borderLeft: `3px solid ${color}`,
+                    }}
+                  >
+                    <div className="flex h-full items-center justify-center">
+                      <span className="text-xs font-bold" style={{ color }}>
+                        {count}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-foreground capitalize">
+                      {String(row[labelKey] || "").replace(/_/g, " ")}
+                    </div>
+                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full transition-all duration-300"
+                        style={{ width: `${pct}%`, backgroundColor: color }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <div className="text-xs font-bold text-foreground">
+                    {pct.toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const DisbursedAmountTrendChart = ({ rows = [], onSelect }) => {
+  if (!rows.length) return <ChartNoData text="No disbursal data available" />;
+
+  const maxAmount = Math.max(...rows.map((r) => Number(r.amount || 0)), 1);
+  const totalAmount = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const totalCases = rows.reduce((sum, r) => sum + Number(r.count || 0), 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3">
+          <div className="text-xs font-medium text-muted-foreground">
+            Total Disbursed
+          </div>
+          <div className="mt-1 text-lg font-bold text-foreground">
+            {formatINR(totalAmount)}
+          </div>
+        </div>
+        <div className="rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-3">
+          <div className="text-xs font-medium text-muted-foreground">
+            Total Cases
+          </div>
+          <div className="mt-1 text-lg font-bold text-foreground">
+            {Number(totalCases).toLocaleString("en-IN")}
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-2">
-        {arcs.map((arc, idx) => (
-          <button
-            key={`legend-${idx}`}
-            type="button"
-            onClick={() => onClick?.(arc.row)}
-            className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-2.5 py-2 text-left transition hover:border-primary/40 hover:bg-primary/5"
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: arc.color }} />
-              <span className="truncate text-xs font-semibold text-foreground">
-                {arc.row[labelKey]}
-              </span>
-            </div>
-            <span className="text-xs font-bold text-foreground">
-              {arc.pct.toFixed(1)}%
-            </span>
-          </button>
-        ))}
+        {rows.map((row, idx) => {
+          const amount = Number(row.amount || 0);
+          const count = Number(row.count || 0);
+          const pct = (amount / maxAmount) * 100;
+          const avgPerCase = count > 0 ? amount / count : 0;
+
+          return (
+            <button
+              key={`disbursal-${idx}`}
+              type="button"
+              onClick={() => onSelect?.(row)}
+              className="w-full rounded-lg border border-border bg-card p-3 text-left transition hover:border-emerald-400/40 hover:bg-emerald-500/5"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {row.label || "N/A"}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    {formatINR(amount)}
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {count} case{count !== 1 ? "s" : ""}
+                  </span>
+                  <span className="text-muted-foreground">
+                    Avg: {formatINR(avgPerCase)}/case
+                  </span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1055,8 +1385,12 @@ const HorizontalBarChart = ({
             className="w-full rounded-lg border border-border bg-card px-2.5 py-2 text-left transition hover:border-primary/40 hover:bg-primary/5"
           >
             <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="truncate text-xs font-semibold text-foreground">{row[labelKey]}</span>
-              <span className="text-xs font-bold text-foreground">{formatValue(value)}</span>
+              <span className="truncate text-xs font-semibold text-foreground">
+                {row[labelKey]}
+              </span>
+              <span className="text-xs font-bold text-foreground">
+                {formatValue(value)}
+              </span>
             </div>
             <div className="h-2 rounded-full bg-muted">
               <div
@@ -1095,16 +1429,46 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
   const fillPath = describeArc(120, 120, 82, start, fillEnd);
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</div>
-      <svg width="240" height="150" viewBox="0 0 240 150" className="mx-auto block text-foreground">
-        <path d={basePath} fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="14" strokeLinecap="round" />
-        <path d={fillPath} fill="none" stroke="#1d9bf0" strokeWidth="14" strokeLinecap="round" />
-        <text x="120" y="100" textAnchor="middle" fontSize="32" fontWeight="700" fill="currentColor" className="text-foreground">
+      <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </div>
+      <svg
+        width="240"
+        height="150"
+        viewBox="0 0 240 150"
+        className="mx-auto block text-foreground"
+      >
+        <path
+          d={basePath}
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity="0.2"
+          strokeWidth="14"
+          strokeLinecap="round"
+        />
+        <path
+          d={fillPath}
+          fill="none"
+          stroke="#1d9bf0"
+          strokeWidth="14"
+          strokeLinecap="round"
+        />
+        <text
+          x="120"
+          y="100"
+          textAnchor="middle"
+          fontSize="32"
+          fontWeight="700"
+          fill="currentColor"
+          className="text-foreground"
+        >
           {pct.toFixed(1)}%
         </text>
       </svg>
       {subtitle ? (
-        <div className="mt-2 text-center text-xs font-medium text-muted-foreground">{subtitle}</div>
+        <div className="mt-2 text-center text-xs font-medium text-muted-foreground">
+          {subtitle}
+        </div>
       ) : null}
     </div>
   );
@@ -1129,7 +1493,10 @@ const WidgetShell = ({ title, subtitle, icon: Icon, children }) => (
           {title}
         </Typography.Text>
         {subtitle ? (
-          <Typography.Text type="secondary" className="block truncate text-[11px]">
+          <Typography.Text
+            type="secondary"
+            className="block truncate text-[11px]"
+          >
             {subtitle}
           </Typography.Text>
         ) : null}
@@ -1149,7 +1516,10 @@ const KpiTile = ({ label, value, subLabel, icon: Icon, loading = false }) => (
   >
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0 flex-1">
-        <Typography.Text type="secondary" className="text-[10px] font-bold uppercase tracking-widest">
+        <Typography.Text
+          type="secondary"
+          className="text-[10px] font-bold uppercase tracking-widest"
+        >
           {label}
         </Typography.Text>
         <div className="mt-2 text-2xl font-black tracking-tight tabular-nums md:text-3xl">
@@ -1178,7 +1548,10 @@ const KpiTile = ({ label, value, subLabel, icon: Icon, loading = false }) => (
 
 const AnalyticsDashboard = () => {
   const [rangePreset, setRangePreset] = useState("mtd");
-  const [customRange, setCustomRange] = useState([dayjs().startOf("month"), dayjs()]);
+  const [customRange, setCustomRange] = useState([
+    dayjs().startOf("month"),
+    dayjs(),
+  ]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -1222,8 +1595,14 @@ const AnalyticsDashboard = () => {
     limit: 300,
   });
 
-  const queryParams = useMemo(() => getRangeParams(rangePreset, customRange), [rangePreset, customRange]);
-  const timeframeLabel = useMemo(() => getTimeframeLabel(rangePreset, customRange), [rangePreset, customRange]);
+  const queryParams = useMemo(
+    () => getRangeParams(rangePreset, customRange),
+    [rangePreset, customRange],
+  );
+  const timeframeLabel = useMemo(
+    () => getTimeframeLabel(rangePreset, customRange),
+    [rangePreset, customRange],
+  );
   const activeOverviewRequestRef = useRef(null);
   const lastOverviewQueryKeyRef = useRef("");
   const lastOverviewFetchAtRef = useRef(0);
@@ -1321,14 +1700,21 @@ const AnalyticsDashboard = () => {
       const freshData = res?.data || null;
       if (freshData) {
         try {
-          sessionStorage.setItem(ANALYTICS_SS_PREFIX + queryKey, JSON.stringify(freshData));
-        } catch { /* storage quota exceeded — ignore */ }
+          sessionStorage.setItem(
+            ANALYTICS_SS_PREFIX + queryKey,
+            JSON.stringify(freshData),
+          );
+        } catch {
+          /* storage quota exceeded — ignore */
+        }
       }
       setOverview(freshData);
     } catch (err) {
       const connectionDown = isConnectionError(err);
       if (connectionDown) {
-        setError("Backend server is not running. Start it with: cd cdb-api && npm run dev");
+        setError(
+          "Backend server is not running. Start it with: cd cdb-api && npm run dev",
+        );
         setOverview(null);
       } else {
         const errMsg = String(err?.message || "").toLowerCase();
@@ -1350,10 +1736,17 @@ const AnalyticsDashboard = () => {
         setError("");
         try {
           const loans = await fetchAllLoansForFallback();
-          const fallback = buildFallbackOverview(loans, rangePreset, customRange);
+          const fallback = buildFallbackOverview(
+            loans,
+            rangePreset,
+            customRange,
+          );
           setOverview(fallback);
         } catch (fallbackErr) {
-          console.error("[AnalyticsDashboard] Fallback also failed:", fallbackErr);
+          console.error(
+            "[AnalyticsDashboard] Fallback also failed:",
+            fallbackErr,
+          );
           setError(
             err?.message ||
               "Failed to load analytics. Ensure the backend is running (npm run dev in cdb-api).",
@@ -1414,20 +1807,67 @@ const AnalyticsDashboard = () => {
       setDrillTitle(title);
       setDrillOpen(true);
       setDrillLoading(true);
-      setDrillSearch(""); // clear previous search so results aren't filtered out
+      setDrillSearch("");
       setDrillRows([]);
       setDrillError("");
+
       try {
-        const res = await loansApi.getAnalyticsDrilldown({
+        const params = {
           ...queryParams,
           widget,
           bucket,
           key,
+        };
+
+        console.log("[Analytics Drilldown] Opening:", {
+          title,
+          widget,
+          bucket,
+          key,
+          params,
         });
-        setDrillRows(Array.isArray(res?.data) ? res.data : []);
+
+        const res = await loansApi.getAnalyticsDrilldown(params);
+
+        console.log("[Analytics Drilldown] Response:", {
+          success: res?.success,
+          dataCount: res?.data?.length || 0,
+          total: res?.total,
+          meta: res?.meta,
+        });
+
+        const rows = Array.isArray(res?.data) ? res.data : [];
+
+        if (rows.length === 0) {
+          setDrillError(
+            res?.meta?.rowsAnalyzed === 0
+              ? "No loans found in this date range. Try expanding your date range."
+              : `No records found matching "${widget}" filter for the selected period. Try adjusting your date range.`,
+          );
+        }
+
+        setDrillRows(rows);
       } catch (err) {
         console.error("[Analytics] Drilldown error:", err);
-        setDrillError(err?.message || "Failed to load drilldown data");
+
+        const errorMsg =
+          err?.payload?.error || err?.payload?.message || err?.message;
+
+        if (err?.status === 404) {
+          setDrillError(
+            "Drill-down feature is not yet deployed. Please contact support.",
+          );
+        } else if (err?.status === 500) {
+          setDrillError(
+            `Server error: ${errorMsg || "Something went wrong on the backend"}`,
+          );
+        } else {
+          setDrillError(
+            errorMsg ||
+              "Failed to load drilldown data. Check browser console for details.",
+          );
+        }
+
         setDrillRows([]);
       } finally {
         setDrillLoading(false);
@@ -1441,7 +1881,9 @@ const AnalyticsDashboard = () => {
   const completionPct = useMemo(() => {
     const done = (widgets.caseStatusDistribution || [])
       .filter((row) =>
-        /(disburs|deliver|paid|closed|complete)/i.test(String(row?.status || "")),
+        /(disburs|deliver|paid|closed|complete)/i.test(
+          String(row?.status || ""),
+        ),
       )
       .reduce((sum, row) => sum + Number(row?.count || 0), 0);
     const total = Number(totals.totalCases || 0);
@@ -1449,11 +1891,37 @@ const AnalyticsDashboard = () => {
   }, [totals.totalCases, widgets.caseStatusDistribution]);
 
   const drillColumns = [
-    { title: "Loan ID", dataIndex: "loanId", key: "loanId", width: 140, fixed: "left" },
-    { title: "Customer", dataIndex: "customerName", key: "customerName", width: 220 },
-    { title: "Mobile", dataIndex: "primaryMobile", key: "primaryMobile", width: 130 },
-    { title: "Loan Type", dataIndex: "typeOfLoan", key: "typeOfLoan", width: 140 },
-    { title: "Stage", dataIndex: "currentStage", key: "currentStage", width: 120 },
+    {
+      title: "Loan ID",
+      dataIndex: "loanId",
+      key: "loanId",
+      width: 140,
+      fixed: "left",
+    },
+    {
+      title: "Customer",
+      dataIndex: "customerName",
+      key: "customerName",
+      width: 220,
+    },
+    {
+      title: "Mobile",
+      dataIndex: "primaryMobile",
+      key: "primaryMobile",
+      width: 130,
+    },
+    {
+      title: "Loan Type",
+      dataIndex: "typeOfLoan",
+      key: "typeOfLoan",
+      width: 140,
+    },
+    {
+      title: "Stage",
+      dataIndex: "currentStage",
+      key: "currentStage",
+      width: 120,
+    },
     { title: "Status", dataIndex: "status", key: "status", width: 130 },
     {
       title: "Bank",
@@ -1505,16 +1973,29 @@ const AnalyticsDashboard = () => {
   );
 
   const filteredReportRows = useMemo(() => {
-    const q = String(customReportSearch || "").trim().toLowerCase();
+    const q = String(customReportSearch || "")
+      .trim()
+      .toLowerCase();
     if (!q) return customReportRows;
     const fields = customReportMeta?.fields || customReportConfig.fields || [];
     return customReportRows.filter((row) =>
-      fields.some((field) => String(row?.[field] ?? "").toLowerCase().includes(q)),
+      fields.some((field) =>
+        String(row?.[field] ?? "")
+          .toLowerCase()
+          .includes(q),
+      ),
     );
-  }, [customReportConfig.fields, customReportMeta?.fields, customReportRows, customReportSearch]);
+  }, [
+    customReportConfig.fields,
+    customReportMeta?.fields,
+    customReportRows,
+    customReportSearch,
+  ]);
 
   const filteredDrillRows = useMemo(() => {
-    const q = String(drillSearch || "").trim().toLowerCase();
+    const q = String(drillSearch || "")
+      .trim()
+      .toLowerCase();
     if (!q) return drillRows;
     return drillRows.filter((row) =>
       [
@@ -1544,7 +2025,11 @@ const AnalyticsDashboard = () => {
             <Col xs={24} md={16}>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <ChartNoAxesCombined size={18} strokeWidth={2} className="text-primary" />
+                  <ChartNoAxesCombined
+                    size={18}
+                    strokeWidth={2}
+                    className="text-primary"
+                  />
                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                     AutoCredits India LLP
                   </span>
@@ -1553,14 +2038,18 @@ const AnalyticsDashboard = () => {
                   Analytics Dashboard
                 </Typography.Title>
                 <Typography.Text type="secondary" className="text-xs">
-                  Loan performance insights, pipeline analytics, and custom reporting.
+                  Loan performance insights, pipeline analytics, and custom
+                  reporting.
                 </Typography.Text>
               </div>
             </Col>
             <Col xs={24} md="auto">
               <Row gutter={[8, 8]} justify="end" align="middle" wrap>
                 <Col>
-                  <Typography.Text type="secondary" className="hidden text-[11px] sm:inline-block">
+                  <Typography.Text
+                    type="secondary"
+                    className="hidden text-[11px] sm:inline-block"
+                  >
                     {timeframeLabel}
                   </Typography.Text>
                 </Col>
@@ -1570,7 +2059,9 @@ const AnalyticsDashboard = () => {
                       <Col key={option.value}>
                         <Button
                           size="small"
-                          type={rangePreset === option.value ? "primary" : "default"}
+                          type={
+                            rangePreset === option.value ? "primary" : "default"
+                          }
                           onClick={() => setRangePreset(option.value)}
                         >
                           {option.label}
@@ -1593,7 +2084,12 @@ const AnalyticsDashboard = () => {
                   <Button
                     size="small"
                     type="primary"
-                    icon={<RefreshCcw size={13} className={refreshing ? "animate-spin" : ""} />}
+                    icon={
+                      <RefreshCcw
+                        size={13}
+                        className={refreshing ? "animate-spin" : ""}
+                      />
+                    }
                     onClick={fetchOverview}
                   >
                     {refreshing ? "Refreshing" : "Refresh"}
@@ -1645,8 +2141,12 @@ const AnalyticsDashboard = () => {
               />
               <KpiTile
                 label="Pending Disbursal"
-                value={Number(widgets.approvalPendingDisbursal?.count || 0).toLocaleString("en-IN")}
-                subLabel={formatINR(widgets.approvalPendingDisbursal?.amount || 0)}
+                value={Number(
+                  widgets.approvalPendingDisbursal?.count || 0,
+                ).toLocaleString("en-IN")}
+                subLabel={formatINR(
+                  widgets.approvalPendingDisbursal?.amount || 0,
+                )}
                 tone="rose"
                 icon={Clock3}
                 loading={loading}
@@ -1655,589 +2155,651 @@ const AnalyticsDashboard = () => {
           </section>
         </div>
 
-      <div>
-        <section className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-            Charts & Insights
-          </h2>
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
-            {loading ? (
-              <>
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`${
-                      [5, 4, 3, 5, 4, 3][i] === 5
-                        ? "xl:col-span-5"
-                        : [5, 4, 3, 5, 4, 3][i] === 4
-                          ? "xl:col-span-4"
-                          : "xl:col-span-3"
-                    } animate-pulse`}
-                  >
-                    <div className="h-64 rounded-2xl border border-border bg-muted/40" />
-                  </div>
-                ))}
-              </>
-            ) : (
-              <>
-          <div className="xl:col-span-5">
-            <WidgetShell
-              title="Total Loans Trend"
-              subtitle="Click any month to open case-level detail"
-              icon={BarChart3}
-              color="blue"
-            >
-              <VerticalBarChart
-                points={widgets.totalLoansTrend || []}
-                valueKey="value"
-                color="#1d9bf0"
-                onSelect={(p) =>
-                  openDrilldown({
-                    title: `Loans in ${p.label}`,
-                    widget: "total_loan_trend",
-                    bucket: p.bucket,
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-4">
-            <WidgetShell
-              title="Disbursed Amount Trend"
-              subtitle="Month-wise disbursal movement"
-              icon={IndianRupee}
-              color="emerald"
-            >
-              <AreaLineChart
-                points={(widgets.disbursedAmountTrend || []).map((item) => ({
-                  ...item,
-                  value: item.amount || 0,
-                }))}
-                valueKey="value"
-                color="#059669"
-                id="disbursed-trend"
-                onSelect={(p) =>
-                  openDrilldown({
-                    title: `Disbursed in ${p.label}`,
-                    widget: "disbursed_amount_trend",
-                    bucket: p.bucket,
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-3">
-            <WidgetShell
-              title="Business Target"
-              subtitle="Disbursed/Delivered share in selected range"
-              icon={TrendingUp}
-              color="indigo"
-            >
-              <SemiGauge
-                value={completionPct}
-                title="Execution Progress"
-                subtitle={`${Number(totals.totalCases || 0).toLocaleString("en-IN")} total cases in range`}
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-5">
-            <WidgetShell
-              title="Stage Funnel"
-              subtitle="Pipeline concentration by stage"
-              icon={GitBranch}
-              color="indigo"
-            >
-              <FunnelChart
-                rows={widgets.stageFunnel || []}
-                onSelect={(stage) =>
-                  openDrilldown({
-                    title: `Stage: ${stage.stage}`,
-                    widget: "stage_funnel",
-                    key: stage.stage,
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-4">
-            <WidgetShell
-              title="Loan Type Mix"
-              subtitle="Distribution by case type"
-              icon={CircleDot}
-              color="slate"
-            >
-              <DonutBreakdown
-                rows={widgets.loanTypeMix || []}
-                labelKey="label"
-                valueKey="count"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Loan Type: ${row.label}`,
-                    widget: "loan_type_mix",
-                    key: String(row.label || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-3">
-            <WidgetShell
-              title="Status Distribution"
-              subtitle="Current lifecycle status split"
-              icon={ShieldAlert}
-              color="slate"
-            >
-              <DonutBreakdown
-                rows={widgets.caseStatusDistribution || []}
-                labelKey="status"
-                valueKey="count"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Status: ${row.status}`,
-                    widget: "case_status_distribution",
-                    key: String(row.status || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-6">
-            <WidgetShell
-              title="Bank Pipeline + Amounts"
-              subtitle="Top financed banks by case volume"
-              icon={Building2}
-              color="slate"
-            >
-              <HorizontalBarChart
-                rows={(widgets.bankPipeline || []).slice(0, 6)}
-                labelKey="bankName"
-                valueKey="total"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Bank: ${row.bankName}`,
-                    widget: "bank_pipeline",
-                    key: String(row.bankName || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-3">
-            <WidgetShell
-              title="Source Performance"
-              subtitle="Direct vs indirect efficiency"
-              icon={SearchCode}
-              color="slate"
-            >
-              <HorizontalBarChart
-                rows={(widgets.sourcePerformance || []).slice(0, 6).map((row) => ({
-                  ...row,
-                  label: `${row.source} (${row.conversionRate || 0}%)`,
-                  total: row.total || 0,
-                }))}
-                labelKey="label"
-                valueKey="total"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Source: ${row.source}`,
-                    widget: "source_performance",
-                    key: String(row.source || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-3">
-            <WidgetShell
-              title="Dealer Performance"
-              subtitle="Top dealer contribution"
-              icon={BriefcaseBusiness}
-              color="slate"
-            >
-              <HorizontalBarChart
-                rows={(widgets.dealerPerformance || []).slice(0, 6)}
-                labelKey="dealerName"
-                valueKey="total"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Dealer: ${row.dealerName}`,
-                    widget: "dealer_performance",
-                    key: String(row.dealerName || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-5">
-            <WidgetShell
-              title="Vehicle Segment Trends"
-              subtitle="Model/variant concentration"
-              icon={CarFront}
-              color="slate"
-            >
-              <HorizontalBarChart
-                rows={(widgets.vehicleSegmentTrends || []).slice(0, 6).map((row) => ({
-                  ...row,
-                  label: `${row.segment} | Avg ${formatINR(row.avgLoanAmount || 0)}`,
-                }))}
-                labelKey="label"
-                valueKey="total"
-                onClick={(row) =>
-                  openDrilldown({
-                    title: `Vehicle Segment: ${row.segment}`,
-                    widget: "vehicle_segment",
-                    key: String(row.segment || "").toLowerCase(),
-                  })
-                }
-              />
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-4">
-            <WidgetShell
-              title="Cash Car Pipeline"
-              subtitle="Cash-car cases tracked separately from banks"
-              icon={IndianRupee}
-              color="amber"
-            >
-              <div className="grid grid-cols-1 gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    openDrilldown({
-                      title: "Cash Car Cases",
-                      widget: "cash_car_all",
-                    })
-                  }
-                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                >
-                  <div className="text-2xl font-black tabular-nums text-foreground">
-                    {Number(widgets.cashCarSummary?.total || 0).toLocaleString("en-IN")}
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</div>
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    {formatINR(widgets.cashCarSummary?.amount || 0)}
-                  </div>
-                </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: "Cash Car Delivered",
-                        widget: "cash_car_delivered",
-                      })
-                    }
-                    className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                  >
-                    <div className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
-                      {Number(widgets.cashCarSummary?.delivered || 0).toLocaleString("en-IN")}
-                    </div>
-                    <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Delivered</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openDrilldown({
-                        title: "Cash Car Pending Delivery",
-                        widget: "cash_car_pending_delivery",
-                      })
-                    }
-                    className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                  >
-                    <div className="text-xl font-black tabular-nums text-rose-500 dark:text-rose-400">
-                      {Number(widgets.cashCarSummary?.pending || 0).toLocaleString("en-IN")}
-                    </div>
-                    <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending</div>
-                  </button>
-                </div>
-              </div>
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-3">
-            <WidgetShell
-              title="Repeated Customers"
-              subtitle="Identity collision and repeat case flags"
-              icon={UsersRound}
-              color="rose"
-            >
-              <div className="grid grid-cols-1 gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                  onClick={() =>
-                    openDrilldown({
-                      title: "Repeated Customers (identity collisions)",
-                      widget: "repeated_customers",
-                    })
-                  }
-                >
-                  <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
-                    {widgets.repeatedCustomers?.repeatedIdentityCount || 0}
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Identities</div>
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                  onClick={() =>
-                    openDrilldown({
-                      title: "Repeated Customer Cases",
-                      widget: "repeated_customers",
-                    })
-                  }
-                >
-                  <div className="text-2xl font-black tabular-nums text-fuchsia-500 dark:text-fuchsia-400">
-                    {widgets.repeatedCustomers?.repeatedCaseCount || 0}
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cases</div>
-                </button>
-              </div>
-            </WidgetShell>
-          </div>
-
-          <div className="xl:col-span-12">
-            <WidgetShell
-              title="Quality Alerts"
-              subtitle="Approval pending and critical missing data"
-              icon={AlertTriangle}
-              color="amber"
-            >
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    openDrilldown({
-                      title: "Approval Pending Disbursal",
-                      widget: "approval_pending_disbursal",
-                    })
-                  }
-                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                >
-                  <div className="text-2xl font-black tabular-nums text-amber-500 dark:text-amber-400">
-                    {widgets.approvalPendingDisbursal?.count || 0}
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending Disbursal</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    openDrilldown({
-                      title: "Missing RC Registration",
-                      widget: "missing_reg_number",
-                    })
-                  }
-                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                >
-                  <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
-                    {widgets.missingRegNumber?.count || 0}
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Missing RC</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    openDrilldown({
-                      title: "Missing Critical Delivery Fields",
-                      widget: "missing_delivery_fields",
-                    })
-                  }
-                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                >
-                  <div className="text-2xl font-black tabular-nums text-orange-500 dark:text-orange-400">
-                    {widgets.missingCriticalDeliveryFields?.count || 0}
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Delivery Gaps</div>
-                </button>
-              </div>
-            </WidgetShell>
-          </div>
-            </>
-          )}
-          </section>
-        </section>
-
-        <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <Tabs
-            className="analytics-tabs"
-            defaultActiveKey="customWidget"
-            items={[
-              {
-                key: "customWidget",
-                label: (
-                  <span className="flex items-center gap-2">
-                    <Filter size={14} />
-                    Custom Widget
-                  </span>
-                ),
-                children: (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                      <Select
-                        value={customWidgetConfig.metric}
-                        options={CUSTOM_WIDGET_METRICS}
-                        onChange={(v) =>
-                          setCustomWidgetConfig((prev) => ({ ...prev, metric: v }))
-                        }
-                      />
-                      <Select
-                        value={customWidgetConfig.groupBy}
-                        options={CUSTOM_WIDGET_GROUP_BY}
-                        onChange={(v) =>
-                          setCustomWidgetConfig((prev) => ({ ...prev, groupBy: v }))
-                        }
-                      />
-                      <Select
-                        value={customWidgetConfig.metricField}
-                        options={CUSTOM_WIDGET_FIELDS}
-                        onChange={(v) =>
-                          setCustomWidgetConfig((prev) => ({ ...prev, metricField: v }))
-                        }
-                      />
-                      <InputNumber
-                        min={1}
-                        max={200}
-                        value={customWidgetConfig.topN}
-                        onChange={(v) =>
-                          setCustomWidgetConfig((prev) => ({
-                            ...prev,
-                            topN: Number(v || 12),
-                          }))
-                        }
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                    <Button
-                      type="primary"
-                      className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
-                      loading={customWidgetLoading}
-                      onClick={runCustomWidget}
+        <div>
+          <section className="rounded-2xl border border-border bg-card p-5">
+            <h2 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+              Charts & Insights
+            </h2>
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+              {loading ? (
+                <>
+                  {[...Array(6)].map((_, i) => (
+                    <div
+                      key={i}
+                      className={`${
+                        [5, 4, 3, 5, 4, 3][i] === 5
+                          ? "xl:col-span-5"
+                          : [5, 4, 3, 5, 4, 3][i] === 4
+                            ? "xl:col-span-4"
+                            : "xl:col-span-3"
+                      } animate-pulse`}
                     >
-                      Build Widget
-                    </Button>
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                      {customWidgetData.map((row) => (
-                        <div
-                          key={row.key}
-                          className="rounded-xl border border-border bg-muted/50 px-3 py-2"
+                      <div className="h-64 rounded-2xl border border-border bg-muted/40" />
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <div className="xl:col-span-5">
+                    <WidgetShell
+                      title="Total Loans Trend"
+                      subtitle="Click any month to open case-level detail"
+                      icon={BarChart3}
+                      color="blue"
+                    >
+                      <VerticalBarChart
+                        points={widgets.totalLoansTrend || []}
+                        valueKey="value"
+                        color="#1d9bf0"
+                        onSelect={(p) =>
+                          openDrilldown({
+                            title: `Loans in ${p.label}`,
+                            widget: "total_loan_trend",
+                            bucket: p.bucket,
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-4">
+                    <WidgetShell
+                      title="Disbursed Amount Trend"
+                      subtitle="Month-wise disbursal movement"
+                      icon={IndianRupee}
+                      color="emerald"
+                    >
+                      <DisbursedAmountTrendChart
+                        rows={widgets.disbursedAmountTrend || []}
+                        onSelect={(p) =>
+                          openDrilldown({
+                            title: `Disbursed in ${p.label}`,
+                            widget: "disbursed_amount_trend",
+                            bucket: p.bucket,
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-3">
+                    <WidgetShell
+                      title="Business Target"
+                      subtitle="Disbursed/Delivered share in selected range"
+                      icon={TrendingUp}
+                      color="indigo"
+                    >
+                      <SemiGauge
+                        value={completionPct}
+                        title="Execution Progress"
+                        subtitle={`${Number(totals.totalCases || 0).toLocaleString("en-IN")} total cases in range`}
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-5">
+                    <WidgetShell
+                      title="Stage Funnel"
+                      subtitle="Pipeline concentration by stage"
+                      icon={GitBranch}
+                      color="indigo"
+                    >
+                      <FunnelChart
+                        rows={widgets.stageFunnel || []}
+                        onSelect={(stage) =>
+                          openDrilldown({
+                            title: `Stage: ${stage.stage}`,
+                            widget: "stage_funnel",
+                            key: stage.stage,
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-4">
+                    <WidgetShell
+                      title="Loan Type Mix"
+                      subtitle="Distribution by case type"
+                      icon={CircleDot}
+                      color="slate"
+                    >
+                      <DonutBreakdown
+                        rows={widgets.loanTypeMix || []}
+                        labelKey="label"
+                        valueKey="count"
+                        onClick={(row) =>
+                          openDrilldown({
+                            title: `Loan Type: ${row.label}`,
+                            widget: "loan_type_mix",
+                            key: String(row.label || "").toLowerCase(),
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-3">
+                    <WidgetShell
+                      title="Status Distribution"
+                      subtitle="Current lifecycle status split"
+                      icon={ShieldAlert}
+                      color="slate"
+                    >
+                      <DonutBreakdown
+                        rows={widgets.caseStatusDistribution || []}
+                        labelKey="status"
+                        valueKey="count"
+                        onClick={(row) =>
+                          openDrilldown({
+                            title: `Status: ${row.status}`,
+                            widget: "case_status_distribution",
+                            key: String(row.status || "").toLowerCase(),
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-6">
+                    <WidgetShell
+                      title="Bank Pipeline + Amounts"
+                      subtitle="Top financed banks by case volume"
+                      icon={Building2}
+                      color="slate"
+                    >
+                      <HorizontalBarChart
+                        rows={(widgets.bankPipeline || []).slice(0, 6)}
+                        labelKey="bankName"
+                        valueKey="total"
+                        onClick={(row) =>
+                          openDrilldown({
+                            title: `Bank: ${row.bankName}`,
+                            widget: "bank_pipeline",
+                            key: String(row.bankName || "").toLowerCase(),
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-3">
+                    <WidgetShell
+                      title="Source Performance"
+                      subtitle="Direct vs indirect efficiency"
+                      icon={SearchCode}
+                      color="slate"
+                    >
+                      <HorizontalBarChart
+                        rows={(widgets.sourcePerformance || [])
+                          .slice(0, 6)
+                          .map((row) => ({
+                            ...row,
+                            label: `${row.source} (${row.conversionRate || 0}%)`,
+                            total: row.total || 0,
+                          }))}
+                        labelKey="label"
+                        valueKey="total"
+                        onClick={(row) =>
+                          openDrilldown({
+                            title: `Source: ${row.source}`,
+                            widget: "source_performance",
+                            key: String(row.source || "").toLowerCase(),
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-3">
+                    <WidgetShell
+                      title="Dealer Performance"
+                      subtitle="Top dealer contribution"
+                      icon={BriefcaseBusiness}
+                      color="slate"
+                    >
+                      <HorizontalBarChart
+                        rows={(widgets.dealerPerformance || []).slice(0, 6)}
+                        labelKey="dealerName"
+                        valueKey="total"
+                        onClick={(row) =>
+                          openDrilldown({
+                            title: `Dealer: ${row.dealerName}`,
+                            widget: "dealer_performance",
+                            key: String(row.dealerName || "").toLowerCase(),
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-5">
+                    <WidgetShell
+                      title="Vehicle Segment Trends"
+                      subtitle="Model/variant concentration"
+                      icon={CarFront}
+                      color="slate"
+                    >
+                      <HorizontalBarChart
+                        rows={(widgets.vehicleSegmentTrends || [])
+                          .slice(0, 6)
+                          .map((row) => ({
+                            ...row,
+                            label: `${row.segment} | Avg ${formatINR(row.avgLoanAmount || 0)}`,
+                          }))}
+                        labelKey="label"
+                        valueKey="total"
+                        onClick={(row) =>
+                          openDrilldown({
+                            title: `Vehicle Segment: ${row.segment}`,
+                            widget: "vehicle_segment",
+                            key: String(row.segment || "").toLowerCase(),
+                          })
+                        }
+                      />
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-4">
+                    <WidgetShell
+                      title="Cash Car Pipeline"
+                      subtitle="Cash-car cases tracked separately from banks"
+                      icon={IndianRupee}
+                      color="amber"
+                    >
+                      <div className="grid grid-cols-1 gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDrilldown({
+                              title: "Cash Car Cases",
+                              widget: "cash_car_all",
+                            })
+                          }
+                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                         >
-                          <div className="truncate text-xs font-semibold text-muted-foreground">
-                            {row.label}
+                          <div className="text-2xl font-black tabular-nums text-foreground">
+                            {Number(
+                              widgets.cashCarSummary?.total || 0,
+                            ).toLocaleString("en-IN")}
                           </div>
-                          <div className="text-lg font-black text-foreground">
-                            {Number(row.value || 0).toLocaleString("en-IN")}
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Total
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ),
-              },
-              {
-                key: "customReport",
-                label: (
-                  <span className="flex items-center gap-2">
-                    <Database size={14} />
-                    Custom Report
-                  </span>
-                ),
-                children: (
-                  <div className="space-y-3">
-                    <Select
-                      mode="multiple"
-                      value={customReportConfig.fields}
-                      options={REPORT_FIELDS.map((f) => ({ label: f, value: f }))}
-                      onChange={(values) =>
-                        setCustomReportConfig((prev) => ({ ...prev, fields: values }))
-                      }
-                      maxTagCount="responsive"
-                      placeholder="Select fields for report output"
-                    />
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                      <Select
-                        value={customReportConfig.sortBy}
-                        options={REPORT_FIELDS.map((f) => ({ label: f, value: f }))}
-                        onChange={(v) =>
-                          setCustomReportConfig((prev) => ({ ...prev, sortBy: v }))
-                        }
-                      />
-                      <Select
-                        value={customReportConfig.sortDir}
-                        options={[
-                          { label: "Descending", value: "desc" },
-                          { label: "Ascending", value: "asc" },
-                        ]}
-                        onChange={(v) =>
-                          setCustomReportConfig((prev) => ({ ...prev, sortDir: v }))
-                        }
-                      />
-                      <InputNumber
-                        min={10}
-                        max={10000}
-                        value={customReportConfig.limit}
-                        onChange={(v) =>
-                          setCustomReportConfig((prev) => ({
-                            ...prev,
-                            limit: Number(v || 300),
-                          }))
-                        }
-                        style={{ width: "100%" }}
-                      />
-                    </div>
-                    <Button
-                      type="primary"
-                      className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
-                      loading={customReportLoading}
-                      onClick={runCustomReport}
-                    >
-                      Generate Report
-                    </Button>
-                    <div className="analytics-report-panel rounded-xl border border-border bg-card p-3">
-                      <div className="analytics-report-toolbar mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <div className="text-sm font-bold text-foreground">Report Output</div>
-                        <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
-                          <Input
-                            allowClear
-                            value={customReportSearch}
-                            onChange={(e) => setCustomReportSearch(e.target.value)}
-                            placeholder="Search across generated report rows"
-                            className="analytics-report-search w-full md:w-80"
-                          />
-                          <div className="analytics-report-stats inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
-                            <span>Rows: {filteredReportRows.length}</span>
-                            <span className="text-muted-foreground">•</span>
-                            <span>Cols: {(customReportMeta?.fields || customReportConfig.fields || []).length}</span>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {formatINR(widgets.cashCarSummary?.amount || 0)}
                           </div>
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openDrilldown({
+                                title: "Cash Car Delivered",
+                                widget: "cash_car_delivered",
+                              })
+                            }
+                            className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
+                          >
+                            <div className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                              {Number(
+                                widgets.cashCarSummary?.delivered || 0,
+                              ).toLocaleString("en-IN")}
+                            </div>
+                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Delivered
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openDrilldown({
+                                title: "Cash Car Pending Delivery",
+                                widget: "cash_car_pending_delivery",
+                              })
+                            }
+                            className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
+                          >
+                            <div className="text-xl font-black tabular-nums text-rose-500 dark:text-rose-400">
+                              {Number(
+                                widgets.cashCarSummary?.pending || 0,
+                              ).toLocaleString("en-IN")}
+                            </div>
+                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Pending
+                            </div>
+                          </button>
                         </div>
                       </div>
-                      <Table
-                        className="analytics-table"
-                        rowKey={(row, idx) => row.loanId || row._id || `r-${idx}`}
-                        columns={reportColumns}
-                        dataSource={filteredReportRows}
-                        size="small"
-                        pagination={{ pageSize: 20, showSizeChanger: true }}
-                        rowClassName={(_, index) => (index % 2 ? "analytics-report-row-alt" : "")}
-                        scroll={{ x: 1400 }}
-                      />
-                    </div>
+                    </WidgetShell>
                   </div>
-                ),
-              },
-            ]}
-          />
-        </section>
-      </div>
+
+                  <div className="xl:col-span-3">
+                    <WidgetShell
+                      title="Repeated Customers"
+                      subtitle="Identity collision and repeat case flags"
+                      icon={UsersRound}
+                      color="rose"
+                    >
+                      <div className="grid grid-cols-1 gap-2">
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
+                          onClick={() =>
+                            openDrilldown({
+                              title: "Repeated Customers (identity collisions)",
+                              widget: "repeated_customers",
+                            })
+                          }
+                        >
+                          <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
+                            {widgets.repeatedCustomers?.repeatedIdentityCount ||
+                              0}
+                          </div>
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Identities
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
+                          onClick={() =>
+                            openDrilldown({
+                              title: "Repeated Customer Cases",
+                              widget: "repeated_customers",
+                            })
+                          }
+                        >
+                          <div className="text-2xl font-black tabular-nums text-fuchsia-500 dark:text-fuchsia-400">
+                            {widgets.repeatedCustomers?.repeatedCaseCount || 0}
+                          </div>
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Cases
+                          </div>
+                        </button>
+                      </div>
+                    </WidgetShell>
+                  </div>
+
+                  <div className="xl:col-span-12">
+                    <WidgetShell
+                      title="Quality Alerts"
+                      subtitle="Approval pending and critical missing data"
+                      icon={AlertTriangle}
+                      color="amber"
+                    >
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDrilldown({
+                              title: "Approval Pending Disbursal",
+                              widget: "approval_pending_disbursal",
+                            })
+                          }
+                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
+                        >
+                          <div className="text-2xl font-black tabular-nums text-amber-500 dark:text-amber-400">
+                            {widgets.approvalPendingDisbursal?.count || 0}
+                          </div>
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Pending Disbursal
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDrilldown({
+                              title: "Missing RC Registration",
+                              widget: "missing_reg_number",
+                            })
+                          }
+                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
+                        >
+                          <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
+                            {widgets.missingRegNumber?.count || 0}
+                          </div>
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Missing RC
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openDrilldown({
+                              title: "Missing Critical Delivery Fields",
+                              widget: "missing_delivery_fields",
+                            })
+                          }
+                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
+                        >
+                          <div className="text-2xl font-black tabular-nums text-orange-500 dark:text-orange-400">
+                            {widgets.missingCriticalDeliveryFields?.count || 0}
+                          </div>
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Delivery Gaps
+                          </div>
+                        </button>
+                      </div>
+                    </WidgetShell>
+                  </div>
+                </>
+              )}
+            </section>
+          </section>
+
+          <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <Tabs
+              className="analytics-tabs"
+              defaultActiveKey="customWidget"
+              items={[
+                {
+                  key: "customWidget",
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <Filter size={14} />
+                      Custom Widget
+                    </span>
+                  ),
+                  children: (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                        <Select
+                          value={customWidgetConfig.metric}
+                          options={CUSTOM_WIDGET_METRICS}
+                          onChange={(v) =>
+                            setCustomWidgetConfig((prev) => ({
+                              ...prev,
+                              metric: v,
+                            }))
+                          }
+                        />
+                        <Select
+                          value={customWidgetConfig.groupBy}
+                          options={CUSTOM_WIDGET_GROUP_BY}
+                          onChange={(v) =>
+                            setCustomWidgetConfig((prev) => ({
+                              ...prev,
+                              groupBy: v,
+                            }))
+                          }
+                        />
+                        <Select
+                          value={customWidgetConfig.metricField}
+                          options={CUSTOM_WIDGET_FIELDS}
+                          onChange={(v) =>
+                            setCustomWidgetConfig((prev) => ({
+                              ...prev,
+                              metricField: v,
+                            }))
+                          }
+                        />
+                        <InputNumber
+                          min={1}
+                          max={200}
+                          value={customWidgetConfig.topN}
+                          onChange={(v) =>
+                            setCustomWidgetConfig((prev) => ({
+                              ...prev,
+                              topN: Number(v || 12),
+                            }))
+                          }
+                          style={{ width: "100%" }}
+                        />
+                      </div>
+                      <Button
+                        type="primary"
+                        className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
+                        loading={customWidgetLoading}
+                        onClick={runCustomWidget}
+                      >
+                        Build Widget
+                      </Button>
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                        {customWidgetData.map((row) => (
+                          <div
+                            key={row.key}
+                            className="rounded-xl border border-border bg-muted/50 px-3 py-2"
+                          >
+                            <div className="truncate text-xs font-semibold text-muted-foreground">
+                              {row.label}
+                            </div>
+                            <div className="text-lg font-black text-foreground">
+                              {Number(row.value || 0).toLocaleString("en-IN")}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: "customReport",
+                  label: (
+                    <span className="flex items-center gap-2">
+                      <Database size={14} />
+                      Custom Report
+                    </span>
+                  ),
+                  children: (
+                    <div className="space-y-3">
+                      <Select
+                        mode="multiple"
+                        value={customReportConfig.fields}
+                        options={REPORT_FIELDS.map((f) => ({
+                          label: f,
+                          value: f,
+                        }))}
+                        onChange={(values) =>
+                          setCustomReportConfig((prev) => ({
+                            ...prev,
+                            fields: values,
+                          }))
+                        }
+                        maxTagCount="responsive"
+                        placeholder="Select fields for report output"
+                      />
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <Select
+                          value={customReportConfig.sortBy}
+                          options={REPORT_FIELDS.map((f) => ({
+                            label: f,
+                            value: f,
+                          }))}
+                          onChange={(v) =>
+                            setCustomReportConfig((prev) => ({
+                              ...prev,
+                              sortBy: v,
+                            }))
+                          }
+                        />
+                        <Select
+                          value={customReportConfig.sortDir}
+                          options={[
+                            { label: "Descending", value: "desc" },
+                            { label: "Ascending", value: "asc" },
+                          ]}
+                          onChange={(v) =>
+                            setCustomReportConfig((prev) => ({
+                              ...prev,
+                              sortDir: v,
+                            }))
+                          }
+                        />
+                        <InputNumber
+                          min={10}
+                          max={10000}
+                          value={customReportConfig.limit}
+                          onChange={(v) =>
+                            setCustomReportConfig((prev) => ({
+                              ...prev,
+                              limit: Number(v || 300),
+                            }))
+                          }
+                          style={{ width: "100%" }}
+                        />
+                      </div>
+                      <Button
+                        type="primary"
+                        className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
+                        loading={customReportLoading}
+                        onClick={runCustomReport}
+                      >
+                        Generate Report
+                      </Button>
+                      <div className="analytics-report-panel rounded-xl border border-border bg-card p-3">
+                        <div className="analytics-report-toolbar mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <div className="text-sm font-bold text-foreground">
+                            Report Output
+                          </div>
+                          <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
+                            <Input
+                              allowClear
+                              value={customReportSearch}
+                              onChange={(e) =>
+                                setCustomReportSearch(e.target.value)
+                              }
+                              placeholder="Search across generated report rows"
+                              className="analytics-report-search w-full md:w-80"
+                            />
+                            <div className="analytics-report-stats inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
+                              <span>Rows: {filteredReportRows.length}</span>
+                              <span className="text-muted-foreground">•</span>
+                              <span>
+                                Cols:{" "}
+                                {
+                                  (
+                                    customReportMeta?.fields ||
+                                    customReportConfig.fields ||
+                                    []
+                                  ).length
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <Table
+                          className="analytics-table"
+                          rowKey={(row, idx) =>
+                            row.loanId || row._id || `r-${idx}`
+                          }
+                          columns={reportColumns}
+                          dataSource={filteredReportRows}
+                          size="small"
+                          pagination={{ pageSize: 20, showSizeChanger: true }}
+                          rowClassName={(_, index) =>
+                            index % 2 ? "analytics-report-row-alt" : ""
+                          }
+                          scroll={{ x: 1400 }}
+                        />
+                      </div>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </section>
+        </div>
       </div>
 
       <Modal
@@ -2245,7 +2807,10 @@ const AnalyticsDashboard = () => {
         wrapClassName="analytics-modal-wrap"
         title={drillTitle}
         open={drillOpen}
-        onCancel={() => { setDrillOpen(false); setDrillError(""); }}
+        onCancel={() => {
+          setDrillOpen(false);
+          setDrillError("");
+        }}
         footer={null}
         width={1200}
       >
@@ -2258,6 +2823,59 @@ const AnalyticsDashboard = () => {
               className="mb-3 rounded-xl"
             />
           ) : null}
+
+          {drillRows.length > 0 && !drillLoading && (
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+              <div className="rounded-lg border border-border bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-3">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Total Cases
+                </div>
+                <div className="mt-1 text-2xl font-bold text-foreground">
+                  {drillRows.length}
+                </div>
+              </div>
+              <div className="rounded-lg border border-border bg-gradient-to-br from-purple-500/10 to-purple-500/5 p-3">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Total Amount
+                </div>
+                <div className="mt-1 text-lg font-bold text-foreground">
+                  {formatINR(
+                    drillRows.reduce(
+                      (sum, row) =>
+                        sum + num(row?.loanAmount || row?.disburse_amount || 0),
+                      0,
+                    ),
+                  )}
+                </div>
+              </div>
+              <div className="rounded-lg border border-border bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Avg Per Case
+                </div>
+                <div className="mt-1 text-lg font-bold text-foreground">
+                  {formatINR(
+                    drillRows.length > 0
+                      ? drillRows.reduce(
+                          (sum, row) =>
+                            sum +
+                            num(row?.loanAmount || row?.disburse_amount || 0),
+                          0,
+                        ) / drillRows.length
+                      : 0,
+                  )}
+                </div>
+              </div>
+              <div className="rounded-lg border border-border bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-3">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Displayed
+                </div>
+                <div className="mt-1 text-2xl font-bold text-foreground">
+                  {filteredDrillRows.length}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <Input
               allowClear
@@ -2267,7 +2885,7 @@ const AnalyticsDashboard = () => {
               className="w-full md:w-96"
             />
             <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
-              <span>Rows: {filteredDrillRows.length}</span>
+              <span>Showing: {filteredDrillRows.length}</span>
               <span className="text-muted-foreground">•</span>
               <span>Total: {drillRows.length}</span>
             </div>

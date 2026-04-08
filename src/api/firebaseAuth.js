@@ -33,6 +33,11 @@ export const registerWithEmail = async (name, email, password, role = "staff") =
 
     if (response?.success) {
       // Store both tokens
+      localStorage.setItem("firebaseToken", token);
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data));
+
+      // Keep sessionStorage in sync for any legacy reads
       sessionStorage.setItem("firebaseToken", token);
       sessionStorage.setItem("token", response.data.token);
       sessionStorage.setItem("user", JSON.stringify(response.data));
@@ -73,6 +78,11 @@ export const loginWithEmail = async (email, password) => {
 
     if (response?.success) {
       // Store both tokens
+      localStorage.setItem("firebaseToken", token);
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data));
+
+      // Keep sessionStorage in sync for any legacy reads
       sessionStorage.setItem("firebaseToken", token);
       sessionStorage.setItem("token", response.data.token);
       sessionStorage.setItem("user", JSON.stringify(response.data));
@@ -118,6 +128,11 @@ export const loginWithGoogle = async () => {
 
     if (response?.success) {
       // Store both tokens
+      localStorage.setItem("firebaseToken", token);
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data));
+
+      // Keep sessionStorage in sync for any legacy reads
       sessionStorage.setItem("firebaseToken", token);
       sessionStorage.setItem("token", response.data.token);
       sessionStorage.setItem("user", JSON.stringify(response.data));
@@ -145,6 +160,9 @@ export const logoutUser = async () => {
   try {
     await signOut(auth);
     sessionStorage.clear();
+    localStorage.removeItem("firebaseToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     return { success: true };
   } catch (error) {
     console.error("Logout error:", error);

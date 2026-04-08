@@ -19,12 +19,14 @@ const buildUrl = (endpoint, params = {}) => {
 const getHeaders = (options) => {
   const base = { "Content-Type": "application/json" };
   
-  // Try to get token from sessionStorage
+  // Try to get token (localStorage-first for new-tab persistence)
   let token = null;
   try {
-    token = sessionStorage.getItem("token");
+    token =
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("token");
   } catch (e) {
-    console.warn("Could not access sessionStorage:", e);
+    console.warn("Could not access storage:", e);
   }
   
   // Use token from sessionStorage or from options.Authorization

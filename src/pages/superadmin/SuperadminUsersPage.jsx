@@ -13,7 +13,7 @@ const SuperadminUsersPage = () => {
   const [search, setSearch] = useState("");
   const [updatingById, setUpdatingById] = useState({});
 
-  const token = sessionStorage.getItem("token");
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
   const loadUsers = useCallback(async () => {
     if (!token) {
