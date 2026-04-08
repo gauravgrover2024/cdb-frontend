@@ -77,7 +77,7 @@ const ProfilePage = () => {
 
     setSaving(true);
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       await apiClient.put(
         "/api/auth/change-password",
         { currentPassword: pwForm.current, newPassword: pwForm.next },

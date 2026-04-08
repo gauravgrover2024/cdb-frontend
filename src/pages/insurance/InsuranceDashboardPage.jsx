@@ -1,240 +1,547 @@
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Plus, PencilLine, Trash2, Eye } from "lucide-react";
 import {
-  Plus,
-  PencilLine,
-  ShieldCheck,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  FileText,
-  Eye,
-} from "lucide-react";
-import InsuranceIntroCard from "../../components/insurance/InsuranceIntroCard";
+  Alert,
+  Button,
+  Empty,
+  Input,
+  message,
+  Popconfirm,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+  Select,
+} from "antd";
+import dayjs from "dayjs";
+import { insuranceApi } from "../../api/insurance";
+import InsurancePreview from "../../components/insurance/InsurancePreview";
 
-const demoCases = [
-  {
-    caseId: "INS-1764844048261",
-    customer: "Rahul Sharma",
-    mobile: "9876543210",
-    vehicle: "Hyundai Creta",
-    status: "In Progress",
-  },
-  {
-    caseId: "INS-1764844048262",
-    customer: "Apex Mobility Pvt Ltd",
-    mobile: "9988776655",
-    vehicle: "Tata Nexon",
-    status: "Quote Finalized",
-  },
-  {
-    caseId: "INS-1764844048263",
-    customer: "Priya Mehta",
-    mobile: "9123456780",
-    vehicle: "Maruti Swift",
-    status: "Documents Pending",
-  },
-];
+const { Text } = Typography;
+const { Search } = Input;
 
-const statusConfig = {
-  "In Progress": {
-    icon: Clock,
-    className: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/50",
-  },
-  "Quote Finalized": {
-    icon: CheckCircle2,
-    className: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/50",
-  },
-  "Documents Pending": {
-    icon: AlertCircle,
-    className: "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-900/50",
-  },
+const STATUS_COLOR_MAP = {
+  draft: "default",
+  submitted: "success",
 };
 
-const stats = [
-  { label: "Total Cases", value: "3", icon: FileText, color: "sky" },
-  { label: "In Progress", value: "1", icon: Clock, color: "amber" },
-  { label: "Finalized", value: "1", icon: CheckCircle2, color: "emerald" },
-  { label: "Action Needed", value: "1", icon: AlertCircle, color: "orange" },
-];
-
-const statColorMap = {
-  sky: {
-    icon: "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
-    border: "border-l-sky-500",
-    value: "text-sky-700 dark:text-sky-400",
-  },
-  amber: {
-    icon: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
-    border: "border-l-amber-500",
-    value: "text-amber-700 dark:text-amber-400",
-  },
-  emerald: {
-    icon: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
-    border: "border-l-emerald-500",
-    value: "text-emerald-700 dark:text-emerald-400",
-  },
-  orange: {
-    icon: "bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300",
-    border: "border-l-orange-500",
-    value: "text-orange-700 dark:text-orange-400",
-  },
+const STATUS_LABEL_MAP = {
+  draft: "Draft",
+  submitted: "Submitted",
 };
+
+const STEP_LABEL_MAP = {
+  1: "Customer",
+  2: "Vehicle",
+  3: "Prev. Policy",
+  4: "Quotes",
+  5: "Policy",
+  6: "Documents",
+};
+
+const getCaseId = (item) => item?._id || item?.id || item?.caseId || "";
 
 const InsuranceDashboardPage = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [cases, setCases] = useState([]);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [selectedCase, setSelectedCase] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await insuranceApi.getAll();
+        const rows = Array.isArray(res?.data) ? res.data : res?.items || [];
+        setCases(rows);
+      } catch (err) {
+        console.error("[InsuranceDashboard] load error:", err);
+        setError(err?.message || "Failed to load insurance cases");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleDeleteCase = useCallback(async (id, caseName) => {
+    try {
+      // id is already extracted as a string, use it directly
+      if (!id) {
+        message.error("Invalid case ID");
+        return;
+      }
+      await insuranceApi.delete(id);
+      message.success(`Case ${caseName} deleted successfully`);
+      setCases((prev) => prev.filter((c) => getCaseId(c) !== id));
+    } catch (err) {
+      console.error("[InsuranceDashboard] delete error:", err);
+
+      // If case is not found (404), remove it from local list anyway
+      if (err.status === 404) {
+        message.warning(`Case no longer exists on server, removing from list`);
+        setCases((prev) => prev.filter((c) => getCaseId(c) !== id));
+      } else {
+        message.error(err?.message || "Failed to delete case");
+      }
+    }
+  }, []);
+
+  const renderExpandedDetails = (record) => {
+    const snap = record.customerSnapshot || {};
+    const createdAtObj = dayjs(record.createdAt);
+    const policyExpiryObj = dayjs(record.policyExpiry);
+    const createdDate =
+      record.createdAt && createdAtObj.isValid()
+        ? createdAtObj.format("DD MMM YYYY")
+        : "-";
+    const expiryDate =
+      record.policyExpiry && policyExpiryObj.isValid()
+        ? policyExpiryObj.format("DD MMM YYYY")
+        : "-";
+
+    const Field = ({ label, value }) => (
+      <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 dark:border-slate-800 dark:bg-slate-950/60">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 mb-1">
+          {label}
+        </p>
+        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+          {value || "—"}
+        </p>
+      </div>
+    );
+
+    return (
+      <div className="space-y-4 py-4">
+        {/* Customer Details Section */}
+        <section className="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <h4 className="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100">
+            👤 Customer Details
+          </h4>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Type" value={record.buyerType || "Individual"} />
+            <Field label="Name" value={snap.customerName || snap.companyName} />
+            <Field label="Mobile" value={snap.primaryMobile} />
+            <Field label="Email" value={snap.email} />
+            <Field label="City" value={snap.city} />
+            <Field label="Pincode" value={snap.pincode} />
+            <Field
+              label="Policy By"
+              value={record.policyDoneBy || "Autocredits"}
+            />
+            {record.sourceOrigin && (
+              <Field label="Source" value={record.sourceOrigin} />
+            )}
+          </div>
+        </section>
+
+        {/* Vehicle Details Section */}
+        <section className="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <h4 className="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100">
+            🚗 Vehicle Details
+          </h4>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Registration" value={record.registrationNumber} />
+            <Field
+              label="Make & Model"
+              value={
+                `${record.vehicleMake || ""} ${record.vehicleModel || ""}`.trim() ||
+                "N/A"
+              }
+            />
+            <Field label="Variant" value={record.vehicleVariant} />
+            <Field
+              label="Category"
+              value={record.typesOfVehicle || "Four Wheeler"}
+            />
+            <Field label="Type" value={record.vehicleType || "Used"} />
+            <Field label="CC" value={record.cubicCapacity} />
+          </div>
+        </section>
+
+        {/* Policy Details Section */}
+        <section className="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <h4 className="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100">
+            📋 Policy Details
+          </h4>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Field
+              label="Insurance Company"
+              value={record.newInsuranceCompany || "N/A"}
+            />
+            <Field
+              label="Policy Number"
+              value={record.newPolicyNumber || "N/A"}
+            />
+            <Field
+              label="Policy Type"
+              value={record.newPolicyType || "Motor"}
+            />
+            <Field
+              label="Premium"
+              value={`₹${record.newTotalPremium || "N/A"}`}
+            />
+            <Field
+              label="IDV Amount"
+              value={`₹${record.newIdvAmount || "N/A"}`}
+            />
+            <Field
+              label="NCB Discount"
+              value={`${record.newNcbDiscount || 0}%`}
+            />
+          </div>
+        </section>
+
+        {/* Status & Dates Section */}
+        <section className="rounded-xl border border-slate-200/70 bg-white/50 backdrop-blur px-4 py-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <h4 className="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100">
+            📅 Status & Dates
+          </h4>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400 mb-2">
+                Status
+              </div>
+              <Tag color={STATUS_COLOR_MAP[record.status]}>
+                {STATUS_LABEL_MAP[record.status] || record.status}
+              </Tag>
+            </div>
+            <Field label="Created" value={createdDate} />
+            <Field label="Expiry" value={expiryDate} />
+            <Field
+              label="Documents"
+              value={`${Array.isArray(record.documents) ? record.documents.length : 0}`}
+            />
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  const stats = useMemo(() => {
+    const total = cases.length;
+    const draftCount = cases.filter((c) => c.status === "draft").length;
+    const submittedCount = cases.filter((c) => c.status === "submitted").length;
+    const actionNeeded = draftCount;
+    return {
+      total,
+      draft: draftCount,
+      submitted: submittedCount,
+      actionNeeded,
+    };
+  }, [cases]);
+
+  const filteredCases = useMemo(() => {
+    return (cases || []).filter((c) => {
+      const matchesStatus =
+        statusFilter === "all" ? true : c.status === statusFilter;
+      const q = search.trim().toLowerCase();
+      if (!q) return matchesStatus;
+      const haystack = [
+        c.caseId,
+        c.customerSnapshot?.customerName,
+        c.customerSnapshot?.companyName,
+        c.customerSnapshot?.primaryMobile,
+        c.vehicleNumber,
+        c.registrationNumber,
+        c.vehicleModel,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return matchesStatus && haystack.includes(q);
+    });
+  }, [cases, search, statusFilter]);
+
+  const columns = useMemo(
+    () => [
+      {
+        title: "Case ID",
+        dataIndex: "caseId",
+        key: "caseId",
+        render: (val) => (
+          <Text code strong>
+            {val}
+          </Text>
+        ),
+      },
+      {
+        title: "Customer",
+        key: "customer",
+        render: (_, record) => {
+          const snap = record.customerSnapshot || {};
+          const name =
+            snap.customerName ||
+            snap.companyName ||
+            snap.contactPersonName ||
+            "-";
+          return (
+            <Space direction="vertical" size={2}>
+              <Text strong>{name}</Text>
+              {snap.primaryMobile ? (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {snap.primaryMobile}
+                </Text>
+              ) : null}
+            </Space>
+          );
+        },
+      },
+      {
+        title: "Vehicle",
+        key: "vehicle",
+        render: (_, record) => {
+          const model = record.vehicleModel || record.vehicleMake || "-";
+          const number =
+            record.vehicleNumber || record.registrationNumber || "";
+          return (
+            <Space direction="vertical" size={2}>
+              <Text>{model}</Text>
+              {number ? (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {number}
+                </Text>
+              ) : null}
+            </Space>
+          );
+        },
+      },
+      {
+        title: "Status",
+        dataIndex: "status",
+        key: "status",
+        render: (val, record) => {
+          const color = STATUS_COLOR_MAP[val] || "default";
+          const label = STATUS_LABEL_MAP[val] || val || "Unknown";
+          const stepLabel = STEP_LABEL_MAP[record.currentStep] || null;
+          return (
+            <Space direction="vertical" size={2}>
+              <Tag color={color}>{label}</Tag>
+              {stepLabel ? (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Step {record.currentStep}: {stepLabel}
+                </Text>
+              ) : null}
+            </Space>
+          );
+        },
+      },
+      {
+        title: "Created",
+        dataIndex: "createdAt",
+        key: "createdAt",
+        render: (val) =>
+          val ? (
+            <Text type="secondary">
+              {dayjs(val).format("DD MMM YYYY, HH:mm")}
+            </Text>
+          ) : (
+            "-"
+          ),
+      },
+      {
+        title: "Actions",
+        key: "actions",
+        render: (_, record) => {
+          const isDraft = record.status === "draft";
+          return (
+            <Space>
+              <Tooltip title="View details">
+                <Button
+                  size="small"
+                  icon={<Eye size={14} />}
+                  onClick={() => {
+                    setSelectedCase(record);
+                    setPreviewVisible(true);
+                  }}
+                >
+                  View
+                </Button>
+              </Tooltip>
+              <Tooltip title={isDraft ? "Continue case" : "Edit case"}>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<PencilLine size={14} />}
+                  onClick={() =>
+                    navigate(`/insurance/edit/${getCaseId(record)}`)
+                  }
+                >
+                  {isDraft ? "Continue" : "Edit"}
+                </Button>
+              </Tooltip>
+              <Popconfirm
+                title="Delete Case"
+                description={`Are you sure you want to delete case "${record.caseId}"? This action cannot be undone.`}
+                onConfirm={() =>
+                  handleDeleteCase(getCaseId(record), record.caseId)
+                }
+                okText="Delete"
+                okType="danger"
+                cancelText="Cancel"
+              >
+                <Tooltip title="Delete case">
+                  <Button size="small" danger icon={<Trash2 size={14} />}>
+                    Delete
+                  </Button>
+                </Tooltip>
+              </Popconfirm>
+            </Space>
+          );
+        },
+      },
+    ],
+    [navigate, handleDeleteCase],
+  );
 
   return (
-    <div className="space-y-5 pb-6">
-      {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-black">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-950/50">
-            <ShieldCheck size={20} className="text-sky-700 dark:text-sky-300" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Insurance Dashboard
-            </p>
-            <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
-              Manage Insurance Cases
-            </h2>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate("/insurance/new")}
-          className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 active:scale-95"
-        >
-          <Plus size={16} />
-          New Insurance Case
-        </button>
-      </div>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          const colors = statColorMap[stat.color];
-          return (
-            <div
-              key={stat.label}
-              className={`rounded-xl border border-l-4 border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-black ${colors.border}`}
+    <div className="h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-transparent p-6 shadow-lg backdrop-blur-sm dark:border-slate-700/80 dark:bg-slate-900/30">
+      <div className="flex h-full min-h-0 flex-col gap-5">
+        {/* Header Section */}
+        <section className="rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-400">
+                Insurance Module
+              </p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">
+                Insurance Command Center
+              </h1>
+            </div>
+            <Button
+              type="primary"
+              size="large"
+              icon={<Plus size={18} />}
+              onClick={() => navigate("/insurance/new")}
+              className="w-fit"
             >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {stat.label}
-                  </p>
-                  <p className={`mt-1.5 text-2xl font-black tracking-tight ${colors.value}`}>
-                    {stat.value}
-                  </p>
-                </div>
-                <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${colors.icon}`}>
-                  <Icon size={16} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              New Insurance Case
+            </Button>
+          </div>
+        </section>
 
-      {/* Cases Table */}
-      <div className="rounded-2xl border border-slate-200/70 bg-white shadow-sm dark:border-slate-800 dark:bg-black overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              Recent Insurance Cases
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {demoCases.length} total cases
+        {/* Stats Section */}
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/30">
+            <p className="text-slate-600 dark:text-slate-400 text-sm">
+              Total Cases
+            </p>
+            <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+              {stats.total}
             </p>
           </div>
-        </div>
-
-        {/* Table Header */}
-        <div className="hidden md:grid grid-cols-12 gap-3 px-5 py-2.5 bg-slate-50 dark:bg-slate-900/40 border-b border-slate-100 dark:border-slate-800">
-          <p className="col-span-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Case ID</p>
-          <p className="col-span-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer</p>
-          <p className="col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Vehicle</p>
-          <p className="col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</p>
-          <p className="col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right">Actions</p>
-        </div>
-
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          {demoCases.map((item) => {
-            const statusCfg = statusConfig[item.status] || statusConfig["In Progress"];
-            const StatusIcon = statusCfg.icon;
-            return (
-              <div
-                key={item.caseId}
-                className="grid grid-cols-1 gap-3 px-5 py-4 transition hover:bg-slate-50/60 dark:hover:bg-slate-900/30 md:grid-cols-12 md:items-center"
-              >
-                <div className="md:col-span-3">
-                  <p className="text-xs font-black tracking-wide text-slate-900 dark:text-white font-mono">
-                    {item.caseId}
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5 md:hidden">
-                    {item.mobile}
-                  </p>
-                </div>
-                <div className="md:col-span-3">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">
-                    {item.customer}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 hidden md:block">
-                    {item.mobile}
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    {item.vehicle}
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-bold ${statusCfg.className}`}>
-                    <StatusIcon size={11} />
-                    {item.status}
-                  </span>
-                </div>
-                <div className="md:col-span-2 flex items-center justify-start md:justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/insurance/edit/${item.caseId}`, {
-                        state: { caseData: item },
-                      })
-                    }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    <PencilLine size={12} />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-                  >
-                    <Eye size={12} />
-                    View
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {demoCases.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 mb-3">
-              <FileText size={22} className="text-slate-400" />
-            </div>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">No cases yet</p>
-            <p className="text-xs text-slate-400 mt-1">Create your first insurance case to get started.</p>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/40">
+            <p className="text-slate-600 dark:text-slate-400 text-sm">Draft</p>
+            <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+              {stats.draft}
+            </p>
           </div>
-        )}
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+            <p className="text-slate-600 dark:text-slate-400 text-sm">
+              Submitted
+            </p>
+            <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+              {stats.submitted}
+            </p>
+          </div>
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/30">
+            <p className="text-slate-600 dark:text-slate-400 text-sm">
+              Action Needed
+            </p>
+            <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+              {stats.actionNeeded}
+            </p>
+          </div>
+        </section>
+
+        {/* Filter & Search Section */}
+        <section className="rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              {filteredCases.length} of {cases.length} cases
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Search
+                placeholder="Search case, customer, mobile..."
+                allowClear
+                size="small"
+                value={search}
+                onSearch={(val) => setSearch(val || "")}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full sm:w-64"
+              />
+              <Select
+                size="small"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { value: "all", label: "All Status" },
+                  { value: "draft", label: "Draft" },
+                  { value: "submitted", label: "Submitted" },
+                ]}
+                className="w-full sm:w-44"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Table Section */}
+        <section className="flex-1 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          {error && (
+            <Alert
+              type="error"
+              showIcon
+              message="Failed to load insurance cases"
+              description={error}
+              style={{
+                marginBottom: 12,
+                borderRadius: 0,
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              }}
+            />
+          )}
+          <div className="overflow-x-auto h-full">
+            <Table
+              rowKey={(record) => getCaseId(record)}
+              columns={columns}
+              dataSource={filteredCases}
+              loading={loading}
+              pagination={{ pageSize: 10, size: "small" }}
+              expandable={{
+                expandedRowRender: (record) => renderExpandedDetails(record),
+                expandRowByClick: true,
+              }}
+              locale={{
+                emptyText: (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="No insurance cases found"
+                  />
+                ),
+              }}
+              className="dark:bg-slate-800"
+            />
+          </div>
+        </section>
       </div>
 
-      <InsuranceIntroCard />
+      {/* Insurance Preview Modal */}
+      <InsurancePreview
+        visible={previewVisible}
+        onClose={() => {
+          setPreviewVisible(false);
+          setSelectedCase(null);
+        }}
+        data={selectedCase}
+      />
     </div>
   );
 };
