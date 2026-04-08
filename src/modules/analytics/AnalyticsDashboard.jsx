@@ -4,14 +4,18 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import {
   Alert,
   Button,
+  Card,
+  Col,
   DatePicker,
   Input,
   InputNumber,
   Modal,
+  Row,
   Select,
   Spin,
   Table,
   Tabs,
+  Typography,
 } from "antd";
 import {
   AlertTriangle,
@@ -33,7 +37,6 @@ import {
   UsersRound,
 } from "lucide-react";
 import { loansApi } from "../../api/loans";
-import "./AnalyticsDashboard.css";
 
 const { RangePicker } = DatePicker;
 dayjs.extend(customParseFormat);
@@ -102,7 +105,7 @@ const REPORT_FIELDS = [
   "updatedAt",
 ];
 
-const formatINR = (value) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+const formatINR = (value) => `₹ ${Number(value || 0).toLocaleString("en-IN")}`;
 
 const pick = (obj, path) =>
   String(path || "")
@@ -331,6 +334,21 @@ const getRangeWindow = (rangePreset, customRange) => {
     end = customRange[1].endOf("day");
   }
   return { start, end };
+};
+
+/**
+ * Build a readable timeframe label for the selected range.
+ *
+ * Purpose: show users an “industry dashboard” timeframe context.
+ * @param {string} rangePreset
+ * @param {[any, any]} customRange
+ * @returns {string}
+ */
+const getTimeframeLabel = (rangePreset, customRange) => {
+  const meta = RANGE_OPTIONS.find((o) => o.value === rangePreset);
+  const presetLabel = meta?.label || String(rangePreset || "Custom");
+  const { start, end } = getRangeWindow(rangePreset, customRange);
+  return `${presetLabel} · ${start.format("DD MMM YYYY")} - ${end.format("DD MMM YYYY")}`;
 };
 
 const isWithinRange = (value, start, end) => {
@@ -699,7 +717,7 @@ const CHART_PALETTE = [
 ];
 
 const ChartNoData = ({ text = "No data for selected timeframe" }) => (
-  <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm font-medium text-muted-foreground">
+  <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm font-medium text-muted-foreground">
     {text}
   </div>
 );
@@ -731,7 +749,7 @@ const VerticalBarChart = ({
   const ticks = 4;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card px-2 py-2">
+    <div className="overflow-x-auto rounded-2xl border border-border bg-card px-2 py-2">
       <svg width={width} height={height} role="img" aria-label="bar chart">
         {Array.from({ length: ticks + 1 }).map((_, idx) => {
           const y = m.top + (idx / ticks) * chartH;
@@ -814,7 +832,7 @@ const AreaLineChart = ({
   const areaPath = `${linePath} L ${x(points.length - 1)} ${m.top + chartH} L ${x(0)} ${m.top + chartH} Z`;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card px-2 py-2">
+    <div className="overflow-x-auto rounded-2xl border border-border bg-card px-2 py-2">
       <svg width={width} height={height} role="img" aria-label="area line chart">
         <defs>
           <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -884,7 +902,7 @@ const FunnelChart = ({ rows = [], onSelect }) => {
   const toW = (v) => minW + (Number(v || 0) / max) * (maxW - minW);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card px-2 py-2">
+    <div className="overflow-x-auto rounded-2xl border border-border bg-card px-2 py-2">
       <svg width={width} height={height} role="img" aria-label="funnel chart">
         {ordered.map((row, idx) => {
           const topW = toW(row.count);
@@ -1076,7 +1094,7 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
   const basePath = describeArc(120, 120, 82, start, end);
   const fillPath = describeArc(120, 120, 82, start, fillEnd);
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-6">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6">
       <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</div>
       <svg width="240" height="150" viewBox="0 0 240 150" className="mx-auto block text-foreground">
         <path d={basePath} fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="14" strokeLinecap="round" />
@@ -1092,101 +1110,71 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
   );
 };
 
-const WidgetShell = ({ title, subtitle, icon: Icon, color = "slate", children }) => {
-  const tones = {
-    slate: "border-border bg-card",
-    blue: "border-primary/30 bg-card",
-    emerald: "border-emerald-500/30 bg-card dark:border-emerald-500/20",
-    amber: "border-amber-500/30 bg-card dark:border-amber-500/20",
-    rose: "border-rose-500/30 bg-card dark:border-rose-500/20",
-    indigo: "border-primary/30 bg-card",
-  };
-  const iconTones = {
-    slate: "bg-muted text-muted-foreground",
-    blue: "bg-primary/10 text-primary",
-    emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-    amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-    indigo: "bg-primary/10 text-primary",
-  };
-
-  return (
-    <article className={`analytics-widget analytics-widget-${color} relative overflow-hidden rounded-xl border p-6 transition-all duration-300 hover:shadow-lg hover:border-primary/20 ${tones[color] || tones.slate}`}>
-      <div className="mb-5 flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-3">
-            {Icon ? (
-              <span className={`inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${iconTones[color] || iconTones.slate}`}>
-                <Icon size={18} strokeWidth={2} />
-              </span>
-            ) : null}
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-bold text-foreground">{title}</h2>
-              {subtitle ? <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">{subtitle}</p> : null}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="rounded-lg">{children}</div>
-    </article>
-  );
-};
-
-const KpiTile = ({ label, value, subLabel, icon: Icon, tone = "slate", loading = false }) => {
-  const tones = {
-    slate: "border-slate-300/30 bg-gradient-to-br from-slate-700 to-slate-900",
-    blue: "border-sky-300/30 bg-gradient-to-br from-sky-500 to-indigo-600",
-    emerald: "border-emerald-300/30 bg-gradient-to-br from-emerald-500 to-green-600",
-    amber: "border-amber-300/30 bg-gradient-to-br from-amber-500 to-orange-600",
-    rose: "border-rose-300/30 bg-gradient-to-br from-rose-500 to-pink-600",
-  };
-  const iconTones = {
-    slate: "bg-white/20 text-white",
-    blue: "bg-white/20 text-white",
-    emerald: "bg-white/20 text-white",
-    amber: "bg-white/20 text-white",
-    rose: "bg-white/20 text-white",
-  };
-  const accentTones = {
-    slate: "text-slate-100",
-    blue: "text-sky-100",
-    emerald: "text-emerald-100",
-    amber: "text-amber-100",
-    rose: "text-rose-100",
-  };
-  const valueTone = "text-white";
-  const subTone = "text-white/80";
-
-  return (
-    <div className={`analytics-kpi analytics-kpi-${tone} group relative overflow-hidden rounded-xl border p-4 transition-all duration-300 hover:shadow-lg hover:border-primary/20 ${tones[tone] || tones.slate}`}>
-      <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className={`text-[10px] font-bold uppercase tracking-wider ${accentTones[tone] || accentTones.slate}`}>
-            {label}
-          </div>
-          <div className="mt-1 flex flex-col gap-0.5">
-            <div className={`text-xl font-black tracking-tight tabular-nums md:text-2xl ${valueTone}`}>
-              {loading ? (
-                <span className="inline-block h-7 w-20 animate-pulse rounded-md bg-white/20" />
-              ) : value}
-            </div>
-            {subLabel && !loading ? (
-              <div className={`text-[11px] font-medium line-clamp-2 ${subTone}`}>{subLabel}</div>
-            ) : loading ? (
-              <span className="mt-1 inline-block h-3 w-24 animate-pulse rounded bg-white/20" />
-            ) : null}
-          </div>
-        </div>
-        {Icon ? (
-          <span className={`flex-shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-300 group-hover:scale-105 ${iconTones[tone] || iconTones.slate}`}>
-            <Icon size={18} strokeWidth={2} />
-          </span>
+const WidgetShell = ({ title, subtitle, icon: Icon, children }) => (
+  <Card
+    size="small"
+    bordered
+    hoverable
+    bodyStyle={{ paddingTop: 12 }}
+    style={{ height: "100%" }}
+  >
+    <div className="mb-3 flex items-center gap-2">
+      {Icon ? (
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/5 text-primary">
+          <Icon size={15} strokeWidth={2} />
+        </span>
+      ) : null}
+      <div className="min-w-0">
+        <Typography.Text strong className="block truncate text-xs">
+          {title}
+        </Typography.Text>
+        {subtitle ? (
+          <Typography.Text type="secondary" className="block truncate text-[11px]">
+            {subtitle}
+          </Typography.Text>
         ) : null}
       </div>
     </div>
-  );
-};
+    <div>{children}</div>
+  </Card>
+);
+
+const KpiTile = ({ label, value, subLabel, icon: Icon, loading = false }) => (
+  <Card
+    size="small"
+    bordered
+    hoverable
+    bodyStyle={{ padding: 16 }}
+    style={{ height: "100%" }}
+  >
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <Typography.Text type="secondary" className="text-[10px] font-bold uppercase tracking-widest">
+          {label}
+        </Typography.Text>
+        <div className="mt-2 text-2xl font-black tracking-tight tabular-nums md:text-3xl">
+          {loading ? (
+            <span className="inline-block h-8 w-24 animate-pulse rounded-md bg-muted" />
+          ) : (
+            value
+          )}
+        </div>
+        {subLabel && !loading ? (
+          <Typography.Text type="secondary" className="mt-1 block text-[11px]">
+            {subLabel}
+          </Typography.Text>
+        ) : loading ? (
+          <span className="mt-2 inline-block h-3 w-20 animate-pulse rounded bg-muted" />
+        ) : null}
+      </div>
+      {Icon ? (
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary">
+          <Icon size={18} strokeWidth={1.75} />
+        </span>
+      ) : null}
+    </div>
+  </Card>
+);
 
 const AnalyticsDashboard = () => {
   const [rangePreset, setRangePreset] = useState("mtd");
@@ -1235,6 +1223,7 @@ const AnalyticsDashboard = () => {
   });
 
   const queryParams = useMemo(() => getRangeParams(rangePreset, customRange), [rangePreset, customRange]);
+  const timeframeLabel = useMemo(() => getTimeframeLabel(rangePreset, customRange), [rangePreset, customRange]);
   const activeOverviewRequestRef = useRef(null);
   const lastOverviewQueryKeyRef = useRef("");
   const lastOverviewFetchAtRef = useRef(0);
@@ -1548,137 +1537,149 @@ const AnalyticsDashboard = () => {
   }, [drillRows, drillSearch]);
 
   return (
-    <main className="analytics-dashboard analytics-tail min-h-screen bg-background overflow-x-hidden">
-      <div className="app-max-wrap w-full max-w-[100%] py-6 space-y-6">
-        {/* Hero: Company-branded header */}
-        <section className="analytics-hero relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_4px_24px_-8px_rgba(15,23,42,0.12)] dark:shadow-[0_4px_24px_-8px_rgba(0,0,0,0.4)]">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/[0.03] pointer-events-none" />
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary/5 blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="relative z-10 p-4 md:p-5">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <ChartNoAxesCombined size={18} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
-                      AutoCredits India LLP
-                    </span>
-                  </div>
-                </div>
-                <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
-                  Analytics Dashboard
-                </h1>
-                <p className="max-w-2xl text-xs font-medium text-muted-foreground leading-relaxed md:text-sm">
-                  Real-time loan performance insights, pipeline analytics, and custom reporting — all in one command center.
-                </p>
-              </div>
-
-              <div className="analytics-range-wrap flex w-full flex-wrap items-center gap-1.5 md:gap-2 xl:w-auto xl:justify-end">
-                {RANGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setRangePreset(option.value)}
-                    className={`analytics-range-btn rounded-lg border px-3 py-2 text-[11px] font-semibold transition-all duration-200 ${
-                      rangePreset === option.value
-                        ? "is-active border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                        : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-
-                {rangePreset === "custom" ? (
-                  <RangePicker
-                    value={customRange}
-                    allowClear={false}
-                    onChange={(values) => setCustomRange(values || [])}
-                    className="analytics-date-picker h-10 rounded-xl"
-                  />
-                ) : null}
-
-                {refreshing && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                    Updating
+    <main className="min-h-screen overflow-x-hidden bg-transparent">
+      <div className="app-max-wrap py-6 space-y-6">
+        <Card bordered hoverable={false}>
+          <Row gutter={[16, 16]} align="middle" justify="space-between">
+            <Col xs={24} md={16}>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <ChartNoAxesCombined size={18} strokeWidth={2} className="text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    AutoCredits India LLP
                   </span>
-                )}
-                <Button
-                  type="primary"
-                  icon={<RefreshCcw size={14} className={refreshing ? "animate-spin" : ""} />}
-                  className="analytics-refresh-btn h-9 rounded-lg !border-primary !bg-primary !text-primary-foreground shadow-md hover:!opacity-90"
-                  onClick={fetchOverview}
-                >
-                  Refresh
-                </Button>
+                </div>
+                <Typography.Title level={3} style={{ margin: 0 }}>
+                  Analytics Dashboard
+                </Typography.Title>
+                <Typography.Text type="secondary" className="text-xs">
+                  Loan performance insights, pipeline analytics, and custom reporting.
+                </Typography.Text>
               </div>
-            </div>
-          </div>
-        </section>
+            </Col>
+            <Col xs={24} md="auto">
+              <Row gutter={[8, 8]} justify="end" align="middle" wrap>
+                <Col>
+                  <Typography.Text type="secondary" className="hidden text-[11px] sm:inline-block">
+                    {timeframeLabel}
+                  </Typography.Text>
+                </Col>
+                <Col>
+                  <Row gutter={[4, 4]}>
+                    {RANGE_OPTIONS.map((option) => (
+                      <Col key={option.value}>
+                        <Button
+                          size="small"
+                          type={rangePreset === option.value ? "primary" : "default"}
+                          onClick={() => setRangePreset(option.value)}
+                        >
+                          {option.label}
+                        </Button>
+                      </Col>
+                    ))}
+                  </Row>
+                </Col>
+                <Col>
+                  {rangePreset === "custom" ? (
+                    <RangePicker
+                      value={customRange}
+                      allowClear={false}
+                      onChange={(values) => setCustomRange(values || [])}
+                      size="small"
+                    />
+                  ) : null}
+                </Col>
+                <Col>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<RefreshCcw size={13} className={refreshing ? "animate-spin" : ""} />}
+                    onClick={fetchOverview}
+                  >
+                    {refreshing ? "Refreshing" : "Refresh"}
+                  </Button>
+                </Col>
+              </Row>
+            </Col>
+          </Row>
+        </Card>
 
         {error ? (
           <Alert
             type="error"
             message={error}
             showIcon
-            className="analytics-alert rounded-xl border-border"
+            className="rounded-xl border-border"
           />
         ) : null}
 
         <div>
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted-foreground">Key Metrics</h2>
-          <section className="analytics-kpi-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiTile
-          label="Total Cases"
-          value={Number(totals.totalCases || 0).toLocaleString("en-IN")}
-          subLabel="In selected timeframe"
-          tone="blue"
-          icon={BriefcaseBusiness}
-          loading={loading}
-        />
-        <KpiTile
-          label="Total Loan Amount"
-          value={formatINR(totals.totalLoanAmount || 0)}
-          subLabel="Sum across filtered loans"
-          tone="emerald"
-          icon={IndianRupee}
-          loading={loading}
-        />
-        <KpiTile
-          label="Disbursed / Delivered"
-          value={formatINR(totals.totalDisbursedAmount || 0)}
-          subLabel="Business-event amount volume"
-          tone="amber"
-          icon={TrendingUp}
-          loading={loading}
-        />
-        <KpiTile
-          label="Pending Disbursal"
-          value={Number(widgets.approvalPendingDisbursal?.count || 0).toLocaleString("en-IN")}
-          subLabel={formatINR(widgets.approvalPendingDisbursal?.amount || 0)}
-          tone="rose"
-          icon={Clock3}
-          loading={loading}
-        />
-      </section>
+          <section className="rounded-2xl border border-border bg-card p-5">
+            <h2 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+              Key Metrics
+            </h2>
+            <section className="analytics-kpi-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <KpiTile
+                label="Total Cases"
+                value={Number(totals.totalCases || 0).toLocaleString("en-IN")}
+                subLabel="In selected timeframe"
+                tone="blue"
+                icon={BriefcaseBusiness}
+                loading={loading}
+              />
+              <KpiTile
+                label="Total Loan Amount"
+                value={formatINR(totals.totalLoanAmount || 0)}
+                subLabel="Sum across filtered loans"
+                tone="emerald"
+                icon={IndianRupee}
+                loading={loading}
+              />
+              <KpiTile
+                label="Disbursed / Delivered"
+                value={formatINR(totals.totalDisbursedAmount || 0)}
+                subLabel="Business-event amount volume"
+                tone="amber"
+                icon={TrendingUp}
+                loading={loading}
+              />
+              <KpiTile
+                label="Pending Disbursal"
+                value={Number(widgets.approvalPendingDisbursal?.count || 0).toLocaleString("en-IN")}
+                subLabel={formatINR(widgets.approvalPendingDisbursal?.amount || 0)}
+                tone="rose"
+                icon={Clock3}
+                loading={loading}
+              />
+            </section>
+          </section>
         </div>
 
       <div>
-        <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted-foreground">Charts & Insights</h2>
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
-          {loading ? (
-            <>
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className={`${[5,4,3,5,4,3][i] === 5 ? "xl:col-span-5" : [5,4,3,5,4,3][i] === 4 ? "xl:col-span-4" : "xl:col-span-3"} animate-pulse`}>
-                  <div className="h-64 rounded-xl border border-border bg-muted/40" />
-                </div>
-              ))}
-            </>
-          ) : (
-            <>
+        <section className="rounded-2xl border border-border bg-card p-5">
+          <h2 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            Charts & Insights
+          </h2>
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+            {loading ? (
+              <>
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`${
+                      [5, 4, 3, 5, 4, 3][i] === 5
+                        ? "xl:col-span-5"
+                        : [5, 4, 3, 5, 4, 3][i] === 4
+                          ? "xl:col-span-4"
+                          : "xl:col-span-3"
+                    } animate-pulse`}
+                  >
+                    <div className="h-64 rounded-2xl border border-border bg-muted/40" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
           <div className="xl:col-span-5">
             <WidgetShell
               title="Total Loans Trend"
@@ -1917,18 +1918,14 @@ const AnalyticsDashboard = () => {
                       widget: "cash_car_all",
                     })
                   }
-                  className="rounded-xl border border-amber-500/30 bg-card px-3 py-2 text-left transition hover:border-amber-500/50 hover:shadow-sm"
+                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400">Total</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatINR(widgets.cashCarSummary?.amount || 0)}
-                      </div>
-                    </div>
-                    <div className="text-lg font-black text-foreground">
-                      {Number(widgets.cashCarSummary?.total || 0).toLocaleString("en-IN")}
-                    </div>
+                  <div className="text-2xl font-black tabular-nums text-foreground">
+                    {Number(widgets.cashCarSummary?.total || 0).toLocaleString("en-IN")}
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {formatINR(widgets.cashCarSummary?.amount || 0)}
                   </div>
                 </button>
                 <div className="grid grid-cols-2 gap-2">
@@ -1940,12 +1937,12 @@ const AnalyticsDashboard = () => {
                         widget: "cash_car_delivered",
                       })
                     }
-                    className="rounded-xl border border-emerald-500/30 bg-card px-3 py-2 text-left transition hover:border-emerald-500/50 hover:shadow-sm"
+                    className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                   >
-                    <div className="text-[11px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Delivered</div>
-                    <div className="text-base font-black text-foreground">
+                    <div className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
                       {Number(widgets.cashCarSummary?.delivered || 0).toLocaleString("en-IN")}
                     </div>
+                    <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Delivered</div>
                   </button>
                   <button
                     type="button"
@@ -1955,12 +1952,12 @@ const AnalyticsDashboard = () => {
                         widget: "cash_car_pending_delivery",
                       })
                     }
-                    className="rounded-xl border border-rose-500/30 bg-card px-3 py-2 text-left transition hover:border-rose-500/50 hover:shadow-sm"
+                    className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                   >
-                    <div className="text-[11px] font-bold uppercase text-rose-600 dark:text-rose-400">Pending</div>
-                    <div className="text-base font-black text-foreground">
+                    <div className="text-xl font-black tabular-nums text-rose-500 dark:text-rose-400">
                       {Number(widgets.cashCarSummary?.pending || 0).toLocaleString("en-IN")}
                     </div>
+                    <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending</div>
                   </button>
                 </div>
               </div>
@@ -1977,7 +1974,7 @@ const AnalyticsDashboard = () => {
               <div className="grid grid-cols-1 gap-2">
                 <button
                   type="button"
-                  className="rounded-xl border border-rose-500/30 bg-card p-3 text-left transition hover:border-rose-500/50 hover:shadow-sm"
+                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                   onClick={() =>
                     openDrilldown({
                       title: "Repeated Customers (identity collisions)",
@@ -1985,14 +1982,14 @@ const AnalyticsDashboard = () => {
                     })
                   }
                 >
-                  <div className="text-[11px] font-bold uppercase text-rose-600 dark:text-rose-400">Identities</div>
-                  <div className="text-xl font-black text-foreground">
+                  <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
                     {widgets.repeatedCustomers?.repeatedIdentityCount || 0}
                   </div>
+                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Identities</div>
                 </button>
                 <button
                   type="button"
-                  className="rounded-xl border border-fuchsia-500/30 bg-card p-3 text-left transition hover:border-fuchsia-500/50 hover:shadow-sm"
+                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                   onClick={() =>
                     openDrilldown({
                       title: "Repeated Customer Cases",
@@ -2000,10 +1997,10 @@ const AnalyticsDashboard = () => {
                     })
                   }
                 >
-                  <div className="text-[11px] font-bold uppercase text-fuchsia-600 dark:text-fuchsia-400">Cases</div>
-                  <div className="text-xl font-black text-foreground">
+                  <div className="text-2xl font-black tabular-nums text-fuchsia-500 dark:text-fuchsia-400">
                     {widgets.repeatedCustomers?.repeatedCaseCount || 0}
                   </div>
+                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Cases</div>
                 </button>
               </div>
             </WidgetShell>
@@ -2025,12 +2022,12 @@ const AnalyticsDashboard = () => {
                       widget: "approval_pending_disbursal",
                     })
                   }
-                  className="rounded-xl border border-amber-500/30 bg-card px-3 py-2 text-left transition hover:border-amber-500/50 hover:shadow-sm"
+                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                 >
-                  <div className="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400">Pending</div>
-                  <div className="text-base font-black text-foreground">
+                  <div className="text-2xl font-black tabular-nums text-amber-500 dark:text-amber-400">
                     {widgets.approvalPendingDisbursal?.count || 0}
                   </div>
+                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending Disbursal</div>
                 </button>
                 <button
                   type="button"
@@ -2040,12 +2037,12 @@ const AnalyticsDashboard = () => {
                       widget: "missing_reg_number",
                     })
                   }
-                  className="rounded-xl border border-rose-500/30 bg-card px-3 py-2 text-left transition hover:border-rose-500/50 hover:shadow-sm"
+                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                 >
-                  <div className="text-[11px] font-bold uppercase text-rose-600 dark:text-rose-400">Missing RC</div>
-                  <div className="text-base font-black text-foreground">
+                  <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
                     {widgets.missingRegNumber?.count || 0}
                   </div>
+                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Missing RC</div>
                 </button>
                 <button
                   type="button"
@@ -2055,21 +2052,22 @@ const AnalyticsDashboard = () => {
                       widget: "missing_delivery_fields",
                     })
                   }
-                  className="rounded-xl border border-orange-500/30 bg-card px-3 py-2 text-left transition hover:border-orange-500/50 hover:shadow-sm"
+                  className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
                 >
-                  <div className="text-[11px] font-bold uppercase text-orange-600 dark:text-orange-400">Delivery Gaps</div>
-                  <div className="text-base font-black text-foreground">
+                  <div className="text-2xl font-black tabular-nums text-orange-500 dark:text-orange-400">
                     {widgets.missingCriticalDeliveryFields?.count || 0}
                   </div>
+                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Delivery Gaps</div>
                 </button>
               </div>
             </WidgetShell>
           </div>
             </>
           )}
+          </section>
         </section>
 
-        <section className="relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm">
+        <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm">
           <Tabs
             className="analytics-tabs"
             defaultActiveKey="customWidget"

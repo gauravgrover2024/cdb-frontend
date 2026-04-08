@@ -1,5 +1,26 @@
 import React, { useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Divider,
+  Input,
+  InputNumber,
+  Radio,
+  Row,
+  Select,
+  Space,
+  Steps,
+  Table,
+  Typography,
+  Upload,
+} from "antd";
 import { Check } from "lucide-react";
+
+const { Text, Title } = Typography;
+const { Dragger } = Upload;
 
 const STEP_TITLES = [
   "Step 1: Customer Information",
@@ -123,15 +144,6 @@ const initialQuoteDraft = {
   addOnsAmount: 0,
   addOns: addOnCatalog.reduce((acc, name) => ({ ...acc, [name]: 0 }), {}),
 };
-
-const inputClassName =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-sky-400 dark:focus:ring-sky-900/50";
-const labelClassName =
-  "mb-1 block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300";
-const errorClassName =
-  "mt-1 text-xs font-semibold text-red-600 dark:text-red-400";
-const phonePrefixClassName =
-  "inline-flex h-[38px] items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 px-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
 
 const toINR = (num) =>
   new Intl.NumberFormat("en-IN", {
@@ -291,7 +303,11 @@ const NewInsuranceCaseForm = ({
   }, [quoteDraft]);
 
   const handleChange = (field) => (event) => {
-    setFormData((prev) => ({ ...prev, [field]: event.target.value }));
+    setFormData((prev) => ({ ...prev, [field]: event?.target?.value }));
+  };
+
+  const setField = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleStepValidation = () => {
@@ -419,1389 +435,1121 @@ const NewInsuranceCaseForm = ({
     setShowErrors(false);
   };
 
+  const visibleSteps = useMemo(() => {
+    // If New Car, we skip "Previous Policy Details" (step 3 in original)
+    const rows = STEP_TITLES.map((title, idx) => ({
+      originalStep: idx + 1,
+      title,
+    })).filter((s) => !(isNewCar && s.originalStep === 3));
+    return rows;
+  }, [isNewCar]);
+
+  const stepIndex = useMemo(() => {
+    return Math.max(
+      0,
+      visibleSteps.findIndex((s) => s.originalStep === step),
+    );
+  }, [visibleSteps, step]);
+
+  const currentStepTitle = useMemo(() => {
+    if (isNewCar && step === 4) return "Step 3: Insurance Quotes";
+    return STEP_TITLES[step - 1];
+  }, [isNewCar, step]);
+
+  const stepHelpText = useMemo(() => {
+    if (step === 1) return "Fill personal, contact and nominee details.";
+    if (step === 2) return "Provide accurate vehicle information.";
+    if (step === 3 && !isNewCar) return "For renewal cases & policy already expired cases.";
+    if (step === 4) return "Add and manage quote options (at least 1 quote required).";
+    if (step === 5) return "Policy details (auto-filled from accepted quote).";
+    if (step === 6) return "Upload and tag documents (recommended).";
+    return "";
+  }, [step, isNewCar]);
+
+  const stepErrorsAlert = useMemo(() => {
+    if (!showErrors) return null;
+    if (step === 1 && Object.keys(step1Errors).length) {
+      return (
+        <Alert
+          type="error"
+          showIcon
+          message="Please fix required fields in Customer Information."
+          description="Some mandatory fields are missing or invalid."
+        />
+      );
+    }
+    if (step === 2 && Object.keys(step2Errors).length) {
+      return (
+        <Alert
+          type="error"
+          showIcon
+          message="Please fix required fields in Vehicle Details."
+          description="Some mandatory fields are missing or invalid."
+        />
+      );
+    }
+    if (step === 4 && quotes.length === 0) {
+      return (
+        <Alert
+          type="error"
+          showIcon
+          message="At least 1 quote is required to continue."
+        />
+      );
+    }
+    return null;
+  }, [showErrors, step, step1Errors, step2Errors, quotes.length]);
+
+  const docRows = useMemo(() => {
+    return (documents || []).map((d) => ({
+      key: d.id,
+      ...d,
+      sizeKb: Math.round((Number(d.size || 0) / 1024) || 0),
+    }));
+  }, [documents]);
+
+  const quoteRows = useMemo(() => {
+    return (quotes || []).map((q) => ({
+      key: q.id,
+      ...q,
+    }));
+  }, [quotes]);
+
   return (
-    <section className="rounded-2xl border border-slate-200/70 bg-gradient-to-b from-white to-sky-50/30 p-5 shadow-sm dark:border-slate-800 dark:from-black dark:to-sky-950/10 sm:p-6">
-      <div className="mb-5">
-        <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
-          {isNewCar && step === 4
-            ? "Step 3: Insurance Quotes"
-            : STEP_TITLES[step - 1]}
-        </h2>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-          {step === 1 && "Fill personal, contact and nominee details"}
-          {step === 2 && "Provide accurate vehicle information"}
-          {step === 3 &&
-            !isNewCar &&
-            "For renewal cases & policy already expired cases"}
-          {step === 4 && "Add and manage quote options"}
-          {step === 5 && "Auto-filled from accepted quote"}
-          {step === 6 && "Upload and manage policy documents with tagging"}
-        </p>
-      </div>
-
-      {/* Step Progress Stepper */}
-      <div className="mb-6">
-        {/* Desktop stepper */}
-        <div className="hidden items-start md:flex">
-          {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).map(
-            (title, idx, arr) => {
-              const originalIndex = STEP_TITLES.indexOf(title) + 1;
-              const isActive = step === originalIndex;
-              const isCompleted = step > originalIndex;
-              const isLast = idx === arr.length - 1;
-              const shortTitle = title.replace(/^Step\s*\d+\s*:\s*/i, "");
-              return (
-                <React.Fragment key={title}>
-                  <button
-                    type="button"
-                    onClick={() => setStep(originalIndex)}
-                    className="group flex flex-col items-center gap-1.5"
-                  >
-                    <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black transition-all ${
-                        isCompleted
-                          ? "bg-sky-600 text-white"
-                          : isActive
-                            ? "border-2 border-sky-600 bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
-                            : "border-2 border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
-                      }`}
-                    >
-                      {isCompleted ? <Check size={13} strokeWidth={3} /> : idx + 1}
-                    </span>
-                    <span
-                      className={`max-w-[72px] text-center text-[10px] font-bold leading-tight transition-colors ${
-                        isActive
-                          ? "text-sky-700 dark:text-sky-300"
-                          : isCompleted
-                            ? "text-slate-600 dark:text-slate-300"
-                            : "text-slate-400 dark:text-slate-500"
-                      }`}
-                    >
-                      {shortTitle}
-                    </span>
-                  </button>
-                  {!isLast && (
-                    <div
-                      className={`mx-1 mt-3.5 h-0.5 flex-1 transition-all ${
-                        isCompleted
-                          ? "bg-sky-500"
-                          : "bg-slate-200 dark:bg-slate-700"
-                      }`}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            },
-          )}
+    <Card bordered>
+      <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <div>
+          <Title level={4} style={{ margin: 0 }}>
+            {currentStepTitle}
+          </Title>
+          <Text type="secondary">{stepHelpText}</Text>
         </div>
 
-        {/* Mobile: pill progress + step label */}
-        <div className="flex items-center gap-3 md:hidden">
-          <div className="flex gap-1">
-            {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).map(
-              (title, idx) => {
-                const originalIndex = STEP_TITLES.indexOf(title) + 1;
-                const isActive = step === originalIndex;
-                const isCompleted = step > originalIndex;
-                return (
-                  <button
-                    key={title}
-                    type="button"
-                    onClick={() => setStep(originalIndex)}
-                    className={`h-2 rounded-full transition-all ${
-                      isActive
-                        ? "w-6 bg-sky-600"
-                        : isCompleted
-                          ? "w-2 bg-sky-400"
-                          : "w-2 bg-slate-200 dark:bg-slate-700"
-                    }`}
-                  />
-                );
-              },
-            )}
-          </div>
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            {isNewCar && step === 4
-              ? "Step 3: Insurance Quotes"
-              : STEP_TITLES[step - 1]}
-          </span>
-        </div>
-      </div>
+        <Steps
+          current={stepIndex}
+          items={visibleSteps.map((s) => ({
+            title: s.title.replace(/^Step\s*\d+\s*:\s*/i, ""),
+            onClick: () => setStep(s.originalStep),
+          }))}
+        />
 
-      <form onSubmit={handleSubmitFinal} className="space-y-4">
+        {stepErrorsAlert}
+
+        <form onSubmit={handleSubmitFinal}>
         {step === 1 && (
           <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className={labelClassName}>Buyer Type *</label>
-                <div className="flex gap-2">
-                  {["Individual", "Company"].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, buyerType: type }))
-                      }
-                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                        formData.buyerType === type
-                          ? "border-sky-600 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/40 dark:text-sky-300"
-                          : "border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className={labelClassName}>Vehicle Type *</label>
-                <div className="flex gap-2">
-                  {["New Car", "Used Car"].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, vehicleType: type }))
-                      }
-                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                        formData.vehicleType === type
-                          ? "border-sky-600 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/40 dark:text-sky-300"
-                          : "border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className={labelClassName}>Policy Done By *</label>
-                <input
-                  value={formData.policyDoneBy}
-                  onChange={handleChange("policyDoneBy")}
-                  className={inputClassName}
-                />
-              </div>
-              <div>
-                <label className={labelClassName}>Broker Name</label>
-                <input
-                  value={formData.brokerName}
-                  onChange={handleChange("brokerName")}
-                  className={inputClassName}
-                  placeholder="Select Broker first"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className={labelClassName}>Source Origin</label>
-                <input
-                  value={formData.sourceOrigin}
-                  onChange={handleChange("sourceOrigin")}
-                  className={inputClassName}
-                  placeholder="Select or type agent name"
-                />
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  From where we got the policy client
-                </p>
-              </div>
-            </div>
+            <Card size="small" title="Basic Setup" bordered>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={12}>
+                  <Text strong>Buyer Type *</Text>
+                  <div style={{ marginTop: 6 }}>
+                    <Radio.Group
+                      value={formData.buyerType}
+                      onChange={(e) => setField("buyerType", e.target.value)}
+                      optionType="button"
+                      buttonStyle="solid"
+                      options={[
+                        { label: "Individual", value: "Individual" },
+                        { label: "Company", value: "Company" },
+                      ]}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Vehicle Type *</Text>
+                  <div style={{ marginTop: 6 }}>
+                    <Radio.Group
+                      value={formData.vehicleType}
+                      onChange={(e) => setField("vehicleType", e.target.value)}
+                      optionType="button"
+                      buttonStyle="solid"
+                      options={[
+                        { label: "New Car", value: "New Car" },
+                        { label: "Used Car", value: "Used Car" },
+                      ]}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Policy Done By *</Text>
+                  <Input
+                    value={formData.policyDoneBy}
+                    onChange={handleChange("policyDoneBy")}
+                    placeholder="Autocredits India LLP"
+                    style={{ marginTop: 6 }}
+                  />
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Broker Name</Text>
+                  <Input
+                    value={formData.brokerName}
+                    onChange={handleChange("brokerName")}
+                    placeholder="Broker (optional)"
+                    style={{ marginTop: 6 }}
+                  />
+                </Col>
+                <Col xs={24}>
+                  <Text strong>Source Origin</Text>
+                  <Input
+                    value={formData.sourceOrigin}
+                    onChange={handleChange("sourceOrigin")}
+                    placeholder="From where we got the policy client"
+                    style={{ marginTop: 6 }}
+                  />
+                </Col>
+              </Row>
+            </Card>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className={labelClassName}>Employee Name *</label>
-                <input
-                  value={formData.employeeName}
-                  onChange={handleChange("employeeName")}
-                  className={inputClassName}
-                  placeholder="Enter employee name"
-                />
-                {showErrors && step1Errors.employeeName ? (
-                  <p className={errorClassName}>{step1Errors.employeeName}</p>
-                ) : null}
-              </div>
+            <Card size="small" title="Customer Information" bordered>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={12}>
+                  <Text strong>Employee Name *</Text>
+                  <Input
+                    value={formData.employeeName}
+                    onChange={handleChange("employeeName")}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.employeeName ? "error" : ""}
+                    placeholder="Enter employee name"
+                  />
+                  {showErrors && step1Errors.employeeName ? (
+                    <Text type="danger">{step1Errors.employeeName}</Text>
+                  ) : null}
+                </Col>
               {isCompany ? (
                 <>
-                  <div>
-                    <label className={labelClassName}>Company Name *</label>
-                    <input
+                  <Col xs={24} md={12}>
+                    <Text strong>Company Name *</Text>
+                    <Input
                       value={formData.companyName}
                       onChange={handleChange("companyName")}
-                      className={inputClassName}
+                      style={{ marginTop: 6 }}
+                      status={showErrors && step1Errors.companyName ? "error" : ""}
                       placeholder="Enter company name"
                     />
                     {showErrors && step1Errors.companyName ? (
-                      <p className={errorClassName}>
-                        {step1Errors.companyName}
-                      </p>
+                      <Text type="danger">{step1Errors.companyName}</Text>
                     ) : null}
-                  </div>
-                  <div>
-                    <label className={labelClassName}>
-                      Contact Person Name *
-                    </label>
-                    <input
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Text strong>Contact Person Name *</Text>
+                    <Input
                       value={formData.contactPersonName}
                       onChange={handleChange("contactPersonName")}
-                      className={inputClassName}
+                      style={{ marginTop: 6 }}
+                      status={showErrors && step1Errors.contactPersonName ? "error" : ""}
                       placeholder="Enter contact person name"
                     />
                     {showErrors && step1Errors.contactPersonName ? (
-                      <p className={errorClassName}>
-                        {step1Errors.contactPersonName}
-                      </p>
+                      <Text type="danger">{step1Errors.contactPersonName}</Text>
                     ) : null}
-                  </div>
+                  </Col>
                 </>
               ) : (
-                <div>
-                  <label className={labelClassName}>Customer Name *</label>
-                  <input
+                <Col xs={24} md={12}>
+                  <Text strong>Customer Name *</Text>
+                  <Input
                     value={formData.customerName}
                     onChange={handleChange("customerName")}
-                    className={inputClassName}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.customerName ? "error" : ""}
                     placeholder="Enter customer name"
                   />
                   {showErrors && step1Errors.customerName ? (
-                    <p className={errorClassName}>{step1Errors.customerName}</p>
+                    <Text type="danger">{step1Errors.customerName}</Text>
                   ) : null}
-                </div>
+                </Col>
               )}
-              <div>
-                <label className={labelClassName}>Mobile Number *</label>
-                <div className="flex">
-                  <span className={phonePrefixClassName}>+91</span>
-                  <input
+                <Col xs={24} md={12}>
+                  <Text strong>Mobile Number *</Text>
+                  <Input
+                    addonBefore="+91"
                     value={formData.mobile}
                     onChange={handleChange("mobile")}
-                    className={`${inputClassName} rounded-l-none`}
-                    placeholder="Enter 10-digit mobile number"
                     maxLength={10}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.mobile ? "error" : ""}
+                    placeholder="10-digit mobile number"
                   />
-                </div>
-                {showErrors && step1Errors.mobile ? (
-                  <p className={errorClassName}>{step1Errors.mobile}</p>
-                ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Alternate Phone Number</label>
-                <div className="flex">
-                  <span className={phonePrefixClassName}>+91</span>
-                  <input
+                  {showErrors && step1Errors.mobile ? (
+                    <Text type="danger">{step1Errors.mobile}</Text>
+                  ) : null}
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Alternate Phone Number</Text>
+                  <Input
+                    addonBefore="+91"
                     value={formData.alternatePhone}
                     onChange={handleChange("alternatePhone")}
-                    className={`${inputClassName} rounded-l-none`}
-                    placeholder="Enter alternate number"
                     maxLength={10}
+                    style={{ marginTop: 6 }}
+                    placeholder="Optional"
                   />
-                </div>
-              </div>
-              <div>
-                <label className={labelClassName}>Email Address *</label>
-                <input
-                  value={formData.email}
-                  onChange={handleChange("email")}
-                  className={inputClassName}
-                  placeholder={
-                    isCompany
-                      ? "Enter company email address"
-                      : "Enter email address"
-                  }
-                />
-                {showErrors && step1Errors.email ? (
-                  <p className={errorClassName}>{step1Errors.email}</p>
-                ) : null}
-              </div>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Email Address *</Text>
+                  <Input
+                    value={formData.email}
+                    onChange={handleChange("email")}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.email ? "error" : ""}
+                    placeholder={isCompany ? "Company email address" : "Email address"}
+                  />
+                  {showErrors && step1Errors.email ? (
+                    <Text type="danger">{step1Errors.email}</Text>
+                  ) : null}
+                </Col>
               {!isCompany ? (
-                <div>
-                  <label className={labelClassName}>Gender *</label>
-                  <select
-                    value={formData.gender}
-                    onChange={handleChange("gender")}
-                    className={inputClassName}
-                  >
-                    <option value="">Select gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
+                <Col xs={24} md={12}>
+                  <Text strong>Gender *</Text>
+                  <Select
+                    value={formData.gender || undefined}
+                    onChange={(v) => setField("gender", v)}
+                    style={{ width: "100%", marginTop: 6 }}
+                    status={showErrors && step1Errors.gender ? "error" : ""}
+                    options={[
+                      { label: "Male", value: "Male" },
+                      { label: "Female", value: "Female" },
+                      { label: "Other", value: "Other" },
+                    ]}
+                    placeholder="Select gender"
+                  />
+                  {showErrors && step1Errors.gender ? (
+                    <Text type="danger">{step1Errors.gender}</Text>
+                  ) : null}
+                </Col>
               ) : null}
-              <div>
-                <label className={labelClassName}>
-                  PAN Number {isCompany ? "*" : ""}
-                </label>
-                <input
-                  value={formData.panNumber}
-                  onChange={handleChange("panNumber")}
-                  className={inputClassName}
-                  placeholder="ABCDE1234F"
-                />
-                {showErrors && step1Errors.panNumber ? (
-                  <p className={errorClassName}>{step1Errors.panNumber}</p>
-                ) : null}
-              </div>
+                <Col xs={24} md={12}>
+                  <Text strong>PAN Number {isCompany ? "*" : ""}</Text>
+                  <Input
+                    value={formData.panNumber}
+                    onChange={handleChange("panNumber")}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.panNumber ? "error" : ""}
+                    placeholder="ABCDE1234F"
+                  />
+                  {showErrors && step1Errors.panNumber ? (
+                    <Text type="danger">{step1Errors.panNumber}</Text>
+                  ) : null}
+                </Col>
               {isCompany ? (
-                <div>
-                  <label className={labelClassName}>GST Number</label>
-                  <input
+                <Col xs={24} md={12}>
+                  <Text strong>GST Number</Text>
+                  <Input
                     value={formData.gstNumber}
                     onChange={handleChange("gstNumber")}
-                    className={inputClassName}
-                    placeholder="Enter GST number"
+                    style={{ marginTop: 6 }}
+                    placeholder="Optional"
                   />
-                </div>
+                </Col>
               ) : (
-                <div>
-                  <label className={labelClassName}>Aadhaar Number</label>
-                  <input
+                <Col xs={24} md={12}>
+                  <Text strong>Aadhaar Number</Text>
+                  <Input
                     value={formData.aadhaarNumber}
                     onChange={handleChange("aadhaarNumber")}
-                    className={inputClassName}
-                    placeholder="1234 5678 9012"
+                    style={{ marginTop: 6 }}
+                    placeholder="Optional"
                   />
-                </div>
+                </Col>
               )}
-              <div>
-                <label className={labelClassName}>
-                  {isCompany ? "Office Address *" : "Residence Address *"}
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.residenceAddress}
-                  onChange={handleChange("residenceAddress")}
-                  className={inputClassName}
-                  placeholder="Enter complete address"
-                />
-                {showErrors && step1Errors.residenceAddress ? (
-                  <p className={errorClassName}>
-                    {step1Errors.residenceAddress}
-                  </p>
-                ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Pincode *</label>
-                <input
-                  value={formData.pincode}
-                  onChange={handleChange("pincode")}
-                  className={inputClassName}
-                  placeholder="Enter 6-digit pincode"
-                  maxLength={6}
-                />
-                {showErrors && step1Errors.pincode ? (
-                  <p className={errorClassName}>{step1Errors.pincode}</p>
-                ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>City *</label>
-                <input
-                  value={formData.city}
-                  onChange={handleChange("city")}
-                  className={inputClassName}
-                  placeholder="Enter city"
-                />
-                {showErrors && step1Errors.city ? (
-                  <p className={errorClassName}>{step1Errors.city}</p>
-                ) : null}
-              </div>
-            </div>
+                <Col xs={24} md={12}>
+                  <Text strong>{isCompany ? "Office Address *" : "Residence Address *"}</Text>
+                  <Input.TextArea
+                    rows={2}
+                    value={formData.residenceAddress}
+                    onChange={handleChange("residenceAddress")}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.residenceAddress ? "error" : ""}
+                    placeholder="Enter complete address"
+                  />
+                  {showErrors && step1Errors.residenceAddress ? (
+                    <Text type="danger">{step1Errors.residenceAddress}</Text>
+                  ) : null}
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Pincode *</Text>
+                  <Input
+                    value={formData.pincode}
+                    onChange={handleChange("pincode")}
+                    maxLength={6}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.pincode ? "error" : ""}
+                    placeholder="6-digit pincode"
+                  />
+                  {showErrors && step1Errors.pincode ? (
+                    <Text type="danger">{step1Errors.pincode}</Text>
+                  ) : null}
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>City *</Text>
+                  <Input
+                    value={formData.city}
+                    onChange={handleChange("city")}
+                    style={{ marginTop: 6 }}
+                    status={showErrors && step1Errors.city ? "error" : ""}
+                    placeholder="City"
+                  />
+                  {showErrors && step1Errors.city ? (
+                    <Text type="danger">{step1Errors.city}</Text>
+                  ) : null}
+                </Col>
+              </Row>
+            </Card>
 
-            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/10">
-              <h3 className="mb-3 text-sm font-black text-slate-900 dark:text-white">
-                Nominee Information (Optional)
-              </h3>
-              <div className="grid gap-4 md:grid-cols-3">
-                <input
-                  value={formData.nomineeName}
-                  onChange={handleChange("nomineeName")}
-                  className={inputClassName}
-                  placeholder="Nominee Name"
-                />
-                <input
-                  value={formData.nomineeRelationship}
-                  onChange={handleChange("nomineeRelationship")}
-                  className={inputClassName}
-                  placeholder="Type relationship"
-                />
-                <input
-                  value={formData.nomineeAge}
-                  onChange={handleChange("nomineeAge")}
-                  className={inputClassName}
-                  placeholder="Nominee Age"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-violet-200/80 bg-violet-50/40 p-4 dark:border-violet-900/40 dark:bg-violet-950/10">
-              <h3 className="mb-3 text-sm font-black text-slate-900 dark:text-white">
-                Reference Information (Optional)
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <input
-                  value={formData.referenceName}
-                  onChange={handleChange("referenceName")}
-                  className={inputClassName}
-                  placeholder="Reference Name"
-                />
-                <input
-                  value={formData.referencePhone}
-                  onChange={handleChange("referencePhone")}
-                  className={inputClassName}
-                  placeholder="Reference Phone Number"
-                />
-              </div>
-            </div>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Card size="small" title="Nominee (Optional)" bordered>
+                  <Row gutter={[12, 12]}>
+                    <Col span={24}>
+                      <Input
+                        value={formData.nomineeName}
+                        onChange={handleChange("nomineeName")}
+                        placeholder="Nominee Name"
+                      />
+                    </Col>
+                    <Col span={24}>
+                      <Input
+                        value={formData.nomineeRelationship}
+                        onChange={handleChange("nomineeRelationship")}
+                        placeholder="Relationship"
+                      />
+                    </Col>
+                    <Col span={24}>
+                      <InputNumber
+                        min={0}
+                        value={Number(formData.nomineeAge || 0) || 0}
+                        onChange={(v) => setField("nomineeAge", String(v ?? ""))}
+                        style={{ width: "100%" }}
+                        placeholder="Nominee Age"
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
+              <Col xs={24} md={12}>
+                <Card size="small" title="Reference (Optional)" bordered>
+                  <Row gutter={[12, 12]}>
+                    <Col span={24}>
+                      <Input
+                        value={formData.referenceName}
+                        onChange={handleChange("referenceName")}
+                        placeholder="Reference Name"
+                      />
+                    </Col>
+                    <Col span={24}>
+                      <Input
+                        value={formData.referencePhone}
+                        onChange={handleChange("referencePhone")}
+                        placeholder="Reference Phone"
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
+            </Row>
           </>
         )}
 
         {step === 2 && (
-          <>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className={labelClassName}>Registration Number *</label>
-                <input
+          <Card size="small" title="Vehicle Details" bordered>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Text strong>Registration Number *</Text>
+                <Input
                   value={formData.registrationNumber}
                   onChange={handleChange("registrationNumber")}
-                  className={inputClassName}
-                  placeholder="Enter Vehicle Number"
+                  style={{ marginTop: 6 }}
+                  status={showErrors && step2Errors.registrationNumber ? "error" : ""}
+                  placeholder="e.g. DL01AB1234"
                 />
                 {showErrors && step2Errors.registrationNumber ? (
-                  <p className={errorClassName}>
-                    {step2Errors.registrationNumber}
-                  </p>
+                  <Text type="danger">{step2Errors.registrationNumber}</Text>
                 ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Vehicle Make *</label>
-                <input
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Vehicle Make *</Text>
+                <Input
                   value={formData.vehicleMake}
                   onChange={handleChange("vehicleMake")}
-                  className={inputClassName}
-                  placeholder="Type vehicle make"
+                  style={{ marginTop: 6 }}
+                  status={showErrors && step2Errors.vehicleMake ? "error" : ""}
+                  placeholder="e.g. Hyundai"
                 />
                 {showErrors && step2Errors.vehicleMake ? (
-                  <p className={errorClassName}>{step2Errors.vehicleMake}</p>
+                  <Text type="danger">{step2Errors.vehicleMake}</Text>
                 ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Vehicle Model *</label>
-                <input
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Vehicle Model *</Text>
+                <Input
                   value={formData.vehicleModel}
                   onChange={handleChange("vehicleModel")}
-                  className={inputClassName}
-                  placeholder="Select make first"
+                  style={{ marginTop: 6 }}
                   disabled={!formData.vehicleMake}
+                  status={showErrors && step2Errors.vehicleModel ? "error" : ""}
+                  placeholder="Select make first"
                 />
-                {!formData.vehicleMake ? (
-                  <p className="mt-1 text-xs text-amber-600">
-                    Please select vehicle make first
-                  </p>
-                ) : null}
                 {showErrors && step2Errors.vehicleModel ? (
-                  <p className={errorClassName}>{step2Errors.vehicleModel}</p>
+                  <Text type="danger">{step2Errors.vehicleModel}</Text>
                 ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Vehicle Variant *</label>
-                <input
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Vehicle Variant *</Text>
+                <Input
                   value={formData.vehicleVariant}
                   onChange={handleChange("vehicleVariant")}
-                  className={inputClassName}
-                  placeholder="Select make and model first"
+                  style={{ marginTop: 6 }}
                   disabled={!formData.vehicleMake || !formData.vehicleModel}
+                  status={showErrors && step2Errors.vehicleVariant ? "error" : ""}
+                  placeholder="Variant"
                 />
-                {!formData.vehicleMake ? (
-                  <p className="mt-1 text-xs text-amber-600">
-                    Select make first
-                  </p>
-                ) : null}
                 {showErrors && step2Errors.vehicleVariant ? (
-                  <p className={errorClassName}>{step2Errors.vehicleVariant}</p>
+                  <Text type="danger">{step2Errors.vehicleVariant}</Text>
                 ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Cubic Capacity (cc)</label>
-                <input
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Cubic Capacity (cc)</Text>
+                <Input
                   value={formData.cubicCapacity}
                   onChange={handleChange("cubicCapacity")}
-                  className={inputClassName}
-                  placeholder="Enter cubic capacity"
+                  style={{ marginTop: 6 }}
+                  placeholder="Optional"
                 />
-              </div>
-              <div>
-                <label className={labelClassName}>Engine Number *</label>
-                <input
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Engine Number *</Text>
+                <Input
                   value={formData.engineNumber}
                   onChange={handleChange("engineNumber")}
-                  className={inputClassName}
-                  placeholder="Enter engine number"
+                  style={{ marginTop: 6 }}
+                  status={showErrors && step2Errors.engineNumber ? "error" : ""}
+                  placeholder="Engine number"
                 />
                 {showErrors && step2Errors.engineNumber ? (
-                  <p className={errorClassName}>{step2Errors.engineNumber}</p>
+                  <Text type="danger">{step2Errors.engineNumber}</Text>
                 ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Chassis Number *</label>
-                <input
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Chassis Number *</Text>
+                <Input
                   value={formData.chassisNumber}
                   onChange={handleChange("chassisNumber")}
-                  className={inputClassName}
-                  placeholder="Enter chassis number"
+                  style={{ marginTop: 6 }}
+                  status={showErrors && step2Errors.chassisNumber ? "error" : ""}
+                  placeholder="Chassis number"
                 />
                 {showErrors && step2Errors.chassisNumber ? (
-                  <p className={errorClassName}>{step2Errors.chassisNumber}</p>
+                  <Text type="danger">{step2Errors.chassisNumber}</Text>
                 ) : null}
-              </div>
-              <div>
-                <label className={labelClassName}>Types of Vehicle</label>
-                <select
-                  value={formData.typesOfVehicle}
-                  onChange={handleChange("typesOfVehicle")}
-                  className={inputClassName}
-                >
-                  <option>Four Wheeler</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClassName}>Manufacture Date *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    value={formData.manufactureMonth}
-                    onChange={handleChange("manufactureMonth")}
-                    className={inputClassName}
-                    placeholder="Month"
-                  />
-                  <input
-                    value={formData.manufactureYear}
-                    onChange={handleChange("manufactureYear")}
-                    className={inputClassName}
-                    placeholder="Year"
-                  />
-                </div>
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Types of Vehicle</Text>
+                <Select
+                  value={formData.typesOfVehicle || "Four Wheeler"}
+                  onChange={(v) => setField("typesOfVehicle", v)}
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={[{ label: "Four Wheeler", value: "Four Wheeler" }]}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Manufacture Month *</Text>
+                <Input
+                  value={formData.manufactureMonth}
+                  onChange={handleChange("manufactureMonth")}
+                  style={{ marginTop: 6 }}
+                  status={showErrors && step2Errors.manufactureMonth ? "error" : ""}
+                  placeholder="e.g. 07"
+                />
                 {showErrors && step2Errors.manufactureMonth ? (
-                  <p className={errorClassName}>
-                    {step2Errors.manufactureMonth}
-                  </p>
+                  <Text type="danger">{step2Errors.manufactureMonth}</Text>
                 ) : null}
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Manufacture Year *</Text>
+                <Input
+                  value={formData.manufactureYear}
+                  onChange={handleChange("manufactureYear")}
+                  style={{ marginTop: 6 }}
+                  status={showErrors && step2Errors.manufactureYear ? "error" : ""}
+                  placeholder="e.g. 2026"
+                />
                 {showErrors && step2Errors.manufactureYear ? (
-                  <p className={errorClassName}>
-                    {step2Errors.manufactureYear}
-                  </p>
+                  <Text type="danger">{step2Errors.manufactureYear}</Text>
                 ) : null}
-              </div>
-            </div>
-            <p className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-300">
-              Note: All vehicle details must be accurate as they will be
-              verified during policy issuance. You can start typing the
-              registration number to auto-fill details from existing records.
-            </p>
-          </>
+              </Col>
+            </Row>
+            <Divider style={{ marginBlock: 12 }} />
+            <Alert
+              type="info"
+              showIcon
+              message="All vehicle details must be accurate and will be verified during policy issuance."
+            />
+          </Card>
         )}
 
         {step === 3 && !isNewCar && (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 dark:border-amber-900/40 dark:bg-amber-950/10">
-              <h3 className="mb-3 text-sm font-black text-slate-900 dark:text-white">
-                Previous Policy Information
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className={labelClassName}>Insurance Company</label>
-                  <input
-                    value={formData.previousInsuranceCompany}
-                    onChange={handleChange("previousInsuranceCompany")}
-                    className={inputClassName}
+          <Card size="small" title="Previous Policy Details" bordered>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Text strong>Insurance Company</Text>
+                <Input
+                  value={formData.previousInsuranceCompany}
+                  onChange={handleChange("previousInsuranceCompany")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Policy Number</Text>
+                <Input
+                  value={formData.previousPolicyNumber}
+                  onChange={handleChange("previousPolicyNumber")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Policy Type</Text>
+                <Select
+                  value={formData.previousPolicyType}
+                  onChange={(v) => setField("previousPolicyType", v)}
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={[
+                    { label: "Comprehensive", value: "Comprehensive" },
+                    { label: "Third Party", value: "Third Party" },
+                    { label: "Own Damage", value: "Own Damage" },
+                  ]}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Policy Start Date</Text>
+                <Input
+                  type="date"
+                  value={formData.previousPolicyStartDate}
+                  onChange={(e) =>
+                    handlePreviousPolicyStartOrDuration({ previousPolicyStartDate: e.target.value })
+                  }
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Policy Duration</Text>
+                <Select
+                  value={formData.previousPolicyDuration}
+                  onChange={(v) =>
+                    handlePreviousPolicyStartOrDuration({ previousPolicyDuration: v })
+                  }
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={durationOptions.map((d) => ({ label: d, value: d }))}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>OD Expiry Date</Text>
+                <Input
+                  type="date"
+                  value={formData.previousOdExpiryDate}
+                  onChange={handleChange("previousOdExpiryDate")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>TP Expiry Date</Text>
+                <Input
+                  type="date"
+                  value={formData.previousTpExpiryDate}
+                  onChange={handleChange("previousTpExpiryDate")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Claim Taken Last Year</Text>
+                <div style={{ marginTop: 6 }}>
+                  <Radio.Group
+                    value={formData.claimTakenLastYear}
+                    onChange={(e) => setField("claimTakenLastYear", e.target.value)}
+                    options={[
+                      { label: "Yes", value: "Yes" },
+                      { label: "No", value: "No" },
+                    ]}
+                    optionType="button"
+                    buttonStyle="solid"
                   />
                 </div>
-                <div>
-                  <label className={labelClassName}>Policy Number</label>
-                  <input
-                    value={formData.previousPolicyNumber}
-                    onChange={handleChange("previousPolicyNumber")}
-                    className={inputClassName}
-                    placeholder="OG-25-1102-1801-00004082"
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Policy Type</label>
-                  <select
-                    value={formData.previousPolicyType}
-                    onChange={handleChange("previousPolicyType")}
-                    className={inputClassName}
-                  >
-                    <option>Comprehensive</option>
-                    <option>Third Party</option>
-                    <option>Own Damage</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClassName}>Policy Start Date</label>
-                  <input
-                    type="date"
-                    value={formData.previousPolicyStartDate}
-                    onChange={(e) =>
-                      handlePreviousPolicyStartOrDuration({
-                        previousPolicyStartDate: e.target.value,
-                      })
-                    }
-                    className={inputClassName}
-                  />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Policy coverage start date
-                  </p>
-                </div>
-                <div>
-                  <label className={labelClassName}>Policy Duration</label>
-                  <select
-                    value={formData.previousPolicyDuration}
-                    onChange={(e) =>
-                      handlePreviousPolicyStartOrDuration({
-                        previousPolicyDuration: e.target.value,
-                      })
-                    }
-                    className={inputClassName}
-                  >
-                    {durationOptions.map((d) => (
-                      <option key={d}>{d}</option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Available: {durationOptions.join(", ")}
-                  </p>
-                </div>
-                <div>
-                  <label className={labelClassName}>OD Expiry Date</label>
-                  <input
-                    type="date"
-                    value={formData.previousOdExpiryDate}
-                    onChange={handleChange("previousOdExpiryDate")}
-                    className={inputClassName}
-                  />
-                  <p className="mt-1 text-xs text-emerald-600">
-                    Auto-calculated ✓ You can edit if needed
-                  </p>
-                </div>
-                <div>
-                  <label className={labelClassName}>TP Expiry Date</label>
-                  <input
-                    type="date"
-                    value={formData.previousTpExpiryDate}
-                    onChange={handleChange("previousTpExpiryDate")}
-                    className={inputClassName}
-                  />
-                  <p className="mt-1 text-xs text-emerald-600">
-                    Auto-calculated ✓ You can edit if needed
-                  </p>
-                </div>
-                <div>
-                  <label className={labelClassName}>
-                    Claim Taken Last Year
-                  </label>
-                  <div className="flex gap-2">
-                    {["Yes", "No"].map((x) => (
-                      <button
-                        key={x}
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            claimTakenLastYear: x,
-                          }))
-                        }
-                        className={`rounded-lg border px-3 py-2 text-sm font-semibold ${formData.claimTakenLastYear === x ? "border-sky-600 bg-sky-50 text-sky-700" : "border-slate-300"}`}
-                      >
-                        {x}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className={labelClassName}>NCB Discount (%)</label>
-                  <input
-                    type="number"
-                    value={formData.previousNcbDiscount}
-                    onChange={handleChange("previousNcbDiscount")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Hypothecation</label>
-                  <select
-                    value={formData.previousHypothecation}
-                    onChange={handleChange("previousHypothecation")}
-                    className={inputClassName}
-                  >
-                    <option>Not Applicable</option>
-                    <option>HDFC Bank</option>
-                    <option>ICICI Bank</option>
-                    <option>SBI</option>
-                  </select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Select the bank if vehicle is financed, otherwise select
-                    "Not Applicable"
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <label className={labelClassName}>Remarks</label>
-                  <textarea
-                    rows={3}
-                    value={formData.previousRemarks}
-                    onChange={handleChange("previousRemarks")}
-                    className={inputClassName}
-                    placeholder="Enter any remarks or notes for the previous policy..."
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>NCB Discount (%)</Text>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  value={Number(formData.previousNcbDiscount || 0)}
+                  onChange={(v) => setField("previousNcbDiscount", Number(v || 0))}
+                  style={{ width: "100%", marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Hypothecation</Text>
+                <Select
+                  value={formData.previousHypothecation}
+                  onChange={(v) => setField("previousHypothecation", v)}
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={[
+                    { label: "Not Applicable", value: "Not Applicable" },
+                    { label: "HDFC Bank", value: "HDFC Bank" },
+                    { label: "ICICI Bank", value: "ICICI Bank" },
+                    { label: "SBI", value: "SBI" },
+                  ]}
+                />
+              </Col>
+              <Col xs={24}>
+                <Text strong>Remarks</Text>
+                <Input.TextArea
+                  rows={3}
+                  value={formData.previousRemarks}
+                  onChange={handleChange("previousRemarks")}
+                  style={{ marginTop: 6 }}
+                  placeholder="Notes for previous policy..."
+                />
+              </Col>
+            </Row>
+          </Card>
         )}
 
         {step === 4 && (
-          <div className="space-y-4">
-            <div
-              className={`rounded-xl border p-4 ${acceptedQuote ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20" : "border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20"}`}
-            >
-              <p
-                className={`text-sm font-semibold ${acceptedQuote ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300"}`}
-              >
-                Quotes: {quotes.length} | Required: At least 1{" "}
-                {acceptedQuote
-                  ? `| ✅ ${acceptedQuote.insuranceCompany} Accepted`
-                  : ""}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-cyan-200/80 bg-cyan-50/40 p-4 dark:border-cyan-900/40 dark:bg-cyan-950/10">
-              <h3 className="mb-3 text-sm font-black text-slate-900 dark:text-white">
-                Add New Quote
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className={labelClassName}>Insurance Company *</label>
-                  <input
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <Card size="small" title="Quote Builder" bordered>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={12}>
+                  <Text strong>Insurance Company *</Text>
+                  <Input
                     value={quoteDraft.insuranceCompany}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        insuranceCompany: e.target.value,
-                      }))
-                    }
-                    className={inputClassName}
+                    onChange={(e) => setQuoteDraft((p) => ({ ...p, insuranceCompany: e.target.value }))}
+                    style={{ marginTop: 6 }}
                     placeholder="Insurance Company"
                   />
-                </div>
-                <div>
-                  <label className={labelClassName}>Coverage Type *</label>
-                  <select
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Coverage Type *</Text>
+                  <Select
                     value={quoteDraft.coverageType}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        coverageType: e.target.value,
-                      }))
-                    }
-                    className={inputClassName}
-                  >
-                    <option>Comprehensive</option>
-                    <option>Third Party</option>
-                    <option>Own Damage</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClassName}>Vehicle IDV (₹)</label>
-                  <input
-                    type="number"
-                    value={quoteDraft.vehicleIdv}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        vehicleIdv: Number(e.target.value || 0),
-                      }))
-                    }
-                    className={inputClassName}
+                    onChange={(v) => setQuoteDraft((p) => ({ ...p, coverageType: v }))}
+                    style={{ width: "100%", marginTop: 6 }}
+                    options={[
+                      { label: "Comprehensive", value: "Comprehensive" },
+                      { label: "Third Party", value: "Third Party" },
+                      { label: "Own Damage", value: "Own Damage" },
+                    ]}
                   />
-                </div>
-                <div>
-                  <label className={labelClassName}>CNG IDV (₹)</label>
-                  <input
-                    type="number"
-                    value={quoteDraft.cngIdv}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        cngIdv: Number(e.target.value || 0),
-                      }))
+                </Col>
+                <Col xs={24} md={8}>
+                  <Text strong>Vehicle IDV (₹)</Text>
+                  <InputNumber
+                    min={0}
+                    value={Number(quoteDraft.vehicleIdv || 0)}
+                    onChange={(v) => setQuoteDraft((p) => ({ ...p, vehicleIdv: Number(v || 0) }))}
+                    style={{ width: "100%", marginTop: 6 }}
+                  />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Text strong>CNG IDV (₹)</Text>
+                  <InputNumber
+                    min={0}
+                    value={Number(quoteDraft.cngIdv || 0)}
+                    onChange={(v) => setQuoteDraft((p) => ({ ...p, cngIdv: Number(v || 0) }))}
+                    style={{ width: "100%", marginTop: 6 }}
+                  />
+                </Col>
+                <Col xs={24} md={8}>
+                  <Text strong>Accessories IDV (₹)</Text>
+                  <InputNumber
+                    min={0}
+                    value={Number(quoteDraft.accessoriesIdv || 0)}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({ ...p, accessoriesIdv: Number(v || 0) }))
                     }
-                    className={inputClassName}
+                    style={{ width: "100%", marginTop: 6 }}
                   />
-                </div>
-                <div>
-                  <label className={labelClassName}>Accessories IDV (₹)</label>
-                  <input
-                    type="number"
-                    value={quoteDraft.accessoriesIdv}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        accessoriesIdv: Number(e.target.value || 0),
-                      }))
-                    }
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Total IDV (₹) *</label>
-                  <input
-                    readOnly
-                    value={quoteComputed.totalIdv}
-                    className={`${inputClassName} bg-slate-50 dark:bg-slate-900`}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Policy Duration *</label>
-                  <select
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Policy Duration *</Text>
+                  <Select
                     value={quoteDraft.policyDuration}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        policyDuration: e.target.value,
-                      }))
-                    }
-                    className={inputClassName}
-                  >
-                    {durationOptions.map((d) => (
-                      <option key={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClassName}>NCB Discount (%)</label>
-                  <input
-                    type="number"
-                    value={quoteDraft.ncbDiscount}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        ncbDiscount: Number(e.target.value || 0),
-                      }))
-                    }
-                    className={inputClassName}
+                    onChange={(v) => setQuoteDraft((p) => ({ ...p, policyDuration: v }))}
+                    style={{ width: "100%", marginTop: 6 }}
+                    options={durationOptions.map((d) => ({ label: d, value: d }))}
                   />
-                </div>
-                <div>
-                  <label className={labelClassName}>OD Amount (₹)</label>
-                  <input
-                    type="number"
-                    value={quoteDraft.odAmount}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        odAmount: Number(e.target.value || 0),
-                      }))
-                    }
-                    className={inputClassName}
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>NCB Discount (%)</Text>
+                  <InputNumber
+                    min={0}
+                    max={100}
+                    value={Number(quoteDraft.ncbDiscount || 0)}
+                    onChange={(v) => setQuoteDraft((p) => ({ ...p, ncbDiscount: Number(v || 0) }))}
+                    style={{ width: "100%", marginTop: 6 }}
                   />
-                </div>
-                <div>
-                  <label className={labelClassName}>3rd Party Amount (₹)</label>
-                  <input
-                    type="number"
-                    value={quoteDraft.thirdPartyAmount}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        thirdPartyAmount: Number(e.target.value || 0),
-                      }))
-                    }
-                    className={inputClassName}
+                </Col>
+                <Col xs={24} md={8}>
+                  <Text strong>OD Amount (₹)</Text>
+                  <InputNumber
+                    min={0}
+                    value={Number(quoteDraft.odAmount || 0)}
+                    onChange={(v) => setQuoteDraft((p) => ({ ...p, odAmount: Number(v || 0) }))}
+                    style={{ width: "100%", marginTop: 6 }}
                   />
-                </div>
-                <div>
-                  <label className={labelClassName}>Add Ons (₹)</label>
-                  <input
-                    type="number"
-                    value={quoteDraft.addOnsAmount}
-                    onChange={(e) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        addOnsAmount: Number(e.target.value || 0),
-                      }))
+                </Col>
+                <Col xs={24} md={8}>
+                  <Text strong>3rd Party Amount (₹)</Text>
+                  <InputNumber
+                    min={0}
+                    value={Number(quoteDraft.thirdPartyAmount || 0)}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({ ...p, thirdPartyAmount: Number(v || 0) }))
                     }
-                    className={inputClassName}
+                    style={{ width: "100%", marginTop: 6 }}
                   />
-                </div>
-              </div>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Text strong>Add-ons Amount (₹)</Text>
+                  <InputNumber
+                    min={0}
+                    value={Number(quoteDraft.addOnsAmount || 0)}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({ ...p, addOnsAmount: Number(v || 0) }))
+                    }
+                    style={{ width: "100%", marginTop: 6 }}
+                  />
+                </Col>
+              </Row>
 
-              <div className="mt-4 rounded-xl border border-indigo-200/80 bg-indigo-50/40 p-3 dark:border-indigo-900/40 dark:bg-indigo-950/10">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-bold">
-                    Additional Add-ons (Optional)
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="rounded border px-2 py-1 text-xs"
-                      onClick={() =>
-                        setQuoteDraft((p) => ({
-                          ...p,
-                          addOns: Object.fromEntries(
-                            addOnCatalog.map((name) => [name, 0]),
-                          ),
-                        }))
-                      }
-                    >
-                      Select All (₹0)
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded border px-2 py-1 text-xs"
-                      onClick={() =>
-                        setQuoteDraft((p) => ({
-                          ...p,
-                          addOns: Object.fromEntries(
-                            addOnCatalog.map((name) => [name, 0]),
-                          ),
-                        }))
-                      }
-                    >
-                      Deselect All
-                    </button>
+              <Divider style={{ marginBlock: 12 }} />
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={12}>
+                  <Text strong>Computed</Text>
+                  <div style={{ marginTop: 6 }}>
+                    <Text type="secondary">Total IDV: </Text>
+                    <Text strong>{toINR(quoteComputed.totalIdv)}</Text>
+                    <br />
+                    <Text type="secondary">Total Premium: </Text>
+                    <Text strong>{toINR(quoteComputed.totalPremium)}</Text>
                   </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {addOnCatalog.map((name) => (
-                    <div
-                      key={name}
-                      className="rounded border border-slate-200 p-3 dark:border-slate-700"
-                    >
-                      <p className="text-sm font-semibold">{name}</p>
-                      <label className="mt-1 block text-xs text-slate-500">
-                        Amount:
-                      </label>
-                      <input
-                        type="number"
-                        className={inputClassName}
-                        value={quoteDraft.addOns[name]}
-                        onChange={(e) =>
-                          setQuoteDraft((p) => ({
-                            ...p,
-                            addOns: {
-                              ...p.addOns,
-                              [name]: Number(e.target.value || 0),
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Space>
+                    <Button type="primary" onClick={addQuote} disabled={!quoteDraft.insuranceCompany.trim()}>
+                      Add Quote
+                    </Button>
+                    <Button onClick={() => setQuoteDraft(initialQuoteDraft)}>Reset</Button>
+                  </Space>
+                </Col>
+              </Row>
+            </Card>
 
-              <div className="mt-4 grid gap-3 rounded-xl border border-teal-200/80 bg-teal-50/40 p-3 text-sm dark:border-teal-900/40 dark:bg-teal-950/10 md:grid-cols-2">
-                <div>
-                  <p className="font-semibold">
-                    Base Premium: {toINR(quoteComputed.basePremium)}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    OD: {toINR(quoteDraft.odAmount)} + 3P:{" "}
-                    {toINR(quoteDraft.thirdPartyAmount)} + Add-ons:{" "}
-                    {toINR(quoteComputed.addOnsTotal)}
-                  </p>
-                  <p className="mt-1">
-                    NCB Discount: -{toINR(quoteComputed.ncbAmount)}
-                  </p>
-                  <p>GST (18%): {toINR(quoteComputed.gstAmount)}</p>
-                  <p className="font-bold">
-                    Total Premium: {toINR(quoteComputed.totalPremium)}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-semibold">IDV Breakdown</p>
-                  <p className="text-xs">
-                    Vehicle IDV: {toINR(quoteDraft.vehicleIdv)}
-                  </p>
-                  <p className="text-xs">CNG IDV: {toINR(quoteDraft.cngIdv)}</p>
-                  <p className="text-xs">
-                    Accessories IDV: {toINR(quoteDraft.accessoriesIdv)}
-                  </p>
-                  <p className="text-xs">
-                    Total IDV: {toINR(quoteComputed.totalIdv)}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={addQuote}
-                className="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-700"
-              >
-                Add Quote
-              </button>
-            </div>
-
-            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/10">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-black">
-                  Generated Quotes ({quotes.length}) • {acceptedQuote ? 1 : 0}{" "}
-                  Accepted
-                </h3>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded border px-2 py-1 text-xs"
-                    onClick={() => setSelectedQuoteIds(quotes.map((q) => q.id))}
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded border px-2 py-1 text-xs"
-                    onClick={() => setSelectedQuoteIds([])}
-                  >
-                    Deselect All
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded border px-2 py-1 text-xs"
-                  >
-                    Download Selected ({selectedQuoteIds.length})
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {quotes.map((q) => (
-                  <div
-                    key={q.id}
-                    className="rounded-lg border border-slate-200 p-3 dark:border-slate-700"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-bold">{q.insuranceCompany}</p>
-                        <p className="text-xs text-slate-500">
-                          IDV: {toINR(q.totalIdv)} • {q.policyDuration} • NCB:{" "}
-                          {q.ncbDiscount}%
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {acceptedQuoteId === q.id ? (
-                          <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                            ACCEPTED
-                          </span>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="rounded border px-2 py-1 text-xs"
-                          onClick={() => acceptQuote(q.id)}
-                        >
-                          Accept
-                        </button>
-                        <input
-                          type="checkbox"
-                          checked={selectedQuoteIds.includes(q.id)}
-                          onChange={(e) =>
-                            setSelectedQuoteIds((prev) =>
-                              e.target.checked
-                                ? [...prev, q.id]
-                                : prev.filter((id) => id !== q.id),
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <Card
+              size="small"
+              title={`Generated Quotes (${quotes.length})`}
+              extra={
+                acceptedQuote ? (
+                  <Text type="success">
+                    Accepted: {acceptedQuote.insuranceCompany}
+                  </Text>
+                ) : (
+                  <Text type="secondary">No accepted quote</Text>
+                )
+              }
+              bordered
+            >
+              <Table
+                size="small"
+                dataSource={quoteRows}
+                pagination={false}
+                columns={[
+                  { title: "Company", dataIndex: "insuranceCompany", key: "company" },
+                  { title: "Type", dataIndex: "coverageType", key: "type", width: 140 },
+                  {
+                    title: "IDV",
+                    key: "idv",
+                    width: 150,
+                    render: (_, row) => toINR(row.totalIdv || 0),
+                  },
+                  { title: "Duration", dataIndex: "policyDuration", key: "dur", width: 160 },
+                  {
+                    title: "Premium",
+                    key: "prem",
+                    width: 160,
+                    render: (_, row) => toINR(row.totalPremium || 0),
+                  },
+                  {
+                    title: "Accept",
+                    key: "accept",
+                    width: 120,
+                    render: (_, row) => (
+                      <Button size="small" type={acceptedQuoteId === row.id ? "primary" : "default"} onClick={() => acceptQuote(row.id)}>
+                        {acceptedQuoteId === row.id ? "Accepted" : "Accept"}
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
               {showErrors && quotes.length === 0 ? (
-                <p className={errorClassName}>At least 1 quote is required</p>
+                <div style={{ marginTop: 8 }}>
+                  <Text type="danger">At least 1 quote is required.</Text>
+                </div>
               ) : null}
-            </div>
-          </div>
+            </Card>
+          </Space>
         )}
 
         {step === 5 && (
-          <div className="space-y-4">
-            <div
-              className={`rounded-xl border p-4 text-sm ${acceptedQuote ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20" : "border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20"}`}
-            >
-              {acceptedQuote ? (
-                <p>
-                  Auto-filled from accepted quote:{" "}
-                  <span className="font-bold">
-                    {acceptedQuote.insuranceCompany}
-                  </span>{" "}
-                  (Quote ID: {acceptedQuote.id})
-                </p>
-              ) : (
-                <p className="text-amber-700 dark:text-amber-300">
-                  No accepted quote selected yet. Please accept one quote in
-                  Step 4.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-sky-200/80 bg-sky-50/30 p-4 dark:border-sky-900/40 dark:bg-sky-950/10">
-              <h3 className="mb-3 text-sm font-black">
-                Policy Information (Auto-filled from current accepted quote)
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className={labelClassName}>Insurance Company *</label>
-                  <input
-                    value={formData.newInsuranceCompany}
-                    onChange={handleChange("newInsuranceCompany")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Policy Type *</label>
-                  <select
-                    value={formData.newPolicyType}
-                    onChange={handleChange("newPolicyType")}
-                    className={inputClassName}
-                  >
-                    <option>Comprehensive</option>
-                    <option>Third Party</option>
-                    <option>Own Damage</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClassName}>Policy Number</label>
-                  <input
-                    value={formData.newPolicyNumber}
-                    onChange={handleChange("newPolicyNumber")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Issue Date *</label>
-                  <input
-                    type="date"
-                    value={formData.newIssueDate}
-                    onChange={handleChange("newIssueDate")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Policy Start Date *</label>
-                  <input
-                    type="date"
-                    value={formData.newPolicyStartDate}
-                    onChange={(e) =>
-                      handleNewPolicyStartOrDuration({
-                        newPolicyStartDate: e.target.value,
-                      })
-                    }
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Insurance Duration *</label>
-                  <select
-                    value={formData.newInsuranceDuration}
-                    onChange={(e) =>
-                      handleNewPolicyStartOrDuration({
-                        newInsuranceDuration: e.target.value,
-                      })
-                    }
-                    className={inputClassName}
-                  >
-                    {durationOptions.map((d) => (
-                      <option key={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClassName}>OD Expiry Date *</label>
-                  <input
-                    type="date"
-                    value={formData.newOdExpiryDate}
-                    onChange={handleChange("newOdExpiryDate")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>TP Expiry Date *</label>
-                  <input
-                    type="date"
-                    value={formData.newTpExpiryDate}
-                    onChange={handleChange("newTpExpiryDate")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>NCB Discount (%)</label>
-                  <input
-                    type="number"
-                    value={formData.newNcbDiscount}
-                    onChange={handleChange("newNcbDiscount")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>IDV Amount (₹) *</label>
-                  <input
-                    type="number"
-                    value={formData.newIdvAmount}
-                    onChange={handleChange("newIdvAmount")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Total Premium (₹) *</label>
-                  <input
-                    type="number"
-                    value={formData.newTotalPremium}
-                    onChange={handleChange("newTotalPremium")}
-                    className={inputClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>Hypothecation</label>
-                  <select
-                    value={formData.newHypothecation}
-                    onChange={handleChange("newHypothecation")}
-                    className={inputClassName}
-                  >
-                    <option>Not Applicable</option>
-                    <option>HDFC Bank</option>
-                    <option>ICICI Bank</option>
-                    <option>SBI</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className={labelClassName}>Remarks</label>
-                  <textarea
-                    rows={3}
-                    value={formData.newRemarks}
-                    onChange={handleChange("newRemarks")}
-                    className={inputClassName}
-                    placeholder="Enter any remarks or notes for the new policy..."
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <Card size="small" title="New Policy Details" bordered>
+            {!acceptedQuote ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="No accepted quote selected yet."
+                description="Please accept a quote in Step 4 to auto-fill policy details."
+                style={{ marginBottom: 12 }}
+              />
+            ) : null}
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Text strong>Insurance Company *</Text>
+                <Input
+                  value={formData.newInsuranceCompany}
+                  onChange={handleChange("newInsuranceCompany")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Policy Type *</Text>
+                <Select
+                  value={formData.newPolicyType}
+                  onChange={(v) => setField("newPolicyType", v)}
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={[
+                    { label: "Comprehensive", value: "Comprehensive" },
+                    { label: "Third Party", value: "Third Party" },
+                    { label: "Own Damage", value: "Own Damage" },
+                  ]}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Policy Number</Text>
+                <Input
+                  value={formData.newPolicyNumber}
+                  onChange={handleChange("newPolicyNumber")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Issue Date *</Text>
+                <Input
+                  type="date"
+                  value={formData.newIssueDate}
+                  onChange={handleChange("newIssueDate")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Policy Start Date *</Text>
+                <Input
+                  type="date"
+                  value={formData.newPolicyStartDate}
+                  onChange={(e) =>
+                    handleNewPolicyStartOrDuration({ newPolicyStartDate: e.target.value })
+                  }
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Insurance Duration *</Text>
+                <Select
+                  value={formData.newInsuranceDuration}
+                  onChange={(v) => handleNewPolicyStartOrDuration({ newInsuranceDuration: v })}
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={durationOptions.map((d) => ({ label: d, value: d }))}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>OD Expiry Date *</Text>
+                <Input
+                  type="date"
+                  value={formData.newOdExpiryDate}
+                  onChange={handleChange("newOdExpiryDate")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>TP Expiry Date *</Text>
+                <Input
+                  type="date"
+                  value={formData.newTpExpiryDate}
+                  onChange={handleChange("newTpExpiryDate")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>NCB Discount (%)</Text>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  value={Number(formData.newNcbDiscount || 0)}
+                  onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
+                  style={{ width: "100%", marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>IDV Amount (₹) *</Text>
+                <InputNumber
+                  min={0}
+                  value={Number(formData.newIdvAmount || 0)}
+                  onChange={(v) => setField("newIdvAmount", Number(v || 0))}
+                  style={{ width: "100%", marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Total Premium (₹) *</Text>
+                <InputNumber
+                  min={0}
+                  value={Number(formData.newTotalPremium || 0)}
+                  onChange={(v) => setField("newTotalPremium", Number(v || 0))}
+                  style={{ width: "100%", marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Hypothecation</Text>
+                <Select
+                  value={formData.newHypothecation}
+                  onChange={(v) => setField("newHypothecation", v)}
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={[
+                    { label: "Not Applicable", value: "Not Applicable" },
+                    { label: "HDFC Bank", value: "HDFC Bank" },
+                    { label: "ICICI Bank", value: "ICICI Bank" },
+                    { label: "SBI", value: "SBI" },
+                  ]}
+                />
+              </Col>
+              <Col xs={24}>
+                <Text strong>Remarks</Text>
+                <Input.TextArea
+                  rows={3}
+                  value={formData.newRemarks}
+                  onChange={handleChange("newRemarks")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+            </Row>
+          </Card>
         )}
 
         {step === 6 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-xl border border-violet-200/80 bg-violet-50/40 p-4 dark:border-violet-900/40 dark:bg-violet-950/10">
-              <h3 className="text-sm font-black">Document Requirements</h3>
-              <button
-                type="button"
-                onClick={() => setDocuments([])}
-                className="rounded border px-2 py-1 text-xs"
-              >
-                Clear All
-              </button>
-            </div>
-
-            <div className="rounded-xl border border-cyan-200/80 bg-cyan-50/40 p-4 dark:border-cyan-900/40 dark:bg-cyan-950/10">
-              <p className="mb-2 text-sm font-semibold">Documents</p>
-              <div className="flex flex-wrap gap-2">
-                {requiredDocumentTags.map((doc) => (
-                  <span
-                    key={doc}
-                    className="rounded-full bg-slate-100 px-3 py-1 text-xs dark:bg-slate-900"
-                  >
-                    {doc}
-                  </span>
-                ))}
-              </div>
-              <p
-                className={`mt-3 text-xs font-semibold ${allUploadedDocsTagged ? "text-emerald-700 dark:text-emerald-300" : "text-slate-600 dark:text-slate-300"}`}
-              >
-                Documents Status: Total Documents: {documents.length} | Tagged:{" "}
-                {docsTaggedCount}
-                {allUploadedDocsTagged ? " | ✅ Documents Ready" : ""}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
-              <p className="text-sm font-semibold">Drag and drop files here</p>
-              <p className="mt-1 text-xs text-slate-500">
-                or click to browse your files (Multiple files supported)
-              </p>
-              <input
-                type="file"
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <Card
+              size="small"
+              title="Documents"
+              extra={
+                <Space>
+                  <Text type={allUploadedDocsTagged ? "success" : "secondary"}>
+                    Tagged {docsTaggedCount}/{documents.length}
+                  </Text>
+                  <Button danger onClick={() => setDocuments([])} disabled={!documents.length}>
+                    Clear All
+                  </Button>
+                </Space>
+              }
+              bordered
+            >
+              <Text type="secondary">
+                Upload files and tag them (RC, Forms, PAN, Aadhaar/GST, policies, etc.).
+              </Text>
+              <Divider style={{ marginBlock: 12 }} />
+              <Dragger
                 multiple
-                className="mt-3"
-                onChange={(e) => handleFilesUpload(e.target.files)}
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                Supported: PDF, JPG, PNG, GIF, WEBP, BMP, DOC, DOCX, XLS, XLSX,
-                TXT • Max file size: 10MB each
-              </p>
-            </div>
+                beforeUpload={() => false}
+                showUploadList={false}
+                onChange={(info) => {
+                  const files = info?.fileList || [];
+                  const incoming = files
+                    .map((f) => f.originFileObj)
+                    .filter(Boolean)
+                    .map((file) => ({
+                      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                      name: file.name,
+                      size: file.size,
+                      type: file.type,
+                      tag: "",
+                    }));
+                  if (incoming.length) setDocuments((prev) => [...prev, ...incoming]);
+                }}
+              >
+                <p className="ant-upload-drag-icon" />
+                <p className="ant-upload-text">Click or drag files to upload</p>
+                <p className="ant-upload-hint">Multiple files supported</p>
+              </Dragger>
+            </Card>
 
-            <div className="space-y-2">
-              {documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="grid gap-2 rounded-lg border border-slate-200 p-3 md:grid-cols-3 dark:border-slate-700"
-                >
-                  <div className="md:col-span-2">
-                    <p className="text-sm font-semibold">{doc.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {Math.round((doc.size || 0) / 1024)} KB
-                    </p>
-                  </div>
-                  <select
-                    className={inputClassName}
-                    value={doc.tag}
-                    onChange={(e) =>
-                      setDocuments((prev) =>
-                        prev.map((x) =>
-                          x.id === doc.id ? { ...x, tag: e.target.value } : x,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="">Tag document</option>
-                    {requiredDocumentTags.map((tag) => (
-                      <option key={tag} value={tag}>
-                        {tag}
-                      </option>
-                    ))}
-                  </select>
+            <Card size="small" title="Uploaded Files" bordered>
+              <Table
+                size="small"
+                dataSource={docRows}
+                pagination={false}
+                columns={[
+                  { title: "File", dataIndex: "name", key: "name" },
+                  { title: "Size (KB)", dataIndex: "sizeKb", key: "size", width: 120 },
+                  {
+                    title: "Tag",
+                    key: "tag",
+                    width: 220,
+                    render: (_, row) => (
+                      <Select
+                        value={row.tag || undefined}
+                        placeholder="Select tag"
+                        style={{ width: "100%" }}
+                        options={requiredDocumentTags.map((t) => ({ label: t, value: t }))}
+                        onChange={(v) =>
+                          setDocuments((prev) =>
+                            prev.map((x) => (x.id === row.id ? { ...x, tag: v } : x)),
+                          )
+                        }
+                      />
+                    ),
+                  },
+                ]}
+              />
+              {!documents.length ? (
+                <div style={{ marginTop: 8 }}>
+                  <Text type="secondary">No documents uploaded yet.</Text>
                 </div>
-              ))}
-            </div>
-          </div>
+              ) : null}
+            </Card>
+          </Space>
         )}
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={step === 1 ? onCancel : goBack}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            {step === 1 ? "Cancel" : "← Previous"}
-          </button>
-
-          <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
-            Step {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).findIndex((t) => STEP_TITLES.indexOf(t) + 1 === step) + 1} of{" "}
-            {STEP_TITLES.filter((_, idx) => !(isNewCar && idx + 1 === 3)).length}
-          </div>
-
-          {step < 6 ? (
-            <button
-              type="button"
-              onClick={goNext}
-              className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 active:scale-95"
-            >
-              Next Step →
-            </button>
-          ) : (
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"
-            >
-              <Check size={15} strokeWidth={3} />
-              {mode === "edit" ? "Save Changes" : "Create Case"}
-            </button>
-          )}
-        </div>
+        <Divider />
+        <Row justify="space-between" align="middle" gutter={[12, 12]}>
+          <Col>
+            <Button onClick={step === 1 ? onCancel : goBack}>
+              {step === 1 ? "Cancel" : "Previous"}
+            </Button>
+          </Col>
+          <Col>
+            <Text type="secondary">
+              Step {stepIndex + 1} of {visibleSteps.length}
+            </Text>
+          </Col>
+          <Col>
+            {step < 6 ? (
+              <Button type="primary" onClick={goNext}>
+                Next
+              </Button>
+            ) : (
+              <Button type="primary" htmlType="submit">
+                {mode === "edit" ? "Save Changes" : "Create Case"}
+              </Button>
+            )}
+          </Col>
+        </Row>
       </form>
-    </section>
+      </Space>
+    </Card>
   );
 };
 
