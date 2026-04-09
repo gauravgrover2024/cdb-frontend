@@ -51,6 +51,7 @@ const RECEIPT_TYPE_OPTIONS = [
   "Exchange Vehicle",
   "Commission",
 ];
+const PAYMENTS_DASHBOARD_CACHE_VERSION = "2026-04-09-v1";
 
 const safeText = (v) => (v === undefined || v === null ? "" : String(v));
 
@@ -176,6 +177,9 @@ const fetchPaymentsByLoanIds = async (loanIds = []) => {
 
   return payloads.flatMap((payload) => listFromResponse(payload));
 };
+
+const getPaymentsDashboardCacheKey = (search = "") =>
+  `payments-dashboard:${PAYMENTS_DASHBOARD_CACHE_VERSION}:${String(search || "").trim().toLowerCase() || "all"}`;
 
 const QuickFieldLabel = ({ children }) => (
   <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400 mb-1">
@@ -747,7 +751,29 @@ const PaymentsDashboard = () => {
   }, []);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    const cacheKey = getPaymentsDashboardCacheKey(searchQuery);
+    let hydratedFromCache = false;
+
+    try {
+      const cachedRaw = sessionStorage.getItem(cacheKey);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (
+          Array.isArray(cached?.docs) &&
+          Array.isArray(cached?.loans) &&
+          Array.isArray(cached?.payments)
+        ) {
+          setSavedDOs(cached.docs);
+          setLoans(cached.loans);
+          setSavedPayments(cached.payments);
+          hydratedFromCache = true;
+        }
+      }
+    } catch (_) {
+      // Ignore cache parse issues and fetch fresh data below.
+    }
+
+    setLoading(!hydratedFromCache);
 
     try {
       const docs = dedupeDOByLoanId(
@@ -771,12 +797,27 @@ const PaymentsDashboard = () => {
       setSavedDOs(docs);
       setLoans(Array.isArray(loanRows) ? loanRows : []);
       setSavedPayments(Array.isArray(paymentRows) ? paymentRows : []);
+      try {
+        sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            savedAt: Date.now(),
+            docs,
+            loans: Array.isArray(loanRows) ? loanRows : [],
+            payments: Array.isArray(paymentRows) ? paymentRows : [],
+          }),
+        );
+      } catch (_) {
+        // Ignore cache write failures.
+      }
     } catch (err) {
       console.error("Failed to load payments dashboard data:", err);
       message.error("Failed to load payments dashboard");
-      setSavedDOs([]);
-      setLoans([]);
-      setSavedPayments([]);
+      if (!hydratedFromCache) {
+        setSavedDOs([]);
+        setLoans([]);
+        setSavedPayments([]);
+      }
     } finally {
       setLoading(false);
     }

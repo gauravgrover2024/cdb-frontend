@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Table,
   Tag,
   Select,
   Input,
@@ -15,8 +14,6 @@ import {
   Tooltip,
   Badge,
   InputNumber,
-  Dropdown,
-  Menu,
   Timeline,
   Progress,
   Popconfirm,
@@ -32,12 +29,16 @@ import {
   DownloadOutlined,
   EditOutlined,
   HistoryOutlined,
-  DownOutlined,
   DeleteOutlined,
+  ArrowUpOutlined,
+  CloseOutlined,
+  LeftOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { loansApi } from "../../../../../api/loans";
 import { paymentsApi } from "../../../../../api/payments";
+import { deliveryOrdersApi } from "../../../../../api/deliveryOrders";
+import { buildPaymentCaseSnapshot } from "../../../../payments/utils/paymentCaseSnapshot";
 
 const { Option } = Select;
 
@@ -137,6 +138,16 @@ const normalizeBankName = (v) =>
     .toLowerCase();
 
 const formatCurrency = (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
+const getInitials = (value) =>
+  String(value || "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0] || "")
+    .join("")
+    .toUpperCase() || "NA";
+const formatShortDate = (value) =>
+  dayjs(value).isValid() ? dayjs(value).format("DD MMM YYYY") : "—";
 const AUTO_COMMISSION_META_SOURCE = "payments_negative_balance_commission_auto";
 const COLLECTIONS_AUTO_PAYMENT_KEY_PREFIX =
   "collections_commission_receivable:";
@@ -362,6 +373,429 @@ const getPaymentStatus = (record) => {
   };
 };
 
+const BILL_STATUS = {
+  OUTSTANDING: "Outstanding",
+  COLLECTED: "Collected",
+};
+
+const getBillNumber = (record = {}) =>
+  String(record?.bill_number || record?.billNumber || "").trim();
+
+const getBillDate = (record = {}) =>
+  firstValidDate(
+    record?.bill_date,
+    record?.billDate,
+    record?.bill_generated_at,
+    record?.billGeneratedAt,
+  );
+
+const getBillStatus = (record = {}) =>
+  String(record?.bill_status || record?.billStatus || "").trim();
+
+const isBillCollected = (record = {}) => {
+  const billNumber = getBillNumber(record);
+  if (!billNumber) return false;
+  const status = getBillStatus(record).toLowerCase();
+  if (status === "collected") return true;
+  return getPaymentStatus(record).pendingAmount <= 0;
+};
+
+const isBillOutstanding = (record = {}) =>
+  Boolean(getBillNumber(record)) && !isBillCollected(record);
+
+const isUnbilledOutstandingReceivable = (record = {}) => {
+  const paymentStatus = getPaymentStatus(record);
+  return !getBillNumber(record) && paymentStatus.pendingAmount > 0;
+};
+
+const generateBillNumber = () => {
+  const stamp = dayjs().format("YYYYMMDD-HHmm");
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `RCB-${stamp}-${random}`;
+};
+
+const openBillPrintWindow = ({
+  billNumber,
+  billDate,
+  partyName,
+  rows = [],
+  totalAmount = 0,
+  notes = "",
+}) => {
+  const lineItems = rows
+    .map((row, index) => {
+      const paymentStatus = getPaymentStatus(row);
+      const lineAmount = paymentStatus.pendingAmount || paymentStatus.expectedAmount;
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${String(row.customerName || "-")}</td>
+          <td>${String(row.loanId || "-")}</td>
+          <td>${String(row.payoutId || "-")}</td>
+          <td>${String(row.payout_type || "-")}</td>
+          <td style="text-align:right;">${formatCurrency(lineAmount)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  const printWindow = window.open("", "_blank", "width=1080,height=820");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>${billNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; color:#0f172a; margin:32px; }
+          .top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+          .brand { font-size:28px; font-weight:800; letter-spacing:-0.03em; }
+          .muted { color:#64748b; font-size:12px; }
+          .title { font-size:18px; font-weight:700; margin-bottom:8px; }
+          .box { border:1px solid #dbe3ef; border-radius:14px; padding:16px; background:#f8fbff; }
+          table { width:100%; border-collapse:collapse; margin-top:18px; }
+          th, td { border-bottom:1px solid #e2e8f0; padding:10px 8px; font-size:12px; text-align:left; }
+          th { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#475569; }
+          .total { margin-top:18px; display:flex; justify-content:flex-end; }
+          .total-card { min-width:260px; border:1px solid #cbd5e1; border-radius:14px; padding:14px 16px; background:#ffffff; }
+          .total-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; }
+          .total-value { margin-top:6px; font-size:24px; font-weight:800; }
+          .notes { margin-top:18px; font-size:12px; color:#475569; white-space:pre-wrap; }
+          @media print { body { margin:18px; } }
+        </style>
+      </head>
+      <body>
+        <div class="top">
+          <div>
+            <div class="brand">Auto Credits India LLP</div>
+            <div class="muted">Collections bill summary</div>
+          </div>
+          <div class="box">
+            <div class="title">Bill</div>
+            <div class="muted">Bill No</div>
+            <div>${billNumber}</div>
+            <div class="muted" style="margin-top:10px;">Bill Date</div>
+            <div>${dayjs(billDate).isValid() ? dayjs(billDate).format("DD MMM YYYY") : "—"}</div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="muted">Party</div>
+          <div style="font-size:16px; font-weight:700; margin-top:4px;">${String(partyName || "-")}</div>
+          <div class="muted" style="margin-top:10px;">Cases</div>
+          <div>${rows.length}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Customer</th>
+              <th>Loan ID</th>
+              <th>Receivable ID</th>
+              <th>Type</th>
+              <th style="text-align:right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${lineItems}</tbody>
+        </table>
+        <div class="total">
+          <div class="total-card">
+            <div class="total-label">Total bill amount</div>
+            <div class="total-value">${formatCurrency(totalAmount)}</div>
+          </div>
+        </div>
+        ${notes ? `<div class="notes"><strong>Notes:</strong><br/>${String(notes)}</div>` : ""}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+};
+
+const interactiveArrow = (
+  <ArrowUpOutlined style={{ transform: "rotate(15deg)", fontSize: 10 }} />
+);
+
+const isBankReceivableRecord = (record = {}) =>
+  normalizeType(record?.payout_type) === "bank";
+
+const isShowroomCommissionRecord = (record = {}) =>
+  String(record?.meta_source || "").trim() === AUTO_COMMISSION_META_SOURCE ||
+  normalizeType(record?.payout_type) === "commission";
+
+const buildOnRoadBreakup = (doRec = {}) => {
+  const additions = [
+    { label: "Ex-showroom", value: Number(doRec?.do_exShowroomPrice || 0) },
+    { label: "TCS", value: Number(doRec?.do_tcs || 0) },
+    { label: "Road Tax", value: Number(doRec?.do_roadTax || 0) },
+    { label: "Insurance", value: Number(doRec?.do_insuranceCost || 0) },
+    { label: "Accessories", value: Number(doRec?.do_accessoriesAmount || 0) },
+    { label: "EPC", value: Number(doRec?.do_epc || 0) },
+    { label: "Fastag", value: Number(doRec?.do_fastag || 0) },
+    { label: "Extended Warranty", value: Number(doRec?.do_extendedWarranty || 0) },
+  ].filter((row) => row.value > 0);
+
+  const discounts = [
+    { label: "Dealer Discount", value: Number(doRec?.do_dealerDiscount || 0) },
+    { label: "Scheme Discount", value: Number(doRec?.do_schemeDiscount || 0) },
+    {
+      label: "Insurance Cashback",
+      value: Number(doRec?.do_insuranceCashback || 0),
+    },
+    { label: "Exchange Bonus", value: Number(doRec?.do_exchange || 0) },
+    {
+      label: "Exchange Vehicle Price",
+      value: Number(doRec?.do_exchangeVehiclePrice || 0),
+    },
+    { label: "Loyalty", value: Number(doRec?.do_loyalty || 0) },
+    { label: "Corporate", value: Number(doRec?.do_corporate || 0) },
+    {
+      label: "Other Discounts",
+      value: Number(doRec?.do_discounts_othersTotal || 0),
+    },
+  ].filter((row) => row.value > 0);
+
+  const additionsTotal = additions.reduce(
+    (sum, row) => sum + Number(row.value || 0),
+    0,
+  );
+  const discountTotal = discounts.reduce(
+    (sum, row) => sum + Number(row.value || 0),
+    0,
+  );
+  const net = Number(
+    doRec?.do_netOnRoadVehicleCost ||
+      doRec?.do_customer_netOnRoadVehicleCost ||
+      Math.max(0, additionsTotal - discountTotal),
+  );
+
+  return { additions, discounts, additionsTotal, discountTotal, net };
+};
+
+const PopupFrame = ({
+  title,
+  subtitle = "",
+  width = 360,
+  onClose = null,
+  onBack = null,
+  children,
+}) => (
+  <div
+    className="overflow-hidden rounded-2xl border border-slate-200 bg-[#f8fbff] shadow-[0_18px_44px_rgba(15,23,42,0.18)] dark:border-[#2a3340] dark:bg-[#111923]"
+    style={{ width, maxWidth: `min(84vw, ${width}px)` }}
+    onMouseDown={(event) => event.stopPropagation()}
+    onClick={(event) => event.stopPropagation()}
+  >
+    <div className="flex items-start gap-3 border-b border-slate-200 bg-[#f4f8fd] px-3 py-2.5 dark:border-[#293140] dark:bg-[#16202d]">
+      {onBack ? (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mt-0.5 border-0 bg-transparent p-0 text-slate-500 dark:text-[#b5c2d6]"
+          aria-label="Back"
+        >
+          <LeftOutlined style={{ fontSize: 10 }} />
+        </button>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-500 dark:text-[#c8d5e8]">
+          {title}
+        </div>
+        {subtitle ? (
+          <div className="mt-1 text-[10.5px] text-slate-500 dark:text-[#96a4b9]">
+            {subtitle}
+          </div>
+        ) : null}
+      </div>
+      {onClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-0.5 border-0 bg-transparent p-0 text-slate-500 dark:text-[#b5c2d6]"
+          aria-label="Close"
+        >
+          <CloseOutlined style={{ fontSize: 10 }} />
+        </button>
+      ) : null}
+    </div>
+    <div className="grid gap-1 bg-[#f8fbff] px-3 py-2.5 dark:bg-[#111923]">
+      {children}
+    </div>
+  </div>
+);
+
+const PopupSection = ({ title, children, tone = "slate" }) => {
+  const toneMap = {
+    slate: "text-slate-500 dark:text-[#9fb0c8]",
+    blue: "text-sky-700 dark:text-sky-300",
+    green: "text-emerald-700 dark:text-emerald-300",
+    amber: "text-amber-700 dark:text-amber-300",
+    rose: "text-rose-700 dark:text-rose-300",
+  };
+
+  return (
+    <div className="grid gap-1 py-1">
+      <div
+        className={`pt-1 text-[9px] font-extrabold uppercase tracking-[0.16em] ${
+          toneMap[tone] || toneMap.slate
+        }`}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+};
+
+const PopupRow = ({ label, value, tone = "default", valueAction = null }) => {
+  const toneMap = {
+    default: "text-slate-700 dark:text-slate-200",
+    accent: "text-sky-700 dark:text-sky-300",
+    positive: "text-emerald-700 dark:text-emerald-300",
+    danger: "text-rose-700 dark:text-rose-300",
+  };
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 py-2 text-[11px] last:border-b-0 dark:border-[#253041]">
+      <span className="truncate text-slate-600 dark:text-[#c0cbdd]">{label}</span>
+      <span
+        onClick={
+          valueAction
+            ? (event) => {
+                event.stopPropagation();
+                valueAction();
+              }
+            : undefined
+        }
+        onKeyDown={
+          valueAction
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  valueAction();
+                }
+              }
+            : undefined
+        }
+        role={valueAction ? "button" : undefined}
+        tabIndex={valueAction ? 0 : undefined}
+        className={`inline-flex items-center gap-1 whitespace-nowrap text-right font-bold ${toneMap[tone] || toneMap.default}`}
+        style={{ cursor: valueAction ? "pointer" : "default" }}
+      >
+        {value}
+        {valueAction ? interactiveArrow : null}
+      </span>
+    </div>
+  );
+};
+
+const PopupLedgerEntry = ({ index, label, date, amount }) => (
+  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 py-2 text-[11px] last:border-b-0 dark:border-[#253041]">
+    <span className="truncate text-slate-700 dark:text-[#becbde]">
+      {`${index + 1}. ${label} · ${date}`}
+    </span>
+    <span className="whitespace-nowrap font-extrabold text-emerald-700 dark:text-emerald-300">
+      {formatCurrency(amount)}
+    </span>
+  </div>
+);
+
+const PopupEmptyState = ({ label }) => (
+  <div className="py-3 text-[10.5px] text-slate-500 dark:text-slate-400">
+    {label}
+  </div>
+);
+
+const MiniMetric = ({
+  label,
+  value,
+  helpText = "",
+  tone = "slate",
+  popupContent = null,
+  popupTitle = "",
+  popupSubtitle = "",
+  popupOpen = false,
+  onPopupOpenChange = null,
+  onPopupClose = null,
+  popupBackAction = null,
+  popupWidth = 360,
+}) => {
+  const wrapperRef = useRef(null);
+  const toneMap = {
+    slate: "text-slate-900 dark:text-slate-100",
+    blue: "text-blue-700 dark:text-blue-300",
+    green: "text-emerald-700 dark:text-emerald-300",
+    red: "text-rose-700 dark:text-rose-300",
+  };
+
+  useEffect(() => {
+    if (!popupOpen || !onPopupOpenChange) return undefined;
+    const handleOutside = (event) => {
+      if (!wrapperRef.current) return;
+      if (wrapperRef.current.contains(event.target)) return;
+      onPopupOpenChange(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [onPopupOpenChange, popupOpen]);
+
+  const togglePopup = (event) => {
+    event.stopPropagation();
+    if (!popupContent || !onPopupOpenChange) return;
+    onPopupOpenChange(!popupOpen);
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        className="w-full border-0 bg-transparent p-0 text-left"
+        style={{ cursor: popupContent ? "pointer" : "default" }}
+        onClick={togglePopup}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              {label}
+            </div>
+            {helpText ? (
+              <div className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                {helpText}
+              </div>
+            ) : null}
+          </div>
+          <div
+            className={`inline-flex items-center gap-1 whitespace-nowrap text-[14px] font-black ${toneMap[tone] || toneMap.slate}`}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {value}
+            {popupContent ? interactiveArrow : null}
+          </div>
+        </div>
+      </button>
+
+      {popupContent && popupOpen ? (
+        <div
+          className="absolute right-0 top-full z-[1200] mt-2"
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <PopupFrame
+            title={popupTitle || label}
+            subtitle={popupSubtitle}
+            width={popupWidth}
+            onClose={onPopupClose}
+            onBack={popupBackAction}
+          >
+            {popupContent}
+          </PopupFrame>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 /* ==============================
    Component
 ============================== */
@@ -373,24 +807,148 @@ const PayoutReceivablesDashboard = () => {
   const [searchText, setSearchText] = useState("");
   const [ageFilter, setAgeFilter] = useState("All");
   const [amountRangeFilter, setAmountRangeFilter] = useState("All");
+
+  const handleStatusFilterChange = useCallback(
+    (value) => setStatusFilter(value || "All"),
+    [],
+  );
+  const handleAgeFilterChange = useCallback(
+    (value) => setAgeFilter(value || "All"),
+    [],
+  );
+  const handleBankFilterChange = useCallback(
+    (value) => setBankFilter(value || "All"),
+    [],
+  );
+  const handleAmountRangeFilterChange = useCallback(
+    (value) => setAmountRangeFilter(value || "All"),
+    [],
+  );
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
 
   const [bulkCollectionModalVisible, setBulkCollectionModalVisible] =
     useState(false);
+  const [generateBillModalVisible, setGenerateBillModalVisible] =
+    useState(false);
+  const [billManagerVisible, setBillManagerVisible] = useState(false);
   const [timelineModalVisible, setTimelineModalVisible] = useState(false);
   const [partialPaymentModalVisible, setPartialPaymentModalVisible] =
     useState(false);
   const [editPaymentModalVisible, setEditPaymentModalVisible] = useState(false);
   const [paymentHistoryModalVisible, setPaymentHistoryModalVisible] =
     useState(false);
+  const [desktopPage, setDesktopPage] = useState(1);
+  const [desktopPageSize, setDesktopPageSize] = useState(15);
+  const [billFilter, setBillFilter] = useState("All");
+  const [billPartyFilter, setBillPartyFilter] = useState("");
+  const [selectedBillRowKeys, setSelectedBillRowKeys] = useState([]);
+  const [billManagerStatusFilter, setBillManagerStatusFilter] =
+    useState(BILL_STATUS.OUTSTANDING);
+  const [activeBillCollection, setActiveBillCollection] = useState(null);
 
   const [currentRecord, setCurrentRecord] = useState(null);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState(null);
 
   const [bulkForm] = Form.useForm();
+  const [billForm] = Form.useForm();
   const [partialPaymentForm] = Form.useForm();
   const [editPaymentForm] = Form.useForm();
+  const [openInsightPopupKey, setOpenInsightPopupKey] = useState(null);
+  const [showroomPopupViewByRow, setShowroomPopupViewByRow] = useState({});
+  const [ledgerDetailsByRow, setLedgerDetailsByRow] = useState({});
+  const [ledgerLoadingByRow, setLedgerLoadingByRow] = useState({});
+  const [ledgerErrorByRow, setLedgerErrorByRow] = useState({});
+
+  const closeInsightPopups = useCallback(() => {
+    setOpenInsightPopupKey(null);
+  }, []);
+
+  const loadLedgerDetailsForRow = useCallback(
+    async (record) => {
+      const rowKey = normalizePayoutId(record);
+      if (!rowKey) return null;
+      if (ledgerDetailsByRow[rowKey]) return ledgerDetailsByRow[rowKey];
+      if (ledgerLoadingByRow[rowKey]) return null;
+
+      setLedgerLoadingByRow((prev) => ({ ...prev, [rowKey]: true }));
+      setLedgerErrorByRow((prev) => ({ ...prev, [rowKey]: null }));
+
+      try {
+        const loanRef = record?.loanMongoId || record?.loanId;
+        const [loanResult, paymentResult, doResult] = await Promise.allSettled([
+          loanRef ? loansApi.getById(loanRef) : Promise.resolve(null),
+          record?.loanId ? paymentsApi.getByLoanId(record.loanId) : Promise.resolve(null),
+          record?.loanId ? deliveryOrdersApi.getByLoanId(record.loanId) : Promise.resolve(null),
+        ]);
+
+        const loanData =
+          loanResult.status === "fulfilled"
+            ? loanResult.value?.data || loanResult.value || {}
+            : {};
+        const paymentDocRaw =
+          paymentResult.status === "fulfilled"
+            ? resolvePaymentDocFromResponse(paymentResult.value) || {}
+            : {};
+        const doRecRaw =
+          doResult.status === "fulfilled"
+            ? doResult.value?.data || doResult.value || {}
+            : {};
+        const savedPayments = (() => {
+          try {
+            return JSON.parse(sessionStorage.getItem("savedPayments") || "[]");
+          } catch {
+            return [];
+          }
+        })();
+        const savedDOs = (() => {
+          try {
+            return JSON.parse(sessionStorage.getItem("savedDOs") || "[]");
+          } catch {
+            return [];
+          }
+        })();
+        const paymentDoc =
+          paymentDocRaw && Object.keys(paymentDocRaw).length
+            ? paymentDocRaw
+            : savedPayments.find((entry) => entry?.loanId === record?.loanId) ||
+              {};
+        const doRec =
+          doRecRaw && Object.keys(doRecRaw).length
+            ? doRecRaw
+            : savedDOs.find((entry) => entry?.loanId === record?.loanId) ||
+              savedDOs.find((entry) => entry?.do_loanId === record?.loanId) ||
+              loanData?.doRec ||
+              {};
+
+        const snapshot = buildPaymentCaseSnapshot(
+          doRec,
+          loanData,
+          paymentDoc,
+        );
+
+        const nextDetails = {
+          loan: loanData,
+          doRec,
+          payment: paymentDoc,
+          snapshot,
+        };
+
+        setLedgerDetailsByRow((prev) => ({ ...prev, [rowKey]: nextDetails }));
+        return nextDetails;
+      } catch (error) {
+        console.error("Failed to load ledger details for collections row:", error);
+        setLedgerErrorByRow((prev) => ({
+          ...prev,
+          [rowKey]: "Unable to load showroom ledger.",
+        }));
+        return null;
+      } finally {
+        setLedgerLoadingByRow((prev) => ({ ...prev, [rowKey]: false }));
+      }
+    },
+    [ledgerDetailsByRow, ledgerLoadingByRow],
+  );
 
   const syncAutoCommissionReceivableIntoPayments = async ({
     loanId,
@@ -482,6 +1040,20 @@ const PayoutReceivablesDashboard = () => {
           id: p?.id || p?.payoutId,
           loanId: loan.loanId || loan.id || "-",
           loanMongoId: loan._id || loan.id,
+          disbursementDate: firstValidDate(
+            loan?.disbursement_date,
+            loan?.approval_disbursedDate,
+            loan?.disbursedDate,
+            loan?.disbursementDate,
+            loan?.approval_banksData?.[0]?.disbursedDate,
+          ),
+          deliveryDate: firstValidDate(
+            loan?.delivery_date,
+            loan?.deliveryDate,
+            loan?.vehicleDeliveryDate,
+            loan?.postfile_delivery_date,
+            loan?.postfile_deliveryDate,
+          ),
           customerName: getCustomerNameFromLoan(loan),
           payment_history: safeArray(p.payment_history),
           activity_log: safeArray(p.activity_log),
@@ -629,6 +1201,93 @@ const PayoutReceivablesDashboard = () => {
       .sort((a, b) => b.pending - a.pending);
   }, [rows]);
 
+  const billPartyOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        rows
+          .filter(isUnbilledOutstandingReceivable)
+          .map((row) => String(row?.payout_party_name || "").trim())
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  const availableBillRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (!isUnbilledOutstandingReceivable(row)) return false;
+      if (!billPartyFilter) return true;
+      return (
+        normalizeBankName(row?.payout_party_name) ===
+        normalizeBankName(billPartyFilter)
+      );
+    });
+  }, [billPartyFilter, rows]);
+
+  const selectedBillRows = useMemo(() => {
+    const keySet = new Set(
+      selectedBillRowKeys.map((key) => String(key).trim()).filter(Boolean),
+    );
+    return availableBillRows.filter((row) =>
+      keySet.has(normalizePayoutId(row)),
+    );
+  }, [availableBillRows, selectedBillRowKeys]);
+
+  const selectedBillTotal = useMemo(() => {
+    return selectedBillRows.reduce((sum, row) => {
+      const paymentStatus = getPaymentStatus(row);
+      return sum + (paymentStatus.pendingAmount || paymentStatus.expectedAmount);
+    }, 0);
+  }, [selectedBillRows]);
+
+  const groupedBills = useMemo(() => {
+    const grouped = new Map();
+    rows.forEach((row) => {
+      const billNumber = getBillNumber(row);
+      if (!billNumber) return;
+      if (!grouped.has(billNumber)) {
+        grouped.set(billNumber, {
+          billNumber,
+          partyName: row?.bill_party_name || row?.payout_party_name || "Unknown",
+          billDate: getBillDate(row),
+          billReceivedDate: firstValidDate(
+            row?.bill_received_date,
+            row?.billReceivedDate,
+          ),
+          notes: String(row?.bill_notes || row?.billNotes || "").trim(),
+          rows: [],
+        });
+      }
+      grouped.get(billNumber).rows.push(row);
+    });
+
+    return Array.from(grouped.values())
+      .map((bill) => {
+        const summary = bill.rows.reduce(
+          (acc, row) => {
+            const paymentStatus = getPaymentStatus(row);
+            acc.expected += paymentStatus.expectedAmount;
+            acc.received += paymentStatus.totalReceived;
+            acc.pending += paymentStatus.pendingAmount;
+            return acc;
+          },
+          { expected: 0, received: 0, pending: 0 },
+        );
+        const status =
+          summary.pending <= 0 ? BILL_STATUS.COLLECTED : BILL_STATUS.OUTSTANDING;
+        return {
+          ...bill,
+          ...summary,
+          caseCount: bill.rows.length,
+          status,
+        };
+      })
+      .sort((a, b) => {
+        const aTs = new Date(a.billDate || 0).getTime() || 0;
+        const bTs = new Date(b.billDate || 0).getTime() || 0;
+        return bTs - aTs;
+      });
+  }, [rows]);
+
   const stats = useMemo(() => {
     let totalAmount = 0;
     let collectedAmount = 0;
@@ -734,7 +1393,12 @@ const PayoutReceivablesDashboard = () => {
         else if (amountRangeFilter === "5L+") amountOk = amount > 500000;
       }
 
-      return statusOk && bankOk && searchOk && ageOk && amountOk;
+      let billOk = true;
+      if (billFilter === "Outstanding Bills") billOk = isBillOutstanding(r);
+      else if (billFilter === "Collected Bills") billOk = isBillCollected(r);
+      else if (billFilter === "Unbilled") billOk = !getBillNumber(r);
+
+      return statusOk && bankOk && searchOk && ageOk && amountOk && billOk;
     });
   }, [
     rows,
@@ -743,6 +1407,7 @@ const PayoutReceivablesDashboard = () => {
     searchText,
     ageFilter,
     amountRangeFilter,
+    billFilter,
   ]);
 
   const filteredSubtotals = useMemo(() => {
@@ -770,6 +1435,52 @@ const PayoutReceivablesDashboard = () => {
       rowCount: filteredRows.length,
     };
   }, [filteredRows]);
+
+  const filteredBills = useMemo(() => {
+    return groupedBills.filter((bill) => {
+      if (
+        billManagerStatusFilter === BILL_STATUS.OUTSTANDING &&
+        bill.status !== BILL_STATUS.OUTSTANDING
+      ) {
+        return false;
+      }
+      if (
+        billManagerStatusFilter === BILL_STATUS.COLLECTED &&
+        bill.status !== BILL_STATUS.COLLECTED
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [billManagerStatusFilter, groupedBills]);
+
+  useEffect(() => {
+    setDesktopPage(1);
+  }, [
+    statusFilter,
+    bankFilter,
+    searchText,
+    ageFilter,
+    amountRangeFilter,
+    billFilter,
+    desktopPageSize,
+  ]);
+
+  const desktopTotalPages = Math.max(
+    1,
+    Math.ceil(filteredRows.length / desktopPageSize),
+  );
+
+  useEffect(() => {
+    if (desktopPage > desktopTotalPages) {
+      setDesktopPage(desktopTotalPages);
+    }
+  }, [desktopPage, desktopTotalPages]);
+
+  const pagedDesktopRows = useMemo(() => {
+    const start = (desktopPage - 1) * desktopPageSize;
+    return filteredRows.slice(start, start + desktopPageSize);
+  }, [desktopPage, desktopPageSize, filteredRows]);
 
   /* ==============================
      Payment History Management
@@ -885,6 +1596,112 @@ const PayoutReceivablesDashboard = () => {
     setBulkCollectionModalVisible(true);
   };
 
+  const openGenerateBillModal = () => {
+    const selectedOutstanding = selectedRows.filter(isUnbilledOutstandingReceivable);
+    const sameParty =
+      selectedOutstanding.length > 0
+        ? Array.from(
+            new Set(
+              selectedOutstanding
+                .map((row) => String(row?.payout_party_name || "").trim())
+                .filter(Boolean),
+            ),
+          )
+        : [];
+    const initialParty = sameParty.length === 1 ? sameParty[0] : "";
+    const initialRows =
+      initialParty && selectedOutstanding.length
+        ? selectedOutstanding
+            .filter(
+              (row) =>
+                normalizeBankName(row?.payout_party_name) ===
+                normalizeBankName(initialParty),
+            )
+            .map((row) => normalizePayoutId(row))
+        : [];
+
+    setBillPartyFilter(initialParty);
+    setSelectedBillRowKeys(initialRows);
+    billForm.setFieldsValue({
+      billNumber: generateBillNumber(),
+      billDate: dayjs(),
+      billNotes: "",
+    });
+    setGenerateBillModalVisible(true);
+  };
+
+  const handleGenerateBill = async () => {
+    const values = await billForm.validateFields();
+    const partyName = String(billPartyFilter || "").trim();
+    if (!partyName) {
+      messageApi.warning("Please select a party first");
+      return;
+    }
+    if (!selectedBillRows.length) {
+      messageApi.warning("Please select at least one receivable for the bill");
+      return;
+    }
+
+    const billNumber = String(values.billNumber || "").trim();
+    const billDate = values.billDate?.toISOString?.() || values.billDate;
+    const billNotes = String(values.billNotes || "").trim();
+
+    let updatedCount = 0;
+    for (const row of selectedBillRows) {
+      const updated = await updateReceivableInBackend(
+        normalizePayoutId(row),
+        {
+          bill_number: billNumber,
+          bill_date: billDate,
+          bill_status: BILL_STATUS.OUTSTANDING,
+          bill_party_name: partyName,
+          bill_notes: billNotes,
+          bill_generated_at: new Date().toISOString(),
+        },
+        {
+          action: "Bill Generated",
+          details: `Bill ${billNumber} generated for ${partyName} on ${dayjs(billDate).format("DD MMM YYYY")}`,
+        },
+        { reload: false },
+      );
+      if (updated) updatedCount += 1;
+    }
+
+    await loadReceivables();
+    setGenerateBillModalVisible(false);
+    setSelectedBillRowKeys([]);
+    openBillPrintWindow({
+      billNumber,
+      billDate,
+      partyName,
+      rows: selectedBillRows,
+      totalAmount: selectedBillTotal,
+      notes: billNotes,
+    });
+    messageApi.success(`Bill generated for ${updatedCount} receivable(s)`);
+  };
+
+  const openBillReceiptFlow = (bill) => {
+    const openRows = bill.rows.filter(
+      (row) => getPaymentStatus(row).pendingAmount > 0,
+    );
+    if (!openRows.length) {
+      messageApi.warning("This bill is already fully collected");
+      return;
+    }
+    setActiveBillCollection(bill);
+    setSelectedRowKeys(openRows.map((row) => normalizePayoutId(row)));
+    setSelectedRows(openRows);
+    const initialValues = { received_date: dayjs() };
+    openRows.forEach((row) => {
+      const paymentStatus = getPaymentStatus(row);
+      initialValues[`amount_${normalizePayoutId(row)}`] = paymentStatus.pendingAmount;
+    });
+    bulkForm.setFieldsValue(initialValues);
+    setBulkCollectionModalVisible(true);
+    setBillManagerVisible(false);
+  };
+
   const handleBulkCollectionSave = async () => {
     const values = await bulkForm.validateFields();
     const receivedDate = values.received_date.format("YYYY-MM-DD");
@@ -919,6 +1736,16 @@ const PayoutReceivablesDashboard = () => {
           payout_received_date: isFullyPaid
             ? receivedDate
             : row.payout_received_date,
+          ...(activeBillCollection
+            ? {
+                bill_status: isFullyPaid
+                  ? BILL_STATUS.COLLECTED
+                  : BILL_STATUS.OUTSTANDING,
+                bill_received_date: isFullyPaid
+                  ? receivedDate
+                  : row?.bill_received_date || "",
+              }
+            : {}),
         },
         {
           action: isFullyPaid
@@ -935,6 +1762,7 @@ const PayoutReceivablesDashboard = () => {
     setSelectedRowKeys([]);
     setSelectedRows([]);
     setBulkCollectionModalVisible(false);
+    setActiveBillCollection(null);
     if (updatedCount > 0) {
       messageApi.success(`${updatedCount} receivables updated`);
     } else {
@@ -1025,6 +1853,12 @@ const PayoutReceivablesDashboard = () => {
         "Amount Received": paymentStatus.totalReceived,
         "Pending Amount": paymentStatus.pendingAmount,
         Status: toUiStatus(r.payout_status, paymentStatus),
+        "Bill Number": getBillNumber(r) || "-",
+        "Bill Status": getBillNumber(r)
+          ? isBillCollected(r)
+            ? BILL_STATUS.COLLECTED
+            : BILL_STATUS.OUTSTANDING
+          : "-",
         "Days Pending":
           calculateDaysPending(r.payout_received_date, r.created_date) || "-",
         "Received Date": r.payout_received_date || "-",
@@ -1123,252 +1957,431 @@ const PayoutReceivablesDashboard = () => {
     [selectedRowKeys],
   );
 
-  /* ==============================
-     Columns
-  ============================== */
-  const columns = [
-    {
-      title: "Loan Details",
-      width: 240,
-      fixed: "left",
-      render: (_, r) => {
-        const paymentStatus = getPaymentStatus(r);
-
-        return (
-          <div>
-            <div className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-              {r.customerName}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Loan: {r.loanId}
-            </div>
-            <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-              ID: {r.payoutId}
-            </div>
-            {paymentStatus.isPartial && (
-              <div className="mt-2">
-                <Progress
-                  percent={Math.round(paymentStatus.percentageReceived)}
-                  size="small"
-                  strokeColor="#faad14"
-                  format={() =>
-                    `${Math.round(paymentStatus.percentageReceived)}%`
-                  }
-                />
-              </div>
-            )}
-          </div>
-        );
-      },
+  // icon theme map for stat cards
+  const STAT_ICON_THEMES = {
+    total: {
+      bg: "bg-sky-50 dark:bg-sky-950/40",
+      text: "text-sky-600 dark:text-sky-400",
+      value: "text-sky-700 dark:text-sky-300",
     },
-    {
-      title: "Bank / Party",
-      dataIndex: "payout_party_name",
-      width: 180,
-      render: (v, r) => (
-        <div>
-          <div className="font-medium text-sm">{v}</div>
-          <Tag style={{ marginTop: 4, fontSize: 11 }}>{r.payout_type}</Tag>
-        </div>
-      ),
+    collected: {
+      bg: "bg-emerald-50 dark:bg-emerald-950/40",
+      text: "text-emerald-600 dark:text-emerald-400",
+      value: "text-emerald-700 dark:text-emerald-300",
     },
-    {
-      title: "Amount",
-      width: 200,
-      align: "right",
-      render: (_, r) => {
-        const paymentStatus = getPaymentStatus(r);
-
-        return (
-          <div>
-            <div className="text-base font-semibold">
-              {formatCurrency(paymentStatus.expectedAmount)}
-            </div>
-            {Number(r.tds_amount || 0) > 0 && (
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                TDS: {formatCurrency(r.tds_amount)}
-              </div>
-            )}
-            {paymentStatus.isPartial && (
-              <div className="mt-2 space-y-1">
-                <div className="text-xs text-green-600">
-                  ✓ Received: {formatCurrency(paymentStatus.totalReceived)}
-                </div>
-                <div className="text-xs text-orange-600 font-medium">
-                  ⏳ Pending: {formatCurrency(paymentStatus.pendingAmount)}
-                </div>
-              </div>
-            )}
-            {paymentStatus.isFullyPaid && (
-              <div className="text-xs text-green-600 mt-1">
-                ✓ Fully Collected
-              </div>
-            )}
-          </div>
-        );
-      },
+    pending: {
+      bg: "bg-amber-50 dark:bg-amber-950/40",
+      text: "text-amber-600 dark:text-amber-400",
+      value: "text-amber-700 dark:text-amber-300",
     },
-    {
-      title: "Aging",
-      width: 100,
-      align: "center",
-      render: (_, r) => {
-        const paymentStatus = getPaymentStatus(r);
-
-        if (paymentStatus.isFullyPaid) {
-          return <Tag color="success">Collected</Tag>;
-        }
-
-        const days = calculateDaysPending(
-          r.payout_received_date,
-          r.created_date,
-        );
-        if (days === null) return "-";
-
-        let color = "default";
-        let icon = null;
-        if (days <= 7) color = "blue";
-        else if (days <= 15) color = "orange";
-        else {
-          color = "red";
-          icon = <WarningOutlined />;
-        }
-
-        return (
-          <Tag color={color} icon={icon}>
-            {days} days
-          </Tag>
-        );
-      },
+    overdue: {
+      bg: "bg-rose-50 dark:bg-rose-950/40",
+      text: "text-rose-600 dark:text-rose-400",
+      value: "text-rose-700 dark:text-rose-300",
     },
-    {
-      title: "Status",
-      width: 120,
-      align: "center",
-      render: (_, r) => {
-        const paymentStatus = getPaymentStatus(r);
+  };
 
-        let status = "Pending";
-        let color = "default";
-        let icon = <ClockCircleOutlined />;
+  const renderBankBreakupContent = useCallback((record) => {
+    const payoutPercent = parsePercent(record?.payout_percentage);
+    const grossPayout = Number(record?.payout_amount || 0);
+    const tdsAmount = Number(record?.tds_amount || 0);
+    const netReceivable = getExpectedAmount(record);
+    const inferredLoanAmount =
+      payoutPercent > 0
+        ? Number(((grossPayout * 100) / payoutPercent).toFixed(2))
+        : 0;
 
-        if (paymentStatus.isFullyPaid) {
-          status = "Received";
-          color = "success";
-          icon = <CheckCircleOutlined />;
-        } else if (paymentStatus.isPartial) {
-          status = "Partial";
-          color = "warning";
-          icon = <ClockCircleOutlined />;
-        }
-
-        return (
-          <Tag icon={icon} color={color}>
-            {status}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: "Received Date",
-      dataIndex: "payout_received_date",
-      width: 140,
-      render: (v, r) => {
-        const paymentStatus = getPaymentStatus(r);
-
-        return (
-          <DatePicker
-            size="small"
-            value={v ? dayjs(v) : null}
-            onChange={(date, dateString) =>
-              updateReceivableInBackend(
-                normalizePayoutId(r),
-                {
-                  payout_received_date: dateString,
-                  payout_status: dateString ? "Received" : "Expected",
-                },
-                dateString
-                  ? {
-                      action: "Received Date Set",
-                      details: `Date: ${dateString}`,
-                    }
-                  : null,
-              )
-            }
-            style={{ width: "100%" }}
-            format="DD-MM-YYYY"
-            placeholder="Not received"
-            disabled={paymentStatus.isFullyPaid}
+    return (
+      <>
+        <PopupSection title="Bank Payout Formula" tone="blue">
+          <PopupRow
+            label="Loan Amount"
+            value={formatCurrency(inferredLoanAmount)}
+            tone="accent"
           />
-        );
-      },
-    },
-    {
-      title: "Actions",
-      width: 140,
-      align: "center",
-      render: (_, r) => {
-        const paymentStatus = getPaymentStatus(r);
-        const hasPayments = safeArray(r.payment_history).length > 0;
+          <PopupRow
+            label="Payout %"
+            value={`${payoutPercent.toFixed(payoutPercent % 1 ? 2 : 0)}%`}
+          />
+          <PopupRow
+            label="Total Payout"
+            value={formatCurrency(grossPayout)}
+          />
+          <PopupRow label="TDS Amount" value={formatCurrency(tdsAmount)} />
+          <PopupRow
+            label="Net Receivable"
+            value={formatCurrency(netReceivable)}
+            tone="positive"
+          />
+        </PopupSection>
+      </>
+    );
+  }, []);
 
+  const renderShowroomLedgerPopupContent = useCallback(
+    (record) => {
+      const rowKey = normalizePayoutId(record);
+      const loading = Boolean(ledgerLoadingByRow[rowKey]);
+      const error = ledgerErrorByRow[rowKey];
+      const detail = ledgerDetailsByRow[rowKey];
+      const activeView = showroomPopupViewByRow[rowKey] || "summary";
+
+      if (loading) {
+        return <PopupEmptyState label="Loading showroom ledger..." />;
+      }
+
+      if (error) {
+        return <PopupEmptyState label={error} />;
+      }
+
+      const snapshot = detail?.snapshot;
+      const ss = snapshot?.showroomSummary || {};
+      const payment = snapshot?.normalizedPayment || detail?.payment || {};
+      const showroomRows = safeArray(payment?.showroomRows);
+      const payments = showroomRows
+        .filter((entry) => Number(entry?.paymentAmount || 0) > 0)
+        .map((entry, index) => ({
+          key: `${rowKey}-showroom-${index}`,
+          date: dayjs(
+            entry?.paymentDate || entry?.updatedAt || entry?.createdAt,
+          ).isValid()
+            ? dayjs(
+                entry?.paymentDate || entry?.updatedAt || entry?.createdAt,
+              ).format("DD-MM-YY")
+            : "—",
+          label:
+            `${entry?.paymentType || "Payment"} · ` +
+            `${entry?.paymentMadeBy || "NA"} · ` +
+            `${entry?.paymentMode || "NA"}`,
+          amount: Number(entry?.paymentAmount || 0),
+          ts:
+            new Date(
+              entry?.paymentDate || entry?.updatedAt || entry?.createdAt || 0,
+            ).getTime() || 0,
+        }))
+        .sort((a, b) => a.ts - b.ts);
+      const doRec = detail?.doRec || {};
+      const onRoadBreakup = buildOnRoadBreakup(doRec);
+      if (activeView === "onRoad") {
         return (
-          <Space size="small">
-            {hasPayments && (
-              <Tooltip title="View/Edit payments">
-                <Button
-                  type="text"
-                  icon={<EditOutlined />}
-                  onClick={() => openPaymentHistoryModal(r)}
-                >
-                  <Badge count={safeArray(r.payment_history).length} />
-                </Button>
-              </Tooltip>
-            )}
-            <Tooltip title="Activity timeline">
-              <Button
-                type="text"
-                icon={<HistoryOutlined />}
-                onClick={() => openTimelineModal(r)}
-              >
-                {safeArray(r.activity_log).length > 0 && (
-                  <Badge count={safeArray(r.activity_log).length} />
-                )}
-              </Button>
-            </Tooltip>
-            {!paymentStatus.isFullyPaid && (
-              <Tooltip title="Record payment">
-                <Button
-                  type="text"
-                  icon={<DollarOutlined />}
-                  onClick={() => openPartialPaymentModal(r)}
+          <>
+            <PopupSection title="Additions" tone="blue">
+              {onRoadBreakup.additions.map((item) => (
+                <PopupRow
+                  key={`${rowKey}-add-${item.label}`}
+                  label={item.label}
+                  value={formatCurrency(item.value)}
                 />
-              </Tooltip>
-            )}
-          </Space>
+              ))}
+              <PopupRow
+                label="Total Additions"
+                value={formatCurrency(onRoadBreakup.additionsTotal)}
+                tone="positive"
+              />
+            </PopupSection>
+            <PopupSection title="Discounts" tone="rose">
+              {onRoadBreakup.discounts.map((item) => (
+                <PopupRow
+                  key={`${rowKey}-disc-${item.label}`}
+                  label={item.label}
+                  value={formatCurrency(item.value)}
+                />
+              ))}
+              <PopupRow
+                label="Total Discounts"
+                value={formatCurrency(onRoadBreakup.discountTotal)}
+                tone="danger"
+              />
+            </PopupSection>
+            <PopupRow
+              label="Net On-road (DO)"
+              value={formatCurrency(onRoadBreakup.net)}
+              tone="accent"
+            />
+          </>
         );
-      },
-    },
-  ];
+      }
 
-  const bulkActionsMenu = (
-    <Menu>
-      <Menu.Item
-        key="collected"
-        icon={<CheckCircleOutlined />}
-        onClick={openBulkCollectionModal}
-      >
-        Record Collections
-      </Menu.Item>
-    </Menu>
+      if (activeView === "payments") {
+        return (
+          <>
+            {payments.length ? (
+              payments.map((event, index) => (
+                <PopupLedgerEntry
+                  key={event.key}
+                  index={index}
+                  label={event.label}
+                  date={event.date}
+                  amount={event.amount}
+                />
+              ))
+            ) : (
+              <PopupEmptyState label="No payment entries yet." />
+            )}
+            <PopupRow
+              label="Total Payments"
+              value={formatCurrency(ss.totalPaidToShowroom)}
+              tone="positive"
+            />
+          </>
+        );
+      }
+
+      if (activeView === "netPayable") {
+        return (
+          <>
+            <PopupRow
+              label="On-road vehicle cost"
+              value={formatCurrency(ss.netOnRoad)}
+              tone="accent"
+              valueAction={() =>
+                setShowroomPopupViewByRow((prev) => ({
+                  ...prev,
+                  [rowKey]: "onRoad",
+                }))
+              }
+            />
+            <PopupRow
+              label="Less: Insurance adjustment"
+              value={formatCurrency(ss.insAdjApplied)}
+            />
+            <PopupRow
+              label="Less: Exchange adjustment"
+              value={formatCurrency(ss.exAdjApplied)}
+            />
+            <PopupRow
+              label="Cross adjustment net"
+              value={formatCurrency(ss.crossAdjNet)}
+            />
+            <PopupRow
+              label="Net Payable to Showroom"
+              value={formatCurrency(ss.netPayableToShowroom)}
+              tone="positive"
+            />
+          </>
+        );
+      }
+
+      return (
+        <div className="grid gap-4 py-1">
+          <button
+            type="button"
+            className="w-full border-0 bg-transparent p-0 text-left"
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowroomPopupViewByRow((prev) => ({
+                ...prev,
+                [rowKey]: "netPayable",
+              }));
+            }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  Net Payable
+                </div>
+              </div>
+              <div
+                className="inline-flex items-center gap-1 whitespace-nowrap text-[14px] font-black text-blue-700 dark:text-blue-300"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {formatCurrency(ss.netPayableToShowroom)}
+                {interactiveArrow}
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className="w-full border-0 bg-transparent p-0 text-left"
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowroomPopupViewByRow((prev) => ({
+                ...prev,
+                [rowKey]: "payments",
+              }));
+            }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  Payments
+                </div>
+                <div className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                  {payments.length} entries
+                </div>
+              </div>
+              <div
+                className="inline-flex items-center gap-1 whitespace-nowrap text-[14px] font-black text-emerald-700 dark:text-emerald-300"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {formatCurrency(ss.totalPaidToShowroom)}
+                {interactiveArrow}
+              </div>
+            </div>
+          </button>
+
+        </div>
+      );
+    },
+    [ledgerDetailsByRow, ledgerErrorByRow, ledgerLoadingByRow, showroomPopupViewByRow],
   );
 
-  /* ── Gradient theme map for stat cards ── */
-  const STAT_GRADIENTS = {
-    total: "from-sky-500 to-indigo-600",
-    collected: "from-emerald-500 to-green-600",
-    pending: "from-amber-500 to-orange-600",
-    overdue: "from-rose-500 to-red-600",
-  };
+  const renderReceivableInsight = useCallback(
+    (record, { mobile = false } = {}) => {
+      const paymentStatus = getPaymentStatus(record);
+      const rowKey = normalizePayoutId(record);
+      const bankPopupKey = `${rowKey}:bankBreakup`;
+      const ledgerPopupKey = `${rowKey}:showroomLedger`;
+
+      if (isBankReceivableRecord(record)) {
+        const payoutPercent = parsePercent(record?.payout_percentage);
+
+        return (
+          <div className={mobile ? "space-y-1.5" : "space-y-1"}>
+            <MiniMetric
+              label="Net Receivable"
+              value={formatCurrency(paymentStatus.expectedAmount)}
+              tone="blue"
+              helpText={
+                payoutPercent > 0
+                  ? `${payoutPercent.toFixed(payoutPercent % 1 ? 2 : 0)}% payout`
+                  : "Bank payout"
+              }
+              popupTitle="Bank Payout Calculation"
+              popupSubtitle={record?.payout_party_name || "Receivable formula"}
+              popupContent={renderBankBreakupContent(record)}
+              popupOpen={openInsightPopupKey === bankPopupKey}
+              onPopupOpenChange={(nextOpen) =>
+                setOpenInsightPopupKey(nextOpen ? bankPopupKey : null)
+              }
+              onPopupClose={closeInsightPopups}
+              popupWidth={mobile ? 320 : 360}
+            />
+
+            {paymentStatus.isFullyPaid && (
+              <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                Fully Collected
+              </div>
+            )}
+            <Progress
+              percent={Math.round(paymentStatus.percentageReceived)}
+              size="small"
+              strokeColor={
+                paymentStatus.isFullyPaid ? "#16a34a" : "#2563eb"
+              }
+              showInfo={false}
+            />
+          </div>
+        );
+      }
+
+      if (isShowroomCommissionRecord(record)) {
+        const activeView = showroomPopupViewByRow[rowKey] || "summary";
+        const popupTitle =
+          activeView === "onRoad"
+            ? "On-road Cost Breakup"
+            : activeView === "netPayable"
+              ? "Net Payable Calculation"
+              : activeView === "payments"
+                ? "Payments Breakup"
+                : "Showroom Ledger";
+        const popupSubtitle =
+          activeView === "onRoad"
+            ? "Additions, discounts and net on-road"
+            : activeView === "netPayable"
+              ? "Showroom account formula"
+              : activeView === "payments"
+                ? "Oldest entry shown first"
+                : record?.payout_party_name || "Commission collections";
+        const popupBackAction =
+          activeView === "onRoad"
+            ? () =>
+                setShowroomPopupViewByRow((prev) => ({
+                  ...prev,
+                  [rowKey]: "netPayable",
+                }))
+            : activeView === "netPayable" || activeView === "payments"
+              ? () =>
+                  setShowroomPopupViewByRow((prev) => ({
+                    ...prev,
+                    [rowKey]: "summary",
+                  }))
+              : null;
+
+        return (
+          <div className={mobile ? "space-y-1.5" : "space-y-1"}>
+            <MiniMetric
+              label="Net Receivable"
+              value={formatCurrency(paymentStatus.expectedAmount)}
+              tone="green"
+              helpText="Showroom ledger"
+              popupTitle={popupTitle}
+              popupSubtitle={popupSubtitle}
+              popupContent={renderShowroomLedgerPopupContent(record)}
+              popupOpen={openInsightPopupKey === ledgerPopupKey}
+              onPopupOpenChange={(nextOpen) => {
+                if (nextOpen) {
+                  setOpenInsightPopupKey(ledgerPopupKey);
+                  setShowroomPopupViewByRow((prev) => ({
+                    ...prev,
+                    [rowKey]: "summary",
+                  }));
+                  loadLedgerDetailsForRow(record);
+                } else {
+                  setOpenInsightPopupKey(null);
+                }
+              }}
+              onPopupClose={closeInsightPopups}
+              popupBackAction={popupBackAction}
+              popupWidth={mobile ? 336 : 410}
+            />
+            <Progress
+              percent={Math.round(paymentStatus.percentageReceived)}
+              size="small"
+              strokeColor={
+                paymentStatus.isFullyPaid ? "#16a34a" : "#2563eb"
+              }
+              showInfo={false}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div className={mobile ? "space-y-1.5" : "space-y-1"}>
+          <div
+            className={`font-bold text-slate-900 dark:text-slate-100 ${
+              mobile ? "text-sm" : "text-base"
+            }`}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {formatCurrency(paymentStatus.expectedAmount)}
+          </div>
+          {Number(record.tds_amount || 0) > 0 && (
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              TDS: {formatCurrency(record.tds_amount)}
+            </div>
+          )}
+          <Progress
+            percent={Math.round(paymentStatus.percentageReceived)}
+            size="small"
+            strokeColor={
+              paymentStatus.isFullyPaid ? "#16a34a" : "#2563eb"
+            }
+            showInfo={false}
+          />
+        </div>
+      );
+    },
+    [
+      closeInsightPopups,
+      loadLedgerDetailsForRow,
+      openInsightPopupKey,
+      renderBankBreakupContent,
+      renderShowroomLedgerPopupContent,
+    ],
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 px-3 py-4 dark:bg-[#171717] md:px-6 md:py-6">
@@ -1390,6 +2403,10 @@ const PayoutReceivablesDashboard = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button onClick={openGenerateBillModal}>Generate Bill</Button>
+              <Button onClick={() => setBillManagerVisible(true)}>
+                Manage Bills
+              </Button>
               <Button icon={<DownloadOutlined />} onClick={handleExport}>
                 Export
               </Button>
@@ -1402,30 +2419,32 @@ const PayoutReceivablesDashboard = () => {
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {stats.map((stat) => {
-            const gradient =
-              STAT_GRADIENTS[stat.id] || "from-slate-600 to-slate-800";
+            const theme = STAT_ICON_THEMES[stat.id] || STAT_ICON_THEMES.total;
             return (
               <div
                 key={stat.id}
-                className={`relative overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${gradient} p-3 shadow-lg shadow-slate-900/10 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl md:p-4`}
+                className="relative rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-[#2b2b2b] dark:bg-[#1f1f1f]"
               >
-                <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-                <div className="relative flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/70">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">
                       {stat.label}
                     </p>
-                    <p className="mt-1 text-xl font-black leading-none tabular-nums text-white md:text-3xl">
+                    <p
+                      className={`text-2xl font-black leading-none tabular-nums md:text-3xl ${theme.value}`}
+                    >
                       {stat.value}
                     </p>
                     {stat.subtext && (
-                      <p className="mt-1 text-xs text-white/80">
+                      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
                         {stat.subtext}
                       </p>
                     )}
                   </div>
-                  <div className="mt-1 h-10 w-10 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm shrink-0">
-                    <span className="text-lg">{stat.icon}</span>
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${theme.bg}`}
+                  >
+                    <span className={`text-lg ${theme.text}`}>{stat.icon}</span>
                   </div>
                 </div>
               </div>
@@ -1467,7 +2486,7 @@ const PayoutReceivablesDashboard = () => {
         )}
 
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7">
             <div className="xl:col-span-2">
               <Input
                 prefix={<SearchOutlined />}
@@ -1475,14 +2494,16 @@ const PayoutReceivablesDashboard = () => {
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 allowClear
-                size="large"
+                size="middle"
+                className="[&.ant-input-affix-wrapper]:!h-10 [&_.ant-input]:!text-sm"
               />
             </div>
             <Select
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={handleStatusFilterChange}
               size="large"
               className="w-full"
+              allowClear
             >
               <Option value="All">All Status</Option>
               <Option value="Pending">Pending</Option>
@@ -1491,9 +2512,10 @@ const PayoutReceivablesDashboard = () => {
             </Select>
             <Select
               value={ageFilter}
-              onChange={setAgeFilter}
+              onChange={handleAgeFilterChange}
               size="large"
               className="w-full"
+              allowClear
             >
               <Option value="All">All Ages</Option>
               <Option value="0-7">0-7 days</Option>
@@ -1503,10 +2525,11 @@ const PayoutReceivablesDashboard = () => {
             </Select>
             <Select
               value={bankFilter}
-              onChange={setBankFilter}
+              onChange={handleBankFilterChange}
               size="large"
               className="w-full"
               showSearch
+              allowClear
             >
               <Option value="All">All Parties</Option>
               {bankOptions.map((b) => (
@@ -1517,9 +2540,10 @@ const PayoutReceivablesDashboard = () => {
             </Select>
             <Select
               value={amountRangeFilter}
-              onChange={setAmountRangeFilter}
+              onChange={handleAmountRangeFilterChange}
               size="large"
               className="w-full"
+              allowClear
             >
               <Option value="All">All Amounts</Option>
               <Option value="0-50k">0 - 50K</Option>
@@ -1527,12 +2551,25 @@ const PayoutReceivablesDashboard = () => {
               <Option value="1L-5L">1L - 5L</Option>
               <Option value="5L+">5L+</Option>
             </Select>
+            <Select
+              value={billFilter}
+              onChange={(value) => setBillFilter(value || "All")}
+              size="large"
+              className="w-full"
+              allowClear
+            >
+              <Option value="All">All Billing</Option>
+              <Option value="Outstanding Bills">Outstanding Bills</Option>
+              <Option value="Collected Bills">Collected Bills</Option>
+              <Option value="Unbilled">Unbilled</Option>
+            </Select>
           </div>
           {(statusFilter !== "All" ||
             bankFilter !== "All" ||
             searchText ||
             ageFilter !== "All" ||
-            amountRangeFilter !== "All") && (
+            amountRangeFilter !== "All" ||
+            billFilter !== "All") && (
             <div className="mt-3 border-t border-slate-100 pt-3 dark:border-[#262626]">
               <Button
                 onClick={() => {
@@ -1541,6 +2578,7 @@ const PayoutReceivablesDashboard = () => {
                   setSearchText("");
                   setAgeFilter("All");
                   setAmountRangeFilter("All");
+                  setBillFilter("All");
                 }}
               >
                 Clear All Filters
@@ -1550,13 +2588,15 @@ const PayoutReceivablesDashboard = () => {
         </div>
 
         {selectedRows.length > 0 && (
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/40 dark:bg-blue-950/20 md:p-4">
+          <div className="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 dark:border-teal-800/40 dark:bg-teal-950/20">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                {selectedRows.length} receivable(s) selected
+              <span className="text-sm font-semibold text-teal-800 dark:text-teal-200">
+                {selectedRows.length} receivable
+                {selectedRows.length > 1 ? "s" : ""} selected
               </span>
               <Space>
                 <Button
+                  size="small"
                   onClick={() => {
                     setSelectedRowKeys([]);
                     setSelectedRows([]);
@@ -1564,22 +2604,34 @@ const PayoutReceivablesDashboard = () => {
                 >
                   Clear Selection
                 </Button>
-                <Dropdown overlay={bulkActionsMenu} trigger={["click"]}>
-                  <Button type="primary">
-                    Bulk Actions <DownOutlined />
-                  </Button>
-                </Dropdown>
+                <Button size="small" onClick={openGenerateBillModal}>
+                  Generate Bill
+                </Button>
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<DollarOutlined />}
+                  style={{ background: "#0d9488", borderColor: "#0d9488" }}
+                  onClick={openBulkCollectionModal}
+                >
+                  Record Collections
+                </Button>
               </Space>
             </div>
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
+        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
           <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3 dark:border-[#262626] dark:bg-[#1a1a1a]">
             <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
-              <Tag color="blue">Rows: {filteredSubtotals.rowCount}</Tag>
-              <Tag color="geekblue">
-                Parties: {filteredSubtotals.partyCount}
+              <span className="mr-1 font-medium text-slate-500 dark:text-slate-400">
+                Showing:
+              </span>
+              <Tag color="blue" style={{ margin: 0 }}>
+                {filteredSubtotals.rowCount} rows
+              </Tag>
+              <Tag color="geekblue" style={{ margin: 0 }}>
+                {filteredSubtotals.partyCount} parties
               </Tag>
               <Tag color="green">
                 Received: {formatCurrency(filteredSubtotals.received)}
@@ -1632,12 +2684,32 @@ const PayoutReceivablesDashboard = () => {
                             toggleRowSelection(record, e.target.checked)
                           }
                         />
-                        <div>
+                        <div className="flex items-start gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] font-bold text-slate-600 dark:bg-[#27272a] dark:text-slate-200">
+                            {getInitials(record.customerName)}
+                          </div>
+                          <div>
                           <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                             {record.customerName}
                           </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            {record.loanId} · {record.payoutId}
+                          <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                            {record.loanId}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                            {isBankReceivableRecord(record)
+                              ? `Disbursement ${formatShortDate(record.disbursementDate)}`
+                              : isShowroomCommissionRecord(record)
+                                ? `Delivery ${formatShortDate(record.deliveryDate)}`
+                                : "—"}
+                          </div>
+                          <div className="mt-0.5 inline-block rounded bg-slate-100/40 px-1 py-0.5 text-[10px] font-mono text-slate-400 dark:bg-[#2a2a2a] dark:text-slate-500">
+                            {record.payoutId}
+                          </div>
+                          {getBillNumber(record) ? (
+                            <div className="mt-1 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                              Bill {getBillNumber(record)}
+                            </div>
+                          ) : null}
                           </div>
                         </div>
                       </div>
@@ -1652,6 +2724,17 @@ const PayoutReceivablesDashboard = () => {
                       >
                         {uiStatus}
                       </Tag>
+                      {getBillNumber(record) ? (
+                        <Tag
+                          color={
+                            isBillCollected(record) ? "success" : "processing"
+                          }
+                        >
+                          {isBillCollected(record)
+                            ? "Bill Collected"
+                            : "Bill Generated"}
+                        </Tag>
+                      ) : null}
                     </div>
 
                     <div className="mb-3 grid grid-cols-2 gap-2">
@@ -1667,8 +2750,8 @@ const PayoutReceivablesDashboard = () => {
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Amount
                         </div>
-                        <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                          {formatCurrency(paymentStatus.expectedAmount)}
+                        <div className="pt-1">
+                          {renderReceivableInsight(record, { mobile: true })}
                         </div>
                       </div>
                       <div className="rounded-lg bg-slate-50 p-2 dark:bg-[#1b1b1b]">
@@ -1722,7 +2805,17 @@ const PayoutReceivablesDashboard = () => {
                             : null,
                         )
                       }
-                      style={{ width: "100%", marginBottom: 8 }}
+                      style={{
+                        width: "100%",
+                        marginBottom: 8,
+                        ...(record.payout_received_date
+                          ? {
+                              borderColor: "#16a34a",
+                              background: "#f0fdf4",
+                              color: "#16a34a",
+                            }
+                          : {}),
+                      }}
                       format="DD-MM-YYYY"
                       placeholder="Not received"
                       disabled={paymentStatus.isFullyPaid}
@@ -1748,9 +2841,14 @@ const PayoutReceivablesDashboard = () => {
                       {!paymentStatus.isFullyPaid && (
                         <Button
                           size="small"
-                          type="primary"
+                          type="default"
                           icon={<DollarOutlined />}
                           onClick={() => openPartialPaymentModal(record)}
+                          style={{
+                            background: "#f0fdfa",
+                            borderColor: "#99f6e4",
+                            color: "#0f766e",
+                          }}
                         >
                           Record
                         </Button>
@@ -1763,44 +2861,584 @@ const PayoutReceivablesDashboard = () => {
           </div>
 
           <div className="hidden md:block">
-            <Table
-              rowKey={(r) => r.payoutId || r.id}
-              rowSelection={{
-                selectedRowKeys,
-                onChange: (keys) => applySelection(keys),
-                getCheckboxProps: (record) => {
+            {filteredRows.length === 0 ? (
+              <div className="m-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center dark:border-[#343434] dark:bg-[#232323]">
+                <Empty description="No receivables found for current filters" />
+              </div>
+            ) : (
+              <div className="space-y-3 p-3">
+                {pagedDesktopRows.map((record) => {
+                  const rowKey = getRowKey(record);
                   const paymentStatus = getPaymentStatus(record);
-                  return {
-                    disabled: paymentStatus.isFullyPaid,
-                  };
-                },
-              }}
-              columns={columns}
-              dataSource={filteredRows}
-              pagination={{
-                pageSize: 15,
-                showTotal: (total) => `Total ${total} receivables`,
-                showSizeChanger: true,
-                pageSizeOptions: ["10", "15", "25", "50"],
-              }}
-              scroll={{ x: 1400 }}
-            />
+                  const uiStatus = toUiStatus(
+                    record.payout_status,
+                    paymentStatus,
+                  );
+                  const days = calculateDaysPending(
+                    record.payout_received_date,
+                    record.created_date,
+                  );
+                  const agingColor =
+                    days === null
+                      ? "default"
+                      : days <= 7
+                        ? "blue"
+                        : days <= 15
+                          ? "orange"
+                          : "red";
+
+                  return (
+                    <div
+                      key={rowKey}
+                    className="rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-[#2b2b2b] dark:bg-[#1f1f1f]"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-[#2a2a2a]">
+                        <Checkbox
+                          checked={selectedKeySet.has(rowKey)}
+                          disabled={paymentStatus.isFullyPaid}
+                          onChange={(e) =>
+                            toggleRowSelection(record, e.target.checked)
+                          }
+                        />
+                        <Tag
+                          color={
+                            uiStatus === "Received"
+                              ? "success"
+                              : uiStatus === "Partial"
+                                ? "warning"
+                                : "default"
+                          }
+                        >
+                          {uiStatus}
+                        </Tag>
+                        {getBillNumber(record) ? (
+                          <Tag
+                            color={
+                              isBillCollected(record) ? "success" : "processing"
+                            }
+                          >
+                            {isBillCollected(record)
+                              ? "Bill Collected"
+                              : "Bill Generated"}
+                          </Tag>
+                        ) : null}
+                        <Tag color={agingColor}>
+                          {days === null ? "Collected" : `${days} days`}
+                        </Tag>
+                        <Tag
+                          color={
+                            isBankReceivableRecord(record)
+                              ? "blue"
+                              : isShowroomCommissionRecord(record)
+                                ? "green"
+                                : "default"
+                          }
+                        >
+                          {isShowroomCommissionRecord(record)
+                            ? "Showroom Commission"
+                            : record.payout_type || "Receivable"}
+                        </Tag>
+                        <div className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">
+                          Created {dayjs(record.created_date).isValid()
+                            ? dayjs(record.created_date).format("DD MMM YYYY")
+                            : "—"}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 px-4 py-4 xl:grid-cols-[1.7fr_0.78fr_0.72fr]">
+                        <div className="min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3 min-w-0">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-600 dark:bg-[#27272a] dark:text-slate-200">
+                              {getInitials(record.customerName)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                                {record.customerName}
+                              </div>
+                              <div className="mt-1 text-xs font-mono text-slate-500 dark:text-slate-400">
+                                {record.loanId}
+                              </div>
+                              <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                {isBankReceivableRecord(record)
+                                  ? `Disbursement ${formatShortDate(record.disbursementDate)}`
+                                  : isShowroomCommissionRecord(record)
+                                    ? `Delivery ${formatShortDate(record.deliveryDate)}`
+                                    : "—"}
+                              </div>
+                              <div className="mt-1 inline-block rounded bg-slate-100/40 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 dark:bg-[#2a2a2a] dark:text-slate-500">
+                                {record.payoutId}
+                              </div>
+                              {getBillNumber(record) ? (
+                                <div className="mt-1 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                                  Bill {getBillNumber(record)}
+                                </div>
+                              ) : null}
+                            </div>
+                            </div>
+
+                            <div className="min-w-[180px] text-right">
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                                Party
+                              </div>
+                              <div className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-100">
+                                {record.payout_party_name || "-"}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {isBankReceivableRecord(record)
+                                  ? "Bank payout receivable"
+                                  : isShowroomCommissionRecord(record)
+                                    ? "Showroom commission ledger"
+                                    : "Receivable ledger"}
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        <div className="min-w-0 border-t border-slate-100 pt-4 dark:border-[#2a2a2a] xl:border-t-0 xl:border-l xl:pl-5 xl:pt-0">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                            Collections Insight
+                          </div>
+                          <div className="mt-3">{renderReceivableInsight(record)}</div>
+                        </div>
+
+                        <div className="min-w-0 border-t border-slate-100 pt-4 dark:border-[#2a2a2a] xl:border-t-0 xl:border-l xl:pl-5 xl:pt-0">
+                          <div className="grid gap-4">
+                            <div>
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                                Received Date
+                              </div>
+                              <DatePicker
+                                size="small"
+                                value={
+                                  record.payout_received_date
+                                    ? dayjs(record.payout_received_date)
+                                    : null
+                                }
+                                onChange={(_date, dateString) =>
+                                  updateReceivableInBackend(
+                                    normalizePayoutId(record),
+                                    {
+                                      payout_received_date: dateString,
+                                      payout_status: dateString
+                                        ? "Received"
+                                        : "Expected",
+                                    },
+                                    dateString
+                                      ? {
+                                          action: "Received Date Set",
+                                          details: `Date: ${dateString}`,
+                                        }
+                                      : null,
+                                  )
+                                }
+                                style={{
+                                  width: "100%",
+                                  marginTop: 8,
+                                  ...(record.payout_received_date
+                                    ? {
+                                        borderColor: "#16a34a",
+                                        background: "#f0fdf4",
+                                        color: "#16a34a",
+                                      }
+                                    : {}),
+                                }}
+                                format="DD-MM-YYYY"
+                                placeholder="Not received"
+                                disabled={paymentStatus.isFullyPaid}
+                              />
+                            </div>
+
+                            <div>
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                                Quick Actions
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {safeArray(record.payment_history).length > 0 && (
+                                  <Button
+                                    size="small"
+                                    icon={<EditOutlined />}
+                                    onClick={() => openPaymentHistoryModal(record)}
+                                  >
+                                    Payments ({safeArray(record.payment_history).length})
+                                  </Button>
+                                )}
+                                <Button
+                                  size="small"
+                                  icon={<HistoryOutlined />}
+                                  onClick={() => openTimelineModal(record)}
+                                >
+                                  Timeline
+                                </Button>
+                                {!paymentStatus.isFullyPaid && (
+                                  <Button
+                                    size="small"
+                                    type="default"
+                                    icon={<DollarOutlined />}
+                                    onClick={() => openPartialPaymentModal(record)}
+                                    style={{
+                                      background: "#f0fdfa",
+                                      borderColor: "#99f6e4",
+                                      color: "#0f766e",
+                                    }}
+                                  >
+                                    Record
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-[#2a2a2a] dark:bg-[#181818] md:flex-row md:items-center md:justify-between">
+                  <div className="text-sm text-slate-600 dark:text-slate-300">
+                    Showing{" "}
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {pagedDesktopRows.length}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {filteredRows.length}
+                    </span>{" "}
+                    receivables
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Select
+                      value={String(desktopPageSize)}
+                      size="middle"
+                      style={{ width: 100 }}
+                      onChange={(value) => setDesktopPageSize(Number(value))}
+                    >
+                      {["10", "15", "25", "50"].map((opt) => (
+                        <Option key={opt} value={opt}>
+                          {opt} / page
+                        </Option>
+                      ))}
+                    </Select>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="small"
+                        disabled={desktopPage <= 1}
+                        onClick={() =>
+                          setDesktopPage((prev) => Math.max(1, prev - 1))
+                        }
+                      >
+                        Previous
+                      </Button>
+                      <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {desktopPage} / {desktopTotalPages}
+                      </div>
+                      <Button
+                        size="small"
+                        disabled={desktopPage >= desktopTotalPages}
+                        onClick={() =>
+                          setDesktopPage((prev) =>
+                            Math.min(desktopTotalPages, prev + 1),
+                          )
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <Modal
-        title="Record Bulk Collections"
+        title="Generate Bill"
+        open={generateBillModalVisible}
+        onOk={handleGenerateBill}
+        onCancel={() => {
+          setGenerateBillModalVisible(false);
+          setSelectedBillRowKeys([]);
+          setBillPartyFilter("");
+        }}
+        width={880}
+        okText="Generate & Download"
+      >
+        <Form form={billForm} layout="vertical">
+          <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr_0.8fr]">
+            <Form.Item label="Party" required>
+              <Select
+                value={billPartyFilter || undefined}
+                onChange={(value) => {
+                  setBillPartyFilter(value || "");
+                  setSelectedBillRowKeys([]);
+                }}
+                placeholder="Select party"
+                showSearch
+                allowClear
+                size="large"
+              >
+                {billPartyOptions.map((party) => (
+                  <Option key={party} value={party}>
+                    {party}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              name="billNumber"
+              label="Bill Number"
+              rules={[{ required: true, message: "Please enter bill number" }]}
+            >
+              <Input
+                size="large"
+                addonAfter={
+                  <Button
+                    type="text"
+                    size="small"
+                    onClick={() =>
+                      billForm.setFieldValue("billNumber", generateBillNumber())
+                    }
+                  >
+                    Refresh
+                  </Button>
+                }
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="billDate"
+              label="Bill Date"
+              rules={[{ required: true, message: "Please select bill date" }]}
+            >
+              <DatePicker style={{ width: "100%" }} size="large" format="DD MMM YYYY" />
+            </Form.Item>
+          </div>
+
+          <Form.Item name="billNotes" label="Bill Notes (optional)">
+            <Input.TextArea
+              rows={2}
+              placeholder="Short note for the party or internal remark"
+            />
+          </Form.Item>
+
+          <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#333] dark:bg-[#262626]">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                Selected Receivables
+              </div>
+              <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {selectedBillRows.length} case{selectedBillRows.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                Bill Total
+              </div>
+              <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">
+                {formatCurrency(selectedBillTotal)}
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Outstanding receivables for billing
+            </div>
+            <Button
+              size="small"
+              disabled={!availableBillRows.length}
+              onClick={() =>
+                setSelectedBillRowKeys(
+                  availableBillRows.map((row) => normalizePayoutId(row)),
+                )
+              }
+            >
+              Select All
+            </Button>
+          </div>
+
+          <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+            {!billPartyFilter ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-[#333] dark:bg-[#232323] dark:text-slate-400">
+                Select a party to see outstanding receivables.
+              </div>
+            ) : availableBillRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-[#333] dark:bg-[#232323] dark:text-slate-400">
+                No unbilled outstanding receivables for this party.
+              </div>
+            ) : (
+              availableBillRows.map((row) => {
+                const rowKey = normalizePayoutId(row);
+                const paymentStatus = getPaymentStatus(row);
+                const checked = selectedBillRowKeys.includes(rowKey);
+                return (
+                  <label
+                    key={rowKey}
+                    className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#333] dark:bg-[#1f1f1f]"
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onChange={(event) => {
+                        setSelectedBillRowKeys((prev) => {
+                          const next = new Set(prev);
+                          if (event.target.checked) next.add(rowKey);
+                          else next.delete(rowKey);
+                          return Array.from(next);
+                        });
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {row.customerName}
+                          </div>
+                          <div className="mt-1 text-xs font-mono text-slate-500 dark:text-slate-400">
+                            {row.loanId} · {row.payoutId}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                            Pending
+                          </div>
+                          <div className="mt-1 text-base font-bold text-amber-600 dark:text-amber-400">
+                            {formatCurrency(paymentStatus.pendingAmount)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Manage Bills"
+        open={billManagerVisible}
+        onCancel={() => setBillManagerVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setBillManagerVisible(false)}>
+            Close
+          </Button>,
+        ]}
+        width={920}
+      >
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {["All", BILL_STATUS.OUTSTANDING, BILL_STATUS.COLLECTED].map((item) => (
+            <Button
+              key={item}
+              type={billManagerStatusFilter === item ? "primary" : "default"}
+              onClick={() => setBillManagerStatusFilter(item)}
+            >
+              {item === "All" ? "All Bills" : item}
+            </Button>
+          ))}
+        </div>
+
+        <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+          {filteredBills.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-sm text-slate-500 dark:border-[#333] dark:bg-[#232323] dark:text-slate-400">
+              No bills found for this filter.
+            </div>
+          ) : (
+            filteredBills.map((bill) => (
+              <div
+                key={bill.billNumber}
+                className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#333] dark:bg-[#1f1f1f]"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {bill.billNumber}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      {bill.partyName} · {bill.caseCount} case{bill.caseCount === 1 ? "" : "s"} ·{" "}
+                      {bill.billDate ? dayjs(bill.billDate).format("DD MMM YYYY") : "—"}
+                    </div>
+                    {bill.billReceivedDate ? (
+                      <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+                        Received on {dayjs(bill.billReceivedDate).format("DD MMM YYYY")}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="text-right">
+                    <Tag color={bill.status === BILL_STATUS.COLLECTED ? "success" : "processing"}>
+                      {bill.status}
+                    </Tag>
+                    <div className="mt-2 text-lg font-black text-slate-900 dark:text-slate-100">
+                      {formatCurrency(bill.expected)}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Received {formatCurrency(bill.received)} · Pending {formatCurrency(bill.pending)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      openBillPrintWindow({
+                        billNumber: bill.billNumber,
+                        billDate: bill.billDate,
+                        partyName: bill.partyName,
+                        rows: bill.rows,
+                        totalAmount: bill.expected,
+                        notes: bill.notes,
+                      })
+                    }
+                  >
+                    Download Bill
+                  </Button>
+                  {bill.status !== BILL_STATUS.COLLECTED ? (
+                    <Button size="small" type="primary" onClick={() => openBillReceiptFlow(bill)}>
+                      Record Receipt
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        title={
+          activeBillCollection
+            ? `Record Bill Receipt · ${activeBillCollection.billNumber}`
+            : "Record Bulk Collections"
+        }
         open={bulkCollectionModalVisible}
         onOk={handleBulkCollectionSave}
-        onCancel={() => setBulkCollectionModalVisible(false)}
+        onCancel={() => {
+          setBulkCollectionModalVisible(false);
+          setActiveBillCollection(null);
+        }}
         width={700}
-        okText="Record Payments"
+        okText={activeBillCollection ? "Post Bill Receipt" : "Record Payments"}
       >
         <Form form={bulkForm} layout="vertical">
           <p className="mb-4 text-gray-600">
-            Recording collections for <strong>{selectedRows.length}</strong>{" "}
-            receivable(s).
+            {activeBillCollection ? (
+              <>
+                Posting receipt for bill{" "}
+                <strong>{activeBillCollection.billNumber}</strong> across{" "}
+                <strong>{selectedRows.length}</strong> receivable(s).
+              </>
+            ) : (
+              <>
+                Recording collections for <strong>{selectedRows.length}</strong>{" "}
+                receivable(s).
+              </>
+            )}
           </p>
 
           <Form.Item
@@ -1856,7 +3494,7 @@ const PayoutReceivablesDashboard = () => {
               return (
                 <div
                   key={payoutRowId}
-                  className="p-3 bg-gray-50 rounded border"
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-[#333] dark:bg-[#262626]"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -1933,9 +3571,9 @@ const PayoutReceivablesDashboard = () => {
       >
         {currentRecord && (
           <Form form={partialPaymentForm} layout="vertical">
-            <div className="mb-4 p-3 bg-gray-50 rounded">
-              <div className="text-sm text-gray-600 mb-1">Expected Amount</div>
-              <div className="text-lg font-semibold">
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-[#333] dark:bg-[#262626]">
+              <div className="mb-0.5 text-xs text-slate-500">Expected Amount</div>
+              <div className="text-xl font-bold tabular-nums">
                 {formatCurrency(getExpectedAmount(currentRecord))}
               </div>
               {(() => {
@@ -2052,10 +3690,10 @@ const PayoutReceivablesDashboard = () => {
       >
         {currentRecord && (
           <div>
-            <div className="mb-4 p-3 bg-gray-50 rounded">
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-[#333] dark:bg-[#262626]">
               <div className="font-semibold">{currentRecord.customerName}</div>
-              <div className="text-sm text-gray-600">
-                Payout ID: {currentRecord.payoutId}
+              <div className="text-sm font-mono text-slate-500">
+                {currentRecord.payoutId}
               </div>
               <div className="text-sm text-gray-600 mt-2">
                 Expected: {formatCurrency(getExpectedAmount(currentRecord))}
@@ -2087,7 +3725,7 @@ const PayoutReceivablesDashboard = () => {
                 {currentRecord.payment_history.map((payment, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-white border rounded flex justify-between items-center"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 dark:border-[#333] dark:bg-[#1f1f1f]"
                   >
                     <div>
                       <div className="font-medium">
@@ -2198,10 +3836,10 @@ const PayoutReceivablesDashboard = () => {
       >
         {currentRecord && (
           <div>
-            <div className="mb-4 p-3 bg-gray-50 rounded">
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-[#333] dark:bg-[#262626]">
               <div className="font-semibold">{currentRecord.customerName}</div>
-              <div className="text-sm text-gray-600">
-                Payout ID: {currentRecord.payoutId}
+              <div className="text-sm font-mono text-slate-500">
+                {currentRecord.payoutId}
               </div>
             </div>
 
