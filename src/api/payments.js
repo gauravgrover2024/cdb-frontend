@@ -5,6 +5,10 @@ export const paymentsApi = {
     return await apiClient.get("/api/payments", { params });
   },
 
+  getDashboardSnapshot: async (params = {}) => {
+    return await apiClient.get("/api/payments/dashboard/snapshot", { params });
+  },
+
   getByLoanId: async (loanId) => {
     return await apiClient.get(`/api/payments/${loanId}`);
   },

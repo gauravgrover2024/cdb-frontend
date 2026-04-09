@@ -51,7 +51,7 @@ const RECEIPT_TYPE_OPTIONS = [
   "Exchange Vehicle",
   "Commission",
 ];
-const PAYMENTS_DASHBOARD_CACHE_VERSION = "2026-04-09-v1";
+const PAYMENTS_DASHBOARD_CACHE_VERSION = "2026-04-09-v2";
 
 const safeText = (v) => (v === undefined || v === null ? "" : String(v));
 
@@ -178,8 +178,12 @@ const fetchPaymentsByLoanIds = async (loanIds = []) => {
   return payloads.flatMap((payload) => listFromResponse(payload));
 };
 
-const getPaymentsDashboardCacheKey = (search = "") =>
-  `payments-dashboard:${PAYMENTS_DASHBOARD_CACHE_VERSION}:${String(search || "").trim().toLowerCase() || "all"}`;
+const getPaymentsDashboardCacheKey = (
+  search = "",
+  status = "all",
+  type = "all",
+) =>
+  `payments-dashboard:${PAYMENTS_DASHBOARD_CACHE_VERSION}:${String(search || "").trim().toLowerCase() || "all"}:${String(status || "all").trim().toLowerCase()}:${String(type || "all").trim().toLowerCase()}`;
 
 const QuickFieldLabel = ({ children }) => (
   <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400 mb-1">
@@ -685,6 +689,8 @@ const PaymentsDashboard = () => {
     type: "showroom",
     row: null,
   });
+  const [serverRows, setServerRows] = useState([]);
+  const [rowsSource, setRowsSource] = useState("legacy");
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentModalMode, setPaymentModalMode] = useState(null); // "SHOWROOM" | "AC"
@@ -751,14 +757,22 @@ const PaymentsDashboard = () => {
   }, []);
 
   const loadData = useCallback(async () => {
-    const cacheKey = getPaymentsDashboardCacheKey(searchQuery);
+    const cacheKey = getPaymentsDashboardCacheKey(
+      searchQuery,
+      statusFilter,
+      typeFilter,
+    );
     let hydratedFromCache = false;
 
     try {
       const cachedRaw = sessionStorage.getItem(cacheKey);
       if (cachedRaw) {
         const cached = JSON.parse(cachedRaw);
-        if (
+        if (Array.isArray(cached?.rows)) {
+          setServerRows(cached.rows);
+          setRowsSource("server");
+          hydratedFromCache = true;
+        } else if (
           Array.isArray(cached?.docs) &&
           Array.isArray(cached?.loans) &&
           Array.isArray(cached?.payments)
@@ -766,6 +780,7 @@ const PaymentsDashboard = () => {
           setSavedDOs(cached.docs);
           setLoans(cached.loans);
           setSavedPayments(cached.payments);
+          setRowsSource("legacy");
           hydratedFromCache = true;
         }
       }
@@ -774,6 +789,43 @@ const PaymentsDashboard = () => {
     }
 
     setLoading(!hydratedFromCache);
+
+    try {
+      const mergedRows = listFromResponse(
+        await paymentsApi.getDashboardSnapshot({
+          search: searchQuery,
+          status: statusFilter,
+          type: typeFilter,
+          limit: 5000,
+          skip: 0,
+        }),
+      );
+
+      if (Array.isArray(mergedRows)) {
+        setServerRows(mergedRows);
+        setRowsSource("server");
+        setSavedDOs([]);
+        setLoans([]);
+        setSavedPayments([]);
+        try {
+          sessionStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+              savedAt: Date.now(),
+              rows: mergedRows,
+            }),
+          );
+        } catch (_) {
+          // Ignore cache write failures.
+        }
+        return;
+      }
+    } catch (mergedErr) {
+      console.warn(
+        "Merged payments snapshot endpoint failed, falling back to legacy hydration:",
+        mergedErr,
+      );
+    }
 
     try {
       const docs = dedupeDOByLoanId(
@@ -797,6 +849,8 @@ const PaymentsDashboard = () => {
       setSavedDOs(docs);
       setLoans(Array.isArray(loanRows) ? loanRows : []);
       setSavedPayments(Array.isArray(paymentRows) ? paymentRows : []);
+      setServerRows([]);
+      setRowsSource("legacy");
       try {
         sessionStorage.setItem(
           cacheKey,
@@ -814,6 +868,7 @@ const PaymentsDashboard = () => {
       console.error("Failed to load payments dashboard data:", err);
       message.error("Failed to load payments dashboard");
       if (!hydratedFromCache) {
+        setServerRows([]);
         setSavedDOs([]);
         setLoans([]);
         setSavedPayments([]);
@@ -821,7 +876,7 @@ const PaymentsDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, statusFilter, typeFilter]);
 
   useEffect(() => {
     loadData();
@@ -851,7 +906,7 @@ const PaymentsDashboard = () => {
     return map;
   }, [savedPayments]);
 
-  const rows = useMemo(() => {
+  const legacyRows = useMemo(() => {
     return (savedDOs || []).map((doRec) => {
       const loanId = normalizeLoanId(doRec?.loanId || doRec?.do_loanId);
       const loan = loanMap.get(loanId) || {};
@@ -962,6 +1017,11 @@ const PaymentsDashboard = () => {
       };
     });
   }, [savedDOs, loanMap, paymentMap]);
+
+  const rows = useMemo(
+    () => (rowsSource === "server" ? serverRows : legacyRows),
+    [legacyRows, rowsSource, serverRows],
+  );
 
   const stats = useMemo(() => {
     const totalCases = rows.length;

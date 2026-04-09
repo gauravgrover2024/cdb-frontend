@@ -39,6 +39,7 @@ import { loansApi } from "../../../../../api/loans";
 import { paymentsApi } from "../../../../../api/payments";
 import { deliveryOrdersApi } from "../../../../../api/deliveryOrders";
 import { buildPaymentCaseSnapshot } from "../../../../payments/utils/paymentCaseSnapshot";
+import billLetterheadImage from "./assets/bill-letterhead.png";
 
 const { Option } = Select;
 
@@ -378,6 +379,16 @@ const BILL_STATUS = {
   COLLECTED: "Collected",
 };
 
+const EMPTY_BILL_PATCH = {
+  bill_number: "",
+  bill_date: "",
+  bill_status: "",
+  bill_party_name: "",
+  bill_notes: "",
+  bill_generated_at: "",
+  bill_received_date: "",
+};
+
 const getBillNumber = (record = {}) =>
   String(record?.bill_number || record?.billNumber || "").trim();
 
@@ -414,6 +425,11 @@ const generateBillNumber = () => {
   return `RCB-${stamp}-${random}`;
 };
 
+const formatMonthLabel = (value) => {
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format("MMMM-YYYY") : "Unknown Month";
+};
+
 const openBillPrintWindow = ({
   billNumber,
   billDate,
@@ -433,6 +449,11 @@ const openBillPrintWindow = ({
           <td>${String(row.loanId || "-")}</td>
           <td>${String(row.payoutId || "-")}</td>
           <td>${String(row.payout_type || "-")}</td>
+          <td>${isBankReceivableRecord(row) ? "Disbursement" : "Delivery"} ${
+            isBankReceivableRecord(row)
+              ? formatShortDate(row.disbursementDate)
+              : formatShortDate(row.deliveryDate)
+          }</td>
           <td style="text-align:right;">${formatCurrency(lineAmount)}</td>
         </tr>
       `;
@@ -447,63 +468,238 @@ const openBillPrintWindow = ({
       <head>
         <title>${billNumber}</title>
         <style>
-          body { font-family: Arial, sans-serif; color:#0f172a; margin:32px; }
-          .top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
-          .brand { font-size:28px; font-weight:800; letter-spacing:-0.03em; }
-          .muted { color:#64748b; font-size:12px; }
-          .title { font-size:18px; font-weight:700; margin-bottom:8px; }
-          .box { border:1px solid #dbe3ef; border-radius:14px; padding:16px; background:#f8fbff; }
-          table { width:100%; border-collapse:collapse; margin-top:18px; }
-          th, td { border-bottom:1px solid #e2e8f0; padding:10px 8px; font-size:12px; text-align:left; }
-          th { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#475569; }
-          .total { margin-top:18px; display:flex; justify-content:flex-end; }
-          .total-card { min-width:260px; border:1px solid #cbd5e1; border-radius:14px; padding:14px 16px; background:#ffffff; }
-          .total-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; }
-          .total-value { margin-top:6px; font-size:24px; font-weight:800; }
-          .notes { margin-top:18px; font-size:12px; color:#475569; white-space:pre-wrap; }
-          @media print { body { margin:18px; } }
+          * { box-sizing:border-box; }
+          body {
+            font-family: Arial, sans-serif;
+            color:#0f172a;
+            margin:0;
+            background:#f8f7f1;
+          }
+          .page {
+            position:relative;
+            min-height:100vh;
+            padding:64px 46px 110px;
+          }
+          .page::before {
+            content:"";
+            position:absolute;
+            inset:0;
+            background:url('${billLetterheadImage}') center top / 100% 100% no-repeat;
+            pointer-events:none;
+            z-index:0;
+          }
+          .content {
+            position:relative;
+            z-index:1;
+            margin-top:56px;
+          }
+          .eyebrow {
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:8px 14px;
+            border-radius:999px;
+            background:#fff3bf;
+            border:1px solid #facc15;
+            color:#7c5d00;
+            font-size:11px;
+            font-weight:700;
+            letter-spacing:0.04em;
+          }
+          .hero {
+            display:grid;
+            grid-template-columns:1.2fr 0.8fr;
+            gap:24px;
+            margin-top:18px;
+            align-items:start;
+          }
+          .hero-title {
+            font-size:34px;
+            font-weight:800;
+            line-height:1.08;
+            color:#2f6b45;
+            letter-spacing:-0.04em;
+            margin:0;
+          }
+          .hero-copy {
+            margin-top:12px;
+            max-width:520px;
+            color:#51606d;
+            font-size:13px;
+            line-height:1.55;
+          }
+          .pill-row {
+            display:flex;
+            flex-wrap:wrap;
+            gap:10px;
+            margin-top:18px;
+          }
+          .pill {
+            display:inline-flex;
+            align-items:center;
+            border:1px solid #d8c4f2;
+            background:#fbf6ff;
+            color:#6b36c7;
+            border-radius:16px;
+            padding:10px 14px;
+            font-size:12px;
+            font-weight:700;
+          }
+          .summary-card {
+            border:1px solid #ddd6fe;
+            background:rgba(255,255,255,0.92);
+            border-radius:24px;
+            padding:18px;
+            box-shadow:0 18px 38px rgba(15,23,42,0.08);
+          }
+          .summary-grid {
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:14px;
+            margin-top:16px;
+          }
+          .summary-block {
+            border-radius:18px;
+            background:#f8fafc;
+            border:1px solid #e2e8f0;
+            padding:14px 16px;
+          }
+          .summary-label {
+            font-size:10px;
+            text-transform:uppercase;
+            letter-spacing:0.14em;
+            color:#64748b;
+            font-weight:700;
+          }
+          .summary-value {
+            margin-top:6px;
+            font-size:20px;
+            font-weight:800;
+          }
+          .section {
+            position:relative;
+            z-index:1;
+            margin-top:22px;
+            background:rgba(255,255,255,0.94);
+            border:1px solid #ece7d9;
+            border-radius:28px;
+            padding:22px 24px;
+            box-shadow:0 16px 36px rgba(15,23,42,0.06);
+          }
+          .section-title {
+            font-size:11px;
+            text-transform:uppercase;
+            letter-spacing:0.16em;
+            color:#64748b;
+            font-weight:800;
+          }
+          table {
+            width:100%;
+            border-collapse:separate;
+            border-spacing:0;
+            margin-top:16px;
+          }
+          th, td {
+            border-bottom:1px solid #e5e7eb;
+            padding:12px 10px;
+            font-size:12px;
+            text-align:left;
+            vertical-align:top;
+          }
+          th {
+            font-size:10px;
+            text-transform:uppercase;
+            letter-spacing:0.12em;
+            color:#64748b;
+            font-weight:800;
+          }
+          .amount {
+            text-align:right;
+            font-weight:800;
+            font-variant-numeric:tabular-nums;
+          }
+          .notes {
+            margin-top:18px;
+            font-size:12px;
+            color:#475569;
+            white-space:pre-wrap;
+          }
+          @media print {
+            body { background:#fff; }
+            .page {
+              min-height:auto;
+              padding:52px 34px 86px;
+            }
+          }
         </style>
       </head>
       <body>
-        <div class="top">
-          <div>
-            <div class="brand">Auto Credits India LLP</div>
-            <div class="muted">Collections bill summary</div>
-          </div>
-          <div class="box">
-            <div class="title">Bill</div>
-            <div class="muted">Bill No</div>
-            <div>${billNumber}</div>
-            <div class="muted" style="margin-top:10px;">Bill Date</div>
-            <div>${dayjs(billDate).isValid() ? dayjs(billDate).format("DD MMM YYYY") : "—"}</div>
+        <div class="page">
+          <div class="content">
+            <div class="eyebrow">Finance collections bill</div>
+            <div class="hero">
+              <div>
+                <h1 class="hero-title">Receivables Bill Summary</h1>
+                <div class="hero-copy">
+                  Generated from outstanding collections items so your finance and showroom follow-up stays aligned with the dashboard.
+                </div>
+                <div class="pill-row">
+                  <div class="pill">No manual invoice stitching</div>
+                  <div class="pill">Party-wise tracked bill</div>
+                </div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">Bill reference</div>
+                <div class="summary-value">${billNumber}</div>
+                <div class="summary-grid">
+                  <div class="summary-block">
+                    <div class="summary-label">Bill date</div>
+                    <div class="summary-value" style="font-size:18px;">
+                      ${dayjs(billDate).isValid() ? dayjs(billDate).format("DD MMM YYYY") : "—"}
+                    </div>
+                  </div>
+                  <div class="summary-block">
+                    <div class="summary-label">Cases</div>
+                    <div class="summary-value" style="font-size:18px;">${rows.length}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Party</div>
+              <div style="margin-top:10px; font-size:18px; font-weight:800;">
+                ${String(partyName || "-")}
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Bill items</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Customer</th>
+                    <th>Loan ID</th>
+                    <th>Receivable ID</th>
+                    <th>Type</th>
+                    <th>Trigger</th>
+                    <th style="text-align:right;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>${lineItems}</tbody>
+              </table>
+            </div>
+
+            <div class="section" style="display:flex; justify-content:flex-end;">
+              <div class="summary-card" style="min-width:300px;">
+                <div class="summary-label">Total bill amount</div>
+                <div class="summary-value">${formatCurrency(totalAmount)}</div>
+              </div>
+            </div>
+            ${notes ? `<div class="section"><div class="section-title">Notes</div><div class="notes">${String(notes)}</div></div>` : ""}
           </div>
         </div>
-        <div class="box">
-          <div class="muted">Party</div>
-          <div style="font-size:16px; font-weight:700; margin-top:4px;">${String(partyName || "-")}</div>
-          <div class="muted" style="margin-top:10px;">Cases</div>
-          <div>${rows.length}</div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Customer</th>
-              <th>Loan ID</th>
-              <th>Receivable ID</th>
-              <th>Type</th>
-              <th style="text-align:right;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>${lineItems}</tbody>
-        </table>
-        <div class="total">
-          <div class="total-card">
-            <div class="total-label">Total bill amount</div>
-            <div class="total-value">${formatCurrency(totalAmount)}</div>
-          </div>
-        </div>
-        ${notes ? `<div class="notes"><strong>Notes:</strong><br/>${String(notes)}</div>` : ""}
       </body>
     </html>
   `);
@@ -843,9 +1039,14 @@ const PayoutReceivablesDashboard = () => {
   const [billFilter, setBillFilter] = useState("All");
   const [billPartyFilter, setBillPartyFilter] = useState("");
   const [selectedBillRowKeys, setSelectedBillRowKeys] = useState([]);
+  const [billComposerMode, setBillComposerMode] = useState("create");
+  const [editingBill, setEditingBill] = useState(null);
   const [billManagerStatusFilter, setBillManagerStatusFilter] =
     useState(BILL_STATUS.OUTSTANDING);
   const [activeBillCollection, setActiveBillCollection] = useState(null);
+  const [partySummaryCollapsed, setPartySummaryCollapsed] = useState(false);
+  const [billingSuggestionsCollapsed, setBillingSuggestionsCollapsed] =
+    useState(false);
 
   const [currentRecord, setCurrentRecord] = useState(null);
   const [editingPaymentIndex, setEditingPaymentIndex] = useState(null);
@@ -863,6 +1064,15 @@ const PayoutReceivablesDashboard = () => {
   const closeInsightPopups = useCallback(() => {
     setOpenInsightPopupKey(null);
   }, []);
+
+  const resetBillComposer = useCallback(() => {
+    setGenerateBillModalVisible(false);
+    setSelectedBillRowKeys([]);
+    setBillPartyFilter("");
+    setBillComposerMode("create");
+    setEditingBill(null);
+    billForm.resetFields();
+  }, [billForm]);
 
   const loadLedgerDetailsForRow = useCallback(
     async (record) => {
@@ -1202,35 +1412,44 @@ const PayoutReceivablesDashboard = () => {
   }, [rows]);
 
   const billPartyOptions = useMemo(() => {
-    return Array.from(
-      new Set(
-        rows
-          .filter(isUnbilledOutstandingReceivable)
-          .map((row) => String(row?.payout_party_name || "").trim())
-          .filter(Boolean),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+    const parties = new Set(
+      rows
+        .filter(isUnbilledOutstandingReceivable)
+        .map((row) => String(row?.payout_party_name || "").trim())
+        .filter(Boolean),
+    );
+    if (editingBill?.partyName) {
+      parties.add(String(editingBill.partyName).trim());
+    }
+    return Array.from(parties).sort((a, b) => a.localeCompare(b));
+  }, [editingBill, rows]);
 
-  const availableBillRows = useMemo(() => {
+  const billComposerRows = useMemo(() => {
+    const activeBillNumber = String(editingBill?.billNumber || "").trim();
     return rows.filter((row) => {
-      if (!isUnbilledOutstandingReceivable(row)) return false;
-      if (!billPartyFilter) return true;
-      return (
+      const sameParty =
+        !billPartyFilter ||
         normalizeBankName(row?.payout_party_name) ===
-        normalizeBankName(billPartyFilter)
-      );
+          normalizeBankName(billPartyFilter);
+      if (!sameParty) return false;
+      if (billComposerMode === "edit" && activeBillNumber) {
+        return (
+          getBillNumber(row) === activeBillNumber ||
+          isUnbilledOutstandingReceivable(row)
+        );
+      }
+      return isUnbilledOutstandingReceivable(row);
     });
-  }, [billPartyFilter, rows]);
+  }, [billComposerMode, billPartyFilter, editingBill, rows]);
 
   const selectedBillRows = useMemo(() => {
     const keySet = new Set(
       selectedBillRowKeys.map((key) => String(key).trim()).filter(Boolean),
     );
-    return availableBillRows.filter((row) =>
+    return billComposerRows.filter((row) =>
       keySet.has(normalizePayoutId(row)),
     );
-  }, [availableBillRows, selectedBillRowKeys]);
+  }, [billComposerRows, selectedBillRowKeys]);
 
   const selectedBillTotal = useMemo(() => {
     return selectedBillRows.reduce((sum, row) => {
@@ -1286,6 +1505,86 @@ const PayoutReceivablesDashboard = () => {
         const bTs = new Date(b.billDate || 0).getTime() || 0;
         return bTs - aTs;
       });
+  }, [rows]);
+
+  const billSuggestions = useMemo(() => {
+    const bankGroups = new Map();
+    const showroomGroups = new Map();
+
+    rows.forEach((row) => {
+      if (!isUnbilledOutstandingReceivable(row)) return;
+      const paymentStatus = getPaymentStatus(row);
+      const pendingAmount =
+        paymentStatus.pendingAmount || paymentStatus.expectedAmount || 0;
+      if (!(pendingAmount > 0)) return;
+
+      if (isBankReceivableRecord(row)) {
+        const monthKey = formatMonthLabel(
+          row?.disbursementDate || row?.created_date,
+        );
+        const party = String(row?.payout_party_name || "Unknown").trim();
+        const key = `${party}::${monthKey}`;
+        if (!bankGroups.has(key)) {
+          bankGroups.set(key, {
+            kind: "bank",
+            partyName: party,
+            monthLabel: monthKey,
+            rows: [],
+            totalAmount: 0,
+          });
+        }
+        const group = bankGroups.get(key);
+        group.rows.push(row);
+        group.totalAmount += pendingAmount;
+      } else if (isShowroomCommissionRecord(row)) {
+        const party = String(row?.payout_party_name || "Unknown").trim();
+        if (!showroomGroups.has(party)) {
+          showroomGroups.set(party, {
+            kind: "showroom",
+            partyName: party,
+            rows: [],
+            totalAmount: 0,
+            latestDeliveryDate: row?.deliveryDate || row?.created_date,
+          });
+        }
+        const group = showroomGroups.get(party);
+        group.rows.push(row);
+        group.totalAmount += pendingAmount;
+        const candidateTs =
+          new Date(row?.deliveryDate || row?.created_date || 0).getTime() || 0;
+        const currentTs =
+          new Date(group.latestDeliveryDate || 0).getTime() || 0;
+        if (candidateTs > currentTs) {
+          group.latestDeliveryDate = row?.deliveryDate || row?.created_date;
+        }
+      }
+    });
+
+    const bankSuggestions = Array.from(bankGroups.values())
+      .sort((a, b) => {
+        const aTs =
+          new Date(a.rows[0]?.disbursementDate || a.rows[0]?.created_date || 0).getTime() || 0;
+        const bTs =
+          new Date(b.rows[0]?.disbursementDate || b.rows[0]?.created_date || 0).getTime() || 0;
+        return aTs - bTs;
+      })
+      .map((group) => ({
+        ...group,
+        title: `Raise ${group.partyName} bill for the month of ${group.monthLabel}`,
+        description: `${group.rows.length} case${group.rows.length === 1 ? "" : "s"} amounting to ${formatCurrency(group.totalAmount)}`,
+        tone: "blue",
+      }));
+
+    const showroomSuggestions = Array.from(showroomGroups.values())
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .map((group) => ({
+        ...group,
+        title: `Raise ${group.partyName} commission bill`,
+        description: `Delivery completed${dayjs(group.latestDeliveryDate).isValid() ? ` on ${dayjs(group.latestDeliveryDate).format("DD MMM YYYY")}` : ""} · ${group.rows.length} case${group.rows.length === 1 ? "" : "s"} · ${formatCurrency(group.totalAmount)}`,
+        tone: "green",
+      }));
+
+    return [...bankSuggestions, ...showroomSuggestions];
   }, [rows]);
 
   const stats = useMemo(() => {
@@ -1597,6 +1896,8 @@ const PayoutReceivablesDashboard = () => {
   };
 
   const openGenerateBillModal = () => {
+    setBillComposerMode("create");
+    setEditingBill(null);
     const selectedOutstanding = selectedRows.filter(isUnbilledOutstandingReceivable);
     const sameParty =
       selectedOutstanding.length > 0
@@ -1630,6 +1931,47 @@ const PayoutReceivablesDashboard = () => {
     setGenerateBillModalVisible(true);
   };
 
+  const openSuggestedBillModal = (suggestion) => {
+    setBillComposerMode("create");
+    setEditingBill(null);
+    const rowsForSuggestion = Array.isArray(suggestion?.rows)
+      ? suggestion.rows
+      : [];
+    const partyName = String(suggestion?.partyName || "").trim();
+    setBillPartyFilter(partyName);
+    setSelectedBillRowKeys(
+      rowsForSuggestion.map((row) => normalizePayoutId(row)).filter(Boolean),
+    );
+    billForm.setFieldsValue({
+      billNumber: generateBillNumber(),
+      billDate: dayjs(),
+      billNotes:
+        suggestion?.kind === "bank"
+          ? `Suggested monthly bill for ${suggestion.monthLabel}`
+          : "Suggested showroom commission bill",
+    });
+    setGenerateBillModalVisible(true);
+  };
+
+  const openEditBillModal = (bill) => {
+    if (!bill) return;
+    setBillComposerMode("edit");
+    setEditingBill(bill);
+    setBillPartyFilter(String(bill.partyName || "").trim());
+    setSelectedBillRowKeys(
+      safeArray(bill.rows)
+        .map((row) => normalizePayoutId(row))
+        .filter(Boolean),
+    );
+    billForm.setFieldsValue({
+      billNumber: bill.billNumber,
+      billDate: bill.billDate ? dayjs(bill.billDate) : dayjs(),
+      billNotes: bill.notes || "",
+    });
+    setGenerateBillModalVisible(true);
+    setBillManagerVisible(false);
+  };
+
   const handleGenerateBill = async () => {
     const values = await billForm.validateFields();
     const partyName = String(billPartyFilter || "").trim();
@@ -1645,8 +1987,31 @@ const PayoutReceivablesDashboard = () => {
     const billNumber = String(values.billNumber || "").trim();
     const billDate = values.billDate?.toISOString?.() || values.billDate;
     const billNotes = String(values.billNotes || "").trim();
+    const previousBillNumber = String(editingBill?.billNumber || "").trim();
+    const selectedKeySet = new Set(
+      selectedBillRows.map((row) => normalizePayoutId(row)),
+    );
+    const rowsToClear =
+      billComposerMode === "edit" && previousBillNumber
+        ? rows.filter(
+            (row) =>
+              getBillNumber(row) === previousBillNumber &&
+              !selectedKeySet.has(normalizePayoutId(row)),
+          )
+        : [];
 
     let updatedCount = 0;
+    for (const row of rowsToClear) {
+      await updateReceivableInBackend(
+        normalizePayoutId(row),
+        EMPTY_BILL_PATCH,
+        {
+          action: "Bill Updated",
+          details: `Bill ${previousBillNumber} removed from receivable during edit`,
+        },
+        { reload: false },
+      );
+    }
     for (const row of selectedBillRows) {
       const updated = await updateReceivableInBackend(
         normalizePayoutId(row),
@@ -1668,8 +2033,7 @@ const PayoutReceivablesDashboard = () => {
     }
 
     await loadReceivables();
-    setGenerateBillModalVisible(false);
-    setSelectedBillRowKeys([]);
+    resetBillComposer();
     openBillPrintWindow({
       billNumber,
       billDate,
@@ -1678,7 +2042,30 @@ const PayoutReceivablesDashboard = () => {
       totalAmount: selectedBillTotal,
       notes: billNotes,
     });
-    messageApi.success(`Bill generated for ${updatedCount} receivable(s)`);
+    messageApi.success(
+      billComposerMode === "edit"
+        ? `Bill updated across ${updatedCount} receivable(s)`
+        : `Bill generated for ${updatedCount} receivable(s)`,
+    );
+  };
+
+  const handleDeleteBill = async (bill) => {
+    if (!bill) return;
+    let clearedCount = 0;
+    for (const row of safeArray(bill.rows)) {
+      const updated = await updateReceivableInBackend(
+        normalizePayoutId(row),
+        EMPTY_BILL_PATCH,
+        {
+          action: "Bill Deleted",
+          details: `Bill ${bill.billNumber} deleted from collections bill manager`,
+        },
+        { reload: false },
+      );
+      if (updated) clearedCount += 1;
+    }
+    await loadReceivables();
+    messageApi.success(`Removed bill from ${clearedCount} receivable(s)`);
   };
 
   const openBillReceiptFlow = (bill) => {
@@ -2453,35 +2840,129 @@ const PayoutReceivablesDashboard = () => {
         </div>
 
         {bankSummary.length > 0 && (
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
-              Party-wise Pending Summary
-            </h3>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-              {bankSummary.slice(0, 8).map((bank, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-2.5 dark:border-[#303030] dark:bg-[#262626]"
-                >
-                  <div>
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                      {bank.bank}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {bank.count} items
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                      {formatCurrency(bank.pending)}
-                    </div>
-                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(bank.collected)} ✓
-                    </div>
-                  </div>
+          <div className="rounded-[28px] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,_rgba(236,253,245,0.98),_rgba(255,255,255,0.96)_58%)] p-4 shadow-sm dark:border-emerald-900/30 dark:bg-[radial-gradient(circle_at_top_left,_rgba(6,78,59,0.34),_rgba(31,31,31,0.96)_58%)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center rounded-full border border-emerald-200 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:border-emerald-800/60 dark:bg-black/10 dark:text-emerald-300">
+                  Party-wise pending summary
                 </div>
-              ))}
+                <p className="mt-2 max-w-2xl text-xs text-slate-600 dark:text-slate-300">
+                  See which bank or showroom party is carrying the largest outstanding bucket before raising collections or bills.
+                </p>
+              </div>
+              <Button
+                size="small"
+                onClick={() => setPartySummaryCollapsed((prev) => !prev)}
+              >
+                {partySummaryCollapsed ? "Expand" : "Collapse"}
+              </Button>
             </div>
+            {!partySummaryCollapsed ? (
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {bankSummary.slice(0, 8).map((bank, idx) => {
+                  const collectionPercent =
+                    bank.total > 0
+                      ? Math.min(100, Math.round((bank.collected / bank.total) * 100))
+                      : 0;
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-[22px] border border-white/70 bg-white/90 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] dark:border-white/5 dark:bg-[#1d1d1d]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {bank.bank}
+                          </div>
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                            {bank.count} receivable{bank.count === 1 ? "" : "s"}
+                          </div>
+                        </div>
+                        <div className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                          {collectionPercent}% collected
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 dark:text-slate-400">Pending</span>
+                          <span className="font-semibold text-amber-600 dark:text-amber-300">
+                            {formatCurrency(bank.pending)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 dark:text-slate-400">Collected</span>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-300">
+                            {formatCurrency(bank.collected)}
+                          </span>
+                        </div>
+                        <Progress
+                          percent={collectionPercent}
+                          showInfo={false}
+                          strokeColor="#16a34a"
+                          trailColor="#dcfce7"
+                          size="small"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {billSuggestions.length > 0 && (
+          <div className="rounded-[28px] border border-violet-100 bg-[radial-gradient(circle_at_top_left,_rgba(250,245,255,0.98),_rgba(255,255,255,0.96)_55%)] p-4 shadow-sm dark:border-violet-900/30 dark:bg-[radial-gradient(circle_at_top_left,_rgba(76,29,149,0.28),_rgba(31,31,31,0.96)_55%)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="inline-flex items-center rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-700 dark:border-violet-700/60 dark:bg-black/10 dark:text-violet-300">
+                  AI billing suggestions
+                </div>
+                <p className="mt-2 max-w-2xl text-xs text-slate-600 dark:text-slate-300">
+                  Monthly finance bill nudges and delivery-triggered showroom commission reminders, already filtered to unbilled outstanding receivables.
+                </p>
+              </div>
+              <Button
+                size="small"
+                onClick={() => setBillingSuggestionsCollapsed((prev) => !prev)}
+              >
+                {billingSuggestionsCollapsed ? "Expand" : "Collapse"}
+              </Button>
+            </div>
+            {!billingSuggestionsCollapsed ? (
+              <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {billSuggestions.slice(0, 6).map((suggestion, index) => (
+                  <div
+                    key={`${suggestion.kind}-${suggestion.partyName}-${suggestion.monthLabel || index}`}
+                    className="rounded-[24px] border border-white/80 bg-white/90 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] dark:border-white/5 dark:bg-[#1d1d1d]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:bg-[#262626] dark:text-slate-300">
+                          {suggestion.kind === "bank"
+                            ? "Monthly finance bill"
+                            : "Showroom commission"}
+                        </div>
+                        <div className="mt-3 text-base font-semibold text-slate-900 dark:text-slate-100">
+                          {suggestion.title}
+                        </div>
+                        <div className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                          {suggestion.description}
+                        </div>
+                      </div>
+                      <Button
+                        size="small"
+                        type="primary"
+                        style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+                        onClick={() => openSuggestedBillModal(suggestion)}
+                      >
+                        Raise Bill
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -2495,7 +2976,8 @@ const PayoutReceivablesDashboard = () => {
                 onChange={(e) => setSearchText(e.target.value)}
                 allowClear
                 size="middle"
-                className="[&.ant-input-affix-wrapper]:!h-10 [&_.ant-input]:!text-sm"
+                style={{ height: 40 }}
+                className="[&.ant-input-affix-wrapper]:!items-center [&.ant-input-affix-wrapper]:!py-0 [&_.ant-input-prefix]:!flex [&_.ant-input-prefix]:!items-center [&_.ant-input-suffix]:!flex [&_.ant-input-suffix]:!items-center [&_.ant-input]:!h-[38px] [&_.ant-input]:!text-sm [&_.ant-input]:!leading-[38px]"
               />
             </div>
             <Select
@@ -3156,130 +3638,203 @@ const PayoutReceivablesDashboard = () => {
       </div>
 
       <Modal
-        title="Generate Bill"
+        title={billComposerMode === "edit" ? "Edit Bill" : "Generate Bill"}
         open={generateBillModalVisible}
         onOk={handleGenerateBill}
-        onCancel={() => {
-          setGenerateBillModalVisible(false);
-          setSelectedBillRowKeys([]);
-          setBillPartyFilter("");
-        }}
-        width={880}
-        okText="Generate & Download"
+        onCancel={resetBillComposer}
+        width="94vw"
+        style={{ top: 20 }}
+        bodyStyle={{ maxHeight: "calc(100vh - 150px)", overflowY: "auto" }}
+        okText={
+          billComposerMode === "edit" ? "Save & Download" : "Generate & Download"
+        }
       >
         <Form form={billForm} layout="vertical">
-          <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr_0.8fr]">
-            <Form.Item label="Party" required>
-              <Select
-                value={billPartyFilter || undefined}
-                onChange={(value) => {
-                  setBillPartyFilter(value || "");
-                  setSelectedBillRowKeys([]);
-                }}
-                placeholder="Select party"
-                showSearch
-                allowClear
-                size="large"
-              >
-                {billPartyOptions.map((party) => (
-                  <Option key={party} value={party}>
-                    {party}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+          <div className="rounded-[28px] border border-amber-100 bg-[radial-gradient(circle_at_top_left,_rgba(254,252,232,0.98),_rgba(255,255,255,0.95)_60%)] p-5 dark:border-amber-900/30 dark:bg-[radial-gradient(circle_at_top_left,_rgba(120,53,15,0.22),_rgba(31,31,31,0.96)_60%)]">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="inline-flex items-center rounded-full border border-amber-200 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:border-amber-800/60 dark:bg-black/10 dark:text-amber-300">
+                  {billComposerMode === "edit"
+                    ? "Bill edit workspace"
+                    : "Bill generation workspace"}
+                </div>
+                <h3 className="mt-3 text-[28px] font-black leading-none tracking-tight text-emerald-800 dark:text-emerald-300">
+                  {billComposerMode === "edit"
+                    ? "Refine the bill before sending it again"
+                    : "Build a clean party-wise bill in one pass"}
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  Select a party, lock the outstanding receivables that belong in this bill, and download a finance-ready PDF on your letterhead.
+                </p>
+              </div>
+              <div className="grid min-w-[240px] gap-3 sm:grid-cols-2">
+                <div className="rounded-[22px] border border-white/70 bg-white/90 px-4 py-4 shadow-sm dark:border-white/5 dark:bg-[#1d1d1d]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                    Selected cases
+                  </div>
+                  <div className="mt-2 text-3xl font-black text-slate-900 dark:text-slate-100">
+                    {selectedBillRows.length}
+                  </div>
+                </div>
+                <div className="rounded-[22px] border border-white/70 bg-white/90 px-4 py-4 shadow-sm dark:border-white/5 dark:bg-[#1d1d1d]">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                    Bill total
+                  </div>
+                  <div className="mt-2 text-3xl font-black text-slate-900 dark:text-slate-100">
+                    {formatCurrency(selectedBillTotal)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <Form.Item
-              name="billNumber"
-              label="Bill Number"
-              rules={[{ required: true, message: "Please enter bill number" }]}
-            >
-              <Input
-                size="large"
-                addonAfter={
-                  <Button
-                    type="text"
-                    size="small"
-                    onClick={() =>
-                      billForm.setFieldValue("billNumber", generateBillNumber())
-                    }
+          <div className="mt-5 grid gap-5 lg:grid-cols-[0.95fr_1.45fr]">
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-[#333] dark:bg-[#1f1f1f]">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  Bill setup
+                </div>
+                <div className="mt-4 grid gap-4">
+                  <Form.Item label="Party" required style={{ marginBottom: 0 }}>
+                    <Select
+                      value={billPartyFilter || undefined}
+                      onChange={(value) => {
+                        setBillPartyFilter(value || "");
+                        setSelectedBillRowKeys([]);
+                      }}
+                      placeholder="Select party"
+                      showSearch
+                      allowClear
+                      size="large"
+                    >
+                      {billPartyOptions.map((party) => (
+                        <Option key={party} value={party}>
+                          {party}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+
+                  <Form.Item
+                    name="billNumber"
+                    label="Bill Number"
+                    rules={[{ required: true, message: "Please enter bill number" }]}
+                    style={{ marginBottom: 0 }}
                   >
-                    Refresh
-                  </Button>
-                }
-              />
-            </Form.Item>
+                    <Input
+                      size="large"
+                      addonAfter={
+                        <Button
+                          type="text"
+                          size="small"
+                          onClick={() =>
+                            billForm.setFieldValue("billNumber", generateBillNumber())
+                          }
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    />
+                  </Form.Item>
 
-            <Form.Item
-              name="billDate"
-              label="Bill Date"
-              rules={[{ required: true, message: "Please select bill date" }]}
-            >
-              <DatePicker style={{ width: "100%" }} size="large" format="DD MMM YYYY" />
-            </Form.Item>
-          </div>
+                  <Form.Item
+                    name="billDate"
+                    label="Bill Date"
+                    rules={[{ required: true, message: "Please select bill date" }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <DatePicker
+                      style={{ width: "100%" }}
+                      size="large"
+                      format="DD MMM YYYY"
+                    />
+                  </Form.Item>
 
-          <Form.Item name="billNotes" label="Bill Notes (optional)">
-            <Input.TextArea
-              rows={2}
-              placeholder="Short note for the party or internal remark"
-            />
-          </Form.Item>
-
-          <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#333] dark:bg-[#262626]">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                Selected Receivables
+                  <Form.Item name="billNotes" label="Bill Notes" style={{ marginBottom: 0 }}>
+                    <Input.TextArea
+                      rows={3}
+                      placeholder="Short note for the party or internal remark"
+                    />
+                  </Form.Item>
+                </div>
               </div>
-              <div className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {selectedBillRows.length} case{selectedBillRows.length === 1 ? "" : "s"}
+
+              <div className="rounded-[24px] border border-violet-100 bg-[linear-gradient(180deg,_rgba(248,245,255,0.96),_rgba(255,255,255,0.98))] p-5 shadow-sm dark:border-violet-900/30 dark:bg-[linear-gradient(180deg,_rgba(76,29,149,0.16),_rgba(31,31,31,0.95))]">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-600 dark:text-violet-300">
+                  Bill summary
+                </div>
+                <div className="mt-4 grid gap-3">
+                  <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4 dark:border-white/5 dark:bg-black/10">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                      Selected cases
+                    </div>
+                    <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
+                      {selectedBillRows.length}
+                    </div>
+                  </div>
+                  <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4 dark:border-white/5 dark:bg-black/10">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                      Locked for this bill
+                    </div>
+                    <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
+                      {formatCurrency(selectedBillTotal)}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Billed receivables stay out of fresh bill suggestions until edited or deleted.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                Bill Total
-              </div>
-              <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">
-                {formatCurrency(selectedBillTotal)}
-              </div>
-            </div>
-          </div>
 
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Outstanding receivables for billing
-            </div>
-            <Button
-              size="small"
-              disabled={!availableBillRows.length}
-              onClick={() =>
-                setSelectedBillRowKeys(
-                  availableBillRows.map((row) => normalizePayoutId(row)),
-                )
-              }
-            >
-              Select All
-            </Button>
-          </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Outstanding receivables for billing
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Select multiple receivables under one party and generate a single bill.
+                  </div>
+                </div>
+                <Button
+                  size="small"
+                  disabled={!billComposerRows.length}
+                  onClick={() =>
+                    setSelectedBillRowKeys(
+                      billComposerRows.map((row) => normalizePayoutId(row)),
+                    )
+                  }
+                >
+                  Select All
+                </Button>
+              </div>
 
-          <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+              <div className="space-y-3 pr-1">
             {!billPartyFilter ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-[#333] dark:bg-[#232323] dark:text-slate-400">
                 Select a party to see outstanding receivables.
               </div>
-            ) : availableBillRows.length === 0 ? (
+            ) : billComposerRows.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500 dark:border-[#333] dark:bg-[#232323] dark:text-slate-400">
-                No unbilled outstanding receivables for this party.
+                No bill-ready receivables for this party.
               </div>
             ) : (
-              availableBillRows.map((row) => {
+              billComposerRows.map((row) => {
                 const rowKey = normalizePayoutId(row);
                 const paymentStatus = getPaymentStatus(row);
                 const checked = selectedBillRowKeys.includes(rowKey);
+                const lockedToAnotherBill =
+                  Boolean(getBillNumber(row)) &&
+                  getBillNumber(row) !== String(editingBill?.billNumber || "");
                 return (
                   <label
                     key={rowKey}
-                    className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#333] dark:bg-[#1f1f1f]"
+                    className={`flex cursor-pointer items-start gap-3 rounded-[20px] border p-4 transition-all ${
+                      checked
+                        ? "border-sky-300 bg-sky-50/80 shadow-sm dark:border-sky-700 dark:bg-sky-950/20"
+                        : "border-slate-200 bg-white dark:border-[#333] dark:bg-[#1f1f1f]"
+                    }`}
                   >
                     <Checkbox
                       checked={checked}
@@ -3301,6 +3856,16 @@ const PayoutReceivablesDashboard = () => {
                           <div className="mt-1 text-xs font-mono text-slate-500 dark:text-slate-400">
                             {row.loanId} · {row.payoutId}
                           </div>
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                            {isBankReceivableRecord(row)
+                              ? `Disbursement ${formatShortDate(row.disbursementDate)}`
+                              : `Delivery ${formatShortDate(row.deliveryDate)}`}
+                          </div>
+                          {lockedToAnotherBill ? (
+                            <div className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-[#262626] dark:text-slate-300">
+                              Locked in bill {getBillNumber(row)}
+                            </div>
+                          ) : null}
                         </div>
                         <div className="text-right">
                           <div className="text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
@@ -3316,6 +3881,8 @@ const PayoutReceivablesDashboard = () => {
                 );
               })
             )}
+              </div>
+            </div>
           </div>
         </Form>
       </Modal>
@@ -3329,83 +3896,235 @@ const PayoutReceivablesDashboard = () => {
             Close
           </Button>,
         ]}
-        width={920}
+        width="94vw"
+        style={{ top: 20 }}
+        bodyStyle={{ maxHeight: "calc(100vh - 150px)", overflowY: "auto" }}
       >
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="rounded-[28px] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,_rgba(254,252,232,0.98),_rgba(255,255,255,0.95)_58%)] p-5 dark:border-emerald-900/30 dark:bg-[radial-gradient(circle_at_top_left,_rgba(6,78,59,0.24),_rgba(31,31,31,0.96)_58%)]">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center rounded-full border border-emerald-200 bg-white/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700 dark:border-emerald-800/60 dark:bg-black/10 dark:text-emerald-300">
+                Bill management studio
+              </div>
+              <h3 className="mt-3 text-[28px] font-black leading-none tracking-tight text-emerald-800 dark:text-emerald-300">
+                Track raised bills, receipts, and locks in one place
+              </h3>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Edit bill metadata, download the PDF again, delete the bill lock, or post a partial or full receipt straight into the linked receivables.
+              </p>
+            </div>
+            <div className="grid min-w-[260px] gap-3 sm:grid-cols-2">
+              <div className="rounded-[22px] border border-white/70 bg-white/90 px-4 py-4 shadow-sm dark:border-white/5 dark:bg-[#1d1d1d]">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  Outstanding bills
+                </div>
+                <div className="mt-2 text-3xl font-black text-slate-900 dark:text-slate-100">
+                  {groupedBills.filter((bill) => bill.status === BILL_STATUS.OUTSTANDING).length}
+                </div>
+              </div>
+              <div className="rounded-[22px] border border-white/70 bg-white/90 px-4 py-4 shadow-sm dark:border-white/5 dark:bg-[#1d1d1d]">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                  Collected bills
+                </div>
+                <div className="mt-2 text-3xl font-black text-slate-900 dark:text-slate-100">
+                  {groupedBills.filter((bill) => bill.status === BILL_STATUS.COLLECTED).length}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 mt-5 flex flex-wrap gap-2">
           {["All", BILL_STATUS.OUTSTANDING, BILL_STATUS.COLLECTED].map((item) => (
-            <Button
+            <button
               key={item}
-              type={billManagerStatusFilter === item ? "primary" : "default"}
+              type="button"
               onClick={() => setBillManagerStatusFilter(item)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                billManagerStatusFilter === item
+                  ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
+                  : "border-slate-200 bg-white text-slate-600 dark:border-[#333] dark:bg-[#1f1f1f] dark:text-slate-300"
+              }`}
             >
               {item === "All" ? "All Bills" : item}
-            </Button>
+            </button>
           ))}
         </div>
 
-        <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+        <div className="space-y-4 pr-1">
           {filteredBills.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-sm text-slate-500 dark:border-[#333] dark:bg-[#232323] dark:text-slate-400">
               No bills found for this filter.
             </div>
           ) : (
-            filteredBills.map((bill) => (
-              <div
-                key={bill.billNumber}
-                className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-[#333] dark:bg-[#1f1f1f]"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {bill.billNumber}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {bill.partyName} · {bill.caseCount} case{bill.caseCount === 1 ? "" : "s"} ·{" "}
-                      {bill.billDate ? dayjs(bill.billDate).format("DD MMM YYYY") : "—"}
-                    </div>
-                    {bill.billReceivedDate ? (
-                      <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-                        Received on {dayjs(bill.billReceivedDate).format("DD MMM YYYY")}
+            filteredBills.map((bill) => {
+              const percent =
+                bill.expected > 0
+                  ? Math.min(100, Math.round((bill.received / bill.expected) * 100))
+                  : 0;
+              return (
+                <div
+                  key={bill.billNumber}
+                  className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm dark:border-[#333] dark:bg-[#1f1f1f]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-[#2a2a2a]">
+                    <div>
+                      <div className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:bg-[#262626] dark:text-slate-300">
+                        {bill.status === BILL_STATUS.COLLECTED
+                          ? "Collected bill"
+                          : "Outstanding bill"}
                       </div>
-                    ) : null}
-                  </div>
-                  <div className="text-right">
-                    <Tag color={bill.status === BILL_STATUS.COLLECTED ? "success" : "processing"}>
-                      {bill.status}
-                    </Tag>
-                    <div className="mt-2 text-lg font-black text-slate-900 dark:text-slate-100">
-                      {formatCurrency(bill.expected)}
+                      <div className="mt-3 text-lg font-black text-slate-900 dark:text-slate-100">
+                        {bill.billNumber}
+                      </div>
+                      <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                        {bill.partyName}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {bill.caseCount} case{bill.caseCount === 1 ? "" : "s"} · Bill date{" "}
+                        {bill.billDate ? dayjs(bill.billDate).format("DD MMM YYYY") : "—"}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      Received {formatCurrency(bill.received)} · Pending {formatCurrency(bill.pending)}
+                    <div className="text-right">
+                      <Tag color={bill.status === BILL_STATUS.COLLECTED ? "success" : "processing"}>
+                        {bill.status}
+                      </Tag>
+                      <div className="mt-3 text-2xl font-black text-slate-900 dark:text-slate-100">
+                        {formatCurrency(bill.expected)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Received {formatCurrency(bill.received)} · Pending {formatCurrency(bill.pending)}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    size="small"
-                    onClick={() =>
-                      openBillPrintWindow({
-                        billNumber: bill.billNumber,
-                        billDate: bill.billDate,
-                        partyName: bill.partyName,
-                        rows: bill.rows,
-                        totalAmount: bill.expected,
-                        notes: bill.notes,
-                      })
-                    }
-                  >
-                    Download Bill
-                  </Button>
-                  {bill.status !== BILL_STATUS.COLLECTED ? (
-                    <Button size="small" type="primary" onClick={() => openBillReceiptFlow(bill)}>
-                      Record Receipt
-                    </Button>
-                  ) : null}
+                  <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1.15fr_0.85fr]">
+                    <div>
+                      <div className="grid gap-2">
+                        {bill.rows.slice(0, 4).map((row) => {
+                          const paymentStatus = getPaymentStatus(row);
+                          return (
+                            <div
+                              key={normalizePayoutId(row)}
+                              className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-[#333] dark:bg-[#232323]"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                    {row.customerName}
+                                  </div>
+                                  <div className="mt-1 text-xs font-mono text-slate-500 dark:text-slate-400">
+                                    {row.loanId} · {row.payoutId}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                                    Pending
+                                  </div>
+                                  <div className="mt-1 text-sm font-bold text-amber-600 dark:text-amber-300">
+                                    {formatCurrency(paymentStatus.pendingAmount)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {bill.rows.length > 4 ? (
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            +{bill.rows.length - 4} more linked receivable
+                            {bill.rows.length - 4 === 1 ? "" : "s"}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-[#333] dark:bg-[#202020]">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        Bill progress
+                      </div>
+                      <div className="mt-3 grid gap-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">Received</span>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-300">
+                            {formatCurrency(bill.received)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-slate-400">Pending</span>
+                          <span className="font-semibold text-amber-600 dark:text-amber-300">
+                            {formatCurrency(bill.pending)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <Progress
+                          percent={percent}
+                          showInfo={false}
+                          strokeColor={bill.status === BILL_STATUS.COLLECTED ? "#16a34a" : "#7c3aed"}
+                          trailColor="#ede9fe"
+                          size="small"
+                        />
+                      </div>
+                      {bill.billReceivedDate ? (
+                        <div className="mt-3 text-xs text-emerald-600 dark:text-emerald-300">
+                          Last fully received on {dayjs(bill.billReceivedDate).format("DD MMM YYYY")}
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                          Partial receipt is supported. Any uncollected balance keeps the bill open and locked.
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          size="small"
+                          onClick={() =>
+                            openBillPrintWindow({
+                              billNumber: bill.billNumber,
+                              billDate: bill.billDate,
+                              partyName: bill.partyName,
+                              rows: bill.rows,
+                              totalAmount: bill.expected,
+                              notes: bill.notes,
+                            })
+                          }
+                        >
+                          Download Bill
+                        </Button>
+                        <Button
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => openEditBillModal(bill)}
+                        >
+                          Edit Bill
+                        </Button>
+                        {bill.status !== BILL_STATUS.COLLECTED ? (
+                          <Button
+                            size="small"
+                            type="primary"
+                            style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+                            onClick={() => openBillReceiptFlow(bill)}
+                          >
+                            Add Receipt
+                          </Button>
+                        ) : null}
+                        <Popconfirm
+                          title={`Delete ${bill.billNumber}?`}
+                          description="This clears the bill lock and bill metadata from linked receivables, but keeps collection history intact."
+                          okText="Delete Bill"
+                          cancelText="Cancel"
+                          onConfirm={() => handleDeleteBill(bill)}
+                        >
+                          <Button size="small" danger icon={<DeleteOutlined />}>
+                            Delete Bill
+                          </Button>
+                        </Popconfirm>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </Modal>
@@ -3413,7 +4132,7 @@ const PayoutReceivablesDashboard = () => {
       <Modal
         title={
           activeBillCollection
-            ? `Record Bill Receipt · ${activeBillCollection.billNumber}`
+            ? `Record Partial / Full Receipt · ${activeBillCollection.billNumber}`
             : "Record Bulk Collections"
         }
         open={bulkCollectionModalVisible}
@@ -3423,15 +4142,17 @@ const PayoutReceivablesDashboard = () => {
           setActiveBillCollection(null);
         }}
         width={700}
-        okText={activeBillCollection ? "Post Bill Receipt" : "Record Payments"}
+        okText={activeBillCollection ? "Post Receipt" : "Record Payments"}
       >
         <Form form={bulkForm} layout="vertical">
-          <p className="mb-4 text-gray-600">
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-600 dark:border-[#333] dark:bg-[#202020] dark:text-slate-300">
             {activeBillCollection ? (
               <>
                 Posting receipt for bill{" "}
                 <strong>{activeBillCollection.billNumber}</strong> across{" "}
-                <strong>{selectedRows.length}</strong> receivable(s).
+                <strong>{selectedRows.length}</strong> receivable(s). You can
+                post a partial receipt amount per case and the bill will remain
+                outstanding until the full amount is collected.
               </>
             ) : (
               <>
@@ -3439,7 +4160,7 @@ const PayoutReceivablesDashboard = () => {
                 receivable(s).
               </>
             )}
-          </p>
+          </div>
 
           <Form.Item
             name="received_date"
