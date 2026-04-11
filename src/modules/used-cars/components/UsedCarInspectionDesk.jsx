@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
-  Checkbox,
   Collapse,
   DatePicker,
   Empty,
@@ -11,7 +10,6 @@ import {
   Modal,
   Progress,
   Select,
-  Tag,
   TimePicker,
   Upload,
   message,
@@ -19,6 +17,7 @@ import {
 import {
   ArrowLeftOutlined,
   CameraOutlined,
+  DownloadOutlined,
   FileSearchOutlined,
   FileTextOutlined,
   PhoneOutlined,
@@ -58,6 +57,36 @@ const QUEUE_FILTERS = [
   "Draft",
   "Completed",
 ];
+
+const TYRE_ITEM_KEYS = [
+  "frontLeftTyre",
+  "frontRightTyre",
+  "rearLeftTyre",
+  "rearRightTyre",
+  "spareTyre",
+];
+
+const DAMAGE_MAP_LAYOUT = {
+  bonnet: "top",
+  roof: "top-center",
+  bootFloor: "bottom",
+  frontBumper: "front",
+  rearBumper: "rear",
+  leftFender: "left-front",
+  rightFender: "right-front",
+  leftFrontDoor: "left-mid",
+  leftRearDoor: "left-rear",
+  rightFrontDoor: "right-mid",
+  rightRearDoor: "right-rear",
+  leftQuarterPanel: "left-tail",
+  rightQuarterPanel: "right-tail",
+  headlamps: "front-corner",
+  taillamps: "rear-corner",
+  windshield: "glass-front",
+  rearWindshield: "glass-rear",
+  orvms: "mirror-zone",
+  alloyWheels: "wheel-zone",
+};
 
 // ── Mandatory photo buckets ──────────────────────────────────────
 const PHOTO_BUCKETS = [
@@ -276,22 +305,6 @@ const OPT = {
 };
 
 // ── Standalone option lists ──────────────────────────────────────
-
-const INSURANCE_OPTS = [
-  "Comprehensive — Full cover",
-  "Zero-Dep — Zero depreciation",
-  "Third Party Only — Sirf third party",
-  "Expired — Khatam ho gayi",
-  "Not Available — Nahi mili",
-];
-
-const OWNERSHIP_OPTS = [
-  "1st Owner — Pehla maalik",
-  "2nd Owner — Doosra maalik",
-  "3rd Owner — Teesra maalik",
-  "4th Owner+ — Chauthaa ya zyada",
-  "Unknown — Pata nahi",
-];
 
 const TRANSMISSION_OPTS = [
   "Manual 4-speed",
@@ -1612,6 +1625,8 @@ const buildReportValues = (lead) => {
     executiveName: inspection?.executiveName || lead?.assignedTo || "",
     executiveMobile: inspection?.executiveMobile || "",
     inspectionLocation: report?.inspectionLocation || lead?.address || "",
+    registrationNumber: report?.registrationNumber || lead?.regNo || "",
+    insuranceExpiry: report?.insuranceExpiry ? dayjs(report.insuranceExpiry) : null,
     inspectionDate: dayjs(baseDate),
     inspectionTime: dayjs(baseDate),
 
@@ -1654,6 +1669,8 @@ const buildReportValues = (lead) => {
 // ── Build report payload from form values (for saving) ───────────
 const buildReportPayload = (values) => ({
   inspectionLocation: normText(values.inspectionLocation),
+  registrationNumber: normText(values.registrationNumber),
+  insuranceExpiry: values.insuranceExpiry ? dayjs(values.insuranceExpiry).toISOString() : "",
   leadVerification: Object.fromEntries(
     LEAD_VERIFICATION_FIELDS.map((f) => [
       f.key,
@@ -1672,7 +1689,7 @@ const buildReportPayload = (values) => ({
         item.key,
         {
           status: values.items?.[item.key]?.status || "",
-          notes: normText(values.items?.[item.key]?.notes),
+          notes: "",
           photos: fromFileList(values.items?.[item.key]?.photos || []),
           ...(item.hasTread
             ? { treadDepth: values.items?.[item.key]?.treadDepth || "" }
@@ -1850,7 +1867,37 @@ function InspectionQueueCard({ lead, active, onClick }) {
   );
 }
 
-function SectionItemCard({ item, section, formName }) {
+function VerificationCard({ field }) {
+  const form = Form.useFormInstance();
+  const checked = Form.useWatch(["leadVerification", field.key], form);
+  return (
+    <button
+      type="button"
+      onClick={() => form.setFieldValue(["leadVerification", field.key], !checked)}
+      className={`w-full rounded-[18px] border px-4 py-3 text-left transition-all ${
+        checked
+          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
+          : "border-slate-200 bg-white dark:border-white/10 dark:bg-[#11151b]"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${
+          checked
+            ? "border-emerald-500 bg-emerald-500 text-white"
+            : "border-slate-300 text-slate-400 dark:border-slate-600 dark:text-slate-500"
+        }`}>
+          {checked ? "✓" : ""}
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{field.labelEn}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">{field.labelHi}</p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function SectionItemCard({ item, section, formName, autoOpen, clearAutoOpen, onAdvance, onSeedTyreBrand }) {
   const preset = item.preset || section.preset || "mechanical";
   const options = OPT[preset] || OPT.mechanical;
   const isTyre = Boolean(item.hasTread);
@@ -1869,11 +1916,23 @@ function SectionItemCard({ item, section, formName }) {
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <Form.Item label={<span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Status / Haalat</span>} name={[formName, item.key, "status"]} className="!mb-0">
-          <Select placeholder="Condition chunein..." showSearch allowClear optionFilterProp="label" options={options.map((v) => ({ value: v, label: v }))} />
+          <Select
+            id={`inspection-select-${item.key}`}
+            placeholder="Condition chunein..."
+            showSearch
+            allowClear
+            optionFilterProp="label"
+            open={autoOpen ? true : undefined}
+            onOpenChange={(open) => {
+              if (!open && autoOpen) clearAutoOpen();
+            }}
+            onChange={() => onAdvance(item.key)}
+            options={options.map((v) => ({ value: v, label: v }))}
+          />
         </Form.Item>
-        <Form.Item label={<span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Notes / Observation</span>} name={[formName, item.key, "notes"]} className="!mb-0">
-          <Input placeholder="Damage detail, khaas baat ya observation..." />
-        </Form.Item>
+        <div className="rounded-[14px] border border-dashed border-slate-200 px-3 py-3 text-xs font-medium text-slate-400 dark:border-white/10 dark:text-slate-500">
+          Photos ko directly is part ke neeche attach karo.
+        </div>
       </div>
       {isTyre ? (
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -1882,7 +1941,13 @@ function SectionItemCard({ item, section, formName }) {
           </Form.Item>
           {hasBrand ? (
             <Form.Item label={<span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Tyre Brand</span>} name={[formName, item.key, "tyreBrand"]} className="!mb-0">
-              <Select placeholder="Brand chunein..." showSearch allowClear options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))} />
+              <Select
+                placeholder="Brand chunein..."
+                showSearch
+                allowClear
+                options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))}
+                onChange={(value) => onSeedTyreBrand(item.key, value)}
+              />
             </Form.Item>
           ) : null}
         </div>
@@ -2035,7 +2100,92 @@ function ReportPhotoTile({ title, file }) {
   );
 }
 
-function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
+function DamageVisibilityMap({ itemValues }) {
+  const mappedIssues = INSPECTION_SECTIONS.flatMap((section) =>
+    section.items
+      .filter((item) => DAMAGE_MAP_LAYOUT[item.key])
+      .map((item) => {
+        const value = itemValues?.[item.key] || {};
+        if (!value.status || isPositiveInspectionStatus(value.status)) return null;
+        return {
+          key: item.key,
+          zone: DAMAGE_MAP_LAYOUT[item.key],
+          label: item.labelEn,
+          status: compactStatus(value.status),
+        };
+      })
+      .filter(Boolean)
+  );
+
+  const zoneGroups = mappedIssues.reduce((acc, issue) => {
+    acc[issue.zone] = acc[issue.zone] || [];
+    acc[issue.zone].push(issue);
+    return acc;
+  }, {});
+
+  const zoneClassMap = {
+    top: "top-1 left-1/2 -translate-x-1/2",
+    "top-center": "top-14 left-1/2 -translate-x-1/2",
+    bottom: "bottom-1 left-1/2 -translate-x-1/2",
+    front: "top-1/2 left-2 -translate-y-1/2",
+    rear: "top-1/2 right-2 -translate-y-1/2",
+    "left-front": "top-10 left-8",
+    "right-front": "top-10 right-8",
+    "left-mid": "top-1/2 left-8 -translate-y-1/2",
+    "right-mid": "top-1/2 right-8 -translate-y-1/2",
+    "left-rear": "bottom-12 left-8",
+    "right-rear": "bottom-12 right-8",
+    "left-tail": "bottom-6 left-6",
+    "right-tail": "bottom-6 right-6",
+    "front-corner": "top-24 left-2",
+    "rear-corner": "bottom-24 right-2",
+    "glass-front": "top-20 left-1/2 -translate-x-1/2",
+    "glass-rear": "bottom-20 left-1/2 -translate-x-1/2",
+    "mirror-zone": "top-1/2 left-1/2 -translate-x-[120%] -translate-y-[160%]",
+    "wheel-zone": "top-1/2 right-1/2 translate-x-[120%] translate-y-[90%]",
+  };
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Damage visibility</p>
+        <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Vehicle Damage Map</h2>
+        <p className="mt-2 text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
+          Exterior and body-related issues are positioned around the vehicle view so pricing and refurb decisions can happen faster.
+        </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <DocumentStat label="Mapped issues" value={mappedIssues.length} helper="Visible on car map" tone={mappedIssues.length ? "amber" : "green"} />
+          <DocumentStat label="Clean panels" value={Math.max(0, 30 - mappedIssues.length)} helper="Indicative healthy points" tone="green" />
+        </div>
+      </div>
+      <div className="rounded-[28px] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className="relative mx-auto h-[360px] max-w-[520px] rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,rgba(239,246,255,0.9),rgba(248,250,252,0.95))] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.6),rgba(15,19,25,0.95))]">
+          <div className="absolute left-1/2 top-1/2 h-[220px] w-[150px] -translate-x-1/2 -translate-y-1/2 rounded-[46px] border-4 border-slate-300 bg-white shadow-inner dark:border-slate-600 dark:bg-[#111827]" />
+          <div className="absolute left-1/2 top-[88px] h-[52px] w-[86px] -translate-x-1/2 rounded-[18px] border border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700/40" />
+          <div className="absolute left-1/2 bottom-[88px] h-[52px] w-[86px] -translate-x-1/2 rounded-[18px] border border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700/40" />
+          <div className="absolute left-[118px] top-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
+          <div className="absolute right-[118px] top-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
+          <div className="absolute left-[118px] bottom-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
+          <div className="absolute right-[118px] bottom-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
+          {Object.entries(zoneGroups).map(([zone, issues]) => (
+            <div key={zone} className={`absolute ${zoneClassMap[zone] || ""}`}>
+              <div className="max-w-[150px] rounded-[16px] border border-amber-200 bg-amber-50/90 px-3 py-2 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/10">
+                {issues.slice(0, 2).map((issue) => (
+                  <div key={issue.key}>
+                    <p className="text-[11px] font-black text-amber-800 dark:text-amber-300">{issue.label}</p>
+                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">{issue.status}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, printRef }) {
   const report = reportLead?.inspection?.report || {};
   const itemValues = report.items || {};
   const photoBuckets = report.photoBuckets || {};
@@ -2051,13 +2201,41 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
     title: bucket.labelEn,
     file: (photoBuckets[bucket.key] || [])[0] || null,
   })).filter((entry) => entry.file);
+  const heroPhoto =
+    (photoBuckets.frontView || [])[0] ||
+    (photoBuckets.leftSide || [])[0] ||
+    (photoBuckets.rightSide || [])[0] ||
+    bucketCards[0]?.file ||
+    null;
   const summarySections = INSPECTION_SECTIONS.map((section) => ({
     ...section,
     completion: calcSectionScore(section.key, itemValues),
     ...getSectionCounts(section, itemValues),
   }));
+  const issueHighlights = INSPECTION_SECTIONS.flatMap((section) =>
+    section.items
+      .map((item) => {
+        const itemValue = itemValues?.[item.key] || {};
+        if (!itemValue.status || isPositiveInspectionStatus(itemValue.status)) return null;
+        const detail = [
+          compactStatus(itemValue.status),
+          itemValue.notes,
+          itemValue.treadDepth ? `Tread ${itemValue.treadDepth} mm` : "",
+          itemValue.tyreBrand ? `Brand ${itemValue.tyreBrand}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return {
+          key: `${section.key}-${item.key}`,
+          section: section.titleEn,
+          label: item.labelEn,
+          detail,
+        };
+      })
+      .filter(Boolean)
+  );
   const reportHighlights = [
-    reportLead?.regNo || "Registration pending",
+    report?.registrationNumber || reportLead?.regNo || "Registration pending",
     reportLead?.mfgYear || "Year pending",
     reportLead?.fuel || report?.fuelType || "Fuel pending",
     getMileage(reportLead) || "Kms pending",
@@ -2065,7 +2243,22 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
+      <style>{`
+        @media print {
+          .inspection-report-toolbar {
+            display: none !important;
+          }
+          .inspection-report-pages {
+            max-width: 100% !important;
+          }
+          .inspection-report-pages section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
+      <div className="inspection-report-toolbar rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
@@ -2083,6 +2276,9 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
             <Button icon={<ArrowLeftOutlined />} onClick={onBack} className="!rounded-full">
               Back to Queue
             </Button>
+            <Button icon={<DownloadOutlined />} onClick={onDownload} className="!rounded-full">
+              Download Report
+            </Button>
             <Button type="primary" icon={<FileTextOutlined />} onClick={onEdit} className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950">
               Continue Report
             </Button>
@@ -2090,7 +2286,7 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[960px] space-y-6 pb-10">
+      <div ref={printRef} className="inspection-report-pages mx-auto max-w-[960px] space-y-6 pb-10">
         <DocumentPage className="bg-[#f3f8ff] dark:bg-[#0f1622]">
           <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
@@ -2115,6 +2311,17 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
               </div>
             </div>
             <div className="rounded-[28px] border border-sky-100 bg-white/90 p-5 shadow-sm dark:border-sky-500/20 dark:bg-white/[0.04]">
+              <div className="mb-5 overflow-hidden rounded-[22px] border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="aspect-[1.28/0.88]">
+                  {heroPhoto ? (
+                    <img src={getStoredFileSrc(heroPhoto)} alt={`${reportLead.make} ${reportLead.model}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-slate-300 dark:text-slate-600">
+                      <CameraOutlined style={{ fontSize: 40 }} />
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">At a glance</p>
@@ -2138,6 +2345,8 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
                 <DocumentStat label="Inspection ID" value={reportLead?.inspection?.inspectionId || "Not generated"} helper="Evaluator job reference" />
                 <DocumentStat label="Verdict" value={compactStatus(verdict)} helper={verdict === NOGO_REASON ? "Lead closed at inspection" : "Ready for next stage"} tone={verdict === NOGO_REASON ? "rose" : "green"} />
                 <DocumentStat label="Evaluator" value={reportLead?.inspection?.executiveName || reportLead?.assignedTo || "Pending"} helper={reportLead?.inspection?.executiveMobile || "Mobile pending"} />
+                <DocumentStat label="Registration" value={report?.registrationNumber || reportLead?.regNo || "Pending"} helper="Verified during inspection" />
+                <DocumentStat label="Insurance expiry" value={report?.insuranceExpiry ? fmt(report.insuranceExpiry) : "Pending"} helper={getInsuranceDisplay(reportLead) || "Insurance type pending"} tone="amber" />
               </div>
               <div className="mt-5 rounded-[20px] border border-slate-200 bg-slate-50/90 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Health report summary</p>
@@ -2146,6 +2355,31 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
                     "Inspection completed. Use the category summary below to review body condition, mechanical health, compliance, and pricing readiness before moving this car ahead."}
                 </p>
               </div>
+            </div>
+          </div>
+        </DocumentPage>
+
+        <DocumentPage>
+          <DamageVisibilityMap itemValues={itemValues} />
+          <div className="mt-6 rounded-[26px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="grid gap-3">
+              {issueHighlights.length ? (
+                issueHighlights.slice(0, 12).map((issue) => (
+                  <div key={issue.key} className="rounded-[18px] border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">{issue.label}</p>
+                      <span className="rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700 dark:border-amber-500/30 dark:bg-white/[0.05] dark:text-amber-300">
+                        {issue.section}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-medium leading-6 text-slate-600 dark:text-slate-300">{issue.detail}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-5 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+                  No visible issues have been marked in the inspection report yet.
+                </div>
+              )}
             </div>
           </div>
         </DocumentPage>
@@ -2265,7 +2499,7 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
                 <div className="grid grid-cols-[1.5fr_0.7fr_1fr] gap-4 bg-sky-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:bg-sky-500/10 dark:text-slate-300">
                   <span>Parameters</span>
                   <span>Status</span>
-                  <span>Observation</span>
+                  <span>Detail</span>
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-white/10">
                   {section.items.map((item) => {
@@ -2388,6 +2622,7 @@ function VisitUpdateModal({ open, selectedLead, visitForm, onCancel, onSubmit })
 }
 
 export default function UsedCarInspectionDesk() {
+  const reportPrintRef = useRef(null);
   const [leads, setLeads] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -2403,6 +2638,8 @@ export default function UsedCarInspectionDesk() {
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [reportLeadId, setReportLeadId] = useState(null);
   const [reportMode, setReportMode] = useState("edit");
+  const [activeSectionKeys, setActiveSectionKeys] = useState([INSPECTION_SECTIONS[0].key]);
+  const [autoOpenItemKey, setAutoOpenItemKey] = useState(null);
   const [visitForm] = Form.useForm();
   const [reportForm] = Form.useForm();
 
@@ -2494,6 +2731,17 @@ export default function UsedCarInspectionDesk() {
     return { scheduled, rescheduled, draft, completed, nogo, passed, dueToday };
   }, [inspectionPool]);
 
+  const itemSequence = useMemo(
+    () =>
+      INSPECTION_SECTIONS.flatMap((section) =>
+        section.items.map((item) => ({
+          sectionKey: section.key,
+          itemKey: item.key,
+        }))
+      ),
+    []
+  );
+
   const openVisitUpdate = useCallback((lead) => {
     setSelectedLeadId(lead.id);
     visitForm.setFieldsValue({
@@ -2533,8 +2781,47 @@ export default function UsedCarInspectionDesk() {
       },
     }));
     setReportMode(mode);
+    setActiveSectionKeys([INSPECTION_SECTIONS[0].key]);
+    setAutoOpenItemKey(null);
     setReportLeadId(lead.id);
   }, [reportForm, updateLead]);
+
+  const handleAdvanceToNextItem = useCallback(
+    (currentItemKey) => {
+      const currentIndex = itemSequence.findIndex((entry) => entry.itemKey === currentItemKey);
+      const next = currentIndex >= 0 ? itemSequence[currentIndex + 1] : null;
+      if (!next) return;
+      setActiveSectionKeys([next.sectionKey]);
+      setAutoOpenItemKey(next.itemKey);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const el = document.querySelector(`#inspection-select-${next.itemKey}`);
+          if (el) el.click();
+        });
+      });
+    },
+    [itemSequence]
+  );
+
+  const handleTyreBrandSeed = useCallback(
+    (sourceItemKey, value) => {
+      if (sourceItemKey !== "frontLeftTyre" || !value) return;
+      const patch = {};
+      TYRE_ITEM_KEYS.filter((key) => key !== sourceItemKey).forEach((key) => {
+        patch[key] = {
+          ...(reportForm.getFieldValue(["items", key]) || {}),
+          tyreBrand: value,
+        };
+      });
+      reportForm.setFieldsValue({
+        items: {
+          ...(reportForm.getFieldValue("items") || {}),
+          ...patch,
+        },
+      });
+    },
+    [reportForm]
+  );
 
   const handleVisitUpdate = useCallback(async () => {
     if (!selectedLead) return;
@@ -2640,12 +2927,44 @@ export default function UsedCarInspectionDesk() {
     }
   }, [filteredLeads, reportForm, reportLead, updateLead]);
 
+  const handleDownloadReport = useCallback(() => {
+    const content = reportPrintRef.current;
+    if (!content) return;
+    const printWindow = window.open("", "_blank", "width=1200,height=900");
+    if (!printWindow) {
+      message.error("Download window open nahi hui. Please popup allow karein.");
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${reportLead?.inspection?.inspectionId || "inspection-report"}</title>
+          ${document.head.innerHTML}
+          <style>
+            body { margin: 0; padding: 24px; background: #ffffff; }
+            .inspection-report-pages { max-width: 960px; margin: 0 auto; }
+            .inspection-report-pages section { break-inside: avoid; page-break-inside: avoid; margin-bottom: 24px; }
+          </style>
+        </head>
+        <body>${content.outerHTML}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+  }, [reportLead]);
+
   if (reportLeadId && reportLead) {
     const reportReadOnly = reportMode === "view";
     if (reportReadOnly) {
       return (
         <InspectionReportDocumentView
           reportLead={reportLead}
+          onDownload={handleDownloadReport}
+          printRef={reportPrintRef}
           onBack={() => {
             setReportLeadId(null);
             setReportMode("edit");
@@ -2694,6 +3013,8 @@ export default function UsedCarInspectionDesk() {
                     <Form.Item label="Inspection Executive / Nirikshak ka Naam" name="executiveName" rules={[{ required: true, message: "Executive naam bharo." }]} className="!mb-0"><Input prefix={<UserOutlined />} placeholder="Evaluator ka poora naam" /></Form.Item>
                     <Form.Item label="Contact No. / Mobile Number" name="executiveMobile" rules={[{ required: true, message: "Mobile number bharo." }]} className="!mb-0"><Input prefix={<PhoneOutlined />} placeholder="10-digit mobile number" maxLength={10} /></Form.Item>
                     <Form.Item label="Inspection Location / Jagah" name="inspectionLocation" rules={[{ required: true, message: "Location bharo." }]} className="!mb-0"><Input placeholder="Seller ka ghar ya showroom address" /></Form.Item>
+                    <Form.Item label="Registration Number / Registration No." name="registrationNumber" rules={[{ required: true, message: "Registration number bharo." }]} className="!mb-0"><Input placeholder="e.g. HR26DE9898" /></Form.Item>
+                    <Form.Item label="Insurance Expiry / Insurance ki last date" name="insuranceExpiry" className="!mb-0"><DatePicker className="w-full" format="DD-MM-YYYY" /></Form.Item>
                     <Form.Item label="Inspection Date / Tithi" name="inspectionDate" rules={[{ required: true, message: "Date chunein." }]} className="!mb-0"><DatePicker className="w-full" format="DD-MM-YYYY" /></Form.Item>
                     <Form.Item label="Inspection Time / Samay" name="inspectionTime" rules={[{ required: true, message: "Time chunein." }]} className="!mb-0"><TimePicker className="w-full" format="hh:mm A" use12Hours /></Form.Item>
                   </div>
@@ -2702,17 +3023,7 @@ export default function UsedCarInspectionDesk() {
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Lead Verification / Lead Satyapan</p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {LEAD_VERIFICATION_FIELDS.map((field) => (
-                      <Form.Item key={field.key} name={["leadVerification", field.key]} valuePropName="checked" className="!mb-0">
-                        <div className="flex items-start gap-3 rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                          <Checkbox className="mt-0.5" />
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{field.labelEn}</p>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">{field.labelHi}</p>
-                          </div>
-                        </div>
-                      </Form.Item>
-                    ))}
+                    {LEAD_VERIFICATION_FIELDS.map((field) => <VerificationCard key={field.key} field={field} />)}
                   </div>
                 </div>
 
@@ -2753,11 +3064,22 @@ export default function UsedCarInspectionDesk() {
                     <ScoreBadge score={calcOverallScore(reportItems)} />
                   </div>
                 </div>
-                <Collapse ghost defaultActiveKey={[INSPECTION_SECTIONS[0].key]} className="!bg-transparent">
+                <Collapse ghost activeKey={activeSectionKeys} onChange={(keys) => setActiveSectionKeys(Array.isArray(keys) ? keys : [keys])} className="!bg-transparent">
                   {INSPECTION_SECTIONS.map((section) => (
                     <Panel key={section.key} className="!mb-3 !rounded-[22px] !border !border-slate-200 !bg-white dark:!border-white/10 dark:!bg-[#11151b]" header={<div className="flex items-center justify-between gap-3 py-1"><div className="flex items-center gap-3"><span className="text-xl leading-none">{section.icon}</span><div><p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">{section.titleEn}</p><p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{section.titleHi}</p></div></div><div className="flex items-center gap-3"><SectionProgressBar sectionKey={section.key} itemValues={reportItems} /><span className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white" style={{ background: section.color }}>{section.items.length} items</span></div></div>}>
                       <div className="grid gap-3 xl:grid-cols-2">
-                        {section.items.map((item) => <SectionItemCard key={item.key} item={item} section={section} formName="items" />)}
+                        {section.items.map((item) => (
+                          <SectionItemCard
+                            key={item.key}
+                            item={item}
+                            section={section}
+                            formName="items"
+                            autoOpen={autoOpenItemKey === item.key}
+                            clearAutoOpen={() => setAutoOpenItemKey(null)}
+                            onAdvance={handleAdvanceToNextItem}
+                            onSeedTyreBrand={handleTyreBrandSeed}
+                          />
+                        ))}
                       </div>
                     </Panel>
                   ))}

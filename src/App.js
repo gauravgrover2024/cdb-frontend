@@ -38,12 +38,8 @@ import DetailedBankViewPage from "./pages/superadmin/DetailedBankViewPage";
 import ProfilePage from "./pages/ProfilePage";
 import InsuranceDashboardPage from "./pages/insurance/InsuranceDashboardPage";
 import InsuranceCasePage from "./pages/insurance/InsuranceCasePage";
-import UsedCarsDashboardPage from "./modules/used-cars/pages/UsedCarsDashboardPage";
 import UsedCarsProcurementPage from "./modules/used-cars/pages/UsedCarsProcurementPage";
-import UsedCarsRefurbPage from "./modules/used-cars/pages/UsedCarsRefurbPage";
-import UsedCarsSalePage from "./modules/used-cars/pages/UsedCarsSalePage";
-import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
-import UsedCarAgreementPage from "./modules/used-cars/pages/UsedCarAgreementPage";
+import UsedCarsInspectionPage from "./modules/used-cars/pages/UsedCarsInspectionPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 
 // NEW: booking pages
@@ -146,27 +142,15 @@ function App() {
             {/* Used Cars */}
             <Route
               path="used-cars"
-              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsDashboardPage />)}
+              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsProcurementPage />)}
             />
             <Route
               path="used-cars/procurement"
               element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsProcurementPage />)}
             />
             <Route
-              path="used-cars/procurement/agreement"
-              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarAgreementPage />)}
-            />
-            <Route
-              path="used-cars/refurb"
-              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsRefurbPage />)}
-            />
-            <Route
-              path="used-cars/sale"
-              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsSalePage />)}
-            />
-            <Route
-              path="used-cars/stock"
-              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsStockPage />)}
+              path="used-cars/inspection"
+              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsInspectionPage />)}
             />
 
             {/* Tools */}

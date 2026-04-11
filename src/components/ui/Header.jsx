@@ -265,33 +265,15 @@ const Header = () => {
       roles: FEATURE_ACCESS.USED_CARS,
       children: [
         {
-          label: "Dashboard",
+          label: "Lead Intake",
           path: "/used-cars",
-          desc: "Unified used cars control tower",
+          desc: "Capture seller leads and manage the calling queue",
           roles: FEATURE_ACCESS.USED_CARS,
         },
         {
-          label: "Procurement",
-          path: "/used-cars/procurement",
-          desc: "Source and price used car opportunities",
-          roles: FEATURE_ACCESS.USED_CARS,
-        },
-        {
-          label: "Refurb",
-          path: "/used-cars/refurb",
-          desc: "Workshop, approvals, and readiness tracking",
-          roles: FEATURE_ACCESS.USED_CARS,
-        },
-        {
-          label: "Sale",
-          path: "/used-cars/sale",
-          desc: "Listings, negotiations, and closures",
-          roles: FEATURE_ACCESS.USED_CARS,
-        },
-        {
-          label: "Stock",
-          path: "/used-cars/stock",
-          desc: "Inventory ageing, pricing, and capital in stock",
+          label: "Inspection",
+          path: "/used-cars/inspection",
+          desc: "Run field inspections and generate detailed reports",
           roles: FEATURE_ACCESS.USED_CARS,
         },
       ],
