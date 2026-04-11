@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Button,
   Collapse,
@@ -14,6 +20,7 @@ import {
   Upload,
   message,
 } from "antd";
+import { useReactToPrint } from "react-to-print";
 import {
   ArrowLeftOutlined,
   CameraOutlined,
@@ -183,126 +190,243 @@ const LEAD_VERIFICATION_FIELDS = [
 ];
 
 // ════════════════════════════════════════════════════════════════
-// ALL PRESET DROPDOWN OPTION ARRAYS
+// FIELD-CORRECT FAST OPTION FAMILIES
 // ════════════════════════════════════════════════════════════════
 
-const OPT = {
-  body: [
-    "Original — Koi issue nahi",
-    "Minor Scratch — Chhoti khraoch",
-    "Major Scratch — Badi khraoch",
-    "Minor Dent — Chhota dent",
-    "Major Dent — Bada dent",
-    "Repaired & Repainted — Marmat aur paint",
-    "Rusting — Zang laga hua",
-    "Cracked / Broken — Toota hua",
-    "Panel Replaced — Naya panel laga",
-    "Missing — Gum hai",
+const OPTION_FAMILIES = {
+  panel: [
+    { value: "Original", severity: "ok" },
+    { value: "Scratch", severity: "low" },
+    { value: "Dent", severity: "medium" },
+    { value: "Repainted", severity: "medium" },
+    { value: "Repaired", severity: "high" },
+    { value: "Replaced", severity: "high" },
+    { value: "Rust", severity: "high" },
   ],
-
+  structural: [
+    { value: "OK", severity: "ok" },
+    { value: "Repaired", severity: "high" },
+    { value: "Replaced", severity: "high" },
+    { value: "Rust", severity: "high" },
+    { value: "Damaged", severity: "critical" },
+  ],
   glass: [
-    "OK — Koi issue nahi",
-    "Minor Crack — Chhoti darar",
-    "Major Crack — Badi darar",
-    "Scratch — Khraoch hai",
-    "Chip — Chip laga hai",
-    "Replaced — Badla hua hai",
-    "Not Working / Jammed — Kaam nahi kar raha",
+    { value: "OK", severity: "ok" },
+    { value: "Scratched", severity: "low" },
+    { value: "Chipped", severity: "medium" },
+    { value: "Cracked", severity: "high" },
+    { value: "Replaced", severity: "medium" },
   ],
-
+  lights: [
+    { value: "OK", severity: "ok" },
+    { value: "Faded", severity: "low" },
+    { value: "Cracked", severity: "medium" },
+    { value: "Not Working", severity: "high" },
+    { value: "Replaced", severity: "medium" },
+  ],
+  fitment: [
+    { value: "OK", severity: "ok" },
+    { value: "Loose", severity: "low" },
+    { value: "Damaged", severity: "medium" },
+    { value: "Missing", severity: "high" },
+    { value: "Replaced", severity: "medium" },
+  ],
   tyre: [
-    "Good — 70%+ life bachi hai",
-    "Average — 40-70% life bachi hai",
-    "Low — 20-40% life bachi hai",
-    "Very Low — 20% se kam",
-    "Uneven Wear — Teda ghisa hua",
-    "Sidewall Damage — Side mein damage",
-    "Needs Replacement — Badlana padega",
-    "Bald — Bilkul ghisa hua",
+    { value: "Good", severity: "ok" },
+    { value: "Average", severity: "low" },
+    { value: "Low Life", severity: "medium" },
+    { value: "Uneven Wear", severity: "medium" },
+    { value: "Cut / Bulge", severity: "high" },
+    { value: "Replace", severity: "critical" },
   ],
-
+  wheel: [
+    { value: "OK", severity: "ok" },
+    { value: "Scratched", severity: "low" },
+    { value: "Bent", severity: "high" },
+    { value: "Cracked", severity: "critical" },
+    { value: "Replace", severity: "critical" },
+  ],
   mechanical: [
-    "OK — Sahi kaam kar raha",
-    "Observe — Dhyan dene ki zaroorat",
-    "Minor Leak — Chhota leak",
-    "Major Leak — Bada leak",
-    "Noise / Awaaz — Awaaz aa rahi hai",
-    "Vibration — Kaampan ho raha",
-    "Repair Needed — Repair chahiye",
-    "Replacement Needed — Badlana padega",
-    "Not Working — Bilkul kaam nahi",
-    "NA — Laagu nahi",
+    { value: "OK", severity: "ok" },
+    { value: "Monitor", severity: "low" },
+    { value: "Leak", severity: "high" },
+    { value: "Noise", severity: "medium" },
+    { value: "Repair", severity: "high" },
+    { value: "Replace", severity: "critical" },
   ],
-
   electrical: [
-    "Working — Theek kaam kar raha",
-    "Intermittent — Kabhi karta kabhi nahi",
-    "Not Working — Kaam nahi kar raha",
-    "Missing — Laga hi nahi",
-    "Repair Needed — Repair chahiye",
-    "Fuse Blown — Fuse gaya hai",
-    "NA — Laagu nahi",
+    { value: "Working", severity: "ok" },
+    { value: "Intermittent", severity: "medium" },
+    { value: "Not Working", severity: "high" },
+    { value: "Missing", severity: "critical" },
   ],
-
   safety: [
-    "Present & OK — Hai aur sahi hai",
-    "Warning Light ON — Warning light jal rahi ⚠️",
-    "Deployed / Used — Chal chuka hai",
-    "Replaced — Badla gaya hai",
-    "Missing — Nahi hai",
-    "Not Tested — Check nahi kiya",
-    "NA — Laagu nahi",
+    { value: "OK", severity: "ok" },
+    { value: "Warning", severity: "high" },
+    { value: "Deployed", severity: "critical" },
+    { value: "Missing", severity: "critical" },
   ],
-
   verification: [
-    "Verified — Confirm hua ✅",
-    "Mismatch — Match nahi kiya ⚠️",
-    "Not Available — Nahi mila",
-    "Needs Review — Dobara dekhna hai",
+    { value: "Verified", severity: "ok" },
+    { value: "Mismatch", severity: "critical" },
+    { value: "Not Available", severity: "high" },
+    { value: "Review", severity: "medium" },
   ],
-
-  road: [
-    "Good — Koi problem nahi",
-    "Average — Theek-thaak",
-    "Observe — Dhyan dene layak",
-    "Issue Found — Koi problem mili",
-    "Critical — Bahut badi problem",
-    "Not Tested — Test nahi kiya",
+  binary: [
+    { value: "Yes", severity: "ok" },
+    { value: "No", severity: "high" },
+    { value: "NA", severity: "low" },
   ],
-
   smoke: [
-    "None — Koi dhua nahi ✅",
-    "White Smoke — Safed dhua (coolant leak?)",
-    "Blue Smoke — Neela dhua (oil jal raha)",
-    "Grey Smoke — Dhuandla dhua",
-    "Black Smoke — Kaala dhua (zyada fuel)",
+    { value: "None", severity: "ok" },
+    { value: "White", severity: "high" },
+    { value: "Blue", severity: "critical" },
+    { value: "Grey", severity: "high" },
+    { value: "Black", severity: "medium" },
   ],
-
   ac: [
-    "Excellent — Bahut thanda aata hai",
-    "Good — Sahi thanda aata hai",
-    "Weak Cooling — Kam thanda aata hai",
-    "Not Cooling — Thanda bilkul nahi",
-    "No AC Fitted — AC hai hi nahi",
-    "NA — Laagu nahi",
+    { value: "Excellent", severity: "ok" },
+    { value: "Good", severity: "ok" },
+    { value: "Weak", severity: "medium" },
+    { value: "Not Cooling", severity: "critical" },
   ],
-
+  road: [
+    { value: "Excellent", severity: "ok" },
+    { value: "Good", severity: "ok" },
+    { value: "Average", severity: "low" },
+    { value: "Issue", severity: "high" },
+    { value: "Critical", severity: "critical" },
+  ],
   market: [
-    "A+ — Seedha bech sakte ho",
-    "A — Minor cleanup ke baad ready",
-    "B — Moderate refurb chahiye",
-    "C — Heavy refurb chahiye",
-    "D — Scrap / Parts only",
+    { value: "A+", severity: "ok" },
+    { value: "A", severity: "ok" },
+    { value: "B", severity: "low" },
+    { value: "C", severity: "medium" },
+    { value: "D", severity: "critical" },
   ],
-
-  warnLight: [
-    "OFF — Normal hai ✅",
-    "ON — Warning aa rahi hai ⚠️",
-    "Not Checked — Check nahi kiya",
+  airbagCount: [
+    { value: "0", severity: "critical" },
+    { value: "2", severity: "ok" },
+    { value: "4", severity: "ok" },
+    { value: "6", severity: "ok" },
+    { value: "7+", severity: "ok" },
   ],
-
-  yn: ["Yes — Haan", "No — Nahi", "NA — Laagu nahi"],
+  keyCount: [
+    { value: "1 Key", severity: "medium" },
+    { value: "2 Keys", severity: "ok" },
+    { value: "3+ Keys", severity: "ok" },
+  ],
 };
+
+const ITEM_OPTION_OVERRIDES = {
+  firewall: "structural",
+  radiatorSupport: "structural",
+  lowerCrossMember: "structural",
+  upperCrossMember: "structural",
+  coreStructure: "structural",
+  isWaterlogged: "binary",
+  accidentEvidence: "verification",
+  headlamps: "lights",
+  taillamps: "lights",
+  fogLamps: "lights",
+  drl: "lights",
+  indicators: "lights",
+  reverseLight: "lights",
+  bumperGrille: "fitment",
+  bumpersGrille: "fitment",
+  antenna: "fitment",
+  alloyWheels: "wheel",
+  wheelCaps: "fitment",
+  frontLeftTyre: "tyre",
+  frontRightTyre: "tyre",
+  rearLeftTyre: "tyre",
+  rearRightTyre: "tyre",
+  spareTyre: "tyre",
+  airbagCount: "airbagCount",
+  keysCount: "keyCount",
+  ownerManual: "binary",
+  serviceRecord: "binary",
+  marketability: "market",
+  odometerConsistency: "verification",
+  odometer: "verification",
+  registrationMatched: "verification",
+};
+
+const SEVERITY_OPTIONS = [
+  { value: "Low", tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300" },
+  { value: "Medium", tone: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300" },
+  { value: "High", tone: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300" },
+  { value: "Critical", tone: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300" },
+];
+
+const FAMILY_FALLBACKS = {
+  body: "panel",
+  road: "road",
+  market: "market",
+  verification: "verification",
+  safety: "safety",
+  ac: "ac",
+  electrical: "electrical",
+  mechanical: "mechanical",
+};
+
+function getItemOptionFamily(item, section) {
+  const rawFamily =
+    ITEM_OPTION_OVERRIDES[item.key] ||
+    item.preset ||
+    section.preset ||
+    "mechanical";
+  return FAMILY_FALLBACKS[rawFamily] || rawFamily;
+}
+
+function getItemOptions(item, section) {
+  const family = getItemOptionFamily(item, section);
+  return OPTION_FAMILIES[family] || OPTION_FAMILIES.mechanical;
+}
+
+function getItemOptionMeta(item, section, status) {
+  return getItemOptions(item, section).find((entry) => entry.value === status);
+}
+
+function normalizeStatusList(status) {
+  if (Array.isArray(status)) return status.filter(Boolean);
+  if (!status) return [];
+  return [status];
+}
+
+function allowsMultiSelect(item, section) {
+  const family = getItemOptionFamily(item, section);
+  return ["panel", "glass", "lights", "fitment", "tyre", "wheel"].includes(
+    family,
+  );
+}
+
+function getStatusSeverity(status, item, section) {
+  const statuses = normalizeStatusList(status);
+  if (!statuses.length || isPositiveInspectionStatus(statuses)) return "";
+  const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
+  const topSeverity = statuses.reduce((best, current) => {
+    const currentSeverity =
+      getItemOptionMeta(item, section, current)?.severity || "medium";
+    return severityRank[currentSeverity] > severityRank[best]
+      ? currentSeverity
+      : best;
+  }, "low");
+  const map = {
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    critical: "Critical",
+  };
+  return map[topSeverity] || "Medium";
+}
+
+function getSeverityTone(severity) {
+  return (
+    SEVERITY_OPTIONS.find((entry) => entry.value === severity)?.tone ||
+    "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+  );
+}
 
 // ── Standalone option lists ──────────────────────────────────────
 
@@ -1495,7 +1619,7 @@ const calcSectionScore = (sectionKey, itemValues) => {
   if (!total) return 0;
   const filled = section.items.filter((item) => {
     const v = itemValues?.[item.key]?.status;
-    return v && v !== "" && v !== undefined;
+    return normalizeStatusList(v).length > 0;
   }).length;
   return Math.round((filled / total) * 100);
 };
@@ -1609,8 +1733,12 @@ const buildReportValues = (lead) => {
     section.items.forEach((item) => {
       const saved = savedItems[item.key] || {};
       items[item.key] = {
-        status: saved.status || undefined,
-        notes: saved.notes || "",
+        status: Array.isArray(saved.status)
+          ? saved.status
+          : saved.status
+            ? [saved.status]
+            : [],
+        severity: saved.severity || "",
         photos: toFileList(saved.photos || [], item.key),
         // tyre-specific
         ...(item.hasTread ? { treadDepth: saved.treadDepth || "" } : {}),
@@ -1626,7 +1754,9 @@ const buildReportValues = (lead) => {
     executiveMobile: inspection?.executiveMobile || "",
     inspectionLocation: report?.inspectionLocation || lead?.address || "",
     registrationNumber: report?.registrationNumber || lead?.regNo || "",
-    insuranceExpiry: report?.insuranceExpiry ? dayjs(report.insuranceExpiry) : null,
+    insuranceExpiry: report?.insuranceExpiry
+      ? dayjs(report.insuranceExpiry)
+      : null,
     inspectionDate: dayjs(baseDate),
     inspectionTime: dayjs(baseDate),
 
@@ -1670,7 +1800,9 @@ const buildReportValues = (lead) => {
 const buildReportPayload = (values) => ({
   inspectionLocation: normText(values.inspectionLocation),
   registrationNumber: normText(values.registrationNumber),
-  insuranceExpiry: values.insuranceExpiry ? dayjs(values.insuranceExpiry).toISOString() : "",
+  insuranceExpiry: values.insuranceExpiry
+    ? dayjs(values.insuranceExpiry).toISOString()
+    : "",
   leadVerification: Object.fromEntries(
     LEAD_VERIFICATION_FIELDS.map((f) => [
       f.key,
@@ -1688,8 +1820,8 @@ const buildReportPayload = (values) => ({
       s.items.map((item) => [
         item.key,
         {
-          status: values.items?.[item.key]?.status || "",
-          notes: "",
+          status: normalizeStatusList(values.items?.[item.key]?.status),
+          severity: values.items?.[item.key]?.severity || "",
           photos: fromFileList(values.items?.[item.key]?.photos || []),
           ...(item.hasTread
             ? { treadDepth: values.items?.[item.key]?.treadDepth || "" }
@@ -1731,21 +1863,34 @@ function QueueMetric({ label, value, helper, tone = "slate" }) {
   };
   return (
     <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl font-black tracking-tight ${toneMap[tone] || toneMap.slate}`}>{value}</p>
-      {helper ? <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{helper}</p> : null}
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-2xl font-black tracking-tight ${toneMap[tone] || toneMap.slate}`}
+      >
+        {value}
+      </p>
+      {helper ? (
+        <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          {helper}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 function ScoreBadge({ score }) {
-  const color = score >= 75
-    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
-    : score >= 50
-    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40"
-    : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/40";
+  const color =
+    score >= 75
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
+      : score >= 50
+        ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40"
+        : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/40";
   return (
-    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${color}`}>
+    <span
+      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${color}`}
+    >
       Score {score}%
     </span>
   );
@@ -1797,8 +1942,12 @@ function OverallScoreRing({ score }) {
     <div className="flex items-center gap-4">
       <Progress type="circle" percent={score} size={72} strokeColor={color} />
       <div>
-        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Inspection completeness</p>
-        <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Checklist completion across all major sections</p>
+        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+          Inspection completeness
+        </p>
+        <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          Checklist completion across all major sections
+        </p>
       </div>
     </div>
   );
@@ -1806,9 +1955,11 @@ function OverallScoreRing({ score }) {
 
 function InspectionQueueCard({ lead, active, onClick }) {
   const state = getInspectionState(lead);
-  const schedule = lead?.inspection?.rescheduledAt || lead?.inspectionScheduledAt;
+  const schedule =
+    lead?.inspection?.rescheduledAt || lead?.inspectionScheduledAt;
   const isToday = schedule && dayjs(schedule).isSame(dayjs(), "day");
-  const isOverdue = schedule && dayjs(schedule).isBefore(dayjs()) && state.key === "scheduled";
+  const isOverdue =
+    schedule && dayjs(schedule).isBefore(dayjs()) && state.key === "scheduled";
 
   return (
     <button
@@ -1822,45 +1973,93 @@ function InspectionQueueCard({ lead, active, onClick }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-black tracking-tight">{lead.name}</p>
-          <p className={`mt-1 text-xs font-medium ${active ? "text-white/70 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"}`}>
-            {lead.mobile} · {lead.make} {lead.model}{lead.variant ? ` ${lead.variant}` : ""}
+          <p className="truncate text-sm font-black tracking-tight">
+            {lead.name}
+          </p>
+          <p
+            className={`mt-1 text-xs font-medium ${active ? "text-white/70 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"}`}
+          >
+            {lead.mobile} · {lead.make} {lead.model}
+            {lead.variant ? ` ${lead.variant}` : ""}
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${state.tone}`}>
+          <span
+            className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${state.tone}`}
+          >
             {state.label}
           </span>
-          {isOverdue ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">OVERDUE</span> : null}
-          {isToday && !isOverdue ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">TODAY</span> : null}
+          {isOverdue ? (
+            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+              OVERDUE
+            </span>
+          ) : null}
+          {isToday && !isOverdue ? (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              TODAY
+            </span>
+          ) : null}
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}>
-          <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55 dark:text-slate-600" : "text-slate-400 dark:text-slate-500"}`}>Executive</p>
-          <p className="mt-1 truncate text-xs font-bold">{lead.inspection?.executiveName || lead.assignedTo || "Not assigned"}</p>
-          <p className={`mt-0.5 text-[10px] font-medium ${active ? "text-white/60 dark:text-slate-700" : "text-slate-400 dark:text-slate-500"}`}>
+        <div
+          className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}
+        >
+          <p
+            className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55 dark:text-slate-600" : "text-slate-400 dark:text-slate-500"}`}
+          >
+            Executive
+          </p>
+          <p className="mt-1 truncate text-xs font-bold">
+            {lead.inspection?.executiveName ||
+              lead.assignedTo ||
+              "Not assigned"}
+          </p>
+          <p
+            className={`mt-0.5 text-[10px] font-medium ${active ? "text-white/60 dark:text-slate-700" : "text-slate-400 dark:text-slate-500"}`}
+          >
             {lead.inspection?.executiveMobile || "Mobile pending"}
           </p>
         </div>
-        <div className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}>
-          <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55 dark:text-slate-600" : "text-slate-400 dark:text-slate-500"}`}>Slot</p>
-          <p className="mt-1 text-xs font-bold">{schedule ? fmt(schedule) : "Not scheduled"}</p>
-          <p className={`mt-0.5 text-[10px] font-medium ${active ? "text-white/60 dark:text-slate-700" : "text-slate-400 dark:text-slate-500"}`}>
+        <div
+          className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}
+        >
+          <p
+            className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55 dark:text-slate-600" : "text-slate-400 dark:text-slate-500"}`}
+          >
+            Slot
+          </p>
+          <p className="mt-1 text-xs font-bold">
+            {schedule ? fmt(schedule) : "Not scheduled"}
+          </p>
+          <p
+            className={`mt-0.5 text-[10px] font-medium ${active ? "text-white/60 dark:text-slate-700" : "text-slate-400 dark:text-slate-500"}`}
+          >
             {lead.regNo || "Reg pending"} · {getMileage(lead) || "Kms pending"}
           </p>
         </div>
       </div>
-      <div className={`mt-2 flex items-center justify-between text-xs font-medium ${active ? "text-white/72 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"}`}>
+      <div
+        className={`mt-2 flex items-center justify-between text-xs font-medium ${active ? "text-white/72 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"}`}
+      >
         <span>{getInsuranceDisplay(lead) || "Insurance pending"}</span>
-        <span className={`font-bold ${active ? "text-white dark:text-slate-950" : "text-slate-800 dark:text-slate-200"}`}>
+        <span
+          className={`font-bold ${active ? "text-white dark:text-slate-950" : "text-slate-800 dark:text-slate-200"}`}
+        >
           {fmtInrOrPending(getPrice(lead))}
         </span>
       </div>
       {state.key === "draft" ? (
         <div className="mt-3">
-          <p className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55" : "text-slate-400 dark:text-slate-500"}`}>Report Progress</p>
-          <SectionProgressBar sectionKey="exteriorPanels" itemValues={lead.inspection?.report?.items} />
+          <p
+            className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55" : "text-slate-400 dark:text-slate-500"}`}
+          >
+            Report Progress
+          </p>
+          <SectionProgressBar
+            sectionKey="exteriorPanels"
+            itemValues={lead.inspection?.report?.items}
+          />
         </div>
       ) : null}
     </button>
@@ -1873,7 +2072,9 @@ function VerificationCard({ field }) {
   return (
     <button
       type="button"
-      onClick={() => form.setFieldValue(["leadVerification", field.key], !checked)}
+      onClick={() =>
+        form.setFieldValue(["leadVerification", field.key], !checked)
+      }
       className={`w-full rounded-[18px] border px-4 py-3 text-left transition-all ${
         checked
           ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
@@ -1881,83 +2082,259 @@ function VerificationCard({ field }) {
       }`}
     >
       <div className="flex items-start gap-3">
-        <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${
-          checked
-            ? "border-emerald-500 bg-emerald-500 text-white"
-            : "border-slate-300 text-slate-400 dark:border-slate-600 dark:text-slate-500"
-        }`}>
+        <span
+          className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${
+            checked
+              ? "border-emerald-500 bg-emerald-500 text-white"
+              : "border-slate-300 text-slate-400 dark:border-slate-600 dark:text-slate-500"
+          }`}
+        >
           {checked ? "✓" : ""}
         </span>
         <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{field.labelEn}</p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">{field.labelHi}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {field.labelEn}
+          </p>
         </div>
       </div>
     </button>
   );
 }
 
-function SectionItemCard({ item, section, formName, autoOpen, clearAutoOpen, onAdvance, onSeedTyreBrand }) {
-  const preset = item.preset || section.preset || "mechanical";
-  const options = OPT[preset] || OPT.mechanical;
+function SectionItemCard({
+  item,
+  section,
+  formName,
+  autoOpen,
+  clearAutoOpen,
+  onAdvance,
+  onSeedTyreBrand,
+}) {
+  const itemRef = useRef(null);
+  const advanceTimerRef = useRef(null);
+  const options = getItemOptions(item, section);
+  const multiSelect = allowsMultiSelect(item, section);
   const isTyre = Boolean(item.hasTread);
   const hasBrand = Boolean(item.hasBrand);
   const form = Form.useFormInstance();
+  const statusVal = normalizeStatusList(
+    Form.useWatch([formName, item.key, "status"], form),
+  );
+  const severityVal = Form.useWatch([formName, item.key, "severity"], form);
   const treadVal = Form.useWatch([formName, item.key, "treadDepth"], form);
+  const photoList = Form.useWatch([formName, item.key, "photos"], form) || [];
+
+  useEffect(() => {
+    if (!autoOpen || !itemRef.current) return;
+    itemRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+    const timeout = window.setTimeout(() => clearAutoOpen(), 600);
+    return () => window.clearTimeout(timeout);
+  }, [autoOpen, clearAutoOpen]);
+
+  useEffect(
+    () => () => {
+      if (advanceTimerRef.current) {
+        window.clearTimeout(advanceTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleStatusSelect = useCallback(
+    (status) => {
+      const currentValue = form.getFieldValue([formName, item.key]) || {};
+      const currentStatuses = normalizeStatusList(currentValue.status);
+      const nextStatuses = multiSelect
+        ? currentStatuses.includes(status)
+          ? currentStatuses.filter((entry) => entry !== status)
+          : [...currentStatuses, status]
+        : currentStatuses[0] === status
+          ? []
+          : [status];
+      form.setFieldValue([formName, item.key], {
+        ...currentValue,
+        status: nextStatuses,
+        severity: nextStatuses.length
+          ? currentValue.severity ||
+            getStatusSeverity(nextStatuses, item, section)
+          : "",
+      });
+      if (!nextStatuses.length) return;
+      if (advanceTimerRef.current) {
+        window.clearTimeout(advanceTimerRef.current);
+      }
+      if (multiSelect) {
+        advanceTimerRef.current = window.setTimeout(() => {
+          onAdvance(item.key);
+        }, 700);
+        return;
+      }
+      onAdvance(item.key);
+    },
+    [form, formName, item, multiSelect, onAdvance, section],
+  );
 
   return (
-    <div className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+    <div
+      ref={itemRef}
+      data-inspection-item={item.key}
+      className={`rounded-[18px] border px-4 py-4 transition-all ${
+        autoOpen
+          ? "border-sky-400 bg-sky-50/70 shadow-[0_0_0_3px_rgba(14,165,233,0.10)] dark:border-sky-400/70 dark:bg-sky-500/10"
+          : "border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.03]"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.labelEn}</p>
-          <p className="mt-0.5 text-xs font-medium text-slate-400 dark:text-slate-500">{item.labelHi}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {item.labelEn}
+          </p>
         </div>
         <CameraOutlined className="mt-0.5 shrink-0 text-slate-300 dark:text-slate-600" />
       </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <Form.Item label={<span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Status / Haalat</span>} name={[formName, item.key, "status"]} className="!mb-0">
-          <Select
-            id={`inspection-select-${item.key}`}
-            placeholder="Condition chunein..."
-            showSearch
-            allowClear
-            optionFilterProp="label"
-            open={autoOpen ? true : undefined}
-            onOpenChange={(open) => {
-              if (!open && autoOpen) clearAutoOpen();
-            }}
-            onChange={() => onAdvance(item.key)}
-            options={options.map((v) => ({ value: v, label: v }))}
-          />
-        </Form.Item>
-        <div className="rounded-[14px] border border-dashed border-slate-200 px-3 py-3 text-xs font-medium text-slate-400 dark:border-white/10 dark:text-slate-500">
-          Photos ko directly is part ke neeche attach karo.
+      <div className="mt-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+          Condition
+        </p>
+        {multiSelect ? (
+          <p className="mt-1 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+            Multiple conditions can be selected for one part.
+          </p>
+        ) : null}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {options.map((option) => {
+            const active = statusVal.includes(option.value);
+            const tone =
+              option.severity === "ok"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
+                : option.severity === "low"
+                  ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300"
+                  : option.severity === "medium"
+                    ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+                    : option.severity === "high"
+                      ? "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300"
+                      : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300";
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => handleStatusSelect(option.value)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
+                  active
+                    ? `${tone} shadow-sm ring-2 ring-offset-1 ring-slate-200 dark:ring-white/10`
+                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20"
+                }`}
+              >
+                {option.value}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {statusVal.length > 0 && !isPositiveInspectionStatus(statusVal) ? (
+        <div className="mt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+            Severity
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SEVERITY_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() =>
+                  form.setFieldValue([formName, item.key, "severity"], option.value)
+                }
+                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
+                  severityVal === option.value
+                    ? `${option.tone} shadow-sm`
+                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20"
+                }`}
+              >
+                {option.value}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {isTyre ? (
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <Form.Item label={<span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Tread Depth (mm)</span>} name={[formName, item.key, "treadDepth"]} className="!mb-0">
-            <InputNumber min={0} max={12} step={0.5} placeholder="e.g. 4.5" className="w-full" addonAfter="mm" />
+          <Form.Item
+            label={
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                Tread Depth (mm)
+              </span>
+            }
+            name={[formName, item.key, "treadDepth"]}
+            className="!mb-0"
+          >
+            <InputNumber
+              min={0}
+              max={12}
+              step={0.5}
+              placeholder="e.g. 4.5"
+              className="w-full"
+              addonAfter="mm"
+            />
           </Form.Item>
           {hasBrand ? (
-            <Form.Item label={<span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Tyre Brand</span>} name={[formName, item.key, "tyreBrand"]} className="!mb-0">
-              <Select
-                placeholder="Brand chunein..."
-                showSearch
-                allowClear
-                options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))}
-                onChange={(value) => onSeedTyreBrand(item.key, value)}
-              />
-            </Form.Item>
+            <Form.Item
+              label={
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  Tyre Brand
+                </span>
+              }
+              name={[formName, item.key, "tyreBrand"]}
+              className="!mb-0"
+              >
+                <Select
+                  placeholder="Brand chunein..."
+                  showSearch
+                  allowClear
+                  options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))}
+                  onChange={(value) => onSeedTyreBrand(item.key, value)}
+                />
+              </Form.Item>
           ) : null}
         </div>
       ) : null}
       {isTyre && treadVal > 0 ? <TyreLifeBar treadMm={treadVal} /> : null}
-      <Form.Item label={<span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Photos / Tasveerein</span>} name={[formName, item.key, "photos"]} valuePropName="fileList" getValueFromEvent={(e) => e?.fileList} className="!mb-0 mt-3">
-        <Upload beforeUpload={() => false} multiple listType="picture" accept="image/*">
-          <Button icon={<CameraOutlined />} size="small" className="!rounded-full !text-xs">Attach Photos</Button>
+      <Form.Item
+        label={
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            Photos / Tasveerein
+          </span>
+        }
+        name={[formName, item.key, "photos"]}
+        valuePropName="fileList"
+        getValueFromEvent={(e) => e?.fileList}
+        className="!mb-0 mt-3"
+      >
+        <Upload
+          beforeUpload={() => false}
+          multiple
+          listType="picture"
+          accept="image/*"
+        >
+          <Button
+            icon={<CameraOutlined />}
+            size="small"
+            className="!rounded-full !text-xs"
+          >
+            Attach Photos
+          </Button>
         </Upload>
       </Form.Item>
+      <p className="mt-2 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+        {photoList.length
+          ? `${photoList.length} evidence photo${photoList.length > 1 ? "s" : ""} attached`
+          : "Attach clear evidence photos only when needed."}
+      </p>
     </div>
   );
 }
@@ -1967,13 +2344,40 @@ function ReportSummaryCard({ reportLead }) {
   const score = calcOverallScore(reportItems);
   return (
     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <QueueMetric label="Inspection ID" value={reportLead.inspection?.inspectionId || "Not generated"} helper="Auto-generated for this visit" />
-      <QueueMetric label="Seller Ask" value={fmtInrOrPending(getPrice(reportLead))} helper={`${getMileage(reportLead) || "Kms pending"} · ${reportLead.ownership || "Ownership pending"}`} tone="emerald" />
-      <QueueMetric label="Insurance" value={getInsuranceDisplay(reportLead) || "Pending"} helper={`Hypothecation: ${reportLead.hypothecation === true ? "Yes" : reportLead.hypothecation === false ? "No" : "Unknown"}`} tone="amber" />
-      <QueueMetric label="Scheduled For" value={fmt(reportLead.inspection?.rescheduledAt || reportLead.inspectionScheduledAt || new Date())} helper="Field visit slot" tone="violet" />
+      <QueueMetric
+        label="Inspection ID"
+        value={reportLead.inspection?.inspectionId || "Not generated"}
+        helper="Auto-generated for this visit"
+      />
+      <QueueMetric
+        label="Seller Ask"
+        value={fmtInrOrPending(getPrice(reportLead))}
+        helper={`${getMileage(reportLead) || "Kms pending"} · ${reportLead.ownership || "Ownership pending"}`}
+        tone="emerald"
+      />
+      <QueueMetric
+        label="Insurance"
+        value={getInsuranceDisplay(reportLead) || "Pending"}
+        helper={`Hypothecation: ${reportLead.hypothecation === true ? "Yes" : reportLead.hypothecation === false ? "No" : "Unknown"}`}
+        tone="amber"
+      />
+      <QueueMetric
+        label="Scheduled For"
+        value={fmt(
+          reportLead.inspection?.rescheduledAt ||
+            reportLead.inspectionScheduledAt ||
+            new Date(),
+        )}
+        helper="Field visit slot"
+        tone="violet"
+      />
       <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Overall Score</p>
-        <div className="mt-3"><OverallScoreRing score={score} /></div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+          Overall Score
+        </p>
+        <div className="mt-3">
+          <OverallScoreRing score={score} />
+        </div>
       </div>
     </div>
   );
@@ -1984,13 +2388,20 @@ function getStoredFileSrc(file) {
 }
 
 function compactStatus(status) {
-  if (!status) return "Not marked";
-  return String(status).split("—")[0].trim();
+  const statuses = normalizeStatusList(status).map((entry) =>
+    String(entry).split("—")[0].trim(),
+  );
+  if (!statuses.length) return "Not marked";
+  if (statuses.length === 1) return statuses[0];
+  if (statuses.length === 2) return `${statuses[0]} and ${statuses[1]}`;
+  return `${statuses.slice(0, -1).join(", ")} and ${statuses.at(-1)}`;
 }
 
 function isPositiveInspectionStatus(status) {
-  const value = String(status || "").toLowerCase();
-  if (!value) return false;
+  const values = normalizeStatusList(status).map((entry) =>
+    String(entry || "").toLowerCase(),
+  );
+  if (!values.length) return false;
   const negativeTokens = [
     "scratch",
     "dent",
@@ -2017,25 +2428,125 @@ function isPositiveInspectionStatus(status) {
     "jammed",
     "damage",
   ];
-  return !negativeTokens.some((token) => value.includes(token));
+  return !values.some((value) =>
+    negativeTokens.some((token) => value.includes(token)),
+  );
 }
 
 function getSectionCounts(section, itemValues) {
   return section.items.reduce(
     (acc, item) => {
       const status = itemValues?.[item.key]?.status;
-      if (!status) return acc;
+      if (!normalizeStatusList(status).length) return acc;
       if (isPositiveInspectionStatus(status)) acc.good += 1;
       else acc.issue += 1;
       return acc;
     },
-    { good: 0, issue: 0 }
+    { good: 0, issue: 0 },
   );
+}
+
+function getMediaDiscipline(photoBuckets = {}, itemValues = {}) {
+  const requiredPhotos = PHOTO_BUCKETS.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.labelEn,
+    files: photoBuckets[bucket.key] || [],
+  }));
+  const capturedRequired = requiredPhotos.filter((bucket) => bucket.files.length)
+    .length;
+  const defectItems = INSPECTION_SECTIONS.flatMap((section) =>
+    section.items
+      .map((item) => ({
+        key: item.key,
+        label: item.labelEn,
+        status: itemValues?.[item.key]?.status,
+        photos: itemValues?.[item.key]?.photos || [],
+      }))
+      .filter((item) => item.status && !isPositiveInspectionStatus(item.status)),
+  );
+  const defectPhotosCaptured = defectItems.filter((item) => item.photos.length)
+    .length;
+
+  return {
+    requiredTotal: requiredPhotos.length,
+    requiredCaptured: capturedRequired,
+    missingBuckets: requiredPhotos
+      .filter((bucket) => !bucket.files.length)
+      .map((bucket) => bucket.label),
+    defectTotal: defectItems.length,
+    defectPhotosCaptured,
+    missingDefectPhotos: defectItems
+      .filter((item) => !item.photos.length)
+      .map((item) => item.label),
+  };
+}
+
+function buildSmartAutoSummary({
+  lead,
+  report,
+  itemValues,
+  mediaDiscipline,
+}) {
+  const allIssues = INSPECTION_SECTIONS.flatMap((section) =>
+    section.items
+      .map((item) => {
+        const value = itemValues?.[item.key] || {};
+        if (!value.status || isPositiveInspectionStatus(value.status)) {
+          return null;
+        }
+        return {
+          section: section.titleEn,
+          label: item.labelEn,
+          status: compactStatus(value.status),
+          severity: value.severity || getStatusSeverity(value.status, item, section),
+        };
+      })
+      .filter(Boolean),
+  );
+
+  const criticalIssues = allIssues.filter(
+    (issue) => issue.severity === "Critical" || issue.severity === "High",
+  );
+
+  const worstSection = INSPECTION_SECTIONS.map((section) => ({
+    key: section.key,
+    title: section.titleEn,
+    ...getSectionCounts(section, itemValues),
+  }))
+    .sort((a, b) => b.issue - a.issue)[0];
+
+  const bullets = [
+    criticalIssues.length
+      ? `${criticalIssues.length} major issue${criticalIssues.length > 1 ? "s" : ""} flagged across ${worstSection?.title || "the vehicle"}`
+      : "No major structural or mechanical concern flagged in the filled checklist",
+    mediaDiscipline.missingBuckets.length
+      ? `${mediaDiscipline.requiredCaptured}/${mediaDiscipline.requiredTotal} mandatory photo buckets captured`
+      : "All mandatory photo buckets captured for reviewer confidence",
+    report?.estimatedRefurbCost
+      ? `Expected refurb budget estimated at ${fmtInr(report.estimatedRefurbCost)}`
+      : "Refurb budget still needs evaluator confirmation",
+  ];
+
+  const narrative = criticalIssues.length
+    ? `Vehicle shows ${criticalIssues.length} higher-severity finding${criticalIssues.length > 1 ? "s" : ""}. Focus review on ${criticalIssues
+        .slice(0, 3)
+        .map((issue) => issue.label)
+        .join(", ")} before price closure.`
+    : `Vehicle looks commercially workable from the current inspection inputs. Review photo evidence, OEM checks, and pricing notes before moving ahead.`;
+
+  return {
+    bullets,
+    narrative,
+    criticalIssues: criticalIssues.slice(0, 6),
+    allIssues,
+  };
 }
 
 function DocumentPage({ children, className = "" }) {
   return (
-    <section className={`relative overflow-hidden rounded-[34px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f1319] ${className}`}>
+    <section
+      className={`relative overflow-hidden rounded-[34px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f1319] ${className}`}
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_32%),linear-gradient(135deg,rgba(248,250,252,0.95),rgba(239,246,255,0.8))] dark:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_32%),linear-gradient(135deg,rgba(15,19,25,0.98),rgba(20,30,47,0.92))]" />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[72px] font-black tracking-[0.22em] text-slate-100/80 dark:text-white/[0.03]">
         INSPECTION REPORT
@@ -2055,9 +2566,19 @@ function DocumentStat({ label, value, helper, tone = "slate" }) {
   };
   return (
     <div className="rounded-[22px] border border-slate-200 bg-white/90 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">{label}</p>
-      <p className={`mt-1 text-xl font-black tracking-tight ${toneMap[tone] || toneMap.slate}`}>{value}</p>
-      {helper ? <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{helper}</p> : null}
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-xl font-black tracking-tight ${toneMap[tone] || toneMap.slate}`}
+      >
+        {value}
+      </p>
+      {helper ? (
+        <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          {helper}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -2093,8 +2614,12 @@ function ReportPhotoTile({ title, file }) {
         )}
       </div>
       <div className="px-3 py-2.5">
-        <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{title}</p>
-        <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">{file?.name || "Photo pending"}</p>
+        <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+          {title}
+        </p>
+        <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
+          {file?.name || "Photo pending"}
+        </p>
       </div>
     </div>
   );
@@ -2106,7 +2631,8 @@ function DamageVisibilityMap({ itemValues }) {
       .filter((item) => DAMAGE_MAP_LAYOUT[item.key])
       .map((item) => {
         const value = itemValues?.[item.key] || {};
-        if (!value.status || isPositiveInspectionStatus(value.status)) return null;
+        if (!value.status || isPositiveInspectionStatus(value.status))
+          return null;
         return {
           key: item.key,
           zone: DAMAGE_MAP_LAYOUT[item.key],
@@ -2114,7 +2640,7 @@ function DamageVisibilityMap({ itemValues }) {
           status: compactStatus(value.status),
         };
       })
-      .filter(Boolean)
+      .filter(Boolean),
   );
 
   const zoneGroups = mappedIssues.reduce((acc, issue) => {
@@ -2124,78 +2650,87 @@ function DamageVisibilityMap({ itemValues }) {
   }, {});
 
   const zoneClassMap = {
-    top: "top-1 left-1/2 -translate-x-1/2",
+    top: "top-2 left-1/2 -translate-x-1/2",
     "top-center": "top-14 left-1/2 -translate-x-1/2",
-    bottom: "bottom-1 left-1/2 -translate-x-1/2",
-    front: "top-1/2 left-2 -translate-y-1/2",
-    rear: "top-1/2 right-2 -translate-y-1/2",
-    "left-front": "top-10 left-8",
-    "right-front": "top-10 right-8",
-    "left-mid": "top-1/2 left-8 -translate-y-1/2",
-    "right-mid": "top-1/2 right-8 -translate-y-1/2",
-    "left-rear": "bottom-12 left-8",
-    "right-rear": "bottom-12 right-8",
-    "left-tail": "bottom-6 left-6",
-    "right-tail": "bottom-6 right-6",
-    "front-corner": "top-24 left-2",
-    "rear-corner": "bottom-24 right-2",
-    "glass-front": "top-20 left-1/2 -translate-x-1/2",
-    "glass-rear": "bottom-20 left-1/2 -translate-x-1/2",
-    "mirror-zone": "top-1/2 left-1/2 -translate-x-[120%] -translate-y-[160%]",
-    "wheel-zone": "top-1/2 right-1/2 translate-x-[120%] translate-y-[90%]",
+    bottom: "bottom-2 left-1/2 -translate-x-1/2",
+    front: "top-1/2 left-1 -translate-y-1/2 text-left",
+    rear: "top-1/2 right-1 -translate-y-1/2 text-right",
+    "left-front": "top-12 left-6 text-left",
+    "right-front": "top-12 right-6 text-right",
+    "left-mid": "top-1/2 left-5 -translate-y-1/2 text-left",
+    "right-mid": "top-1/2 right-5 -translate-y-1/2 text-right",
+    "left-rear": "bottom-16 left-6 text-left",
+    "right-rear": "bottom-16 right-6 text-right",
+    "left-tail": "bottom-6 left-4 text-left",
+    "right-tail": "bottom-6 right-4 text-right",
+    "front-corner": "top-24 left-2 text-left",
+    "rear-corner": "bottom-24 right-2 text-right",
+    "glass-front": "top-20 left-1/2 -translate-x-1/2 text-center",
+    "glass-rear": "bottom-20 left-1/2 -translate-x-1/2 text-center",
+    "mirror-zone": "top-[36%] left-[22%] -translate-x-1/2 text-left",
+    "wheel-zone": "bottom-[20%] right-[16%] text-right",
   };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Damage visibility</p>
-        <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Vehicle Damage Map</h2>
-        <p className="mt-2 text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
-          Exterior and body-related issues are positioned around the vehicle view so pricing and refurb decisions can happen faster.
-        </p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <DocumentStat label="Mapped issues" value={mappedIssues.length} helper="Visible on car map" tone={mappedIssues.length ? "amber" : "green"} />
-          <DocumentStat label="Clean panels" value={Math.max(0, 30 - mappedIssues.length)} helper="Indicative healthy points" tone="green" />
+    <div className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="relative mx-auto h-[720px] max-w-[900px] rounded-[28px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-8 dark:border-sky-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.35),rgba(15,19,25,0.9))]">
+        <div className="absolute inset-x-24 top-8 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+          <span>Front</span>
+          <span>Top View</span>
+          <span>Rear</span>
         </div>
-      </div>
-      <div className="rounded-[28px] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
-        <div className="relative mx-auto h-[360px] max-w-[520px] rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,rgba(239,246,255,0.9),rgba(248,250,252,0.95))] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.6),rgba(15,19,25,0.95))]">
-          <div className="absolute left-1/2 top-1/2 h-[220px] w-[150px] -translate-x-1/2 -translate-y-1/2 rounded-[46px] border-4 border-slate-300 bg-white shadow-inner dark:border-slate-600 dark:bg-[#111827]" />
-          <div className="absolute left-1/2 top-[88px] h-[52px] w-[86px] -translate-x-1/2 rounded-[18px] border border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700/40" />
-          <div className="absolute left-1/2 bottom-[88px] h-[52px] w-[86px] -translate-x-1/2 rounded-[18px] border border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700/40" />
-          <div className="absolute left-[118px] top-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
-          <div className="absolute right-[118px] top-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
-          <div className="absolute left-[118px] bottom-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
-          <div className="absolute right-[118px] bottom-[116px] h-[42px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#111827]" />
-          {Object.entries(zoneGroups).map(([zone, issues]) => (
-            <div key={zone} className={`absolute ${zoneClassMap[zone] || ""}`}>
-              <div className="max-w-[150px] rounded-[16px] border border-amber-200 bg-amber-50/90 px-3 py-2 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/10">
-                {issues.slice(0, 2).map((issue) => (
-                  <div key={issue.key}>
-                    <p className="text-[11px] font-black text-amber-800 dark:text-amber-300">{issue.label}</p>
-                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">{issue.status}</p>
-                  </div>
-                ))}
+        <div className="absolute left-1/2 top-[118px] h-[430px] w-[270px] -translate-x-1/2 rounded-[86px] border-[4px] border-sky-200 bg-white shadow-[inset_0_0_0_1px_rgba(186,230,253,0.65)] dark:border-sky-400/30 dark:bg-[#111827]">
+          <div className="absolute left-1/2 top-8 h-[92px] w-[156px] -translate-x-1/2 rounded-[28px] border border-sky-100 bg-sky-50 dark:border-sky-500/20 dark:bg-sky-500/10" />
+          <div className="absolute left-1/2 bottom-8 h-[92px] w-[156px] -translate-x-1/2 rounded-[28px] border border-sky-100 bg-sky-50 dark:border-sky-500/20 dark:bg-sky-500/10" />
+          <div className="absolute left-[12px] top-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
+          <div className="absolute right-[12px] top-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
+          <div className="absolute left-[12px] bottom-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
+          <div className="absolute right-[12px] bottom-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
+        </div>
+        {Object.entries(zoneGroups).map(([zone, issues]) => (
+          <div
+            key={zone}
+            className={`absolute max-w-[210px] ${zoneClassMap[zone] || ""}`}
+          >
+            {issues.slice(0, 2).map((issue, index) => (
+              <div
+                key={issue.key}
+                className={`${index ? "mt-4" : ""} text-xs leading-5`}
+              >
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {issue.label}
+                </p>
+                <p className="font-medium text-amber-700 dark:text-amber-300">
+                  {issue.status}
+                </p>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, printRef }) {
+function InspectionReportDocumentView({
+  reportLead,
+  onBack,
+  onEdit,
+  onDownload,
+  printRef,
+}) {
   const report = reportLead?.inspection?.report || {};
   const itemValues = report.items || {};
   const photoBuckets = report.photoBuckets || {};
+  const leadVerification = report.leadVerification || {};
   const score = calcOverallScore(itemValues);
   const submittedAt =
     reportLead?.inspection?.submittedAt ||
     report?.generatedAt ||
     reportLead?.inspection?.startedAt ||
     new Date().toISOString();
-  const leadDate = reportLead?.inspection?.rescheduledAt || reportLead?.inspectionScheduledAt;
+  const leadDate =
+    reportLead?.inspection?.rescheduledAt || reportLead?.inspectionScheduledAt;
   const verdict = reportLead?.inspection?.verdict || "Submitted";
   const bucketCards = PHOTO_BUCKETS.map((bucket) => ({
     title: bucket.labelEn,
@@ -2212,28 +2747,13 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
     completion: calcSectionScore(section.key, itemValues),
     ...getSectionCounts(section, itemValues),
   }));
-  const issueHighlights = INSPECTION_SECTIONS.flatMap((section) =>
-    section.items
-      .map((item) => {
-        const itemValue = itemValues?.[item.key] || {};
-        if (!itemValue.status || isPositiveInspectionStatus(itemValue.status)) return null;
-        const detail = [
-          compactStatus(itemValue.status),
-          itemValue.notes,
-          itemValue.treadDepth ? `Tread ${itemValue.treadDepth} mm` : "",
-          itemValue.tyreBrand ? `Brand ${itemValue.tyreBrand}` : "",
-        ]
-          .filter(Boolean)
-          .join(" · ");
-        return {
-          key: `${section.key}-${item.key}`,
-          section: section.titleEn,
-          label: item.labelEn,
-          detail,
-        };
-      })
-      .filter(Boolean)
-  );
+  const mediaDiscipline = getMediaDiscipline(photoBuckets, itemValues);
+  const autoSummary = buildSmartAutoSummary({
+    lead: reportLead,
+    report,
+    itemValues,
+    mediaDiscipline,
+  });
   const reportHighlights = [
     report?.registrationNumber || reportLead?.regNo || "Registration pending",
     reportLead?.mfgYear || "Year pending",
@@ -2269,24 +2789,41 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
               {reportLead.make} {reportLead.model} {reportLead.variant}
             </h3>
             <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-              {reportLead.name} · {reportLead.mobile} · Generated {fmt(submittedAt)}
+              {reportLead.name} · {reportLead.mobile} · Generated{" "}
+              {fmt(submittedAt)}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button icon={<ArrowLeftOutlined />} onClick={onBack} className="!rounded-full">
+            <Button
+              icon={<ArrowLeftOutlined />}
+              onClick={onBack}
+              className="!rounded-full"
+            >
               Back to Queue
             </Button>
-            <Button icon={<DownloadOutlined />} onClick={onDownload} className="!rounded-full">
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={onDownload}
+              className="!rounded-full"
+            >
               Download Report
             </Button>
-            <Button type="primary" icon={<FileTextOutlined />} onClick={onEdit} className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950">
+            <Button
+              type="primary"
+              icon={<FileTextOutlined />}
+              onClick={onEdit}
+              className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950"
+            >
               Continue Report
             </Button>
           </div>
         </div>
       </div>
 
-      <div ref={printRef} className="inspection-report-pages mx-auto max-w-[960px] space-y-6 pb-10">
+      <div
+        ref={printRef}
+        className="inspection-report-pages mx-auto max-w-[960px] space-y-6 pb-10"
+      >
         <DocumentPage className="bg-[#f3f8ff] dark:bg-[#0f1622]">
           <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
@@ -2299,12 +2836,16 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
                 Car Inspection Report
               </h1>
               <p className="mt-4 max-w-xl text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
-                Thorough vehicle health review with section-wise quality checks, evaluator observations, compliance verification,
-                photo evidence, and next-step pricing guidance.
+                Thorough vehicle health review with structured condition
+                findings, compliance verification, photo evidence, and
+                procurement-ready pricing guidance.
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
                 {reportHighlights.map((highlight) => (
-                  <span key={highlight} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                  <span
+                    key={highlight}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                  >
                     {highlight}
                   </span>
                 ))}
@@ -2314,7 +2855,11 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
               <div className="mb-5 overflow-hidden rounded-[22px] border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="aspect-[1.28/0.88]">
                   {heroPhoto ? (
-                    <img src={getStoredFileSrc(heroPhoto)} alt={`${reportLead.make} ${reportLead.model}`} className="h-full w-full object-cover" />
+                    <img
+                      src={getStoredFileSrc(heroPhoto)}
+                      alt={`${reportLead.make} ${reportLead.model}`}
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <div className="flex h-full items-center justify-center text-slate-300 dark:text-slate-600">
                       <CameraOutlined style={{ fontSize: 40 }} />
@@ -2324,36 +2869,108 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
               </div>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">At a glance</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                    At a glance
+                  </p>
                   <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
                     {reportLead.make} {reportLead.model}
                   </h2>
                   <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {reportLead.variant || "Variant pending"} · {reportLead.fuel || report?.fuelType || "Fuel pending"}
+                    {reportLead.variant || "Variant pending"} ·{" "}
+                    {reportLead.fuel || report?.fuelType || "Fuel pending"}
                   </p>
                 </div>
                 <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-center dark:border-emerald-500/30 dark:bg-emerald-500/10">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-300">Overall</p>
-                  <p className="mt-1 text-3xl font-black text-emerald-700 dark:text-emerald-300">{Math.max(1, Math.round(score / 20))}/5</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-300">
+                    Overall
+                  </p>
+                  <p className="mt-1 text-3xl font-black text-emerald-700 dark:text-emerald-300">
+                    {Math.max(1, Math.round(score / 20))}/5
+                  </p>
                   <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                    {score >= 80 ? "Excellent" : score >= 60 ? "Good" : score >= 40 ? "Fair" : "Needs work"}
+                    {score >= 80
+                      ? "Excellent"
+                      : score >= 60
+                        ? "Good"
+                        : score >= 40
+                          ? "Fair"
+                          : "Needs work"}
                   </p>
                 </div>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <DocumentStat label="Inspection date" value={fmt(submittedAt)} helper="Report submitted" tone="blue" />
-                <DocumentStat label="Inspection ID" value={reportLead?.inspection?.inspectionId || "Not generated"} helper="Evaluator job reference" />
-                <DocumentStat label="Verdict" value={compactStatus(verdict)} helper={verdict === NOGO_REASON ? "Lead closed at inspection" : "Ready for next stage"} tone={verdict === NOGO_REASON ? "rose" : "green"} />
-                <DocumentStat label="Evaluator" value={reportLead?.inspection?.executiveName || reportLead?.assignedTo || "Pending"} helper={reportLead?.inspection?.executiveMobile || "Mobile pending"} />
-                <DocumentStat label="Registration" value={report?.registrationNumber || reportLead?.regNo || "Pending"} helper="Verified during inspection" />
-                <DocumentStat label="Insurance expiry" value={report?.insuranceExpiry ? fmt(report.insuranceExpiry) : "Pending"} helper={getInsuranceDisplay(reportLead) || "Insurance type pending"} tone="amber" />
+                <DocumentStat
+                  label="Inspection date"
+                  value={fmt(submittedAt)}
+                  helper="Report submitted"
+                  tone="blue"
+                />
+                <DocumentStat
+                  label="Inspection ID"
+                  value={
+                    reportLead?.inspection?.inspectionId || "Not generated"
+                  }
+                  helper="Evaluator job reference"
+                />
+                <DocumentStat
+                  label="Verdict"
+                  value={compactStatus(verdict)}
+                  helper={
+                    verdict === NOGO_REASON
+                      ? "Lead closed at inspection"
+                      : "Ready for next stage"
+                  }
+                  tone={verdict === NOGO_REASON ? "rose" : "green"}
+                />
+                <DocumentStat
+                  label="Evaluator"
+                  value={
+                    reportLead?.inspection?.executiveName ||
+                    reportLead?.assignedTo ||
+                    "Pending"
+                  }
+                  helper={
+                    reportLead?.inspection?.executiveMobile || "Mobile pending"
+                  }
+                />
+                <DocumentStat
+                  label="Registration"
+                  value={
+                    report?.registrationNumber || reportLead?.regNo || "Pending"
+                  }
+                  helper="Verified during inspection"
+                />
+                <DocumentStat
+                  label="Insurance expiry"
+                  value={
+                    report?.insuranceExpiry
+                      ? fmt(report.insuranceExpiry)
+                      : "Pending"
+                  }
+                  helper={
+                    getInsuranceDisplay(reportLead) || "Insurance type pending"
+                  }
+                  tone="amber"
+                />
               </div>
               <div className="mt-5 rounded-[20px] border border-slate-200 bg-slate-50/90 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Health report summary</p>
-                <p className="mt-2 text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
-                  {report?.overallRemarks ||
-                    "Inspection completed. Use the category summary below to review body condition, mechanical health, compliance, and pricing readiness before moving this car ahead."}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                  Health report summary
                 </p>
+                <p className="mt-2 text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
+                  {report?.overallRemarks || autoSummary.narrative}
+                </p>
+                <div className="mt-4 space-y-2">
+                  {autoSummary.bullets.map((bullet) => (
+                    <div
+                      key={bullet}
+                      className="flex items-start gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300"
+                    >
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-500" />
+                      <span>{bullet}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -2361,34 +2978,17 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
 
         <DocumentPage>
           <DamageVisibilityMap itemValues={itemValues} />
-          <div className="mt-6 rounded-[26px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
-            <div className="grid gap-3">
-              {issueHighlights.length ? (
-                issueHighlights.slice(0, 12).map((issue) => (
-                  <div key={issue.key} className="rounded-[18px] border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">{issue.label}</p>
-                      <span className="rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700 dark:border-amber-500/30 dark:bg-white/[0.05] dark:text-amber-300">
-                        {issue.section}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs font-medium leading-6 text-slate-600 dark:text-slate-300">{issue.detail}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-5 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
-                  No visible issues have been marked in the inspection report yet.
-                </div>
-              )}
-            </div>
-          </div>
         </DocumentPage>
 
         <DocumentPage>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Advanced report</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Content of report</h2>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Advanced report
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                Content of report
+              </h2>
             </div>
             <div className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300">
               {INSPECTION_SECTIONS.length + 4} sections
@@ -2396,17 +2996,46 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
           </div>
           <div className="mt-6 grid gap-3">
             {[
-              ["01", "Your report at a glance", "Overview of vehicle condition, identity, and headline outcome"],
-              ["02", "Inspection summary", "Category-wise ratings and completion summary"],
-              ["03", "Vehicle images", "Mandatory inspection photo evidence captured by evaluator"],
-              ["04", "Detailed evaluation", "Full section tables for every inspected part and system"],
-              ["05", "OEM installed features & specs", "Factory-fit features, counts, and evaluator pricing notes"],
+              [
+                "01",
+                "Your report at a glance",
+                "Overview of vehicle condition, identity, and headline outcome",
+              ],
+              [
+                "02",
+                "Inspection summary",
+                "Category-wise ratings and completion summary",
+              ],
+              [
+                "03",
+                "Vehicle images",
+                "Mandatory inspection photo evidence captured by evaluator",
+              ],
+              [
+                "04",
+                "Detailed evaluation",
+                "Full section tables for every inspected part and system",
+              ],
+              [
+                "05",
+                "OEM installed features & specs",
+                "Factory-fit features, counts, and evaluator pricing notes",
+              ],
             ].map(([index, title, desc]) => (
-              <div key={index} className="flex items-center gap-4 rounded-[22px] border border-sky-100 bg-sky-50/60 px-4 py-4 dark:border-sky-500/20 dark:bg-sky-500/5">
-                <span className="text-4xl font-black tracking-tight text-sky-200 dark:text-sky-500/30">{index}</span>
+              <div
+                key={index}
+                className="flex items-center gap-4 rounded-[22px] border border-sky-100 bg-sky-50/60 px-4 py-4 dark:border-sky-500/20 dark:bg-sky-500/5"
+              >
+                <span className="text-4xl font-black tracking-tight text-sky-200 dark:text-sky-500/30">
+                  {index}
+                </span>
                 <div>
-                  <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">{title}</p>
-                  <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{desc}</p>
+                  <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">
+                    {title}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {desc}
+                  </p>
                 </div>
               </div>
             ))}
@@ -2416,35 +3045,52 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
         <DocumentPage>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Inspection report</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Inspection Summary</h2>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Inspection report
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                Inspection Summary
+              </h2>
               <p className="mt-2 max-w-2xl text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
-                This section provides a quick section-wise view of the current car assessment so the next team can decide pricing,
-                refurb depth, and whether the car should move ahead immediately.
+                This section provides a quick section-wise view of the current
+                car assessment so the next team can decide pricing, refurb
+                depth, and whether the car should move ahead immediately.
               </p>
             </div>
             <ScoreBadge score={score} />
           </div>
           <div className="mt-6 space-y-4">
             {summarySections.map((section) => (
-              <div key={section.key} className="grid gap-4 rounded-[24px] border border-slate-200 bg-white px-5 py-4 dark:border-white/10 dark:bg-white/[0.03] md:grid-cols-[1.05fr_0.95fr] md:items-center">
+              <div
+                key={section.key}
+                className="grid gap-4 rounded-[24px] border border-slate-200 bg-white px-5 py-4 dark:border-white/10 dark:bg-white/[0.03] md:grid-cols-[1.05fr_0.95fr] md:items-center"
+              >
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{section.icon}</span>
-                    <p className="text-base font-black tracking-tight text-slate-950 dark:text-slate-100">{section.titleEn}</p>
+                    <p className="text-base font-black tracking-tight text-slate-950 dark:text-slate-100">
+                      {section.titleEn}
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{section.titleHi}</p>
                   <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    Perfect parts: {section.good} | Imperfect parts: {section.issue}
+                    Perfect parts: {section.good} | Imperfect parts:{" "}
+                    {section.issue}
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="min-w-0 flex-1">
-                    <SectionProgressBar sectionKey={section.key} itemValues={itemValues} />
+                    <SectionProgressBar
+                      sectionKey={section.key}
+                      itemValues={itemValues}
+                    />
                   </div>
                   <div className="rounded-[16px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-center dark:border-emerald-500/20 dark:bg-emerald-500/10">
-                    <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">{Math.max(0, Math.round(section.completion / 20))}/5</p>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">Summary</p>
+                    <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">
+                      {Math.max(0, Math.round(section.completion / 20))}/5
+                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">
+                      Summary
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2455,16 +3101,54 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
         <DocumentPage>
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Evidence pack</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Vehicle Images</h2>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Evidence pack
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                Vehicle Images
+              </h2>
             </div>
             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
               {bucketCards.length} photos
             </span>
           </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <DocumentStat
+              label="Mandatory captured"
+              value={`${mediaDiscipline.requiredCaptured}/${mediaDiscipline.requiredTotal}`}
+              helper={
+                mediaDiscipline.missingBuckets.length
+                  ? `${mediaDiscipline.missingBuckets.length} buckets still pending`
+                  : "All mandatory photo buckets captured"
+              }
+              tone={mediaDiscipline.missingBuckets.length ? "amber" : "green"}
+            />
+            <DocumentStat
+              label="Defect photos"
+              value={`${mediaDiscipline.defectPhotosCaptured}/${mediaDiscipline.defectTotal}`}
+              helper="Negative findings with evidence"
+              tone={
+                mediaDiscipline.defectPhotosCaptured === mediaDiscipline.defectTotal
+                  ? "green"
+                  : "amber"
+              }
+            />
+            <DocumentStat
+              label="Verification"
+              value={`${Object.values(leadVerification).filter(Boolean).length}/${LEAD_VERIFICATION_FIELDS.length}`}
+              helper="Lead and document checks completed"
+              tone="blue"
+            />
+          </div>
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {bucketCards.length ? (
-              bucketCards.map((entry) => <ReportPhotoTile key={entry.title} title={entry.title} file={entry.file} />)
+              bucketCards.map((entry) => (
+                <ReportPhotoTile
+                  key={entry.title}
+                  title={entry.title}
+                  file={entry.file}
+                />
+              ))
             ) : (
               <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-medium text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
                 Photo evidence abhi attach nahi hai.
@@ -2479,45 +3163,88 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
             <DocumentPage key={section.key}>
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Inspection report</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                    Inspection report
+                  </p>
                   <h2 className="mt-2 text-[28px] font-black tracking-tight text-slate-950 dark:text-white">
                     {(index + 1).toString().padStart(2, "0")}. {section.titleEn}
                   </h2>
-                  <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">{section.titleHi}</p>
                 </div>
-                <div className="rounded-[18px] border px-4 py-3 text-right" style={{ borderColor: `${section.color}33`, background: `${section.color}10` }}>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: section.color }}>
-                    Perfect parts: {counts.good} | Imperfect parts: {counts.issue}
+                <div
+                  className="rounded-[18px] border px-4 py-3 text-right"
+                  style={{
+                    borderColor: `${section.color}33`,
+                    background: `${section.color}10`,
+                  }}
+                >
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.12em]"
+                    style={{ color: section.color }}
+                  >
+                    Perfect parts: {counts.good} | Imperfect parts:{" "}
+                    {counts.issue}
                   </p>
-                  <p className="mt-1 text-lg font-black" style={{ color: section.color }}>
-                    {Math.max(0, Math.round(calcSectionScore(section.key, itemValues) / 20))}/5
+                  <p
+                    className="mt-1 text-lg font-black"
+                    style={{ color: section.color }}
+                  >
+                    {Math.max(
+                      0,
+                      Math.round(
+                        calcSectionScore(section.key, itemValues) / 20,
+                      ),
+                    )}
+                    /5
                   </p>
                 </div>
               </div>
 
               <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/10">
-                <div className="grid grid-cols-[1.5fr_0.7fr_1fr] gap-4 bg-sky-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:bg-sky-500/10 dark:text-slate-300">
+                <div className="grid grid-cols-[1.55fr_0.7fr_0.75fr] gap-4 bg-sky-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:bg-sky-500/10 dark:text-slate-300">
                   <span>Parameters</span>
-                  <span>Status</span>
-                  <span>Detail</span>
+                  <span>Condition</span>
+                  <span>Severity</span>
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-white/10">
                   {section.items.map((item) => {
                     const itemValue = itemValues?.[item.key] || {};
-                    const notes = [itemValue.notes, itemValue.treadDepth ? `Tread ${itemValue.treadDepth} mm` : "", itemValue.tyreBrand ? `Brand ${itemValue.tyreBrand}` : ""]
-                      .filter(Boolean)
-                      .join(" · ");
                     return (
-                      <div key={item.key} className="grid grid-cols-[1.5fr_0.7fr_1fr] gap-4 px-4 py-3 text-sm">
+                      <div
+                        key={item.key}
+                        className="grid grid-cols-[1.55fr_0.7fr_0.75fr] gap-4 px-4 py-3 text-sm"
+                      >
                         <div>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{item.labelEn}</p>
-                          <p className="mt-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">{item.labelHi}</p>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">
+                            {item.labelEn}
+                          </p>
+                          {itemValue.tyreBrand || itemValue.treadDepth ? (
+                            <p className="mt-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                              {[
+                                itemValue.tyreBrand || "",
+                                itemValue.treadDepth
+                                  ? `${itemValue.treadDepth} mm`
+                                  : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          ) : null}
                         </div>
                         <div className="py-0.5">
                           <StatusChip status={itemValue.status} />
                         </div>
-                        <div className="text-xs font-medium leading-6 text-slate-500 dark:text-slate-400">
-                          {notes || "No extra observation"}
+                        <div className="py-0.5">
+                          {itemValue.severity ? (
+                            <span
+                              className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${getSeverityTone(itemValue.severity)}`}
+                            >
+                              {itemValue.severity}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
+                              -
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -2531,29 +3258,68 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
         <DocumentPage>
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">OEM installed features &amp; specs</p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Features, Specs &amp; Pricing Notes</h2>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                OEM installed features &amp; specs
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                Features, Specs &amp; Pricing Notes
+              </h2>
               <div className="mt-6 grid gap-3 md:grid-cols-2">
-                <DocumentStat label="Power windows" value={report?.powerWindowCount || "Not captured"} helper="Count verified during inspection" tone="blue" />
-                <DocumentStat label="Airbags" value={report?.airbagCount || "Not captured"} helper="As seen physically / warning status" tone="blue" />
-                <DocumentStat label="Transmission" value={report?.transmissionType || "Not captured"} helper="Variant-level gearbox verification" />
-                <DocumentStat label="Seat material" value={report?.seatMaterial || "Not captured"} helper="Cabin upholstery" />
-                <DocumentStat label="Fuel type" value={report?.fuelType || reportLead?.fuel || "Not captured"} helper="Lead + physical verification" />
-                <DocumentStat label="Estimated refurb" value={fmtInrOrPending(report?.estimatedRefurbCost)} helper="Expected rectification budget" tone="amber" />
+                <DocumentStat
+                  label="Power windows"
+                  value={report?.powerWindowCount || "Not captured"}
+                  helper="Count verified during inspection"
+                  tone="blue"
+                />
+                <DocumentStat
+                  label="Airbags"
+                  value={report?.airbagCount || "Not captured"}
+                  helper="As seen physically / warning status"
+                  tone="blue"
+                />
+                <DocumentStat
+                  label="Transmission"
+                  value={report?.transmissionType || "Not captured"}
+                  helper="Variant-level gearbox verification"
+                />
+                <DocumentStat
+                  label="Seat material"
+                  value={report?.seatMaterial || "Not captured"}
+                  helper="Cabin upholstery"
+                />
+                <DocumentStat
+                  label="Fuel type"
+                  value={report?.fuelType || reportLead?.fuel || "Not captured"}
+                  helper="Lead + physical verification"
+                />
+                <DocumentStat
+                  label="Estimated refurb"
+                  value={fmtInrOrPending(report?.estimatedRefurbCost)}
+                  helper="Expected rectification budget"
+                  tone="amber"
+                />
               </div>
             </div>
             <div className="space-y-4">
               <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Evaluator pricing</p>
-                <p className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white">{fmtInrOrPending(report?.evaluatorPrice)}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                  Evaluator pricing
+                </p>
+                <p className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white">
+                  {fmtInrOrPending(report?.evaluatorPrice)}
+                </p>
                 <p className="mt-2 text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
-                  {report?.negotiationNotes || "Evaluator negotiation notes abhi capture nahi hue hain."}
+                  {report?.negotiationNotes ||
+                    "Evaluator negotiation notes abhi capture nahi hue hain."}
                 </p>
               </div>
               <div className="rounded-[24px] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Final remarks</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                  Final remarks
+                </p>
                 <p className="mt-3 text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
-                  {report?.overallRemarks || "Final evaluator remarks abhi available nahi hain."}
+                  {report?.overallRemarks ||
+                    "Final evaluator remarks abhi available nahi hain."}
                 </p>
                 {leadDate ? (
                   <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
@@ -2569,7 +3335,13 @@ function InspectionReportDocumentView({ reportLead, onBack, onEdit, onDownload, 
   );
 }
 
-function VisitUpdateModal({ open, selectedLead, visitForm, onCancel, onSubmit }) {
+function VisitUpdateModal({
+  open,
+  selectedLead,
+  visitForm,
+  onCancel,
+  onSubmit,
+}) {
   return (
     <Modal
       open={open}
@@ -2579,42 +3351,138 @@ function VisitUpdateModal({ open, selectedLead, visitForm, onCancel, onSubmit })
       width={640}
       okText="Save Visit Update"
       cancelText="Cancel"
-      okButtonProps={{ className: "!bg-slate-900 !font-bold dark:!bg-white dark:!text-slate-950" }}
+      okButtonProps={{
+        className:
+          "!bg-slate-900 !font-bold dark:!bg-white dark:!text-slate-950",
+      }}
       title={
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Inspection Visit Update</p>
-          <p className="mt-1 text-lg font-black tracking-tight text-slate-950 dark:text-white">{selectedLead?.make} {selectedLead?.model}{selectedLead?.name ? ` — ${selectedLead.name}` : ""}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Inspection Visit Update
+          </p>
+          <p className="mt-1 text-lg font-black tracking-tight text-slate-950 dark:text-white">
+            {selectedLead?.make} {selectedLead?.model}
+            {selectedLead?.name ? ` — ${selectedLead.name}` : ""}
+          </p>
         </div>
       }
     >
-      <p className="mb-5 text-sm font-medium text-slate-500 dark:text-slate-400">Yeh form tab use karo jab inspection field mein ho na saki ho. Actual inspection ke liye Start Inspection button use karo.</p>
+      <p className="mb-5 text-sm font-medium text-slate-500 dark:text-slate-400">
+        Yeh form tab use karo jab inspection field mein ho na saki ho. Actual
+        inspection ke liye Start Inspection button use karo.
+      </p>
       <Form form={visitForm} layout="vertical" size="middle">
-        <Form.Item label="Kya reschedule karni hai? / Reschedule?" name="reschedule" rules={[{ required: true, message: "Option chunein." }]} className="!mb-4">
-          <Select placeholder="Chunein..." options={[{ value: true, label: "Yes — Nayi date pe reschedule karo" }, { value: false, label: "No — Sirf not-conducted mark karo" }]} />
+        <Form.Item
+          label="Kya reschedule karni hai? / Reschedule?"
+          name="reschedule"
+          rules={[{ required: true, message: "Option chunein." }]}
+          className="!mb-4"
+        >
+          <Select
+            placeholder="Chunein..."
+            options={[
+              { value: true, label: "Yes — Nayi date pe reschedule karo" },
+              { value: false, label: "No — Sirf not-conducted mark karo" },
+            ]}
+          />
         </Form.Item>
-        <Form.Item noStyle shouldUpdate={(prev, curr) => prev.reschedule !== curr.reschedule}>
-          {({ getFieldValue }) => getFieldValue("reschedule") === true ? (
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03] mb-4">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">New Slot Details / Nayi Visit ki Jaankari</p>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Form.Item label="New Date / Nayi Tithi" name="rescheduleDate" rules={[{ required: true, message: "Date chunein." }]} className="!mb-0"><DatePicker className="w-full" format="DD-MM-YYYY" disabledDate={(d) => d && d.isBefore(dayjs(), "day")} /></Form.Item>
-                <Form.Item label="New Time / Naya Samay" name="rescheduleTime" rules={[{ required: true, message: "Time chunein." }]} className="!mb-0"><TimePicker className="w-full" format="hh:mm A" use12Hours /></Form.Item>
-                <Form.Item label="Executive Name / Nirikshak ka Naam" name="rescheduleExecutiveName" rules={[{ required: true, message: "Executive naam bharo." }]} className="!mb-0"><Input prefix={<UserOutlined />} placeholder="Field evaluator ka poora naam" /></Form.Item>
-                <Form.Item label="Executive Mobile / Mobile Number" name="rescheduleExecutiveMobile" rules={[{ required: true, message: "Mobile number bharo." }]} className="!mb-0"><Input prefix={<PhoneOutlined />} placeholder="10-digit mobile number" maxLength={10} /></Form.Item>
+        <Form.Item
+          noStyle
+          shouldUpdate={(prev, curr) => prev.reschedule !== curr.reschedule}
+        >
+          {({ getFieldValue }) =>
+            getFieldValue("reschedule") === true ? (
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03] mb-4">
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                  New Slot Details / Nayi Visit ki Jaankari
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Form.Item
+                    label="New Date / Nayi Tithi"
+                    name="rescheduleDate"
+                    rules={[{ required: true, message: "Date chunein." }]}
+                    className="!mb-0"
+                  >
+                    <DatePicker
+                      className="w-full"
+                      format="DD-MM-YYYY"
+                      disabledDate={(d) => d && d.isBefore(dayjs(), "day")}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    label="New Time / Naya Samay"
+                    name="rescheduleTime"
+                    rules={[{ required: true, message: "Time chunein." }]}
+                    className="!mb-0"
+                  >
+                    <TimePicker
+                      className="w-full"
+                      format="hh:mm A"
+                      use12Hours
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    label="Executive Name / Nirikshak ka Naam"
+                    name="rescheduleExecutiveName"
+                    rules={[
+                      { required: true, message: "Executive naam bharo." },
+                    ]}
+                    className="!mb-0"
+                  >
+                    <Input
+                      prefix={<UserOutlined />}
+                      placeholder="Field evaluator ka poora naam"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    label="Executive Mobile / Mobile Number"
+                    name="rescheduleExecutiveMobile"
+                    rules={[
+                      { required: true, message: "Mobile number bharo." },
+                    ]}
+                    className="!mb-0"
+                  >
+                    <Input
+                      prefix={<PhoneOutlined />}
+                      placeholder="10-digit mobile number"
+                      maxLength={10}
+                    />
+                  </Form.Item>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null
+          }
         </Form.Item>
-        <Form.Item noStyle shouldUpdate={(prev, curr) => prev.reschedule !== curr.reschedule}>
-          {({ getFieldValue }) => getFieldValue("reschedule") === false ? (
-            <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20 mb-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400">Not Conducted — Kyun nahi hui?</p>
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Yeh lead Not Conducted mark ho jaayegi. Baad mein queue se dobara start kar sakte ho.</p>
-            </div>
-          ) : null}
+        <Form.Item
+          noStyle
+          shouldUpdate={(prev, curr) => prev.reschedule !== curr.reschedule}
+        >
+          {({ getFieldValue }) =>
+            getFieldValue("reschedule") === false ? (
+              <div className="rounded-[18px] border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20 mb-4">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400">
+                  Not Conducted — Kyun nahi hui?
+                </p>
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                  Yeh lead Not Conducted mark ho jaayegi. Baad mein queue se
+                  dobara start kar sakte ho.
+                </p>
+              </div>
+            ) : null
+          }
         </Form.Item>
-        <Form.Item label="Remarks / Wajah aur Notes" name="remarks" rules={[{ required: true, message: "Kuch remarks likhna zaroori hai." }]} className="!mb-0">
-          <TextArea rows={3} placeholder="Seller ghar par nahi tha, gaadi nahi mili, documents missing, location change, ya koi aur wajah..." />
+        <Form.Item
+          label="Remarks / Wajah aur Notes"
+          name="remarks"
+          rules={[
+            { required: true, message: "Kuch remarks likhna zaroori hai." },
+          ]}
+          className="!mb-0"
+        >
+          <TextArea
+            rows={3}
+            placeholder="Seller ghar par nahi tha, gaadi nahi mili, documents missing, location change, ya koi aur wajah..."
+          />
         </Form.Item>
       </Form>
     </Modal>
@@ -2638,7 +3506,9 @@ export default function UsedCarInspectionDesk() {
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [reportLeadId, setReportLeadId] = useState(null);
   const [reportMode, setReportMode] = useState("edit");
-  const [activeSectionKeys, setActiveSectionKeys] = useState([INSPECTION_SECTIONS[0].key]);
+  const [activeSectionKeys, setActiveSectionKeys] = useState([
+    INSPECTION_SECTIONS[0].key,
+  ]);
   const [autoOpenItemKey, setAutoOpenItemKey] = useState(null);
   const [visitForm] = Form.useForm();
   const [reportForm] = Form.useForm();
@@ -2651,21 +3521,27 @@ export default function UsedCarInspectionDesk() {
     setLeads((current) =>
       current.map((lead) => {
         if (lead.id !== leadId) return lead;
-        const nextLead = typeof updater === "function" ? updater(lead) : { ...lead, ...updater };
+        const nextLead =
+          typeof updater === "function"
+            ? updater(lead)
+            : { ...lead, ...updater };
         return normalizeLeadRecord(nextLead);
-      })
+      }),
     );
   }, []);
 
-  const inspectionPool = useMemo(() =>
-    leads.filter((lead) =>
-      lead.status !== "Closed" &&
-      (lead.pipelineStage === INSPECTION_QUEUE_STAGE ||
-        lead.status === "Inspection Scheduled" ||
-        Boolean(lead.inspection?.startedAt) ||
-        Boolean(lead.inspection?.submittedAt))
-    ),
-  [leads]);
+  const inspectionPool = useMemo(
+    () =>
+      leads.filter(
+        (lead) =>
+          lead.status !== "Closed" &&
+          (lead.pipelineStage === INSPECTION_QUEUE_STAGE ||
+            lead.status === "Inspection Scheduled" ||
+            Boolean(lead.inspection?.startedAt) ||
+            Boolean(lead.inspection?.submittedAt)),
+      ),
+    [leads],
+  );
 
   const filteredLeads = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -2681,12 +3557,20 @@ export default function UsedCarInspectionDesk() {
             lead.variant,
             lead.inspection?.inspectionId,
             lead.assignedTo,
-          ].join(" ").toLowerCase();
+          ]
+            .join(" ")
+            .toLowerCase();
           if (!haystack.includes(q)) return false;
         }
         const state = getInspectionState(lead).key;
-        const schedule = lead.inspection?.rescheduledAt || lead.inspectionScheduledAt;
-        if (queueFilter === "Due Today") return Boolean(schedule && dayjs(schedule).isSame(dayjs(), "day") && state !== "completed");
+        const schedule =
+          lead.inspection?.rescheduledAt || lead.inspectionScheduledAt;
+        if (queueFilter === "Due Today")
+          return Boolean(
+            schedule &&
+            dayjs(schedule).isSame(dayjs(), "day") &&
+            state !== "completed",
+          );
         if (queueFilter === "Scheduled") return state === "scheduled";
         if (queueFilter === "Rescheduled") return state === "rescheduled";
         if (queueFilter === "Draft") return state === "draft";
@@ -2696,10 +3580,21 @@ export default function UsedCarInspectionDesk() {
       .sort((a, b) => {
         const stateA = getInspectionState(a).key;
         const stateB = getInspectionState(b).key;
-        const order = { draft: 0, scheduled: 1, rescheduled: 2, completed: 3, closed: 4 };
-        if ((order[stateA] || 9) !== (order[stateB] || 9)) return (order[stateA] || 9) - (order[stateB] || 9);
-        const aAt = dayjs(a.inspection?.rescheduledAt || a.inspectionScheduledAt || 0).valueOf();
-        const bAt = dayjs(b.inspection?.rescheduledAt || b.inspectionScheduledAt || 0).valueOf();
+        const order = {
+          draft: 0,
+          scheduled: 1,
+          rescheduled: 2,
+          completed: 3,
+          closed: 4,
+        };
+        if ((order[stateA] || 9) !== (order[stateB] || 9))
+          return (order[stateA] || 9) - (order[stateB] || 9);
+        const aAt = dayjs(
+          a.inspection?.rescheduledAt || a.inspectionScheduledAt || 0,
+        ).valueOf();
+        const bAt = dayjs(
+          b.inspection?.rescheduledAt || b.inspectionScheduledAt || 0,
+        ).valueOf();
         return aAt - bAt;
       });
   }, [inspectionPool, queueFilter, search]);
@@ -2714,19 +3609,38 @@ export default function UsedCarInspectionDesk() {
     }
   }, [filteredLeads, selectedLeadId]);
 
-  const selectedLead = filteredLeads.find((l) => l.id === selectedLeadId) || filteredLeads[0] || null;
+  const selectedLead =
+    filteredLeads.find((l) => l.id === selectedLeadId) ||
+    filteredLeads[0] ||
+    null;
   const reportLead = leads.find((l) => l.id === reportLeadId) || null;
 
   const summary = useMemo(() => {
-    const scheduled = inspectionPool.filter((l) => getInspectionState(l).key === "scheduled").length;
-    const rescheduled = inspectionPool.filter((l) => getInspectionState(l).key === "rescheduled").length;
-    const draft = inspectionPool.filter((l) => getInspectionState(l).key === "draft").length;
-    const completed = inspectionPool.filter((l) => getInspectionState(l).key === "completed").length;
-    const nogo = inspectionPool.filter((l) => getInspectionState(l).key === "completed" && l.inspection?.verdict === NOGO_REASON).length;
+    const scheduled = inspectionPool.filter(
+      (l) => getInspectionState(l).key === "scheduled",
+    ).length;
+    const rescheduled = inspectionPool.filter(
+      (l) => getInspectionState(l).key === "rescheduled",
+    ).length;
+    const draft = inspectionPool.filter(
+      (l) => getInspectionState(l).key === "draft",
+    ).length;
+    const completed = inspectionPool.filter(
+      (l) => getInspectionState(l).key === "completed",
+    ).length;
+    const nogo = inspectionPool.filter(
+      (l) =>
+        getInspectionState(l).key === "completed" &&
+        l.inspection?.verdict === NOGO_REASON,
+    ).length;
     const passed = completed - nogo;
     const dueToday = inspectionPool.filter((l) => {
       const s = l.inspection?.rescheduledAt || l.inspectionScheduledAt;
-      return s && dayjs(s).isSame(dayjs(), "day") && getInspectionState(l).key !== "completed";
+      return (
+        s &&
+        dayjs(s).isSame(dayjs(), "day") &&
+        getInspectionState(l).key !== "completed"
+      );
     }).length;
     return { scheduled, rescheduled, draft, completed, nogo, passed, dueToday };
   }, [inspectionPool]);
@@ -2737,70 +3651,106 @@ export default function UsedCarInspectionDesk() {
         section.items.map((item) => ({
           sectionKey: section.key,
           itemKey: item.key,
-        }))
+        })),
       ),
-    []
+    [],
   );
 
-  const openVisitUpdate = useCallback((lead) => {
-    setSelectedLeadId(lead.id);
-    visitForm.setFieldsValue({
-      reschedule: true,
-      remarks: lead.inspection?.remarks || "",
-      rescheduleDate: lead.inspection?.rescheduledAt ? dayjs(lead.inspection.rescheduledAt) : lead.inspectionScheduledAt ? dayjs(lead.inspectionScheduledAt) : dayjs(),
-      rescheduleTime: lead.inspection?.rescheduledAt ? dayjs(lead.inspection.rescheduledAt) : lead.inspectionScheduledAt ? dayjs(lead.inspectionScheduledAt) : dayjs().add(2, "hour"),
-      rescheduleExecutiveName: lead.inspection?.rescheduleExecutiveName || lead.inspection?.executiveName || lead.assignedTo || "",
-      rescheduleExecutiveMobile: lead.inspection?.rescheduleExecutiveMobile || lead.inspection?.executiveMobile || "",
-    });
-    setVisitModalOpen(true);
-  }, [visitForm]);
+  const openVisitUpdate = useCallback(
+    (lead) => {
+      setSelectedLeadId(lead.id);
+      visitForm.setFieldsValue({
+        reschedule: true,
+        remarks: lead.inspection?.remarks || "",
+        rescheduleDate: lead.inspection?.rescheduledAt
+          ? dayjs(lead.inspection.rescheduledAt)
+          : lead.inspectionScheduledAt
+            ? dayjs(lead.inspectionScheduledAt)
+            : dayjs(),
+        rescheduleTime: lead.inspection?.rescheduledAt
+          ? dayjs(lead.inspection.rescheduledAt)
+          : lead.inspectionScheduledAt
+            ? dayjs(lead.inspectionScheduledAt)
+            : dayjs().add(2, "hour"),
+        rescheduleExecutiveName:
+          lead.inspection?.rescheduleExecutiveName ||
+          lead.inspection?.executiveName ||
+          lead.assignedTo ||
+          "",
+        rescheduleExecutiveMobile:
+          lead.inspection?.rescheduleExecutiveMobile ||
+          lead.inspection?.executiveMobile ||
+          "",
+      });
+      setVisitModalOpen(true);
+    },
+    [visitForm],
+  );
 
-  const openInspectionReport = useCallback((lead, mode = "edit") => {
-    const existing = lead.inspection || {};
-    const inspectionId = existing.inspectionId || `INS-${dayjs().format("YYYYMMDD")}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    if (!existing.inspectionId || !existing.startedAt) {
-      updateLead(lead.id, (current) => ({
-        ...current,
-        inspection: {
-          ...current.inspection,
-          inspectionId,
-          executiveName: existing.executiveName || current.assignedTo || "",
-          executiveMobile: existing.executiveMobile || "",
-          startedAt: existing.startedAt || new Date().toISOString(),
-          lastOutcome: existing.lastOutcome || "draft",
-        },
-        activities: existing.startedAt ? current.activities : [mkActivity("inspection", "Inspection started", inspectionId), ...(current.activities || [])],
-      }));
-    }
-    reportForm.setFieldsValue(buildReportValues({
-      ...lead,
-      inspection: {
-        ...existing,
-        inspectionId,
-        startedAt: existing.startedAt || new Date().toISOString(),
-      },
-    }));
-    setReportMode(mode);
-    setActiveSectionKeys([INSPECTION_SECTIONS[0].key]);
-    setAutoOpenItemKey(null);
-    setReportLeadId(lead.id);
-  }, [reportForm, updateLead]);
+  const openInspectionReport = useCallback(
+    (lead, mode = "edit") => {
+      const existing = lead.inspection || {};
+      const inspectionId =
+        existing.inspectionId ||
+        `INS-${dayjs().format("YYYYMMDD")}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      if (!existing.inspectionId || !existing.startedAt) {
+        updateLead(lead.id, (current) => ({
+          ...current,
+          inspection: {
+            ...current.inspection,
+            inspectionId,
+            executiveName: existing.executiveName || current.assignedTo || "",
+            executiveMobile: existing.executiveMobile || "",
+            startedAt: existing.startedAt || new Date().toISOString(),
+            lastOutcome: existing.lastOutcome || "draft",
+          },
+          activities: existing.startedAt
+            ? current.activities
+            : [
+                mkActivity("inspection", "Inspection started", inspectionId),
+                ...(current.activities || []),
+              ],
+        }));
+      }
+      reportForm.setFieldsValue(
+        buildReportValues({
+          ...lead,
+          inspection: {
+            ...existing,
+            inspectionId,
+            startedAt: existing.startedAt || new Date().toISOString(),
+          },
+        }),
+      );
+      setReportMode(mode);
+      setActiveSectionKeys([INSPECTION_SECTIONS[0].key]);
+      setAutoOpenItemKey(null);
+      setReportLeadId(lead.id);
+    },
+    [reportForm, updateLead],
+  );
 
   const handleAdvanceToNextItem = useCallback(
     (currentItemKey) => {
-      const currentIndex = itemSequence.findIndex((entry) => entry.itemKey === currentItemKey);
+      const currentIndex = itemSequence.findIndex(
+        (entry) => entry.itemKey === currentItemKey,
+      );
       const next = currentIndex >= 0 ? itemSequence[currentIndex + 1] : null;
-      if (!next) return;
+      if (!next) {
+        window.requestAnimationFrame(() => {
+          const finalBlock = document.querySelector("#inspection-final-decision");
+          finalBlock?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
+          });
+        });
+        return;
+      }
       setActiveSectionKeys([next.sectionKey]);
       setAutoOpenItemKey(next.itemKey);
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          const el = document.querySelector(`#inspection-select-${next.itemKey}`);
-          if (el) el.click();
-        });
-      });
     },
-    [itemSequence]
+    [itemSequence],
   );
 
   const handleTyreBrandSeed = useCallback(
@@ -2820,33 +3770,58 @@ export default function UsedCarInspectionDesk() {
         },
       });
     },
-    [reportForm]
+    [reportForm],
   );
 
   const handleVisitUpdate = useCallback(async () => {
     if (!selectedLead) return;
     try {
       const values = await visitForm.validateFields();
-      const nextAt = values.reschedule && values.rescheduleDate && values.rescheduleTime
-        ? dayjs(values.rescheduleDate).hour(dayjs(values.rescheduleTime).hour()).minute(dayjs(values.rescheduleTime).minute()).second(0).toISOString()
-        : null;
+      const nextAt =
+        values.reschedule && values.rescheduleDate && values.rescheduleTime
+          ? dayjs(values.rescheduleDate)
+              .hour(dayjs(values.rescheduleTime).hour())
+              .minute(dayjs(values.rescheduleTime).minute())
+              .second(0)
+              .toISOString()
+          : null;
       updateLead(selectedLead.id, (lead) => ({
         ...lead,
         status: "Inspection Scheduled",
         pipelineStage: INSPECTION_QUEUE_STAGE,
-        assignedTo: normText(values.rescheduleExecutiveName) || lead.inspection?.executiveName || lead.assignedTo,
+        assignedTo:
+          normText(values.rescheduleExecutiveName) ||
+          lead.inspection?.executiveName ||
+          lead.assignedTo,
         inspectionScheduledAt: nextAt || lead.inspectionScheduledAt,
         inspection: {
           ...lead.inspection,
-          executiveName: normText(values.rescheduleExecutiveName) || lead.inspection?.executiveName || lead.assignedTo,
-          executiveMobile: normText(values.rescheduleExecutiveMobile) || lead.inspection?.executiveMobile || "",
+          executiveName:
+            normText(values.rescheduleExecutiveName) ||
+            lead.inspection?.executiveName ||
+            lead.assignedTo,
+          executiveMobile:
+            normText(values.rescheduleExecutiveMobile) ||
+            lead.inspection?.executiveMobile ||
+            "",
           lastOutcome: values.reschedule ? "rescheduled" : "not-conducted",
           rescheduledAt: nextAt,
           rescheduleExecutiveName: normText(values.rescheduleExecutiveName),
           rescheduleExecutiveMobile: normText(values.rescheduleExecutiveMobile),
           remarks: normText(values.remarks),
         },
-        activities: [mkActivity("inspection", values.reschedule ? "Inspection rescheduled" : "Inspection not conducted", values.reschedule ? `${fmt(nextAt)} — ${normText(values.rescheduleExecutiveName)}` : normText(values.remarks) || "Visit not completed."), ...(lead.activities || [])],
+        activities: [
+          mkActivity(
+            "inspection",
+            values.reschedule
+              ? "Inspection rescheduled"
+              : "Inspection not conducted",
+            values.reschedule
+              ? `${fmt(nextAt)} — ${normText(values.rescheduleExecutiveName)}`
+              : normText(values.remarks) || "Visit not completed.",
+          ),
+          ...(lead.activities || []),
+        ],
       }));
       setVisitModalOpen(false);
       visitForm.resetFields();
@@ -2861,7 +3836,8 @@ export default function UsedCarInspectionDesk() {
       ...lead,
       inspection: {
         ...lead.inspection,
-        inspectionId: values.inspectionId || lead.inspection?.inspectionId || "",
+        inspectionId:
+          values.inspectionId || lead.inspection?.inspectionId || "",
         executiveName: normText(values.executiveName),
         executiveMobile: normText(values.executiveMobile),
         startedAt: lead.inspection?.startedAt || new Date().toISOString(),
@@ -2878,7 +3854,11 @@ export default function UsedCarInspectionDesk() {
     if (!reportLead) return;
     try {
       const values = await reportForm.validateFields();
-      const inspectedAt = dayjs(values.inspectionDate).hour(dayjs(values.inspectionTime).hour()).minute(dayjs(values.inspectionTime).minute()).second(0).toISOString();
+      const inspectedAt = dayjs(values.inspectionDate)
+        .hour(dayjs(values.inspectionTime).hour())
+        .minute(dayjs(values.inspectionTime).minute())
+        .second(0)
+        .toISOString();
       const verdict = values.verdict;
       const isNogo = verdict === NOGO_REASON;
       updateLead(reportLead.id, (lead) => {
@@ -2905,7 +3885,14 @@ export default function UsedCarInspectionDesk() {
             closureReason: NOGO_REASON,
             notes: normText(values.noGoReason) || lead.notes,
             inspection: nextInspection,
-            activities: [mkActivity("lead-closed", "Lead closed from inspection — No-Go", normText(values.noGoReason) || "No-go car after inspection."), ...(lead.activities || [])],
+            activities: [
+              mkActivity(
+                "lead-closed",
+                "Lead closed from inspection — No-Go",
+                normText(values.noGoReason) || "No-go car after inspection.",
+              ),
+              ...(lead.activities || []),
+            ],
           };
         }
         return {
@@ -2913,49 +3900,62 @@ export default function UsedCarInspectionDesk() {
           status: "Inspection Passed",
           pipelineStage: INSPECTION_DONE_STAGE,
           inspection: nextInspection,
-          activities: [mkActivity("inspection", "Inspection completed — Passed", normText(values.overallRemarks) || "Vehicle cleared for next stage."), ...(lead.activities || [])],
+          activities: [
+            mkActivity(
+              "inspection",
+              "Inspection completed — Passed",
+              normText(values.overallRemarks) ||
+                "Vehicle cleared for next stage.",
+            ),
+            ...(lead.activities || []),
+          ],
         };
       });
-      const nextLead = filteredLeads.find((l) => l.id !== reportLead.id && getInspectionState(l).key !== "completed");
+      const nextLead = filteredLeads.find(
+        (l) =>
+          l.id !== reportLead.id && getInspectionState(l).key !== "completed",
+      );
       setReportLeadId(null);
       setReportMode("edit");
       setSelectedLeadId(nextLead?.id || null);
       reportForm.resetFields();
-      message.success(isNogo ? "No-go report submit hua. Lead band kar di gayi." : "Inspection report submit ho gaya. Vehicle aage bhej diya.");
+      message.success(
+        isNogo
+          ? "No-go report submit hua. Lead band kar di gayi."
+          : "Inspection report submit ho gaya. Vehicle aage bhej diya.",
+      );
     } catch {
-      message.error("Kuch required fields bhari nahi hain. Please check karein.");
+      message.error(
+        "Kuch required fields bhari nahi hain. Please check karein.",
+      );
     }
   }, [filteredLeads, reportForm, reportLead, updateLead]);
 
-  const handleDownloadReport = useCallback(() => {
-    const content = reportPrintRef.current;
-    if (!content) return;
-    const printWindow = window.open("", "_blank", "width=1200,height=900");
-    if (!printWindow) {
-      message.error("Download window open nahi hui. Please popup allow karein.");
-      return;
-    }
-    printWindow.document.open();
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${reportLead?.inspection?.inspectionId || "inspection-report"}</title>
-          ${document.head.innerHTML}
-          <style>
-            body { margin: 0; padding: 24px; background: #ffffff; }
-            .inspection-report-pages { max-width: 960px; margin: 0 auto; }
-            .inspection-report-pages section { break-inside: avoid; page-break-inside: avoid; margin-bottom: 24px; }
-          </style>
-        </head>
-        <body>${content.outerHTML}</body>
-      </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 500);
-  }, [reportLead]);
+  const handleDownloadReport = useReactToPrint({
+    contentRef: reportPrintRef,
+    documentTitle: reportLead?.inspection?.inspectionId || "inspection-report",
+    pageStyle: `
+      @page { margin: 12mm; }
+      html, body { background: #ffffff !important; }
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .inspection-report-pages {
+        max-width: 960px !important;
+        margin: 0 auto !important;
+      }
+      .inspection-report-pages section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 24px;
+        box-shadow: none !important;
+      }
+    `,
+    onPrintError: () => {
+      message.error("Report print karte waqt issue aaya. Please try again.");
+    },
+  });
 
   if (reportLeadId && reportLead) {
     const reportReadOnly = reportMode === "view";
@@ -2973,7 +3973,15 @@ export default function UsedCarInspectionDesk() {
         />
       );
     }
-    const reportItems = reportForm.getFieldValue("items") || reportLead.inspection?.report?.items || {};
+    const reportItems =
+      reportForm.getFieldValue("items") ||
+      reportLead.inspection?.report?.items ||
+      {};
+    const currentPhotoBuckets =
+      reportForm.getFieldValue("photoBuckets") ||
+      reportLead.inspection?.report?.photoBuckets ||
+      {};
+    const mediaDiscipline = getMediaDiscipline(currentPhotoBuckets, reportItems);
     return (
       <section className="space-y-4">
         <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
@@ -2983,19 +3991,46 @@ export default function UsedCarInspectionDesk() {
                 <FileTextOutlined />
                 Inspection Report
               </div>
-              <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white md:text-[28px]">{reportLead.make} {reportLead.model} {reportLead.variant}</h3>
-              <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">{reportLead.name} · {reportLead.mobile} · {reportLead.regNo || "Registration pending"}</p>
+              <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white md:text-[28px]">
+                {reportLead.make} {reportLead.model} {reportLead.variant}
+              </h3>
+              <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+                {reportLead.name} · {reportLead.mobile} ·{" "}
+                {reportLead.regNo || "Registration pending"}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button icon={<ArrowLeftOutlined />} onClick={() => { setReportLeadId(null); setReportMode("edit"); }} className="!rounded-full">Back to Queue</Button>
+              <Button
+                icon={<ArrowLeftOutlined />}
+                onClick={() => {
+                  setReportLeadId(null);
+                  setReportMode("edit");
+                }}
+                className="!rounded-full"
+              >
+                Back to Queue
+              </Button>
               {reportReadOnly ? (
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                   View Report
                 </span>
               ) : (
                 <>
-                  <Button icon={<ReloadOutlined />} onClick={handleSaveDraft} className="!rounded-full">Save Draft</Button>
-                  <Button type="primary" icon={<SaveOutlined />} onClick={handleSubmitReport} className="!rounded-full !bg-slate-900 !px-5 !font-bold dark:!bg-white dark:!text-slate-950">Submit Report</Button>
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={handleSaveDraft}
+                    className="!rounded-full"
+                  >
+                    Save Draft
+                  </Button>
+                  <Button
+                    type="primary"
+                    icon={<SaveOutlined />}
+                    onClick={handleSubmitReport}
+                    className="!rounded-full !bg-slate-900 !px-5 !font-bold dark:!bg-white dark:!text-slate-950"
+                  >
+                    Submit Report
+                  </Button>
                 </>
               )}
             </div>
@@ -3003,49 +4038,270 @@ export default function UsedCarInspectionDesk() {
           <ReportSummaryCard reportLead={reportLead} />
         </div>
         <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
-          <Form form={reportForm} layout="vertical" size="middle" disabled={reportReadOnly}>
+          <Form
+            form={reportForm}
+            layout="vertical"
+            size="middle"
+            disabled={reportReadOnly}
+          >
             <div className="grid gap-4 xl:grid-cols-[0.82fr_1.18fr]">
               <div className="space-y-4">
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Visit Details / Daura Vivran</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                    Visit Details
+                  </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <Form.Item label="Inspection ID" name="inspectionId" rules={[{ required: true, message: "ID required hai." }]} className="!mb-0"><Input readOnly prefix={<FileTextOutlined />} className="!bg-slate-100 dark:!bg-white/5" /></Form.Item>
-                    <Form.Item label="Inspection Executive / Nirikshak ka Naam" name="executiveName" rules={[{ required: true, message: "Executive naam bharo." }]} className="!mb-0"><Input prefix={<UserOutlined />} placeholder="Evaluator ka poora naam" /></Form.Item>
-                    <Form.Item label="Contact No. / Mobile Number" name="executiveMobile" rules={[{ required: true, message: "Mobile number bharo." }]} className="!mb-0"><Input prefix={<PhoneOutlined />} placeholder="10-digit mobile number" maxLength={10} /></Form.Item>
-                    <Form.Item label="Inspection Location / Jagah" name="inspectionLocation" rules={[{ required: true, message: "Location bharo." }]} className="!mb-0"><Input placeholder="Seller ka ghar ya showroom address" /></Form.Item>
-                    <Form.Item label="Registration Number / Registration No." name="registrationNumber" rules={[{ required: true, message: "Registration number bharo." }]} className="!mb-0"><Input placeholder="e.g. HR26DE9898" /></Form.Item>
-                    <Form.Item label="Insurance Expiry / Insurance ki last date" name="insuranceExpiry" className="!mb-0"><DatePicker className="w-full" format="DD-MM-YYYY" /></Form.Item>
-                    <Form.Item label="Inspection Date / Tithi" name="inspectionDate" rules={[{ required: true, message: "Date chunein." }]} className="!mb-0"><DatePicker className="w-full" format="DD-MM-YYYY" /></Form.Item>
-                    <Form.Item label="Inspection Time / Samay" name="inspectionTime" rules={[{ required: true, message: "Time chunein." }]} className="!mb-0"><TimePicker className="w-full" format="hh:mm A" use12Hours /></Form.Item>
+                    <Form.Item
+                      label="Inspection ID"
+                      name="inspectionId"
+                      rules={[{ required: true, message: "ID required hai." }]}
+                      className="!mb-0"
+                    >
+                      <Input
+                        readOnly
+                        prefix={<FileTextOutlined />}
+                        className="!bg-slate-100 dark:!bg-white/5"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Inspection Executive / Nirikshak ka Naam"
+                      name="executiveName"
+                      rules={[
+                        { required: true, message: "Executive naam bharo." },
+                      ]}
+                      className="!mb-0"
+                    >
+                      <Input
+                        prefix={<UserOutlined />}
+                        placeholder="Evaluator ka poora naam"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Contact No. / Mobile Number"
+                      name="executiveMobile"
+                      rules={[
+                        { required: true, message: "Mobile number bharo." },
+                      ]}
+                      className="!mb-0"
+                    >
+                      <Input
+                        prefix={<PhoneOutlined />}
+                        placeholder="10-digit mobile number"
+                        maxLength={10}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>Inspection Location</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              reportForm.setFieldValue(
+                                "inspectionLocation",
+                                reportLead.address || "",
+                              )
+                            }
+                            className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:text-slate-300"
+                          >
+                            Same as lead
+                          </button>
+                        </div>
+                      }
+                      name="inspectionLocation"
+                      rules={[{ required: true, message: "Location bharo." }]}
+                      className="!mb-0"
+                    >
+                      <Input placeholder="Seller ka ghar ya showroom address" />
+                    </Form.Item>
+                    <Form.Item
+                      label={
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>Registration Number</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              reportForm.setFieldValue(
+                                "registrationNumber",
+                                reportLead.regNo || "",
+                              )
+                            }
+                            className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:text-slate-300"
+                          >
+                            Same as lead
+                          </button>
+                        </div>
+                      }
+                      name="registrationNumber"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Registration number bharo.",
+                        },
+                      ]}
+                      className="!mb-0"
+                    >
+                      <Input placeholder="e.g. HR26DE9898" />
+                    </Form.Item>
+                    <Form.Item
+                      label="Insurance Expiry / Insurance ki last date"
+                      name="insuranceExpiry"
+                      className="!mb-0"
+                    >
+                      <DatePicker className="w-full" format="DD-MM-YYYY" />
+                    </Form.Item>
+                    <Form.Item
+                      label="Inspection Date / Tithi"
+                      name="inspectionDate"
+                      rules={[{ required: true, message: "Date chunein." }]}
+                      className="!mb-0"
+                    >
+                      <DatePicker className="w-full" format="DD-MM-YYYY" />
+                    </Form.Item>
+                    <Form.Item
+                      label="Inspection Time / Samay"
+                      name="inspectionTime"
+                      rules={[{ required: true, message: "Time chunein." }]}
+                      className="!mb-0"
+                    >
+                      <TimePicker
+                        className="w-full"
+                        format="hh:mm A"
+                        use12Hours
+                      />
+                    </Form.Item>
                   </div>
                 </div>
 
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Lead Verification / Lead Satyapan</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                    Lead Verification
+                  </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {LEAD_VERIFICATION_FIELDS.map((field) => <VerificationCard key={field.key} field={field} />)}
+                    {LEAD_VERIFICATION_FIELDS.map((field) => (
+                      <VerificationCard key={field.key} field={field} />
+                    ))}
                   </div>
                 </div>
 
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   <div className="grid gap-3 md:grid-cols-2">
-                    <Form.Item label="Airbag Count" name="airbagCount" className="!mb-0"><Select allowClear options={AIRBAG_OPTS.map((v) => ({ value: v, label: v }))} /></Form.Item>
-                    <Form.Item label="Transmission Type" name="transmissionType" className="!mb-0"><Select allowClear options={TRANSMISSION_OPTS.map((v) => ({ value: v, label: v }))} /></Form.Item>
-                    <Form.Item label="Seat Material" name="seatMaterial" className="!mb-0"><Select allowClear options={SEAT_OPTS.map((v) => ({ value: v, label: v }))} /></Form.Item>
-                    <Form.Item label="Fuel Type" name="fuelType" className="!mb-0"><Input placeholder="Fuel type" /></Form.Item>
+                    <Form.Item
+                      label="Airbag Count"
+                      name="airbagCount"
+                      className="!mb-0"
+                    >
+                      <Select
+                        allowClear
+                        options={AIRBAG_OPTS.map((v) => ({
+                          value: v,
+                          label: v,
+                        }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Transmission Type"
+                      name="transmissionType"
+                      className="!mb-0"
+                    >
+                      <Select
+                        allowClear
+                        options={TRANSMISSION_OPTS.map((v) => ({
+                          value: v,
+                          label: v,
+                        }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Seat Material"
+                      name="seatMaterial"
+                      className="!mb-0"
+                    >
+                      <Select
+                        allowClear
+                        options={SEAT_OPTS.map((v) => ({ value: v, label: v }))}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>Fuel Type</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              reportForm.setFieldValue(
+                                "fuelType",
+                                reportLead.fuel || "",
+                              )
+                            }
+                            className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:text-slate-300"
+                          >
+                            Same as lead
+                          </button>
+                        </div>
+                      }
+                      name="fuelType"
+                      className="!mb-0"
+                    >
+                      <Input placeholder="Fuel type" />
+                    </Form.Item>
                   </div>
                 </div>
 
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Mandatory Photos / Zaroori Photos</p>
+                  <div className="mb-4 grid gap-3 md:grid-cols-2">
+                    <DocumentStat
+                      label="Mandatory captured"
+                      value={`${mediaDiscipline.requiredCaptured}/${mediaDiscipline.requiredTotal}`}
+                      helper={
+                        mediaDiscipline.missingBuckets.length
+                          ? `${mediaDiscipline.missingBuckets.length} still pending`
+                          : "All mandatory buckets complete"
+                      }
+                      tone={mediaDiscipline.missingBuckets.length ? "amber" : "green"}
+                    />
+                    <DocumentStat
+                      label="Defect photos"
+                      value={`${mediaDiscipline.defectPhotosCaptured}/${mediaDiscipline.defectTotal}`}
+                      helper="Evidence against marked defects"
+                      tone={
+                        mediaDiscipline.defectPhotosCaptured === mediaDiscipline.defectTotal
+                          ? "green"
+                          : "amber"
+                      }
+                    />
+                  </div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                    Mandatory Photos
+                  </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {PHOTO_BUCKETS.map((bucket) => (
-                      <div key={bucket.key} className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{bucket.labelEn}</p>
-                        <p className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">{bucket.labelHi}</p>
-                        <Form.Item name={["photoBuckets", bucket.key]} valuePropName="fileList" getValueFromEvent={(e) => e?.fileList} className="!mb-0">
-                          <Upload beforeUpload={() => false} multiple listType="picture" accept="image/*">
-                            <Button icon={<CameraOutlined />} size="small" className="!rounded-full !text-xs">Attach Photos</Button>
+                      <div
+                        key={bucket.key}
+                        className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]"
+                      >
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {bucket.labelEn}
+                        </p>
+                        <Form.Item
+                          name={["photoBuckets", bucket.key]}
+                          valuePropName="fileList"
+                          getValueFromEvent={(e) => e?.fileList}
+                          className="!mb-0"
+                        >
+                          <Upload
+                            beforeUpload={() => false}
+                            multiple
+                            listType="picture"
+                            accept="image/*"
+                          >
+                            <Button
+                              icon={<CameraOutlined />}
+                              size="small"
+                              className="!rounded-full !text-xs"
+                            >
+                              Attach Photos
+                            </Button>
                           </Upload>
                         </Form.Item>
                       </div>
@@ -3058,16 +4314,57 @@ export default function UsedCarInspectionDesk() {
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Detailed Inspection Checklist / Vistar se Jaanch</p>
-                      <p className="mt-1 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">Body, mechanicals, electricals, safety aur road test — sab kuch cover karo</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                        Detailed Inspection Checklist / Vistar se Jaanch
+                      </p>
+                      <p className="mt-1 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                        Body, mechanicals, electricals, safety aur road test —
+                        sab kuch cover karo
+                      </p>
                     </div>
                     <ScoreBadge score={calcOverallScore(reportItems)} />
                   </div>
                 </div>
-                <Collapse ghost activeKey={activeSectionKeys} onChange={(keys) => setActiveSectionKeys(Array.isArray(keys) ? keys : [keys])} className="!bg-transparent">
+                <Collapse
+                  ghost
+                  activeKey={activeSectionKeys}
+                  onChange={(keys) =>
+                    setActiveSectionKeys(Array.isArray(keys) ? keys : [keys])
+                  }
+                  className="!bg-transparent"
+                >
                   {INSPECTION_SECTIONS.map((section) => (
-                    <Panel key={section.key} className="!mb-3 !rounded-[22px] !border !border-slate-200 !bg-white dark:!border-white/10 dark:!bg-[#11151b]" header={<div className="flex items-center justify-between gap-3 py-1"><div className="flex items-center gap-3"><span className="text-xl leading-none">{section.icon}</span><div><p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">{section.titleEn}</p><p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{section.titleHi}</p></div></div><div className="flex items-center gap-3"><SectionProgressBar sectionKey={section.key} itemValues={reportItems} /><span className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white" style={{ background: section.color }}>{section.items.length} items</span></div></div>}>
-                      <div className="grid gap-3 xl:grid-cols-2">
+                    <Panel
+                      key={section.key}
+                      className="!mb-3 !rounded-[22px] !border !border-slate-200 !bg-white dark:!border-white/10 dark:!bg-[#11151b]"
+                      header={
+                        <div className="flex items-center justify-between gap-3 py-1">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl leading-none">
+                              {section.icon}
+                            </span>
+                            <div>
+                              <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">
+                                {section.titleEn}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <SectionProgressBar
+                              sectionKey={section.key}
+                              itemValues={reportItems}
+                            />
+                            <span
+                              className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white"
+                              style={{ background: section.color }}
+                            >
+                              {section.items.length} items
+                            </span>
+                          </div>
+                        </div>
+                      }
+                    >
+                      <div className="grid gap-3">
                         {section.items.map((item) => (
                           <SectionItemCard
                             key={item.key}
@@ -3085,26 +4382,120 @@ export default function UsedCarInspectionDesk() {
                   ))}
                 </Collapse>
 
-                <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Final Decision / Antim Nirnay</p>
+                <div
+                  id="inspection-final-decision"
+                  className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]"
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                    Final Decision
+                  </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <Form.Item label="Inspection Result / Natija" name="verdict" rules={[{ required: true, message: "Verdict chunein." }]} className="!mb-0"><Select placeholder="Pass ya No-Go?" options={[{ value: "Inspection Passed", label: "Inspection Passed — Gaadi theek hai" }, { value: NOGO_REASON, label: "No-Go Car — Yeh gaadi nahi chalegi" }]} /></Form.Item>
-                    <Form.Item label="Estimated Refurb Cost / Theek karne ka kharcha" name="estimatedRefurbCost" className="!mb-0"><InputNumber className="w-full" min={0} placeholder="e.g. 25000" formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")} parser={(v) => v?.replace(/₹\s?|(,*)/g, "")} /></Form.Item>
-                    <Form.Item label="Evaluator's Price / Evaluator ki Keemat" name="evaluatorPrice" className="!mb-0"><InputNumber className="w-full" min={0} placeholder="e.g. 450000" formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")} parser={(v) => v?.replace(/₹\s?|(,*)/g, "")} /></Form.Item>
-                    <Form.Item label="Negotiation Notes / Mol-tol ki Baatein" name="negotiationNotes" className="!mb-0"><Input placeholder="Seller ne kya kaha? Koi deal point?" /></Form.Item>
+                    <Form.Item
+                      label="Inspection Result / Natija"
+                      name="verdict"
+                      rules={[{ required: true, message: "Verdict chunein." }]}
+                      className="!mb-0"
+                    >
+                      <Select
+                        placeholder="Pass ya No-Go?"
+                        options={[
+                          {
+                            value: "Inspection Passed",
+                            label: "Inspection Passed — Gaadi theek hai",
+                          },
+                          {
+                            value: NOGO_REASON,
+                            label: "No-Go Car — Yeh gaadi nahi chalegi",
+                          },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Estimated Refurb Cost / Theek karne ka kharcha"
+                      name="estimatedRefurbCost"
+                      className="!mb-0"
+                    >
+                      <InputNumber
+                        className="w-full"
+                        min={0}
+                        placeholder="e.g. 25000"
+                        formatter={(v) =>
+                          `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Evaluator's Price / Evaluator ki Keemat"
+                      name="evaluatorPrice"
+                      className="!mb-0"
+                    >
+                      <InputNumber
+                        className="w-full"
+                        min={0}
+                        placeholder="e.g. 450000"
+                        formatter={(v) =>
+                          `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Negotiation Notes / Mol-tol ki Baatein"
+                      name="negotiationNotes"
+                      className="!mb-0"
+                    >
+                      <Input placeholder="Seller ne kya kaha? Koi deal point?" />
+                    </Form.Item>
                   </div>
-                  <Form.Item noStyle shouldUpdate={(prev, curr) => prev.verdict !== curr.verdict}>
-                    {({ getFieldValue }) => getFieldValue("verdict") === NOGO_REASON ? (
-                      <div className="mt-3">
-                        <Form.Item label="No-Go Reason / No-Go ki Wajah" name="noGoReason" rules={[{ required: true, message: "No-Go ki wajah likhna zaroori hai." }]} className="!mb-0">
-                          <Select placeholder="No-Go ki wajah chunein..." showSearch allowClear options={NOGO_REASONS.map((v) => ({ value: v, label: v }))} />
-                        </Form.Item>
-                      </div>
-                    ) : null}
+                  <Form.Item
+                    noStyle
+                    shouldUpdate={(prev, curr) => prev.verdict !== curr.verdict}
+                  >
+                    {({ getFieldValue }) =>
+                      getFieldValue("verdict") === NOGO_REASON ? (
+                        <div className="mt-3">
+                          <Form.Item
+                            label="No-Go Reason / No-Go ki Wajah"
+                            name="noGoReason"
+                            rules={[
+                              {
+                                required: true,
+                                message: "No-Go ki wajah likhna zaroori hai.",
+                              },
+                            ]}
+                            className="!mb-0"
+                          >
+                            <Select
+                              placeholder="No-Go ki wajah chunein..."
+                              showSearch
+                              allowClear
+                              options={NOGO_REASONS.map((v) => ({
+                                value: v,
+                                label: v,
+                              }))}
+                            />
+                          </Form.Item>
+                        </div>
+                      ) : null
+                    }
                   </Form.Item>
                   <div className="mt-3">
-                    <Form.Item label="Overall Remarks / Saari Baatein" name="overallRemarks" rules={[{ required: true, message: "Overall remarks likhna zaroori hai." }]} className="!mb-0">
-                      <TextArea rows={4} placeholder="Poori inspection ka summary — kya theek hai, kya nahi, resale view, aur koi bhi zaroori baat..." />
+                    <Form.Item
+                      label="Overall Remarks / Saari Baatein"
+                      name="overallRemarks"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Overall remarks likhna zaroori hai.",
+                        },
+                      ]}
+                      className="!mb-0"
+                    >
+                      <TextArea
+                        rows={4}
+                        placeholder="Poori inspection ka summary — kya theek hai, kya nahi, resale view, aur koi bhi zaroori baat..."
+                      />
                     </Form.Item>
                   </div>
                 </div>
@@ -3119,40 +4510,98 @@ export default function UsedCarInspectionDesk() {
   return (
     <section className="space-y-4">
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
-        <QueueMetric label="Scheduled" value={summary.scheduled} helper="Fresh queue — field visit pending" />
-        <QueueMetric label="Due Today" value={summary.dueToday} helper="Aaj ki inspections" tone="sky" />
-        <QueueMetric label="Rescheduled" value={summary.rescheduled} helper="Visit moved to new slot" tone="amber" />
-        <QueueMetric label="Draft Reports" value={summary.draft} helper="Started, submit pending" tone="violet" />
-        <QueueMetric label="Completed" value={summary.completed} helper="Reports submitted" tone="emerald" />
-        <QueueMetric label="Passed" value={summary.passed} helper="Ready for next stage" tone="emerald" />
-        <QueueMetric label="No-Go" value={summary.nogo} helper="Closed at inspection desk" tone="rose" />
+        <QueueMetric
+          label="Scheduled"
+          value={summary.scheduled}
+          helper="Fresh queue — field visit pending"
+        />
+        <QueueMetric
+          label="Due Today"
+          value={summary.dueToday}
+          helper="Aaj ki inspections"
+          tone="sky"
+        />
+        <QueueMetric
+          label="Rescheduled"
+          value={summary.rescheduled}
+          helper="Visit moved to new slot"
+          tone="amber"
+        />
+        <QueueMetric
+          label="Draft Reports"
+          value={summary.draft}
+          helper="Started, submit pending"
+          tone="violet"
+        />
+        <QueueMetric
+          label="Completed"
+          value={summary.completed}
+          helper="Reports submitted"
+          tone="emerald"
+        />
+        <QueueMetric
+          label="Passed"
+          value={summary.passed}
+          helper="Ready for next stage"
+          tone="emerald"
+        />
+        <QueueMetric
+          label="No-Go"
+          value={summary.nogo}
+          helper="Closed at inspection desk"
+          tone="rose"
+        />
       </div>
       <div className="grid gap-4 xl:grid-cols-[0.96fr_1.34fr]">
         <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Inspection Queue</p>
-              <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950 dark:text-white">Vehicles ready for field evaluation</h3>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Inspection Queue
+              </p>
+              <h3 className="mt-1 text-lg font-black tracking-tight text-slate-950 dark:text-white">
+                Vehicles ready for field evaluation
+              </h3>
             </div>
-            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">{filteredLeads.length} vehicles</div>
+            <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">
+              {filteredLeads.length} vehicles
+            </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {QUEUE_FILTERS.map((item) => {
               const active = queueFilter === item;
               return (
-                <button key={item} type="button" onClick={() => setQueueFilter(item)} className={`rounded-full px-3 py-2 text-xs font-bold tracking-tight transition-all ${active ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"}`}>
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setQueueFilter(item)}
+                  className={`rounded-full px-3 py-2 text-xs font-bold tracking-tight transition-all ${active ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"}`}
+                >
                   {item}
                 </button>
               );
             })}
           </div>
           <div className="mt-4">
-            <Input allowClear prefix={<SearchOutlined className="text-slate-400" />} placeholder="Search seller, reg no, vehicle or inspection ID..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              allowClear
+              prefix={<SearchOutlined className="text-slate-400" />}
+              placeholder="Search seller, reg no, vehicle or inspection ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
           <div className="mt-4 space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-            {filteredLeads.length > 0 ? filteredLeads.map((lead) => (
-              <InspectionQueueCard key={lead.id} lead={lead} active={selectedLead?.id === lead.id} onClick={() => setSelectedLeadId(lead.id)} />
-            )) : (
+            {filteredLeads.length > 0 ? (
+              filteredLeads.map((lead) => (
+                <InspectionQueueCard
+                  key={lead.id}
+                  lead={lead}
+                  active={selectedLead?.id === lead.id}
+                  onClick={() => setSelectedLeadId(lead.id)}
+                />
+              ))
+            ) : (
               <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50/80 p-8 dark:border-white/10 dark:bg-white/[0.03]">
                 <Empty description="Is filter mein koi inspection nahi mila." />
               </div>
@@ -3169,72 +4618,217 @@ export default function UsedCarInspectionDesk() {
                     <FileTextOutlined />
                     Inspection Desk
                   </div>
-                  <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white">{selectedLead.make} {selectedLead.model} {selectedLead.variant}</h3>
-                  <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">{selectedLead.name} · {selectedLead.mobile} · {selectedLead.regNo || "Registration pending"}</p>
+                  <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                    {selectedLead.make} {selectedLead.model}{" "}
+                    {selectedLead.variant}
+                  </h3>
+                  <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {selectedLead.name} · {selectedLead.mobile} ·{" "}
+                    {selectedLead.regNo || "Registration pending"}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${getInspectionState(selectedLead).tone}`}>{getInspectionState(selectedLead).label}</span>
-                  <Button icon={<ReloadOutlined />} onClick={() => openVisitUpdate(selectedLead)} className="!rounded-full">Visit Update</Button>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${getInspectionState(selectedLead).tone}`}
+                  >
+                    {getInspectionState(selectedLead).label}
+                  </span>
+                  <Button
+                    icon={<ReloadOutlined />}
+                    onClick={() => openVisitUpdate(selectedLead)}
+                    className="!rounded-full"
+                  >
+                    Visit Update
+                  </Button>
                   {selectedLead.inspection?.submittedAt ? (
                     <>
-                      <Button icon={<FileSearchOutlined />} onClick={() => openInspectionReport(selectedLead, "view")} className="!rounded-full">View Report</Button>
-                      <Button type="primary" icon={<FileTextOutlined />} onClick={() => openInspectionReport(selectedLead)} className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950">Continue Report</Button>
+                      <Button
+                        icon={<FileSearchOutlined />}
+                        onClick={() =>
+                          openInspectionReport(selectedLead, "view")
+                        }
+                        className="!rounded-full"
+                      >
+                        View Report
+                      </Button>
+                      <Button
+                        type="primary"
+                        icon={<FileTextOutlined />}
+                        onClick={() => openInspectionReport(selectedLead)}
+                        className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950"
+                      >
+                        Continue Report
+                      </Button>
                     </>
                   ) : (
-                    <Button type="primary" icon={selectedLead.inspection?.startedAt ? <FileTextOutlined /> : <PlayCircleOutlined />} onClick={() => openInspectionReport(selectedLead)} className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950">{selectedLead.inspection?.startedAt ? "Continue Report" : "Start Inspection"}</Button>
+                    <Button
+                      type="primary"
+                      icon={
+                        selectedLead.inspection?.startedAt ? (
+                          <FileTextOutlined />
+                        ) : (
+                          <PlayCircleOutlined />
+                        )
+                      }
+                      onClick={() => openInspectionReport(selectedLead)}
+                      className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950"
+                    >
+                      {selectedLead.inspection?.startedAt
+                        ? "Continue Report"
+                        : "Start Inspection"}
+                    </Button>
                   )}
                 </div>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <QueueMetric label="Inspection Executive" value={selectedLead.inspection?.executiveName || selectedLead.assignedTo || "Pending"} helper={selectedLead.inspection?.executiveMobile || "Contact not captured"} />
-                <QueueMetric label="Scheduled For" value={selectedLead.inspection?.rescheduledAt || selectedLead.inspectionScheduledAt ? fmt(selectedLead.inspection?.rescheduledAt || selectedLead.inspectionScheduledAt) : "Not scheduled"} helper="Current field visit slot" />
-                <QueueMetric label="Seller Ask" value={fmtInrOrPending(getPrice(selectedLead))} helper={`${getMileage(selectedLead) || "Kms pending"} · ${selectedLead.ownership || "Ownership pending"}`} tone="emerald" />
-                <QueueMetric label="Inspection ID" value={selectedLead.inspection?.inspectionId || "Not generated"} helper={selectedLead.inspection?.submittedAt ? `Submitted ${fmt(selectedLead.inspection.submittedAt)}` : "Will auto-generate on start"} tone="violet" />
+                <QueueMetric
+                  label="Inspection Executive"
+                  value={
+                    selectedLead.inspection?.executiveName ||
+                    selectedLead.assignedTo ||
+                    "Pending"
+                  }
+                  helper={
+                    selectedLead.inspection?.executiveMobile ||
+                    "Contact not captured"
+                  }
+                />
+                <QueueMetric
+                  label="Scheduled For"
+                  value={
+                    selectedLead.inspection?.rescheduledAt ||
+                    selectedLead.inspectionScheduledAt
+                      ? fmt(
+                          selectedLead.inspection?.rescheduledAt ||
+                            selectedLead.inspectionScheduledAt,
+                        )
+                      : "Not scheduled"
+                  }
+                  helper="Current field visit slot"
+                />
+                <QueueMetric
+                  label="Seller Ask"
+                  value={fmtInrOrPending(getPrice(selectedLead))}
+                  helper={`${getMileage(selectedLead) || "Kms pending"} · ${selectedLead.ownership || "Ownership pending"}`}
+                  tone="emerald"
+                />
+                <QueueMetric
+                  label="Inspection ID"
+                  value={
+                    selectedLead.inspection?.inspectionId || "Not generated"
+                  }
+                  helper={
+                    selectedLead.inspection?.submittedAt
+                      ? `Submitted ${fmt(selectedLead.inspection.submittedAt)}`
+                      : "Will auto-generate on start"
+                  }
+                  tone="violet"
+                />
               </div>
               <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_0.95fr]">
                 <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Lead and Vehicle Snapshot</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                    Lead and Vehicle Snapshot
+                  </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {[
                       ["Seller Address", selectedLead.address || "Pending"],
-                      ["Fuel / Year", `${selectedLead.fuel || "—"} · ${selectedLead.mfgYear || "—"}`],
+                      [
+                        "Fuel / Year",
+                        `${selectedLead.fuel || "—"} · ${selectedLead.mfgYear || "—"}`,
+                      ],
                       ["Color", selectedLead.color || "—"],
-                      ["Insurance", getInsuranceDisplay(selectedLead) || "Pending"],
-                      ["Hypothecation", selectedLead.hypothecation === true ? `Yes — ${selectedLead.bankName || "Bank pending"}` : selectedLead.hypothecation === false ? "No" : "Unknown"],
-                      ["Accident History", selectedLead.accidentPaintHistory === true ? selectedLead.accidentPaintNotes || "Yes" : selectedLead.accidentPaintHistory === false ? "No" : "Unknown"],
-                      ["Expected Price", fmtInrOrPending(getPrice(selectedLead))],
+                      [
+                        "Insurance",
+                        getInsuranceDisplay(selectedLead) || "Pending",
+                      ],
+                      [
+                        "Hypothecation",
+                        selectedLead.hypothecation === true
+                          ? `Yes — ${selectedLead.bankName || "Bank pending"}`
+                          : selectedLead.hypothecation === false
+                            ? "No"
+                            : "Unknown",
+                      ],
+                      [
+                        "Accident History",
+                        selectedLead.accidentPaintHistory === true
+                          ? selectedLead.accidentPaintNotes || "Yes"
+                          : selectedLead.accidentPaintHistory === false
+                            ? "No"
+                            : "Unknown",
+                      ],
+                      [
+                        "Expected Price",
+                        fmtInrOrPending(getPrice(selectedLead)),
+                      ],
                       ["Mileage", getMileage(selectedLead) || "Pending"],
                     ].map(([label, value]) => (
-                      <div key={label} className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">{label}</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+                      <div
+                        key={label}
+                        className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]"
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                          {label}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {value}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Current Inspection Status</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+                    Current Inspection Status
+                  </p>
                   <div className="mt-4 space-y-3">
                     <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Outcome / Natija</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{selectedLead.inspection?.verdict || getInspectionState(selectedLead).label}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                        Outcome / Natija
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {selectedLead.inspection?.verdict ||
+                          getInspectionState(selectedLead).label}
+                      </p>
                     </div>
                     <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Remarks / Tippani</p>
-                      <p className="mt-1 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">{selectedLead.inspection?.remarks || selectedLead.notes || "No inspection remarks recorded yet."}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                        Remarks / Tippani
+                      </p>
+                      <p className="mt-1 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">
+                        {selectedLead.inspection?.remarks ||
+                          selectedLead.notes ||
+                          "No inspection remarks recorded yet."}
+                      </p>
                     </div>
                     <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Last Movement</p>
-                      <p className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300">{selectedLead.activities?.[0] ? `${selectedLead.activities[0].title} — ${fmt(selectedLead.activities[0].at)}` : "No inspection movement logged yet."}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                        Last Movement
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {selectedLead.activities?.[0]
+                          ? `${selectedLead.activities[0].title} — ${fmt(selectedLead.activities[0].at)}`
+                          : "No inspection movement logged yet."}
+                      </p>
                     </div>
                     <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">How this works / Kaise kaam karta hai</p>
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                        How this works / Kaise kaam karta hai
+                      </p>
                       {[
                         "1. Visit Update — agar inspection nahi ho saki, reschedule karo.",
                         "2. Start Inspection — jab evaluator ready ho tab full report bharo.",
                         "3. Report mein bilingual checkpoints, dropdowns aur photos hain.",
                         "4. Passed cars aage jaati hain, No-Go cars yahan band ho jaati hain.",
-                      ].map((line) => <p key={line} className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-400">{line}</p>)}
+                      ].map((line) => (
+                        <p
+                          key={line}
+                          className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-400"
+                        >
+                          {line}
+                        </p>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -3248,7 +4842,16 @@ export default function UsedCarInspectionDesk() {
         </div>
       </div>
 
-      <VisitUpdateModal open={visitModalOpen} selectedLead={selectedLead} visitForm={visitForm} onCancel={() => { setVisitModalOpen(false); visitForm.resetFields(); }} onSubmit={handleVisitUpdate} />
+      <VisitUpdateModal
+        open={visitModalOpen}
+        selectedLead={selectedLead}
+        visitForm={visitForm}
+        onCancel={() => {
+          setVisitModalOpen(false);
+          visitForm.resetFields();
+        }}
+        onSubmit={handleVisitUpdate}
+      />
     </section>
   );
 }
