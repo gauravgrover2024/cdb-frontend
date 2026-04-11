@@ -1520,12 +1520,18 @@ const toFileList = (files = [], prefix = "file") =>
     uid: file.uid || `${prefix}-${index}`,
     name: file.name || `Photo ${index + 1}`,
     status: "done",
+    url: file.url || file.thumbUrl || file.preview,
+    thumbUrl: file.thumbUrl || file.preview || file.url,
+    preview: file.preview || file.thumbUrl || file.url,
   }));
 
 const fromFileList = (files = []) =>
   files.map((file, index) => ({
     uid: file.uid || `upl-${index}`,
     name: file.name || `Photo ${index + 1}`,
+    url: file.url || file.thumbUrl || file.preview,
+    thumbUrl: file.thumbUrl || file.preview || file.url,
+    preview: file.preview || file.thumbUrl || file.url,
   }));
 
 // ── Inspection state badge ───────────────────────────────────────
@@ -1908,6 +1914,427 @@ function ReportSummaryCard({ reportLead }) {
   );
 }
 
+function getStoredFileSrc(file) {
+  return file?.url || file?.thumbUrl || file?.preview || "";
+}
+
+function compactStatus(status) {
+  if (!status) return "Not marked";
+  return String(status).split("—")[0].trim();
+}
+
+function isPositiveInspectionStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (!value) return false;
+  const negativeTokens = [
+    "scratch",
+    "dent",
+    "repair",
+    "replace",
+    "rust",
+    "crack",
+    "leak",
+    "noise",
+    "vibration",
+    "warning",
+    "missing",
+    "mismatch",
+    "issue",
+    "critical",
+    "observe",
+    "not working",
+    "very low",
+    "low",
+    "black smoke",
+    "blue smoke",
+    "white smoke",
+    "grey smoke",
+    "jammed",
+    "damage",
+  ];
+  return !negativeTokens.some((token) => value.includes(token));
+}
+
+function getSectionCounts(section, itemValues) {
+  return section.items.reduce(
+    (acc, item) => {
+      const status = itemValues?.[item.key]?.status;
+      if (!status) return acc;
+      if (isPositiveInspectionStatus(status)) acc.good += 1;
+      else acc.issue += 1;
+      return acc;
+    },
+    { good: 0, issue: 0 }
+  );
+}
+
+function DocumentPage({ children, className = "" }) {
+  return (
+    <section className={`relative overflow-hidden rounded-[34px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#0f1319] ${className}`}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_32%),linear-gradient(135deg,rgba(248,250,252,0.95),rgba(239,246,255,0.8))] dark:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_32%),linear-gradient(135deg,rgba(15,19,25,0.98),rgba(20,30,47,0.92))]" />
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[72px] font-black tracking-[0.22em] text-slate-100/80 dark:text-white/[0.03]">
+        INSPECTION REPORT
+      </div>
+      <div className="relative p-6 md:p-8">{children}</div>
+    </section>
+  );
+}
+
+function DocumentStat({ label, value, helper, tone = "slate" }) {
+  const toneMap = {
+    slate: "text-slate-900 dark:text-slate-100",
+    blue: "text-sky-700 dark:text-sky-300",
+    green: "text-emerald-700 dark:text-emerald-300",
+    amber: "text-amber-700 dark:text-amber-300",
+    rose: "text-rose-700 dark:text-rose-300",
+  };
+  return (
+    <div className="rounded-[22px] border border-slate-200 bg-white/90 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">{label}</p>
+      <p className={`mt-1 text-xl font-black tracking-tight ${toneMap[tone] || toneMap.slate}`}>{value}</p>
+      {helper ? <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{helper}</p> : null}
+    </div>
+  );
+}
+
+function StatusChip({ status }) {
+  const positive = isPositiveInspectionStatus(status);
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
+        status
+          ? positive
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+            : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+          : "border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400"
+      }`}
+    >
+      {compactStatus(status)}
+    </span>
+  );
+}
+
+function ReportPhotoTile({ title, file }) {
+  const src = getStoredFileSrc(file);
+  return (
+    <div className="overflow-hidden rounded-[20px] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="aspect-[1.2/0.82] bg-slate-100 dark:bg-white/[0.05]">
+        {src ? (
+          <img src={src} alt={title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-300 dark:text-slate-600">
+            <CameraOutlined style={{ fontSize: 28 }} />
+          </div>
+        )}
+      </div>
+      <div className="px-3 py-2.5">
+        <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{title}</p>
+        <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">{file?.name || "Photo pending"}</p>
+      </div>
+    </div>
+  );
+}
+
+function InspectionReportDocumentView({ reportLead, onBack, onEdit }) {
+  const report = reportLead?.inspection?.report || {};
+  const itemValues = report.items || {};
+  const photoBuckets = report.photoBuckets || {};
+  const score = calcOverallScore(itemValues);
+  const submittedAt =
+    reportLead?.inspection?.submittedAt ||
+    report?.generatedAt ||
+    reportLead?.inspection?.startedAt ||
+    new Date().toISOString();
+  const leadDate = reportLead?.inspection?.rescheduledAt || reportLead?.inspectionScheduledAt;
+  const verdict = reportLead?.inspection?.verdict || "Submitted";
+  const bucketCards = PHOTO_BUCKETS.map((bucket) => ({
+    title: bucket.labelEn,
+    file: (photoBuckets[bucket.key] || [])[0] || null,
+  })).filter((entry) => entry.file);
+  const summarySections = INSPECTION_SECTIONS.map((section) => ({
+    ...section,
+    completion: calcSectionScore(section.key, itemValues),
+    ...getSectionCounts(section, itemValues),
+  }));
+  const reportHighlights = [
+    reportLead?.regNo || "Registration pending",
+    reportLead?.mfgYear || "Year pending",
+    reportLead?.fuel || report?.fuelType || "Fuel pending",
+    getMileage(reportLead) || "Kms pending",
+  ];
+
+  return (
+    <section className="space-y-5">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+              <FileTextOutlined />
+              Inspection Report
+            </div>
+            <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white md:text-[28px]">
+              {reportLead.make} {reportLead.model} {reportLead.variant}
+            </h3>
+            <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+              {reportLead.name} · {reportLead.mobile} · Generated {fmt(submittedAt)}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button icon={<ArrowLeftOutlined />} onClick={onBack} className="!rounded-full">
+              Back to Queue
+            </Button>
+            <Button type="primary" icon={<FileTextOutlined />} onClick={onEdit} className="!rounded-full !bg-slate-900 !px-4 !font-bold dark:!bg-white dark:!text-slate-950">
+              Continue Report
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-[960px] space-y-6 pb-10">
+        <DocumentPage className="bg-[#f3f8ff] dark:bg-[#0f1622]">
+          <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <div className="inline-flex rounded-full border border-sky-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:border-sky-500/30 dark:bg-white/[0.05] dark:text-sky-300">
+                Smart inspection report
+              </div>
+              <h1 className="mt-5 text-4xl font-black tracking-tight text-slate-950 dark:text-white md:text-5xl">
+                Comprehensive
+                <br />
+                Car Inspection Report
+              </h1>
+              <p className="mt-4 max-w-xl text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
+                Thorough vehicle health review with section-wise quality checks, evaluator observations, compliance verification,
+                photo evidence, and next-step pricing guidance.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {reportHighlights.map((highlight) => (
+                  <span key={highlight} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                    {highlight}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[28px] border border-sky-100 bg-white/90 p-5 shadow-sm dark:border-sky-500/20 dark:bg-white/[0.04]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">At a glance</p>
+                  <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                    {reportLead.make} {reportLead.model}
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {reportLead.variant || "Variant pending"} · {reportLead.fuel || report?.fuelType || "Fuel pending"}
+                  </p>
+                </div>
+                <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-center dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-300">Overall</p>
+                  <p className="mt-1 text-3xl font-black text-emerald-700 dark:text-emerald-300">{Math.max(1, Math.round(score / 20))}/5</p>
+                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                    {score >= 80 ? "Excellent" : score >= 60 ? "Good" : score >= 40 ? "Fair" : "Needs work"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <DocumentStat label="Inspection date" value={fmt(submittedAt)} helper="Report submitted" tone="blue" />
+                <DocumentStat label="Inspection ID" value={reportLead?.inspection?.inspectionId || "Not generated"} helper="Evaluator job reference" />
+                <DocumentStat label="Verdict" value={compactStatus(verdict)} helper={verdict === NOGO_REASON ? "Lead closed at inspection" : "Ready for next stage"} tone={verdict === NOGO_REASON ? "rose" : "green"} />
+                <DocumentStat label="Evaluator" value={reportLead?.inspection?.executiveName || reportLead?.assignedTo || "Pending"} helper={reportLead?.inspection?.executiveMobile || "Mobile pending"} />
+              </div>
+              <div className="mt-5 rounded-[20px] border border-slate-200 bg-slate-50/90 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Health report summary</p>
+                <p className="mt-2 text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
+                  {report?.overallRemarks ||
+                    "Inspection completed. Use the category summary below to review body condition, mechanical health, compliance, and pricing readiness before moving this car ahead."}
+                </p>
+              </div>
+            </div>
+          </div>
+        </DocumentPage>
+
+        <DocumentPage>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Advanced report</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Content of report</h2>
+            </div>
+            <div className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300">
+              {INSPECTION_SECTIONS.length + 4} sections
+            </div>
+          </div>
+          <div className="mt-6 grid gap-3">
+            {[
+              ["01", "Your report at a glance", "Overview of vehicle condition, identity, and headline outcome"],
+              ["02", "Inspection summary", "Category-wise ratings and completion summary"],
+              ["03", "Vehicle images", "Mandatory inspection photo evidence captured by evaluator"],
+              ["04", "Detailed evaluation", "Full section tables for every inspected part and system"],
+              ["05", "OEM installed features & specs", "Factory-fit features, counts, and evaluator pricing notes"],
+            ].map(([index, title, desc]) => (
+              <div key={index} className="flex items-center gap-4 rounded-[22px] border border-sky-100 bg-sky-50/60 px-4 py-4 dark:border-sky-500/20 dark:bg-sky-500/5">
+                <span className="text-4xl font-black tracking-tight text-sky-200 dark:text-sky-500/30">{index}</span>
+                <div>
+                  <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">{title}</p>
+                  <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DocumentPage>
+
+        <DocumentPage>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Inspection report</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Inspection Summary</h2>
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
+                This section provides a quick section-wise view of the current car assessment so the next team can decide pricing,
+                refurb depth, and whether the car should move ahead immediately.
+              </p>
+            </div>
+            <ScoreBadge score={score} />
+          </div>
+          <div className="mt-6 space-y-4">
+            {summarySections.map((section) => (
+              <div key={section.key} className="grid gap-4 rounded-[24px] border border-slate-200 bg-white px-5 py-4 dark:border-white/10 dark:bg-white/[0.03] md:grid-cols-[1.05fr_0.95fr] md:items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{section.icon}</span>
+                    <p className="text-base font-black tracking-tight text-slate-950 dark:text-slate-100">{section.titleEn}</p>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">{section.titleHi}</p>
+                  <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Perfect parts: {section.good} | Imperfect parts: {section.issue}
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="min-w-0 flex-1">
+                    <SectionProgressBar sectionKey={section.key} itemValues={itemValues} />
+                  </div>
+                  <div className="rounded-[16px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-center dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                    <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">{Math.max(0, Math.round(section.completion / 20))}/5</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">Summary</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DocumentPage>
+
+        <DocumentPage>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Evidence pack</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Vehicle Images</h2>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+              {bucketCards.length} photos
+            </span>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {bucketCards.length ? (
+              bucketCards.map((entry) => <ReportPhotoTile key={entry.title} title={entry.title} file={entry.file} />)
+            ) : (
+              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-medium text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                Photo evidence abhi attach nahi hai.
+              </div>
+            )}
+          </div>
+        </DocumentPage>
+
+        {INSPECTION_SECTIONS.map((section, index) => {
+          const counts = getSectionCounts(section, itemValues);
+          return (
+            <DocumentPage key={section.key}>
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Inspection report</p>
+                  <h2 className="mt-2 text-[28px] font-black tracking-tight text-slate-950 dark:text-white">
+                    {(index + 1).toString().padStart(2, "0")}. {section.titleEn}
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">{section.titleHi}</p>
+                </div>
+                <div className="rounded-[18px] border px-4 py-3 text-right" style={{ borderColor: `${section.color}33`, background: `${section.color}10` }}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: section.color }}>
+                    Perfect parts: {counts.good} | Imperfect parts: {counts.issue}
+                  </p>
+                  <p className="mt-1 text-lg font-black" style={{ color: section.color }}>
+                    {Math.max(0, Math.round(calcSectionScore(section.key, itemValues) / 20))}/5
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/10">
+                <div className="grid grid-cols-[1.5fr_0.7fr_1fr] gap-4 bg-sky-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:bg-sky-500/10 dark:text-slate-300">
+                  <span>Parameters</span>
+                  <span>Status</span>
+                  <span>Observation</span>
+                </div>
+                <div className="divide-y divide-slate-200 dark:divide-white/10">
+                  {section.items.map((item) => {
+                    const itemValue = itemValues?.[item.key] || {};
+                    const notes = [itemValue.notes, itemValue.treadDepth ? `Tread ${itemValue.treadDepth} mm` : "", itemValue.tyreBrand ? `Brand ${itemValue.tyreBrand}` : ""]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <div key={item.key} className="grid grid-cols-[1.5fr_0.7fr_1fr] gap-4 px-4 py-3 text-sm">
+                        <div>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{item.labelEn}</p>
+                          <p className="mt-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">{item.labelHi}</p>
+                        </div>
+                        <div className="py-0.5">
+                          <StatusChip status={itemValue.status} />
+                        </div>
+                        <div className="text-xs font-medium leading-6 text-slate-500 dark:text-slate-400">
+                          {notes || "No extra observation"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </DocumentPage>
+          );
+        })}
+
+        <DocumentPage>
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">OEM installed features &amp; specs</p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Features, Specs &amp; Pricing Notes</h2>
+              <div className="mt-6 grid gap-3 md:grid-cols-2">
+                <DocumentStat label="Power windows" value={report?.powerWindowCount || "Not captured"} helper="Count verified during inspection" tone="blue" />
+                <DocumentStat label="Airbags" value={report?.airbagCount || "Not captured"} helper="As seen physically / warning status" tone="blue" />
+                <DocumentStat label="Transmission" value={report?.transmissionType || "Not captured"} helper="Variant-level gearbox verification" />
+                <DocumentStat label="Seat material" value={report?.seatMaterial || "Not captured"} helper="Cabin upholstery" />
+                <DocumentStat label="Fuel type" value={report?.fuelType || reportLead?.fuel || "Not captured"} helper="Lead + physical verification" />
+                <DocumentStat label="Estimated refurb" value={fmtInrOrPending(report?.estimatedRefurbCost)} helper="Expected rectification budget" tone="amber" />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Evaluator pricing</p>
+                <p className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white">{fmtInrOrPending(report?.evaluatorPrice)}</p>
+                <p className="mt-2 text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
+                  {report?.negotiationNotes || "Evaluator negotiation notes abhi capture nahi hue hain."}
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Final remarks</p>
+                <p className="mt-3 text-sm font-medium leading-7 text-slate-600 dark:text-slate-300">
+                  {report?.overallRemarks || "Final evaluator remarks abhi available nahi hain."}
+                </p>
+                {leadDate ? (
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                    Original inspection slot: {fmt(leadDate)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </DocumentPage>
+      </div>
+    </section>
+  );
+}
+
 function VisitUpdateModal({ open, selectedLead, visitForm, onCancel, onSubmit }) {
   return (
     <Modal
@@ -2215,6 +2642,18 @@ export default function UsedCarInspectionDesk() {
 
   if (reportLeadId && reportLead) {
     const reportReadOnly = reportMode === "view";
+    if (reportReadOnly) {
+      return (
+        <InspectionReportDocumentView
+          reportLead={reportLead}
+          onBack={() => {
+            setReportLeadId(null);
+            setReportMode("edit");
+          }}
+          onEdit={() => setReportMode("edit")}
+        />
+      );
+    }
     const reportItems = reportForm.getFieldValue("items") || reportLead.inspection?.report?.items || {};
     return (
       <section className="space-y-4">
