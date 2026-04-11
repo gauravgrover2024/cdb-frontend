@@ -185,37 +185,6 @@ const Header = () => {
       ],
     },
     {
-      label: "Tools",
-      icon: <Icon name="Wrench" size={18} />,
-      roles: FEATURE_ACCESS.TOOLS,
-      children: [
-        {
-          label: "EMI Calculator",
-          path: "/loans/emi-calculator",
-          desc: "Calculate loan EMI",
-          roles: FEATURE_ACCESS.TOOLS,
-        },
-        {
-          label: "Quotations",
-          path: "/loans/quotations",
-          desc: "Manage vehicle quotes",
-          roles: FEATURE_ACCESS.TOOLS,
-        },
-        {
-          label: "Features Catalog",
-          path: "/loans/features",
-          desc: "Compare variant features",
-          roles: FEATURE_ACCESS.TOOLS,
-        },
-        {
-          label: "Vehicle Price List",
-          path: "/vehicles/price-list",
-          desc: "Browse pricing catalog",
-          roles: FEATURE_ACCESS.TOOLS,
-        },
-      ],
-    },
-    {
       label: "Finance",
       icon: <Icon name="Coins" size={18} />,
       roles: [
@@ -255,6 +224,75 @@ const Header = () => {
           path: "/bookings",
           desc: "Manage vehicle bookings",
           roles: FEATURE_ACCESS.PAYMENTS,
+        },
+      ],
+    },
+    {
+      label: "Tools",
+      icon: <Icon name="Wrench" size={18} />,
+      roles: FEATURE_ACCESS.TOOLS,
+      children: [
+        {
+          label: "EMI Calculator",
+          path: "/loans/emi-calculator",
+          desc: "Calculate loan EMI",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+        {
+          label: "Quotations",
+          path: "/loans/quotations",
+          desc: "Manage vehicle quotes",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+        {
+          label: "Features Catalog",
+          path: "/loans/features",
+          desc: "Compare variant features",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+        {
+          label: "Vehicle Price List",
+          path: "/vehicles/price-list",
+          desc: "Browse pricing catalog",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+      ],
+    },
+    
+    {
+      label: "Used Cars",
+      icon: <Icon name="CarFront" size={18} />,
+      roles: FEATURE_ACCESS.USED_CARS,
+      children: [
+        {
+          label: "Dashboard",
+          path: "/used-cars",
+          desc: "Unified used cars control tower",
+          roles: FEATURE_ACCESS.USED_CARS,
+        },
+        {
+          label: "Procurement",
+          path: "/used-cars/procurement",
+          desc: "Source and price used car opportunities",
+          roles: FEATURE_ACCESS.USED_CARS,
+        },
+        {
+          label: "Refurb",
+          path: "/used-cars/refurb",
+          desc: "Workshop, approvals, and readiness tracking",
+          roles: FEATURE_ACCESS.USED_CARS,
+        },
+        {
+          label: "Sale",
+          path: "/used-cars/sale",
+          desc: "Listings, negotiations, and closures",
+          roles: FEATURE_ACCESS.USED_CARS,
+        },
+        {
+          label: "Stock",
+          path: "/used-cars/stock",
+          desc: "Inventory ageing, pricing, and capital in stock",
+          roles: FEATURE_ACCESS.USED_CARS,
         },
       ],
     },
@@ -304,7 +342,9 @@ const Header = () => {
     })
     .filter(Boolean);
 
-  const isActive = (path) => location?.pathname === path;
+  const isActive = (path) =>
+    location?.pathname === path ||
+    (path !== "/" && location?.pathname?.startsWith(`${path}/`));
   const isGroupActive = (children) =>
     children?.some((child) => isActive(child.path));
 
@@ -325,6 +365,10 @@ const Header = () => {
       Loans: {
         icon: "bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-700 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:text-violet-300",
         dot: "bg-violet-500 dark:bg-violet-400",
+      },
+      "Used Cars": {
+        icon: "bg-gradient-to-br from-emerald-100 to-cyan-100 text-emerald-700 dark:from-emerald-500/20 dark:to-cyan-500/20 dark:text-emerald-300",
+        dot: "bg-emerald-500 dark:bg-emerald-400",
       },
       Tools: {
         icon: "bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700 dark:from-amber-500/20 dark:to-orange-500/20 dark:text-amber-300",

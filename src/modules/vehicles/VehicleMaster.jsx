@@ -1,12 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import {
-  Space,
-  Tag,
-  message,
-  Popconfirm,
-  Collapse,
-  Input,
-} from "antd";
+import { Space, Tag, message, Popconfirm, Collapse, Input } from "antd";
 import * as XLSX from "xlsx";
 import { vehiclesApi } from "../../api/vehicles";
 import Icon from "../../components/AppIcon";
@@ -16,14 +9,34 @@ import { formatINR } from "../../utils/currency";
 
 /** Build unique key for (make, model, variant, fuel, city) to match backend bulk upsert */
 const vehicleKey = (v) =>
-  [v.make || "", v.model || "", v.variant || "", v.fuel || "", v.city || ""].join("|");
+  [
+    v.make || "",
+    v.model || "",
+    v.variant || "",
+    v.fuel || "",
+    v.city || "",
+  ].join("|");
 
 /** Map one Excel row to vehicle payload; normalize numbers and strings */
 const mapExcelRowToVehicle = (row) => {
-  const make = (row.Make ?? row.make ?? row.Brand ?? row.brand ?? "").toString().trim();
-  const model = (row.Model ?? row.model ?? row.Name ?? row.name ?? "").toString().trim();
-  const variant = (row.Variant ?? row.variant ?? row.Version ?? row.version ?? "Standard").toString().trim();
-  const fuel = (row.Fuel ?? row["Fuel Type"] ?? row.FuelType ?? "N/A").toString().trim() || "N/A";
+  const make = (row.Make ?? row.make ?? row.Brand ?? row.brand ?? "")
+    .toString()
+    .trim();
+  const model = (row.Model ?? row.model ?? row.Name ?? row.name ?? "")
+    .toString()
+    .trim();
+  const variant = (
+    row.Variant ??
+    row.variant ??
+    row.Version ??
+    row.version ??
+    "Standard"
+  )
+    .toString()
+    .trim();
+  const fuel =
+    (row.Fuel ?? row["Fuel Type"] ?? row.FuelType ?? "N/A").toString().trim() ||
+    "N/A";
   const city = (row.City ?? row.city ?? "Delhi").toString().trim() || "Delhi";
   const num = (val) => (val === "" || val == null ? 0 : Number(val));
   return {
@@ -32,7 +45,12 @@ const mapExcelRowToVehicle = (row) => {
     variant,
     fuel,
     city,
-    exShowroom: num(row.ExShowroom ?? row["Ex-Showroom Price"] ?? row.ExShowroomPrice ?? row.Price),
+    exShowroom: num(
+      row.ExShowroom ??
+        row["Ex-Showroom Price"] ??
+        row.ExShowroomPrice ??
+        row.Price,
+    ),
     rto: num(row.RTO ?? row.rto),
     insurance: num(row.Insurance ?? row.insurance),
     otherCharges: num(row.OtherCharges ?? row["Other Charges"]),
@@ -45,10 +63,16 @@ const mapExcelRowToVehicle = (row) => {
 const StatCard = ({ title, value, iconName, iconColor = "text-primary" }) => (
   <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
     <div className="min-w-0">
-      <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
-      <p className="text-xl font-bold font-mono tracking-tight text-foreground truncate">{value}</p>
+      <p className="text-xs font-medium text-muted-foreground truncate">
+        {title}
+      </p>
+      <p className="text-xl font-bold font-mono tracking-tight text-foreground truncate">
+        {value}
+      </p>
     </div>
-    <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0 ${iconColor}`}>
+    <div
+      className={`w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10 shrink-0 ${iconColor}`}
+    >
       <Icon name={iconName} size={20} className={iconColor} />
     </div>
   </div>
@@ -64,10 +88,7 @@ const VehicleMaster = () => {
   const [importLoading, setImportLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 10
-  });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
   const [visibleBrandsCount, setVisibleBrandsCount] = useState(10);
 
   const loadVehicles = async () => {
@@ -87,6 +108,68 @@ const VehicleMaster = () => {
     loadVehicles();
   }, []);
 
+  // ── All useMemo hooks together, in dependency order ──────────────────────────
+
+  const makeStats = useMemo(() => {
+    const stats = {};
+    vehicles.forEach((v) => {
+      if (!stats[v.make]) {
+        stats[v.make] = {
+          make: v.make,
+          models: new Set(),
+          variants: [],
+          totalActive: 0,
+          totalValue: 0,
+        };
+      }
+      stats[v.make].models.add(v.model);
+      stats[v.make].variants.push(v);
+      if (v.status === "Active") stats[v.make].totalActive++;
+      stats[v.make].totalValue += v.onRoadPrice || 0;
+    });
+    return Object.values(stats).sort((a, b) => a.make.localeCompare(b.make));
+  }, [vehicles]);
+
+  const filtered = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return vehicles;
+    return vehicles.filter(
+      (v) =>
+        v.make.toLowerCase().includes(q) ||
+        v.model.toLowerCase().includes(q) ||
+        v.variant.toLowerCase().includes(q) ||
+        (v.city && v.city.toLowerCase().includes(q)),
+    );
+  }, [searchText, vehicles]);
+
+  const filteredBrands = useMemo(() => {
+    return makeStats.filter((brand) => {
+      if (!searchText) return true;
+      const search = searchText.toLowerCase();
+      return (
+        brand.make.toLowerCase().includes(search) ||
+        brand.variants.some(
+          (v) =>
+            v.model.toLowerCase().includes(search) ||
+            v.variant.toLowerCase().includes(search) ||
+            (v.city && v.city.toLowerCase().includes(search)),
+        )
+      );
+    });
+  }, [makeStats, searchText]);
+
+  // ── Plain derived variables (no hooks, after all useMemo) ────────────────────
+  const totalVariations = vehicles.length;
+  const activeModels = vehicles.filter((v) => v.status === "Active").length;
+  const uniqueMakes = [...new Set(vehicles.map((v) => v.make))].sort();
+  const uniqueModels = [...new Set(vehicles.map((v) => v.model))].sort();
+
+  // ── Reset visible count on search change ─────────────────────────────────────
+  useEffect(() => {
+    setVisibleBrandsCount(10);
+  }, [searchText]);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleCreate = () => {
     setEditingVehicle(null);
     setIsModalOpen(true);
@@ -146,13 +229,15 @@ const VehicleMaster = () => {
       const parsed = rows
         .map(mapExcelRowToVehicle)
         .filter((v) => v.make && v.model && v.variant);
-      // Skip rows without fuel or ex-showroom (match backend import rules)
       const withFuelAndPrice = parsed.filter((v) => {
-        const hasFuel = (v.fuel || "").trim() && (v.fuel || "").trim() !== "N/A";
+        const hasFuel =
+          (v.fuel || "").trim() && (v.fuel || "").trim() !== "N/A";
         const hasExShowroom = v.exShowroom != null && Number(v.exShowroom) > 0;
         return hasFuel && hasExShowroom;
       });
-      const toInsert = withFuelAndPrice.filter((v) => !keysInDb.has(vehicleKey(v)));
+      const toInsert = withFuelAndPrice.filter(
+        (v) => !keysInDb.has(vehicleKey(v)),
+      );
       const alreadyExisted = withFuelAndPrice.length - toInsert.length;
       const skippedInvalid = parsed.length - withFuelAndPrice.length;
       if (toInsert.length === 0) {
@@ -170,7 +255,7 @@ const VehicleMaster = () => {
       const inserted = data.inserted ?? toInsert.length;
       const updated = data.updated ?? 0;
       message.success(
-        `Imported ${inserted} new vehicle(s). ${updated} updated. ${alreadyExisted} already existed.${skippedInvalid ? ` ${skippedInvalid} row(s) skipped (missing fuel or ex-showroom).` : ""}`
+        `Imported ${inserted} new vehicle(s). ${updated} updated. ${alreadyExisted} already existed.${skippedInvalid ? ` ${skippedInvalid} row(s) skipped (missing fuel or ex-showroom).` : ""}`,
       );
       loadVehicles();
     } catch (err) {
@@ -181,160 +266,9 @@ const VehicleMaster = () => {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return vehicles;
-
-    return vehicles.filter(v => 
-      v.make.toLowerCase().includes(q) ||
-      v.model.toLowerCase().includes(q) ||
-      v.variant.toLowerCase().includes(q) ||
-      (v.city && v.city.toLowerCase().includes(q))
-    );
-  }, [searchText, vehicles]);
-  const filteredBrands = useMemo(() => {
-    return makeStats.filter(brand => {
-      if (!searchText) return true;
-      const search = searchText.toLowerCase();
-      return brand.make.toLowerCase().includes(search) ||
-        brand.variants.some(v => 
-          v.model.toLowerCase().includes(search) ||
-          v.variant.toLowerCase().includes(search) ||
-          (v.city && v.city.toLowerCase().includes(search))
-        );
-    });
-  }, [makeStats, searchText]);
-
-  useEffect(() => {
-    setVisibleBrandsCount(10);
-  }, [searchText]);
-
-  const columns = [
-    {
-      title: "Vehicle Details",
-      key: "vehicle",
-      width: 300,
-      render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-foreground">{record.make} {record.model}</span>
-            <Tag className="m-0 text-[10px] font-bold px-1.5 py-0 border-none bg-primary/10 text-primary uppercase">
-                {record.fuel || "—"}
-            </Tag>
-            {record.isDiscontinued && (
-              <Tag color="red" className="m-0 text-[10px] font-bold px-1.5 py-0">
-                Discontinued
-              </Tag>
-            )}
-          </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5 font-medium italic">
-            {record.variant}
-          </div>
-          {record.city && (
-             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 opacity-70">
-                <Icon name="MapPin" size={10} />
-                <span>{record.city}</span>
-             </div>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: "Ex-Showroom",
-      dataIndex: "exShowroom",
-      key: "exShowroom",
-      render: (v) => (
-        <span className="font-mono text-sm">
-          {v != null && Number(v) > 0 ? formatINR(v) : "—"}
-        </span>
-      ),
-    },
-    {
-      title: "On-Road Price",
-      dataIndex: "onRoadPrice",
-      key: "onRoadPrice",
-      render: (v) => (
-        <span className="font-mono text-sm font-bold text-primary">
-          {v != null && Number(v) > 0 ? formatINR(v) : "—"}
-        </span>
-      ),
-    },
-    {
-       title: "Status",
-       dataIndex: "status",
-       key: "status",
-       render: (status) => (
-         <div className={`
-            inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide
-            ${status === 'Active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}
-         `}>
-           {status}
-         </div>
-       )
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      width: 120,
-      align: "right",
-      render: (_, record) => (
-        <Space size={2}>
-            <Button
-              size="sm"
-              variant="ghost"
-              iconName="Edit3"
-              onClick={() => handleEdit(record)}
-            />
-          <Popconfirm
-            title="Remove from inventory?"
-            onConfirm={() => handleDelete(record._id)}
-            okText="Delete"
-            cancelText="No"
-            okButtonProps={{ danger: true }}
-          >
-             <Button
-                size="sm"
-                variant="ghost"
-                className="text-red-500 hover:bg-red-50 hover:text-red-700"
-                iconName="Trash2"
-              />
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
-  // Calculate statistics
-  const totalValue = vehicles.reduce((acc, curr) => acc + (curr.onRoadPrice || 0), 0);
-  const totalVariations = vehicles.length;
-  const activeModels = vehicles.filter(v => v.status === 'Active').length;
-  
-  // Get unique makes, models, and variants
-  const uniqueMakes = [...new Set(vehicles.map(v => v.make))].sort();
-  const uniqueModels = [...new Set(vehicles.map(v => v.model))].sort();
-  const makeStats = useMemo(() => {
-    const stats = {};
-    vehicles.forEach(v => {
-      if (!stats[v.make]) {
-        stats[v.make] = {
-          make: v.make,
-          models: new Set(),
-          variants: [],
-          totalActive: 0,
-          totalValue: 0
-        };
-      }
-      stats[v.make].models.add(v.model);
-      stats[v.make].variants.push(v);
-      if (v.status === 'Active') stats[v.make].totalActive++;
-      stats[v.make].totalValue += v.onRoadPrice || 0;
-    });
-    return Object.values(stats).sort((a, b) => a.make.localeCompare(b.make));
-  }, [vehicles]);
-
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-full p-4 md:p-6 bg-background">
-      {/* Outer page card */}
       <div className="app-max-wrap flex flex-col gap-5">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -370,7 +304,7 @@ const VehicleMaster = () => {
               variant="outline"
               size="sm"
               iconName="DollarSign"
-              onClick={() => window.location.href = "/vehicles/price-list"}
+              onClick={() => (window.location.href = "/vehicles/price-list")}
             >
               Price List
             </Button>
@@ -386,7 +320,7 @@ const VehicleMaster = () => {
           </div>
         </div>
 
-        {/* Inner card: Add Vehicle CTA */}
+        {/* Add Vehicle CTA */}
         <div
           className="bg-card border border-border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-dashed hover:border-primary/50 hover:bg-primary/[0.02] transition-colors"
           role="button"
@@ -399,7 +333,9 @@ const VehicleMaster = () => {
               <Icon name="Plus" size={24} className="text-primary" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-foreground">Add Vehicle</h2>
+              <h2 className="text-base font-semibold text-foreground">
+                Add Vehicle
+              </h2>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Add a new make, model, variant and pricing to the inventory.
               </p>
@@ -421,41 +357,64 @@ const VehicleMaster = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard title="Total Vehicles" value={totalVariations} iconName="Layers" />
-          <StatCard title="Total Models" value={uniqueModels.length} iconName="Car" />
-          <StatCard title="Total Makes" value={uniqueMakes.length} iconName="Building2" />
-          <StatCard title="Active Vehicles" value={activeModels} iconName="CheckCircle2" iconColor="text-success" />
+          <StatCard
+            title="Total Vehicles"
+            value={totalVariations}
+            iconName="Layers"
+          />
+          <StatCard
+            title="Total Models"
+            value={uniqueModels.length}
+            iconName="Car"
+          />
+          <StatCard
+            title="Total Makes"
+            value={uniqueMakes.length}
+            iconName="Building2"
+          />
+          <StatCard
+            title="Active Vehicles"
+            value={activeModels}
+            iconName="CheckCircle2"
+            iconColor="text-success"
+          />
         </div>
 
         {/* Search Bar */}
         <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <Input
-              placeholder="Search by make, model, variant, or city..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              prefix={<Icon name="Search" size={16} className="text-muted-foreground" />}
-              suffix={
-                searchText && (
-                  <Icon 
-                    name="X" 
-                    size={16} 
-                    className="text-muted-foreground cursor-pointer hover:text-foreground" 
-                    onClick={() => setSearchText('')}
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Input
+                placeholder="Search by make, model, variant, or city..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                prefix={
+                  <Icon
+                    name="Search"
+                    size={16}
+                    className="text-muted-foreground"
                   />
-                )
-              }
-              className="h-10"
-            />
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {filtered.length} of {vehicles.length} vehicles
+                }
+                suffix={
+                  searchText && (
+                    <Icon
+                      name="X"
+                      size={16}
+                      className="text-muted-foreground cursor-pointer hover:text-foreground"
+                      onClick={() => setSearchText("")}
+                    />
+                  )
+                }
+                className="h-10"
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {filtered.length} of {vehicles.length} vehicles
+            </div>
           </div>
         </div>
-      </div>
 
-        {/* Brand-wise Inventory View */}
+        {/* Brand-wise Inventory */}
         <div className="flex-1 min-h-0 bg-card border border-border rounded-xl flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -464,137 +423,197 @@ const VehicleMaster = () => {
             </h3>
           </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <Collapse
-            items={filteredBrands.slice(0, visibleBrandsCount).map((brand) => ({
-              key: brand.make,
-              label: (
-                <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold text-foreground">{brand.make}</span>
-                    <Tag color="blue">{brand.variants.length} variants</Tag>
-                    <Tag color="default">{brand.models.size} models</Tag>
-                    <Tag color="green">{brand.totalActive} active</Tag>
-                  </div>
-                  <span className="text-xs font-mono text-muted-foreground">
-                    {formatINR(brand.totalValue)}
-                  </span>
-                </div>
-              ),
-              children: (
-                <div className="space-y-4">
-                  {Array.from(brand.models).sort().map((model) => {
-                    const modelVehicles = brand.variants.filter(v => v.model === model);
-                    return (
-                      <div key={model} className="border-2 border-border dark:border-border/60 rounded-lg p-3 bg-muted/30 dark:bg-muted/20">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Icon name="Car" size={14} className="text-amber-600" />
-                            <span className="font-medium text-foreground">{brand.make} {model}</span>
-                          </div>
-                          <span className="text-xs font-semibold text-muted-foreground">
-                            {modelVehicles.length} variant{modelVehicles.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-
-                        {/* Variants Table for this Model */}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead className="border-b-2 border-border dark:border-border/60 bg-muted/50 dark:bg-muted/30">
-                              <tr>
-                                <th className="px-2 py-2 text-left font-semibold text-foreground">Variant</th>
-                                <th className="px-2 py-2 text-left font-semibold text-foreground">Fuel</th>
-                                <th className="px-2 py-2 text-right font-semibold text-foreground">Ex-Showroom</th>
-                                <th className="px-2 py-2 text-right font-semibold text-foreground">On-Road</th>
-                                <th className="px-2 py-2 text-center font-semibold text-foreground">Status</th>
-                                <th className="px-2 py-2 text-center font-semibold text-foreground">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {modelVehicles.map((vehicle) => (
-                                <tr key={vehicle._id} className="border-b border-border dark:border-border/60 hover:bg-muted/30 dark:hover:bg-muted/20 transition-colors">
-                                  <td className="px-2 py-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-foreground">{vehicle.variant}</span>
-                                      {vehicle.isDiscontinued && (
-                                        <Tag color="red" className="text-[10px] m-0">
-                                          Discontinued
-                                        </Tag>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-2 py-2">
-                                    <Tag color={vehicle.fuel === 'Petrol' ? 'orange' : 'blue'} className="text-[10px]">
-                                      {vehicle.fuel || "—"}
-                                    </Tag>
-                                  </td>
-                                  <td className="px-2 py-2 text-right font-mono text-muted-foreground text-xs">
-                                    {vehicle.exShowroom != null && Number(vehicle.exShowroom) > 0 ? formatINR(vehicle.exShowroom) : "—"}
-                                  </td>
-                                  <td className="px-2 py-2 text-right font-mono font-semibold text-primary text-xs">
-                                    {vehicle.onRoadPrice != null && Number(vehicle.onRoadPrice) > 0 ? formatINR(vehicle.onRoadPrice) : "—"}
-                                  </td>
-                                  <td className="px-2 py-2 text-center">
-                                    <Tag color={vehicle.status === 'Active' ? 'green' : 'red'} className="text-[10px]">
-                                      {vehicle.status}
-                                    </Tag>
-                                  </td>
-                                  <td className="px-2 py-2 text-center">
-                                    <Space size={2}>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="text-xs h-6 px-2"
-                                        iconName="Edit3"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleEdit(vehicle);
-                                        }}
-                                      />
-                                      <Popconfirm
-                                        title="Remove?"
-                                        onConfirm={(e) => {
-                                          e?.stopPropagation();
-                                          handleDelete(vehicle._id);
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-xs text-red-500 h-6 px-2"
-                                          iconName="Trash2"
-                                        />
-                                      </Popconfirm>
-                                    </Space>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+          <div className="flex-1 overflow-y-auto">
+            <Collapse
+              items={filteredBrands
+                .slice(0, visibleBrandsCount)
+                .map((brand) => ({
+                  key: brand.make,
+                  label: (
+                    <div className="flex items-center justify-between w-full pr-4">
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-foreground">
+                          {brand.make}
+                        </span>
+                        <Tag color="blue">{brand.variants.length} variants</Tag>
+                        <Tag color="default">{brand.models.size} models</Tag>
+                        <Tag color="green">{brand.totalActive} active</Tag>
                       </div>
-                    );
-                  })}
-                </div>
-              ),
-            }))}
-            accordion
-            className="bg-transparent"
-          />
-          {filteredBrands.length > visibleBrandsCount && (
-            <div className='p-4 flex justify-center border-t border-border'>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => setVisibleBrandsCount(prev => prev + 10)}
-                className='text-primary border-primary/40 hover:bg-primary/5'
-              >
-                Load More ({filteredBrands.length - visibleBrandsCount} remaining)
-              </Button>
-            </div>
-          )}
-        </div>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {formatINR(brand.totalValue)}
+                      </span>
+                    </div>
+                  ),
+                  children: (
+                    <div className="space-y-4">
+                      {Array.from(brand.models)
+                        .sort()
+                        .map((model) => {
+                          const modelVehicles = brand.variants.filter(
+                            (v) => v.model === model,
+                          );
+                          return (
+                            <div
+                              key={model}
+                              className="border-2 border-border dark:border-border/60 rounded-lg p-3 bg-muted/30 dark:bg-muted/20"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Icon
+                                    name="Car"
+                                    size={14}
+                                    className="text-amber-600"
+                                  />
+                                  <span className="font-medium text-foreground">
+                                    {brand.make} {model}
+                                  </span>
+                                </div>
+                                <span className="text-xs font-semibold text-muted-foreground">
+                                  {modelVehicles.length} variant
+                                  {modelVehicles.length !== 1 ? "s" : ""}
+                                </span>
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead className="border-b-2 border-border dark:border-border/60 bg-muted/50 dark:bg-muted/30">
+                                    <tr>
+                                      <th className="px-2 py-2 text-left font-semibold text-foreground">
+                                        Variant
+                                      </th>
+                                      <th className="px-2 py-2 text-left font-semibold text-foreground">
+                                        Fuel
+                                      </th>
+                                      <th className="px-2 py-2 text-right font-semibold text-foreground">
+                                        Ex-Showroom
+                                      </th>
+                                      <th className="px-2 py-2 text-right font-semibold text-foreground">
+                                        On-Road
+                                      </th>
+                                      <th className="px-2 py-2 text-center font-semibold text-foreground">
+                                        Status
+                                      </th>
+                                      <th className="px-2 py-2 text-center font-semibold text-foreground">
+                                        Actions
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {modelVehicles.map((vehicle) => (
+                                      <tr
+                                        key={vehicle._id}
+                                        className="border-b border-border dark:border-border/60 hover:bg-muted/30 dark:hover:bg-muted/20 transition-colors"
+                                      >
+                                        <td className="px-2 py-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-foreground">
+                                              {vehicle.variant}
+                                            </span>
+                                            {vehicle.isDiscontinued && (
+                                              <Tag
+                                                color="red"
+                                                className="text-[10px] m-0"
+                                              >
+                                                Discontinued
+                                              </Tag>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="px-2 py-2">
+                                          <Tag
+                                            color={
+                                              vehicle.fuel === "Petrol"
+                                                ? "orange"
+                                                : "blue"
+                                            }
+                                            className="text-[10px]"
+                                          >
+                                            {vehicle.fuel || "—"}
+                                          </Tag>
+                                        </td>
+                                        <td className="px-2 py-2 text-right font-mono text-muted-foreground text-xs">
+                                          {vehicle.exShowroom != null &&
+                                          Number(vehicle.exShowroom) > 0
+                                            ? formatINR(vehicle.exShowroom)
+                                            : "—"}
+                                        </td>
+                                        <td className="px-2 py-2 text-right font-mono font-semibold text-primary text-xs">
+                                          {vehicle.onRoadPrice != null &&
+                                          Number(vehicle.onRoadPrice) > 0
+                                            ? formatINR(vehicle.onRoadPrice)
+                                            : "—"}
+                                        </td>
+                                        <td className="px-2 py-2 text-center">
+                                          <Tag
+                                            color={
+                                              vehicle.status === "Active"
+                                                ? "green"
+                                                : "red"
+                                            }
+                                            className="text-[10px]"
+                                          >
+                                            {vehicle.status}
+                                          </Tag>
+                                        </td>
+                                        <td className="px-2 py-2 text-center">
+                                          <Space size={2}>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="text-xs h-6 px-2"
+                                              iconName="Edit3"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(vehicle);
+                                              }}
+                                            />
+                                            <Popconfirm
+                                              title="Remove?"
+                                              onConfirm={(e) => {
+                                                e?.stopPropagation();
+                                                handleDelete(vehicle._id);
+                                              }}
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                            >
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="text-xs text-red-500 h-6 px-2"
+                                                iconName="Trash2"
+                                              />
+                                            </Popconfirm>
+                                          </Space>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ),
+                }))}
+              accordion
+              className="bg-transparent"
+            />
+            {filteredBrands.length > visibleBrandsCount && (
+              <div className="p-4 flex justify-center border-t border-border">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVisibleBrandsCount((prev) => prev + 10)}
+                  className="text-primary border-primary/40 hover:bg-primary/5"
+                >
+                  Load More ({filteredBrands.length - visibleBrandsCount}{" "}
+                  remaining)
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

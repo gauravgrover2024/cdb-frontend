@@ -31,6 +31,15 @@ const MODULES = [
     glow: "from-indigo-500/20 via-violet-400/10 to-transparent",
   },
   {
+    key: "used-cars",
+    match: (path) => path.startsWith("/used-cars"),
+    title: "Used Cars",
+    subtitle: "Procurement, refurb, sale, and stock under one operating desk",
+    icon: "CarFront",
+    badge: "Inventory",
+    glow: "from-emerald-500/20 via-cyan-400/10 to-transparent",
+  },
+  {
     key: "payouts",
     match: (path) => path.startsWith("/payouts"),
     title: "Payouts",

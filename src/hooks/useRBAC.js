@@ -47,6 +47,7 @@ export const FEATURE_ACCESS = {
   INSURANCE: ["staff", "admin", "superadmin"],
   CUSTOMERS: ["staff", "admin", "superadmin"],
   LOANS: ["staff", "admin", "superadmin"],
+  USED_CARS: ["staff", "admin", "superadmin"],
   TOOLS: ["staff", "admin", "superadmin"],
   PAYMENTS: ["staff", "admin", "superadmin"],
   PENDENCY: ["staff", "admin", "superadmin"],
