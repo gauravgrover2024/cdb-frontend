@@ -95,6 +95,28 @@ const DAMAGE_MAP_LAYOUT = {
   alloyWheels: "wheel-zone",
 };
 
+const DAMAGE_OVERLAY_SHAPES = {
+  bonnet: <rect x="196" y="92" width="128" height="78" rx="26" />,
+  roof: <rect x="204" y="252" width="112" height="98" rx="28" />,
+  bootFloor: <rect x="196" y="510" width="128" height="72" rx="24" />,
+  frontBumper: <rect x="214" y="36" width="92" height="22" rx="10" />,
+  rearBumper: <rect x="214" y="622" width="92" height="22" rx="10" />,
+  leftFender: <path d="M160 170c-22 20-33 37-39 68l34 10c4-28 12-43 27-58Z" />,
+  rightFender: <path d="M360 170c22 20 33 37 39 68l-34 10c-4-28-12-43-27-58Z" />,
+  leftFrontDoor: <rect x="176" y="304" width="36" height="92" rx="12" />,
+  leftRearDoor: <rect x="176" y="400" width="36" height="92" rx="12" />,
+  rightFrontDoor: <rect x="308" y="304" width="36" height="92" rx="12" />,
+  rightRearDoor: <rect x="308" y="400" width="36" height="92" rx="12" />,
+  leftQuarterPanel: <path d="M164 498c-15 14-24 31-28 56l30 12c5-24 12-37 26-49Z" />,
+  rightQuarterPanel: <path d="M356 498c15 14 24 31 28 56l-30 12c-5-24-12-37-26-49Z" />,
+  headlamps: <rect x="188" y="72" width="144" height="18" rx="8" />,
+  taillamps: <rect x="188" y="590" width="144" height="18" rx="8" />,
+  windshield: <rect x="206" y="120" width="108" height="64" rx="22" />,
+  rearWindshield: <rect x="206" y="494" width="108" height="60" rx="22" />,
+  orvms: <g><circle cx="146" cy="186" r="14" /><circle cx="374" cy="186" r="14" /></g>,
+  alloyWheels: <g><circle cx="116" cy="234" r="16" /><circle cx="404" cy="234" r="16" /><circle cx="116" cy="446" r="16" /><circle cx="404" cy="446" r="16" /></g>,
+};
+
 // ── Mandatory photo buckets ──────────────────────────────────────
 const PHOTO_BUCKETS = [
   { key: "frontView", labelEn: "Front View", labelHi: "Aage ki photo" },
@@ -421,11 +443,67 @@ function getStatusSeverity(status, item, section) {
   return map[topSeverity] || "Medium";
 }
 
-function getSeverityTone(severity) {
-  return (
-    SEVERITY_OPTIONS.find((entry) => entry.value === severity)?.tone ||
-    "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
-  );
+function getOptionTone(option) {
+  const value = String(option.value || "").toLowerCase();
+  if (value === "original" || value === "ok" || value === "good" || value === "working" || value === "verified" || value === "yes" || value === "excellent") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300";
+  }
+  if (value.includes("replace") || value.includes("missing") || value.includes("not working") || value.includes("deployed") || value.includes("mismatch") || value.includes("critical")) {
+    return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300";
+  }
+  if (value.includes("repair") || value.includes("rust") || value.includes("crack") || value.includes("leak") || value.includes("noise") || value.includes("bulge")) {
+    return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300";
+  }
+  if (value.includes("repaint") || value.includes("dent") || value.includes("uneven") || value.includes("low") || value.includes("warning") || value.includes("weak")) {
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300";
+  }
+  return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300";
+}
+
+function getOptionActiveTone(option) {
+  const value = String(option.value || "").toLowerCase();
+  if (
+    value === "original" ||
+    value === "ok" ||
+    value === "good" ||
+    value === "working" ||
+    value === "verified" ||
+    value === "yes" ||
+    value === "excellent"
+  ) {
+    return "border-emerald-700 bg-emerald-600 text-white shadow-[0_8px_20px_rgba(5,150,105,0.28)] dark:border-emerald-400 dark:bg-emerald-500";
+  }
+  if (
+    value.includes("replace") ||
+    value.includes("missing") ||
+    value.includes("not working") ||
+    value.includes("deployed") ||
+    value.includes("mismatch") ||
+    value.includes("critical")
+  ) {
+    return "border-rose-700 bg-rose-600 text-white shadow-[0_8px_20px_rgba(225,29,72,0.28)] dark:border-rose-400 dark:bg-rose-500";
+  }
+  if (
+    value.includes("repair") ||
+    value.includes("rust") ||
+    value.includes("crack") ||
+    value.includes("leak") ||
+    value.includes("noise") ||
+    value.includes("bulge")
+  ) {
+    return "border-orange-700 bg-orange-500 text-white shadow-[0_8px_20px_rgba(249,115,22,0.28)] dark:border-orange-300 dark:bg-orange-500";
+  }
+  if (
+    value.includes("repaint") ||
+    value.includes("dent") ||
+    value.includes("uneven") ||
+    value.includes("low") ||
+    value.includes("warning") ||
+    value.includes("weak")
+  ) {
+    return "border-amber-700 bg-amber-500 text-white shadow-[0_8px_20px_rgba(245,158,11,0.28)] dark:border-amber-300 dark:bg-amber-500";
+  }
+  return "border-sky-700 bg-sky-600 text-white shadow-[0_8px_20px_rgba(2,132,199,0.28)] dark:border-sky-300 dark:bg-sky-500";
 }
 
 // ── Standalone option lists ──────────────────────────────────────
@@ -1953,6 +2031,11 @@ function OverallScoreRing({ score }) {
   );
 }
 
+function getSectionOrder(sectionKey) {
+  const index = INSPECTION_SECTIONS.findIndex((section) => section.key === sectionKey);
+  return index >= 0 ? String(index + 1).padStart(2, "0") : "--";
+}
+
 function InspectionQueueCard({ lead, active, onClick }) {
   const state = getInspectionState(lead);
   const schedule =
@@ -2077,22 +2160,28 @@ function VerificationCard({ field }) {
       }
       className={`w-full rounded-[18px] border px-4 py-3 text-left transition-all ${
         checked
-          ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
-          : "border-slate-200 bg-white dark:border-white/10 dark:bg-[#11151b]"
+          ? "border-emerald-700 bg-emerald-600 text-white shadow-[0_10px_24px_rgba(5,150,105,0.28)] dark:border-emerald-400 dark:bg-emerald-500"
+          : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-[#11151b]"
       }`}
     >
       <div className="flex items-start gap-3">
         <span
           className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${
             checked
-              ? "border-emerald-500 bg-emerald-500 text-white"
+              ? "border-white bg-white text-emerald-700"
               : "border-slate-300 text-slate-400 dark:border-slate-600 dark:text-slate-500"
           }`}
         >
           {checked ? "✓" : ""}
         </span>
         <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <p
+            className={`text-sm font-semibold ${
+              checked
+                ? "text-white"
+                : "text-slate-900 dark:text-slate-100"
+            }`}
+          >
             {field.labelEn}
           </p>
         </div>
@@ -2127,11 +2216,11 @@ function SectionItemCard({
   useEffect(() => {
     if (!autoOpen || !itemRef.current) return;
     itemRef.current.scrollIntoView({
-      behavior: "smooth",
+      behavior: "auto",
       block: "center",
       inline: "nearest",
     });
-    const timeout = window.setTimeout(() => clearAutoOpen(), 600);
+    const timeout = window.setTimeout(() => clearAutoOpen(), 120);
     return () => window.clearTimeout(timeout);
   }, [autoOpen, clearAutoOpen]);
 
@@ -2170,7 +2259,7 @@ function SectionItemCard({
       if (multiSelect) {
         advanceTimerRef.current = window.setTimeout(() => {
           onAdvance(item.key);
-        }, 700);
+        }, 90);
         return;
       }
       onAdvance(item.key);
@@ -2194,7 +2283,9 @@ function SectionItemCard({
             {item.labelEn}
           </p>
         </div>
-        <CameraOutlined className="mt-0.5 shrink-0 text-slate-300 dark:text-slate-600" />
+        <span className="mt-0.5 shrink-0 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:border-white/10 dark:text-slate-500">
+          Photo
+        </span>
       </div>
       <div className="mt-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
@@ -2208,28 +2299,24 @@ function SectionItemCard({
         <div className="mt-2 flex flex-wrap gap-2">
           {options.map((option) => {
             const active = statusVal.includes(option.value);
-            const tone =
-              option.severity === "ok"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
-                : option.severity === "low"
-                  ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300"
-                  : option.severity === "medium"
-                    ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
-                    : option.severity === "high"
-                      ? "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300"
-                      : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300";
+            const tone = getOptionTone(option);
+            const activeTone = getOptionActiveTone(option);
             return (
               <button
                 key={option.value}
                 type="button"
+                aria-pressed={active}
                 onClick={() => handleStatusSelect(option.value)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
+                className={`relative z-10 cursor-pointer rounded-full border-2 px-4 py-2.5 text-sm font-bold leading-none transition-all ${
                   active
-                    ? `${tone} shadow-sm ring-2 ring-offset-1 ring-slate-200 dark:ring-white/10`
-                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20"
+                    ? `${activeTone} scale-[1.02]`
+                    : `${tone} border-opacity-60 bg-white text-slate-500 hover:scale-[1.01] hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20`
                 }`}
               >
-                {option.value}
+                <span className="inline-flex items-center gap-2">
+                  {active ? <span className="text-[11px]">✓</span> : null}
+                  <span>{option.value}</span>
+                </span>
               </button>
             );
           })}
@@ -2528,7 +2615,7 @@ function buildSmartAutoSummary({
   ];
 
   const narrative = criticalIssues.length
-    ? `Vehicle shows ${criticalIssues.length} higher-severity finding${criticalIssues.length > 1 ? "s" : ""}. Focus review on ${criticalIssues
+    ? `Vehicle shows ${criticalIssues.length} major finding${criticalIssues.length > 1 ? "s" : ""}. Focus review on ${criticalIssues
         .slice(0, 3)
         .map((issue) => issue.label)
         .join(", ")} before price closure.`
@@ -2643,6 +2730,34 @@ function DamageVisibilityMap({ itemValues }) {
       .filter(Boolean),
   );
 
+  const getOverlayTone = (status) => {
+    const value = String(status || "").toLowerCase();
+    if (
+      value.includes("replace") ||
+      value.includes("missing") ||
+      value.includes("critical")
+    ) {
+      return { fill: "rgba(225, 29, 72, 0.22)", stroke: "#e11d48" };
+    }
+    if (
+      value.includes("repair") ||
+      value.includes("rust") ||
+      value.includes("crack") ||
+      value.includes("leak")
+    ) {
+      return { fill: "rgba(249, 115, 22, 0.22)", stroke: "#f97316" };
+    }
+    if (
+      value.includes("repaint") ||
+      value.includes("scratch") ||
+      value.includes("dent") ||
+      value.includes("warning")
+    ) {
+      return { fill: "rgba(245, 158, 11, 0.22)", stroke: "#f59e0b" };
+    }
+    return { fill: "rgba(14, 165, 233, 0.20)", stroke: "#0ea5e9" };
+  };
+
   const zoneGroups = mappedIssues.reduce((acc, issue) => {
     acc[issue.zone] = acc[issue.zone] || [];
     acc[issue.zone].push(issue);
@@ -2650,43 +2765,111 @@ function DamageVisibilityMap({ itemValues }) {
   }, {});
 
   const zoneClassMap = {
-    top: "top-2 left-1/2 -translate-x-1/2",
-    "top-center": "top-14 left-1/2 -translate-x-1/2",
-    bottom: "bottom-2 left-1/2 -translate-x-1/2",
-    front: "top-1/2 left-1 -translate-y-1/2 text-left",
-    rear: "top-1/2 right-1 -translate-y-1/2 text-right",
-    "left-front": "top-12 left-6 text-left",
-    "right-front": "top-12 right-6 text-right",
-    "left-mid": "top-1/2 left-5 -translate-y-1/2 text-left",
-    "right-mid": "top-1/2 right-5 -translate-y-1/2 text-right",
-    "left-rear": "bottom-16 left-6 text-left",
-    "right-rear": "bottom-16 right-6 text-right",
-    "left-tail": "bottom-6 left-4 text-left",
-    "right-tail": "bottom-6 right-4 text-right",
-    "front-corner": "top-24 left-2 text-left",
-    "rear-corner": "bottom-24 right-2 text-right",
-    "glass-front": "top-20 left-1/2 -translate-x-1/2 text-center",
-    "glass-rear": "bottom-20 left-1/2 -translate-x-1/2 text-center",
-    "mirror-zone": "top-[36%] left-[22%] -translate-x-1/2 text-left",
-    "wheel-zone": "bottom-[20%] right-[16%] text-right",
+    top: "top-10 left-1/2 -translate-x-1/2 text-center",
+    "top-center": "top-28 left-1/2 -translate-x-1/2 text-center",
+    bottom: "bottom-10 left-1/2 -translate-x-1/2 text-center",
+    front: "top-1/2 left-6 -translate-y-1/2 text-left",
+    rear: "top-1/2 right-6 -translate-y-1/2 text-right",
+    "left-front": "top-24 left-14 text-left",
+    "right-front": "top-24 right-14 text-right",
+    "left-mid": "top-[44%] left-14 -translate-y-1/2 text-left",
+    "right-mid": "top-[44%] right-14 -translate-y-1/2 text-right",
+    "left-rear": "bottom-28 left-14 text-left",
+    "right-rear": "bottom-28 right-14 text-right",
+    "left-tail": "bottom-14 left-10 text-left",
+    "right-tail": "bottom-14 right-10 text-right",
+    "front-corner": "top-40 left-4 text-left",
+    "rear-corner": "bottom-40 right-4 text-right",
+    "glass-front": "top-24 left-1/2 -translate-x-1/2 text-center",
+    "glass-rear": "bottom-24 left-1/2 -translate-x-1/2 text-center",
+    "mirror-zone": "top-[36%] left-[18%] -translate-x-1/2 text-left",
+    "wheel-zone": "bottom-[18%] right-[12%] text-right",
   };
 
   return (
     <div className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="relative mx-auto h-[720px] max-w-[900px] rounded-[28px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-8 dark:border-sky-500/20 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.35),rgba(15,19,25,0.9))]">
-        <div className="absolute inset-x-24 top-8 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+      <div className="relative mx-auto h-[760px] max-w-[960px] rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-8 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,19,25,0.98),rgba(20,30,47,0.92))]">
+        <div className="absolute inset-x-28 top-8 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
           <span>Front</span>
           <span>Top View</span>
           <span>Rear</span>
         </div>
-        <div className="absolute left-1/2 top-[118px] h-[430px] w-[270px] -translate-x-1/2 rounded-[86px] border-[4px] border-sky-200 bg-white shadow-[inset_0_0_0_1px_rgba(186,230,253,0.65)] dark:border-sky-400/30 dark:bg-[#111827]">
-          <div className="absolute left-1/2 top-8 h-[92px] w-[156px] -translate-x-1/2 rounded-[28px] border border-sky-100 bg-sky-50 dark:border-sky-500/20 dark:bg-sky-500/10" />
-          <div className="absolute left-1/2 bottom-8 h-[92px] w-[156px] -translate-x-1/2 rounded-[28px] border border-sky-100 bg-sky-50 dark:border-sky-500/20 dark:bg-sky-500/10" />
-          <div className="absolute left-[12px] top-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
-          <div className="absolute right-[12px] top-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
-          <div className="absolute left-[12px] bottom-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
-          <div className="absolute right-[12px] bottom-[110px] h-[72px] w-[22px] rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-[#0f172a]" />
-        </div>
+        <svg
+          viewBox="0 0 520 680"
+          className="absolute left-1/2 top-[72px] h-[620px] w-[420px] -translate-x-1/2"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id="carBody" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="52%" stopColor="#f8fbff" />
+              <stop offset="100%" stopColor="#eef4ff" />
+            </linearGradient>
+            <linearGradient id="glassTint" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#eff6ff" />
+              <stop offset="100%" stopColor="#dbeafe" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M260 30c46 0 82 18 105 58l38 73c21 8 39 25 49 47l13 30v202l-13 30c-10 22-28 39-49 47l-38 73c-23 40-59 58-105 58s-82-18-105-58l-38-73c-21-8-39-25-49-47l-13-30V238l13-30c10-22 28-39 49-47l38-73c23-40 59-58 105-58Z"
+            fill="url(#carBody)"
+            stroke="#bfdbfe"
+            strokeWidth="5"
+          />
+          <path
+            d="M202 78h116c20 0 35 8 44 23l15 25c7 12 11 25 11 39v54H132v-54c0-14 4-27 11-39l15-25c9-15 24-23 44-23Z"
+            fill="url(#glassTint)"
+            stroke="#c7d2fe"
+            strokeWidth="3"
+          />
+          <path
+            d="M388 461v54c0 14-4 27-11 39l-15 25c-9 15-24 23-44 23H202c-20 0-35-8-44-23l-15-25c-7-12-11-25-11-39v-54h256Z"
+            fill="url(#glassTint)"
+            stroke="#c7d2fe"
+            strokeWidth="3"
+          />
+          <path d="M188 113h144" stroke="#dbeafe" strokeWidth="3" />
+          <path d="M188 566h144" stroke="#dbeafe" strokeWidth="3" />
+          <path d="M168 218h184" stroke="#dbeafe" strokeWidth="2" />
+          <path d="M168 462h184" stroke="#dbeafe" strokeWidth="2" />
+          <path d="M260 78v524" stroke="#dbeafe" strokeWidth="2.5" strokeDasharray="7 8" />
+          <rect x="102" y="186" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
+          <rect x="390" y="186" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
+          <rect x="102" y="398" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
+          <rect x="390" y="398" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
+          <path
+            d="M173 224c0-28 23-51 51-51h72c28 0 51 23 51 51v233c0 28-23 51-51 51h-72c-28 0-51-23-51-51V224Z"
+            fill="#ffffff"
+            fillOpacity="0.86"
+            stroke="#cbd5e1"
+            strokeWidth="2.5"
+          />
+          <path d="M173 290h174" stroke="#e2e8f0" strokeWidth="2" />
+          <path d="M173 390h174" stroke="#e2e8f0" strokeWidth="2" />
+          <path d="M215 219v284" stroke="#e2e8f0" strokeWidth="1.5" />
+          <path d="M305 219v284" stroke="#e2e8f0" strokeWidth="1.5" />
+          <rect x="198" y="246" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
+          <rect x="287" y="246" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
+          <rect x="198" y="376" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
+          <rect x="287" y="376" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
+          <path d="M160 155l-28 18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+          <path d="M360 155l28 18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+          <path d="M160 525l-28-18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+          <path d="M360 525l28-18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
+          <path d="M214 36h92" stroke="#bfdbfe" strokeWidth="4" strokeLinecap="round" />
+          <path d="M214 644h92" stroke="#bfdbfe" strokeWidth="4" strokeLinecap="round" />
+          {mappedIssues.map((issue) => {
+            const shape = DAMAGE_OVERLAY_SHAPES[issue.key];
+            if (!shape) return null;
+            const tone = getOverlayTone(issue.status);
+            return React.cloneElement(shape, {
+              key: `overlay-${issue.key}`,
+              fill: tone.fill,
+              stroke: tone.stroke,
+              strokeWidth: 2.5,
+            });
+          })}
+        </svg>
         {Object.entries(zoneGroups).map(([zone, issues]) => (
           <div
             key={zone}
@@ -2695,7 +2878,7 @@ function DamageVisibilityMap({ itemValues }) {
             {issues.slice(0, 2).map((issue, index) => (
               <div
                 key={issue.key}
-                className={`${index ? "mt-4" : ""} text-xs leading-5`}
+                className={`${index ? "mt-4" : ""} text-sm leading-5`}
               >
                 <p className="font-semibold text-slate-900 dark:text-slate-100">
                   {issue.label}
@@ -3066,8 +3249,13 @@ function InspectionReportDocumentView({
                 className="grid gap-4 rounded-[24px] border border-slate-200 bg-white px-5 py-4 dark:border-white/10 dark:bg-white/[0.03] md:grid-cols-[1.05fr_0.95fr] md:items-center"
               >
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{section.icon}</span>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-white"
+                      style={{ background: section.color }}
+                    >
+                      {getSectionOrder(section.key)}
+                    </span>
                     <p className="text-base font-black tracking-tight text-slate-950 dark:text-slate-100">
                       {section.titleEn}
                     </p>
@@ -3200,10 +3388,9 @@ function InspectionReportDocumentView({
               </div>
 
               <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/10">
-                <div className="grid grid-cols-[1.55fr_0.7fr_0.75fr] gap-4 bg-sky-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:bg-sky-500/10 dark:text-slate-300">
+                <div className="grid grid-cols-[1.7fr_0.7fr] gap-4 bg-sky-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 dark:bg-sky-500/10 dark:text-slate-300">
                   <span>Parameters</span>
-                  <span>Condition</span>
-                  <span>Severity</span>
+                  <span className="text-right">Condition</span>
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-white/10">
                   {section.items.map((item) => {
@@ -3211,7 +3398,7 @@ function InspectionReportDocumentView({
                     return (
                       <div
                         key={item.key}
-                        className="grid grid-cols-[1.55fr_0.7fr_0.75fr] gap-4 px-4 py-3 text-sm"
+                        className="grid grid-cols-[1.7fr_0.7fr] gap-4 px-4 py-3 text-sm"
                       >
                         <div>
                           <p className="font-semibold text-slate-900 dark:text-slate-100">
@@ -3230,21 +3417,8 @@ function InspectionReportDocumentView({
                             </p>
                           ) : null}
                         </div>
-                        <div className="py-0.5">
+                        <div className="py-0.5 text-right">
                           <StatusChip status={itemValue.status} />
-                        </div>
-                        <div className="py-0.5">
-                          {itemValue.severity ? (
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${getSeverityTone(itemValue.severity)}`}
-                            >
-                              {itemValue.severity}
-                            </span>
-                          ) : (
-                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                              -
-                            </span>
-                          )}
                         </div>
                       </div>
                     );
@@ -3740,7 +3914,7 @@ export default function UsedCarInspectionDesk() {
         window.requestAnimationFrame(() => {
           const finalBlock = document.querySelector("#inspection-final-decision");
           finalBlock?.scrollIntoView({
-            behavior: "smooth",
+            behavior: "auto",
             block: "center",
             inline: "nearest",
           });
@@ -4340,8 +4514,11 @@ export default function UsedCarInspectionDesk() {
                       header={
                         <div className="flex items-center justify-between gap-3 py-1">
                           <div className="flex items-center gap-3">
-                            <span className="text-xl leading-none">
-                              {section.icon}
+                            <span
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
+                              style={{ background: section.color }}
+                            >
+                              {getSectionOrder(section.key)}
                             </span>
                             <div>
                               <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">
