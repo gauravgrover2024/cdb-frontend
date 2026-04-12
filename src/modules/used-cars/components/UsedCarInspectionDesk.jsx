@@ -73,28 +73,6 @@ const TYRE_ITEM_KEYS = [
   "spareTyre",
 ];
 
-const DAMAGE_MAP_LAYOUT = {
-  bonnet: "top",
-  roof: "top-center",
-  bootFloor: "bottom",
-  frontBumper: "front",
-  rearBumper: "rear",
-  leftFender: "left-front",
-  rightFender: "right-front",
-  leftFrontDoor: "left-mid",
-  leftRearDoor: "left-rear",
-  rightFrontDoor: "right-mid",
-  rightRearDoor: "right-rear",
-  leftQuarterPanel: "left-tail",
-  rightQuarterPanel: "right-tail",
-  headlamps: "front-corner",
-  taillamps: "rear-corner",
-  windshield: "glass-front",
-  rearWindshield: "glass-rear",
-  orvms: "mirror-zone",
-  alloyWheels: "wheel-zone",
-};
-
 const DAMAGE_OVERLAY_SHAPES = {
   frontBumper: (
     <path d="M192 40C211 28 232 22 260 22c28 0 49 6 68 18l-8 28c-18-7-37-10-60-10s-42 3-60 10z" />
@@ -2268,27 +2246,38 @@ function VerificationCard({ field }) {
           : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-[#11151b]"
       }`}
     >
-      <div className="flex items-start gap-3">
-        <span
-          className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${
-            checked
-              ? "border-white bg-white text-emerald-700"
-              : "border-slate-300 text-slate-400 dark:border-slate-600 dark:text-slate-500"
-          }`}
-        >
-          {checked ? "✓" : ""}
-        </span>
-        <div>
-          <p
-            className={`text-sm font-semibold ${
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span
+            className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${
               checked
-                ? "text-white"
-                : "text-slate-900 dark:text-slate-100"
+                ? "border-white bg-white text-emerald-700"
+                : "border-slate-300 text-slate-400 dark:border-slate-600 dark:text-slate-500"
             }`}
           >
-            {field.labelEn}
-          </p>
+            {checked ? "✓" : ""}
+          </span>
+          <div>
+            <p
+              className={`text-sm font-semibold ${
+                checked
+                  ? "text-white"
+                  : "text-slate-900 dark:text-slate-100"
+              }`}
+            >
+              {field.labelEn}
+            </p>
+          </div>
         </div>
+        <span
+          className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${
+            checked
+              ? "border-white/70 bg-white text-emerald-700"
+              : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
+          }`}
+        >
+          {checked ? "Verified" : "Pending"}
+        </span>
       </div>
     </button>
   );
@@ -2400,6 +2389,28 @@ function SectionItemCard({
             Multiple conditions can be selected for one part.
           </p>
         ) : null}
+        {statusVal.length ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+              Selected
+            </span>
+            {statusVal.map((status) => {
+              const meta = getItemOptionMeta(item, section, status) || {
+                value: status,
+              };
+              const activeTone = getOptionActiveTone(meta);
+              return (
+                <span
+                  key={status}
+                  style={activeTone}
+                  className="rounded-full border px-2.5 py-1 text-[11px] font-bold"
+                >
+                  {status}
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
         <div className="mt-2 flex flex-wrap gap-2">
           {options.map((option) => {
             const active = statusVal.includes(option.value);
@@ -2414,8 +2425,8 @@ function SectionItemCard({
                 style={active ? activeTone : tone}
                 className={`relative z-10 cursor-pointer rounded-full border-2 px-4 py-2.5 text-sm font-bold leading-none transition-all ${
                   active
-                    ? "scale-[1.02]"
-                    : "border-opacity-60 hover:scale-[1.01] hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20"
+                    ? "scale-[1.02] ring-2 ring-offset-2 ring-offset-white ring-slate-900/10 dark:ring-white/20 dark:ring-offset-[#0f1319]"
+                    : "border-opacity-60 opacity-75 hover:scale-[1.01] hover:opacity-100 hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20"
                 }`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -2820,14 +2831,13 @@ function ReportPhotoTile({ title, file }) {
 function DamageVisibilityMap({ itemValues }) {
   const mappedIssues = INSPECTION_SECTIONS.flatMap((section) =>
     section.items
-      .filter((item) => DAMAGE_MAP_LAYOUT[item.key])
+      .filter((item) => DAMAGE_OVERLAY_SHAPES[item.key])
       .map((item) => {
         const value = itemValues?.[item.key] || {};
         if (!value.status || isPositiveInspectionStatus(value.status))
           return null;
         return {
           key: item.key,
-          zone: DAMAGE_MAP_LAYOUT[item.key],
           label: item.labelEn,
           status: compactStatus(value.status),
         };
@@ -2863,106 +2873,69 @@ function DamageVisibilityMap({ itemValues }) {
     return { fill: "rgba(14, 165, 233, 0.20)", stroke: "#0ea5e9" };
   };
 
-  const zoneGroups = mappedIssues.reduce((acc, issue) => {
-    acc[issue.zone] = acc[issue.zone] || [];
-    acc[issue.zone].push(issue);
-    return acc;
-  }, {});
-
-  const zoneClassMap = {
-    top: "top-10 left-1/2 -translate-x-1/2 text-center",
-    "top-center": "top-28 left-1/2 -translate-x-1/2 text-center",
-    bottom: "bottom-10 left-1/2 -translate-x-1/2 text-center",
-    front: "top-1/2 left-6 -translate-y-1/2 text-left",
-    rear: "top-1/2 right-6 -translate-y-1/2 text-right",
-    "left-front": "top-24 left-14 text-left",
-    "right-front": "top-24 right-14 text-right",
-    "left-mid": "top-[44%] left-14 -translate-y-1/2 text-left",
-    "right-mid": "top-[44%] right-14 -translate-y-1/2 text-right",
-    "left-rear": "bottom-28 left-14 text-left",
-    "right-rear": "bottom-28 right-14 text-right",
-    "left-tail": "bottom-14 left-10 text-left",
-    "right-tail": "bottom-14 right-10 text-right",
-    "front-corner": "top-40 left-4 text-left",
-    "rear-corner": "bottom-40 right-4 text-right",
-    "glass-front": "top-24 left-1/2 -translate-x-1/2 text-center",
-    "glass-rear": "bottom-24 left-1/2 -translate-x-1/2 text-center",
-    "mirror-zone": "top-[36%] left-[18%] -translate-x-1/2 text-left",
-    "wheel-zone": "bottom-[18%] right-[12%] text-right",
-  };
-
   return (
     <div className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="relative mx-auto h-[760px] max-w-[960px] rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbff)] p-8 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,19,25,0.98),rgba(20,30,47,0.92))]">
-        <div className="absolute inset-x-28 top-8 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-          <span>Front</span>
-          <span>Top View</span>
-          <span>Rear</span>
-        </div>
+      <div className="relative mx-auto h-[760px] max-w-[960px] overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f6f9ff)] p-8 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,19,25,0.98),rgba(20,30,47,0.92))]">
         <svg
-          viewBox="0 0 520 680"
-          className="absolute left-1/2 top-[72px] h-[620px] w-[420px] -translate-x-1/2"
+          viewBox="0 0 520 700"
+          className="absolute left-1/2 top-[42px] h-[676px] w-[452px] -translate-x-1/2"
           aria-hidden="true"
         >
           <defs>
-            <linearGradient id="carBody" x1="0" x2="0" y1="0" y2="1">
+            <linearGradient id="reportCarBody" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="52%" stopColor="#f8fbff" />
-              <stop offset="100%" stopColor="#eef4ff" />
+              <stop offset="55%" stopColor="#f8fbff" />
+              <stop offset="100%" stopColor="#edf4ff" />
             </linearGradient>
-            <linearGradient id="glassTint" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#eff6ff" />
-              <stop offset="100%" stopColor="#dbeafe" />
+            <linearGradient id="reportGlassTint" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#eef4ff" />
+              <stop offset="100%" stopColor="#d7e8ff" />
             </linearGradient>
+            <filter id="carShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="14" stdDeviation="18" floodColor="#0f172a" floodOpacity="0.08" />
+            </filter>
           </defs>
           <path
-            d="M260 30c46 0 82 18 105 58l38 73c21 8 39 25 49 47l13 30v202l-13 30c-10 22-28 39-49 47l-38 73c-23 40-59 58-105 58s-82-18-105-58l-38-73c-21-8-39-25-49-47l-13-30V238l13-30c10-22 28-39 49-47l38-73c23-40 59-58 105-58Z"
-            fill="url(#carBody)"
-            stroke="#bfdbfe"
-            strokeWidth="5"
+            d="M260 18c55 0 96 20 121 64l31 56c33 18 54 46 61 86v252c-7 40-28 68-61 86l-31 56c-25 44-66 64-121 64s-96-20-121-64l-31-56c-33-18-54-46-61-86V224c7-40 28-68 61-86l31-56c25-44 66-64 121-64Z"
+            fill="#dbe7f6"
+            opacity="0.45"
           />
           <path
-            d="M202 78h116c20 0 35 8 44 23l15 25c7 12 11 25 11 39v54H132v-54c0-14 4-27 11-39l15-25c9-15 24-23 44-23Z"
-            fill="url(#glassTint)"
-            stroke="#c7d2fe"
+            d="M260 24c51 0 89 18 112 58l28 51c33 15 53 42 60 80v274c-7 38-27 65-60 80l-28 51c-23 40-61 58-112 58s-89-18-112-58l-28-51c-33-15-53-42-60-80V213c7-38 27-65 60-80l28-51c23-40 61-58 112-58Z"
+            fill="url(#reportCarBody)"
+            stroke="#b8cce6"
+            strokeWidth="6"
+            filter="url(#carShadow)"
+          />
+          <path
+            d="M196 158c20-10 41-15 64-15s44 5 64 15l13 70c-27 8-50 11-77 11s-50-3-77-11Z"
+            fill="url(#reportGlassTint)"
+            stroke="#b9d3f5"
             strokeWidth="3"
           />
           <path
-            d="M388 461v54c0 14-4 27-11 39l-15 25c-9 15-24 23-44 23H202c-20 0-35-8-44-23l-15-25c-7-12-11-25-11-39v-54h256Z"
-            fill="url(#glassTint)"
-            stroke="#c7d2fe"
+            d="M183 469c28 8 49 11 77 11s49-3 77-11l-13 72c-20 10-41 15-64 15s-44-5-64-15Z"
+            fill="url(#reportGlassTint)"
+            stroke="#b9d3f5"
             strokeWidth="3"
           />
-          <path d="M188 113h144" stroke="#dbeafe" strokeWidth="3" />
-          <path d="M188 566h144" stroke="#dbeafe" strokeWidth="3" />
-          <path d="M168 218h184" stroke="#dbeafe" strokeWidth="2" />
-          <path d="M168 462h184" stroke="#dbeafe" strokeWidth="2" />
-          <path d="M260 78v524" stroke="#dbeafe" strokeWidth="2.5" strokeDasharray="7 8" />
-          <rect x="102" y="186" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
-          <rect x="390" y="186" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
-          <rect x="102" y="398" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
-          <rect x="390" y="398" width="28" height="96" rx="14" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
-          <path
-            d="M173 224c0-28 23-51 51-51h72c28 0 51 23 51 51v233c0 28-23 51-51 51h-72c-28 0-51-23-51-51V224Z"
-            fill="#ffffff"
-            fillOpacity="0.86"
-            stroke="#cbd5e1"
-            strokeWidth="2.5"
-          />
-          <path d="M173 290h174" stroke="#e2e8f0" strokeWidth="2" />
-          <path d="M173 390h174" stroke="#e2e8f0" strokeWidth="2" />
-          <path d="M215 219v284" stroke="#e2e8f0" strokeWidth="1.5" />
-          <path d="M305 219v284" stroke="#e2e8f0" strokeWidth="1.5" />
-          <rect x="198" y="246" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
-          <rect x="287" y="246" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
-          <rect x="198" y="376" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
-          <rect x="287" y="376" width="35" height="58" rx="12" fill="#f8fafc" stroke="#dbeafe" strokeWidth="2" />
-          <path d="M160 155l-28 18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
-          <path d="M360 155l28 18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
-          <path d="M160 525l-28-18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
-          <path d="M360 525l28-18" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" />
-          <path d="M214 36h92" stroke="#bfdbfe" strokeWidth="4" strokeLinecap="round" />
-          <path d="M214 644h92" stroke="#bfdbfe" strokeWidth="4" strokeLinecap="round" />
+          <rect x="108" y="190" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
+          <rect x="378" y="190" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
+          <rect x="108" y="418" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
+          <rect x="378" y="418" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
+          <path d="M260 88v528" stroke="#d9e5f4" strokeWidth="2.5" strokeDasharray="8 10" />
+          <g fill="#fbfdff" stroke="#c3d6ed" strokeWidth="2.5">
+            {Object.entries(DAMAGE_OVERLAY_SHAPES).map(([key, shape]) =>
+              React.cloneElement(shape, {
+                key: `base-${key}`,
+              }),
+            )}
+          </g>
+          <path d="M168 238h184" stroke="#dbe7f4" strokeWidth="2.5" />
+          <path d="M168 334h184" stroke="#dbe7f4" strokeWidth="2.5" />
+          <path d="M168 430h184" stroke="#dbe7f4" strokeWidth="2.5" />
+          <path d="M208 238v194" stroke="#dbe7f4" strokeWidth="2" />
+          <path d="M312 238v194" stroke="#dbe7f4" strokeWidth="2" />
           {mappedIssues.map((issue) => {
             const shape = DAMAGE_OVERLAY_SHAPES[issue.key];
             if (!shape) return null;
@@ -2971,30 +2944,10 @@ function DamageVisibilityMap({ itemValues }) {
               key: `overlay-${issue.key}`,
               fill: tone.fill,
               stroke: tone.stroke,
-              strokeWidth: 2.5,
+              strokeWidth: 3,
             });
           })}
         </svg>
-        {Object.entries(zoneGroups).map(([zone, issues]) => (
-          <div
-            key={zone}
-            className={`absolute max-w-[210px] ${zoneClassMap[zone] || ""}`}
-          >
-            {issues.slice(0, 2).map((issue, index) => (
-              <div
-                key={issue.key}
-                className={`${index ? "mt-4" : ""} text-sm leading-5`}
-              >
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  {issue.label}
-                </p>
-                <p className="font-medium text-amber-700 dark:text-amber-300">
-                  {issue.status}
-                </p>
-              </div>
-            ))}
-          </div>
-        ))}
       </div>
     </div>
   );
