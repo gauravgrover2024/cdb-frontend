@@ -96,25 +96,75 @@ const DAMAGE_MAP_LAYOUT = {
 };
 
 const DAMAGE_OVERLAY_SHAPES = {
-  bonnet: <rect x="196" y="92" width="128" height="78" rx="26" />,
-  roof: <rect x="204" y="252" width="112" height="98" rx="28" />,
-  bootFloor: <rect x="196" y="510" width="128" height="72" rx="24" />,
-  frontBumper: <rect x="214" y="36" width="92" height="22" rx="10" />,
-  rearBumper: <rect x="214" y="622" width="92" height="22" rx="10" />,
-  leftFender: <path d="M160 170c-22 20-33 37-39 68l34 10c4-28 12-43 27-58Z" />,
-  rightFender: <path d="M360 170c22 20 33 37 39 68l-34 10c-4-28-12-43-27-58Z" />,
-  leftFrontDoor: <rect x="176" y="304" width="36" height="92" rx="12" />,
-  leftRearDoor: <rect x="176" y="400" width="36" height="92" rx="12" />,
-  rightFrontDoor: <rect x="308" y="304" width="36" height="92" rx="12" />,
-  rightRearDoor: <rect x="308" y="400" width="36" height="92" rx="12" />,
-  leftQuarterPanel: <path d="M164 498c-15 14-24 31-28 56l30 12c5-24 12-37 26-49Z" />,
-  rightQuarterPanel: <path d="M356 498c15 14 24 31 28 56l-30 12c-5-24-12-37-26-49Z" />,
-  headlamps: <rect x="188" y="72" width="144" height="18" rx="8" />,
-  taillamps: <rect x="188" y="590" width="144" height="18" rx="8" />,
-  windshield: <rect x="206" y="120" width="108" height="64" rx="22" />,
-  rearWindshield: <rect x="206" y="494" width="108" height="60" rx="22" />,
-  orvms: <g><circle cx="146" cy="186" r="14" /><circle cx="374" cy="186" r="14" /></g>,
-  alloyWheels: <g><circle cx="116" cy="234" r="16" /><circle cx="404" cy="234" r="16" /><circle cx="116" cy="446" r="16" /><circle cx="404" cy="446" r="16" /></g>,
+  frontBumper: (
+    <path d="M192 40C211 28 232 22 260 22c28 0 49 6 68 18l-8 28c-18-7-37-10-60-10s-42 3-60 10z" />
+  ),
+  bonnet: (
+    <path d="M196 82c20-14 40-20 64-20s44 6 64 20l12 68c-30 10-52 14-76 14s-46-4-76-14z" />
+  ),
+  windshield: (
+    <path d="M208 168c18-8 35-12 52-12s34 4 52 12l8 52c-25 6-40 8-60 8s-35-2-60-8z" />
+  ),
+  roof: <rect x="210" y="238" width="100" height="180" rx="28" />,
+  rearWindshield: (
+    <path d="M208 430c25-6 40-8 60-8s35 2 60 8l-8 56c-18 8-35 12-52 12s-34-4-52-12z" />
+  ),
+  bootFloor: (
+    <path d="M196 512c30-10 52-14 76-14s46 4 76 14l-12 68c-20 14-40 20-64 20s-44-6-64-20z" />
+  ),
+  rearBumper: (
+    <path d="M200 614c18 7 37 10 60 10s42-3 60-10l8 28c-19 12-40 18-68 18-28 0-49-6-68-18z" />
+  ),
+  leftFender: (
+    <path d="M160 136c-22 22-34 44-42 80l30 16c8-34 18-57 38-81z" />
+  ),
+  rightFender: (
+    <path d="M360 136c22 22 34 44 42 80l-30 16c-8-34-18-57-38-81z" />
+  ),
+  leftFrontDoor: (
+    <path d="M164 248c8-9 18-14 32-14h16v88h-44c-9 0-15-6-15-16z" />
+  ),
+  leftRearDoor: (
+    <path d="M164 334h48v88h-16c-14 0-24-5-32-14l-11-58c0-10 5-16 11-16" />
+  ),
+  rightFrontDoor: (
+    <path d="M308 234h16c14 0 24 5 32 14l11 58c0 10-5 16-11 16h-48z" />
+  ),
+  rightRearDoor: (
+    <path d="M308 334h48c6 0 11 6 11 16l-11 58c-8 9-18 14-32 14h-16z" />
+  ),
+  leftQuarterPanel: (
+    <path d="M162 432c18 17 34 26 50 30v74h-20c-17 0-31-6-44-19l-10-46c0-17 8-29 24-39" />
+  ),
+  rightQuarterPanel: (
+    <path d="M308 462c16-4 32-13 50-30 16 10 24 22 24 39l-10 46c-13 13-27 19-44 19h-20z" />
+  ),
+  headlamps: (
+    <g>
+      <path d="M198 72c20-7 40-10 62-10" />
+      <path d="M322 72c-20-7-40-10-62-10" />
+    </g>
+  ),
+  taillamps: (
+    <g>
+      <path d="M198 610c20 7 40 10 62 10" />
+      <path d="M322 610c-20 7-40 10-62 10" />
+    </g>
+  ),
+  orvms: (
+    <g>
+      <path d="M166 182c-18 4-29 13-39 30" />
+      <path d="M354 182c18 4 29 13 39 30" />
+    </g>
+  ),
+  alloyWheels: (
+    <g>
+      <circle cx="120" cy="212" r="18" />
+      <circle cx="400" cy="212" r="18" />
+      <circle cx="120" cy="448" r="18" />
+      <circle cx="400" cy="448" r="18" />
+    </g>
+  ),
 };
 
 // ── Mandatory photo buckets ──────────────────────────────────────
@@ -446,18 +496,38 @@ function getStatusSeverity(status, item, section) {
 function getOptionTone(option) {
   const value = String(option.value || "").toLowerCase();
   if (value === "original" || value === "ok" || value === "good" || value === "working" || value === "verified" || value === "yes" || value === "excellent") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300";
+    return {
+      borderColor: "#bbf7d0",
+      background: "#f0fdf4",
+      color: "#047857",
+    };
   }
   if (value.includes("replace") || value.includes("missing") || value.includes("not working") || value.includes("deployed") || value.includes("mismatch") || value.includes("critical")) {
-    return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300";
+    return {
+      borderColor: "#fecdd3",
+      background: "#fff1f2",
+      color: "#be123c",
+    };
   }
   if (value.includes("repair") || value.includes("rust") || value.includes("crack") || value.includes("leak") || value.includes("noise") || value.includes("bulge")) {
-    return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300";
+    return {
+      borderColor: "#fed7aa",
+      background: "#fff7ed",
+      color: "#c2410c",
+    };
   }
   if (value.includes("repaint") || value.includes("dent") || value.includes("uneven") || value.includes("low") || value.includes("warning") || value.includes("weak")) {
-    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300";
+    return {
+      borderColor: "#fde68a",
+      background: "#fffbeb",
+      color: "#b45309",
+    };
   }
-  return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300";
+  return {
+    borderColor: "#bae6fd",
+    background: "#f0f9ff",
+    color: "#0369a1",
+  };
 }
 
 function getOptionActiveTone(option) {
@@ -471,7 +541,12 @@ function getOptionActiveTone(option) {
     value === "yes" ||
     value === "excellent"
   ) {
-    return "border-emerald-700 bg-emerald-600 text-white shadow-[0_8px_20px_rgba(5,150,105,0.28)] dark:border-emerald-400 dark:bg-emerald-500";
+    return {
+      borderColor: "#047857",
+      background: "#10b981",
+      color: "#ffffff",
+      boxShadow: "0 10px 24px rgba(5, 150, 105, 0.28)",
+    };
   }
   if (
     value.includes("replace") ||
@@ -481,7 +556,12 @@ function getOptionActiveTone(option) {
     value.includes("mismatch") ||
     value.includes("critical")
   ) {
-    return "border-rose-700 bg-rose-600 text-white shadow-[0_8px_20px_rgba(225,29,72,0.28)] dark:border-rose-400 dark:bg-rose-500";
+    return {
+      borderColor: "#be123c",
+      background: "#f43f5e",
+      color: "#ffffff",
+      boxShadow: "0 10px 24px rgba(225, 29, 72, 0.28)",
+    };
   }
   if (
     value.includes("repair") ||
@@ -491,7 +571,12 @@ function getOptionActiveTone(option) {
     value.includes("noise") ||
     value.includes("bulge")
   ) {
-    return "border-orange-700 bg-orange-500 text-white shadow-[0_8px_20px_rgba(249,115,22,0.28)] dark:border-orange-300 dark:bg-orange-500";
+    return {
+      borderColor: "#c2410c",
+      background: "#f97316",
+      color: "#ffffff",
+      boxShadow: "0 10px 24px rgba(249, 115, 22, 0.28)",
+    };
   }
   if (
     value.includes("repaint") ||
@@ -501,9 +586,19 @@ function getOptionActiveTone(option) {
     value.includes("warning") ||
     value.includes("weak")
   ) {
-    return "border-amber-700 bg-amber-500 text-white shadow-[0_8px_20px_rgba(245,158,11,0.28)] dark:border-amber-300 dark:bg-amber-500";
+    return {
+      borderColor: "#b45309",
+      background: "#f59e0b",
+      color: "#ffffff",
+      boxShadow: "0 10px 24px rgba(245, 158, 11, 0.28)",
+    };
   }
-  return "border-sky-700 bg-sky-600 text-white shadow-[0_8px_20px_rgba(2,132,199,0.28)] dark:border-sky-300 dark:bg-sky-500";
+  return {
+    borderColor: "#0369a1",
+    background: "#0ea5e9",
+    color: "#ffffff",
+    boxShadow: "0 10px 24px rgba(2, 132, 199, 0.28)",
+  };
 }
 
 // ── Standalone option lists ──────────────────────────────────────
@@ -2152,15 +2247,24 @@ function InspectionQueueCard({ lead, active, onClick }) {
 function VerificationCard({ field }) {
   const form = Form.useFormInstance();
   const checked = Form.useWatch(["leadVerification", field.key], form);
+  const activeStyle = checked
+    ? {
+        borderColor: "#047857",
+        background: "#10b981",
+        color: "#ffffff",
+        boxShadow: "0 10px 24px rgba(5, 150, 105, 0.28)",
+      }
+    : undefined;
   return (
     <button
       type="button"
       onClick={() =>
         form.setFieldValue(["leadVerification", field.key], !checked)
       }
+      style={activeStyle}
       className={`w-full rounded-[18px] border px-4 py-3 text-left transition-all ${
         checked
-          ? "border-emerald-700 bg-emerald-600 text-white shadow-[0_10px_24px_rgba(5,150,105,0.28)] dark:border-emerald-400 dark:bg-emerald-500"
+          ? ""
           : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-[#11151b]"
       }`}
     >
@@ -2307,10 +2411,11 @@ function SectionItemCard({
                 type="button"
                 aria-pressed={active}
                 onClick={() => handleStatusSelect(option.value)}
+                style={active ? activeTone : tone}
                 className={`relative z-10 cursor-pointer rounded-full border-2 px-4 py-2.5 text-sm font-bold leading-none transition-all ${
                   active
-                    ? `${activeTone} scale-[1.02]`
-                    : `${tone} border-opacity-60 bg-white text-slate-500 hover:scale-[1.01] hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20`
+                    ? "scale-[1.02]"
+                    : "border-opacity-60 hover:scale-[1.01] hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20"
                 }`}
               >
                 <span className="inline-flex items-center gap-2">
