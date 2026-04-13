@@ -5,6 +5,7 @@ import Icon from "../../../components/AppIcon";
 import UsedCarLeadIntakeDesk from "./UsedCarLeadIntakeDesk";
 import UsedCarInspectionDesk from "./UsedCarInspectionDesk";
 import UsedCarBackgroundCheckDesk from "./BackgroundCheckDesk";
+import UsedCarNegotiationDesk from "./NegotiationDesk";
 
 const STAGES = [
   {
@@ -28,6 +29,13 @@ const STAGES = [
     path: "/used-cars/background-check",
     icon: "ShieldCheck",
   },
+  {
+    key: "negotiation",
+    label: "Negotiation",
+    description: "Capture vendor quotations, identify best offers, and bridge the gap with customer expectations.",
+    path: "/used-cars/negotiation",
+    icon: "Gavel",
+  },
 ];
 
 function StageTab({ item, active, onClick }) {
@@ -37,14 +45,14 @@ function StageTab({ item, active, onClick }) {
       onClick={onClick}
       className={`group flex min-w-[168px] flex-col gap-1 rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
         active
-          ? "border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white dark:bg-white dark:text-slate-950"
+          ? "border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-700 dark:bg-black dark:text-white"
           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:bg-white/[0.05]"
       }`}
     >
       <div className="flex items-center gap-2">
         <span
           className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
-            active ? "bg-white/15 dark:bg-slate-200/70" : "bg-slate-100 dark:bg-white/10"
+            active ? "bg-white/15 dark:bg-white/10" : "bg-slate-100 dark:bg-white/10"
           }`}
         >
           <Icon name={item.icon} size={16} />
@@ -53,7 +61,7 @@ function StageTab({ item, active, onClick }) {
       </div>
       <p
         className={`line-clamp-2 text-[11px] font-medium ${
-          active ? "text-white/75 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"
+          active ? "text-white/75 dark:text-white/70" : "text-slate-500 dark:text-slate-400"
         }`}
       >
         {item.description}
@@ -70,7 +78,7 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
   return (
     <ModuleFrame>
       <div className="space-y-4 md:space-y-5 xl:space-y-6">
-        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0e1014]">
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white dark:border-white/10 dark:bg-black">
           <div className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.08),_transparent_34%)] px-4 py-5 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.05),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.10),_transparent_28%)] md:px-5 md:py-6 xl:px-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-3xl">
@@ -123,7 +131,9 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
         </section>
 
         <section>
-          {stage === "background-check" ? (
+          {stage === "negotiation" ? (
+            <UsedCarNegotiationDesk />
+          ) : stage === "background-check" ? (
             <UsedCarBackgroundCheckDesk />
           ) : stage === "inspection" ? (
             <UsedCarInspectionDesk />

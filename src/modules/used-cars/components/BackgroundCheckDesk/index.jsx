@@ -13,13 +13,14 @@ import {
   message,
 } from "antd";
 import {
-  CheckCircleFilled,
-  ExclamationCircleFilled,
-  FileSearchOutlined,
-  InboxOutlined,
   SaveOutlined,
   SearchOutlined,
   InsuranceOutlined,
+  EyeOutlined,
+  PlusOutlined,
+  CheckCircleFilled,
+  ExclamationCircleFilled,
+  FileSearchOutlined,
 } from "@ant-design/icons";
 import {
   BGC_STORAGE_KEY,
@@ -39,7 +40,6 @@ import {
 import { dayjs } from "../UsedCarLeadManager/utils/formatters";
 
 const { TextArea } = Input;
-const { Dragger } = Upload;
 
 // ── Status badge ────────────────────────────────────────────────
 function BgcStatusBadge({ status }) {
@@ -95,10 +95,22 @@ function VahanSnapshot({ values, lead }) {
     { label: "Blacklisted", value: values.blacklisted || "—", flag: values.blacklisted === "Yes" },
     { label: "Theft Record", value: values.theft || "—", flag: values.theft === "Yes" },
     { label: "Road Tax Status", value: values.roadTaxStatus || "—" },
-    { label: "Challan Pending", value: values.challanPending || "—", flag: values.challanPending === "Yes" },
+    { 
+      label: "Challan Pending", 
+      value: values.challanPending === "Yes" 
+        ? `Yes (₹${((values.echallanAmount || 0) + (values.dtpAmount || 0)).toLocaleString("en-IN")})` 
+        : (values.challanPending || "—"),
+      flag: values.challanPending === "Yes" 
+    },
     { label: "RTO NOC", value: values.rtoNocIssued || "—" },
     { label: "Party Peshi", value: values.partyPeshi || "—", flag: values.partyPeshi?.includes("Applicable") },
-  ];
+  ].map(row => {
+    let hasFile = false;
+    if (row.label === "Blacklisted") hasFile = (values.blacklistedFiles || []).length > 0;
+    if (row.label === "Theft Record") hasFile = (values.theftFiles || []).length > 0;
+    if (row.label === "Challan Pending") hasFile = (values.echallanFiles || []).length > 0 || (values.dtpFiles || []).length > 0;
+    return { ...row, hasFile };
+  });
 
   return (
     <div className="mb-5 rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
@@ -106,18 +118,64 @@ function VahanSnapshot({ values, lead }) {
         Vahan Snapshot — Live Preview
       </p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-        {rows.map(({ label, value, flag }) => (
+        {rows.map(({ label, value, flag, hasFile }) => (
           <div key={label}>
             <p className="text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
-            <div className="mt-0.5 flex items-center gap-1">
-              {flag === true && <ExclamationCircleFilled className="text-[10px] text-rose-500" />}
-              {flag === false && <CheckCircleFilled className="text-[10px] text-emerald-500" />}
-              <p className={`text-xs font-bold ${flag === true ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"}`}>
-                {value}
-              </p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {flag === true && <ExclamationCircleFilled className="text-[10px] text-rose-500" />}
+                {flag === false && <CheckCircleFilled className="text-[10px] text-emerald-500" />}
+                <p className={`text-xs font-bold ${flag === true ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"}`}>
+                  {value}
+                </p>
+              </div>
+              {hasFile && (
+                <EyeOutlined 
+                  className="cursor-pointer text-[12px] text-sky-500 transition-colors hover:text-sky-700" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const fileSets = {
+                      "Blacklisted": values.blacklistedFiles,
+                      "Theft Record": values.theftFiles,
+                      "Challan Pending": [...(values.echallanFiles || []), ...(values.dtpFiles || [])]
+                    };
+                    const files = fileSets[label];
+                    const firstFile = (files || []).find(f => f.url || f.preview);
+                    if (firstFile) window.open(firstFile.url || firstFile.preview, "_blank");
+                  }}
+                />
+              )}
             </div>
           </div>
         ))}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
+        <p className="w-full text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Document Hub</p>
+        {[
+          { key: "blacklistedFiles", label: "Blacklist" },
+          { key: "theftFiles", label: "Theft" },
+          { key: "echallanFiles", label: "eChallan" },
+          { key: "dtpFiles", label: "DTP" },
+        ].map(doc => {
+          const files = values[doc.key] || [];
+          if (files.length === 0) return null;
+          return (
+            <button 
+              key={doc.key}
+              onClick={() => {
+                const url = files[0].url || files[0].preview;
+                if (url) window.open(url, "_blank");
+              }}
+              className="group flex items-center gap-2 rounded-xl border border-sky-100 bg-sky-50 px-3 py-1.5 transition-all hover:border-sky-300 hover:bg-sky-100 dark:border-sky-500/20 dark:bg-sky-500/5 dark:hover:bg-sky-500/10"
+            >
+              <EyeOutlined className="text-sky-600 dark:text-sky-400 text-xs" />
+              <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300">{doc.label} ({files.length})</span>
+            </button>
+          );
+        })}
+        {!["blacklistedFiles", "theftFiles", "echallanFiles", "dtpFiles"].some(k => (values[k] || []).length > 0) && (
+          <p className="text-[10px] italic text-slate-400">No documents attached yet</p>
+        )}
       </div>
       {values.vahanComments && (
         <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
@@ -141,26 +199,65 @@ function ServiceSnapshot({ values }) {
     { label: "Flooded Car", value: values.floodedCar || "—", flag: values.floodedCar === "Yes" },
     { label: "Total Loss", value: values.totalLossVehicle || "—", flag: values.totalLossVehicle === "Yes" },
     { label: "Migrated Vehicle", value: values.migratedVehicle || "—", flag: values.migratedVehicle === "Yes" },
-  ];
+  ].map(row => ({
+    ...row,
+    hasFile: row.label === "Service History" && (values.serviceFiles || []).length > 0
+  }));
 
   return (
     <div className="mb-5 rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
       <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-        Service History Snapshot — Live Preview
+        Service Snapshot — Live Preview
       </p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-        {rows.map(({ label, value, flag }) => (
+        {rows.map(({ label, value, flag, hasFile }) => (
           <div key={label}>
             <p className="text-[10px] text-slate-500 dark:text-slate-400">{label}</p>
-            <div className="mt-0.5 flex items-center gap-1">
-              {flag === true && <ExclamationCircleFilled className="text-[10px] text-rose-500" />}
-              {flag === false && <CheckCircleFilled className="text-[10px] text-emerald-500" />}
-              <p className={`text-xs font-bold ${flag === true ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"}`}>
-                {value}
-              </p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {flag === true && <ExclamationCircleFilled className="text-[10px] text-rose-500" />}
+                {flag === false && <CheckCircleFilled className="text-[10px] text-emerald-500" />}
+                <p className={`text-xs font-bold ${flag === true ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"}`}>
+                  {value}
+                </p>
+              </div>
+              {hasFile && (
+                <EyeOutlined 
+                  className="cursor-pointer text-[12px] text-sky-500 transition-colors hover:text-sky-700" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (values.serviceFiles?.[0]) window.open(values.serviceFiles[0].url || values.serviceFiles[0].preview, "_blank");
+                  }}
+                />
+              )}
             </div>
           </div>
         ))}
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
+        <p className="w-full text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Document Hub</p>
+        {[
+          { key: "serviceFiles", label: "Service Records" },
+        ].map(doc => {
+          const files = values[doc.key] || [];
+          if (files.length === 0) return null;
+          return (
+            <button 
+              key={doc.key}
+              onClick={() => {
+                const url = files[0].url || files[0].preview;
+                if (url) window.open(url, "_blank");
+              }}
+              className="group flex items-center gap-2 rounded-xl border border-sky-100 bg-sky-50 px-3 py-1.5 transition-all hover:border-sky-300 hover:bg-sky-100 dark:border-sky-500/20 dark:bg-sky-500/5 dark:hover:bg-sky-500/10"
+            >
+              <EyeOutlined className="text-sky-600 dark:text-sky-400 text-xs" />
+              <span className="text-[11px] font-bold text-sky-700 dark:text-sky-300">{doc.label} ({files.length})</span>
+            </button>
+          );
+        })}
+        {!(values.serviceFiles || []).length && (
+          <p className="text-[10px] italic text-slate-400">No service documents attached</p>
+        )}
       </div>
       {values.serviceComments && (
         <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/10">
@@ -209,24 +306,93 @@ function QueueCard({ lead, active, onClick }) {
 }
 
 // ── File upload helper ───────────────────────────────────────────
-function EvidenceUpload({ label }) {
+function EvidenceUpload({ label, maxCount = 1, fileList = [], onChange }) {
   return (
-    <Dragger
-      multiple={false}
-      beforeUpload={() => false}
-      accept="image/*,application/pdf"
-      className="!rounded-[14px]"
-    >
-      <p className="ant-upload-drag-icon">
-        <InboxOutlined className="text-slate-400" />
-      </p>
-      <p className="ant-upload-text text-xs font-semibold text-slate-600 dark:text-slate-300">
-        {label}
-      </p>
-      <p className="ant-upload-hint text-[10px] text-slate-400">
+    <div className="bgc-evidence-upload">
+      <Upload
+        listType="picture-card"
+        fileList={fileList}
+        onPreview={(file) => {
+          if (file.url || file.preview) {
+            window.open(file.url || file.preview, "_blank");
+          }
+        }}
+        onChange={({ fileList: newFileList }) => onChange(newFileList)}
+        beforeUpload={() => false}
+        accept="image/*,application/pdf"
+        maxCount={maxCount}
+      >
+        {fileList.length < maxCount && (
+          <div className="flex flex-col items-center justify-center">
+            <PlusOutlined className="text-slate-400" />
+            <div className="mt-1 text-[10px] font-bold text-slate-500">{label || "Upload"}</div>
+          </div>
+        )}
+      </Upload>
+      <p className="mt-1.5 text-[10px] text-slate-400">
         JPG, PNG or PDF · Max 5 MB
       </p>
-    </Dragger>
+    </div>
+  );
+}
+
+// ── Metric Card for Challans ─────────────────────────────────────
+function ChallanMetricCard({ title, icon, countName, amountName, filesName, bgcForm, values, colorClass }) {
+  const count = values[countName] || 0;
+  const amount = values[amountName] || 0;
+
+  return (
+    <div className={`rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] ${colorClass === 'rose' ? 'hover:border-rose-200 dark:hover:border-rose-500/30' : 'hover:border-amber-200 dark:hover:border-amber-500/30'}`}>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${colorClass === 'rose' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'}`}>
+            {icon}
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">{title}</p>
+            <p className="text-xs font-black text-slate-900 dark:text-slate-100">{count} Pending</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold text-slate-400">Total Liability</p>
+          <p className={`text-sm font-black ${colorClass === 'rose' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+            ₹{Number(amount).toLocaleString("en-IN")}
+          </p>
+        </div>
+      </div>
+      
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-500">Count</label>
+          <Form.Item name={countName} noStyle>
+            <InputNumber 
+              min={0} 
+              className="!w-full !rounded-xl" 
+              placeholder="Qty" 
+            />
+          </Form.Item>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-500">Amount (₹)</label>
+          <Form.Item name={amountName} noStyle>
+            <InputNumber 
+              min={0} 
+              className="!w-full !rounded-xl" 
+              placeholder="Amount" 
+              formatter={(v) => (v ? `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "")}
+              parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
+            />
+          </Form.Item>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 pt-4 dark:border-white/5">
+        <p className="mb-2 text-[10px] font-bold text-slate-500">Attachment / Evidence</p>
+        <Form.Item name={filesName} valuePropName="fileList" getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)} noStyle>
+          <EvidenceUpload maxCount={3} />
+        </Form.Item>
+      </div>
+    </div>
   );
 }
 
@@ -405,7 +571,7 @@ export default function UsedCarBackgroundCheckDesk() {
       <VahanSnapshot values={formValues} lead={selectedLead} />
 
       {/* Section: Vehicle Identity */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Vehicle Identity
         </p>
@@ -442,7 +608,7 @@ export default function UsedCarBackgroundCheckDesk() {
       </div>
 
       {/* Section: Registration & Dates */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Registration & Dates
         </p>
@@ -469,7 +635,7 @@ export default function UsedCarBackgroundCheckDesk() {
       </div>
 
       {/* Section: Hypothecation */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Hypothecation
         </p>
@@ -489,7 +655,7 @@ export default function UsedCarBackgroundCheckDesk() {
       </div>
 
       {/* Section: Legal Status */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Legal Status
         </p>
@@ -503,8 +669,8 @@ export default function UsedCarBackgroundCheckDesk() {
               </Radio.Group>
             </Form.Item>
             {formValues.blacklisted === "Yes" && (
-              <Form.Item name="blacklistedFiles" className="!mb-0">
-                <EvidenceUpload label="Upload blacklist screenshot" />
+              <Form.Item name="blacklistedFiles" valuePropName="fileList" getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)} className="!mb-0">
+                <EvidenceUpload label="Blacklist Proof" maxCount={3} />
               </Form.Item>
             )}
           </div>
@@ -517,8 +683,8 @@ export default function UsedCarBackgroundCheckDesk() {
               </Radio.Group>
             </Form.Item>
             {formValues.theft === "Yes" && (
-              <Form.Item name="theftFiles" className="!mb-0">
-                <EvidenceUpload label="Upload theft report screenshot" />
+              <Form.Item name="theftFiles" valuePropName="fileList" getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)} className="!mb-0">
+                <EvidenceUpload label="Theft Proof" maxCount={3} />
               </Form.Item>
             )}
           </div>
@@ -538,7 +704,7 @@ export default function UsedCarBackgroundCheckDesk() {
       </div>
 
       {/* Section: Challans */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Challan Status
         </p>
@@ -550,63 +716,33 @@ export default function UsedCarBackgroundCheckDesk() {
         </Form.Item>
 
         {hasChallan && (
-          <div className="mt-4 space-y-4">
-            {/* eChallan */}
-            <div className="rounded-[18px] border border-amber-100 bg-amber-50/60 p-3 dark:border-amber-500/20 dark:bg-amber-500/5">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-400">
-                eChallan (Central)
-              </p>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Form.Item label="Count" name="echallanCount" className="!mb-0">
-                  <InputNumber min={0} placeholder="No. of challans" className="!w-full !rounded-xl" />
-                </Form.Item>
-                <Form.Item label="Total Amount (₹)" name="echallanAmount" className="!mb-0">
-                  <InputNumber
-                    min={0}
-                    placeholder="0"
-                    formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-                    parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
-                    className="!w-full !rounded-xl"
-                  />
-                </Form.Item>
-              </div>
-              <div className="mt-3">
-                <Form.Item name="echallanFiles" className="!mb-0">
-                  <EvidenceUpload label="Upload eChallan screenshot" />
-                </Form.Item>
-              </div>
-            </div>
-            {/* Delhi Traffic Police */}
-            <div className="rounded-[18px] border border-rose-100 bg-rose-50/60 p-3 dark:border-rose-500/20 dark:bg-rose-500/5">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.12em] text-rose-700 dark:text-rose-400">
-                Delhi Traffic Police
-              </p>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Form.Item label="Count" name="dtpCount" className="!mb-0">
-                  <InputNumber min={0} placeholder="No. of challans" className="!w-full !rounded-xl" />
-                </Form.Item>
-                <Form.Item label="Total Amount (₹)" name="dtpAmount" className="!mb-0">
-                  <InputNumber
-                    min={0}
-                    placeholder="0"
-                    formatter={(v) => `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-                    parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
-                    className="!w-full !rounded-xl"
-                  />
-                </Form.Item>
-              </div>
-              <div className="mt-3">
-                <Form.Item name="dtpFiles" className="!mb-0">
-                  <EvidenceUpload label="Upload DTP challan screenshot" />
-                </Form.Item>
-              </div>
-            </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <ChallanMetricCard
+              title="eChallan (Central)"
+              icon={<SearchOutlined />}
+              countName="echallanCount"
+              amountName="echallanAmount"
+              filesName="echallanFiles"
+              bgcForm={bgcForm}
+              values={formValues}
+              colorClass="amber"
+            />
+            <ChallanMetricCard
+              title="Delhi Traffic Police"
+              icon={<SearchOutlined />}
+              countName="dtpCount"
+              amountName="dtpAmount"
+              filesName="dtpFiles"
+              bgcForm={bgcForm}
+              values={formValues}
+              colorClass="rose"
+            />
           </div>
         )}
       </div>
 
       {/* Section: Party Peshi & Comments */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Party Peshi & Comments
         </p>
@@ -638,7 +774,7 @@ export default function UsedCarBackgroundCheckDesk() {
     <div className="space-y-4">
       <ServiceSnapshot values={formValues} />
 
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Service History
         </p>
@@ -685,6 +821,12 @@ export default function UsedCarBackgroundCheckDesk() {
                     parser={(v) => v?.replace(/,/g, "")}
                   />
                 </Form.Item>
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-[12px] font-bold text-slate-700 dark:text-slate-300">Service Record Proof</label>
+                  <Form.Item name="serviceFiles" valuePropName="fileList" getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)} className="!mb-0">
+                    <EvidenceUpload label="Service Bill / Log" maxCount={5} />
+                  </Form.Item>
+                </div>
               </div>
             </>
           )}
@@ -692,7 +834,7 @@ export default function UsedCarBackgroundCheckDesk() {
       </div>
 
       {/* Section: Vehicle History Flags */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
           Vehicle History Flags
         </p>
@@ -725,7 +867,7 @@ export default function UsedCarBackgroundCheckDesk() {
       </div>
 
       {/* Comments */}
-      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
         <Form.Item label="Service History Comments" name="serviceComments" className="!mb-0">
           <TextArea
             rows={3}

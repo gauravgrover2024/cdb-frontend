@@ -28,9 +28,9 @@ export default function LeadCard({
   const nextStatus = getNextStatusKey(record.status);
   const canQuickAdvance = Boolean(nextStatus && nextStatus !== "Closed");
   const isClosed = record.status === "Closed";
-  const cardBg = isDarkMode ? "#0c1118" : "#ffffff";
-  const softBg = isDarkMode ? "#111827" : "#f8fafc";
-  const borderBase = isDarkMode ? "#1e293b" : "#e8edf3";
+  const cardBg = isDarkMode ? "#000000" : "#ffffff";
+  const softBg = isDarkMode ? "#0a0a0a" : "#f8fafc";
+  const borderBase = isDarkMode ? "#1f2937" : "#e8edf3";
   const textStrong = isDarkMode ? "#f8fafc" : "#0f172a";
   const text = isDarkMode ? "#cbd5e1" : "#334155";
   const textMuted = isDarkMode ? "#94a3b8" : "#64748b";
@@ -127,7 +127,7 @@ export default function LeadCard({
               height: 28,
               borderRadius: "50%",
               border: `1px solid ${borderBase}`,
-              background: isDarkMode ? "#111827" : "#fff",
+              background: isDarkMode ? "#0a0a0a" : "#fff",
               color: meta.color,
               cursor: "pointer",
               display: "flex",

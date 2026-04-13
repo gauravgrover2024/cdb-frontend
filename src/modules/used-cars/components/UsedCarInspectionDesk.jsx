@@ -58,11 +58,7 @@ import {
   TYRE_ITEM_KEYS,
   PHOTO_BUCKETS,
   LEAD_VERIFICATION_FIELDS,
-  OPTION_FAMILIES,
-  ITEM_OPTION_OVERRIDES,
   SEVERITY_OPTIONS,
-  FAMILY_FALLBACKS,
-  PHOTO_ELIGIBLE_FAMILIES,
   TRANSMISSION_OPTS,
   AIRBAG_OPTS,
   TYRE_BRANDS,
@@ -387,7 +383,7 @@ function InspectionQueueCard({ lead, active, onClick }) {
       onClick={onClick}
       className={`w-full rounded-[24px] border px-4 py-4 text-left transition-all ${
         active
-          ? "border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white dark:bg-white dark:text-slate-950"
+          ? "border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-700 dark:bg-black dark:text-white"
           : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
       }`}
     >
@@ -423,7 +419,7 @@ function InspectionQueueCard({ lead, active, onClick }) {
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div
-          className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}
+          className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-white/[0.06]" : "bg-slate-50 dark:bg-white/[0.04]"}`}
         >
           <p
             className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55 dark:text-slate-600" : "text-slate-400 dark:text-slate-500"}`}
@@ -442,7 +438,7 @@ function InspectionQueueCard({ lead, active, onClick }) {
           </p>
         </div>
         <div
-          className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}
+          className={`rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-white/[0.06]" : "bg-slate-50 dark:bg-white/[0.04]"}`}
         >
           <p
             className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55 dark:text-slate-600" : "text-slate-400 dark:text-slate-500"}`}
@@ -464,14 +460,14 @@ function InspectionQueueCard({ lead, active, onClick }) {
       >
         <span>{getInsuranceDisplay(lead) || "Insurance pending"}</span>
         <span
-          className={`font-bold ${active ? "text-white dark:text-slate-950" : "text-slate-800 dark:text-slate-200"}`}
+          className={`font-bold ${active ? "text-white dark:text-white" : "text-slate-800 dark:text-slate-200"}`}
         >
           {fmtInrOrPending(getPrice(lead))}
         </span>
       </div>
       {state.key === "draft" ? (
         <div
-          className={`mt-3 rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}
+          className={`mt-3 rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-white/[0.06]" : "bg-slate-50 dark:bg-white/[0.04]"}`}
         >
           <p
             className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55" : "text-slate-400 dark:text-slate-500"}`}
@@ -1022,32 +1018,6 @@ function getEvidenceTargets(itemValues = {}) {
           normalizeStatusList(item.status).length > 0 &&
           !isPositiveInspectionStatus(item.status),
       ),
-  );
-}
-
-function getInspectionRedFlags(itemValues = {}) {
-  return INSPECTION_SECTIONS.flatMap((section) =>
-    section.items
-      .map((item) => {
-        const value = itemValues?.[item.key] || {};
-        const statuses = normalizeStatusList(value.status);
-        if (!statuses.length || isPositiveInspectionStatus(statuses)) {
-          return null;
-        }
-        const severity =
-          value.severity || getStatusSeverity(statuses, item, section);
-        if (!["High", "Critical"].includes(severity)) {
-          return null;
-        }
-        return {
-          key: item.key,
-          label: item.labelEn,
-          section: section.titleEn,
-          severity,
-          status: compactStatus(statuses),
-        };
-      })
-      .filter(Boolean),
   );
 }
 
@@ -2002,13 +1972,11 @@ export default function UsedCarInspectionDesk() {
   const watchedBulkEvidence = Form.useWatch("bulkEvidence", reportForm);
   const watchedLeadVerification = Form.useWatch("leadVerification", reportForm);
   const reportLead = leads.find((l) => l.id === reportLeadId) || null;
-  // forceReportSync causes full re-renders, so we can reliably read the current state directly
   const liveReportItems =
-    reportForm.getFieldValue("items") ||
+    watchedItems ||
     reportLead?.inspection?.report?.items ||
     {};
   const evidenceTargets = getEvidenceTargets(liveReportItems || {});
-  const redFlags = getInspectionRedFlags(liveReportItems || {});
   const usedEvidenceTags = useMemo(() => {
     const files = normalizeEvidenceFiles(watchedBulkEvidence || []);
     return new Set(files.map((f) => f.evidenceTag).filter(Boolean));
@@ -2600,7 +2568,7 @@ export default function UsedCarInspectionDesk() {
             animation: none !important;
           }
         `}</style>
-        <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
+        <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-black md:p-5 xl:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
@@ -2645,7 +2613,7 @@ export default function UsedCarInspectionDesk() {
           />
           {/* Red Flag strip has been intentionally removed per request */}
         </div>
-        <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
+        <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-black md:p-5 xl:p-6">
           <Form
             form={reportForm}
             layout="vertical"
@@ -3350,7 +3318,7 @@ export default function UsedCarInspectionDesk() {
                   key={item}
                   type="button"
                   onClick={() => setQueueFilter(item)}
-                  className={`rounded-full px-3 py-2 text-xs font-bold tracking-tight transition-all ${active ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"}`}
+                  className={`rounded-full px-3 py-2 text-xs font-bold tracking-tight transition-all ${active ? "bg-slate-900 text-white dark:bg-black dark:text-white dark:border dark:border-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"}`}
                 >
                   {item}
                 </button>
@@ -3384,7 +3352,7 @@ export default function UsedCarInspectionDesk() {
           </div>
         </div>
 
-        <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
+        <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-black md:p-5 xl:p-6">
           {selectedLead ? (
             <div>
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">

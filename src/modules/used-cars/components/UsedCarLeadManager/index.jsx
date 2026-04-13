@@ -59,20 +59,20 @@ import {
   normalizeLeadRecord,
   normStatus,
   normText,
-  parseLeadDate,
   pickMapped,
 } from "./utils/leadUtils";
 
+const LEAD_WINDOW_OPTIONS = ["Today", "7 Days", "15 Days", "All Leads"];
+const QUEUE_FILTER_OPTIONS = [
+  "All",
+  "Overdue",
+  "Due Today",
+  "Unassigned",
+  "Inspection Queue",
+];
+
 export default function UsedCarLeadManager() {
   const { isDarkMode } = useTheme();
-  const leadWindowOptions = ["Today", "7 Days", "15 Days", "All Leads"];
-  const queueFilterOptions = [
-    "All",
-    "Overdue",
-    "Due Today",
-    "Unassigned",
-    "Inspection Queue",
-  ];
   const [leads, setLeads] = useState(() => {
     try {
       const r = localStorage.getItem(STORAGE_KEY);
@@ -218,7 +218,7 @@ export default function UsedCarLeadManager() {
       accidentPaintNotes: selected.accidentPaintNotes || "",
       notes: selected.notes || "",
     });
-  }, [selected]);
+  }, [callForm, closeForm, detailForm, inspForm, selected]);
 
   useEffect(() => {
     if (!selected || activeAction !== "call") return;
@@ -273,19 +273,19 @@ export default function UsedCarLeadManager() {
   const themeTokens = useMemo(
     () => ({
       pageBg: isDarkMode ? "#05070b" : "#f0f4f8",
-      panelBg: isDarkMode ? "#0c1118" : "#ffffff",
-      panelBorder: isDarkMode ? "#1e293b" : "#e2e8f0",
-      panelMuted: isDarkMode ? "#111827" : "#f8fafc",
+      panelBg: isDarkMode ? "#000000" : "#ffffff",
+      panelBorder: isDarkMode ? "#1f2937" : "#e2e8f0",
+      panelMuted: isDarkMode ? "#0a0a0a" : "#f8fafc",
       textStrong: isDarkMode ? "#f8fafc" : "#0f172a",
       text: isDarkMode ? "#cbd5e1" : "#475569",
       textMuted: isDarkMode ? "#94a3b8" : "#94a3b8",
       soft: isDarkMode ? "rgba(148,163,184,0.08)" : "rgba(15,23,42,0.04)",
-      inputBg: isDarkMode ? "#0f172a" : "#ffffff",
-      drawerBg: isDarkMode ? "#070b11" : "#ffffff",
-      drawerSoft: isDarkMode ? "#0f172a" : "#f8fafc",
-      chipBg: isDarkMode ? "#111827" : "#f8fafc",
-      chipBorder: isDarkMode ? "#334155" : "#e2e8f0",
-      topNavBg: isDarkMode ? "rgba(7,11,17,0.94)" : "#ffffff",
+      inputBg: isDarkMode ? "#0a0a0a" : "#ffffff",
+      drawerBg: isDarkMode ? "#000000" : "#ffffff",
+      drawerSoft: isDarkMode ? "#0a0a0a" : "#f8fafc",
+      chipBg: isDarkMode ? "#0a0a0a" : "#f8fafc",
+      chipBorder: isDarkMode ? "#374151" : "#e2e8f0",
+      topNavBg: isDarkMode ? "rgba(0,0,0,0.94)" : "#ffffff",
       shadow: isDarkMode
         ? "0 18px 40px rgba(2,6,23,0.45)"
         : "0 18px 40px rgba(15,23,42,0.08)",
@@ -401,7 +401,7 @@ export default function UsedCarLeadManager() {
           return !leadDate.isBefore(dayjs().subtract(14, "day").startOf("day"));
         return true;
       }).length;
-    return Object.fromEntries(leadWindowOptions.map((option) => [option, countFor(option)]));
+    return Object.fromEntries(LEAD_WINDOW_OPTIONS.map((option) => [option, countFor(option)]));
   }, [activeLeads]);
 
   const queueCounts = useMemo(
@@ -1054,7 +1054,7 @@ export default function UsedCarLeadManager() {
         minHeight: "100vh",
         background: themeTokens.pageBg,
         color: themeTokens.textStrong,
-        fontFamily: "-apple-system,BlinkMacSystemFont,\'Inter\',sans-serif",
+        fontFamily: '-apple-system,BlinkMacSystemFont,"Inter",sans-serif',
       }}
     >
       <style>{`
@@ -1403,7 +1403,7 @@ export default function UsedCarLeadManager() {
             >
               Lead Date
             </span>
-            {leadWindowOptions.map((option) => {
+            {LEAD_WINDOW_OPTIONS.map((option) => {
               const active = leadWindowFilter === option;
               return (
                 <button
@@ -1413,10 +1413,18 @@ export default function UsedCarLeadManager() {
                     padding: "6px 12px",
                     borderRadius: 24,
                     border: active
-                      ? "1px solid #4f46e5"
+                      ? `1px solid ${isDarkMode ? "#6366f1" : "#4f46e5"}`
                       : `1px solid ${themeTokens.chipBorder}`,
-                    background: active ? "#eef2ff" : themeTokens.chipBg,
-                    color: active ? "#4338ca" : themeTokens.text,
+                    background: active
+                      ? isDarkMode
+                        ? "#111827"
+                        : "#eef2ff"
+                      : themeTokens.chipBg,
+                    color: active
+                      ? isDarkMode
+                        ? "#c4b5fd"
+                        : "#4338ca"
+                      : themeTokens.text,
                     fontSize: 11,
                     fontWeight: 700,
                     cursor: "pointer",
@@ -1429,7 +1437,9 @@ export default function UsedCarLeadManager() {
                       padding: "1px 7px",
                       borderRadius: 999,
                       background: active
-                        ? "#4f46e5"
+                        ? isDarkMode
+                          ? "#4f46e5"
+                          : "#4f46e5"
                         : isDarkMode
                           ? "#334155"
                           : "#e2e8f0",
@@ -1458,7 +1468,7 @@ export default function UsedCarLeadManager() {
             >
               Queue View
             </span>
-            {queueFilterOptions.map((option) => (
+            {QUEUE_FILTER_OPTIONS.map((option) => (
               <button
                 key={option}
                 onClick={() => setQuickFilter(option)}
@@ -1467,12 +1477,20 @@ export default function UsedCarLeadManager() {
                   borderRadius: 24,
                   border:
                     quickFilter === option
-                      ? "1px solid #0ea5e9"
+                      ? `1px solid ${isDarkMode ? "#38bdf8" : "#0ea5e9"}`
                       : `1px solid ${themeTokens.chipBorder}`,
                   background:
-                    quickFilter === option ? "#f0f9ff" : themeTokens.chipBg,
+                    quickFilter === option
+                      ? isDarkMode
+                        ? "#082f49"
+                        : "#f0f9ff"
+                      : themeTokens.chipBg,
                   color:
-                    quickFilter === option ? "#0369a1" : themeTokens.text,
+                    quickFilter === option
+                      ? isDarkMode
+                        ? "#7dd3fc"
+                        : "#0369a1"
+                      : themeTokens.text,
                   fontSize: 11,
                   fontWeight: 700,
                   cursor: "pointer",
@@ -1485,7 +1503,13 @@ export default function UsedCarLeadManager() {
                     padding: "1px 7px",
                     borderRadius: 999,
                     background:
-                    quickFilter === option ? "#0ea5e9" : isDarkMode ? "#334155" : "#e2e8f0",
+                      quickFilter === option
+                        ? isDarkMode
+                          ? "#0284c7"
+                          : "#0ea5e9"
+                        : isDarkMode
+                          ? "#334155"
+                          : "#e2e8f0",
                     color: quickFilter === option ? "#fff" : themeTokens.text,
                     fontSize: 10,
                     fontWeight: 800,

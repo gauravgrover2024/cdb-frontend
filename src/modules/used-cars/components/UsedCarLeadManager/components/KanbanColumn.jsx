@@ -26,15 +26,15 @@ export default function KanbanColumn({
   const count = leads.length;
   const total = leads.reduce((sum, row) => sum + getPrice(row), 0);
   const visibleLeads = leads.slice(0, visibleCount);
-  const panelBg = isDarkMode ? "#0c1118" : "#ffffff";
-  const surfaceBg = isDarkMode ? "#0a0f16" : "transparent";
+  const panelBg = isDarkMode ? "#000000" : "#ffffff";
+  const surfaceBg = isDarkMode ? "#05070b" : "transparent";
   const borderBase = themeTokens?.panelBorder || (isDarkMode ? "#1e293b" : "#e2e8f0");
   const textStrong = themeTokens?.textStrong || (isDarkMode ? "#f8fafc" : "#0f172a");
   const textMuted = themeTokens?.textMuted || "#94a3b8";
 
   return (
     <div style={{ flex: "0 0 260px", display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <div style={{ padding: "10px 14px", borderRadius: 14, background: isDarkMode ? "rgba(15,23,42,0.68)" : col.bg, border: `1.5px solid ${isDarkMode ? borderBase : col.border}`, marginBottom: 10 }}>
+      <div style={{ padding: "10px 14px", borderRadius: 14, background: isDarkMode ? "rgba(0,0,0,0.88)" : col.bg, border: `1.5px solid ${isDarkMode ? borderBase : col.border}`, marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <StatusDot status={col.key} />
@@ -60,7 +60,7 @@ export default function KanbanColumn({
           minHeight: 180,
           borderRadius: 16,
           border: dragOver ? `2px dashed ${col.color}` : `2px dashed ${isDarkMode ? "rgba(51,65,85,0.35)" : "transparent"}`,
-          background: dragOver ? (isDarkMode ? "rgba(79,70,229,0.08)" : col.bg) : surfaceBg,
+          background: dragOver ? (isDarkMode ? "rgba(79,70,229,0.10)" : col.bg) : surfaceBg,
           padding: dragOver ? 8 : "0 0 8px 0",
           transition: "all 0.15s",
         }}
