@@ -4,6 +4,7 @@ import ModuleFrame from "../../../components/ui/ModuleFrame";
 import Icon from "../../../components/AppIcon";
 import UsedCarLeadIntakeDesk from "./UsedCarLeadIntakeDesk";
 import UsedCarInspectionDesk from "./UsedCarInspectionDesk";
+import UsedCarBackgroundCheckDesk from "./BackgroundCheckDesk";
 
 const STAGES = [
   {
@@ -19,6 +20,13 @@ const STAGES = [
     description: "Run field inspections, capture detailed findings, and generate evaluator-ready reports.",
     path: "/used-cars/inspection",
     icon: "ClipboardCheck",
+  },
+  {
+    key: "background-check",
+    label: "Background Check",
+    description: "Run comprehensive Vahan and service history background checks for inspection-cleared cars.",
+    path: "/used-cars/background-check",
+    icon: "ShieldCheck",
   },
 ];
 
@@ -74,9 +82,8 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
                   Build The Used-Car Journey One Strong Stage At A Time
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-600 dark:text-slate-300 md:text-[15px]">
-                  We’ve intentionally reduced this module to the two live operating surfaces we’re building together right now:
-                  lead intake and inspection. Everything else has been taken out of the active flow so the team works from one
-                  clear source of truth.
+                  Take total control of the procurement lifecycle—from the first seller call to deep field inspection and
+                  comprehensive background verification. One clear source of truth for every car.
                 </p>
               </div>
 
@@ -116,7 +123,13 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
         </section>
 
         <section>
-          {stage === "inspection" ? <UsedCarInspectionDesk /> : <UsedCarLeadIntakeDesk />}
+          {stage === "background-check" ? (
+            <UsedCarBackgroundCheckDesk />
+          ) : stage === "inspection" ? (
+            <UsedCarInspectionDesk />
+          ) : (
+            <UsedCarLeadIntakeDesk />
+          )}
         </section>
       </div>
     </ModuleFrame>

@@ -40,6 +40,7 @@ import InsuranceDashboardPage from "./pages/insurance/InsuranceDashboardPage";
 import InsuranceCasePage from "./pages/insurance/InsuranceCasePage";
 import UsedCarsProcurementPage from "./modules/used-cars/pages/UsedCarsProcurementPage";
 import UsedCarsInspectionPage from "./modules/used-cars/pages/UsedCarsInspectionPage";
+import UsedCarsBackgroundCheckPage from "./modules/used-cars/pages/UsedCarsBackgroundCheckPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 
 // NEW: booking pages
@@ -151,6 +152,10 @@ function App() {
             <Route
               path="used-cars/inspection"
               element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsInspectionPage />)}
+            />
+            <Route
+              path="used-cars/background-check"
+              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsBackgroundCheckPage />)}
             />
 
             {/* Tools */}

@@ -16,6 +16,7 @@ import {
   Modal,
   Progress,
   Select,
+  Tabs,
   TimePicker,
   Upload,
   message,
@@ -49,1778 +50,54 @@ import {
   normText,
 } from "./UsedCarLeadManager/utils/leadUtils";
 
+import {
+  INSPECTION_DONE_STAGE,
+  NOGO_REASON,
+  REPORT_VERSION,
+  QUEUE_FILTERS,
+  TYRE_ITEM_KEYS,
+  PHOTO_BUCKETS,
+  LEAD_VERIFICATION_FIELDS,
+  OPTION_FAMILIES,
+  ITEM_OPTION_OVERRIDES,
+  SEVERITY_OPTIONS,
+  FAMILY_FALLBACKS,
+  PHOTO_ELIGIBLE_FAMILIES,
+  TRANSMISSION_OPTS,
+  AIRBAG_OPTS,
+  TYRE_BRANDS,
+  NOGO_REASONS,
+  SEAT_OPTS,
+  INSPECTION_SECTIONS,
+  tyreLifeFromTread,
+  calcSectionScore,
+  calcOverallScore,
+  toFileList,
+  fromFileList,
+  normalizeEvidenceFiles,
+  isPositiveInspectionStatus,
+  normalizeStatusList,
+  getItemOptions,
+  allowsMultiSelect,
+  isPhotoEligibleItem,
+  getStatusSeverity,
+  getItemOptionMeta,
+  getOptionActiveTone,
+  getOptionTone,
+} from "./InspectionDesk/constants";
+
 const { TextArea } = Input;
 const { Panel } = Collapse;
 
-// ── Core constants ───────────────────────────────────────────────
-const INSPECTION_DONE_STAGE = "Inspection Done";
-const NOGO_REASON = "No-go car";
-const REPORT_VERSION = "cdb-hinglish-pdi-v2";
-const QUEUE_FILTERS = [
-  "All",
-  "Due Today",
-  "Scheduled",
-  "Rescheduled",
-  "Draft",
-  "Completed",
-];
 
-const TYRE_ITEM_KEYS = [
-  "frontLeftTyre",
-  "frontRightTyre",
-  "rearLeftTyre",
-  "rearRightTyre",
-  "spareTyre",
-];
-
-const DAMAGE_OVERLAY_SHAPES = {
-  frontBumper: (
-    <path d="M192 40C211 28 232 22 260 22c28 0 49 6 68 18l-8 28c-18-7-37-10-60-10s-42 3-60 10z" />
-  ),
-  bonnet: (
-    <path d="M196 82c20-14 40-20 64-20s44 6 64 20l12 68c-30 10-52 14-76 14s-46-4-76-14z" />
-  ),
-  windshield: (
-    <path d="M208 168c18-8 35-12 52-12s34 4 52 12l8 52c-25 6-40 8-60 8s-35-2-60-8z" />
-  ),
-  roof: <rect x="210" y="238" width="100" height="180" rx="28" />,
-  rearWindshield: (
-    <path d="M208 430c25-6 40-8 60-8s35 2 60 8l-8 56c-18 8-35 12-52 12s-34-4-52-12z" />
-  ),
-  bootFloor: (
-    <path d="M196 512c30-10 52-14 76-14s46 4 76 14l-12 68c-20 14-40 20-64 20s-44-6-64-20z" />
-  ),
-  rearBumper: (
-    <path d="M200 614c18 7 37 10 60 10s42-3 60-10l8 28c-19 12-40 18-68 18-28 0-49-6-68-18z" />
-  ),
-  leftFender: (
-    <path d="M160 136c-22 22-34 44-42 80l30 16c8-34 18-57 38-81z" />
-  ),
-  rightFender: (
-    <path d="M360 136c22 22 34 44 42 80l-30 16c-8-34-18-57-38-81z" />
-  ),
-  leftFrontDoor: (
-    <path d="M164 248c8-9 18-14 32-14h16v88h-44c-9 0-15-6-15-16z" />
-  ),
-  leftRearDoor: (
-    <path d="M164 334h48v88h-16c-14 0-24-5-32-14l-11-58c0-10 5-16 11-16" />
-  ),
-  rightFrontDoor: (
-    <path d="M308 234h16c14 0 24 5 32 14l11 58c0 10-5 16-11 16h-48z" />
-  ),
-  rightRearDoor: (
-    <path d="M308 334h48c6 0 11 6 11 16l-11 58c-8 9-18 14-32 14h-16z" />
-  ),
-  leftQuarterPanel: (
-    <path d="M162 432c18 17 34 26 50 30v74h-20c-17 0-31-6-44-19l-10-46c0-17 8-29 24-39" />
-  ),
-  rightQuarterPanel: (
-    <path d="M308 462c16-4 32-13 50-30 16 10 24 22 24 39l-10 46c-13 13-27 19-44 19h-20z" />
-  ),
-  headlamps: (
-    <g>
-      <path d="M198 72c20-7 40-10 62-10" />
-      <path d="M322 72c-20-7-40-10-62-10" />
-    </g>
-  ),
-  taillamps: (
-    <g>
-      <path d="M198 610c20 7 40 10 62 10" />
-      <path d="M322 610c-20 7-40 10-62 10" />
-    </g>
-  ),
-  orvms: (
-    <g>
-      <path d="M166 182c-18 4-29 13-39 30" />
-      <path d="M354 182c18 4 29 13 39 30" />
-    </g>
-  ),
-  alloyWheels: (
-    <g>
-      <circle cx="120" cy="212" r="18" />
-      <circle cx="400" cy="212" r="18" />
-      <circle cx="120" cy="448" r="18" />
-      <circle cx="400" cy="448" r="18" />
-    </g>
-  ),
-};
-
-// ── Mandatory photo buckets ──────────────────────────────────────
-const PHOTO_BUCKETS = [
-  { key: "frontView", labelEn: "Front View", labelHi: "Aage ki photo" },
-  { key: "rearView", labelEn: "Rear View", labelHi: "Peeche ki photo" },
-  { key: "leftSide", labelEn: "Left Side Profile", labelHi: "Baayein taraf" },
-  { key: "rightSide", labelEn: "Right Side Profile", labelHi: "Daayein taraf" },
-  {
-    key: "odometer",
-    labelEn: "Odometer Closeup",
-    labelHi: "Odometer ka photo",
-  },
-  {
-    key: "engineBay",
-    labelEn: "Engine Bay Open",
-    labelHi: "Engine compartment",
-  },
-  { key: "rcCopy", labelEn: "RC & Documents", labelHi: "RC aur papers" },
-  { key: "tyres", labelEn: "All 4 Tyres", labelHi: "Charon tyre" },
-  {
-    key: "chassisPlate",
-    labelEn: "Chassis Number Plate",
-    labelHi: "Chassis number plate",
-  },
-  {
-    key: "interiorDash",
-    labelEn: "Dashboard / Interior",
-    labelHi: "Dashboard aur andar",
-  },
-];
-
-// ── Lead verification fields ─────────────────────────────────────
-const LEAD_VERIFICATION_FIELDS = [
-  {
-    key: "sellerIdentity",
-    labelEn: "Seller Identity Matched",
-    labelHi: "Seller ki pehchaan confirm hui",
-  },
-  {
-    key: "ownerPresence",
-    labelEn: "Registered Owner Present",
-    labelHi: "RC waala maalik maujood hai",
-  },
-  {
-    key: "mobileVerified",
-    labelEn: "Mobile Number Verified",
-    labelHi: "Mobile number sahi hai",
-  },
-  {
-    key: "addressVerified",
-    labelEn: "Address Confirmed",
-    labelHi: "Address confirm hua",
-  },
-  {
-    key: "rcAvailable",
-    labelEn: "RC Book Available",
-    labelHi: "RC haath mein hai",
-  },
-  {
-    key: "registrationMatched",
-    labelEn: "Registration No. Matched",
-    labelHi: "Registration number mela",
-  },
-  {
-    key: "chassisMatched",
-    labelEn: "Chassis No. Matched (Physical)",
-    labelHi: "Chassis physically match hua",
-  },
-  {
-    key: "engineNumberMatched",
-    labelEn: "Engine No. Matched (Physical)",
-    labelHi: "Engine number match hua",
-  },
-  {
-    key: "hypothecationConfirmed",
-    labelEn: "Hypothecation Status Confirmed",
-    labelHi: "Hypothecation confirm hua",
-  },
-  {
-    key: "insuranceConfirmed",
-    labelEn: "Insurance Paper Verified",
-    labelHi: "Insurance paper dekha",
-  },
-  {
-    key: "challansChecked",
-    labelEn: "Challans Checked on Vahan",
-    labelHi: "Challan Vahan pe check kiya",
-  },
-  {
-    key: "pucChecked",
-    labelEn: "PUC Certificate Verified",
-    labelHi: "PUC certificate dekha",
-  },
-];
-
-// ════════════════════════════════════════════════════════════════
-// FIELD-CORRECT FAST OPTION FAMILIES
-// ════════════════════════════════════════════════════════════════
-
-const OPTION_FAMILIES = {
-  panel: [
-    { value: "Original", severity: "ok" },
-    { value: "Scratch", severity: "low" },
-    { value: "Dent", severity: "medium" },
-    { value: "Repainted", severity: "medium" },
-    { value: "Repaired", severity: "high" },
-    { value: "Replaced", severity: "high" },
-    { value: "Rust", severity: "high" },
-  ],
-  structural: [
-    { value: "OK", severity: "ok" },
-    { value: "Repaired", severity: "high" },
-    { value: "Replaced", severity: "high" },
-    { value: "Rust", severity: "high" },
-    { value: "Damaged", severity: "critical" },
-  ],
-  glass: [
-    { value: "OK", severity: "ok" },
-    { value: "Scratched", severity: "low" },
-    { value: "Chipped", severity: "medium" },
-    { value: "Cracked", severity: "high" },
-    { value: "Replaced", severity: "medium" },
-  ],
-  lights: [
-    { value: "OK", severity: "ok" },
-    { value: "Faded", severity: "low" },
-    { value: "Cracked", severity: "medium" },
-    { value: "Not Working", severity: "high" },
-    { value: "Replaced", severity: "medium" },
-  ],
-  fitment: [
-    { value: "OK", severity: "ok" },
-    { value: "Loose", severity: "low" },
-    { value: "Damaged", severity: "medium" },
-    { value: "Missing", severity: "high" },
-    { value: "Replaced", severity: "medium" },
-  ],
-  tyre: [
-    { value: "Good", severity: "ok" },
-    { value: "Average", severity: "low" },
-    { value: "Low Life", severity: "medium" },
-    { value: "Uneven Wear", severity: "medium" },
-    { value: "Cut / Bulge", severity: "high" },
-    { value: "Replace", severity: "critical" },
-  ],
-  wheel: [
-    { value: "OK", severity: "ok" },
-    { value: "Scratched", severity: "low" },
-    { value: "Bent", severity: "high" },
-    { value: "Cracked", severity: "critical" },
-    { value: "Replace", severity: "critical" },
-  ],
-  mechanical: [
-    { value: "OK", severity: "ok" },
-    { value: "Monitor", severity: "low" },
-    { value: "Leak", severity: "high" },
-    { value: "Noise", severity: "medium" },
-    { value: "Repair", severity: "high" },
-    { value: "Replace", severity: "critical" },
-  ],
-  electrical: [
-    { value: "Working", severity: "ok" },
-    { value: "Intermittent", severity: "medium" },
-    { value: "Not Working", severity: "high" },
-    { value: "Missing", severity: "critical" },
-  ],
-  safety: [
-    { value: "OK", severity: "ok" },
-    { value: "Warning", severity: "high" },
-    { value: "Deployed", severity: "critical" },
-    { value: "Missing", severity: "critical" },
-  ],
-  verification: [
-    { value: "Verified", severity: "ok" },
-    { value: "Mismatch", severity: "critical" },
-    { value: "Not Available", severity: "high" },
-    { value: "Review", severity: "medium" },
-  ],
-  binary: [
-    { value: "Yes", severity: "ok" },
-    { value: "No", severity: "high" },
-    { value: "NA", severity: "low" },
-  ],
-  smoke: [
-    { value: "None", severity: "ok" },
-    { value: "White", severity: "high" },
-    { value: "Blue", severity: "critical" },
-    { value: "Grey", severity: "high" },
-    { value: "Black", severity: "medium" },
-  ],
-  ac: [
-    { value: "Excellent", severity: "ok" },
-    { value: "Good", severity: "ok" },
-    { value: "Weak", severity: "medium" },
-    { value: "Not Cooling", severity: "critical" },
-  ],
-  road: [
-    { value: "Excellent", severity: "ok" },
-    { value: "Good", severity: "ok" },
-    { value: "Average", severity: "low" },
-    { value: "Issue", severity: "high" },
-    { value: "Critical", severity: "critical" },
-  ],
-  market: [
-    { value: "A+", severity: "ok" },
-    { value: "A", severity: "ok" },
-    { value: "B", severity: "low" },
-    { value: "C", severity: "medium" },
-    { value: "D", severity: "critical" },
-  ],
-  airbagCount: [
-    { value: "0", severity: "critical" },
-    { value: "2", severity: "ok" },
-    { value: "4", severity: "ok" },
-    { value: "6", severity: "ok" },
-    { value: "7+", severity: "ok" },
-  ],
-  keyCount: [
-    { value: "1 Key", severity: "medium" },
-    { value: "2 Keys", severity: "ok" },
-    { value: "3+ Keys", severity: "ok" },
-  ],
-};
-
-const ITEM_OPTION_OVERRIDES = {
-  firewall: "structural",
-  radiatorSupport: "structural",
-  lowerCrossMember: "structural",
-  upperCrossMember: "structural",
-  coreStructure: "structural",
-  isWaterlogged: "binary",
-  accidentEvidence: "verification",
-  headlamps: "lights",
-  taillamps: "lights",
-  fogLamps: "lights",
-  drl: "lights",
-  indicators: "lights",
-  reverseLight: "lights",
-  bumperGrille: "fitment",
-  bumpersGrille: "fitment",
-  antenna: "fitment",
-  alloyWheels: "wheel",
-  wheelCaps: "fitment",
-  frontLeftTyre: "tyre",
-  frontRightTyre: "tyre",
-  rearLeftTyre: "tyre",
-  rearRightTyre: "tyre",
-  spareTyre: "tyre",
-  airbagCount: "airbagCount",
-  keysCount: "keyCount",
-  ownerManual: "binary",
-  serviceRecord: "binary",
-  marketability: "market",
-  odometerConsistency: "verification",
-  odometer: "verification",
-  registrationMatched: "verification",
-};
-
-const SEVERITY_OPTIONS = [
-  { value: "Low", tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300" },
-  { value: "Medium", tone: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300" },
-  { value: "High", tone: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300" },
-  { value: "Critical", tone: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300" },
-];
-
-const FAMILY_FALLBACKS = {
-  body: "panel",
-  road: "road",
-  market: "market",
-  verification: "verification",
-  safety: "safety",
-  ac: "ac",
-  electrical: "electrical",
-  mechanical: "mechanical",
-};
-
-function getItemOptionFamily(item, section) {
-  const rawFamily =
-    ITEM_OPTION_OVERRIDES[item.key] ||
-    item.preset ||
-    section.preset ||
-    "mechanical";
-  return FAMILY_FALLBACKS[rawFamily] || rawFamily;
-}
-
-function getItemOptions(item, section) {
-  const family = getItemOptionFamily(item, section);
-  return OPTION_FAMILIES[family] || OPTION_FAMILIES.mechanical;
-}
-
-function getItemOptionMeta(item, section, status) {
-  return getItemOptions(item, section).find((entry) => entry.value === status);
-}
-
-function normalizeStatusList(status) {
-  if (Array.isArray(status)) return status.filter(Boolean);
-  if (!status) return [];
-  return [status];
-}
-
-function allowsMultiSelect(item, section) {
-  const family = getItemOptionFamily(item, section);
-  return ["panel", "glass", "lights", "fitment", "tyre", "wheel"].includes(
-    family,
+function getTaggedEvidenceFile(files = [], aliases = []) {
+  const aliasSet = new Set(
+    aliases.map((entry) => String(entry || "").trim().toLowerCase()),
+  );
+  return files.find((file) =>
+    aliasSet.has(String(file.evidenceTag || "").trim().toLowerCase()),
   );
 }
-
-function getStatusSeverity(status, item, section) {
-  const statuses = normalizeStatusList(status);
-  if (!statuses.length || isPositiveInspectionStatus(statuses)) return "";
-  const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
-  const topSeverity = statuses.reduce((best, current) => {
-    const currentSeverity =
-      getItemOptionMeta(item, section, current)?.severity || "medium";
-    return severityRank[currentSeverity] > severityRank[best]
-      ? currentSeverity
-      : best;
-  }, "low");
-  const map = {
-    low: "Low",
-    medium: "Medium",
-    high: "High",
-    critical: "Critical",
-  };
-  return map[topSeverity] || "Medium";
-}
-
-function getOptionTone(option) {
-  const value = String(option.value || "").toLowerCase();
-  if (value === "original" || value === "ok" || value === "good" || value === "working" || value === "verified" || value === "yes" || value === "excellent") {
-    return {
-      borderColor: "#bbf7d0",
-      background: "#f0fdf4",
-      color: "#047857",
-    };
-  }
-  if (value.includes("replace") || value.includes("missing") || value.includes("not working") || value.includes("deployed") || value.includes("mismatch") || value.includes("critical")) {
-    return {
-      borderColor: "#fecdd3",
-      background: "#fff1f2",
-      color: "#be123c",
-    };
-  }
-  if (value.includes("repair") || value.includes("rust") || value.includes("crack") || value.includes("leak") || value.includes("noise") || value.includes("bulge")) {
-    return {
-      borderColor: "#fed7aa",
-      background: "#fff7ed",
-      color: "#c2410c",
-    };
-  }
-  if (value.includes("repaint") || value.includes("dent") || value.includes("uneven") || value.includes("low") || value.includes("warning") || value.includes("weak")) {
-    return {
-      borderColor: "#fde68a",
-      background: "#fffbeb",
-      color: "#b45309",
-    };
-  }
-  return {
-    borderColor: "#bae6fd",
-    background: "#f0f9ff",
-    color: "#0369a1",
-  };
-}
-
-function getOptionActiveTone(option) {
-  const value = String(option.value || "").toLowerCase();
-  if (
-    value === "original" ||
-    value === "ok" ||
-    value === "good" ||
-    value === "working" ||
-    value === "verified" ||
-    value === "yes" ||
-    value === "excellent"
-  ) {
-    return {
-      borderColor: "#047857",
-      background: "#10b981",
-      color: "#ffffff",
-      boxShadow: "0 10px 24px rgba(5, 150, 105, 0.28)",
-    };
-  }
-  if (
-    value.includes("replace") ||
-    value.includes("missing") ||
-    value.includes("not working") ||
-    value.includes("deployed") ||
-    value.includes("mismatch") ||
-    value.includes("critical")
-  ) {
-    return {
-      borderColor: "#be123c",
-      background: "#f43f5e",
-      color: "#ffffff",
-      boxShadow: "0 10px 24px rgba(225, 29, 72, 0.28)",
-    };
-  }
-  if (
-    value.includes("repair") ||
-    value.includes("rust") ||
-    value.includes("crack") ||
-    value.includes("leak") ||
-    value.includes("noise") ||
-    value.includes("bulge")
-  ) {
-    return {
-      borderColor: "#c2410c",
-      background: "#f97316",
-      color: "#ffffff",
-      boxShadow: "0 10px 24px rgba(249, 115, 22, 0.28)",
-    };
-  }
-  if (
-    value.includes("repaint") ||
-    value.includes("dent") ||
-    value.includes("uneven") ||
-    value.includes("low") ||
-    value.includes("warning") ||
-    value.includes("weak")
-  ) {
-    return {
-      borderColor: "#b45309",
-      background: "#f59e0b",
-      color: "#ffffff",
-      boxShadow: "0 10px 24px rgba(245, 158, 11, 0.28)",
-    };
-  }
-  return {
-    borderColor: "#0369a1",
-    background: "#0ea5e9",
-    color: "#ffffff",
-    boxShadow: "0 10px 24px rgba(2, 132, 199, 0.28)",
-  };
-}
-
-// ── Standalone option lists ──────────────────────────────────────
-
-const TRANSMISSION_OPTS = [
-  "Manual 4-speed",
-  "Manual 5-speed",
-  "Manual 6-speed",
-  "Automatic",
-  "AMT",
-  "CVT",
-  "DCT",
-  "IMT",
-];
-
-const AIRBAG_OPTS = [
-  "0 — Koi airbag nahi",
-  "2 — Driver + Co-driver",
-  "4 — Front + Side airbags",
-  "6 — 6 airbags",
-  "7 — 7 airbags",
-  "8+ — 8 ya zyada",
-];
-
-const TYRE_BRANDS = [
-  "MRF",
-  "Apollo",
-  "CEAT",
-  "Bridgestone",
-  "Michelin",
-  "Goodyear",
-  "TVS",
-  "JK Tyre",
-  "Yokohama",
-  "Other — Koi aur",
-];
-
-const NOGO_REASONS = [
-  "Major accident damage — Bada accident damage",
-  "Flood damaged — Baadh mein dooba tha",
-  "Chassis / frame bent — Chassis tedhi ho gayi",
-  "Tampered odometer — Odometer se chedhchad",
-  "Chassis number tampered — Chassis number badla gaya",
-  "Major engine failure — Engine bahut kharab",
-  "Transmission failure — Gearbox fail ho gaya",
-  "Airbag deployed / used — Airbag chal chuka hai",
-  "Severe body damage — Bahut zyada dent/damage",
-  "Documents mismatch — Papers sahi nahi",
-  "Price mismatch — Daam zyada maang raha",
-  "Flood / Water damage — Paani ghusa tha",
-  "Other — Kuch aur wajah",
-];
-
-const SEAT_OPTS = [
-  "Fabric — Kapda",
-  "Leather — Chamda",
-  "Leatherette — Leatherette",
-  "Rexine — Rexine",
-  "Half Leather — Half chamda",
-];
-
-// ── END PART 1 ──────────────────────────────────────────────────
-// ── PART 2A of 2J ── Section 1: Exterior Panels & Structure ────
-
-const INSPECTION_SECTIONS = [
-  {
-    key: "exteriorPanels",
-    titleEn: "Exterior Panels & Structure",
-    titleHi: "Bahari Body Panels aur Dhaancha",
-    icon: "🚗",
-    color: "#0284c7",
-    preset: "body",
-    items: [
-      { key: "bonnet", labelEn: "Bonnet / Hood", labelHi: "Bonnet" },
-      { key: "roof", labelEn: "Roof Panel", labelHi: "Chhat ka panel" },
-      {
-        key: "bootFloor",
-        labelEn: "Boot Floor / Tailgate",
-        labelHi: "Dickey ka floor aur darwaza",
-      },
-      { key: "leftFender", labelEn: "Left Fender", labelHi: "Baayein fender" },
-      {
-        key: "rightFender",
-        labelEn: "Right Fender",
-        labelHi: "Daayein fender",
-      },
-      {
-        key: "leftFrontDoor",
-        labelEn: "Left Front Door",
-        labelHi: "Baayein agla darwaza",
-      },
-      {
-        key: "leftRearDoor",
-        labelEn: "Left Rear Door",
-        labelHi: "Baayein peechla darwaza",
-      },
-      {
-        key: "rightFrontDoor",
-        labelEn: "Right Front Door",
-        labelHi: "Daayein agla darwaza",
-      },
-      {
-        key: "rightRearDoor",
-        labelEn: "Right Rear Door",
-        labelHi: "Daayein peechla darwaza",
-      },
-      {
-        key: "leftQuarterPanel",
-        labelEn: "Left Quarter Panel",
-        labelHi: "Baayein quarter panel",
-      },
-      {
-        key: "rightQuarterPanel",
-        labelEn: "Right Quarter Panel",
-        labelHi: "Daayein quarter panel",
-      },
-      {
-        key: "frontBumper",
-        labelEn: "Front Bumper",
-        labelHi: "Aage ka bumper",
-      },
-      {
-        key: "rearBumper",
-        labelEn: "Rear Bumper",
-        labelHi: "Peeche ka bumper",
-      },
-      {
-        key: "leftRunningBoard",
-        labelEn: "Left Running Board / Side Skirt",
-        labelHi: "Baayein running board",
-      },
-      {
-        key: "rightRunningBoard",
-        labelEn: "Right Running Board / Side Skirt",
-        labelHi: "Daayein running board",
-      },
-      {
-        key: "leftAPillar",
-        labelEn: "Left A-Pillar",
-        labelHi: "Baayein A-pillar",
-      },
-      {
-        key: "rightAPillar",
-        labelEn: "Right A-Pillar",
-        labelHi: "Daayein A-pillar",
-      },
-      {
-        key: "leftBPillar",
-        labelEn: "Left B-Pillar",
-        labelHi: "Baayein B-pillar",
-      },
-      {
-        key: "rightBPillar",
-        labelEn: "Right B-Pillar",
-        labelHi: "Daayein B-pillar",
-      },
-      {
-        key: "leftCPillar",
-        labelEn: "Left C-Pillar",
-        labelHi: "Baayein C-pillar",
-      },
-      {
-        key: "rightCPillar",
-        labelEn: "Right C-Pillar",
-        labelHi: "Daayein C-pillar",
-      },
-      {
-        key: "leftApronLeg",
-        labelEn: "Left Apron / Apron Leg",
-        labelHi: "Baayein apron",
-      },
-      {
-        key: "rightApronLeg",
-        labelEn: "Right Apron / Apron Leg",
-        labelHi: "Daayein apron",
-      },
-      { key: "firewall", labelEn: "Firewall / Cowl Top", labelHi: "Firewall" },
-      {
-        key: "radiatorSupport",
-        labelEn: "Radiator Support / Headlight Support",
-        labelHi: "Radiator support",
-      },
-      {
-        key: "lowerCrossMember",
-        labelEn: "Lower Cross Member",
-        labelHi: "Lower cross member",
-      },
-      {
-        key: "upperCrossMember",
-        labelEn: "Upper Cross Member",
-        labelHi: "Upper cross member",
-      },
-      {
-        key: "underbodyRust",
-        labelEn: "Underbody Rust / Corrosion",
-        labelHi: "Neeche zang",
-      },
-      {
-        key: "coreStructure",
-        labelEn: "Core Structure Integrity",
-        labelHi: "Core dhaancha theek hai",
-      },
-      {
-        key: "isWaterlogged",
-        labelEn: "Any Waterlogging Evidence",
-        labelHi: "Paani ghusa tha kya?",
-      },
-      {
-        key: "accidentEvidence",
-        labelEn: "Accident Evidence (repaint/filler)",
-        labelHi: "Accident ke nishan",
-      },
-    ],
-  },
-
-  // ── END PART 2A ─────────────────────────────────────────────────
-  // ── PART 2B of 2J ── Section 2: Glass, Lights & Exterior Fitments
-
-  {
-    key: "fitmentGlass",
-    titleEn: "Glass, Lights & Exterior Fitments",
-    titleHi: "Sheeshe, Lights aur Bahari Parts",
-    icon: "💡",
-    color: "#7c3aed",
-    preset: "glass",
-    items: [
-      {
-        key: "windshield",
-        labelEn: "Front Windshield",
-        labelHi: "Aage ka sheesa",
-        preset: "glass",
-      },
-      {
-        key: "rearWindshield",
-        labelEn: "Rear Windshield",
-        labelHi: "Peeche ka sheesa",
-        preset: "glass",
-      },
-      {
-        key: "windowGlasses",
-        labelEn: "All Window Glasses (4)",
-        labelHi: "Charon khidkiyan",
-        preset: "glass",
-      },
-      {
-        key: "orvms",
-        labelEn: "ORVMs — Both Side Mirrors",
-        labelHi: "Dono side mirrors",
-        preset: "glass",
-      },
-      {
-        key: "headlamps",
-        labelEn: "Headlamps (Both)",
-        labelHi: "Dono headlights",
-        preset: "body",
-      },
-      {
-        key: "taillamps",
-        labelEn: "Tail Lamps (Both)",
-        labelHi: "Dono tail lights",
-        preset: "body",
-      },
-      {
-        key: "fogLamps",
-        labelEn: "Fog Lamps (if fitted)",
-        labelHi: "Fog lights",
-        preset: "electrical",
-      },
-      {
-        key: "drl",
-        labelEn: "DRL / Daytime Running Lights",
-        labelHi: "DRL lights",
-        preset: "electrical",
-      },
-      {
-        key: "indicators",
-        labelEn: "All Indicators (4)",
-        labelHi: "Charon indicators",
-        preset: "electrical",
-      },
-      {
-        key: "reverseLight",
-        labelEn: "Reverse Light",
-        labelHi: "Reverse light",
-        preset: "electrical",
-      },
-      {
-        key: "wipersWashers",
-        labelEn: "Front Wipers & Washers",
-        labelHi: "Wiper aur washer",
-        preset: "mechanical",
-      },
-      {
-        key: "rearWiper",
-        labelEn: "Rear Wiper (if fitted)",
-        labelHi: "Peeche ka wiper",
-        preset: "mechanical",
-      },
-      {
-        key: "bumpersGrille",
-        labelEn: "Bumpers & Grille / Trims",
-        labelHi: "Bumper aur grille",
-        preset: "body",
-      },
-      {
-        key: "antenna",
-        labelEn: "Antenna / Shark Fin",
-        labelHi: "Antenna",
-        preset: "electrical",
-      },
-      {
-        key: "sunroofGlass",
-        labelEn: "Sunroof Glass (if fitted)",
-        labelHi: "Sunroof sheesa",
-        preset: "glass",
-      },
-    ],
-  },
-
-  // ── END PART 2B ─────────────────────────────────────────────────
-  // ── PART 2C of 2J ── Section 3: Wheels, Tyres, Suspension & Brakes
-
-  {
-    key: "wheelsTyres",
-    titleEn: "Wheels, Tyres, Suspension & Brakes",
-    titleHi: "Wheels, Tyre, Suspension aur Brakes",
-    icon: "⭕",
-    color: "#d97706",
-    preset: "tyre",
-    items: [
-      {
-        key: "frontLeftTyre",
-        labelEn: "Front Left Tyre",
-        labelHi: "Aage baayein tyre",
-        preset: "tyre",
-        hasTread: true,
-        hasBrand: true,
-      },
-      {
-        key: "frontRightTyre",
-        labelEn: "Front Right Tyre",
-        labelHi: "Aage daayein tyre",
-        preset: "tyre",
-        hasTread: true,
-        hasBrand: true,
-      },
-      {
-        key: "rearLeftTyre",
-        labelEn: "Rear Left Tyre",
-        labelHi: "Peeche baayein tyre",
-        preset: "tyre",
-        hasTread: true,
-        hasBrand: true,
-      },
-      {
-        key: "rearRightTyre",
-        labelEn: "Rear Right Tyre",
-        labelHi: "Peeche daayein tyre",
-        preset: "tyre",
-        hasTread: true,
-        hasBrand: true,
-      },
-      {
-        key: "spareTyre",
-        labelEn: "Spare Tyre & Toolkit",
-        labelHi: "Spare tyre aur toolkit",
-        preset: "tyre",
-        hasTread: true,
-      },
-      {
-        key: "alloyWheels",
-        labelEn: "Alloy Wheel Condition",
-        labelHi: "Alloy wheels ka haal",
-        preset: "body",
-      },
-      {
-        key: "wheelCaps",
-        labelEn: "Wheel Caps / Hub Caps",
-        labelHi: "Wheel caps",
-        preset: "body",
-      },
-      {
-        key: "suspension",
-        labelEn: "Suspension — Shocks & Struts",
-        labelHi: "Suspension",
-        preset: "mechanical",
-      },
-      {
-        key: "suspensionBushes",
-        labelEn: "Suspension Bushes & Ball Joints",
-        labelHi: "Bushes aur ball joints",
-        preset: "mechanical",
-      },
-      {
-        key: "brakes",
-        labelEn: "Brakes — Disc / Drum",
-        labelHi: "Brakes",
-        preset: "mechanical",
-      },
-      {
-        key: "brakeFluid",
-        labelEn: "Brake Fluid Level",
-        labelHi: "Brake fluid level",
-        preset: "mechanical",
-      },
-      {
-        key: "handbrake",
-        labelEn: "Handbrake / Parking Brake",
-        labelHi: "Handbrake",
-        preset: "mechanical",
-      },
-      {
-        key: "steeringAlignment",
-        labelEn: "Steering Alignment / Pull",
-        labelHi: "Steering alignment",
-        preset: "mechanical",
-      },
-      {
-        key: "steeringRack",
-        labelEn: "Steering Rack & Column",
-        labelHi: "Steering rack",
-        preset: "mechanical",
-      },
-      {
-        key: "powerSteering",
-        labelEn: "Power Steering — Fluid / EPS",
-        labelHi: "Power steering",
-        preset: "mechanical",
-      },
-    ],
-  },
-
-  // ── END PART 2C ─────────────────────────────────────────────────
-  // ── PART 2D of 2J ── Section 4: Engine Bay & Transmission ───────
-
-  {
-    key: "engineTransmission",
-    titleEn: "Engine Bay, Transmission & Mechanicals",
-    titleHi: "Engine, Gearbox aur Mechanical Parts",
-    icon: "⚙️",
-    color: "#dc2626",
-    preset: "mechanical",
-    items: [
-      {
-        key: "engineStart",
-        labelEn: "Engine Cold Start",
-        labelHi: "Thanda engine start karna",
-      },
-      {
-        key: "engineNoise",
-        labelEn: "Engine Noise / Vibration",
-        labelHi: "Engine ki awaaz ya kaampan",
-      },
-      {
-        key: "engineSmoke",
-        labelEn: "Exhaust Smoke Colour",
-        labelHi: "Exhaust dhua ka rang",
-        preset: "smoke",
-      },
-      {
-        key: "engineLeakage",
-        labelEn: "Oil / Coolant Leakage",
-        labelHi: "Oil ya coolant ka leak",
-      },
-      {
-        key: "oilLevel",
-        labelEn: "Engine Oil Level & Colour",
-        labelHi: "Engine oil level aur rang",
-      },
-      {
-        key: "coolantLevel",
-        labelEn: "Coolant Level",
-        labelHi: "Coolant level",
-      },
-      {
-        key: "batteryCondition",
-        labelEn: "Battery Condition",
-        labelHi: "Battery ka haal",
-      },
-      {
-        key: "batteryVoltage",
-        labelEn: "Battery Voltage (ideal 12.4V+)",
-        labelHi: "Battery voltage",
-      },
-      {
-        key: "alternator",
-        labelEn: "Alternator & Charging System",
-        labelHi: "Alternator",
-      },
-      {
-        key: "coolingSystem",
-        labelEn: "Cooling System / Radiator",
-        labelHi: "Cooling system",
-      },
-      {
-        key: "acCompressor",
-        labelEn: "AC Compressor Belt & Body",
-        labelHi: "AC compressor",
-      },
-      {
-        key: "airFilter",
-        labelEn: "Air Filter Condition",
-        labelHi: "Air filter",
-      },
-      {
-        key: "throttleBody",
-        labelEn: "Throttle Body — Clean?",
-        labelHi: "Throttle body saaf hai?",
-      },
-      {
-        key: "fuelSystem",
-        labelEn: "Fuel Lines / Tank — No Leak",
-        labelHi: "Fuel system leak nahi",
-      },
-      {
-        key: "exhaustSystem",
-        labelEn: "Exhaust System / Silencer",
-        labelHi: "Exhaust aur silencer",
-      },
-      {
-        key: "engineMounting",
-        labelEn: "Engine Mounting",
-        labelHi: "Engine mounting",
-      },
-      {
-        key: "clutch",
-        labelEn: "Clutch Feel & Bite Point",
-        labelHi: "Clutch ka feel",
-      },
-      {
-        key: "gearbox",
-        labelEn: "Gearbox / Gear Shifting",
-        labelHi: "Gearbox aur gear shifting",
-      },
-      {
-        key: "automaticShifts",
-        labelEn: "Automatic Transmission Shifts",
-        labelHi: "AT gear shifts",
-      },
-      {
-        key: "propshaft",
-        labelEn: "Propshaft / CV Joints",
-        labelHi: "Propshaft / CV joint",
-      },
-      {
-        key: "timingBelt",
-        labelEn: "Timing Belt / Chain Condition",
-        labelHi: "Timing belt ya chain",
-      },
-      {
-        key: "cngKit",
-        labelEn: "CNG Kit — if fitted",
-        labelHi: "CNG kit agar laga ho",
-      },
-      {
-        key: "engineWiring",
-        labelEn: "Engine Bay Wiring Harness",
-        labelHi: "Engine wiring",
-      },
-    ],
-  },
-
-  // ── END PART 2D ─────────────────────────────────────────────────
-  // ── PART 2E of 2J ── Section 5: Interior, Cabin & Electricals ───
-
-  {
-    key: "interiorElectrical",
-    titleEn: "Interior, Cabin & Electricals",
-    titleHi: "Andar ka Haal, Cabin aur Electricals",
-    icon: "🪑",
-    color: "#059669",
-    preset: "electrical",
-    items: [
-      {
-        key: "dashboardTrim",
-        labelEn: "Dashboard & Trims",
-        labelHi: "Dashboard aur trims",
-        preset: "body",
-      },
-      {
-        key: "seatsUpholstery",
-        labelEn: "Seats & Upholstery",
-        labelHi: "Seats aur kapda",
-        preset: "body",
-      },
-      {
-        key: "seatBelts",
-        labelEn: "Seat Belts — All",
-        labelHi: "Sabke seat belts",
-        preset: "safety",
-      },
-      {
-        key: "headliner",
-        labelEn: "Headliner / Roof Lining",
-        labelHi: "Upar ki lining",
-        preset: "body",
-      },
-      {
-        key: "floorCarpet",
-        labelEn: "Floor Carpet & Mats",
-        labelHi: "Neeche ka carpet",
-        preset: "body",
-      },
-      {
-        key: "doorPadsTrim",
-        labelEn: "Door Pads & Interior Trims",
-        labelHi: "Darwaze ke andar ke pads",
-        preset: "body",
-      },
-      {
-        key: "instrumentCluster",
-        labelEn: "Instrument Cluster & Warning Lights",
-        labelHi: "Cluster aur warning lights",
-        preset: "electrical",
-      },
-      {
-        key: "checkEngineLight",
-        labelEn: "Check Engine / MIL Light",
-        labelHi: "Check engine light",
-        preset: "safety",
-      },
-      {
-        key: "absLight",
-        labelEn: "ABS Warning Light",
-        labelHi: "ABS warning light",
-        preset: "safety",
-      },
-      {
-        key: "airbagLight",
-        labelEn: "Airbag / SRS Warning Light",
-        labelHi: "Airbag warning light",
-        preset: "safety",
-      },
-      {
-        key: "batteryLight",
-        labelEn: "Battery Warning Light",
-        labelHi: "Battery warning light",
-        preset: "safety",
-      },
-      {
-        key: "oilPressureLight",
-        labelEn: "Oil Pressure Warning Light",
-        labelHi: "Oil pressure warning light",
-        preset: "safety",
-      },
-      {
-        key: "infotainment",
-        labelEn: "Infotainment / Stereo System",
-        labelHi: "Infotainment system",
-        preset: "electrical",
-      },
-      {
-        key: "speakers",
-        labelEn: "Speakers — All Working",
-        labelHi: "Sabke speakers",
-        preset: "electrical",
-      },
-      {
-        key: "powerWindows",
-        labelEn: "Power Windows — All 4",
-        labelHi: "Charon power windows",
-        preset: "electrical",
-      },
-      {
-        key: "centralLocking",
-        labelEn: "Central Locking System",
-        labelHi: "Central locking",
-        preset: "electrical",
-      },
-      {
-        key: "acCooling",
-        labelEn: "AC Cooling & Blower",
-        labelHi: "AC thanda aur blower",
-        preset: "ac",
-      },
-      {
-        key: "heater",
-        labelEn: "Heater Function",
-        labelHi: "Heater kaam karta hai?",
-        preset: "electrical",
-      },
-      {
-        key: "climateControl",
-        labelEn: "Climate Control / Auto AC",
-        labelHi: "Climate control",
-        preset: "electrical",
-      },
-      {
-        key: "reverseCamera",
-        labelEn: "Reverse Camera & Sensors",
-        labelHi: "Reverse camera aur sensors",
-        preset: "electrical",
-      },
-      {
-        key: "parkingSensors",
-        labelEn: "Parking Sensors",
-        labelHi: "Parking sensors",
-        preset: "electrical",
-      },
-      {
-        key: "cabinLights",
-        labelEn: "Cabin Lights & Dome Light",
-        labelHi: "Andar ki lights",
-        preset: "electrical",
-      },
-      {
-        key: "hornSteeringCtrl",
-        labelEn: "Horn & Steering Controls",
-        labelHi: "Horn aur steering ke buttons",
-        preset: "electrical",
-      },
-      {
-        key: "steeringWheel",
-        labelEn: "Steering Wheel Condition",
-        labelHi: "Steering wheel ka haal",
-        preset: "body",
-      },
-      {
-        key: "gearKnob",
-        labelEn: "Gear Knob & Gear Boot",
-        labelHi: "Gear knob",
-        preset: "body",
-      },
-      {
-        key: "handbrakeHandle",
-        labelEn: "Handbrake Handle & Lever",
-        labelHi: "Handbrake handle",
-        preset: "mechanical",
-      },
-      {
-        key: "sunroof",
-        labelEn: "Sunroof Operation (if fitted)",
-        labelHi: "Sunroof kaam karta hai?",
-        preset: "electrical",
-      },
-      {
-        key: "wirelessCharging",
-        labelEn: "Wireless Charging Pad (if fitted)",
-        labelHi: "Wireless charging",
-        preset: "electrical",
-      },
-      {
-        key: "usbAuxPorts",
-        labelEn: "USB / AUX Ports",
-        labelHi: "USB aur AUX ports",
-        preset: "electrical",
-      },
-      {
-        key: "rearDefogger",
-        labelEn: "Rear Defogger",
-        labelHi: "Rear defogger",
-        preset: "electrical",
-      },
-      {
-        key: "odometer",
-        labelEn: "Odometer Reading Consistent",
-        labelHi: "Odometer reading sahi lagti",
-        preset: "mechanical",
-      },
-    ],
-  },
-
-  // ── END PART 2E ─────────────────────────────────────────────────
-  // ── PART 2F of 2J ── Section 6: Safety & Compliance ─────────────
-
-  {
-    key: "safety",
-    titleEn: "Safety & Compliance",
-    titleHi: "Safety aur Compliance",
-    icon: "🛡️",
-    color: "#4f46e5",
-    preset: "safety",
-    items: [
-      {
-        key: "airbags",
-        labelEn: "Airbags — Count & Status",
-        labelHi: "Airbags — kitne hain aur kaisi haalat",
-        preset: "safety",
-      },
-      {
-        key: "airbagCount",
-        labelEn: "Number of Airbags",
-        labelHi: "Airbags ki sankhya",
-        preset: "airbag",
-      },
-      {
-        key: "absEsc",
-        labelEn: "ABS / ESC System",
-        labelHi: "ABS aur ESC system",
-        preset: "safety",
-      },
-      {
-        key: "seatBeltDriver",
-        labelEn: "Driver Seat Belt — Pre-tensioner OK",
-        labelHi: "Driver seat belt",
-        preset: "safety",
-      },
-      {
-        key: "seatBeltPassenger",
-        labelEn: "All Passenger Seat Belts",
-        labelHi: "Sabke seat belts",
-        preset: "safety",
-      },
-      {
-        key: "childLock",
-        labelEn: "Child Lock on Rear Doors",
-        labelHi: "Rear door child lock",
-        preset: "electrical",
-      },
-      {
-        key: "isofix",
-        labelEn: "ISOFIX Child Seat Anchors",
-        labelHi: "ISOFIX anchors",
-        preset: "safety",
-      },
-      {
-        key: "tpms",
-        labelEn: "TPMS — Tyre Pressure Alerts",
-        labelHi: "TPMS tyre pressure system",
-        preset: "electrical",
-      },
-      {
-        key: "warningTriangle",
-        labelEn: "Warning Triangle Present",
-        labelHi: "Warning triangle hai?",
-        preset: "safety",
-      },
-      {
-        key: "firstAidKit",
-        labelEn: "First Aid Kit Present",
-        labelHi: "First aid kit hai?",
-        preset: "safety",
-      },
-      {
-        key: "fireExtinguisher",
-        labelEn: "Fire Extinguisher (if applicable)",
-        labelHi: "Fire extinguisher",
-        preset: "safety",
-      },
-      {
-        key: "keysCount",
-        labelEn: "Number of Keys Available",
-        labelHi: "Kitni chaabiyan hain?",
-        preset: "safety",
-      },
-      {
-        key: "ownerManual",
-        labelEn: "Owner's Manual Available",
-        labelHi: "Owner manual hai?",
-        preset: "safety",
-      },
-      {
-        key: "serviceRecord",
-        labelEn: "Service Records Available",
-        labelHi: "Service record hai?",
-        preset: "safety",
-      },
-    ],
-  },
-
-  // ── END PART 2F ─────────────────────────────────────────────────
-  // ── PART 2G of 2J ── Section 7: Road Test & Marketability ───────
-
-  {
-    key: "roadTest",
-    titleEn: "Road Test & Marketability",
-    titleHi: "Road Test aur Bechne layak haal",
-    icon: "🛣️",
-    color: "#0891b2",
-    preset: "road",
-    items: [
-      {
-        key: "pickupDriveability",
-        labelEn: "Pickup & Driveability",
-        labelHi: "Pickup aur drive ka feel",
-        preset: "road",
-      },
-      {
-        key: "brakingRoad",
-        labelEn: "Braking on Road",
-        labelHi: "Road pe braking",
-        preset: "road",
-      },
-      {
-        key: "suspensionNoise",
-        labelEn: "Suspension & Cabin Noise",
-        labelHi: "Suspension aur andar ki awaaz",
-        preset: "road",
-      },
-      {
-        key: "steeringFeel",
-        labelEn: "Steering Feel & Response",
-        labelHi: "Steering ka feel",
-        preset: "road",
-      },
-      {
-        key: "clutchBite",
-        labelEn: "Clutch Bite Point (MT only)",
-        labelHi: "Clutch bite point",
-        preset: "road",
-      },
-      {
-        key: "gearShiftRoad",
-        labelEn: "Gear Shift Quality on Road",
-        labelHi: "Road pe gear shifting",
-        preset: "road",
-      },
-      {
-        key: "autoGearRoad",
-        labelEn: "Auto / AMT Shift Quality",
-        labelHi: "Auto gear ka kaam",
-        preset: "road",
-      },
-      {
-        key: "vibrationSpeed",
-        labelEn: "Vibration at High Speed",
-        labelHi: "Speed pe kaampan",
-        preset: "road",
-      },
-      {
-        key: "pullingLeft",
-        labelEn: "Car Pulling Left / Right",
-        labelHi: "Gaadi ek taraf khichti hai?",
-        preset: "road",
-      },
-      {
-        key: "acOnRoad",
-        labelEn: "AC Cooling While Driving",
-        labelHi: "Drive karte waqt AC ka thanda",
-        preset: "ac",
-      },
-      {
-        key: "odometerConsistency",
-        labelEn: "Odometer Reading Consistent",
-        labelHi: "Odometer sahi lag raha",
-        preset: "road",
-      },
-      {
-        key: "marketability",
-        labelEn: "Overall Marketability Grade",
-        labelHi: "Bechne ki overall grade",
-        preset: "market",
-      },
-    ],
-  },
-
-  // ── END PART 2G
-  // ── PART 2H of 2J ── Section 8: AC System | Section 9: OEM Features
-
-  {
-    key: "acSystem",
-    titleEn: "Air Conditioning System",
-    titleHi: "AC System",
-    icon: "❄️",
-    color: "#0ea5e9",
-    preset: "ac",
-    items: [
-      {
-        key: "acCoolingPerf",
-        labelEn: "AC Cooling Performance",
-        labelHi: "AC thanda karta hai?",
-        preset: "ac",
-      },
-      {
-        key: "heaterPerf",
-        labelEn: "Heater Performance",
-        labelHi: "Heater kaam karta hai?",
-        preset: "electrical",
-      },
-      {
-        key: "blowerSpeeds",
-        labelEn: "Blower — All Speeds Working",
-        labelHi: "Blower ki saari speeds",
-        preset: "electrical",
-      },
-      {
-        key: "climateControlAc",
-        labelEn: "Climate Control / Auto AC",
-        labelHi: "Auto climate control",
-        preset: "electrical",
-      },
-      {
-        key: "acLeaks",
-        labelEn: "AC Refrigerant Leaks",
-        labelHi: "AC mein leak hai?",
-        preset: "mechanical",
-      },
-      {
-        key: "acCompressorNoise",
-        labelEn: "AC Compressor Noise",
-        labelHi: "AC compressor ki awaaz",
-        preset: "mechanical",
-      },
-      {
-        key: "condenserCondition",
-        labelEn: "AC Condenser Condition",
-        labelHi: "AC condenser ka haal",
-        preset: "mechanical",
-      },
-      {
-        key: "acFilterClean",
-        labelEn: "AC Cabin Filter — Clean?",
-        labelHi: "AC cabin filter saaf hai?",
-        preset: "mechanical",
-      },
-    ],
-  },
-
-  {
-    key: "oemFeatures",
-    titleEn: "OEM Features & Specifications Verification",
-    titleHi: "Factory Features ki Jaanch",
-    icon: "📋",
-    color: "#6366f1",
-    preset: "verification",
-    items: [
-      {
-        key: "oemPowerWindows",
-        labelEn: "Power Windows — Count Verified",
-        labelHi: "Power windows confirm",
-        preset: "verification",
-      },
-      {
-        key: "oemAirbags",
-        labelEn: "Airbag Count — Matches OEM Spec",
-        labelHi: "Airbag count OEM se mela",
-        preset: "verification",
-      },
-      {
-        key: "oemAbs",
-        labelEn: "ABS Fitted as per Variant",
-        labelHi: "ABS variant ke hisaab se hai",
-        preset: "verification",
-      },
-      {
-        key: "oemEsc",
-        labelEn: "ESC / Stability Control",
-        labelHi: "ESC stability control",
-        preset: "verification",
-      },
-      {
-        key: "oemCentralLock",
-        labelEn: "Central Locking — OEM or Aftermarket",
-        labelHi: "Central lock OEM ya aftermarket",
-        preset: "verification",
-      },
-      {
-        key: "oemRearDefogger",
-        labelEn: "Rear Defogger Verified",
-        labelHi: "Rear defogger confirm",
-        preset: "verification",
-      },
-      {
-        key: "oemReverseCamera",
-        labelEn: "Reverse Camera — OEM or Added Later",
-        labelHi: "Reverse camera OEM ya baad mein",
-        preset: "verification",
-      },
-      {
-        key: "oemParkingSensors",
-        labelEn: "Parking Sensors — OEM or Added",
-        labelHi: "Parking sensors OEM ya aftermarket",
-        preset: "verification",
-      },
-      {
-        key: "oemSunroof",
-        labelEn: "Sunroof — OEM or Aftermarket Cut",
-        labelHi: "Sunroof OEM ya cut karaya",
-        preset: "verification",
-      },
-      {
-        key: "oemAlloys",
-        labelEn: "Alloy Wheels — OEM or Changed",
-        labelHi: "Alloy wheels OEM ya badle",
-        preset: "verification",
-      },
-      {
-        key: "oemInfotainment",
-        labelEn: "Infotainment — OEM or Replaced",
-        labelHi: "Infotainment OEM ya badla",
-        preset: "verification",
-      },
-      {
-        key: "oemSeatUpholstery",
-        labelEn: "Seat Upholstery — OEM or Modified",
-        labelHi: "Seats OEM ya cover laga",
-        preset: "verification",
-      },
-      {
-        key: "oemFogLamps",
-        labelEn: "Fog Lamps — OEM or Added Later",
-        labelHi: "Fog lamps OEM ya baad mein lage",
-        preset: "verification",
-      },
-      {
-        key: "oemKeylessEntry",
-        labelEn: "Keyless Entry / Smart Key Present",
-        labelHi: "Keyless entry hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemPushStart",
-        labelEn: "Push Button Start Present",
-        labelHi: "Push start hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemCruiseControl",
-        labelEn: "Cruise Control Present",
-        labelHi: "Cruise control hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemSteeringAudio",
-        labelEn: "Steering Mounted Audio Controls",
-        labelHi: "Steering pe music controls",
-        preset: "verification",
-      },
-      {
-        key: "oemAndroidAuto",
-        labelEn: "Android Auto / Apple CarPlay",
-        labelHi: "Android Auto / CarPlay hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemGps",
-        labelEn: "Built-in GPS / Navigation",
-        labelHi: "Built-in GPS hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemTpms",
-        labelEn: "TPMS — Tyre Pressure Monitor",
-        labelHi: "TPMS system hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemLaneAssist",
-        labelEn: "Lane Assist / ADAS Features",
-        labelHi: "Lane assist ya ADAS hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemRearAC",
-        labelEn: "Rear AC Vents Present",
-        labelHi: "Rear AC vents hain?",
-        preset: "verification",
-      },
-      {
-        key: "oemAmbientLight",
-        labelEn: "Ambient Lighting (if applicable)",
-        labelHi: "Ambient lighting hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemVentilatedSeats",
-        labelEn: "Ventilated / Heated Seats",
-        labelHi: "Ventilated seats hain?",
-        preset: "verification",
-      },
-      {
-        key: "oemAutoHeadlamps",
-        labelEn: "Auto Headlamps / Rain Sensing Wiper",
-        labelHi: "Auto headlamps ya rain sensor",
-        preset: "verification",
-      },
-    ],
-  },
-
-  // ── END PART 2H (COMPLETE) ───────────────────────────────────────
-  // ── PART 2I of 2J ── Close INSPECTION_SECTIONS array ────────────
-]; // ← closes INSPECTION_SECTIONS array
-
-// ── Tyre tread depth → life % + remaining km helper ─────────────
-const tyreLifeFromTread = (mm) => {
-  const t = Number(mm) || 0;
-  if (t >= 7) return { pct: 95, km: "44,000+", color: "#10b981" };
-  if (t >= 6) return { pct: 80, km: "36,000", color: "#10b981" };
-  if (t >= 5) return { pct: 70, km: "30,000", color: "#10b981" };
-  if (t >= 4) return { pct: 55, km: "22,000", color: "#f59e0b" };
-  if (t >= 3) return { pct: 40, km: "13,000", color: "#f59e0b" };
-  if (t >= 2) return { pct: 20, km: "6,000", color: "#ef4444" };
-  return { pct: 5, km: "<2,000", color: "#ef4444" };
-};
-
-// ── Score calculator — % complete per section ────────────────────
-const calcSectionScore = (sectionKey, itemValues) => {
-  const section = INSPECTION_SECTIONS.find((s) => s.key === sectionKey);
-  if (!section) return 0;
-  const total = section.items.length;
-  if (!total) return 0;
-  const filled = section.items.filter((item) => {
-    const v = itemValues?.[item.key]?.status;
-    return normalizeStatusList(v).length > 0;
-  }).length;
-  return Math.round((filled / total) * 100);
-};
-
-// ── Overall report score (0–100) ─────────────────────────────────
-const calcOverallScore = (itemValues) => {
-  const weights = {
-    exteriorPanels: 20,
-    fitmentGlass: 10,
-    wheelsTyres: 10,
-    engineTransmission: 20,
-    interiorElectrical: 15,
-    safety: 10,
-    roadTest: 8,
-    acSystem: 4,
-    oemFeatures: 3,
-  };
-  let weightedScore = 0;
-  let totalWeight = 0;
-  INSPECTION_SECTIONS.forEach((section) => {
-    const w = weights[section.key] || 0;
-    const score = calcSectionScore(section.key, itemValues);
-    weightedScore += score * w;
-    totalWeight += w * 100;
-  });
-  return totalWeight > 0 ? Math.round((weightedScore / totalWeight) * 100) : 0;
-};
-
-// ── END PART 2I ─────────────────────────────────────────────────
-// ── PART 2J of 2J ── File helpers, getInspectionState, buildReportValues ──
-
-// ── File list converters ─────────────────────────────────────────
-const toFileList = (files = [], prefix = "file") =>
-  files.map((file, index) => ({
-    uid: file.uid || `${prefix}-${index}`,
-    name: file.name || `Photo ${index + 1}`,
-    status: "done",
-    url: file.url || file.thumbUrl || file.preview,
-    thumbUrl: file.thumbUrl || file.preview || file.url,
-    preview: file.preview || file.thumbUrl || file.url,
-  }));
-
-const fromFileList = (files = []) =>
-  files.map((file, index) => ({
-    uid: file.uid || `upl-${index}`,
-    name: file.name || `Photo ${index + 1}`,
-    url: file.url || file.thumbUrl || file.preview,
-    thumbUrl: file.thumbUrl || file.preview || file.url,
-    preview: file.preview || file.thumbUrl || file.url,
-  }));
 
 // ── Inspection state badge ───────────────────────────────────────
 const getInspectionState = (lead) => {
@@ -1870,6 +147,7 @@ const buildReportValues = (lead) => {
   const report = inspection?.report || {};
   const leadVerif = report?.leadVerification || {};
   const photoBuckets = report?.photoBuckets || {};
+  const bulkEvidence = report?.bulkEvidence || [];
   const savedItems = report?.items || {};
 
   const baseDate =
@@ -1926,6 +204,7 @@ const buildReportValues = (lead) => {
         toFileList(photoBuckets[b.key] || [], b.key),
       ]),
     ),
+    bulkEvidence: toFileList(bulkEvidence, "bulk-evidence"),
 
     // All checklist items
     items,
@@ -1966,6 +245,7 @@ const buildReportPayload = (values) => ({
       fromFileList(values.photoBuckets?.[b.key] || []),
     ]),
   ),
+  bulkEvidence: fromFileList(values.bulkEvidence || []),
   items: Object.fromEntries(
     INSPECTION_SECTIONS.flatMap((s) =>
       s.items.map((item) => [
@@ -2047,24 +327,6 @@ function ScoreBadge({ score }) {
   );
 }
 
-function SectionProgressBar({ sectionKey, itemValues }) {
-  const score = calcSectionScore(sectionKey, itemValues);
-  const color = score >= 75 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444";
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-        <div
-          style={{ width: `${score}%`, background: color }}
-          className="h-full rounded-full transition-all duration-500"
-        />
-      </div>
-      <span className="w-8 text-right text-[10px] font-bold" style={{ color }}>
-        {score}%
-      </span>
-    </div>
-  );
-}
-
 function TyreLifeBar({ treadMm }) {
   const life = tyreLifeFromTread(treadMm);
   return (
@@ -2105,7 +367,9 @@ function OverallScoreRing({ score }) {
 }
 
 function getSectionOrder(sectionKey) {
-  const index = INSPECTION_SECTIONS.findIndex((section) => section.key === sectionKey);
+  const index = INSPECTION_SECTIONS.findIndex(
+    (section) => section.key === sectionKey,
+  );
   return index >= 0 ? String(index + 1).padStart(2, "0") : "--";
 }
 
@@ -2206,42 +470,45 @@ function InspectionQueueCard({ lead, active, onClick }) {
         </span>
       </div>
       {state.key === "draft" ? (
-        <div className="mt-3">
+        <div
+          className={`mt-3 rounded-[14px] px-3 py-2 ${active ? "bg-white/10 dark:bg-black/10" : "bg-slate-50 dark:bg-white/[0.04]"}`}
+        >
           <p
-            className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55" : "text-slate-400 dark:text-slate-500"}`}
+            className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${active ? "text-white/55" : "text-slate-400 dark:text-slate-500"}`}
           >
-            Report Progress
+            Draft Report
           </p>
-          <SectionProgressBar
-            sectionKey="exteriorPanels"
-            itemValues={lead.inspection?.report?.items}
-          />
+          <p className="mt-1 text-xs font-bold">
+            Inspection started, submission pending
+          </p>
         </div>
       ) : null}
     </button>
   );
 }
 
-function VerificationCard({ field }) {
-  const form = Form.useFormInstance();
-  const checked = Form.useWatch(["leadVerification", field.key], form);
-  const activeStyle = checked
+function VerificationCard({ field, checked, onToggle }) {
+  const [localChecked, setLocalChecked] = useState(Boolean(checked));
+
+  const activeStyle = localChecked
     ? {
         borderColor: "#047857",
-        background: "#10b981",
+        background: "#047857",
         color: "#ffffff",
-        boxShadow: "0 10px 24px rgba(5, 150, 105, 0.28)",
+        boxShadow: "0 12px 28px rgba(5, 150, 105, 0.30)",
       }
     : undefined;
   return (
     <button
       type="button"
-      onClick={() =>
-        form.setFieldValue(["leadVerification", field.key], !checked)
-      }
+      onClick={() => {
+        const next = !localChecked;
+        setLocalChecked(next);
+        onToggle(next);
+      }}
       style={activeStyle}
       className={`w-full rounded-[18px] border px-4 py-3 text-left transition-all ${
-        checked
+        localChecked
           ? ""
           : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-[#11151b]"
       }`}
@@ -2250,17 +517,17 @@ function VerificationCard({ field }) {
         <div className="flex items-start gap-3">
           <span
             className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-black ${
-              checked
+              localChecked
                 ? "border-white bg-white text-emerald-700"
                 : "border-slate-300 text-slate-400 dark:border-slate-600 dark:text-slate-500"
             }`}
           >
-            {checked ? "✓" : ""}
+            {localChecked ? "✓" : ""}
           </span>
           <div>
             <p
               className={`text-sm font-semibold ${
-                checked
+                localChecked
                   ? "text-white"
                   : "text-slate-900 dark:text-slate-100"
               }`}
@@ -2271,12 +538,12 @@ function VerificationCard({ field }) {
         </div>
         <span
           className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${
-            checked
+            localChecked
               ? "border-white/70 bg-white text-emerald-700"
               : "border-slate-200 bg-slate-50 text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500"
           }`}
         >
-          {checked ? "Verified" : "Pending"}
+          {localChecked ? "Verified" : "Pending"}
         </span>
       </div>
     </button>
@@ -2287,32 +554,40 @@ function SectionItemCard({
   item,
   section,
   formName,
+  itemValue,
   autoOpen,
   clearAutoOpen,
   onAdvance,
   onSeedTyreBrand,
+  onValueChange,
 }) {
   const itemRef = useRef(null);
   const advanceTimerRef = useRef(null);
+  const [manuallyExpanded, setManuallyExpanded] = useState(false);
   const options = getItemOptions(item, section);
   const multiSelect = allowsMultiSelect(item, section);
+  const photoEligible = isPhotoEligibleItem(item, section);
   const isTyre = Boolean(item.hasTread);
   const hasBrand = Boolean(item.hasBrand);
   const form = Form.useFormInstance();
-  const statusVal = normalizeStatusList(
-    Form.useWatch([formName, item.key, "status"], form),
+  const currentItemValue = itemValue || {};
+  const [localStatusVal, setLocalStatusVal] = useState(
+    normalizeStatusList(currentItemValue.status),
   );
-  const severityVal = Form.useWatch([formName, item.key, "severity"], form);
-  const treadVal = Form.useWatch([formName, item.key, "treadDepth"], form);
-  const photoList = Form.useWatch([formName, item.key, "photos"], form) || [];
+  const statusVal = localStatusVal;
+  const severityVal = currentItemValue.severity;
+  const treadVal = currentItemValue.treadDepth;
+  const answered = statusVal.length > 0;
+  const isCollapsed = answered && !autoOpen && !manuallyExpanded;
 
   useEffect(() => {
-    if (!autoOpen || !itemRef.current) return;
-    itemRef.current.scrollIntoView({
-      behavior: "auto",
-      block: "center",
-      inline: "nearest",
-    });
+    if (autoOpen) {
+      setManuallyExpanded(false);
+    }
+  }, [autoOpen]);
+
+  useEffect(() => {
+    if (!autoOpen) return;
     const timeout = window.setTimeout(() => clearAutoOpen(), 120);
     return () => window.clearTimeout(timeout);
   }, [autoOpen, clearAutoOpen]);
@@ -2329,7 +604,7 @@ function SectionItemCard({
   const handleStatusSelect = useCallback(
     (status) => {
       const currentValue = form.getFieldValue([formName, item.key]) || {};
-      const currentStatuses = normalizeStatusList(currentValue.status);
+      const currentStatuses = normalizeStatusList(localStatusVal);
       const nextStatuses = multiSelect
         ? currentStatuses.includes(status)
           ? currentStatuses.filter((entry) => entry !== status)
@@ -2337,14 +612,21 @@ function SectionItemCard({
         : currentStatuses[0] === status
           ? []
           : [status];
-      form.setFieldValue([formName, item.key], {
-        ...currentValue,
-        status: nextStatuses,
-        severity: nextStatuses.length
-          ? currentValue.severity ||
-            getStatusSeverity(nextStatuses, item, section)
-          : "",
+      setLocalStatusVal(nextStatuses);
+      form.setFieldsValue({
+        [formName]: {
+          ...(form.getFieldValue(formName) || {}),
+          [item.key]: {
+            ...currentValue,
+            status: nextStatuses,
+            severity: nextStatuses.length
+              ? currentValue.severity ||
+                getStatusSeverity(nextStatuses, item, section)
+              : "",
+          },
+        },
       });
+      onValueChange?.();
       if (!nextStatuses.length) return;
       if (advanceTimerRef.current) {
         window.clearTimeout(advanceTimerRef.current);
@@ -2357,13 +639,69 @@ function SectionItemCard({
       }
       onAdvance(item.key);
     },
-    [form, formName, item, multiSelect, onAdvance, section],
+    [
+      form,
+      formName,
+      item,
+      localStatusVal,
+      multiSelect,
+      onAdvance,
+      onValueChange,
+      section,
+    ],
   );
+
+  const showEvidenceUploader =
+    photoEligible && statusVal.length > 0 && !isPositiveInspectionStatus(statusVal);
+
+  if (isCollapsed) {
+    return (
+      <button
+        type="button"
+        ref={itemRef}
+        data-inspection-item={item.key}
+        onClick={() => setManuallyExpanded(true)}
+        style={{ scrollMarginTop: "140px" }}
+        className="w-full rounded-[18px] border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-left transition-all hover:border-emerald-300 dark:border-emerald-500/20 dark:bg-emerald-500/10"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {item.labelEn}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-emerald-200 bg-emerald-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white dark:border-emerald-400/40">
+                Answered
+              </span>
+              {statusVal.map((status) => {
+                const meta = getItemOptionMeta(item, section, status) || {
+                  value: status,
+                };
+                return (
+                  <span
+                    key={status}
+                    style={getOptionActiveTone(meta)}
+                    className="rounded-full border-2 px-2.5 py-1 text-[11px] font-bold"
+                  >
+                    {status}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <span className="rounded-full border border-slate-300 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:border-white/10 dark:text-slate-300">
+            Review
+          </span>
+        </div>
+      </button>
+    );
+  }
 
   return (
     <div
       ref={itemRef}
       data-inspection-item={item.key}
+      style={{ scrollMarginTop: "120px" }}
       className={`rounded-[18px] border px-4 py-4 transition-all ${
         autoOpen
           ? "border-sky-400 bg-sky-50/70 shadow-[0_0_0_3px_rgba(14,165,233,0.10)] dark:border-sky-400/70 dark:bg-sky-500/10"
@@ -2376,9 +714,18 @@ function SectionItemCard({
             {item.labelEn}
           </p>
         </div>
-        <span className="mt-0.5 shrink-0 rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:border-white/10 dark:text-slate-500">
-          Photo
-        </span>
+        <div className="mt-0.5 flex shrink-0 items-center gap-2">
+          {answered ? (
+            <span className="rounded-full border border-emerald-200 bg-emerald-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white dark:border-emerald-400/40">
+              Answered
+            </span>
+          ) : null}
+          {showEvidenceUploader ? (
+            <span className="rounded-full border border-amber-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700 dark:border-amber-500/30 dark:text-amber-300">
+              Evidence needed
+            </span>
+          ) : null}
+        </div>
       </div>
       <div className="mt-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
@@ -2403,7 +750,8 @@ function SectionItemCard({
                 <span
                   key={status}
                   style={activeTone}
-                  className="rounded-full border px-2.5 py-1 text-[11px] font-bold"
+                  className="rounded-full border-2 px-2.5 py-1 text-[11px] font-bold"
+                  // border → border-2 so inline borderColor actually shows
                 >
                   {status}
                 </span>
@@ -2422,11 +770,19 @@ function SectionItemCard({
                 type="button"
                 aria-pressed={active}
                 onClick={() => handleStatusSelect(option.value)}
-                style={active ? activeTone : tone}
-                className={`relative z-10 cursor-pointer rounded-full border-2 px-4 py-2.5 text-sm font-bold leading-none transition-all ${
+                style={
                   active
-                    ? "scale-[1.02] ring-2 ring-offset-2 ring-offset-white ring-slate-900/10 dark:ring-white/20 dark:ring-offset-[#0f1319]"
-                    : "border-opacity-60 opacity-75 hover:scale-[1.01] hover:opacity-100 hover:text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/20"
+                    ? activeTone
+                    : {
+                        borderColor: tone.borderColor,
+                        color: tone.color,
+                        background: "transparent",
+                      }
+                }
+                className={`relative z-10 cursor-pointer rounded-full border-2 px-4 py-2.5 text-sm font-bold leading-none transition-all duration-100 ${
+                  active
+                    ? "scale-[1.02] opacity-100"
+                    : "opacity-85 hover:opacity-100 hover:scale-[1.01]"
                 }`}
               >
                 <span className="inline-flex items-center gap-2">
@@ -2450,7 +806,10 @@ function SectionItemCard({
                 key={option.value}
                 type="button"
                 onClick={() =>
-                  form.setFieldValue([formName, item.key, "severity"], option.value)
+                  form.setFieldValue(
+                    [formName, item.key, "severity"],
+                    option.value,
+                  )
                 }
                 className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
                   severityVal === option.value
@@ -2494,57 +853,41 @@ function SectionItemCard({
               }
               name={[formName, item.key, "tyreBrand"]}
               className="!mb-0"
-              >
-                <Select
-                  placeholder="Brand chunein..."
-                  showSearch
-                  allowClear
-                  options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))}
-                  onChange={(value) => onSeedTyreBrand(item.key, value)}
-                />
-              </Form.Item>
+            >
+              <Select
+                placeholder="Brand chunein..."
+                showSearch
+                allowClear
+                options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))}
+                onChange={(value) => onSeedTyreBrand(item.key, value)}
+              />
+            </Form.Item>
           ) : null}
         </div>
       ) : null}
       {isTyre && treadVal > 0 ? <TyreLifeBar treadMm={treadVal} /> : null}
-      <Form.Item
-        label={
-          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-            Photos / Tasveerein
-          </span>
-        }
-        name={[formName, item.key, "photos"]}
-        valuePropName="fileList"
-        getValueFromEvent={(e) => e?.fileList}
-        className="!mb-0 mt-3"
-      >
-        <Upload
-          beforeUpload={() => false}
-          multiple
-          listType="picture"
-          accept="image/*"
-        >
-          <Button
-            icon={<CameraOutlined />}
-            size="small"
-            className="!rounded-full !text-xs"
-          >
-            Attach Photos
-          </Button>
-        </Upload>
-      </Form.Item>
-      <p className="mt-2 text-[11px] font-medium text-slate-400 dark:text-slate-500">
-        {photoList.length
-          ? `${photoList.length} evidence photo${photoList.length > 1 ? "s" : ""} attached`
-          : "Attach clear evidence photos only when needed."}
-      </p>
+      {showEvidenceUploader ? (
+        <p className="mt-3 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+          This part has been added to the Evidence Vault. Upload and tag the supporting photos from the evidence block above.
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function ReportSummaryCard({ reportLead }) {
-  const reportItems = reportLead?.inspection?.report?.items || {};
+function ReportSummaryCard({ reportLead, reportItems, liveValues = {} }) {
   const score = calcOverallScore(reportItems);
+  const liveRegNo = liveValues.registrationNumber || reportLead.regNo;
+  const liveFuel = liveValues.fuelType || reportLead.fuel;
+  const liveSchedule =
+    liveValues.inspectionDate && liveValues.inspectionTime
+      ? dayjs(liveValues.inspectionDate)
+          .hour(dayjs(liveValues.inspectionTime).hour())
+          .minute(dayjs(liveValues.inspectionTime).minute())
+          .second(0)
+      : reportLead.inspection?.rescheduledAt ||
+        reportLead.inspectionScheduledAt ||
+        new Date();
   return (
     <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       <QueueMetric
@@ -2561,16 +904,12 @@ function ReportSummaryCard({ reportLead }) {
       <QueueMetric
         label="Insurance"
         value={getInsuranceDisplay(reportLead) || "Pending"}
-        helper={`Hypothecation: ${reportLead.hypothecation === true ? "Yes" : reportLead.hypothecation === false ? "No" : "Unknown"}`}
+        helper={`Reg: ${liveRegNo || "Pending"} · Fuel: ${liveFuel || "Pending"}`}
         tone="amber"
       />
       <QueueMetric
         label="Scheduled For"
-        value={fmt(
-          reportLead.inspection?.rescheduledAt ||
-            reportLead.inspectionScheduledAt ||
-            new Date(),
-        )}
+        value={fmt(liveSchedule)}
         helper="Field visit slot"
         tone="violet"
       />
@@ -2600,42 +939,6 @@ function compactStatus(status) {
   return `${statuses.slice(0, -1).join(", ")} and ${statuses.at(-1)}`;
 }
 
-function isPositiveInspectionStatus(status) {
-  const values = normalizeStatusList(status).map((entry) =>
-    String(entry || "").toLowerCase(),
-  );
-  if (!values.length) return false;
-  const negativeTokens = [
-    "scratch",
-    "dent",
-    "repair",
-    "replace",
-    "rust",
-    "crack",
-    "leak",
-    "noise",
-    "vibration",
-    "warning",
-    "missing",
-    "mismatch",
-    "issue",
-    "critical",
-    "observe",
-    "not working",
-    "very low",
-    "low",
-    "black smoke",
-    "blue smoke",
-    "white smoke",
-    "grey smoke",
-    "jammed",
-    "damage",
-  ];
-  return !values.some((value) =>
-    negativeTokens.some((token) => value.includes(token)),
-  );
-}
-
 function getSectionCounts(section, itemValues) {
   return section.items.reduce(
     (acc, item) => {
@@ -2649,26 +952,46 @@ function getSectionCounts(section, itemValues) {
   );
 }
 
-function getMediaDiscipline(photoBuckets = {}, itemValues = {}) {
+function getMediaDiscipline(photoBuckets = {}, itemValues = {}, bulkEvidence = []) {
+  const normalizedBulkEvidence = normalizeEvidenceFiles(bulkEvidence);
   const requiredPhotos = PHOTO_BUCKETS.map((bucket) => ({
     key: bucket.key,
     label: bucket.labelEn,
-    files: photoBuckets[bucket.key] || [],
+    files:
+      photoBuckets[bucket.key] ||
+      (getTaggedEvidenceFile(normalizedBulkEvidence, [bucket.labelEn, bucket.key])
+        ? [getTaggedEvidenceFile(normalizedBulkEvidence, [bucket.labelEn, bucket.key])]
+        : []),
   }));
-  const capturedRequired = requiredPhotos.filter((bucket) => bucket.files.length)
-    .length;
+  const capturedRequired = requiredPhotos.filter(
+    (bucket) => bucket.files.length,
+  ).length;
   const defectItems = INSPECTION_SECTIONS.flatMap((section) =>
     section.items
       .map((item) => ({
         key: item.key,
         label: item.labelEn,
         status: itemValues?.[item.key]?.status,
-        photos: itemValues?.[item.key]?.photos || [],
+        photos: [
+          ...((itemValues?.[item.key]?.photos || []).filter(Boolean)),
+          ...normalizedBulkEvidence.filter(
+            (file) =>
+              String(file.evidenceTag || "").trim().toLowerCase() ===
+              String(item.labelEn || item.label || "").trim().toLowerCase(),
+          ),
+        ],
+        eligible: isPhotoEligibleItem(item, section),
       }))
-      .filter((item) => item.status && !isPositiveInspectionStatus(item.status)),
+      .filter(
+        (item) =>
+          item.eligible &&
+          normalizeStatusList(item.status).length > 0 &&
+          !isPositiveInspectionStatus(item.status),
+      ),
   );
-  const defectPhotosCaptured = defectItems.filter((item) => item.photos.length)
-    .length;
+  const defectPhotosCaptured = defectItems.filter(
+    (item) => item.photos.length,
+  ).length;
 
   return {
     requiredTotal: requiredPhotos.length,
@@ -2684,12 +1007,51 @@ function getMediaDiscipline(photoBuckets = {}, itemValues = {}) {
   };
 }
 
-function buildSmartAutoSummary({
-  lead,
-  report,
-  itemValues,
-  mediaDiscipline,
-}) {
+function getEvidenceTargets(itemValues = {}) {
+  return INSPECTION_SECTIONS.flatMap((section) =>
+    section.items
+      .map((item) => ({
+        key: item.key,
+        label: item.labelEn,
+        status: itemValues?.[item.key]?.status,
+        eligible: isPhotoEligibleItem(item, section),
+      }))
+      .filter(
+        (item) =>
+          item.eligible &&
+          normalizeStatusList(item.status).length > 0 &&
+          !isPositiveInspectionStatus(item.status),
+      ),
+  );
+}
+
+function getInspectionRedFlags(itemValues = {}) {
+  return INSPECTION_SECTIONS.flatMap((section) =>
+    section.items
+      .map((item) => {
+        const value = itemValues?.[item.key] || {};
+        const statuses = normalizeStatusList(value.status);
+        if (!statuses.length || isPositiveInspectionStatus(statuses)) {
+          return null;
+        }
+        const severity =
+          value.severity || getStatusSeverity(statuses, item, section);
+        if (!["High", "Critical"].includes(severity)) {
+          return null;
+        }
+        return {
+          key: item.key,
+          label: item.labelEn,
+          section: section.titleEn,
+          severity,
+          status: compactStatus(statuses),
+        };
+      })
+      .filter(Boolean),
+  );
+}
+
+function buildSmartAutoSummary({ lead, report, itemValues, mediaDiscipline }) {
   const allIssues = INSPECTION_SECTIONS.flatMap((section) =>
     section.items
       .map((item) => {
@@ -2701,7 +1063,8 @@ function buildSmartAutoSummary({
           section: section.titleEn,
           label: item.labelEn,
           status: compactStatus(value.status),
-          severity: value.severity || getStatusSeverity(value.status, item, section),
+          severity:
+            value.severity || getStatusSeverity(value.status, item, section),
         };
       })
       .filter(Boolean),
@@ -2715,8 +1078,7 @@ function buildSmartAutoSummary({
     key: section.key,
     title: section.titleEn,
     ...getSectionCounts(section, itemValues),
-  }))
-    .sort((a, b) => b.issue - a.issue)[0];
+  })).sort((a, b) => b.issue - a.issue)[0];
 
   const bullets = [
     criticalIssues.length
@@ -2828,131 +1190,6 @@ function ReportPhotoTile({ title, file }) {
   );
 }
 
-function DamageVisibilityMap({ itemValues }) {
-  const mappedIssues = INSPECTION_SECTIONS.flatMap((section) =>
-    section.items
-      .filter((item) => DAMAGE_OVERLAY_SHAPES[item.key])
-      .map((item) => {
-        const value = itemValues?.[item.key] || {};
-        if (!value.status || isPositiveInspectionStatus(value.status))
-          return null;
-        return {
-          key: item.key,
-          label: item.labelEn,
-          status: compactStatus(value.status),
-        };
-      })
-      .filter(Boolean),
-  );
-
-  const getOverlayTone = (status) => {
-    const value = String(status || "").toLowerCase();
-    if (
-      value.includes("replace") ||
-      value.includes("missing") ||
-      value.includes("critical")
-    ) {
-      return { fill: "rgba(225, 29, 72, 0.22)", stroke: "#e11d48" };
-    }
-    if (
-      value.includes("repair") ||
-      value.includes("rust") ||
-      value.includes("crack") ||
-      value.includes("leak")
-    ) {
-      return { fill: "rgba(249, 115, 22, 0.22)", stroke: "#f97316" };
-    }
-    if (
-      value.includes("repaint") ||
-      value.includes("scratch") ||
-      value.includes("dent") ||
-      value.includes("warning")
-    ) {
-      return { fill: "rgba(245, 158, 11, 0.22)", stroke: "#f59e0b" };
-    }
-    return { fill: "rgba(14, 165, 233, 0.20)", stroke: "#0ea5e9" };
-  };
-
-  return (
-    <div className="rounded-[28px] border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="relative mx-auto h-[760px] max-w-[960px] overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f6f9ff)] p-8 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,19,25,0.98),rgba(20,30,47,0.92))]">
-        <svg
-          viewBox="0 0 520 700"
-          className="absolute left-1/2 top-[42px] h-[676px] w-[452px] -translate-x-1/2"
-          aria-hidden="true"
-        >
-          <defs>
-            <linearGradient id="reportCarBody" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="55%" stopColor="#f8fbff" />
-              <stop offset="100%" stopColor="#edf4ff" />
-            </linearGradient>
-            <linearGradient id="reportGlassTint" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#eef4ff" />
-              <stop offset="100%" stopColor="#d7e8ff" />
-            </linearGradient>
-            <filter id="carShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="14" stdDeviation="18" floodColor="#0f172a" floodOpacity="0.08" />
-            </filter>
-          </defs>
-          <path
-            d="M260 18c55 0 96 20 121 64l31 56c33 18 54 46 61 86v252c-7 40-28 68-61 86l-31 56c-25 44-66 64-121 64s-96-20-121-64l-31-56c-33-18-54-46-61-86V224c7-40 28-68 61-86l31-56c25-44 66-64 121-64Z"
-            fill="#dbe7f6"
-            opacity="0.45"
-          />
-          <path
-            d="M260 24c51 0 89 18 112 58l28 51c33 15 53 42 60 80v274c-7 38-27 65-60 80l-28 51c-23 40-61 58-112 58s-89-18-112-58l-28-51c-33-15-53-42-60-80V213c7-38 27-65 60-80l28-51c23-40 61-58 112-58Z"
-            fill="url(#reportCarBody)"
-            stroke="#b8cce6"
-            strokeWidth="6"
-            filter="url(#carShadow)"
-          />
-          <path
-            d="M196 158c20-10 41-15 64-15s44 5 64 15l13 70c-27 8-50 11-77 11s-50-3-77-11Z"
-            fill="url(#reportGlassTint)"
-            stroke="#b9d3f5"
-            strokeWidth="3"
-          />
-          <path
-            d="M183 469c28 8 49 11 77 11s49-3 77-11l-13 72c-20 10-41 15-64 15s-44-5-64-15Z"
-            fill="url(#reportGlassTint)"
-            stroke="#b9d3f5"
-            strokeWidth="3"
-          />
-          <rect x="108" y="190" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <rect x="378" y="190" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <rect x="108" y="418" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <rect x="378" y="418" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <path d="M260 88v528" stroke="#d9e5f4" strokeWidth="2.5" strokeDasharray="8 10" />
-          <g fill="#fbfdff" stroke="#c3d6ed" strokeWidth="2.5">
-            {Object.entries(DAMAGE_OVERLAY_SHAPES).map(([key, shape]) =>
-              React.cloneElement(shape, {
-                key: `base-${key}`,
-              }),
-            )}
-          </g>
-          <path d="M168 238h184" stroke="#dbe7f4" strokeWidth="2.5" />
-          <path d="M168 334h184" stroke="#dbe7f4" strokeWidth="2.5" />
-          <path d="M168 430h184" stroke="#dbe7f4" strokeWidth="2.5" />
-          <path d="M208 238v194" stroke="#dbe7f4" strokeWidth="2" />
-          <path d="M312 238v194" stroke="#dbe7f4" strokeWidth="2" />
-          {mappedIssues.map((issue) => {
-            const shape = DAMAGE_OVERLAY_SHAPES[issue.key];
-            if (!shape) return null;
-            const tone = getOverlayTone(issue.status);
-            return React.cloneElement(shape, {
-              key: `overlay-${issue.key}`,
-              fill: tone.fill,
-              stroke: tone.stroke,
-              strokeWidth: 3,
-            });
-          })}
-        </svg>
-      </div>
-    </div>
-  );
-}
-
 function InspectionReportDocumentView({
   reportLead,
   onBack,
@@ -2963,6 +1200,7 @@ function InspectionReportDocumentView({
   const report = reportLead?.inspection?.report || {};
   const itemValues = report.items || {};
   const photoBuckets = report.photoBuckets || {};
+  const bulkEvidence = normalizeEvidenceFiles(report.bulkEvidence || []);
   const leadVerification = report.leadVerification || {};
   const score = calcOverallScore(itemValues);
   const submittedAt =
@@ -2975,12 +1213,18 @@ function InspectionReportDocumentView({
   const verdict = reportLead?.inspection?.verdict || "Submitted";
   const bucketCards = PHOTO_BUCKETS.map((bucket) => ({
     title: bucket.labelEn,
-    file: (photoBuckets[bucket.key] || [])[0] || null,
+    file:
+      (photoBuckets[bucket.key] || [])[0] ||
+      getTaggedEvidenceFile(bulkEvidence, [bucket.labelEn, bucket.key]) ||
+      null,
   })).filter((entry) => entry.file);
   const heroPhoto =
     (photoBuckets.frontView || [])[0] ||
+    getTaggedEvidenceFile(bulkEvidence, ["Front View", "frontView"]) ||
     (photoBuckets.leftSide || [])[0] ||
+    getTaggedEvidenceFile(bulkEvidence, ["Left Side Profile", "leftSide"]) ||
     (photoBuckets.rightSide || [])[0] ||
+    getTaggedEvidenceFile(bulkEvidence, ["Right Side Profile", "rightSide"]) ||
     bucketCards[0]?.file ||
     null;
   const summarySections = INSPECTION_SECTIONS.map((section) => ({
@@ -2988,7 +1232,7 @@ function InspectionReportDocumentView({
     completion: calcSectionScore(section.key, itemValues),
     ...getSectionCounts(section, itemValues),
   }));
-  const mediaDiscipline = getMediaDiscipline(photoBuckets, itemValues);
+  const mediaDiscipline = getMediaDiscipline(photoBuckets, itemValues, bulkEvidence);
   const autoSummary = buildSmartAutoSummary({
     lead: reportLead,
     report,
@@ -3218,10 +1462,6 @@ function InspectionReportDocumentView({
         </DocumentPage>
 
         <DocumentPage>
-          <DamageVisibilityMap itemValues={itemValues} />
-        </DocumentPage>
-
-        <DocumentPage>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
@@ -3232,7 +1472,7 @@ function InspectionReportDocumentView({
               </h2>
             </div>
             <div className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-300">
-              {INSPECTION_SECTIONS.length + 4} sections
+              {INSPECTION_SECTIONS.length + 3} sections
             </div>
           </div>
           <div className="mt-6 grid gap-3">
@@ -3323,12 +1563,17 @@ function InspectionReportDocumentView({
                     {section.issue}
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="min-w-0 flex-1">
-                    <SectionProgressBar
-                      sectionKey={section.key}
-                      itemValues={itemValues}
-                    />
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:border-white/10 dark:text-slate-300">
+                      Answered {section.good + section.issue}/{section.total}
+                    </span>
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+                      Clean {section.good}
+                    </span>
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                      Issues {section.issue}
+                    </span>
                   </div>
                   <div className="rounded-[16px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-center dark:border-emerald-500/20 dark:bg-emerald-500/10">
                     <p className="text-lg font-black text-emerald-700 dark:text-emerald-300">
@@ -3374,7 +1619,8 @@ function InspectionReportDocumentView({
               value={`${mediaDiscipline.defectPhotosCaptured}/${mediaDiscipline.defectTotal}`}
               helper="Negative findings with evidence"
               tone={
-                mediaDiscipline.defectPhotosCaptured === mediaDiscipline.defectTotal
+                mediaDiscipline.defectPhotosCaptured ===
+                mediaDiscipline.defectTotal
                   ? "green"
                   : "amber"
               }
@@ -3723,6 +1969,7 @@ function VisitUpdateModal({
 
 export default function UsedCarInspectionDesk() {
   const reportPrintRef = useRef(null);
+  const advanceGuardRef = useRef({ itemKey: null, at: 0 });
   const [leads, setLeads] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -3744,6 +1991,43 @@ export default function UsedCarInspectionDesk() {
   const [autoOpenItemKey, setAutoOpenItemKey] = useState(null);
   const [visitForm] = Form.useForm();
   const [reportForm] = Form.useForm();
+  const watchedItems = Form.useWatch("items", reportForm);
+  const watchedPhotoBuckets = Form.useWatch("photoBuckets", reportForm);
+  const watchedInspectionLocation = Form.useWatch("inspectionLocation", reportForm);
+  const watchedRegistrationNumber = Form.useWatch("registrationNumber", reportForm);
+  const watchedFuelType = Form.useWatch("fuelType", reportForm);
+  const watchedInsuranceExpiry = Form.useWatch("insuranceExpiry", reportForm);
+  const watchedInspectionDate = Form.useWatch("inspectionDate", reportForm);
+  const watchedInspectionTime = Form.useWatch("inspectionTime", reportForm);
+  const watchedBulkEvidence = Form.useWatch("bulkEvidence", reportForm);
+  const watchedLeadVerification = Form.useWatch("leadVerification", reportForm);
+  const reportLead = leads.find((l) => l.id === reportLeadId) || null;
+  // forceReportSync causes full re-renders, so we can reliably read the current state directly
+  const liveReportItems =
+    reportForm.getFieldValue("items") ||
+    reportLead?.inspection?.report?.items ||
+    {};
+  const evidenceTargets = getEvidenceTargets(liveReportItems || {});
+  const redFlags = getInspectionRedFlags(liveReportItems || {});
+  const usedEvidenceTags = useMemo(() => {
+    const files = normalizeEvidenceFiles(watchedBulkEvidence || []);
+    return new Set(files.map((f) => f.evidenceTag).filter(Boolean));
+  }, [watchedBulkEvidence]);
+  const evidenceTagSuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...PHOTO_BUCKETS.map((bucket) => bucket.labelEn),
+          ...evidenceTargets.map((item) => item.label).filter(Boolean),
+        ]),
+      ),
+    [evidenceTargets],
+  );
+  const [, setReportSyncTick] = useState(0);
+  const forceReportSync = useCallback(
+    () => setReportSyncTick((current) => current + 1),
+    [],
+  );
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
@@ -3761,6 +2045,43 @@ export default function UsedCarInspectionDesk() {
       }),
     );
   }, []);
+
+  useEffect(() => {
+    if (!reportLeadId) return;
+    const currentLead = leads.find((lead) => lead.id === reportLeadId);
+    if (!currentLead) return;
+    const nextAddress = normText(watchedInspectionLocation);
+    const nextRegNo = normText(watchedRegistrationNumber);
+    const nextFuel = normText(watchedFuelType);
+    const nextInsuranceExpiry = watchedInsuranceExpiry
+      ? dayjs(watchedInsuranceExpiry).toISOString()
+      : "";
+
+    if (
+      nextAddress === (currentLead.address || "") &&
+      nextRegNo === (currentLead.regNo || "") &&
+      nextFuel === (currentLead.fuel || "") &&
+      nextInsuranceExpiry === (currentLead.insuranceExpiry || "")
+    ) {
+      return;
+    }
+
+    updateLead(reportLeadId, (lead) => ({
+      ...lead,
+      address: nextAddress || lead.address,
+      regNo: nextRegNo || lead.regNo,
+      fuel: nextFuel || lead.fuel,
+      insuranceExpiry: nextInsuranceExpiry || lead.insuranceExpiry || "",
+    }));
+  }, [
+    leads,
+    reportLeadId,
+    updateLead,
+    watchedFuelType,
+    watchedInspectionLocation,
+    watchedInsuranceExpiry,
+    watchedRegistrationNumber,
+  ]);
 
   const inspectionPool = useMemo(
     () =>
@@ -3845,7 +2166,6 @@ export default function UsedCarInspectionDesk() {
     filteredLeads.find((l) => l.id === selectedLeadId) ||
     filteredLeads[0] ||
     null;
-  const reportLead = leads.find((l) => l.id === reportLeadId) || null;
 
   const summary = useMemo(() => {
     const scheduled = inspectionPool.filter(
@@ -3876,17 +2196,6 @@ export default function UsedCarInspectionDesk() {
     }).length;
     return { scheduled, rescheduled, draft, completed, nogo, passed, dueToday };
   }, [inspectionPool]);
-
-  const itemSequence = useMemo(
-    () =>
-      INSPECTION_SECTIONS.flatMap((section) =>
-        section.items.map((item) => ({
-          sectionKey: section.key,
-          itemKey: item.key,
-        })),
-      ),
-    [],
-  );
 
   const openVisitUpdate = useCallback(
     (lead) => {
@@ -3954,35 +2263,67 @@ export default function UsedCarInspectionDesk() {
           },
         }),
       );
+      forceReportSync();
       setReportMode(mode);
       setActiveSectionKeys([INSPECTION_SECTIONS[0].key]);
       setAutoOpenItemKey(null);
       setReportLeadId(lead.id);
     },
-    [reportForm, updateLead],
+    [forceReportSync, reportForm, updateLead],
   );
 
   const handleAdvanceToNextItem = useCallback(
     (currentItemKey) => {
-      const currentIndex = itemSequence.findIndex(
-        (entry) => entry.itemKey === currentItemKey,
-      );
-      const next = currentIndex >= 0 ? itemSequence[currentIndex + 1] : null;
-      if (!next) {
-        window.requestAnimationFrame(() => {
-          const finalBlock = document.querySelector("#inspection-final-decision");
-          finalBlock?.scrollIntoView({
-            behavior: "auto",
-            block: "center",
-            inline: "nearest",
-          });
-        });
+      const now = Date.now();
+      if (
+        advanceGuardRef.current.itemKey === currentItemKey &&
+        now - advanceGuardRef.current.at < 250
+      ) {
         return;
       }
+      advanceGuardRef.current = { itemKey: currentItemKey, at: now };
+
+      // Find next unanswered item across all sections
+      let found = false;
+      let next = null;
+
+      for (const section of INSPECTION_SECTIONS) {
+        for (const item of section.items) {
+          if (
+            found &&
+            !normalizeStatusList(
+              reportForm.getFieldValue(["items", item.key, "status"]),
+            ).length
+          ) {
+            next = { sectionKey: section.key, itemKey: item.key };
+            break;
+          }
+          if (item.key === currentItemKey) found = true;
+        }
+        if (next) break;
+      }
+
+      if (!next) return;
+
       setActiveSectionKeys([next.sectionKey]);
       setAutoOpenItemKey(next.itemKey);
+      const scrollToNextItem = () => {
+        const node = document.querySelector(
+          `[data-inspection-item="${next.itemKey}"]`,
+        );
+        if (node) {
+          node.scrollIntoView({ behavior: "auto", block: "start" });
+        }
+      };
+      requestAnimationFrame(() => {
+        scrollToNextItem();
+        window.setTimeout(() => {
+          scrollToNextItem();
+          requestAnimationFrame(scrollToNextItem);
+        }, 120);
+      });
     },
-    [itemSequence],
+    [reportForm],
   );
 
   const handleTyreBrandSeed = useCallback(
@@ -4001,8 +2342,24 @@ export default function UsedCarInspectionDesk() {
           ...patch,
         },
       });
+      forceReportSync();
     },
-    [reportForm],
+    [forceReportSync, reportForm],
+  );
+
+  const handleBulkEvidenceTag = useCallback(
+    (uid, evidenceTag) => {
+      const currentFiles = normalizeEvidenceFiles(
+        reportForm.getFieldValue("bulkEvidence") || [],
+      );
+      reportForm.setFieldsValue({
+        bulkEvidence: currentFiles.map((file) =>
+          file.uid === uid ? { ...file, evidenceTag } : file,
+        ),
+      });
+      forceReportSync();
+    },
+    [forceReportSync, reportForm],
   );
 
   const handleVisitUpdate = useCallback(async () => {
@@ -4066,6 +2423,12 @@ export default function UsedCarInspectionDesk() {
     const values = reportForm.getFieldsValue(true);
     updateLead(reportLead.id, (lead) => ({
       ...lead,
+      address: normText(values.inspectionLocation) || lead.address,
+      regNo: normText(values.registrationNumber) || lead.regNo,
+      fuel: normText(values.fuelType) || lead.fuel,
+      insuranceExpiry: values.insuranceExpiry
+        ? dayjs(values.insuranceExpiry).toISOString()
+        : lead.insuranceExpiry || "",
       inspection: {
         ...lead.inspection,
         inspectionId:
@@ -4112,6 +2475,12 @@ export default function UsedCarInspectionDesk() {
         if (isNogo) {
           return {
             ...lead,
+            address: normText(values.inspectionLocation) || lead.address,
+            regNo: normText(values.registrationNumber) || lead.regNo,
+            fuel: normText(values.fuelType) || lead.fuel,
+            insuranceExpiry: values.insuranceExpiry
+              ? dayjs(values.insuranceExpiry).toISOString()
+              : lead.insuranceExpiry || "",
             status: "Closed",
             pipelineStage: "Lead Closed",
             closureReason: NOGO_REASON,
@@ -4129,6 +2498,12 @@ export default function UsedCarInspectionDesk() {
         }
         return {
           ...lead,
+          address: normText(values.inspectionLocation) || lead.address,
+          regNo: normText(values.registrationNumber) || lead.regNo,
+          fuel: normText(values.fuelType) || lead.fuel,
+          insuranceExpiry: values.insuranceExpiry
+            ? dayjs(values.insuranceExpiry).toISOString()
+            : lead.insuranceExpiry || "",
           status: "Inspection Passed",
           pipelineStage: INSPECTION_DONE_STAGE,
           inspection: nextInspection,
@@ -4205,17 +2580,26 @@ export default function UsedCarInspectionDesk() {
         />
       );
     }
-    const reportItems =
-      reportForm.getFieldValue("items") ||
-      reportLead.inspection?.report?.items ||
-      {};
+    const reportItems = liveReportItems;
     const currentPhotoBuckets =
-      reportForm.getFieldValue("photoBuckets") ||
+      watchedPhotoBuckets ||
       reportLead.inspection?.report?.photoBuckets ||
       {};
-    const mediaDiscipline = getMediaDiscipline(currentPhotoBuckets, reportItems);
+    const mediaDiscipline = getMediaDiscipline(
+      currentPhotoBuckets,
+      reportItems,
+      watchedBulkEvidence || reportLead.inspection?.report?.bulkEvidence || [],
+    );
     return (
       <section className="space-y-4">
+        <style>{`
+          .used-car-inspection-collapse .ant-motion-collapse,
+          .used-car-inspection-collapse .ant-collapse-content,
+          .used-car-inspection-collapse .ant-collapse-content-box {
+            transition: none !important;
+            animation: none !important;
+          }
+        `}</style>
         <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
@@ -4246,28 +2630,20 @@ export default function UsedCarInspectionDesk() {
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
                   View Report
                 </span>
-              ) : (
-                <>
-                  <Button
-                    icon={<ReloadOutlined />}
-                    onClick={handleSaveDraft}
-                    className="!rounded-full"
-                  >
-                    Save Draft
-                  </Button>
-                  <Button
-                    type="primary"
-                    icon={<SaveOutlined />}
-                    onClick={handleSubmitReport}
-                    className="!rounded-full !bg-slate-900 !px-5 !font-bold dark:!bg-white dark:!text-slate-950"
-                  >
-                    Submit Report
-                  </Button>
-                </>
-              )}
+              ) : null}
             </div>
           </div>
-          <ReportSummaryCard reportLead={reportLead} />
+          <ReportSummaryCard
+            reportLead={reportLead}
+            reportItems={reportItems}
+            liveValues={{
+              registrationNumber: watchedRegistrationNumber,
+              fuelType: watchedFuelType,
+              inspectionDate: watchedInspectionDate,
+              inspectionTime: watchedInspectionTime,
+            }}
+          />
+          {/* Red Flag strip has been intentionally removed per request */}
         </div>
         <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
           <Form
@@ -4276,7 +2652,7 @@ export default function UsedCarInspectionDesk() {
             size="middle"
             disabled={reportReadOnly}
           >
-            <div className="grid gap-4 xl:grid-cols-[0.82fr_1.18fr]">
+            <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
               <div className="space-y-4">
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
@@ -4411,7 +2787,21 @@ export default function UsedCarInspectionDesk() {
                   </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     {LEAD_VERIFICATION_FIELDS.map((field) => (
-                      <VerificationCard key={field.key} field={field} />
+                      <VerificationCard
+                        key={`${reportLeadId || "inspection"}-${field.key}`}
+                        field={field}
+                        checked={Boolean(watchedLeadVerification?.[field.key])}
+                        onToggle={(next) => {
+                          reportForm.setFieldsValue({
+                            leadVerification: {
+                              ...(reportForm.getFieldValue("leadVerification") ||
+                                {}),
+                              [field.key]: next,
+                            },
+                          });
+                          forceReportSync();
+                        }}
+                      />
                     ))}
                   </div>
                 </div>
@@ -4490,54 +2880,140 @@ export default function UsedCarInspectionDesk() {
                           ? `${mediaDiscipline.missingBuckets.length} still pending`
                           : "All mandatory buckets complete"
                       }
-                      tone={mediaDiscipline.missingBuckets.length ? "amber" : "green"}
+                      tone={
+                        mediaDiscipline.missingBuckets.length
+                          ? "amber"
+                          : "green"
+                      }
                     />
                     <DocumentStat
                       label="Defect photos"
                       value={`${mediaDiscipline.defectPhotosCaptured}/${mediaDiscipline.defectTotal}`}
                       helper="Evidence against marked defects"
                       tone={
-                        mediaDiscipline.defectPhotosCaptured === mediaDiscipline.defectTotal
+                        mediaDiscipline.defectPhotosCaptured ===
+                        mediaDiscipline.defectTotal
                           ? "green"
                           : "amber"
                       }
                     />
                   </div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                    Mandatory Photos
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {PHOTO_BUCKETS.map((bucket) => (
-                      <div
-                        key={bucket.key}
-                        className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]"
-                      >
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {bucket.labelEn}
+                  <div className="rounded-[18px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#11151b]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                          Evidence Vault
                         </p>
-                        <Form.Item
-                          name={["photoBuckets", bucket.key]}
-                          valuePropName="fileList"
-                          getValueFromEvent={(e) => e?.fileList}
-                          className="!mb-0"
-                        >
-                          <Upload
-                            beforeUpload={() => false}
-                            multiple
-                            listType="picture"
-                            accept="image/*"
-                          >
-                            <Button
-                              icon={<CameraOutlined />}
-                              size="small"
-                              className="!rounded-full !text-xs"
-                            >
-                              Attach Photos
-                            </Button>
-                          </Upload>
-                        </Form.Item>
+                        <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          Upload all field photos together, then tag them against mandatory buckets or imperfect parts.
+                        </p>
                       </div>
-                    ))}
+                      <Button
+                        icon={<CameraOutlined />}
+                        className="!rounded-full"
+                        onClick={() => {
+                          const trigger = document.querySelector(
+                            ".inspection-bulk-upload input[type='file']",
+                          );
+                          trigger?.click();
+                        }}
+                      >
+                        Bulk Upload Photos
+                      </Button>
+                    </div>
+                    <Form.Item
+                      name="bulkEvidence"
+                      valuePropName="fileList"
+                      getValueFromEvent={(e) => e?.fileList}
+                      className="inspection-bulk-upload !mb-0 mt-3"
+                    >
+                      <Upload
+                        beforeUpload={() => false}
+                        multiple
+                        listType="picture"
+                        accept="image/*"
+                        showUploadList={false}
+                      >
+                        <span className="hidden" />
+                      </Upload>
+                    </Form.Item>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {evidenceTagSuggestions.slice(0, 18).map((label) => {
+                        const isUsed = usedEvidenceTags.has(label);
+                        return (
+                          <span
+                            key={`evidence-tag-${label}`}
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
+                              isUsed
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-600 line-through dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                : "border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-[#11151b] dark:text-slate-400"
+                            }`}
+                          >
+                            {isUsed ? `✓ ${label}` : label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {normalizeEvidenceFiles(watchedBulkEvidence || []).length ? (
+                      <div className="mt-4 space-y-2">
+                        {normalizeEvidenceFiles(watchedBulkEvidence || []).map(
+                          (file) => {
+                            const fileSrc = file.thumbUrl || file.url || file.preview || (file.originFileObj ? URL.createObjectURL(file.originFileObj) : "");
+                            const availableTags = evidenceTagSuggestions.filter(
+                              (tag) => tag === file.evidenceTag || !usedEvidenceTags.has(tag),
+                            );
+                            return (
+                              <div
+                                key={file.uid}
+                                className="flex items-stretch gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-white/[0.03]"
+                              >
+                                <div className="w-1/4 shrink-0 overflow-hidden rounded-[12px] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+                                  {fileSrc ? (
+                                    <img
+                                      src={fileSrc}
+                                      alt={file.name}
+                                      className="h-full w-full object-cover"
+                                      style={{ minHeight: 64, maxHeight: 96 }}
+                                    />
+                                  ) : (
+                                    <div className="flex h-full min-h-[64px] items-center justify-center text-slate-300 dark:text-slate-600">
+                                      <CameraOutlined style={{ fontSize: 22 }} />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex flex-1 flex-col justify-center gap-1.5">
+                                  <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                    {file.name}
+                                  </p>
+                                  <Select
+                                    size="small"
+                                    value={file.evidenceTag || undefined}
+                                    onChange={(value) =>
+                                      handleBulkEvidenceTag(file.uid, value)
+                                    }
+                                    placeholder="Tag this photo..."
+                                    className="w-full"
+                                    options={availableTags.map((tag) => ({
+                                      value: tag,
+                                      label: tag,
+                                    }))}
+                                    showSearch
+                                    allowClear
+                                    filterOption={(input, option) =>
+                                      (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            );
+                          },
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-[16px] border border-dashed border-slate-200 px-4 py-4 text-sm font-medium text-slate-500 dark:border-white/10 dark:text-slate-400">
+                        No photos uploaded yet.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4547,14 +3023,12 @@ export default function UsedCarInspectionDesk() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                        Detailed Inspection Checklist / Vistar se Jaanch
+                        Detailed Inspection Checklist
                       </p>
                       <p className="mt-1 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                        Body, mechanicals, electricals, safety aur road test —
-                        sab kuch cover karo
+                        Work top to bottom. Clean parts move fast, imperfect visual parts ask for evidence.
                       </p>
                     </div>
-                    <ScoreBadge score={calcOverallScore(reportItems)} />
                   </div>
                 </div>
                 <Collapse
@@ -4563,9 +3037,12 @@ export default function UsedCarInspectionDesk() {
                   onChange={(keys) =>
                     setActiveSectionKeys(Array.isArray(keys) ? keys : [keys])
                   }
-                  className="!bg-transparent"
+                  className="used-car-inspection-collapse !bg-transparent"
                 >
-                  {INSPECTION_SECTIONS.map((section) => (
+                  {INSPECTION_SECTIONS.map((section) => {
+                    const counts = getSectionCounts(section, reportItems);
+                    const answeredCount = counts.good + counts.issue;
+                    return (
                     <Panel
                       key={section.key}
                       className="!mb-3 !rounded-[22px] !border !border-slate-200 !bg-white dark:!border-white/10 dark:!bg-[#11151b]"
@@ -4582,39 +3059,51 @@ export default function UsedCarInspectionDesk() {
                               <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">
                                 {section.titleEn}
                               </p>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:border-white/10 dark:text-slate-400">
+                                  {answeredCount}/{section.items.length} answered
+                                </span>
+                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                  Clean {counts.good}
+                                </span>
+                                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                                  Issues {counts.issue}
+                                </span>
+                              </div>
+                              {activeSectionKeys.includes(section.key) ? (
+                                <p className="mt-2 text-[11px] font-semibold text-sky-600 dark:text-sky-300">
+                                  Start from the first unanswered card in this section.
+                                </p>
+                              ) : null}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <SectionProgressBar
-                              sectionKey={section.key}
-                              itemValues={reportItems}
-                            />
-                            <span
-                              className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold text-white"
-                              style={{ background: section.color }}
-                            >
-                              {section.items.length} items
-                            </span>
                           </div>
                         </div>
                       }
                     >
+                      <div className="mb-3 rounded-[18px] border border-sky-100 bg-sky-50/80 px-4 py-3 dark:border-sky-500/20 dark:bg-sky-500/10">
+                        <p className="text-xs font-semibold text-sky-700 dark:text-sky-300">
+                          Fill this section top to bottom. Answered cards collapse, and evidence appears only for imperfect visible parts.
+                        </p>
+                      </div>
                       <div className="grid gap-3">
                         {section.items.map((item) => (
                           <SectionItemCard
-                            key={item.key}
+                            key={`${reportLeadId || "inspection"}-${item.key}`}
                             item={item}
                             section={section}
                             formName="items"
+                            itemValue={reportItems?.[item.key] || {}}
                             autoOpen={autoOpenItemKey === item.key}
                             clearAutoOpen={() => setAutoOpenItemKey(null)}
                             onAdvance={handleAdvanceToNextItem}
                             onSeedTyreBrand={handleTyreBrandSeed}
+                            onValueChange={forceReportSync}
                           />
                         ))}
                       </div>
                     </Panel>
-                  ))}
+                    );
+                  })}
                 </Collapse>
 
                 <div
@@ -4734,6 +3223,57 @@ export default function UsedCarInspectionDesk() {
                     </Form.Item>
                   </div>
                 </div>
+
+                {/* Sticky Action Footer */}
+                {reportMode !== "view" ? (
+                  <div className="sticky bottom-4 z-[90] mt-6 flex items-center justify-between rounded-[24px] border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md dark:border-white/10 dark:bg-[#090b0e]/95 lg:px-6">
+                    <div className="flex items-center gap-3">
+                      <ScoreBadge score={calcOverallScore(reportItems)} />
+                      <div className="hidden sm:block">
+                        {(() => {
+                          const totalItems = INSPECTION_SECTIONS.reduce((sum, s) => sum + s.items.length, 0);
+                          const answeredItems = INSPECTION_SECTIONS.reduce((sum, s) => {
+                            const counts = getSectionCounts(s, reportItems);
+                            return sum + counts.good + counts.issue;
+                          }, 0);
+                          return (
+                            <p className="text-[11px] font-bold text-slate-500 lg:text-xs dark:text-slate-400">
+                              {answeredItems} / {totalItems} Answered
+                            </p>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        icon={<ArrowLeftOutlined />}
+                        onClick={() => {
+                          setReportLeadId(null);
+                          setReportMode("edit");
+                        }}
+                        className="hidden md:inline-flex !rounded-full"
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        icon={<ReloadOutlined />}
+                        onClick={handleSaveDraft}
+                        className="!rounded-full"
+                      >
+                        <span className="hidden sm:inline">Save Draft</span>
+                        <span className="inline sm:hidden">Save</span>
+                      </Button>
+                      <Button
+                        type="primary"
+                        icon={<SaveOutlined />}
+                        onClick={handleSubmitReport}
+                        className="!rounded-full !bg-sky-600 !px-4 !font-bold dark:!bg-sky-500 lg:!px-5"
+                      >
+                        Submit
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </Form>
@@ -4960,113 +3500,125 @@ export default function UsedCarInspectionDesk() {
                   tone="violet"
                 />
               </div>
-              <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_0.95fr]">
-                <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                    Lead and Vehicle Snapshot
-                  </p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {[
-                      ["Seller Address", selectedLead.address || "Pending"],
-                      [
-                        "Fuel / Year",
-                        `${selectedLead.fuel || "—"} · ${selectedLead.mfgYear || "—"}`,
-                      ],
-                      ["Color", selectedLead.color || "—"],
-                      [
-                        "Insurance",
-                        getInsuranceDisplay(selectedLead) || "Pending",
-                      ],
-                      [
-                        "Hypothecation",
-                        selectedLead.hypothecation === true
-                          ? `Yes — ${selectedLead.bankName || "Bank pending"}`
-                          : selectedLead.hypothecation === false
-                            ? "No"
-                            : "Unknown",
-                      ],
-                      [
-                        "Accident History",
-                        selectedLead.accidentPaintHistory === true
-                          ? selectedLead.accidentPaintNotes || "Yes"
-                          : selectedLead.accidentPaintHistory === false
-                            ? "No"
-                            : "Unknown",
-                      ],
-                      [
-                        "Expected Price",
-                        fmtInrOrPending(getPrice(selectedLead)),
-                      ],
-                      ["Mileage", getMileage(selectedLead) || "Pending"],
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]"
-                      >
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                          {label}
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {value}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                    Current Inspection Status
-                  </p>
-                  <div className="mt-4 space-y-3">
-                    <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                        Outcome / Natija
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {selectedLead.inspection?.verdict ||
-                          getInspectionState(selectedLead).label}
-                      </p>
-                    </div>
-                    <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                        Remarks / Tippani
-                      </p>
-                      <p className="mt-1 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">
-                        {selectedLead.inspection?.remarks ||
-                          selectedLead.notes ||
-                          "No inspection remarks recorded yet."}
-                      </p>
-                    </div>
-                    <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                        Last Movement
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300">
-                        {selectedLead.activities?.[0]
-                          ? `${selectedLead.activities[0].title} — ${fmt(selectedLead.activities[0].at)}`
-                          : "No inspection movement logged yet."}
-                      </p>
-                    </div>
-                    <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                        How this works / Kaise kaam karta hai
-                      </p>
-                      {[
-                        "1. Visit Update — agar inspection nahi ho saki, reschedule karo.",
-                        "2. Start Inspection — jab evaluator ready ho tab full report bharo.",
-                        "3. Report mein bilingual checkpoints, dropdowns aur photos hain.",
-                        "4. Passed cars aage jaati hain, No-Go cars yahan band ho jaati hain.",
-                      ].map((line) => (
-                        <p
-                          key={line}
-                          className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-400"
-                        >
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-5">
+                <Tabs
+                  defaultActiveKey="1"
+                  className="used-car-verification-tabs"
+                  items={[
+                    {
+                      key: "1",
+                      label: "Seller snapshot",
+                      children: (
+                        <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {[
+                              ["Seller Address", selectedLead.address || "Pending"],
+                              [
+                                "Fuel / Year",
+                                `${selectedLead.fuel || "—"} · ${selectedLead.mfgYear || "—"}`,
+                              ],
+                              ["Color", selectedLead.color || "—"],
+                              [
+                                "Insurance",
+                                getInsuranceDisplay(selectedLead) || "Pending",
+                              ],
+                              [
+                                "Hypothecation",
+                                selectedLead.hypothecation === true
+                                  ? `Yes — ${selectedLead.bankName || "Bank pending"}`
+                                  : selectedLead.hypothecation === false
+                                    ? "No"
+                                    : "Unknown",
+                              ],
+                              [
+                                "Accident History",
+                                selectedLead.accidentPaintHistory === true
+                                  ? selectedLead.accidentPaintNotes || "Yes"
+                                  : selectedLead.accidentPaintHistory === false
+                                    ? "No"
+                                    : "Unknown",
+                              ],
+                              [
+                                "Expected Price",
+                                fmtInrOrPending(getPrice(selectedLead)),
+                              ],
+                              ["Mileage", getMileage(selectedLead) || "Pending"],
+                            ].map(([label, value]) => (
+                              <div
+                                key={label}
+                                className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]"
+                              >
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                                  {label}
+                                </p>
+                                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                  {value}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "2",
+                      label: "Current Status",
+                      children: (
+                        <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                          <div className="space-y-3">
+                            <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                                Outcome / Natija
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                {selectedLead.inspection?.verdict ||
+                                  getInspectionState(selectedLead).label}
+                              </p>
+                            </div>
+                            <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                                Remarks / Tippani
+                              </p>
+                              <p className="mt-1 text-sm font-medium leading-6 text-slate-700 dark:text-slate-300">
+                                {selectedLead.inspection?.remarks ||
+                                  selectedLead.notes ||
+                                  "No inspection remarks recorded yet."}
+                              </p>
+                            </div>
+                            <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                                Last Movement
+                              </p>
+                              <p className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+                                {selectedLead.activities?.[0]
+                                  ? `${selectedLead.activities[0].title} — ${fmt(selectedLead.activities[0].at)}`
+                                  : "No inspection movement logged yet."}
+                              </p>
+                            </div>
+                            <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#11151b]">
+                              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                                How this works / Kaise kaam karta hai
+                              </p>
+                              {[
+                                "1. Visit Update — agar inspection nahi ho saki, reschedule karo.",
+                                "2. Start Inspection — jab evaluator ready ho tab full report bharo.",
+                                "3. Report mein bilingual checkpoints, dropdowns aur photos hain.",
+                                "4. Passed cars aage jaati hain, No-Go cars yahan band ho jaati hain.",
+                              ].map((line) => (
+                                <p
+                                  key={line}
+                                  className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-400"
+                                >
+                                  {line}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+                  ]}
+                />
               </div>
             </div>
           ) : (
