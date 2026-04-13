@@ -1,15 +1,25 @@
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
-// Fetch all employees/users
+/**
+ * Fetch all users for staff pickers (requires permission on `/api/auth/users`).
+ * @returns {Promise<Array<Record<string, unknown>>>}
+ */
 export const getEmployees = async () => {
   try {
-    const token = sessionStorage.getItem('token');
-    const response = await apiClient.get('/api/auth/users', {
-      Authorization: `Bearer ${token}`
+    let token = null;
+    try {
+      token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+    } catch {
+      /* ignore */
+    }
+    const response = await apiClient.get("/api/auth/users", {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     });
-    return response?.data || [];
+    const raw = response?.data ?? response;
+    return Array.isArray(raw) ? raw : [];
   } catch (error) {
-    console.error('Error fetching employees:', error);
+    console.error("Error fetching employees:", error);
     return [];
   }
 };

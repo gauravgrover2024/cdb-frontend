@@ -8,7 +8,10 @@ export const useTheme = () => useContext(ThemeContext);
 export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = sessionStorage.getItem("theme");
-    return saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    if (saved === "dark") return true;
+    if (saved === "light") return false;
+    // Default to light mode if no preference saved
+    return false;
   });
 
   useEffect(() => {

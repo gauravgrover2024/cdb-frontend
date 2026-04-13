@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, PencilLine, Trash2, Eye, ShieldCheck } from "lucide-react";
+import { Plus, PencilLine, Trash2, Eye, ShieldCheck, RefreshCw } from "lucide-react";
 import {
   Alert,
   Button,
@@ -13,6 +13,7 @@ import {
   Tooltip,
   Typography,
 } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { insuranceApi } from "../../api/insurance";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
@@ -56,6 +57,25 @@ const premiumNum = (c) => {
 /** @param {Record<string, unknown>} c */
 const hasPolicyNumber = (c) => hasDisplayValue(c?.newPolicyNumber);
 
+/**
+ * When customer / in-house payment chase fields exist on the case, treat
+ * "fully paid" only if every chase with expected &gt; 0 is fully received.
+ * Legacy cases without these fields behave as before.
+ * @param {Record<string, unknown>} c
+ */
+const hasIncompletePaymentChase = (c) => {
+  if (!c || typeof c !== "object") return false;
+  const pairs = [
+    [c.customerPaymentExpected, c.customerPaymentReceived],
+    [c.inhousePaymentExpected, c.inhousePaymentReceived],
+    [c.customer_payment_expected, c.customer_payment_received],
+    [c.inhouse_payment_expected, c.inhouse_payment_received],
+  ];
+  const active = pairs.filter(([exp]) => Number(exp) > 0);
+  if (active.length === 0) return false;
+  return active.some(([exp, rec]) => Number(rec || 0) < Number(exp));
+};
+
 /** @param {Record<string, unknown>} c */
 const vehicleTypeLower = (c) =>
   String(c?.typesOfVehicle || "").trim().toLowerCase();
@@ -92,12 +112,23 @@ const isFourWheeler = (c) => {
   );
 };
 
+/** Calculate days until expiry - OD takes priority */
+const daysUntilExpiry = (c) => {
+  const expiryDate = c?.newOdExpiryDate || c?.newTpExpiryDate;
+  if (!expiryDate) return null;
+  const expiry = dayjs(expiryDate);
+  if (!expiry.isValid()) return null;
+  return expiry.diff(dayjs(), "day");
+};
+
 /**
  * @param {Record<string, unknown>} c
- * @param {'all'|'completed'|'draft'|'paymentDue'|'fullyPaid'|'2w'|'4w'|'comm'} key
+ * @param {'all'|'completed'|'draft'|'paymentDue'|'fullyPaid'|'renewal7'|'renewal15'|'renewal30'|'expired'|'2w'|'4w'|'comm'} key
  */
 const matchesPolicyFilter = (c, key) => {
   const st = String(c?.status || "").toLowerCase();
+  const days = daysUntilExpiry(c);
+  
   switch (key) {
     case "all":
       return true;
@@ -107,14 +138,24 @@ const matchesPolicyFilter = (c, key) => {
       return st === "draft";
     case "paymentDue":
       return (
-        st === "submitted" &&
-        (!hasPolicyNumber(c) || premiumNum(c) <= 0)
+        hasIncompletePaymentChase(c) ||
+        (st === "submitted" &&
+          (!hasPolicyNumber(c) || premiumNum(c) <= 0))
       );
     case "fullyPaid":
+      if (hasIncompletePaymentChase(c)) return false;
       return (
         st === "issued" ||
         (st === "submitted" && hasPolicyNumber(c) && premiumNum(c) > 0)
       );
+    case "renewal7":
+      return days !== null && days >= 0 && days <= 7;
+    case "renewal15":
+      return days !== null && days >= 0 && days <= 15;
+    case "renewal30":
+      return days !== null && days >= 0 && days <= 30;
+    case "expired":
+      return days !== null && days < 0;
     case "2w":
       return isTwoWheeler(c);
     case "4w":
@@ -135,6 +176,10 @@ const policyFilterCounts = (list) => {
     draft: rows.filter((c) => matchesPolicyFilter(c, "draft")).length,
     paymentDue: rows.filter((c) => matchesPolicyFilter(c, "paymentDue")).length,
     fullyPaid: rows.filter((c) => matchesPolicyFilter(c, "fullyPaid")).length,
+    renewal7: rows.filter((c) => matchesPolicyFilter(c, "renewal7")).length,
+    renewal15: rows.filter((c) => matchesPolicyFilter(c, "renewal15")).length,
+    renewal30: rows.filter((c) => matchesPolicyFilter(c, "renewal30")).length,
+    expired: rows.filter((c) => matchesPolicyFilter(c, "expired")).length,
     "2w": rows.filter((c) => matchesPolicyFilter(c, "2w")).length,
     "4w": rows.filter((c) => matchesPolicyFilter(c, "4w")).length,
     comm: rows.filter((c) => matchesPolicyFilter(c, "comm")).length,
@@ -147,6 +192,10 @@ const FILTER_CHIPS = [
   { key: "draft", label: "Draft" },
   { key: "paymentDue", label: "Payment Due" },
   { key: "fullyPaid", label: "Fully Paid" },
+  { key: "renewal7", label: "Expiring in 7 days" },
+  { key: "renewal15", label: "Expiring in 15 days" },
+  { key: "renewal30", label: "Expiring in 30 days" },
+  { key: "expired", label: "Expired" },
   { key: "2w", label: "2W" },
   { key: "4w", label: "4W" },
   { key: "comm", label: "Comm" },
@@ -162,25 +211,27 @@ const InsuranceDashboardPage = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
   const pageSize = 10;
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await insuranceApi.getAll();
-        const rows = Array.isArray(res?.data) ? res.data : res?.items || [];
-        setCases(rows);
-      } catch (err) {
-        console.error("[InsuranceDashboard] load error:", err);
-        setError(err?.message || "Failed to load insurance cases");
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  const loadCases = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await insuranceApi.getAll();
+      const rows = Array.isArray(res?.data) ? res.data : res?.items || [];
+      setCases(rows);
+    } catch (err) {
+      console.error("[InsuranceDashboard] load error:", err);
+      setError(err?.message || "Failed to load insurance cases");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCases();
+  }, [loadCases]);
 
   const handleDeleteCase = useCallback(async (id, caseName) => {
     try {
@@ -201,6 +252,19 @@ const InsuranceDashboardPage = () => {
       }
     }
   }, []);
+
+  const handleRenewCase = useCallback(
+    (record) => {
+      const id = getCaseId(record);
+      if (!id) {
+        message.error("Invalid case ID");
+        return;
+      }
+      // Navigate to new case form with renewal flag
+      navigate(`/insurance/new?renewFrom=${id}`);
+    },
+    [navigate],
+  );
 
   const stats = useMemo(() => {
     const total = cases.length;
@@ -304,9 +368,90 @@ const InsuranceDashboardPage = () => {
           </div>
         </section>
 
-        {/* Metric strip — loan-style clickable-looking cards (visual only) */}
+        {/* Payment Summary Cards */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+          <div className="rounded-2xl border border-sky-100 bg-sky-50/80 p-4 shadow-sm backdrop-blur dark:border-sky-900/40 dark:bg-sky-950/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Customer Premium</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  ₹{(() => {
+                    const total = filteredCases.reduce((sum, c) => sum + Number(c.customerPaymentExpected || 0), 0);
+                    return total.toLocaleString("en-IN");
+                  })()}
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950/30">
+                <ShieldCheck size={20} className="text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4 shadow-sm backdrop-blur dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Paid</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  ₹{(() => {
+                    const total = filteredCases.reduce((sum, c) => sum + Number(c.customerPaymentReceived || 0), 0);
+                    return total.toLocaleString("en-IN");
+                  })()}
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/30">
+                <ShieldCheck size={20} className="text-emerald-600 dark:text-emerald-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-rose-100 bg-rose-50/80 p-4 shadow-sm backdrop-blur dark:border-rose-900/40 dark:bg-rose-950/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Due</p>
+                <p className="mt-1 text-2xl font-bold text-rose-600 dark:text-rose-400">
+                  ₹{(() => {
+                    const total = filteredCases.reduce((sum, c) => {
+                      const exp = Number(c.customerPaymentExpected || 0);
+                      const rec = Number(c.customerPaymentReceived || 0);
+                      return sum + Math.max(0, exp - rec);
+                    }, 0);
+                    return total.toLocaleString("en-IN");
+                  })()}
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-950/30">
+                <ShieldCheck size={20} className="text-rose-600 dark:text-rose-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-violet-100 bg-violet-50/80 p-4 shadow-sm backdrop-blur dark:border-violet-900/40 dark:bg-violet-950/20">
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Payment Progress</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {(() => {
+                  const exp = filteredCases.reduce((sum, c) => sum + Number(c.customerPaymentExpected || 0), 0);
+                  const rec = filteredCases.reduce((sum, c) => sum + Number(c.customerPaymentReceived || 0), 0);
+                  const progress = exp > 0 ? (rec / exp) * 100 : 0;
+                  return progress.toFixed(1);
+                })()}%
+              </p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{
+                    width: `${(() => {
+                      const exp = filteredCases.reduce((sum, c) => sum + Number(c.customerPaymentExpected || 0), 0);
+                      const rec = filteredCases.reduce((sum, c) => sum + Number(c.customerPaymentReceived || 0), 0);
+                      const progress = exp > 0 ? (rec / exp) * 100 : 0;
+                      return Math.min(100, progress);
+                    })()}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-cyan-100 bg-cyan-50/80 px-4 py-3 shadow-sm dark:border-cyan-900/40 dark:bg-cyan-950/20">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               Total cases
             </p>
@@ -315,7 +460,7 @@ const InsuranceDashboardPage = () => {
             </p>
             <p className="mt-0.5 text-[11px] text-slate-500">All records</p>
           </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/80 px-4 py-3 shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               Draft
             </p>
@@ -324,7 +469,7 @@ const InsuranceDashboardPage = () => {
             </p>
             <p className="mt-0.5 text-[11px] text-slate-500">Needs completion</p>
           </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               Submitted
             </p>
@@ -333,7 +478,7 @@ const InsuranceDashboardPage = () => {
             </p>
             <p className="mt-0.5 text-[11px] text-slate-500">Filed / done</p>
           </div>
-          <div className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+          <div className="rounded-2xl border border-rose-100 bg-rose-50/80 px-4 py-3 shadow-sm dark:border-rose-900/40 dark:bg-rose-950/20">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               Action needed
             </p>
@@ -344,56 +489,96 @@ const InsuranceDashboardPage = () => {
           </div>
         </section>
 
-        {/* Filter bar — loan grid toolbar style */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
-          <div className="flex-shrink-0 border-b border-slate-200/70 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/50">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-                <Text className="shrink-0 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  {filteredCases.length} of {cases.length} cases
-                </Text>
-                <Search
-                  placeholder="Search case, customer, mobile, vehicle, policy..."
-                  allowClear
+        {/* Search + Filters - Exact Loans Dashboard Style */}
+        <section className="rounded-2xl border border-slate-200/70 bg-white/80 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="border-b border-slate-200/70 px-4 py-3 dark:border-slate-800">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <SearchOutlined className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by Customer Name, Mobile Number, Vehicle Number, or Policy Number..."
                   value={search}
-                  onSearch={(val) => setSearch(val || "")}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full min-w-0 lg:max-w-sm lg:flex-1"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
                 />
               </div>
+              
+              <Button
+                icon={<span className="text-base">↻</span>}
+                onClick={loadCases}
+                className="h-10 px-3"
+              >
+                Refresh
+              </Button>
+              
+              <Button
+                type="primary"
+                icon={<Plus size={16} />}
+                onClick={() => navigate("/insurance/new")}
+                className="h-10 px-4"
+              >
+                New Case
+              </Button>
+            </div>
 
-              {/* Filter Policies — one scrollable row on small screens, wraps on larger */}
-              <div className="min-w-0 border-t border-slate-200/60 pt-3 dark:border-slate-800">
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-400">
-                  Filter Policies
-                </p>
-                <div className="-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-                  {FILTER_CHIPS.map(({ key, label }) => {
-                    const count =
-                      filterCounts[key] ?? filterCounts.all;
-                    const active = policyFilter === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setPolicyFilter(key)}
-                        className={`inline-flex shrink-0 items-baseline gap-2 rounded-full border px-3 py-1.5 text-left text-xs font-semibold transition-colors ${
-                          active
-                            ? "border-sky-500 bg-sky-50 text-sky-800 shadow-sm dark:border-sky-500 dark:bg-sky-950/50 dark:text-sky-100"
-                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
-                        }`}
-                      >
-                        <span>{label}</span>
-                        <span className="tabular-nums text-[13px] font-black text-slate-900 dark:text-slate-100">
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="mt-3 flex items-center justify-between">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 text-sm font-semibold text-slate-900 transition-colors hover:text-sky-600 dark:text-slate-100"
+              >
+                <span className="text-base">⚙</span>
+                Filters
+                {policyFilter !== "all" && (
+                  <span className="rounded-full bg-sky-600 px-2 py-0.5 text-xs text-white">
+                    1
+                  </span>
+                )}
+                <span className="text-slate-400">{showFilters ? "▲" : "▼"}</span>
+              </button>
+
+              {policyFilter !== "all" && (
+                <Button
+                  size="small"
+                  onClick={() => setPolicyFilter("all")}
+                  className="text-xs"
+                >
+                  ✕ Clear
+                </Button>
+              )}
             </div>
           </div>
+
+          {showFilters && (
+            <div className="border-b border-slate-200/70 bg-slate-50/50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                Policy Status
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {FILTER_CHIPS.map(({ key, label }) => {
+                  const count = filterCounts[key] ?? 0;
+                  const active = policyFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setPolicyFilter(key)}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                        active
+                          ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
           <div className="flex-1 overflow-y-auto p-3 md:p-4">
             {error && (
@@ -458,11 +643,23 @@ const InsuranceDashboardPage = () => {
                       : "—";
                   const premium = record.newTotalPremium;
                   const insurer = record.newInsuranceCompany;
+                  const premiumAmount = Number(record.newTotalPremium || 0);
+                  const customerPaid = Number(record.customerPaymentReceived || 0);
+                  const paymentProgress =
+                    premiumAmount > 0
+                      ? Math.min(100, (customerPaid / premiumAmount) * 100)
+                      : 0;
                   const docCount = Array.isArray(record.documents)
                     ? record.documents.length
                     : 0;
                   const isDraft = statusVal === "draft";
                   const id = getCaseId(record);
+                  const daysLeft = daysUntilExpiry(record);
+                  const showRenewalBadge =
+                    !isDraft &&
+                    daysLeft !== null &&
+                    daysLeft >= -30 &&
+                    daysLeft <= 30;
 
                   return (
                     <article
@@ -484,6 +681,21 @@ const InsuranceDashboardPage = () => {
                             <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                               Step {record.currentStep ?? "—"}: {stepLabel}
                             </span>
+                            {showRenewalBadge && (
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                                  daysLeft < 0
+                                    ? "border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300"
+                                    : daysLeft <= 7
+                                      ? "border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300"
+                                      : "border-sky-300 bg-sky-100 text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300"
+                                }`}
+                              >
+                                {daysLeft < 0
+                                  ? `Expired ${Math.abs(daysLeft)}d ago`
+                                  : `${daysLeft}d left`}
+                              </span>
+                            )}
                           </div>
                           <div className="text-right text-[11px] text-slate-500 dark:text-slate-400">
                             <div>Created</div>
@@ -571,67 +783,127 @@ const InsuranceDashboardPage = () => {
                               Documents:{" "}
                               <span className="font-semibold">{docCount}</span>
                             </p>
-                            {hasDisplayValue(record.sourceOrigin) && (
-                              <p className="truncate text-[10px] text-slate-500">
-                                Source: {record.sourceOrigin}
+                            {(hasDisplayValue(record.sourceOrigin) ||
+                              hasDisplayValue(record.referenceName)) && (
+                              <p
+                                className="truncate text-[10px] text-slate-500 dark:text-slate-400"
+                                title={[
+                                  hasDisplayValue(record.sourceOrigin)
+                                    ? `Source: ${record.sourceOrigin}`
+                                    : "",
+                                  hasDisplayValue(record.referenceName)
+                                    ? `Ref: ${record.referenceName}`
+                                    : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              >
+                                Source:{" "}
+                                <span className="font-medium text-slate-700 dark:text-slate-300">
+                                  {hasDisplayValue(record.sourceOrigin)
+                                    ? record.sourceOrigin
+                                    : "—"}
+                                </span>
+                                {hasDisplayValue(record.referenceName) && (
+                                  <span className="text-slate-600 dark:text-slate-400">
+                                    {" "}
+                                    ({record.referenceName})
+                                  </span>
+                                )}
                               </p>
                             )}
                           </div>
 
-                          <div className="flex flex-col justify-between rounded-lg border border-slate-200 bg-slate-50/70 p-2 dark:border-slate-800 dark:bg-slate-950/60">
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-2 dark:border-emerald-900/60 dark:bg-emerald-950/30">
                             <div>
                               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                                Actions
+                                Payment
                               </p>
-                            </div>
-                            <div className="mt-2 flex flex-wrap items-center justify-end gap-1">
-                              <Tooltip title="View details">
-                                <button
-                                  type="button"
-                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-sky-700 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300"
-                                  onClick={() => {
-                                    setSelectedCase(record);
-                                    setPreviewVisible(true);
-                                  }}
-                                >
-                                  <Eye size={14} />
-                                </button>
-                              </Tooltip>
-                              <Tooltip
-                                title={isDraft ? "Continue case" : "Edit case"}
-                              >
-                                <button
-                                  type="button"
-                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300"
-                                  onClick={() =>
-                                    navigate(`/insurance/edit/${id}`)
-                                  }
-                                >
-                                  <PencilLine size={14} />
-                                </button>
-                              </Tooltip>
-                              <Popconfirm
-                                title="Delete case"
-                                description={`Delete "${record.caseId}"? This cannot be undone.`}
-                                onConfirm={() =>
-                                  handleDeleteCase(id, record.caseId)
-                                }
-                                okText="Delete"
-                                okType="danger"
-                                cancelText="Cancel"
-                              >
-                                <Tooltip title="Delete">
-                                  <button
-                                    type="button"
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </Tooltip>
-                              </Popconfirm>
+                              <p className="mt-0.5 text-[11px] text-slate-700 dark:text-slate-200">
+                                Premium:{" "}
+                                <span className="font-semibold">
+                                  ₹{premiumAmount.toLocaleString("en-IN")}
+                                </span>
+                              </p>
+                              <p className="text-[11px] text-slate-700 dark:text-slate-200">
+                                Paid:{" "}
+                                <span className="font-semibold">
+                                  ₹{customerPaid.toLocaleString("en-IN")}
+                                </span>
+                              </p>
+                              <p className="text-[10px] text-slate-600 dark:text-slate-300">
+                                {customerPaid >= premiumAmount && premiumAmount > 0
+                                  ? "Fully Paid"
+                                  : customerPaid > 0
+                                    ? "Partially Paid"
+                                    : "Not Paid"}
+                              </p>
+                              <p className="mt-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                Payment Progress
+                              </p>
+                              <p className="text-[12px] font-bold text-slate-900 dark:text-slate-100">
+                                {paymentProgress.toFixed(1)}%
+                              </p>
+                              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                <div
+                                  className="h-full rounded-full bg-emerald-500 transition-all"
+                                  style={{ width: `${paymentProgress}%` }}
+                                />
+                              </div>
                             </div>
                           </div>
                         </section>
+                        <div className="mt-2 flex flex-wrap items-center justify-end gap-1 border-t border-slate-200/70 pt-2 dark:border-slate-800">
+                          {!isDraft && (
+                            <Tooltip title="Renew policy">
+                              <button
+                                type="button"
+                                className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+                                onClick={() => handleRenewCase(record)}
+                              >
+                                <RefreshCw size={14} />
+                              </button>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="View details">
+                            <button
+                              type="button"
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-sky-700 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300"
+                              onClick={() => {
+                                setSelectedCase(record);
+                                setPreviewVisible(true);
+                              }}
+                            >
+                              <Eye size={14} />
+                            </button>
+                          </Tooltip>
+                          <Tooltip title={isDraft ? "Continue case" : "Edit case"}>
+                            <button
+                              type="button"
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300"
+                              onClick={() => navigate(`/insurance/edit/${id}`)}
+                            >
+                              <PencilLine size={14} />
+                            </button>
+                          </Tooltip>
+                          <Popconfirm
+                            title="Delete case"
+                            description={`Delete "${record.caseId}"? This cannot be undone.`}
+                            onConfirm={() => handleDeleteCase(id, record.caseId)}
+                            okText="Delete"
+                            okType="danger"
+                            cancelText="Cancel"
+                          >
+                            <Tooltip title="Delete">
+                              <button
+                                type="button"
+                                className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </Tooltip>
+                          </Popconfirm>
+                        </div>
                       </div>
                     </article>
                   );
