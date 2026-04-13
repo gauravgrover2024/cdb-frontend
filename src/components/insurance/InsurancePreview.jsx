@@ -164,7 +164,19 @@ const InsurancePreview = ({ visible, onClose, data }) => {
               label="Nominee"
               value={`${data.nomineeName} (${data.nomineeRelationship})`}
             />
-            <Field label="Reference" value={data.referenceName} />
+            <Field
+              label="Source"
+              value={[
+                data.sourceOrigin,
+                data.referenceName ? `(${data.referenceName})` : "",
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .trim()}
+            />
+            {data.referencePhone ? (
+              <Field label="Reference phone" value={data.referencePhone} />
+            ) : null}
           </div>
         </section>
 

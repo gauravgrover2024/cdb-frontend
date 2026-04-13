@@ -17,15 +17,77 @@ const InsuranceCasePage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadedCase, setLoadedCase] = useState(null);
+  const [renewFromCase, setRenewFromCase] = useState(null);
+
+  const queryParams = new URLSearchParams(location.search);
+  const renewFromId = queryParams.get("renewFrom");
+  const isRenewalMode = Boolean(renewFromId);
 
   const initialValues = useMemo(() => {
-    // Prefer freshly fetched backend doc, fallback to navigation state seed.
+    if (renewFromCase) {
+      return {
+        ...renewFromCase,
+        _id: undefined,
+        id: undefined,
+        caseId: undefined,
+        status: "draft",
+        currentStep: 4,
+        isRenewal: true,
+        renewedFromCaseId: renewFromCase._id || renewFromCase.id,
+        vehicleType: "Used Car",
+        claimTakenLastYear: "",
+        previousInsuranceCompany: renewFromCase.newInsuranceCompany || "",
+        previousPolicyNumber: renewFromCase.newPolicyNumber || "",
+        previousPolicyType: renewFromCase.newPolicyType || "",
+        previousPolicyStartDate: renewFromCase.newPolicyStartDate || "",
+        previousPolicyDuration: renewFromCase.newInsuranceDuration || "",
+        previousOdExpiryDate: renewFromCase.newOdExpiryDate || "",
+        previousTpExpiryDate: renewFromCase.newTpExpiryDate || "",
+        previousNcbDiscount: renewFromCase.newNcbDiscount || 0,
+        previousHypothecation: renewFromCase.newHypothecation || "",
+        previousRemarks: renewFromCase.newRemarks || "",
+        newInsuranceCompany: "",
+        newPolicyNumber: "",
+        newPolicyType: renewFromCase.newPolicyType || "Comprehensive",
+        newIssueDate: "",
+        newPolicyStartDate: "",
+        newOdExpiryDate: "",
+        newTpExpiryDate: "",
+        quotes: [],
+        acceptedQuoteId: null,
+        documents: [],
+        customerPaymentExpected: 0,
+        customerPaymentReceived: 0,
+        inhousePaymentExpected: 0,
+        inhousePaymentReceived: 0,
+        paymentHistory: [],
+      };
+    }
     return loadedCase || stateSeed || null;
-  }, [loadedCase, stateSeed]);
+  }, [loadedCase, stateSeed, renewFromCase]);
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
+      if (isRenewalMode && renewFromId) {
+        setLoading(true);
+        setError("");
+        try {
+          const res = await insuranceApi.getById(renewFromId);
+          const doc = res?.data || res;
+          if (!cancelled) setRenewFromCase(doc);
+        } catch (e) {
+          console.error("[InsuranceCasePage] renewal load failed:", e);
+          if (!cancelled)
+            setError(
+              e?.message || "Failed to load case for renewal"
+            );
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+        return;
+      }
+
       if (!isEditMode || !caseId) return;
       setLoading(true);
       setError("");
@@ -44,7 +106,7 @@ const InsuranceCasePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [caseId, isEditMode]);
+  }, [caseId, isEditMode, renewFromId, isRenewalMode]);
 
   const handleSubmit = () => {
     navigate("/insurance");
@@ -105,12 +167,24 @@ const InsuranceCasePage = () => {
                 Insurance Case
               </Text>
               <Title level={3} style={{ margin: 0 }}>
-                {isEditMode ? `Edit Case — ${caseId}` : "New Insurance Case"}
+                {isRenewalMode
+                  ? "Renew Insurance Policy"
+                  : isEditMode
+                    ? `Edit Case — ${caseId}`
+                    : "New Insurance Case"}
               </Title>
             </div>
           </Space>
 
-          {isEditMode ? (
+          {isRenewalMode ? (
+            <Alert
+              type="info"
+              showIcon
+              message="Renewal Mode"
+              description="Customer, vehicle, and previous policy details copied. Select 'Claim Taken Last Year' in Step 3, then proceed to quotations."
+              style={{ marginTop: 12 }}
+            />
+          ) : isEditMode ? (
             <Text type="secondary">
               <ShieldCheck
                 size={14}

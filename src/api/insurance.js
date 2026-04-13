@@ -27,4 +27,10 @@ export const insuranceApi = {
       `/api/insurance/${encodeURIComponent(String(id || "").trim())}`,
     );
   },
+
+  syncReceivable: async (id) => {
+    return await apiClient.post(
+      `/api/insurance/${encodeURIComponent(String(id || "").trim())}/sync-receivable`,
+    );
+  },
 };

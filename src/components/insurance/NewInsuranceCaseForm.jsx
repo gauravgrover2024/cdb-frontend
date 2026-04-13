@@ -5,8 +5,10 @@ import {
   AutoComplete,
   Button,
   Card,
+  Checkbox,
   Col,
   Divider,
+  Empty,
   Input,
   InputNumber,
   message,
@@ -21,14 +23,26 @@ import {
   Typography,
   Upload,
 } from "antd";
-import { Check } from "lucide-react";
+import { SearchOutlined } from "@ant-design/icons";
 import { insuranceApi } from "../../api/insurance";
 import { customersApi } from "../../api/customers";
 import { vehiclesApi } from "../../api/vehicles";
 import { loansApi } from "../../api/loans";
+import { getEmployees } from "../../api/employees";
+import PlanFeaturesModalBody from "./PlanFeaturesModalBody";
 
 const { Text, Title } = Typography;
 const { Dragger } = Upload;
+
+/** Same response normalization as loan EMI customer search (EMICustomerDetails). */
+const normalizeCustomerSearchPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.results)) return payload.results;
+  return [];
+};
 
 const STEP_TITLES = [
   "Step 1: Customer Information",
@@ -37,6 +51,7 @@ const STEP_TITLES = [
   "Step 4: Insurance Quotes",
   "Step 5: New Policy Details",
   "Step 6: Documents",
+  "Step 7: Payment",
 ];
 
 const durationOptions = [
@@ -80,6 +95,8 @@ const initialFormState = {
   brokerName: "",
   sourceOrigin: "",
   employeeName: "",
+  /** Selected system user id when picked from employees list */
+  employeeUserId: "",
 
   customerName: "",
   companyName: "",
@@ -135,8 +152,14 @@ const initialFormState = {
   newNcbDiscount: 0,
   newIdvAmount: 0,
   newTotalPremium: 0,
+  subventionAmount: 0,
   newHypothecation: "Not Applicable",
   newRemarks: "",
+
+  customerPaymentExpected: 0,
+  customerPaymentReceived: 0,
+  inhousePaymentExpected: 0,
+  inhousePaymentReceived: 0,
 };
 
 const initialQuoteDraft = {
@@ -151,6 +174,106 @@ const initialQuoteDraft = {
   thirdPartyAmount: 0,
   addOnsAmount: 0,
   addOns: addOnCatalog.reduce((acc, name) => ({ ...acc, [name]: 0 }), {}),
+  /** Per catalog add-on: when true, amount counts (₹0 still counts as included). */
+  addOnsIncluded: addOnCatalog.reduce((acc, name) => ({ ...acc, [name]: false }), {}),
+};
+
+/** Stable id for quote rows (saved cases may only have _id). */
+const getQuoteRowId = (q, index = 0) =>
+  q?.id ?? q?._id ?? q?.quoteId ?? `quote-${index}`;
+
+/**
+ * Map a persisted quote row into the Step-4 "Add quote" draft so saved data
+ * shows in the builder (not only in the table).
+ * @param {Record<string, unknown>} q
+ * @returns {typeof initialQuoteDraft}
+ */
+const mapQuoteToDraft = (q) => {
+  if (!q || typeof q !== "object") {
+    return {
+      ...initialQuoteDraft,
+      addOns: { ...initialQuoteDraft.addOns },
+      addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
+    };
+  }
+  const baseAddOns = addOnCatalog.reduce(
+    (acc, name) => ({ ...acc, [name]: 0 }),
+    {},
+  );
+  const incoming =
+    q.addOns && typeof q.addOns === "object" && !Array.isArray(q.addOns)
+      ? q.addOns
+      : {};
+  const mergedAddOns = { ...baseAddOns };
+  Object.keys(incoming).forEach((k) => {
+    if (Object.prototype.hasOwnProperty.call(mergedAddOns, k)) {
+      mergedAddOns[k] = Number(incoming[k]) || 0;
+    }
+  });
+
+  const incomingInc =
+    q.addOnsIncluded &&
+    typeof q.addOnsIncluded === "object" &&
+    !Array.isArray(q.addOnsIncluded)
+      ? q.addOnsIncluded
+      : {};
+  const mergedIncluded = addOnCatalog.reduce((acc, name) => {
+    if (typeof incomingInc[name] === "boolean") {
+      acc[name] = incomingInc[name];
+    } else {
+      acc[name] = Number(mergedAddOns[name]) > 0;
+    }
+    return acc;
+  }, {});
+
+  let vehicleIdv = Number(q.vehicleIdv) || 0;
+  let cngIdv = Number(q.cngIdv) || 0;
+  let accessoriesIdv = Number(q.accessoriesIdv) || 0;
+  const sumParts = vehicleIdv + cngIdv + accessoriesIdv;
+  const totalIdvStored = Number(q.totalIdv) || 0;
+  if (sumParts === 0 && totalIdvStored > 0) {
+    vehicleIdv = totalIdvStored;
+  }
+
+  return {
+    insuranceCompany: String(q.insuranceCompany ?? "").trim(),
+    coverageType: String(q.coverageType || "Comprehensive"),
+    vehicleIdv,
+    cngIdv,
+    accessoriesIdv,
+    policyDuration: String(q.policyDuration || initialQuoteDraft.policyDuration),
+    ncbDiscount: Number(q.ncbDiscount) || 0,
+    odAmount: Number(q.odAmount) || 0,
+    thirdPartyAmount: Number(q.thirdPartyAmount) || 0,
+    addOnsAmount: Number(q.addOnsAmount) || 0,
+    addOns: mergedAddOns,
+    addOnsIncluded: mergedIncluded,
+  };
+};
+
+/**
+ * @param {unknown[]} raw
+ * @returns {Array<Record<string, unknown> & { id: string | number }>}
+ */
+const normalizeQuotesFromApi = (raw) => {
+  if (raw == null) return [];
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return normalizeQuotesFromApi(parsed);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(raw)) {
+    if (Array.isArray(raw?.data)) return normalizeQuotesFromApi(raw.data);
+    if (Array.isArray(raw?.quotes)) return normalizeQuotesFromApi(raw.quotes);
+    return [];
+  }
+  return raw.map((q, idx) => ({
+    ...(typeof q === "object" && q ? q : {}),
+    id: getQuoteRowId(q, idx),
+  }));
 };
 
 const toINR = (num) =>
@@ -159,6 +282,88 @@ const toINR = (num) =>
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(Number(num) || 0);
+
+/**
+ * Same premium math as `quoteComputed` / addQuote, for a persisted quote row.
+ * @param {Record<string, unknown>} q
+ */
+const computeQuoteBreakupFromRow = (q) => {
+  if (!q || typeof q !== "object") {
+    return {
+      addOnsTotal: 0,
+      odAmt: 0,
+      tpAmt: 0,
+      totalIdv: 0,
+      basePremium: 0,
+      ncbAmount: 0,
+      taxableAmount: 0,
+      gstAmount: 0,
+      totalPremium: 0,
+      addOnLines: [],
+    };
+  }
+  const addOns = q.addOns && typeof q.addOns === "object" ? q.addOns : {};
+  const included =
+    q.addOnsIncluded && typeof q.addOnsIncluded === "object"
+      ? q.addOnsIncluded
+      : {};
+  const selectedAddOnsTotal = addOnCatalog.reduce((sum, name) => {
+    if (!included[name]) return sum;
+    return sum + Number(addOns[name] || 0);
+  }, 0);
+  const addOnsTotal = Number(q.addOnsAmount || 0) + selectedAddOnsTotal;
+  const odAmt = Number(q.odAmount || 0);
+  const tpAmt = Number(q.thirdPartyAmount || 0);
+  const idvParts =
+    Number(q.vehicleIdv || 0) +
+    Number(q.cngIdv || 0) +
+    Number(q.accessoriesIdv || 0);
+  const storedIdv = Number(q.totalIdv);
+  const totalIdv =
+    Number.isFinite(storedIdv) && storedIdv > 0 ? storedIdv : idvParts;
+  const basePremium = odAmt + tpAmt + addOnsTotal;
+  const ncbPct = Number(q.ncbDiscount || 0);
+  const ncbAmount = (basePremium * ncbPct) / 100;
+  const taxableAmount = Math.max(basePremium - ncbAmount, 0);
+  const gstAmount = taxableAmount * 0.18;
+  const storedTotal = Number(q.totalPremium);
+  const totalPremium =
+    Number.isFinite(storedTotal) && storedTotal > 0
+      ? storedTotal
+      : taxableAmount + gstAmount;
+
+  const addOnLines = addOnCatalog
+    .filter((name) => included[name])
+    .map((name) => ({
+      name,
+      amount: Number(addOns[name] || 0),
+    }));
+
+  return {
+    addOnsTotal,
+    odAmt,
+    tpAmt,
+    totalIdv,
+    basePremium,
+    ncbAmount,
+    taxableAmount,
+    gstAmount,
+    totalPremium,
+    addOnLines,
+  };
+};
+
+const formatStoredOrComputedIdv = (row) => {
+  const s = Number(row?.totalIdv);
+  if (Number.isFinite(s) && s > 0) return toINR(s);
+  return toINR(computeQuoteBreakupFromRow(row).totalIdv);
+};
+
+const formatStoredOrComputedPremium = (row) => {
+  const s = Number(row?.totalPremium);
+  if (Number.isFinite(s) && s > 0) return toINR(s);
+  return toINR(computeQuoteBreakupFromRow(row).totalPremium);
+};
 
 const yearsFromDuration = (duration) => {
   const text = String(duration || "");
@@ -260,6 +465,20 @@ const NewInsuranceCaseForm = ({
   const [selectedQuoteIds, setSelectedQuoteIds] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [showErrors, setShowErrors] = useState(false);
+  const [planFeaturesModal, setPlanFeaturesModal] = useState({
+    open: false,
+    row: null,
+  });
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: 0,
+    date: new Date().toISOString().slice(0, 10),
+    paymentType: "customer",
+    paymentMode: "Cash",
+    transactionRef: "",
+    remarks: "",
+  });
 
   const [insuranceDbId, setInsuranceDbId] = useState(
     initialValues?._id || initialValues?.id || null,
@@ -273,6 +492,10 @@ const NewInsuranceCaseForm = ({
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
   const customerSearchDebounceRef = React.useRef(null);
+
+  /** Staff / users from DB for Employee field (not customer records) */
+  const [employeesList, setEmployeesList] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
 
   // Vehicle search (for Registration Number / Step-2 auto-fill)
   const [vehicleSearchLoading, setVehicleSearchLoading] = useState(false);
@@ -319,8 +542,7 @@ const NewInsuranceCaseForm = ({
         customerId: getCustomerId(customer),
 
         // === PERSONAL DETAILS ===
-        // Step-1 required + commonly used fields
-        employeeName: customer?.customerName || prev.employeeName,
+        // Customer search must not overwrite employee (staff) — employee comes from users API
         customerName: customer?.customerName || prev.customerName,
         companyName: customer?.companyName || prev.companyName,
         contactPersonName:
@@ -441,7 +663,7 @@ const NewInsuranceCaseForm = ({
         setCustomerSearchLoading(true);
         try {
           const res = await customersApi.search(query);
-          const rows = Array.isArray(res?.data) ? res.data : [];
+          const rows = normalizeCustomerSearchPayload(res);
           setCustomerSearchResults(rows);
         } catch (err) {
           console.error("[Insurance][CustomerSearch] error:", err);
@@ -449,11 +671,58 @@ const NewInsuranceCaseForm = ({
         } finally {
           setCustomerSearchLoading(false);
         }
-      }, 450);
+      }, 280);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setEmployeesLoading(true);
+      try {
+        const list = await getEmployees();
+        if (cancelled) return;
+        setEmployeesList(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.error("[Insurance][Employees] load failed:", err);
+        if (!cancelled) setEmployeesList([]);
+      } finally {
+        if (!cancelled) setEmployeesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const employeeOptions = useMemo(() => {
+    const q = String(formData.employeeName || "")
+      .trim()
+      .toLowerCase();
+    return (employeesList || [])
+      .filter((emp) => {
+        if (!q) return true;
+        const name = String(emp?.name || "").toLowerCase();
+        const email = String(emp?.email || "").toLowerCase();
+        return name.includes(q) || email.includes(q);
+      })
+      .slice(0, 12)
+      .map((emp) => ({
+        value: String(emp._id || emp.id || ""),
+        label: (
+          <div>
+            <div style={{ fontWeight: 500 }}>{emp.name || "User"}</div>
+            <div style={{ fontSize: 12, color: "#666" }}>
+              {emp.email || "—"}
+              {emp.role ? ` · ${emp.role}` : ""}
+            </div>
+          </div>
+        ),
+      }))
+      .filter((opt) => opt.value);
+  }, [employeesList, formData.employeeName]);
 
   const applyVehicleToForm = useCallback(
     (vehicle) => {
@@ -695,11 +964,39 @@ const NewInsuranceCaseForm = ({
   }, [formData.vehicleMake, formData.vehicleModel]);
 
   useEffect(() => {
+    if (step !== 4) {
+      setPlanFeaturesModal({ open: false, row: null });
+    }
+  }, [step]);
+
+  useEffect(() => {
     if (!initialValues) return;
     setFormData((prev) => ({ ...prev, ...initialValues }));
-    if (Array.isArray(initialValues?.quotes)) setQuotes(initialValues.quotes);
+    const normalizedQuotes = normalizeQuotesFromApi(initialValues?.quotes);
+    if (normalizedQuotes.length) {
+      setQuotes(normalizedQuotes);
+      const accId = initialValues.acceptedQuoteId;
+      const picked =
+        normalizedQuotes.find(
+          (q) =>
+            accId !== undefined &&
+            accId !== null &&
+            String(getQuoteRowId(q)) === String(accId),
+        ) ||
+        normalizedQuotes.find((q) => q.isAccepted) ||
+        normalizedQuotes[0];
+      setQuoteDraft(mapQuoteToDraft(picked));
+    } else {
+      setQuotes([]);
+      setQuoteDraft({
+        ...initialQuoteDraft,
+        addOns: { ...initialQuoteDraft.addOns },
+      });
+    }
     if (Array.isArray(initialValues?.documents))
       setDocuments(initialValues.documents);
+    if (Array.isArray(initialValues?.paymentHistory))
+      setPaymentHistory(initialValues.paymentHistory);
     if (initialValues?.acceptedQuoteId !== undefined)
       setAcceptedQuoteId(initialValues.acceptedQuoteId);
     if (initialValues?.currentStep)
@@ -712,7 +1009,10 @@ const NewInsuranceCaseForm = ({
   const isNewCar = formData.vehicleType === "New Car";
   const step1Errors = useMemo(() => validateStep1(formData), [formData]);
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
-  const acceptedQuote = quotes.find((q) => q.id === acceptedQuoteId) || null;
+  const acceptedQuote =
+    quotes.find(
+      (q) => String(getQuoteRowId(q)) === String(acceptedQuoteId ?? ""),
+    ) || null;
   const docsTaggedCount = documents.filter((d) => d.tag).length;
   const allUploadedDocsTagged =
     documents.length > 0 && docsTaggedCount === documents.length;
@@ -724,20 +1024,19 @@ const NewInsuranceCaseForm = ({
   }, [isNewCar, step]);
 
   const quoteComputed = useMemo(() => {
-    const selectedAddOnsTotal = Object.values(quoteDraft.addOns || {}).reduce(
-      (sum, v) => sum + Number(v || 0),
-      0,
-    );
+    const selectedAddOnsTotal = addOnCatalog.reduce((sum, name) => {
+      if (!quoteDraft.addOnsIncluded?.[name]) return sum;
+      return sum + Number(quoteDraft.addOns?.[name] || 0);
+    }, 0);
     const addOnsTotal =
       Number(quoteDraft.addOnsAmount || 0) + selectedAddOnsTotal;
+    const odAmt = Number(quoteDraft.odAmount || 0);
+    const tpAmt = Number(quoteDraft.thirdPartyAmount || 0);
     const totalIdv =
       Number(quoteDraft.vehicleIdv || 0) +
       Number(quoteDraft.cngIdv || 0) +
       Number(quoteDraft.accessoriesIdv || 0);
-    const basePremium =
-      Number(quoteDraft.odAmount || 0) +
-      Number(quoteDraft.thirdPartyAmount || 0) +
-      addOnsTotal;
+    const basePremium = odAmt + tpAmt + addOnsTotal;
     const ncbAmount = (basePremium * Number(quoteDraft.ncbDiscount || 0)) / 100;
     const taxableAmount = Math.max(basePremium - ncbAmount, 0);
     const gstAmount = taxableAmount * 0.18;
@@ -745,6 +1044,8 @@ const NewInsuranceCaseForm = ({
     return {
       selectedAddOnsTotal,
       addOnsTotal,
+      odAmt,
+      tpAmt,
       totalIdv,
       basePremium,
       ncbAmount,
@@ -766,12 +1067,13 @@ const NewInsuranceCaseForm = ({
         quotes,
         acceptedQuoteId,
         documents,
+        paymentHistory,
         status: patch.status || "draft",
         currentStep: step,
         ...patch,
       };
     },
-    [acceptedQuoteId, documents, formData, quotes, step],
+    [acceptedQuoteId, documents, formData, paymentHistory, quotes, step],
   );
 
   const persistNow = useCallback(
@@ -899,13 +1201,17 @@ const NewInsuranceCaseForm = ({
     };
     setQuotes((prev) => [...prev, newQuote]);
     if (quotes.length === 0) setAcceptedQuoteId(newQuote.id);
-    setQuoteDraft(initialQuoteDraft);
+    setQuoteDraft({
+      ...initialQuoteDraft,
+      addOns: { ...initialQuoteDraft.addOns },
+      addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
+    });
     persistNow({ silent: true });
   };
 
   const acceptQuote = (id) => {
     setAcceptedQuoteId(id);
-    const q = quotes.find((x) => x.id === id);
+    const q = quotes.find((x) => String(getQuoteRowId(x)) === String(id));
     if (!q) return;
     setFormData((prev) => {
       const odTp = yearsFromDuration(q.policyDuration);
@@ -930,15 +1236,24 @@ const NewInsuranceCaseForm = ({
   const handlePreviousPolicyStartOrDuration = (updated) => {
     setFormData((prev) => {
       const next = { ...prev, ...updated };
-      const y = yearsFromDuration(next.previousPolicyDuration);
-      next.previousOdExpiryDate = calcExpiryDate(
-        next.previousPolicyStartDate,
-        y.odYears,
-      );
-      next.previousTpExpiryDate = calcExpiryDate(
-        next.previousPolicyStartDate,
-        y.tpYears,
-      );
+      const policyType = next.previousPolicyType;
+      const duration = next.previousPolicyDuration;
+      const startDate = next.previousPolicyStartDate;
+
+      if (policyType === "Comprehensive") {
+        const y = yearsFromDuration(duration);
+        next.previousOdExpiryDate = calcExpiryDate(startDate, y.odYears);
+        next.previousTpExpiryDate = calcExpiryDate(startDate, y.tpYears);
+      } else if (policyType === "Stand Alone OD") {
+        const years = duration === "1 Year" ? 1 : duration === "2 Years" ? 2 : duration === "3 Years" ? 3 : 0;
+        next.previousOdExpiryDate = calcExpiryDate(startDate, years);
+        next.previousTpExpiryDate = "";
+      } else if (policyType === "Third Party") {
+        const years = duration === "1 Year" ? 1 : duration === "2 Years" ? 2 : duration === "3 Years" ? 3 : 0;
+        next.previousTpExpiryDate = calcExpiryDate(startDate, years);
+        next.previousOdExpiryDate = "";
+      }
+
       return next;
     });
     schedulePersist();
@@ -947,9 +1262,24 @@ const NewInsuranceCaseForm = ({
   const handleNewPolicyStartOrDuration = (updated) => {
     setFormData((prev) => {
       const next = { ...prev, ...updated };
-      const y = yearsFromDuration(next.newInsuranceDuration);
-      next.newOdExpiryDate = calcExpiryDate(next.newPolicyStartDate, y.odYears);
-      next.newTpExpiryDate = calcExpiryDate(next.newPolicyStartDate, y.tpYears);
+      const policyType = next.newPolicyType;
+      const duration = next.newInsuranceDuration;
+      const startDate = next.newPolicyStartDate;
+
+      if (policyType === "Comprehensive") {
+        const y = yearsFromDuration(duration);
+        next.newOdExpiryDate = calcExpiryDate(startDate, y.odYears);
+        next.newTpExpiryDate = calcExpiryDate(startDate, y.tpYears);
+      } else if (policyType === "Stand Alone OD") {
+        const years = duration === "1 Year" ? 1 : duration === "2 Years" ? 2 : duration === "3 Years" ? 3 : 0;
+        next.newOdExpiryDate = calcExpiryDate(startDate, years);
+        next.newTpExpiryDate = "";
+      } else if (policyType === "Third Party") {
+        const years = duration === "1 Year" ? 1 : duration === "2 Years" ? 2 : duration === "3 Years" ? 3 : 0;
+        next.newTpExpiryDate = calcExpiryDate(startDate, years);
+        next.newOdExpiryDate = "";
+      }
+
       return next;
     });
     schedulePersist();
@@ -969,7 +1299,8 @@ const NewInsuranceCaseForm = ({
 
   const handleSubmitFinal = async (event) => {
     event.preventDefault();
-    if (step !== 6) return;
+    const lastStep = visibleSteps[visibleSteps.length - 1]?.originalStep;
+    if (step !== lastStep) return;
     const saved = await persistNow({
       silent: false,
       patch: { status: "submitted" },
@@ -1053,9 +1384,10 @@ const NewInsuranceCaseForm = ({
   }, [documents]);
 
   const quoteRows = useMemo(() => {
-    return (quotes || []).map((q) => ({
-      key: q.id,
+    return (quotes || []).map((q, idx) => ({
+      key: getQuoteRowId(q, idx),
       ...q,
+      id: getQuoteRowId(q, idx),
     }));
   }, [quotes]);
 
@@ -1149,41 +1481,36 @@ const NewInsuranceCaseForm = ({
               <Card size="small" title="Customer Information" bordered>
                 <Row gutter={[16, 16]}>
                   <Col xs={24} md={12}>
-                    <Text strong>Employee Name * - 🔍 Search to Auto-Fill</Text>
+                    <Text strong>Employee (staff) *</Text>
+                    <Text
+                      type="secondary"
+                      style={{ display: "block", marginTop: 4, fontSize: 12 }}
+                    >
+                      Search and pick from system users (database). This is not
+                      the policy customer.
+                    </Text>
                     <AutoComplete
                       value={formData.employeeName}
                       onSearch={(val) => {
                         setField("employeeName", val);
-                        searchCustomers(val);
+                        setField("employeeUserId", "");
                       }}
-                      onChange={(val) => setField("employeeName", val)}
-                      loading={customerSearchLoading}
-                      placeholder="Type name/mobile/PAN to search & auto-fill (e.g., 9999900001)"
+                      onChange={(val) => {
+                        setField("employeeName", val);
+                        setField("employeeUserId", "");
+                      }}
+                      options={employeeOptions}
+                      loading={employeesLoading}
+                      placeholder="Search staff by name or email"
                       style={{ width: "100%", marginTop: 6 }}
-                      options={customerSearchResults
-                        .slice(0, 8)
-                        .map((c) => ({
-                          value: getCustomerId(c),
-                          label: (
-                            <div>
-                              <div style={{ fontWeight: 500 }}>
-                                {c?.customerName || "Customer"}
-                              </div>
-                              <div style={{ fontSize: 12, color: "#666" }}>
-                                {c?.primaryMobile && `📱 ${c.primaryMobile}`}
-                                {c?.panNumber && ` • PAN: ${c.panNumber}`}
-                                {c?.city && ` • ${c.city}`}
-                              </div>
-                            </div>
-                          ),
-                        }))
-                        .filter((opt) => Boolean(opt.value))}
-                      onSelect={(_, option) => {
-                        const selected = customerSearchResults.find(
-                          (c) =>
-                            String(getCustomerId(c)) === String(option.value),
+                      onSelect={(id) => {
+                        const emp = employeesList.find(
+                          (e) => String(e._id || e.id) === String(id),
                         );
-                        if (selected) applyCustomerToForm(selected);
+                        if (emp) {
+                          setField("employeeName", emp.name || "");
+                          setField("employeeUserId", emp._id || emp.id || "");
+                        }
                       }}
                       status={
                         showErrors && step1Errors.employeeName ? "error" : ""
@@ -1237,32 +1564,152 @@ const NewInsuranceCaseForm = ({
                     </>
                   ) : (
                     <Col xs={24} md={12}>
-                      <Text strong>Customer Name *</Text>
-                      <Input
+                      <Text strong>Customer Name * — search CRM</Text>
+                      <Text
+                        type="secondary"
+                        style={{
+                          display: "block",
+                          marginTop: 4,
+                          fontSize: 12,
+                        }}
+                      >
+                        Same as loan form: type name, mobile, or PAN — select a
+                        customer to auto-fill all fields below.
+                      </Text>
+                      <AutoComplete
                         value={formData.customerName}
-                        onChange={handleChange("customerName")}
-                        style={{ marginTop: 6 }}
-                        status={
-                          showErrors && step1Errors.customerName ? "error" : ""
+                        onSearch={(val) => {
+                          setField("customerName", val);
+                          searchCustomers(val);
+                        }}
+                        onChange={(val) => {
+                          const v = String(val ?? "");
+                          // Option values are customer ids; ignore so input does not show ObjectId
+                          if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
+                          setField("customerName", v);
+                        }}
+                        options={customerSearchResults
+                          .slice(0, 12)
+                          .map((c) => ({
+                            value: getCustomerId(c),
+                            label: (
+                              <div>
+                                <div style={{ fontWeight: 600 }}>
+                                  {c?.customerName || c?.companyName || "—"}
+                                </div>
+                                <div
+                                  style={{ fontSize: 12, color: "#666" }}
+                                >
+                                  {c?.primaryMobile &&
+                                    `📱 ${c.primaryMobile}`}
+                                  {c?.panNumber && ` · PAN ${c.panNumber}`}
+                                  {c?.city && ` · ${c.city}`}
+                                </div>
+                              </div>
+                            ),
+                          }))
+                          .filter((opt) => Boolean(opt.value))}
+                        onSelect={(customerId) => {
+                          const selected = customerSearchResults.find(
+                            (c) =>
+                              String(getCustomerId(c)) ===
+                              String(customerId),
+                          );
+                          if (selected) applyCustomerToForm(selected);
+                        }}
+                        style={{ width: "100%", marginTop: 6 }}
+                        notFoundContent={
+                          customerSearchLoading ? (
+                            <span>Searching…</span>
+                          ) : (
+                            <span>No customers</span>
+                          )
                         }
-                        placeholder="Enter customer name"
-                      />
+                      >
+                        <Input
+                          prefix={
+                            <SearchOutlined style={{ color: "#94a3b8" }} />
+                          }
+                          placeholder="Search customer by name or mobile…"
+                          allowClear
+                          status={
+                            showErrors && step1Errors.customerName
+                              ? "error"
+                              : ""
+                          }
+                          autoComplete="off"
+                        />
+                      </AutoComplete>
                       {showErrors && step1Errors.customerName ? (
                         <Text type="danger">{step1Errors.customerName}</Text>
                       ) : null}
                     </Col>
                   )}
                   <Col xs={24} md={12}>
-                    <Text strong>Mobile Number *</Text>
-                    <Input
-                      addonBefore="+91"
+                    <Text strong>Customer mobile * — search CRM</Text>
+                    <Text
+                      type="secondary"
+                      style={{ display: "block", marginTop: 4, fontSize: 12 }}
+                    >
+                      Type mobile number to search customers; pick a row to
+                      auto-fill customer details from the Customers module.
+                    </Text>
+                    <AutoComplete
                       value={formData.mobile}
-                      onChange={handleChange("mobile")}
-                      maxLength={10}
-                      style={{ marginTop: 6 }}
-                      status={showErrors && step1Errors.mobile ? "error" : ""}
-                      placeholder="10-digit mobile number"
-                    />
+                      onSearch={(raw) => {
+                        const digits = String(raw || "")
+                          .replace(/\D/g, "")
+                          .slice(0, 10);
+                        setField("mobile", digits);
+                        searchCustomers(digits);
+                      }}
+                      onChange={(val) => {
+                        const v = String(val ?? "");
+                        if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
+                        const digits = v.replace(/\D/g, "").slice(0, 10);
+                        setField("mobile", digits);
+                      }}
+                      onSelect={(customerId) => {
+                        const selected = customerSearchResults.find(
+                          (c) =>
+                            String(getCustomerId(c)) === String(customerId),
+                        );
+                        if (selected) applyCustomerToForm(selected);
+                      }}
+                      options={customerSearchResults
+                        .slice(0, 10)
+                        .map((c) => ({
+                          value: getCustomerId(c),
+                          label: (
+                            <div>
+                              <div style={{ fontWeight: 500 }}>
+                                {c?.customerName || "Customer"}
+                              </div>
+                              <div style={{ fontSize: 12, color: "#666" }}>
+                                {c?.primaryMobile &&
+                                  `📱 ${c.primaryMobile}`}
+                                {c?.panNumber && ` · PAN ${c.panNumber}`}
+                                {c?.city && ` · ${c.city}`}
+                              </div>
+                            </div>
+                          ),
+                        }))
+                        .filter((opt) => Boolean(opt.value))}
+                      style={{ width: "100%", marginTop: 6 }}
+                      notFoundContent={
+                        customerSearchLoading ? "Searching…" : null
+                      }
+                    >
+                      <Input
+                        addonBefore="+91"
+                        maxLength={10}
+                        placeholder="10-digit mobile — search & select customer"
+                        status={
+                          showErrors && step1Errors.mobile ? "error" : ""
+                        }
+                        suffix={customerSearchLoading ? "…" : null}
+                      />
+                    </AutoComplete>
                     {showErrors && step1Errors.mobile ? (
                       <Text type="danger">{step1Errors.mobile}</Text>
                     ) : null}
@@ -1806,6 +2253,7 @@ const NewInsuranceCaseForm = ({
                     value={formData.previousInsuranceCompany}
                     onChange={handleChange("previousInsuranceCompany")}
                     style={{ marginTop: 6 }}
+                    placeholder="e.g., Bajaj General Insurance Limited"
                   />
                 </Col>
                 <Col xs={24} md={12}>
@@ -1814,20 +2262,32 @@ const NewInsuranceCaseForm = ({
                     value={formData.previousPolicyNumber}
                     onChange={handleChange("previousPolicyNumber")}
                     style={{ marginTop: 6 }}
+                    placeholder="e.g., OG-25-1102-1801-00004082"
                   />
                 </Col>
                 <Col xs={24} md={12}>
-                  <Text strong>Policy Type</Text>
+                  <Text strong>Policy Type *</Text>
                   <Select
                     value={formData.previousPolicyType}
-                    onChange={(v) => setField("previousPolicyType", v)}
+                    onChange={(v) => {
+                      setField("previousPolicyType", v);
+                      setField("previousPolicyDuration", "");
+                      setField("previousOdExpiryDate", "");
+                      setField("previousTpExpiryDate", "");
+                    }}
                     style={{ width: "100%", marginTop: 6 }}
                     options={[
                       { label: "Comprehensive", value: "Comprehensive" },
+                      { label: "Stand Alone OD", value: "Stand Alone OD" },
                       { label: "Third Party", value: "Third Party" },
-                      { label: "Own Damage", value: "Own Damage" },
                     ]}
+                    placeholder="Select policy type"
                   />
+                  <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                    {formData.previousPolicyType === "Comprehensive" && "OD + TP combined coverage"}
+                    {formData.previousPolicyType === "Stand Alone OD" && "OD coverage only"}
+                    {formData.previousPolicyType === "Third Party" && "TP coverage only"}
+                  </Text>
                 </Col>
                 <Col xs={24} md={12}>
                   <Text strong>Policy Start Date</Text>
@@ -1841,6 +2301,9 @@ const NewInsuranceCaseForm = ({
                     }
                     style={{ marginTop: 6 }}
                   />
+                  <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                    Policy coverage start date
+                  </Text>
                 </Col>
                 <Col xs={24} md={12}>
                   <Text strong>Policy Duration</Text>
@@ -1852,30 +2315,100 @@ const NewInsuranceCaseForm = ({
                       })
                     }
                     style={{ width: "100%", marginTop: 6 }}
-                    options={durationOptions.map((d) => ({
-                      label: d,
-                      value: d,
-                    }))}
+                    options={
+                      formData.previousPolicyType === "Comprehensive"
+                        ? [
+                            { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
+                            { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+                            { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+                            { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+                          ]
+                        : formData.previousPolicyType === "Stand Alone OD"
+                          ? [
+                              { label: "1 Year", value: "1 Year" },
+                              { label: "2 Years", value: "2 Years" },
+                              { label: "3 Years", value: "3 Years" },
+                            ]
+                          : formData.previousPolicyType === "Third Party"
+                            ? [
+                                { label: "1 Year", value: "1 Year" },
+                                { label: "2 Years", value: "2 Years" },
+                                { label: "3 Years", value: "3 Years" },
+                              ]
+                            : []
+                    }
+                    placeholder={
+                      formData.previousPolicyType === "Comprehensive"
+                        ? "e.g., 1yr OD + 1yr TP"
+                        : "e.g., 1 Year"
+                    }
+                    disabled={!formData.previousPolicyType}
                   />
+                  <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                    {formData.previousPolicyType === "Comprehensive" && "Available: 1yr OD + 1yr TP, 1yr OD + 3yr TP, 2yr OD + 3yr TP, 3yr OD + 3yr TP"}
+                    {formData.previousPolicyType === "Stand Alone OD" && "Available: 1 Year, 2 Years, 3 Years (OD coverage only)"}
+                    {formData.previousPolicyType === "Third Party" && "Available: 1 Year, 2 Years, 3 Years (TP coverage only)"}
+                  </Text>
                 </Col>
-                <Col xs={24} md={12}>
-                  <Text strong>OD Expiry Date</Text>
-                  <Input
-                    type="date"
-                    value={formData.previousOdExpiryDate}
-                    onChange={handleChange("previousOdExpiryDate")}
-                    style={{ marginTop: 6 }}
-                  />
-                </Col>
-                <Col xs={24} md={12}>
-                  <Text strong>TP Expiry Date</Text>
-                  <Input
-                    type="date"
-                    value={formData.previousTpExpiryDate}
-                    onChange={handleChange("previousTpExpiryDate")}
-                    style={{ marginTop: 6 }}
-                  />
-                </Col>
+                
+                {formData.previousPolicyType === "Comprehensive" && (
+                  <>
+                    <Col xs={24} md={12}>
+                      <Text strong>OD Expiry Date</Text>
+                      <Input
+                        type="date"
+                        value={formData.previousOdExpiryDate}
+                        onChange={handleChange("previousOdExpiryDate")}
+                        style={{ marginTop: 6 }}
+                      />
+                      <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                        Auto-calculated: Start Date + OD Duration - 1 Day
+                      </Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>TP Expiry Date</Text>
+                      <Input
+                        type="date"
+                        value={formData.previousTpExpiryDate}
+                        onChange={handleChange("previousTpExpiryDate")}
+                        style={{ marginTop: 6 }}
+                      />
+                      <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                        Auto-calculated: Start Date + TP Duration - 1 Day
+                      </Text>
+                    </Col>
+                  </>
+                )}
+                
+                {formData.previousPolicyType === "Stand Alone OD" && (
+                  <Col xs={24} md={12}>
+                    <Text strong>OD Expiry Date</Text>
+                    <Input
+                      type="date"
+                      value={formData.previousOdExpiryDate}
+                      onChange={handleChange("previousOdExpiryDate")}
+                      style={{ marginTop: 6 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                      Auto-calculated: Start Date + Duration - 1 Day
+                    </Text>
+                  </Col>
+                )}
+                
+                {formData.previousPolicyType === "Third Party" && (
+                  <Col xs={24} md={12}>
+                    <Text strong>TP Expiry Date</Text>
+                    <Input
+                      type="date"
+                      value={formData.previousTpExpiryDate}
+                      onChange={handleChange("previousTpExpiryDate")}
+                      style={{ marginTop: 6 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                      Auto-calculated: Start Date + Duration - 1 Day
+                    </Text>
+                  </Col>
+                )}
                 <Col xs={24} md={12}>
                   <Text strong>Claim Taken Last Year</Text>
                   <div style={{ marginTop: 6 }}>
@@ -1935,7 +2468,12 @@ const NewInsuranceCaseForm = ({
 
           {step === 4 && (
             <Space direction="vertical" size={12} style={{ width: "100%" }}>
-              <Card size="small" title="Quote Builder" bordered>
+              <Card
+                size="small"
+                title="Add New Quote"
+                bordered
+                className="border-slate-200 dark:border-slate-700 dark:bg-slate-950/30 [&_.ant-card-head]:border-slate-200 dark:[&_.ant-card-head]:border-slate-700 [&_.ant-card-head-title]:text-slate-900 dark:[&_.ant-card-head-title]:text-slate-100"
+              >
                 <Row gutter={[16, 16]}>
                   <Col xs={24} md={12}>
                     <Text strong>Insurance Company *</Text>
@@ -2064,6 +2602,12 @@ const NewInsuranceCaseForm = ({
                   </Col>
                   <Col xs={24} md={8}>
                     <Text strong>Add-ons Amount (₹)</Text>
+                    <Text
+                      type="secondary"
+                      style={{ display: "block", fontSize: 11, marginTop: 2 }}
+                    >
+                      Bulk add-on ₹ (also counts in base premium)
+                    </Text>
                     <InputNumber
                       min={0}
                       value={Number(quoteDraft.addOnsAmount || 0)}
@@ -2078,31 +2622,324 @@ const NewInsuranceCaseForm = ({
                   </Col>
                 </Row>
 
-                <Divider style={{ marginBlock: 12 }} />
-                <Row gutter={[16, 16]}>
+                <Divider className="border-slate-200 dark:border-slate-700/80" style={{ marginBlock: 16 }} />
+
+                <Card
+                  size="small"
+                  className="rounded-[10px] border border-slate-200 bg-slate-50/95 dark:border-slate-700 dark:bg-slate-900/60"
+                  styles={{ body: { padding: "16px 16px 8px" } }}
+                  title={
+                    <Text
+                      strong
+                      className="text-[14px] text-slate-900 dark:text-slate-100"
+                    >
+                      Additional Add-ons (Optional)
+                    </Text>
+                  }
+                  extra={
+                    <Space size="small" wrap>
+                      <Button
+                        size="small"
+                        type="primary"
+                        className="!border-emerald-600 !bg-emerald-600 hover:!bg-emerald-700 dark:!border-emerald-500 dark:!bg-emerald-600 dark:hover:!bg-emerald-500"
+                        onClick={() =>
+                          setQuoteDraft((p) => ({
+                            ...p,
+                            addOns: addOnCatalog.reduce(
+                              (acc, n) => ({ ...acc, [n]: 0 }),
+                              {},
+                            ),
+                            addOnsIncluded: addOnCatalog.reduce(
+                              (acc, n) => ({ ...acc, [n]: true }),
+                              {},
+                            ),
+                          }))
+                        }
+                      >
+                        Select All (₹0)
+                      </Button>
+                      <Button
+                        size="small"
+                        danger
+                        onClick={() =>
+                          setQuoteDraft((p) => ({
+                            ...p,
+                            addOns: addOnCatalog.reduce(
+                              (acc, n) => ({ ...acc, [n]: 0 }),
+                              {},
+                            ),
+                            addOnsIncluded: addOnCatalog.reduce(
+                              (acc, n) => ({ ...acc, [n]: false }),
+                              {},
+                            ),
+                          }))
+                        }
+                      >
+                        Deselect All
+                      </Button>
+                    </Space>
+                  }
+                >
+                  <Alert
+                    type="info"
+                    showIcon
+                    message={
+                      <span className="text-xs leading-relaxed text-slate-700 dark:text-slate-200">
+                        Select add-ons with ₹0 amount to include them without
+                        charges, or enter custom amounts for premium calculation.
+                      </span>
+                    }
+                    className="mb-3.5 border-sky-200/80 bg-sky-50/90 dark:border-slate-600 dark:bg-slate-950/80 [&_.anticon]:text-sky-600 dark:[&_.anticon]:text-sky-400"
+                  />
+
+                  <Row gutter={[12, 12]}>
+                    {addOnCatalog.map((name) => {
+                      const included = Boolean(
+                        quoteDraft.addOnsIncluded?.[name],
+                      );
+                      const amt = Number(quoteDraft.addOns?.[name] || 0);
+                      return (
+                        <Col xs={24} sm={12} lg={8} key={name}>
+                          <div
+                            className={`h-full rounded-lg border p-2.5 transition-colors ${
+                              included
+                                ? "border-violet-400 bg-white shadow-sm dark:border-violet-600 dark:bg-slate-950 dark:shadow-none"
+                                : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50"
+                            }`}
+                          >
+                            <Checkbox
+                              checked={included}
+                              onChange={(e) => {
+                                const on = e.target.checked;
+                                setQuoteDraft((p) => ({
+                                  ...p,
+                                  addOnsIncluded: {
+                                    ...p.addOnsIncluded,
+                                    [name]: on,
+                                  },
+                                  addOns: {
+                                    ...p.addOns,
+                                    [name]: on
+                                      ? Number(p.addOns?.[name] || 0)
+                                      : 0,
+                                  },
+                                }));
+                              }}
+                              className="items-start [&_.ant-checkbox]:mt-0.5"
+                            >
+                              <Text
+                                className="text-xs font-semibold leading-snug text-slate-800 dark:text-slate-100"
+                              >
+                                {name}
+                              </Text>
+                            </Checkbox>
+                            <div className="mt-2 ml-6">
+                              <Text
+                                className="mb-1 block text-[11px] text-slate-500 dark:text-slate-400"
+                              >
+                                Amount (₹)
+                              </Text>
+                              <InputNumber
+                                min={0}
+                                size="middle"
+                                disabled={!included}
+                                value={amt}
+                                addonBefore="₹"
+                                controls={false}
+                                placeholder="0"
+                                onChange={(v) =>
+                                  setQuoteDraft((p) => ({
+                                    ...p,
+                                    addOns: {
+                                      ...p.addOns,
+                                      [name]: Number(v ?? 0),
+                                    },
+                                  }))
+                                }
+                                className="w-full max-w-full dark:[&_.ant-input-number-group-addon]:border-slate-600 dark:[&_.ant-input-number-group-addon]:bg-slate-800 dark:[&_.ant-input-number-input]:text-slate-100"
+                              />
+                            </div>
+                          </div>
+                        </Col>
+                      );
+                    })}
+                  </Row>
+                </Card>
+
+                <div className="mt-4 rounded-lg border border-purple-200/90 bg-purple-50/95 p-4 dark:border-purple-900/60 dark:bg-purple-950/40">
+                  <Row gutter={[16, 16]}>
+                    <Col xs={24} sm={12} md={8} lg={4}>
+                      <Text className="text-xs text-slate-500 dark:text-slate-400">
+                        Base Premium
+                      </Text>
+                      <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteComputed.basePremium)}
+                      </div>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        OD: {toINR(quoteComputed.odAmt)} + 3P:{" "}
+                        {toINR(quoteComputed.tpAmt)} + Add-ons:{" "}
+                        {toINR(quoteComputed.addOnsTotal)}
+                      </Text>
+                    </Col>
+                    <Col xs={24} sm={12} md={8} lg={4}>
+                      <Text className="text-xs text-slate-500 dark:text-slate-400">
+                        Add-ons Total
+                      </Text>
+                      <div className="text-lg font-bold text-purple-700 dark:text-purple-300">
+                        {toINR(quoteComputed.addOnsTotal)}
+                      </div>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        (Bulk field + selected rows)
+                      </Text>
+                    </Col>
+                    <Col xs={24} sm={12} md={8} lg={4}>
+                      <Text className="text-xs text-slate-500 dark:text-slate-400">
+                        NCB Discount
+                      </Text>
+                      <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                        -{toINR(quoteComputed.ncbAmount)}
+                      </div>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        ({Number(quoteDraft.ncbDiscount || 0)}% on base)
+                      </Text>
+                    </Col>
+                    <Col xs={24} sm={12} md={8} lg={4}>
+                      <Text className="text-xs text-slate-500 dark:text-slate-400">
+                        GST (18%)
+                      </Text>
+                      <div className="text-lg font-bold text-sky-600 dark:text-sky-400">
+                        {toINR(quoteComputed.gstAmount)}
+                      </div>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        On {toINR(quoteComputed.taxableAmount)}
+                      </Text>
+                    </Col>
+                    <Col xs={24} sm={12} md={8} lg={4}>
+                      <Text className="text-xs text-slate-500 dark:text-slate-400">
+                        Total Premium
+                      </Text>
+                      <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                        {toINR(quoteComputed.totalPremium)}
+                      </div>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        (Taxable + GST)
+                      </Text>
+                    </Col>
+                  </Row>
+
+                  <Divider className="border-slate-200 dark:border-slate-700/80" style={{ margin: "16px 0" }} />
+
+                  <Text
+                    strong
+                    className="mb-3 block text-purple-800 dark:text-purple-200"
+                  >
+                    IDV Breakdown
+                  </Text>
+                  <Row gutter={[12, 8]}>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Vehicle IDV
+                      </Text>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteDraft.vehicleIdv || 0)}
+                      </div>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        CNG IDV
+                      </Text>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteDraft.cngIdv || 0)}
+                      </div>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Accessories IDV
+                      </Text>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteDraft.accessoriesIdv || 0)}
+                      </div>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Total IDV
+                      </Text>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteComputed.totalIdv)}
+                      </div>
+                    </Col>
+                  </Row>
+
+                  <Divider className="border-slate-200 dark:border-slate-700/80" style={{ margin: "12px 0" }} />
+
+                  <Row gutter={[12, 8]}>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        OD Amount
+                      </Text>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteComputed.odAmt)}
+                      </div>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        3rd Party Amount
+                      </Text>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteComputed.tpAmt)}
+                      </div>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Add-ons Total
+                      </Text>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteComputed.addOnsTotal)}
+                      </div>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Text className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Taxable Amount
+                      </Text>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {toINR(quoteComputed.taxableAmount)}
+                      </div>
+                    </Col>
+                  </Row>
+                </div>
+
+                <Divider style={{ marginBlock: 16 }} />
+                <Row gutter={[16, 16]} align="middle">
                   <Col xs={24} md={12}>
-                    <Text strong>Computed</Text>
-                    <div style={{ marginTop: 6 }}>
-                      <Text type="secondary">Total IDV: </Text>
-                      <Text strong>{toINR(quoteComputed.totalIdv)}</Text>
-                      <br />
-                      <Text type="secondary">Total Premium: </Text>
-                      <Text strong>{toINR(quoteComputed.totalPremium)}</Text>
-                    </div>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Space>
+                    <Space wrap>
                       <Button
                         type="primary"
+                        icon={<span className="text-base leading-none">+</span>}
                         onClick={addQuote}
                         disabled={!quoteDraft.insuranceCompany.trim()}
                       >
                         Add Quote
                       </Button>
-                      <Button onClick={() => setQuoteDraft(initialQuoteDraft)}>
+                      <Button
+                        onClick={() =>
+                          setQuoteDraft({
+                            ...initialQuoteDraft,
+                            addOns: { ...initialQuoteDraft.addOns },
+                            addOnsIncluded: {
+                              ...initialQuoteDraft.addOnsIncluded,
+                            },
+                          })
+                        }
+                      >
                         Reset
                       </Button>
                     </Space>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Tip: fill company & premiums above, tune add-ons, then Add
+                      Quote to save this row to the list.
+                    </Text>
                   </Col>
                 </Row>
               </Card>
@@ -2120,61 +2957,99 @@ const NewInsuranceCaseForm = ({
                   )
                 }
                 bordered
+                className="border-slate-200 dark:border-slate-700 dark:bg-slate-950/20 [&_.ant-card-head]:border-slate-200 dark:[&_.ant-card-head]:border-slate-700"
               >
-                <Table
-                  size="small"
-                  dataSource={quoteRows}
-                  pagination={false}
-                  columns={[
-                    {
-                      title: "Company",
-                      dataIndex: "insuranceCompany",
-                      key: "company",
-                    },
-                    {
-                      title: "Type",
-                      dataIndex: "coverageType",
-                      key: "type",
-                      width: 140,
-                    },
-                    {
-                      title: "IDV",
-                      key: "idv",
-                      width: 150,
-                      render: (_, row) => toINR(row.totalIdv || 0),
-                    },
-                    {
-                      title: "Duration",
-                      dataIndex: "policyDuration",
-                      key: "dur",
-                      width: 160,
-                    },
-                    {
-                      title: "Premium",
-                      key: "prem",
-                      width: 160,
-                      render: (_, row) => toINR(row.totalPremium || 0),
-                    },
-                    {
-                      title: "Accept",
-                      key: "accept",
-                      width: 120,
-                      render: (_, row) => (
-                        <Button
-                          size="small"
-                          type={
-                            acceptedQuoteId === row.id ? "primary" : "default"
-                          }
-                          onClick={() => acceptQuote(row.id)}
+                {quoteRows.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={
+                      <span className="text-slate-500 dark:text-slate-400">
+                        No quotes yet. Add one using the form above.
+                      </span>
+                    }
+                  />
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {quoteRows.map((row) => {
+                      const rid = getQuoteRowId(row);
+                      const isAccepted =
+                        String(acceptedQuoteId) === String(rid);
+                      return (
+                        <div
+                          key={String(rid)}
+                          className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/50"
                         >
-                          {acceptedQuoteId === row.id ? "Accepted" : "Accept"}
-                        </Button>
-                      ),
-                    },
-                  ]}
-                />
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex min-w-0 flex-1 items-start gap-3">
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-lg font-bold uppercase text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                {(row.insuranceCompany || "?")
+                                  .toString()
+                                  .slice(0, 1)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="truncate text-base font-semibold text-slate-900 dark:text-slate-100">
+                                  {row.insuranceCompany || "—"}
+                                </div>
+                                <div className="text-sm text-slate-500 dark:text-slate-400">
+                                  {row.coverageType || "—"} ·{" "}
+                                  {row.policyDuration || "—"}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-end gap-6 sm:gap-8">
+                              <div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  IDV — Cover value
+                                </div>
+                                <div className="text-lg font-bold tabular-nums text-slate-900 dark:text-slate-100">
+                                  {formatStoredOrComputedIdv(row)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  Total premium
+                                </div>
+                                <div className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                                  {formatStoredOrComputedPremium(row)}
+                                </div>
+                              </div>
+                              <Space wrap size={[8, 8]}>
+                                <Button
+                                  type="primary"
+                                  onClick={() =>
+                                    setPlanFeaturesModal({
+                                      open: true,
+                                      row,
+                                    })
+                                  }
+                                >
+                                  Plan features
+                                </Button>
+                                <Button
+                                  type={isAccepted ? "primary" : "default"}
+                                  onClick={() => acceptQuote(rid)}
+                                >
+                                  {isAccepted ? "Accepted" : "Accept"}
+                                </Button>
+                                <Button
+                                  type="link"
+                                  className="px-1"
+                                  onClick={() =>
+                                    setQuoteDraft(mapQuoteToDraft(row))
+                                  }
+                                >
+                                  Load in form
+                                </Button>
+                              </Space>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {showErrors && quotes.length === 0 ? (
-                  <div style={{ marginTop: 8 }}>
+                  <div className="mt-2">
                     <Text type="danger">At least 1 quote is required.</Text>
                   </div>
                 ) : null}
@@ -2206,14 +3081,24 @@ const NewInsuranceCaseForm = ({
                   <Text strong>Policy Type *</Text>
                   <Select
                     value={formData.newPolicyType}
-                    onChange={(v) => setField("newPolicyType", v)}
+                    onChange={(v) => {
+                      setField("newPolicyType", v);
+                      setField("newInsuranceDuration", "");
+                      setField("newOdExpiryDate", "");
+                      setField("newTpExpiryDate", "");
+                    }}
                     style={{ width: "100%", marginTop: 6 }}
                     options={[
                       { label: "Comprehensive", value: "Comprehensive" },
+                      { label: "Stand Alone OD", value: "Stand Alone OD" },
                       { label: "Third Party", value: "Third Party" },
-                      { label: "Own Damage", value: "Own Damage" },
                     ]}
                   />
+                  <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                    {formData.newPolicyType === "Comprehensive" && "OD + TP combined coverage"}
+                    {formData.newPolicyType === "Stand Alone OD" && "OD coverage only"}
+                    {formData.newPolicyType === "Third Party" && "TP coverage only"}
+                  </Text>
                 </Col>
                 <Col xs={24} md={12}>
                   <Text strong>Policy Number</Text>
@@ -2244,6 +3129,9 @@ const NewInsuranceCaseForm = ({
                     }
                     style={{ marginTop: 6 }}
                   />
+                  <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                    Policy coverage start date
+                  </Text>
                 </Col>
                 <Col xs={24} md={12}>
                   <Text strong>Insurance Duration *</Text>
@@ -2255,30 +3143,103 @@ const NewInsuranceCaseForm = ({
                       })
                     }
                     style={{ width: "100%", marginTop: 6 }}
-                    options={durationOptions.map((d) => ({
-                      label: d,
-                      value: d,
-                    }))}
+                    options={
+                      formData.newPolicyType === "Comprehensive"
+                        ? [
+                            { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
+                            { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+                            { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+                            { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+                          ]
+                        : formData.newPolicyType === "Stand Alone OD"
+                          ? [
+                              { label: "1 Year", value: "1 Year" },
+                              { label: "2 Years", value: "2 Years" },
+                              { label: "3 Years", value: "3 Years" },
+                            ]
+                          : formData.newPolicyType === "Third Party"
+                            ? [
+                                { label: "1 Year", value: "1 Year" },
+                                { label: "2 Years", value: "2 Years" },
+                                { label: "3 Years", value: "3 Years" },
+                              ]
+                            : durationOptions.map((d) => ({
+                                label: d,
+                                value: d,
+                              }))
+                    }
+                    placeholder={
+                      formData.newPolicyType === "Comprehensive"
+                        ? "e.g., 1yr OD + 1yr TP"
+                        : "e.g., 1 Year"
+                    }
+                    disabled={!formData.newPolicyType}
                   />
+                  <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                    {formData.newPolicyType === "Comprehensive" && "Available: 1yr OD + 1yr TP, 1yr OD + 3yr TP, 2yr OD + 3yr TP, 3yr OD + 3yr TP"}
+                    {formData.newPolicyType === "Stand Alone OD" && "Available: 1 Year, 2 Years, 3 Years (OD coverage only)"}
+                    {formData.newPolicyType === "Third Party" && "Available: 1 Year, 2 Years, 3 Years (TP coverage only)"}
+                  </Text>
                 </Col>
-                <Col xs={24} md={12}>
-                  <Text strong>OD Expiry Date *</Text>
-                  <Input
-                    type="date"
-                    value={formData.newOdExpiryDate}
-                    onChange={handleChange("newOdExpiryDate")}
-                    style={{ marginTop: 6 }}
-                  />
-                </Col>
-                <Col xs={24} md={12}>
-                  <Text strong>TP Expiry Date *</Text>
-                  <Input
-                    type="date"
-                    value={formData.newTpExpiryDate}
-                    onChange={handleChange("newTpExpiryDate")}
-                    style={{ marginTop: 6 }}
-                  />
-                </Col>
+                
+                {formData.newPolicyType === "Comprehensive" && (
+                  <>
+                    <Col xs={24} md={12}>
+                      <Text strong>OD Expiry Date *</Text>
+                      <Input
+                        type="date"
+                        value={formData.newOdExpiryDate}
+                        onChange={handleChange("newOdExpiryDate")}
+                        style={{ marginTop: 6 }}
+                      />
+                      <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                        Auto-calculated: Start Date + OD Duration - 1 Day
+                      </Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>TP Expiry Date *</Text>
+                      <Input
+                        type="date"
+                        value={formData.newTpExpiryDate}
+                        onChange={handleChange("newTpExpiryDate")}
+                        style={{ marginTop: 6 }}
+                      />
+                      <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                        Auto-calculated: Start Date + TP Duration - 1 Day
+                      </Text>
+                    </Col>
+                  </>
+                )}
+                
+                {formData.newPolicyType === "Stand Alone OD" && (
+                  <Col xs={24} md={12}>
+                    <Text strong>OD Expiry Date *</Text>
+                    <Input
+                      type="date"
+                      value={formData.newOdExpiryDate}
+                      onChange={handleChange("newOdExpiryDate")}
+                      style={{ marginTop: 6 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                      Auto-calculated: Start Date + Duration - 1 Day
+                    </Text>
+                  </Col>
+                )}
+                
+                {formData.newPolicyType === "Third Party" && (
+                  <Col xs={24} md={12}>
+                    <Text strong>TP Expiry Date *</Text>
+                    <Input
+                      type="date"
+                      value={formData.newTpExpiryDate}
+                      onChange={handleChange("newTpExpiryDate")}
+                      style={{ marginTop: 6 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                      Auto-calculated: Start Date + Duration - 1 Day
+                    </Text>
+                  </Col>
+                )}
                 <Col xs={24} md={12}>
                   <Text strong>NCB Discount (%)</Text>
                   <InputNumber
@@ -2333,7 +3294,507 @@ const NewInsuranceCaseForm = ({
                   />
                 </Col>
               </Row>
+
+              <Divider style={{ marginBlock: 16 }} />
+
+              <Card
+                size="small"
+                title="Payment Tracking (Optional)"
+                bordered={false}
+                className="bg-slate-50/50 dark:bg-slate-900/30"
+              >
+                <Text
+                  type="secondary"
+                  style={{ display: "block", marginBottom: 12, fontSize: 12 }}
+                >
+                  Track customer and in-house payments. Leave at 0 if not
+                  applicable. Used for "Fully Paid" vs "Payment Due" filters.
+                </Text>
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} md={12}>
+                    <Text strong>Customer Payment Expected (₹)</Text>
+                    <InputNumber
+                      min={0}
+                      value={Number(formData.customerPaymentExpected || 0)}
+                      onChange={(v) =>
+                        setField("customerPaymentExpected", Number(v || 0))
+                      }
+                      style={{ width: "100%", marginTop: 6 }}
+                      placeholder="0"
+                    />
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Text strong>Customer Payment Received (₹)</Text>
+                    <InputNumber
+                      min={0}
+                      value={Number(formData.customerPaymentReceived || 0)}
+                      onChange={(v) =>
+                        setField("customerPaymentReceived", Number(v || 0))
+                      }
+                      style={{ width: "100%", marginTop: 6 }}
+                      placeholder="0"
+                    />
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Text strong>In-house Payment Expected (₹)</Text>
+                    <InputNumber
+                      min={0}
+                      value={Number(formData.inhousePaymentExpected || 0)}
+                      onChange={(v) =>
+                        setField("inhousePaymentExpected", Number(v || 0))
+                      }
+                      style={{ width: "100%", marginTop: 6 }}
+                      placeholder="0"
+                    />
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Text strong>In-house Payment Received (₹)</Text>
+                    <InputNumber
+                      min={0}
+                      value={Number(formData.inhousePaymentReceived || 0)}
+                      onChange={(v) =>
+                        setField("inhousePaymentReceived", Number(v || 0))
+                      }
+                      style={{ width: "100%", marginTop: 6 }}
+                      placeholder="0"
+                    />
+                  </Col>
+                </Row>
+                {paymentHistory.length > 0 && (
+                  <div style={{ marginTop: 16 }}>
+                    <Text strong style={{ display: "block", marginBottom: 8 }}>
+                      Payment History ({paymentHistory.length})
+                    </Text>
+                    <Table
+                      size="small"
+                      dataSource={paymentHistory.map((p, idx) => ({
+                        key: p._id || idx,
+                        ...p,
+                      }))}
+                      pagination={false}
+                      columns={[
+                        {
+                          title: "Date",
+                          dataIndex: "date",
+                          key: "date",
+                          width: 120,
+                          render: (d) =>
+                            d
+                              ? dayjs(d).format("DD MMM YYYY")
+                              : "—",
+                        },
+                        {
+                          title: "Type",
+                          dataIndex: "paymentType",
+                          key: "type",
+                          width: 100,
+                          render: (t) =>
+                            t === "customer" ? "Customer" : "In-house",
+                        },
+                        {
+                          title: "Amount",
+                          dataIndex: "amount",
+                          key: "amount",
+                          width: 120,
+                          render: (a) => toINR(a),
+                        },
+                        {
+                          title: "Mode",
+                          dataIndex: "paymentMode",
+                          key: "mode",
+                          width: 100,
+                        },
+                        {
+                          title: "Ref",
+                          dataIndex: "transactionRef",
+                          key: "ref",
+                          width: 140,
+                        },
+                        {
+                          title: "Remarks",
+                          dataIndex: "remarks",
+                          key: "remarks",
+                        },
+                      ]}
+                    />
+                  </div>
+                )}
+                <Space style={{ marginTop: 12, width: "100%" }} direction="vertical">
+                  <Button
+                    type="dashed"
+                    block
+                    onClick={() => setPaymentModalVisible(true)}
+                  >
+                    + Record Payment
+                  </Button>
+                  {insuranceDbId && formData.customerPaymentExpected > 0 && (
+                    <Button
+                      block
+                      onClick={async () => {
+                        try {
+                          await insuranceApi.syncReceivable(insuranceDbId);
+                          message.success(
+                            "Customer payment synced to Receivables module"
+                          );
+                        } catch (err) {
+                          message.error(
+                            err?.message || "Failed to sync receivable"
+                          );
+                        }
+                      }}
+                    >
+                      Sync to Receivables Module
+                    </Button>
+                  )}
+                </Space>
+              </Card>
             </Card>
+          )}
+
+          {step === 7 && (
+            <Space direction="vertical" size={16} style={{ width: "100%" }}>
+              <Card size="small" title="Payment Summary" bordered>
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} md={8}>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+                      <Text type="secondary" className="text-xs">Final Premium</Text>
+                      <div className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
+                        ₹{(formData.newTotalPremium || 0).toLocaleString("en-IN")}
+                      </div>
+                      <Text type="secondary" className="text-[10px]">From accepted quote</Text>
+                    </div>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
+                      <Text type="secondary" className="text-xs">Subvention</Text>
+                      <div className="mt-1 text-xl font-bold text-amber-700 dark:text-amber-400">
+                        ₹{(formData.subventionAmount || 0).toLocaleString("en-IN")}
+                      </div>
+                      <Button
+                        size="small"
+                        type="link"
+                        onClick={() => {
+                          const amount = prompt("Enter subvention amount:", formData.subventionAmount || 0);
+                          if (amount !== null) setField("subventionAmount", Number(amount));
+                        }}
+                        className="p-0 text-[10px]"
+                      >
+                        + Add Subvention
+                      </Button>
+                    </div>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950">
+                      <Text type="secondary" className="text-xs">Net Premium</Text>
+                      <div className="mt-1 text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                        ₹{Math.max(0, (formData.newTotalPremium || 0) - (formData.subventionAmount || 0)).toLocaleString("en-IN")}
+                      </div>
+                      <Text type="secondary" className="text-[10px]">After subvention</Text>
+                    </div>
+                  </Col>
+                </Row>
+
+                <Divider />
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+                  <Text strong>Payment Progress (After Subvention)</Text>
+                  <div className="mt-2 text-2xl font-bold">
+                    {(() => {
+                      const netPremium = Math.max(0, (formData.newTotalPremium || 0) - (formData.subventionAmount || 0));
+                      const totalPaid = (formData.customerPaymentReceived || 0);
+                      const progress = netPremium > 0 ? (totalPaid / netPremium) * 100 : 0;
+                      return `${progress.toFixed(1)}%`;
+                    })()}
+                  </div>
+                  <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{
+                        width: `${(() => {
+                          const netPremium = Math.max(0, (formData.newTotalPremium || 0) - (formData.subventionAmount || 0));
+                          const totalPaid = (formData.customerPaymentReceived || 0);
+                          const progress = netPremium > 0 ? (totalPaid / netPremium) * 100 : 0;
+                          return Math.min(100, progress);
+                        })()}%`,
+                      }}
+                    />
+                  </div>
+                  <Text type="secondary" className="mt-1 text-xs">
+                    Progress: ₹{(formData.customerPaymentReceived || 0).toLocaleString("en-IN")} / ₹
+                    {Math.max(0, (formData.newTotalPremium || 0) - (formData.subventionAmount || 0)).toLocaleString("en-IN")}
+                  </Text>
+                </div>
+              </Card>
+
+              <Card size="small" title="In House Payment" bordered extra={<Text type="secondary" className="text-xs">Auto Credit to Insurance Company</Text>}>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+                  <Row gutter={[16, 16]}>
+                    <Col xs={24} md={12}>
+                      <Text strong>Amount (₹) *</Text>
+                      <InputNumber
+                        min={0}
+                        value={paymentForm.paymentType === "inhouse" ? paymentForm.amount : 0}
+                        onChange={(v) => setPaymentForm((p) => ({ ...p, amount: v, paymentType: "inhouse" }))}
+                        style={{ width: "100%", marginTop: 6 }}
+                        placeholder="₹ 0.00"
+                        prefix="₹"
+                      />
+                      <Text type="secondary" className="text-[10px]">
+                        Auto credit amount: ₹{(formData.newTotalPremium || 0).toLocaleString("en-IN")} (Final Premium)
+                      </Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Payment Mode *</Text>
+                      <Select
+                        value={paymentForm.paymentType === "inhouse" ? paymentForm.paymentMode : "Cash"}
+                        onChange={(v) => setPaymentForm((p) => ({ ...p, paymentMode: v, paymentType: "inhouse" }))}
+                        style={{ width: "100%", marginTop: 6 }}
+                        placeholder="Select payment mode"
+                        options={[
+                          { label: "Cash", value: "Cash" },
+                          { label: "Cheque", value: "Cheque" },
+                          { label: "NEFT", value: "NEFT" },
+                          { label: "RTGS", value: "RTGS" },
+                          { label: "UPI", value: "UPI" },
+                          { label: "Card", value: "Card" },
+                          { label: "Other", value: "Other" },
+                        ]}
+                      />
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Payment Date *</Text>
+                      <Input
+                        type="date"
+                        value={paymentForm.paymentType === "inhouse" ? paymentForm.date : new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, date: e.target.value, paymentType: "inhouse" }))}
+                        style={{ marginTop: 6 }}
+                        placeholder="mm/dd/yyyy"
+                      />
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Transaction ID</Text>
+                      <Input
+                        value={paymentForm.paymentType === "inhouse" ? paymentForm.transactionRef : ""}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, transactionRef: e.target.value, paymentType: "inhouse" }))}
+                        style={{ marginTop: 6 }}
+                        placeholder="Enter transaction ID (optional)"
+                      />
+                      <Text type="secondary" className="text-[10px]">Optional for cash payments</Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Bank Name</Text>
+                      <Input
+                        value={paymentForm.paymentType === "inhouse" ? (paymentForm.bankName || "") : ""}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, bankName: e.target.value, paymentType: "inhouse" }))}
+                        style={{ marginTop: 6 }}
+                        placeholder="Select Bank Name"
+                      />
+                      <Text type="secondary" className="text-[10px]">Required for bank transfers</Text>
+                    </Col>
+                  </Row>
+                </div>
+              </Card>
+
+              <Card 
+                size="small" 
+                title="Payment Made by Customer (Optional)" 
+                bordered 
+                extra={<Text type="secondary" className="text-xs">Fill only if customer has made payment</Text>}
+              >
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950">
+                  <Row gutter={[16, 16]}>
+                    <Col xs={24} md={12}>
+                      <Text strong>Payment Mode</Text>
+                      <Select
+                        value={paymentForm.paymentType === "customer" ? paymentForm.paymentMode : undefined}
+                        onChange={(v) => setPaymentForm((p) => ({ ...p, paymentMode: v, paymentType: "customer" }))}
+                        style={{ width: "100%", marginTop: 6 }}
+                        placeholder="Select payment mode"
+                        options={[
+                          { label: "Cash", value: "Cash" },
+                          { label: "Cheque", value: "Cheque" },
+                          { label: "NEFT", value: "NEFT" },
+                          { label: "RTGS", value: "RTGS" },
+                          { label: "UPI", value: "UPI" },
+                          { label: "Card", value: "Card" },
+                          { label: "Other", value: "Other" },
+                        ]}
+                      />
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Payment Amount (₹)</Text>
+                      <InputNumber
+                        min={0}
+                        value={paymentForm.paymentType === "customer" ? paymentForm.amount : 0}
+                        onChange={(v) => setPaymentForm((p) => ({ ...p, amount: v, paymentType: "customer" }))}
+                        style={{ width: "100%", marginTop: 6 }}
+                        placeholder="0"
+                      />
+                      <Text type="secondary" className="text-[10px]">
+                        Maximum: ₹{Math.max(0, (formData.newTotalPremium || 0) - (formData.subventionAmount || 0)).toLocaleString("en-IN")} (Customer can pay up to ₹{Math.max(0, (formData.newTotalPremium || 0) - (formData.subventionAmount || 0)).toLocaleString("en-IN")} total)
+                      </Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Payment Date</Text>
+                      <Input
+                        type="date"
+                        value={paymentForm.paymentType === "customer" ? paymentForm.date : ""}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, date: e.target.value, paymentType: "customer" }))}
+                        style={{ marginTop: 6 }}
+                        placeholder="mm/dd/yyyy"
+                      />
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Transaction ID</Text>
+                      <Input
+                        value={paymentForm.paymentType === "customer" ? paymentForm.transactionRef : ""}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, transactionRef: e.target.value, paymentType: "customer" }))}
+                        style={{ marginTop: 6 }}
+                        placeholder="Enter transaction ID (optional)"
+                      />
+                      <Text type="secondary" className="text-[10px]">Optional for cash payments</Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text strong>Bank Name</Text>
+                      <Input
+                        value={paymentForm.paymentType === "customer" ? (paymentForm.bankName || "") : ""}
+                        onChange={(e) => setPaymentForm((p) => ({ ...p, bankName: e.target.value, paymentType: "customer" }))}
+                        style={{ marginTop: 6 }}
+                        placeholder="Select Bank Name"
+                      />
+                      <Text type="secondary" className="text-[10px]">Required for bank transfers</Text>
+                    </Col>
+                  </Row>
+                </div>
+
+                <Button
+                  type="primary"
+                  block
+                  className="mt-4"
+                  onClick={() => {
+                    if (!paymentForm.amount || paymentForm.amount <= 0) {
+                      message.error("Please enter a valid amount");
+                      return;
+                    }
+                    const newPayment = {
+                      _id: `payment-${Date.now()}`,
+                      ...paymentForm,
+                      amount: Number(paymentForm.amount),
+                      recordedAt: new Date().toISOString(),
+                    };
+                    setPaymentHistory((prev) => [...prev, newPayment]);
+
+                    if (paymentForm.paymentType === "customer") {
+                      setFormData((prev) => ({
+                        ...prev,
+                        customerPaymentReceived: Number(prev.customerPaymentReceived || 0) + Number(paymentForm.amount),
+                      }));
+                    } else {
+                      setFormData((prev) => ({
+                        ...prev,
+                        inhousePaymentReceived: Number(prev.inhousePaymentReceived || 0) + Number(paymentForm.amount),
+                      }));
+                    }
+
+                    setPaymentForm({
+                      amount: 0,
+                      date: new Date().toISOString().slice(0, 10),
+                      paymentType: "inhouse",
+                      paymentMode: "Cash",
+                      transactionRef: "",
+                      remarks: "",
+                      bankName: "",
+                    });
+                    schedulePersist(250);
+                    message.success("Payment added to ledger");
+                  }}
+                >
+                  Add Payment to Ledger
+                </Button>
+              </Card>
+
+              <Card
+                size="small"
+                title={
+                  <Space>
+                    <span>Payment Ledger</span>
+                    <Text type="secondary" className="text-xs">
+                      {paymentHistory.length} payment(s) recorded
+                    </Text>
+                    {(() => {
+                      const netPremium = Math.max(0, (formData.newTotalPremium || 0) - (formData.subventionAmount || 0));
+                      const totalPaid = formData.customerPaymentReceived || 0;
+                      return totalPaid >= netPremium && netPremium > 0 ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                          Fully Paid
+                        </span>
+                      ) : null;
+                    })()}
+                  </Space>
+                }
+                bordered
+              >
+                {paymentHistory.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={
+                      <div>
+                        <Text type="secondary">No payment records found</Text>
+                        <br />
+                        <Text type="secondary" className="text-xs">
+                          Add payments using the form above
+                        </Text>
+                      </div>
+                    }
+                  />
+                ) : (
+                  <Table
+                    size="small"
+                    dataSource={paymentHistory.map((p, idx) => ({ key: p._id || idx, ...p }))}
+                    pagination={false}
+                    columns={[
+                      {
+                        title: "Date",
+                        dataIndex: "date",
+                        width: 110,
+                        render: (d) => (d ? dayjs(d).format("DD MMM YYYY") : "—"),
+                      },
+                      {
+                        title: "Type",
+                        dataIndex: "paymentType",
+                        width: 100,
+                        render: (t) => (
+                          <span className={t === "customer" ? "text-sky-600" : "text-amber-600"}>
+                            {t === "customer" ? "Customer" : "In-house"}
+                          </span>
+                        ),
+                      },
+                      {
+                        title: "Amount",
+                        dataIndex: "amount",
+                        width: 120,
+                        render: (a) => <span className="font-semibold">₹{a.toLocaleString("en-IN")}</span>,
+                      },
+                      {
+                        title: "Mode",
+                        dataIndex: "paymentMode",
+                        width: 90,
+                      },
+                      {
+                        title: "Transaction Ref",
+                        dataIndex: "transactionRef",
+                        width: 140,
+                      },
+                      {
+                        title: "Bank",
+                        dataIndex: "bankName",
+                        width: 120,
+                      },
+                    ]}
+                  />
+                )}
+              </Card>
+            </Space>
           )}
 
           {step === 6 && (
@@ -2489,6 +3950,212 @@ const NewInsuranceCaseForm = ({
             </Col>
           </Row>
         </form>
+
+        <Modal
+          title={
+            <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              Plan features
+            </span>
+          }
+          open={planFeaturesModal.open}
+          onCancel={() => setPlanFeaturesModal({ open: false, row: null })}
+          footer={null}
+          width={960}
+          centered
+          destroyOnClose
+          zIndex={1100}
+          getContainer={() => document.body}
+          styles={{
+            body: {
+              padding: 0,
+              maxHeight: "min(85vh, 900px)",
+              overflowY: "auto",
+            },
+            header: { marginBottom: 0 },
+            content: { padding: 0 },
+          }}
+          className="[&_.ant-modal-content]:rounded-2xl [&_.ant-modal-header]:border-slate-200 [&_.ant-modal-header]:px-6 [&_.ant-modal-header]:py-4 dark:[&_.ant-modal-header]:border-slate-700"
+        >
+          {planFeaturesModal.row ? (
+            <PlanFeaturesModalBody
+              key={String(getQuoteRowId(planFeaturesModal.row))}
+              row={planFeaturesModal.row}
+              acceptedQuoteId={acceptedQuoteId}
+              onAcceptAndClose={(rid) => {
+                acceptQuote(rid);
+                setPlanFeaturesModal({ open: false, row: null });
+                message.success("Quote accepted");
+              }}
+              getQuoteRowId={getQuoteRowId}
+              computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
+              toINR={toINR}
+            />
+          ) : (
+            <div className="px-8 py-10 text-center">
+              <Text type="secondary">No quote selected.</Text>
+            </div>
+          )}
+        </Modal>
+
+        <Modal
+          title="Record Payment"
+          open={paymentModalVisible}
+          onCancel={() => {
+            setPaymentModalVisible(false);
+            setPaymentForm({
+              amount: 0,
+              date: new Date().toISOString().slice(0, 10),
+              paymentType: "customer",
+              paymentMode: "Cash",
+              transactionRef: "",
+              remarks: "",
+            });
+          }}
+          onOk={() => {
+            if (paymentForm.amount <= 0) {
+              message.error("Amount must be greater than 0");
+              return;
+            }
+            const newPayment = {
+              _id: `payment-${Date.now()}`,
+              ...paymentForm,
+              amount: Number(paymentForm.amount),
+              recordedAt: new Date().toISOString(),
+            };
+            setPaymentHistory((prev) => [...prev, newPayment]);
+
+            if (paymentForm.paymentType === "customer") {
+              setFormData((prev) => ({
+                ...prev,
+                customerPaymentReceived:
+                  Number(prev.customerPaymentReceived || 0) +
+                  Number(paymentForm.amount),
+              }));
+            } else {
+              setFormData((prev) => ({
+                ...prev,
+                inhousePaymentReceived:
+                  Number(prev.inhousePaymentReceived || 0) +
+                  Number(paymentForm.amount),
+              }));
+            }
+
+            setPaymentModalVisible(false);
+            setPaymentForm({
+              amount: 0,
+              date: new Date().toISOString().slice(0, 10),
+              paymentType: "customer",
+              paymentMode: "Cash",
+              transactionRef: "",
+              remarks: "",
+            });
+            schedulePersist(250);
+            message.success("Payment recorded successfully");
+          }}
+          okText="Record Payment"
+        >
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <div>
+              <Text strong>Payment Type *</Text>
+              <Radio.Group
+                value={paymentForm.paymentType}
+                onChange={(e) =>
+                  setPaymentForm((prev) => ({
+                    ...prev,
+                    paymentType: e.target.value,
+                  }))
+                }
+                style={{ marginTop: 6, display: "block" }}
+                optionType="button"
+                buttonStyle="solid"
+              >
+                <Radio.Button value="customer">
+                  Customer → AutoCredit
+                </Radio.Button>
+                <Radio.Button value="inhouse">
+                  AutoCredit → Insurance Co.
+                </Radio.Button>
+              </Radio.Group>
+            </div>
+
+            <Row gutter={[12, 12]}>
+              <Col xs={24} md={12}>
+                <Text strong>Amount (₹) *</Text>
+                <InputNumber
+                  min={0}
+                  value={paymentForm.amount}
+                  onChange={(v) =>
+                    setPaymentForm((prev) => ({ ...prev, amount: v }))
+                  }
+                  style={{ width: "100%", marginTop: 6 }}
+                  placeholder="Enter amount"
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Date *</Text>
+                <Input
+                  type="date"
+                  value={paymentForm.date}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      date: e.target.value,
+                    }))
+                  }
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Payment Mode *</Text>
+                <Select
+                  value={paymentForm.paymentMode}
+                  onChange={(v) =>
+                    setPaymentForm((prev) => ({ ...prev, paymentMode: v }))
+                  }
+                  style={{ width: "100%", marginTop: 6 }}
+                  options={[
+                    { label: "Cash", value: "Cash" },
+                    { label: "Cheque", value: "Cheque" },
+                    { label: "NEFT", value: "NEFT" },
+                    { label: "RTGS", value: "RTGS" },
+                    { label: "UPI", value: "UPI" },
+                    { label: "Card", value: "Card" },
+                    { label: "Other", value: "Other" },
+                  ]}
+                />
+              </Col>
+              <Col xs={24} md={12}>
+                <Text strong>Transaction Ref</Text>
+                <Input
+                  value={paymentForm.transactionRef}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      transactionRef: e.target.value,
+                    }))
+                  }
+                  style={{ marginTop: 6 }}
+                  placeholder="UTR / Cheque no."
+                />
+              </Col>
+              <Col xs={24}>
+                <Text strong>Remarks</Text>
+                <Input.TextArea
+                  rows={2}
+                  value={paymentForm.remarks}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      remarks: e.target.value,
+                    }))
+                  }
+                  style={{ marginTop: 6 }}
+                  placeholder="Optional notes"
+                />
+              </Col>
+            </Row>
+          </Space>
+        </Modal>
       </Space>
     </Card>
   );
