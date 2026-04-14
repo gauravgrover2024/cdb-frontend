@@ -2,11 +2,11 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "../../../components/AppIcon";
 import ModuleFrame from "../../../components/ui/ModuleFrame";
+import UsedCarBackgroundCheckDesk from "./BackgroundCheckDesk";
+import DocumentationDesk from "./DocumentationDesk";
 import UsedCarLeadIntakeDesk from "./UsedCarLeadIntakeDesk";
 import UsedCarInspectionDesk from "./UsedCarInspectionDesk";
-import UsedCarBackgroundCheckDesk from "./BackgroundCheckDesk";
 import UsedCarNegotiationDesk from "./NegotiationDesk";
-import DocumentationDesk from "./DocumentationDesk";
 import ProcurementLogisticsDesk from "./ProcurementLogisticsDesk";
 import UsedCarStockDesk from "./StockDesk";
 
@@ -15,7 +15,7 @@ const STAGES = [
     key: "lead-intake",
     label: "Lead Intake",
     description:
-      "Capture seller leads, manage calls, and move inspection-ready cars ahead.",
+      "Capture seller leads, manage calls, assign queues, and move inspection-ready cars ahead.",
     path: "/used-cars",
     icon: "PhoneCall",
   },
@@ -23,7 +23,7 @@ const STAGES = [
     key: "inspection",
     label: "Inspection",
     description:
-      "Run field inspections, capture findings, and generate evaluator-ready reports.",
+      "Run field inspections, capture detailed findings, and generate evaluator-ready reports.",
     path: "/used-cars/inspection",
     icon: "ClipboardCheck",
   },
@@ -31,7 +31,7 @@ const STAGES = [
     key: "background-check",
     label: "Background Check",
     description:
-      "Run Vahan and service history checks for inspection-cleared cars.",
+      "Run comprehensive Vahan and service history background checks for inspection-cleared cars.",
     path: "/used-cars/background-check",
     icon: "ShieldCheck",
   },
@@ -39,7 +39,7 @@ const STAGES = [
     key: "negotiation",
     label: "Negotiation",
     description:
-      "Capture vendor quotations and bridge the gap with customer expectations.",
+      "Capture vendor quotations, identify best offers, and bridge the gap with customer expectations.",
     path: "/used-cars/negotiation",
     icon: "Gavel",
   },
@@ -83,7 +83,9 @@ function StageTab({ item, active, index, onClick }) {
       <div className="flex items-center gap-2">
         <span
           className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
-            active ? "bg-white/15 dark:bg-white/10" : "bg-slate-100 dark:bg-white/10"
+            active
+              ? "bg-white/15 dark:bg-white/10"
+              : "bg-slate-100 dark:bg-white/10"
           }`}
         >
           <Icon name={item.icon} size={16} />
@@ -121,7 +123,7 @@ function StageTab({ item, active, index, onClick }) {
 export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentStage = STAGES.find((s) => s.key === stage) || STAGES[0];
+  const currentStage = STAGES.find((item) => item.key === stage) || STAGES[0];
 
   return (
     <ModuleFrame>
@@ -138,7 +140,8 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
                   Build The Used-Car Journey
                 </h2>
                 <p className="mt-1.5 max-w-2xl text-[13px] font-medium leading-5 text-slate-600 dark:text-slate-300 md:text-sm">
-                  One compact operating shell for intake, inspection, checks, negotiation, documentation, pickup, and stock handoff.
+                  One compact operating shell for intake, inspection, checks,
+                  negotiation, documentation, pickup, and stock handoff.
                 </p>
               </div>
 
@@ -170,7 +173,8 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
                   Journey Stages
                 </p>
                 <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-                  The full used-car workflow stays visible here without horizontal scrolling.
+                  The full used-car workflow stays visible here without horizontal
+                  scrolling.
                 </p>
               </div>
               <span className="hidden rounded-full border border-slate-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:border-white/10 dark:text-slate-400 xl:inline-flex">
@@ -178,28 +182,35 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
               </span>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
-              {STAGES.map((item, index) => (
-                <StageTab
-                  key={item.key}
-                  item={item}
-                  index={index}
-                  active={location.pathname === item.path}
-                  onClick={() => navigate(item.path)}
-                />
-              ))}
+              {STAGES.map((item, index) => {
+                const isLeadIntakeActive =
+                  item.key === "lead-intake" &&
+                  (location.pathname === "/used-cars" ||
+                    location.pathname === "/used-cars/");
+
+                return (
+                  <StageTab
+                    key={item.key}
+                    item={item}
+                    index={index}
+                    active={location.pathname === item.path || isLeadIntakeActive}
+                    onClick={() => navigate(item.path)}
+                  />
+                );
+              })}
             </div>
           </div>
         </section>
 
         <section>
-          {stage === "negotiation" ? (
+          {stage === "inspection" ? (
+            <UsedCarInspectionDesk />
+          ) : stage === "background-check" ? (
+            <UsedCarBackgroundCheckDesk />
+          ) : stage === "negotiation" ? (
             <UsedCarNegotiationDesk />
           ) : stage === "documentation" ? (
             <DocumentationDesk />
-          ) : stage === "background-check" ? (
-            <UsedCarBackgroundCheckDesk />
-          ) : stage === "inspection" ? (
-            <UsedCarInspectionDesk />
           ) : stage === "procurement" ? (
             <ProcurementLogisticsDesk />
           ) : stage === "stock" ? (
