@@ -19,13 +19,13 @@ export const ThemeProvider = ({ children }) => {
     if (isDarkMode) {
       root.classList.add("dark");
       sessionStorage.setItem("theme", "dark");
-      document.body.style.backgroundColor = "#000000";
-      document.body.style.color = "#ffffff";
+      document.body.style.backgroundColor = "#050c1a";
+      document.body.style.color = "#f1f5f9";
     } else {
       root.classList.remove("dark");
       sessionStorage.setItem("theme", "light");
-      document.body.style.backgroundColor = "#ffffff";
-      document.body.style.color = "#0f1419";
+      document.body.style.backgroundColor = "#f8fafc";
+      document.body.style.color = "#0f172a";
     }
   }, [isDarkMode]);
 
@@ -37,39 +37,39 @@ export const ThemeProvider = ({ children }) => {
         theme={{
           algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
           token: {
-            colorPrimary: "#1d9bf0", 
-            colorSuccess: "#00ba7c",
-            colorWarning: "#ffd400",
-            colorError: "#f4212e",
-            colorTextBase: isDarkMode ? "#ffffff" : "#0f1419",
-            colorBgBase: isDarkMode ? "#000000" : "#ffffff",
+            colorPrimary: "#2563eb",
+            colorSuccess: "#16a34a",
+            colorWarning: "#d97706",
+            colorError: "#dc2626",
+            colorTextBase: isDarkMode ? "#f1f5f9" : "#0f172a",
+            colorBgBase: isDarkMode ? "#050c1a" : "#f8fafc",
             borderRadius: 8,
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-            colorBorder: isDarkMode ? "#2f3336" : "#eff3f4",
-            colorBgContainer: isDarkMode ? "#000000" : "#ffffff",
-            colorBgLayout: isDarkMode ? "#000000" : "#ffffff",
+            colorBorder: isDarkMode ? "#1e293b" : "#e2e8f0",
+            colorBgContainer: isDarkMode ? "#0a1628" : "#ffffff",
+            colorBgLayout: isDarkMode ? "#050c1a" : "#f8fafc",
           },
           components: {
             Card: {
-              colorBgContainer: isDarkMode ? "#000000" : "#ffffff",
-              colorBorderSecondary: isDarkMode ? "#2f3336" : "#eff3f4",
+              colorBgContainer: isDarkMode ? "#0a1628" : "#ffffff",
+              colorBorderSecondary: isDarkMode ? "#1e293b" : "#e2e8f0",
             },
             Layout: {
-              colorBgHeader: isDarkMode ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.85)",
-              colorBgBody: isDarkMode ? "#000000" : "#ffffff",
-              colorBgLayout: isDarkMode ? "#000000" : "#ffffff",
+              colorBgHeader: isDarkMode ? "rgba(5,12,26,0.90)" : "rgba(248,250,252,0.90)",
+              colorBgBody: isDarkMode ? "#050c1a" : "#f8fafc",
+              colorBgLayout: isDarkMode ? "#050c1a" : "#f8fafc",
             },
             Table: {
-              colorBgContainer: isDarkMode ? "#000000" : "#ffffff",
-              colorHeaderBg: isDarkMode ? "#000000" : "#ffffff",
+              colorBgContainer: isDarkMode ? "#0a1628" : "#ffffff",
+              colorHeaderBg: isDarkMode ? "#0f1f38" : "#f1f5f9",
             },
             Button: {
-              colorBgContainer: isDarkMode ? "#1a1a1a" : "#f5f5f5",
-              colorTextSecondary: isDarkMode ? "#ffffff" : "#000000",
+              colorBgContainer: isDarkMode ? "#0f1f38" : "#f1f5f9",
+              colorTextSecondary: isDarkMode ? "#cbd5e1" : "#334155",
             },
             Input: {
-              colorBgContainer: isDarkMode ? "#1a1a1a" : "#ffffff",
-              colorTextPlaceholder: isDarkMode ? "#888888" : "#bfbfbf",
+              colorBgContainer: isDarkMode ? "#0a1628" : "#ffffff",
+              colorTextPlaceholder: isDarkMode ? "#475569" : "#94a3b8",
             },
           },
         }}

@@ -93,9 +93,7 @@ const DAMAGE_OVERLAY_SHAPES = {
   rearBumper: (
     <path d="M200 614c18 7 37 10 60 10s42-3 60-10l8 28c-19 12-40 18-68 18-28 0-49-6-68-18z" />
   ),
-  leftFender: (
-    <path d="M160 136c-22 22-34 44-42 80l30 16c8-34 18-57 38-81z" />
-  ),
+  leftFender: <path d="M160 136c-22 22-34 44-42 80l30 16c8-34 18-57 38-81z" />,
   rightFender: (
     <path d="M360 136c22 22 34 44 42 80l-30 16c-8-34-18-57-38-81z" />
   ),
@@ -403,10 +401,22 @@ const ITEM_OPTION_OVERRIDES = {
 };
 
 const SEVERITY_OPTIONS = [
-  { value: "Low", tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300" },
-  { value: "Medium", tone: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300" },
-  { value: "High", tone: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300" },
-  { value: "Critical", tone: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300" },
+  {
+    value: "Low",
+    tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300",
+  },
+  {
+    value: "Medium",
+    tone: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300",
+  },
+  {
+    value: "High",
+    tone: "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300",
+  },
+  {
+    value: "Critical",
+    tone: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300",
+  },
 ];
 
 const FAMILY_FALLBACKS = {
@@ -473,28 +483,57 @@ function getStatusSeverity(status, item, section) {
 
 function getOptionTone(option) {
   const value = String(option.value || "").toLowerCase();
-  if (value === "original" || value === "ok" || value === "good" || value === "working" || value === "verified" || value === "yes" || value === "excellent") {
+  if (
+    value === "original" ||
+    value === "ok" ||
+    value === "good" ||
+    value === "working" ||
+    value === "verified" ||
+    value === "yes" ||
+    value === "excellent"
+  ) {
     return {
       borderColor: "#bbf7d0",
       background: "#f0fdf4",
       color: "#047857",
     };
   }
-  if (value.includes("replace") || value.includes("missing") || value.includes("not working") || value.includes("deployed") || value.includes("mismatch") || value.includes("critical")) {
+  if (
+    value.includes("replace") ||
+    value.includes("missing") ||
+    value.includes("not working") ||
+    value.includes("deployed") ||
+    value.includes("mismatch") ||
+    value.includes("critical")
+  ) {
     return {
       borderColor: "#fecdd3",
       background: "#fff1f2",
       color: "#be123c",
     };
   }
-  if (value.includes("repair") || value.includes("rust") || value.includes("crack") || value.includes("leak") || value.includes("noise") || value.includes("bulge")) {
+  if (
+    value.includes("repair") ||
+    value.includes("rust") ||
+    value.includes("crack") ||
+    value.includes("leak") ||
+    value.includes("noise") ||
+    value.includes("bulge")
+  ) {
     return {
       borderColor: "#fed7aa",
       background: "#fff7ed",
       color: "#c2410c",
     };
   }
-  if (value.includes("repaint") || value.includes("dent") || value.includes("uneven") || value.includes("low") || value.includes("warning") || value.includes("weak")) {
+  if (
+    value.includes("repaint") ||
+    value.includes("dent") ||
+    value.includes("uneven") ||
+    value.includes("low") ||
+    value.includes("warning") ||
+    value.includes("weak")
+  ) {
     return {
       borderColor: "#fde68a",
       background: "#fffbeb",
@@ -1347,7 +1386,7 @@ const INSPECTION_SECTIONS = [
     titleEn: "Safety & Compliance",
     titleHi: "Safety aur Compliance",
     icon: "🛡️",
-    color: "#4f46e5",
+    color: "#7c3aed",
     preset: "safety",
     items: [
       {
@@ -1590,7 +1629,7 @@ const INSPECTION_SECTIONS = [
     titleEn: "OEM Features & Specifications Verification",
     titleHi: "Factory Features ki Jaanch",
     icon: "📋",
-    color: "#6366f1",
+    color: "#2563eb",
     preset: "verification",
     items: [
       {
@@ -2005,7 +2044,7 @@ function fmtInrOrPending(value) {
 
 function QueueMetric({ label, value, helper, tone = "slate" }) {
   const toneMap = {
-    slate: "text-slate-900 dark:text-slate-100",
+    slate: "text-foreground dark:text-card-foreground",
     emerald: "text-emerald-700 dark:text-emerald-300",
     amber: "text-amber-700 dark:text-amber-300",
     violet: "text-violet-700 dark:text-violet-300",
@@ -2013,8 +2052,8 @@ function QueueMetric({ label, value, helper, tone = "slate" }) {
     sky: "text-sky-700 dark:text-sky-300",
   };
   return (
-    <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+    <div className="rounded-[22px] border border-border bg-muted/50 px-4 py-3 dark:border-border dark:bg-muted/20">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
         {label}
       </p>
       <p
@@ -2052,7 +2091,7 @@ function SectionProgressBar({ sectionKey, itemValues }) {
   const color = score >= 75 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444";
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted dark:bg-muted">
         <div
           style={{ width: `${score}%`, background: color }}
           className="h-full rounded-full transition-all duration-500"
@@ -2068,16 +2107,16 @@ function SectionProgressBar({ sectionKey, itemValues }) {
 function TyreLifeBar({ treadMm }) {
   const life = tyreLifeFromTread(treadMm);
   return (
-    <div className="mt-2 rounded-[12px] border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+    <div className="mt-2 rounded-[12px] border border-border bg-card px-3 py-2 dark:border-border dark:bg-card">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+        <span className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground">
           Tyre Life — {life.pct}%
         </span>
-        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+        <span className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground">
           ~{life.km} km remaining
         </span>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted dark:bg-muted">
         <div
           style={{ width: `${life.pct}%`, background: life.color }}
           className="h-full rounded-full transition-all duration-500"
@@ -2105,7 +2144,9 @@ function OverallScoreRing({ score }) {
 }
 
 function getSectionOrder(sectionKey) {
-  const index = INSPECTION_SECTIONS.findIndex((section) => section.key === sectionKey);
+  const index = INSPECTION_SECTIONS.findIndex(
+    (section) => section.key === sectionKey,
+  );
   return index >= 0 ? String(index + 1).padStart(2, "0") : "--";
 }
 
@@ -2123,8 +2164,8 @@ function InspectionQueueCard({ lead, active, onClick }) {
       onClick={onClick}
       className={`w-full rounded-[24px] border px-4 py-4 text-left transition-all ${
         active
-          ? "border-slate-900 bg-slate-900 text-white shadow-sm dark:border-white dark:bg-white dark:text-slate-950"
-          : "border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+          ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-primary dark:bg-primary dark:text-primary-foreground"
+          : "border-border bg-card hover:border-input dark:border-border dark:bg-card dark:hover:bg-secondary"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -2133,7 +2174,7 @@ function InspectionQueueCard({ lead, active, onClick }) {
             {lead.name}
           </p>
           <p
-            className={`mt-1 text-xs font-medium ${active ? "text-white/70 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"}`}
+            className={`mt-1 text-xs font-medium ${active ? "text-primary-foreground/70 dark:text-foreground/70" : "text-muted-foreground dark:text-muted-foreground"}`}
           >
             {lead.mobile} · {lead.make} {lead.model}
             {lead.variant ? ` ${lead.variant}` : ""}
@@ -2260,9 +2301,7 @@ function VerificationCard({ field }) {
           <div>
             <p
               className={`text-sm font-semibold ${
-                checked
-                  ? "text-white"
-                  : "text-slate-900 dark:text-slate-100"
+                checked ? "text-white" : "text-slate-900 dark:text-slate-100"
               }`}
             >
               {field.labelEn}
@@ -2450,7 +2489,10 @@ function SectionItemCard({
                 key={option.value}
                 type="button"
                 onClick={() =>
-                  form.setFieldValue([formName, item.key, "severity"], option.value)
+                  form.setFieldValue(
+                    [formName, item.key, "severity"],
+                    option.value,
+                  )
                 }
                 className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${
                   severityVal === option.value
@@ -2494,15 +2536,15 @@ function SectionItemCard({
               }
               name={[formName, item.key, "tyreBrand"]}
               className="!mb-0"
-              >
-                <Select
-                  placeholder="Brand chunein..."
-                  showSearch
-                  allowClear
-                  options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))}
-                  onChange={(value) => onSeedTyreBrand(item.key, value)}
-                />
-              </Form.Item>
+            >
+              <Select
+                placeholder="Brand chunein..."
+                showSearch
+                allowClear
+                options={TYRE_BRANDS.map((v) => ({ value: v, label: v }))}
+                onChange={(value) => onSeedTyreBrand(item.key, value)}
+              />
+            </Form.Item>
           ) : null}
         </div>
       ) : null}
@@ -2655,8 +2697,9 @@ function getMediaDiscipline(photoBuckets = {}, itemValues = {}) {
     label: bucket.labelEn,
     files: photoBuckets[bucket.key] || [],
   }));
-  const capturedRequired = requiredPhotos.filter((bucket) => bucket.files.length)
-    .length;
+  const capturedRequired = requiredPhotos.filter(
+    (bucket) => bucket.files.length,
+  ).length;
   const defectItems = INSPECTION_SECTIONS.flatMap((section) =>
     section.items
       .map((item) => ({
@@ -2665,10 +2708,13 @@ function getMediaDiscipline(photoBuckets = {}, itemValues = {}) {
         status: itemValues?.[item.key]?.status,
         photos: itemValues?.[item.key]?.photos || [],
       }))
-      .filter((item) => item.status && !isPositiveInspectionStatus(item.status)),
+      .filter(
+        (item) => item.status && !isPositiveInspectionStatus(item.status),
+      ),
   );
-  const defectPhotosCaptured = defectItems.filter((item) => item.photos.length)
-    .length;
+  const defectPhotosCaptured = defectItems.filter(
+    (item) => item.photos.length,
+  ).length;
 
   return {
     requiredTotal: requiredPhotos.length,
@@ -2684,12 +2730,7 @@ function getMediaDiscipline(photoBuckets = {}, itemValues = {}) {
   };
 }
 
-function buildSmartAutoSummary({
-  lead,
-  report,
-  itemValues,
-  mediaDiscipline,
-}) {
+function buildSmartAutoSummary({ lead, report, itemValues, mediaDiscipline }) {
   const allIssues = INSPECTION_SECTIONS.flatMap((section) =>
     section.items
       .map((item) => {
@@ -2701,7 +2742,8 @@ function buildSmartAutoSummary({
           section: section.titleEn,
           label: item.labelEn,
           status: compactStatus(value.status),
-          severity: value.severity || getStatusSeverity(value.status, item, section),
+          severity:
+            value.severity || getStatusSeverity(value.status, item, section),
         };
       })
       .filter(Boolean),
@@ -2715,8 +2757,7 @@ function buildSmartAutoSummary({
     key: section.key,
     title: section.titleEn,
     ...getSectionCounts(section, itemValues),
-  }))
-    .sort((a, b) => b.issue - a.issue)[0];
+  })).sort((a, b) => b.issue - a.issue)[0];
 
   const bullets = [
     criticalIssues.length
@@ -2852,7 +2893,7 @@ function DamageVisibilityMap({ itemValues }) {
       value.includes("missing") ||
       value.includes("critical")
     ) {
-      return { fill: "rgba(225, 29, 72, 0.22)", stroke: "#e11d48" };
+      return { fill: "rgba(220, 38, 38, 0.22)", stroke: "#dc2626" };
     }
     if (
       value.includes("repair") ||
@@ -2892,7 +2933,13 @@ function DamageVisibilityMap({ itemValues }) {
               <stop offset="100%" stopColor="#d7e8ff" />
             </linearGradient>
             <filter id="carShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="14" stdDeviation="18" floodColor="#0f172a" floodOpacity="0.08" />
+              <feDropShadow
+                dx="0"
+                dy="14"
+                stdDeviation="18"
+                floodColor="#0f172a"
+                floodOpacity="0.08"
+              />
             </filter>
           </defs>
           <path
@@ -2919,11 +2966,52 @@ function DamageVisibilityMap({ itemValues }) {
             stroke="#b9d3f5"
             strokeWidth="3"
           />
-          <rect x="108" y="190" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <rect x="378" y="190" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <rect x="108" y="418" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <rect x="378" y="418" width="34" height="90" rx="17" fill="#f8fbff" stroke="#8aa6c9" strokeWidth="4" />
-          <path d="M260 88v528" stroke="#d9e5f4" strokeWidth="2.5" strokeDasharray="8 10" />
+          <rect
+            x="108"
+            y="190"
+            width="34"
+            height="90"
+            rx="17"
+            fill="#f8fbff"
+            stroke="#8aa6c9"
+            strokeWidth="4"
+          />
+          <rect
+            x="378"
+            y="190"
+            width="34"
+            height="90"
+            rx="17"
+            fill="#f8fbff"
+            stroke="#8aa6c9"
+            strokeWidth="4"
+          />
+          <rect
+            x="108"
+            y="418"
+            width="34"
+            height="90"
+            rx="17"
+            fill="#f8fbff"
+            stroke="#8aa6c9"
+            strokeWidth="4"
+          />
+          <rect
+            x="378"
+            y="418"
+            width="34"
+            height="90"
+            rx="17"
+            fill="#f8fbff"
+            stroke="#8aa6c9"
+            strokeWidth="4"
+          />
+          <path
+            d="M260 88v528"
+            stroke="#d9e5f4"
+            strokeWidth="2.5"
+            strokeDasharray="8 10"
+          />
           <g fill="#fbfdff" stroke="#c3d6ed" strokeWidth="2.5">
             {Object.entries(DAMAGE_OVERLAY_SHAPES).map(([key, shape]) =>
               React.cloneElement(shape, {
@@ -3374,7 +3462,8 @@ function InspectionReportDocumentView({
               value={`${mediaDiscipline.defectPhotosCaptured}/${mediaDiscipline.defectTotal}`}
               helper="Negative findings with evidence"
               tone={
-                mediaDiscipline.defectPhotosCaptured === mediaDiscipline.defectTotal
+                mediaDiscipline.defectPhotosCaptured ===
+                mediaDiscipline.defectTotal
                   ? "green"
                   : "amber"
               }
@@ -3970,7 +4059,9 @@ export default function UsedCarInspectionDesk() {
       const next = currentIndex >= 0 ? itemSequence[currentIndex + 1] : null;
       if (!next) {
         window.requestAnimationFrame(() => {
-          const finalBlock = document.querySelector("#inspection-final-decision");
+          const finalBlock = document.querySelector(
+            "#inspection-final-decision",
+          );
           finalBlock?.scrollIntoView({
             behavior: "auto",
             block: "center",
@@ -4213,7 +4304,10 @@ export default function UsedCarInspectionDesk() {
       reportForm.getFieldValue("photoBuckets") ||
       reportLead.inspection?.report?.photoBuckets ||
       {};
-    const mediaDiscipline = getMediaDiscipline(currentPhotoBuckets, reportItems);
+    const mediaDiscipline = getMediaDiscipline(
+      currentPhotoBuckets,
+      reportItems,
+    );
     return (
       <section className="space-y-4">
         <div className="rounded-[30px] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0e1014] md:p-5 xl:p-6">
@@ -4490,14 +4584,19 @@ export default function UsedCarInspectionDesk() {
                           ? `${mediaDiscipline.missingBuckets.length} still pending`
                           : "All mandatory buckets complete"
                       }
-                      tone={mediaDiscipline.missingBuckets.length ? "amber" : "green"}
+                      tone={
+                        mediaDiscipline.missingBuckets.length
+                          ? "amber"
+                          : "green"
+                      }
                     />
                     <DocumentStat
                       label="Defect photos"
                       value={`${mediaDiscipline.defectPhotosCaptured}/${mediaDiscipline.defectTotal}`}
                       helper="Evidence against marked defects"
                       tone={
-                        mediaDiscipline.defectPhotosCaptured === mediaDiscipline.defectTotal
+                        mediaDiscipline.defectPhotosCaptured ===
+                        mediaDiscipline.defectTotal
                           ? "green"
                           : "amber"
                       }
