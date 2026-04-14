@@ -2,5 +2,5 @@ import React from 'react';
 import UsedCarsWorkspace from '../components/UsedCarsWorkspace';
 
 export default function UsedCarsProcurementPage() {
-  return <UsedCarsWorkspace stage="lead-intake" />;
+  return <UsedCarsWorkspace stage="procurement" />;
 }

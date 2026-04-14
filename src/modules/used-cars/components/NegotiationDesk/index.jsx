@@ -8,6 +8,7 @@ import {
   Timeline,
   message,
   Tag,
+  Checkbox,
 } from "antd";
 import {
   SaveOutlined,
@@ -85,16 +86,34 @@ function NegotiationMetricCard({ title, value, subValue, icon, colorClass, trend
 }
 
 // ── Reusable Premium Timeline ────────────────────────────────────
-function PremiumTimeline({ timeline, currentPrice, labelPrefix = "Offer" }) {
+function PremiumTimeline({ value, timeline, currentPrice, labelPrefix = "Offer" }) {
   const fullTimeline = useMemo(() => {
-    const list = [...(timeline || [])].reverse();
-    if (currentPrice) {
-      list.unshift({ 
+    // We want the timeline to show: [Current Price] -> [Past Price N] -> ... -> [Baseline]
+    // timeline array is stored in chronological order [Oldest -> Newest]
+    const history = [...(value || timeline || [])];
+    const list = [];
+
+    // Add current price as the active head
+    if (currentPrice !== undefined && currentPrice !== null) {
+      list.push({ 
         price: currentPrice, 
         timestamp: new Date().toISOString(),
         isCurrent: true 
       });
     }
+
+    // Add history entries
+    const reversedHistory = [...history].reverse();
+    reversedHistory.forEach((entry, idx) => {
+      // Rule: Always show the baseline, and show history entries unless they are consecutively identical 
+      const isBaseline = idx === reversedHistory.length - 1;
+      const isDuplicate = list.length > 1 && entry.price === list[list.length - 1].price;
+      
+      if (isBaseline || !isDuplicate) {
+        list.push(entry);
+      }
+    });
+
     return list;
   }, [timeline, currentPrice]);
 
@@ -115,7 +134,7 @@ function PremiumTimeline({ timeline, currentPrice, labelPrefix = "Offer" }) {
           <div className="group relative -mt-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <span className={`font-black tracking-tight ${t.isCurrent ? "text-slate-900 dark:text-white text-sm" : "text-slate-500 dark:text-slate-400 text-xs"}`}>
-                ₹{t.price.toLocaleString()}
+                ₹{t.price?.toLocaleString() || "0"}
               </span>
               {t.isCurrent && (
                 <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
@@ -152,8 +171,9 @@ function PremiumTimeline({ timeline, currentPrice, labelPrefix = "Offer" }) {
 }
 
 // ── Quotation Form Card (Overhaul) ────────────────────────────────
-function QuotationCard({ field, remove, values, bgcForm }) {
+function QuotationCard({ field, remove, values, bgcForm, selectedId }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const focusedLocalValueRef = React.useRef(null);
   const qData = values.quotations?.[field.name] || {};
   const isVerified = VERIFIED_VENDORS.some(v => v.name === qData.dealerName);
   const vendorInfo = VERIFIED_VENDORS.find(v => v.name === qData.dealerName);
@@ -177,7 +197,7 @@ function QuotationCard({ field, remove, values, bgcForm }) {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-slate-900 dark:text-slate-100 text-ellipsis overflow-hidden whitespace-nowrap max-w-[120px]">{qData.dealerName || "Draft Dealer"}</span>
                 <span className="text-slate-300 dark:text-slate-700">|</span>
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{qData.quotedPrice?.toLocaleString() || "—"}</span>
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{qData.quotedPrice?.toLocaleString() || "0"}</span>
               </div>
             ) : (
               isVerified && (
@@ -257,7 +277,16 @@ function QuotationCard({ field, remove, values, bgcForm }) {
 
               <Form.Item 
                 {...field} 
-                label="Quoted Price (₹)" 
+                label={
+                  <div className="flex items-center justify-between w-full">
+                    <span>Quoted Price (₹)</span>
+                    {qData.priceTimeline?.length > 0 && qData.quotedPrice > qData.priceTimeline[0].price && (
+                      <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
+                        <ArrowUpOutlined className="text-[8px]" /> {(((qData.quotedPrice - qData.priceTimeline[0].price) / qData.priceTimeline[0].price) * 100).toFixed(1)}% Session Incr.
+                      </span>
+                    )}
+                  </div>
+                }
                 name={[field.name, "quotedPrice"]}
                 className="!mb-0 md:col-span-2"
               >
@@ -266,23 +295,36 @@ function QuotationCard({ field, remove, values, bgcForm }) {
                   placeholder="Enter current offer..."
                   formatter={(v) => (v ? `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "")}
                   parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
-                  onFocus={(e) => {
-                    e.target.dataset.prevValue = e.target.value.replace(/₹\s?|(,*)/g, "");
+                  onFocus={() => {
+                    const currentQuotes = bgcForm.getFieldValue("quotations");
+                    focusedLocalValueRef.current = currentQuotes[field.name]?.quotedPrice;
                   }}
-                  onBlur={(e) => {
-                    const rawOldValue = e.target.dataset.prevValue || "";
-                    const oldPrice = rawOldValue ? Number(rawOldValue) : null;
-                    const newPrice = Number(e.target.value.replace(/₹\s?|(,*)/g, ""));
+                  onBlur={() => {
+                    const oldPrice = focusedLocalValueRef.current;
                     const currentQuotes = bgcForm.getFieldValue("quotations");
                     const quote = currentQuotes[field.name];
-                    if (oldPrice !== null && oldPrice !== newPrice) {
-                      const timeline = quote.priceTimeline || [];
-                      if (timeline.length === 0 || timeline[timeline.length - 1].price !== oldPrice) {
+                    const newPrice = quote.quotedPrice;
+                    
+                    if (newPrice === undefined || newPrice === null) return;
+                    const timeline = [...(quote.priceTimeline || [])];
+                    if (timeline.length === 0) {
+                       // Proactive Seeding: Ensure baseline is present before recording counter-offer
+                       timeline.push({ price: oldPrice || newPrice, timestamp: dayjs().toISOString(), label: "Initial Quotation" });
+                    }
+
+                    if (oldPrice !== undefined && oldPrice !== null && oldPrice !== newPrice) {
+                      const lastPrice = timeline[timeline.length - 1]?.price;
+                      if (lastPrice !== oldPrice) {
                         timeline.push({ price: oldPrice, timestamp: dayjs().toISOString() });
-                        quote.priceTimeline = timeline;
-                        bgcForm.setFieldsValue({ quotations: currentQuotes });
                       }
                     }
+                    
+                    quote.priceTimeline = timeline;
+                    bgcForm.setFieldsValue({ quotations: currentQuotes });
+                    
+                    // Manual persist
+                    localStorage.setItem(`${NEGOTIATION_STORAGE_KEY}_${selectedId}`, JSON.stringify(bgcForm.getFieldsValue()));
+                    focusedLocalValueRef.current = newPrice;
                   }}
                 />
               </Form.Item>
@@ -346,6 +388,23 @@ function VahanSnapshot({ lead }) {
           </div>
         ))}
       </div>
+      
+      {/* Inspection Quick Action */}
+      <div className="mt-4 border-t border-slate-200 dark:border-white/10 pt-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+           <Tag className="!rounded-md border-0 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 m-0 text-[10px] font-bold">
+             Inspection Verified
+           </Tag>
+        </div>
+        <Button 
+          type="link" 
+          icon={<EyeOutlined />} 
+          className="!p-0 !h-auto text-sky-600 hover:text-sky-700 text-xs font-bold transition-all"
+          onClick={() => message.info("Opening Full Inspection Report...")}
+        >
+          View Full Inspection Certificate
+        </Button>
+      </div>
     </div>
   );
 }
@@ -398,7 +457,38 @@ export default function UsedCarNegotiationDesk() {
   const [selectedId, setSelectedId] = useState(MOCK_BGC_CLEARED_LEADS[0].id);
   const [search, setSearch] = useState("");
   const [isSellerHubCollapsed, setIsSellerHubCollapsed] = useState(false);
+  const focusedValueRef = React.useRef(null);
   
+  // ── Unified Recording Logic ──────────────────────────────────────
+  const recordNegotiationStep = useCallback((newPrice, oldPrice, timelinePath, baselineLabel) => {
+    if (newPrice === undefined || newPrice === null) return;
+    
+    let currentTimeline = [...(negForm.getFieldValue(timelinePath) || [])];
+    
+    // Safety: If somehow empty, use the first recorded oldPrice or current newPrice as baseline
+    if (currentTimeline.length === 0) {
+      currentTimeline = [{ price: oldPrice || newPrice, timestamp: dayjs().toISOString(), label: baselineLabel }];
+    }
+
+    // Add historical movement if price actually transitioned
+    if (oldPrice !== undefined && oldPrice !== null && oldPrice !== newPrice) {
+      const lastEntry = currentTimeline[currentTimeline.length - 1];
+      
+      // Only push if this particular movement hasn't just been recorded
+      if (!lastEntry || lastEntry.price !== oldPrice) {
+        currentTimeline.push({ 
+          price: oldPrice, 
+          timestamp: dayjs().toISOString(),
+          label: currentTimeline.length === 0 ? baselineLabel : undefined 
+        });
+      }
+    }
+
+    // Explicitly update form and PERSIST immediately (since setFieldValue doesn't trigger onValuesChange)
+    negForm.setFieldValue(timelinePath, currentTimeline);
+    localStorage.setItem(`${NEGOTIATION_STORAGE_KEY}_${selectedId}`, JSON.stringify(negForm.getFieldsValue()));
+  }, [negForm, selectedId]);
+
   const formValues = Form.useWatch([], negForm) || getDefaultNegotiationValues();
 
   // Unified Styling Block
@@ -436,24 +526,36 @@ export default function UsedCarNegotiationDesk() {
   const filteredLeads = useMemo(() => {
     const s = search.toLowerCase();
     return MOCK_BGC_CLEARED_LEADS.filter(l => 
-      l.regNo.toLowerCase().includes(s) || 
-      l.name.toLowerCase().includes(s) || 
-      l.model.toLowerCase().includes(s)
+      l.regNo?.toLowerCase().includes(s) || 
+      l.name?.toLowerCase().includes(s) || 
+      l.model?.toLowerCase().includes(s)
     );
   }, [search]);
 
-  // Persistence logic
+  // Persistence logic 
   useEffect(() => {
     const saved = localStorage.getItem(`${NEGOTIATION_STORAGE_KEY}_${selectedId}`);
     if (saved) {
-      negForm.setFieldsValue(JSON.parse(saved));
+      const parsed = JSON.parse(saved);
+      // Migration/Safety: Always ensure baseline exists
+      if (!parsed.customerNegotiation?.priceTimeline || parsed.customerNegotiation.priceTimeline.length === 0) {
+        if (!parsed.customerNegotiation) parsed.customerNegotiation = {};
+        parsed.customerNegotiation.priceTimeline = selectedLead?.customerDemand ? [{ price: selectedLead.customerDemand, timestamp: dayjs().toISOString(), label: "Original Demand" }] : [];
+      }
+      negForm.setFieldsValue(parsed);
     } else {
       negForm.resetFields();
       negForm.setFieldsValue({ 
         customerDemand: selectedLead?.customerDemand,
+        customerNegotiation: {
+          priceTimeline: selectedLead?.customerDemand ? [{ price: selectedLead.customerDemand, timestamp: dayjs().toISOString(), label: "Original Demand" }] : []
+        },
         quotations: getDefaultNegotiationValues().quotations 
       });
     }
+    
+    // CRITICAL: Initialize focus refs so the FIRST change has an 'oldPrice' to record
+    focusedValueRef.current = negForm.getFieldValue("customerDemand") || selectedLead?.customerDemand;
   }, [selectedId, negForm, selectedLead]);
 
   const handleValuesChange = useCallback((_, allValues) => {
@@ -462,25 +564,31 @@ export default function UsedCarNegotiationDesk() {
 
   // ── Auto Analytics ───────────────────────────────────────────────
   const analytics = useMemo(() => {
-    // Current Demand is either from customer negotiation timeline OR the baseline
-    const customerNegotiation = formValues.customerNegotiation || {};
-    const demand = formValues.customerDemand || 0;
+    const customerNegotiation = formValues?.customerNegotiation || {};
+    const demand = formValues?.customerDemand || 0;
+    const target = formValues?.targetPrice || 0;
     
-    const target = formValues.targetPrice || 0;
-    const validQuotes = (formValues.quotations || []).filter(q => q.quotedPrice > 0);
-    
-    const highestQuote = validQuotes.length > 0 ? Math.max(...validQuotes.map(q => q.quotedPrice)) : 0;
-    const bestDealer = validQuotes.find(q => q.quotedPrice === highestQuote);
-    
+    const validQuotes = (formValues?.quotations || []).filter(q => q.quotedPrice > 0);
+    const sortedQuotes = [...validQuotes].sort((a,b) => b.quotedPrice - a.quotedPrice);
+    const highestQuote = sortedQuotes[0]?.quotedPrice || 0;
+    const bestDealer = sortedQuotes[0] || null;
+
     const margin = highestQuote > 0 ? highestQuote - demand : 0;
     const marginPercent = demand > 0 ? (margin / demand) * 100 : 0;
-    
-    const profitPotential = target > 0 ? highestQuote - target : 0;
-    const sourcingInfo = bestDealer?.sourcedBy ? `Sourced by ${bestDealer.sourcedBy}` : null;
+    const isMarginPositive = margin >= 0;
+    const profitPotential = target > 0 && highestQuote > 0 ? highestQuote - target : 0;
+
+    const sourcingInfo = bestDealer ? `${bestDealer.location} · ${bestDealer.contactNumber}` : "";
+
+    // DROP METRICS: Compare against the very first entry in the timeline (The Baseline)
+    // IMPORTANT: If timeline is empty, we must use the lead's original demand as the comparison root
+    const timeline = customerNegotiation.priceTimeline || [];
+    const initialDemand = timeline.length > 0 ? timeline[0].price : (selectedLead?.customerDemand || demand);
+    const demandDecrease = initialDemand > demand ? initialDemand - demand : 0;
+    const demandDecreasePercent = initialDemand > 0 ? (demandDecrease / initialDemand) * 100 : 0;
 
     // PROCUREMENT LOGIC
-    const isMarginPositive = margin > 0;
-    const isApproved = formValues.negotiationStatus === NEGOTIATION_STATUS.APPROVED;
+    const isApproved = formValues?.negotiationStatus === NEGOTIATION_STATUS.APPROVED;
     const canMarkClosed = isMarginPositive && isApproved;
 
     return {
@@ -492,7 +600,9 @@ export default function UsedCarNegotiationDesk() {
       sourcingInfo,
       canMarkClosed,
       isMarginPositive,
-      marginGap: margin < 0 ? Math.abs(margin) : 0
+      marginGap: margin < 0 ? Math.abs(margin) : 0,
+      demandDecrease,
+      demandDecreasePercent
     };
   }, [formValues]);
 
@@ -544,7 +654,7 @@ export default function UsedCarNegotiationDesk() {
           <div className="mb-6 grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             <NegotiationMetricCard 
               title="Customer Demand"
-              value={formValues.customerDemand ? `₹${formValues.customerDemand.toLocaleString("en-IN")}` : "Not Set"}
+              value={formValues.customerDemand ? `₹${formValues.customerDemand.toLocaleString("en-IN")}` : (selectedLead?.customerDemand ? `₹${selectedLead.customerDemand.toLocaleString()}` : "Not Set")}
               icon={<DollarOutlined />}
               colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
             />
@@ -591,9 +701,22 @@ export default function UsedCarNegotiationDesk() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-500">Customer Sourcing Hub</p>
-                      <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                        Seller Negotiation {isSellerHubCollapsed && <span className="text-emerald-500 ml-2">₹{formValues.customerDemand?.toLocaleString()}</span>}
-                      </h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                          Seller Negotiation 
+                        </h2>
+                        {formValues.customerDemand && (
+                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                            {!isSellerHubCollapsed && <span className="text-slate-300 mx-1">|</span>}
+                            <span className="text-emerald-500 font-black">₹{formValues.customerDemand?.toLocaleString() || "0"}</span>
+                            {analytics.demandDecreasePercent > 0 && (
+                              <Tag color="rose" className="font-bold border-0 !rounded-lg m-0 text-[10px] px-2 py-0">
+                                -{analytics.demandDecreasePercent.toFixed(1)}% Session Drop
+                              </Tag>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -604,60 +727,119 @@ export default function UsedCarNegotiationDesk() {
                   </div>
                 </div>
 
-                {!isSellerHubCollapsed && (
-                  <>
-                    <VahanSnapshot lead={selectedLead} />
+                <div 
+                  className="mt-6 border-t border-slate-100 dark:border-white/5 pt-6"
+                  style={{ display: isSellerHubCollapsed ? 'none' : 'block' }}
+                >
+                  <VahanSnapshot lead={selectedLead} />
 
-                    <div className="grid gap-6 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-white/5 pt-4 border-t border-slate-100 dark:border-white/5">
-                      <div className="lg:col-span-3 pb-5 lg:pb-0 lg:pr-6 space-y-4">
+                  <div className="grid gap-6 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-white/5 pt-6 border-t border-slate-100 dark:border-white/5">
+                    <div className="lg:col-span-3 pb-5 lg:pb-0 lg:pr-6 space-y-4">
+                      <div className="flex items-center justify-between">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Negotiate Demand</p>
-                        <Form.Item label="Customer Demand (₹)" name="customerDemand" className="!mb-0">
-                          <InputNumber
-                            className="!w-full !rounded-xl !h-12 bg-slate-50 dark:bg-white/5 !font-black !text-lg"
-                            placeholder="Current seller expectation"
-                            formatter={(v) => (v ? `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "")}
-                            parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
-                            onFocus={(e) => {
-                              e.target.dataset.prevValue = e.target.value.replace(/₹\s?|(,*)/g, "");
-                            }}
-                            onBlur={(e) => {
-                              const rawOldValue = e.target.dataset.prevValue || "";
-                              const oldPrice = rawOldValue ? Number(rawOldValue) : null;
-                              const newPrice = Number(e.target.value.replace(/₹\s?|(,*)/g, ""));
-                              if (oldPrice !== null && oldPrice !== newPrice) {
-                                const timeline = negForm.getFieldValue(["customerNegotiation", "priceTimeline"]) || [];
-                                // Path: customerNegotiation.priceTimeline
-                                if (timeline.length === 0 || timeline[timeline.length - 1].price !== oldPrice) {
-                                  const updatedTimeline = [...timeline, { price: oldPrice, timestamp: dayjs().toISOString() }];
-                                  negForm.setFieldValue(["customerNegotiation", "priceTimeline"], updatedTimeline);
-                                }
-                              }
-                            }}
-                          />
-                        </Form.Item>
-                        <Form.Item label="ACILLP Target Purchase (₹)" name="targetPrice" className="!mb-0">
-                          <InputNumber
-                            className="!w-full !rounded-xl"
-                            placeholder="Target purchase price"
-                            formatter={(v) => (v ? `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "")}
-                            parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
-                          />
-                        </Form.Item>
+                        {analytics.demandDecreasePercent > 0 && (
+                          <span className="text-[10px] font-bold text-rose-500 flex items-center gap-1">
+                            <ArrowDownOutlined className="text-[8px]" /> {analytics.demandDecreasePercent.toFixed(1)}% Session Drop
+                          </span>
+                        )}
+                      </div>
+                      <Form.Item label="Customer Demand (₹)" name="customerDemand" className="!mb-0">
+                        <InputNumber
+                          className="!w-full !rounded-xl !h-12 bg-slate-50 dark:bg-white/5 !font-black !text-lg"
+                          placeholder="Current seller expectation"
+                          formatter={(v) => (v ? `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "")}
+                          parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
+                          onFocus={() => {
+                            focusedValueRef.current = negForm.getFieldValue("customerDemand");
+                          }}
+                          onBlur={() => {
+                            const oldPrice = focusedValueRef.current;
+                            const newPrice = negForm.getFieldValue("customerDemand");
+                            recordNegotiationStep(newPrice, oldPrice, ["customerNegotiation", "priceTimeline"], "Original Demand");
+                            focusedValueRef.current = newPrice;
+                          }}
+                        />
+                      </Form.Item>
+                      <Form.Item label="ACILLP Target Purchase (₹)" name="targetPrice" className="!mb-0">
+                        <InputNumber
+                          className="!w-full !rounded-xl"
+                          placeholder="Target purchase price"
+                          formatter={(v) => (v ? `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "")}
+                          parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
+                        />
+                      </Form.Item>
+                    </div>
+
+                    <div className="lg:col-span-2 pt-5 lg:pt-0 lg:pl-6 border-l border-slate-100 dark:border-white/5 flex flex-col h-full">
+                      <div className="flex-1">
+                        <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Demand Evolution</p>
+                        <div className="max-h-[350px] overflow-y-auto custom-scrollbar pl-4 pr-2 pt-2 pb-10">
+                          <Form.Item name={["customerNegotiation", "priceTimeline"]} noStyle>
+                             <PremiumTimeline 
+                                currentPrice={formValues.customerDemand} 
+                                labelPrefix="Demand" 
+                             />
+                          </Form.Item>
+                        </div>
                       </div>
 
-                      <div className="lg:col-span-2 pt-5 lg:pt-0 lg:pl-6">
-                        <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Demand Evolution</p>
-                        <div className="max-h-[220px] overflow-y-auto custom-scrollbar pr-2">
-                          <PremiumTimeline 
-                            timeline={formValues.customerNegotiation?.priceTimeline} 
-                            currentPrice={formValues.customerDemand} 
-                            labelPrefix="Demand" 
-                          />
+                      {/* ── Customer Acceptance Gate ── */}
+                      <div className="mt-auto pt-6 border-t border-slate-100 dark:border-white/5">
+                        <div className={`rounded-2xl border p-4 transition-all ${
+                          formValues.customerNegotiation?.accepted 
+                            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5 shadow-sm"
+                            : "border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-transparent"
+                        }`}>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+                                formValues.customerNegotiation?.accepted 
+                                  ? "bg-emerald-100 text-emerald-600" 
+                                  : "bg-slate-200 text-slate-500"
+                              }`}>
+                                <CheckCircleFilled className="text-sm" />
+                              </div>
+                              <p className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Final Acceptance</p>
+                            </div>
+                            {formValues.customerNegotiation?.acceptedAt && (
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {dayjs(formValues.customerNegotiation.acceptedAt).format("DD MMM · HH:mm")}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-3">
+                            <Form.Item name={["customerNegotiation", "accepted"]} valuePropName="checked" noStyle>
+                               <Checkbox className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                                 Confirmed: Customer has accepted final price of ₹{formValues.customerDemand?.toLocaleString()}
+                               </Checkbox>
+                            </Form.Item>
+                            
+                            <Button 
+                              type="primary" 
+                              block 
+                              size="large"
+                              disabled={!formValues.customerDemand || formValues.customerNegotiation?.accepted}
+                              className={`!h-10 !rounded-xl !font-black !text-xs shadow-md transition-all ${
+                                formValues.customerNegotiation?.accepted 
+                                  ? "!bg-emerald-600 !border-emerald-600 cursor-default" 
+                                  : "!bg-slate-950 !border-slate-950 dark:!bg-white dark:!text-slate-950"
+                              }`}
+                              onClick={() => {
+                                negForm.setFieldValue(["customerNegotiation", "accepted"], true);
+                                negForm.setFieldValue(["customerNegotiation", "acceptedAt"], dayjs().toISOString());
+                                handleValuesChange(null, negForm.getFieldsValue());
+                                message.success("Negotiation finalized and accepted!");
+                              }}
+                            >
+                              {formValues.customerNegotiation?.accepted ? "Negotiation Finalized" : "Lock Agreed Price"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
 
               {/* ── Quotation Hub ── */}
@@ -679,6 +861,7 @@ export default function UsedCarNegotiationDesk() {
                         remove={remove} 
                         values={formValues} 
                         bgcForm={negForm}
+                        selectedId={selectedId}
                       />
                     ))}
                     <Button 

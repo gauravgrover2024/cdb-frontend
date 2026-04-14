@@ -6,6 +6,9 @@ import UsedCarLeadIntakeDesk from "./UsedCarLeadIntakeDesk";
 import UsedCarInspectionDesk from "./UsedCarInspectionDesk";
 import UsedCarBackgroundCheckDesk from "./BackgroundCheckDesk";
 import UsedCarNegotiationDesk from "./NegotiationDesk";
+import DocumentationDesk from "./DocumentationDesk";
+import ProcurementLogisticsDesk from "./ProcurementLogisticsDesk";
+import UsedCarStockDesk from "./StockDesk";
 
 const STAGES = [
   {
@@ -35,6 +38,27 @@ const STAGES = [
     description: "Capture vendor quotations, identify best offers, and bridge the gap with customer expectations.",
     path: "/used-cars/negotiation",
     icon: "Gavel",
+  },
+  {
+    key: "documentation",
+    label: "Documentation",
+    description: "Verify vehicle category, ownership, hypothecation, and KYC documents.",
+    path: "/used-cars/documentation",
+    icon: "FileSearch",
+  },
+  {
+    key: "procurement",
+    label: "Procurement & Logistics",
+    description: "Vehicle pickup, document collection, driver assignment, and yard onboarding.",
+    path: "/used-cars/procurement",
+    icon: "Truck",
+  },
+  {
+    key: "stock",
+    label: "Sales & Stock",
+    description: "Manage yard inventory, track refurbishment costs, and set active selling prices.",
+    path: "/used-cars/stock",
+    icon: "Store",
   },
 ];
 
@@ -122,7 +146,7 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
                 <StageTab
                   key={item.key}
                   item={item}
-                  active={location.pathname === item.path || (item.key === "lead-intake" && location.pathname === "/used-cars/procurement")}
+                  active={location.pathname === item.path || (item.key === "lead-intake" && (location.pathname === "/used-cars" || location.pathname === "/used-cars/"))}
                   onClick={() => navigate(item.path)}
                 />
               ))}
@@ -133,10 +157,16 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
         <section>
           {stage === "negotiation" ? (
             <UsedCarNegotiationDesk />
+          ) : stage === "documentation" ? (
+            <DocumentationDesk />
           ) : stage === "background-check" ? (
             <UsedCarBackgroundCheckDesk />
           ) : stage === "inspection" ? (
             <UsedCarInspectionDesk />
+          ) : stage === "procurement" ? (
+            <ProcurementLogisticsDesk />
+          ) : stage === "stock" ? (
+            <UsedCarStockDesk />
           ) : (
             <UsedCarLeadIntakeDesk />
           )}
