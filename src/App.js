@@ -1,6 +1,6 @@
 // src/App.jsx
 import React from "react";
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route, Outlet, useLocation } from "react-router-dom";
 
 import Header from "./components/ui/Header";
 import CustomerDashboard from "./modules/customers/CustomerDashboard";
@@ -52,12 +52,24 @@ import BookingsDashboard from "./modules/bookings/pages/BookingsDashboard";
 // Floating EMI Calculator – accessible from every authenticated screen
 import EMIFloatingButton from "./components/EMIFloatingButton";
 
+// Routes that manage their own layout (no outer padding)
+const FULL_WIDTH_ROUTES = ["/used-cars"];
+
 // Wrapper to use custom Header and provide main content area
 function HeaderWrapper() {
+  const location = useLocation();
+  const isFullWidth = FULL_WIDTH_ROUTES.some((r) => location.pathname.startsWith(r));
+
   return (
     <>
       <Header />
-      <div className="min-h-[calc(100vh-4rem)] bg-background overflow-visible px-3 pt-2.5 sm:px-4 sm:pt-3 md:px-6 md:pt-4 lg:px-8">
+      <div
+        className={`bg-background overflow-visible ${
+          isFullWidth
+            ? "min-h-[calc(100vh-4rem)] px-3 pt-2 pb-6"
+            : "min-h-[calc(100vh-4rem)] px-3 pt-2.5 sm:px-4 sm:pt-3 md:px-6 md:pt-4 lg:px-8"
+        }`}
+      >
         <Outlet />
       </div>
       {/* Floating EMI Calculator FAB – rendered via portal, visible on all pages */}

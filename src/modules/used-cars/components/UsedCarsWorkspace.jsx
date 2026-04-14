@@ -1,6 +1,5 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import ModuleFrame from "../../../components/ui/ModuleFrame";
 import Icon from "../../../components/AppIcon";
 import UsedCarLeadIntakeDesk from "./UsedCarLeadIntakeDesk";
 import UsedCarInspectionDesk from "./UsedCarInspectionDesk";
@@ -73,7 +72,9 @@ function StageTab({ item, active, onClick }) {
 export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentStage = STAGES.find((item) => item.key === stage) || STAGES[0];
+  const { isDarkMode } = useTheme();
+  const currentStage = STAGES.find((s) => s.key === stage) || STAGES[0];
+  const currentIndex = STAGES.findIndex((s) => s.key === stage);
 
   return (
     <ModuleFrame>
@@ -116,19 +117,121 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
             </div>
           </div>
 
-          <div className="overflow-x-auto px-4 py-4 md:px-5 xl:px-6">
-            <div className="flex min-w-max gap-3">
-              {STAGES.map((item) => (
-                <StageTab
-                  key={item.key}
-                  item={item}
-                  active={location.pathname === item.path || (item.key === "lead-intake" && location.pathname === "/used-cars/procurement")}
-                  onClick={() => navigate(item.path)}
-                />
-              ))}
+          {/* Right — live badge + stage switcher tabs */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Live pill */}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                borderRadius: 999,
+                border: `1px solid ${isDarkMode ? "rgba(16,185,129,0.25)" : "#a7f3d0"}`,
+                background: isDarkMode ? "rgba(16,185,129,0.08)" : "#f0fdf4",
+                padding: "4px 10px",
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#10b981",
+                  boxShadow: "0 0 5px rgba(16,185,129,0.7)",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                  color: isDarkMode ? "#34d399" : "#059669",
+                }}
+              >
+                Live
+              </span>
+            </div>
+
+            {/* Stage tabs */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                background: isDarkMode ? "#050c1a" : "#f1f5f9",
+                borderRadius: 12,
+                padding: 3,
+                border: `1px solid ${isDarkMode ? "#1e3a5f" : "#e2e8f0"}`,
+              }}
+            >
+              {STAGES.map((item, i) => {
+                const isActive =
+                  location.pathname === item.path ||
+                  (item.key === "lead-intake" &&
+                    location.pathname === "/used-cars/procurement");
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => navigate(item.path)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      borderRadius: 9,
+                      border: "none",
+                      background: isActive
+                        ? "#2563eb"
+                        : "transparent",
+                      color: isActive
+                        ? "#fff"
+                        : isDarkMode
+                        ? "#94a3b8"
+                        : "#64748b",
+                      fontWeight: 700,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      boxShadow: isActive ? "0 2px 8px rgba(37,99,235,0.30)" : "none",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <Icon name={item.icon} size={13} />
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 800,
+                          background: "rgba(255,255,255,0.20)",
+                          borderRadius: 999,
+                          padding: "1px 5px",
+                          letterSpacing: "0.06em",
+                        }}
+                      >
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Step counter */}
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: isDarkMode ? "#475569" : "#94a3b8",
+                paddingLeft: 4,
+              }}
+            >
+              {currentIndex + 1}/{STAGES.length}
             </div>
           </div>
-        </section>
+        </div>
+      </div>
 
         <section>
           {stage === "negotiation" ? (
@@ -142,6 +245,6 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
           )}
         </section>
       </div>
-    </ModuleFrame>
+    </div>
   );
 }

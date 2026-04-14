@@ -137,10 +137,10 @@ export const getProcurementScore = (lead) => {
 };
 
 export const getScoreTone = (score) => {
-  if (score >= 80) return { bg: "#ecfdf5", border: "#a7f3d0", text: "#047857", label: "Hot" };
-  if (score >= 60) return { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8", label: "Strong" };
-  if (score >= 40) return { bg: "#fffbeb", border: "#fde68a", text: "#b45309", label: "Warm" };
-  return { bg: "#fff1f2", border: "#fecdd3", text: "#be123c", label: "Cold" };
+  if (score >= 80) return { bg: "#f0fdf4", border: "#86efac", text: "#15803d", label: "Hot" };
+  if (score >= 60) return { bg: "#eff6ff", border: "#93c5fd", text: "#2563eb", label: "Strong" };
+  if (score >= 40) return { bg: "#fff7ed", border: "#fdba74", text: "#ea580c", label: "Warm" };
+  return { bg: "#fef2f2", border: "#fca5a5", text: "#dc2626", label: "Cold" };
 };
 
 export const getPendingCallFields = (record) => {
