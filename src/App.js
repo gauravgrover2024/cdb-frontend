@@ -42,6 +42,8 @@ import UsedCarsProcurementPage from "./modules/used-cars/pages/UsedCarsProcureme
 import UsedCarsInspectionPage from "./modules/used-cars/pages/UsedCarsInspectionPage";
 import UsedCarsBackgroundCheckPage from "./modules/used-cars/pages/UsedCarsBackgroundCheckPage";
 import UsedCarsNegotiationPage from "./modules/used-cars/pages/UsedCarsNegotiationPage";
+import UsedCarsDocumentationPage from "./modules/used-cars/pages/UsedCarsDocumentationPage";
+import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 
 // NEW: booking pages
@@ -173,6 +175,14 @@ function App() {
             <Route
               path="used-cars/negotiation"
               element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsNegotiationPage />)}
+            />
+            <Route
+              path="used-cars/documentation"
+              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsDocumentationPage />)}
+            />
+            <Route
+              path="used-cars/stock"
+              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsStockPage />)}
             />
 
             {/* Tools */}
