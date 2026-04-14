@@ -1,6 +1,8 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Icon from "../../../components/AppIcon";
+import ModuleFrame from "../../../components/ui/ModuleFrame";
+import { useTheme } from "../../../context/ThemeContext";
 import UsedCarLeadIntakeDesk from "./UsedCarLeadIntakeDesk";
 import UsedCarInspectionDesk from "./UsedCarInspectionDesk";
 import UsedCarBackgroundCheckDesk from "./BackgroundCheckDesk";
@@ -37,38 +39,6 @@ const STAGES = [
   },
 ];
 
-function StageTab({ item, active, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group flex min-w-[168px] flex-col gap-1 rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
-        active
-          ? "border-slate-900 bg-slate-900 text-white shadow-sm dark:border-slate-700 dark:bg-black dark:text-white"
-          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:bg-white/[0.05]"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
-            active ? "bg-white/15 dark:bg-white/10" : "bg-slate-100 dark:bg-white/10"
-          }`}
-        >
-          <Icon name={item.icon} size={16} />
-        </span>
-        <span className="text-sm font-bold tracking-tight">{item.label}</span>
-      </div>
-      <p
-        className={`line-clamp-2 text-[11px] font-medium ${
-          active ? "text-white/75 dark:text-white/70" : "text-slate-500 dark:text-slate-400"
-        }`}
-      >
-        {item.description}
-      </p>
-    </button>
-  );
-}
-
 export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,7 +61,7 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
                   Build The Used-Car Journey One Strong Stage At A Time
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-600 dark:text-slate-300 md:text-[15px]">
-                  Take total control of the procurement lifecycle—from the first seller call to deep field inspection and
+                  Take total control of the procurement lifecycle, from the first seller call to deep field inspection and
                   comprehensive background verification. One clear source of truth for every car.
                 </p>
               </div>
@@ -117,7 +87,7 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
             </div>
           </div>
 
-          {/* Right — live badge + stage switcher tabs */}
+          {/* Right - live badge + stage switcher tabs */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {/* Live pill */}
             <div
@@ -168,8 +138,8 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
               {STAGES.map((item, i) => {
                 const isActive =
                   location.pathname === item.path ||
-                  (item.key === "lead-intake" &&
-                    location.pathname === "/used-cars/procurement");
+                  (item.key === "lead-intake" && location.pathname === "/used-cars/procurement");
+
                 return (
                   <button
                     key={item.key}
@@ -181,14 +151,8 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
                       padding: "6px 12px",
                       borderRadius: 9,
                       border: "none",
-                      background: isActive
-                        ? "#2563eb"
-                        : "transparent",
-                      color: isActive
-                        ? "#fff"
-                        : isDarkMode
-                        ? "#94a3b8"
-                        : "#64748b",
+                      background: isActive ? "#2563eb" : "transparent",
+                      color: isActive ? "#fff" : isDarkMode ? "#94a3b8" : "#64748b",
                       fontWeight: 700,
                       fontSize: 12,
                       cursor: "pointer",
@@ -227,11 +191,10 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
                 paddingLeft: 4,
               }}
             >
-              {currentIndex + 1}/{STAGES.length}
+              {(currentIndex >= 0 ? currentIndex : 0) + 1}/{STAGES.length}
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
         <section>
           {stage === "negotiation" ? (
@@ -245,6 +208,6 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
           )}
         </section>
       </div>
-    </div>
+    </ModuleFrame>
   );
 }
