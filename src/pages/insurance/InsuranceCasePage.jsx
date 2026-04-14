@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Alert, Breadcrumb, Button, Card, Space, Spin, Typography } from "antd";
+import { Alert, Button, Spin, Typography } from "antd";
 import { ShieldCheck, Plus, PencilLine } from "lucide-react";
 import NewInsuranceCaseForm from "../../components/insurance/NewInsuranceCaseForm";
 import { insuranceApi } from "../../api/insurance";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const InsuranceCasePage = () => {
   const navigate = useNavigate();
@@ -113,31 +113,10 @@ const InsuranceCasePage = () => {
   };
 
   return (
-    <Space
-      direction="vertical"
-      size={16}
-      style={{ width: "100%", paddingBottom: 24 }}
-    >
-      <Card bordered>
-        <Space direction="vertical" size={10} style={{ width: "100%" }}>
-          <Breadcrumb
-            items={[
-              {
-                title: (
-                  <Button
-                    type="link"
-                    style={{ padding: 0 }}
-                    onClick={() => navigate("/insurance")}
-                  >
-                    Insurance
-                  </Button>
-                ),
-              },
-              { title: isEditMode ? "Edit Case" : "New Case" },
-            ]}
-          />
-
-          <Space align="center" size={12}>
+    <div className="min-h-screen bg-background">
+      <div className="w-full">
+        <div className="flex items-center justify-between gap-3 px-4 py-5 md:px-8 md:py-6 border-b border-border bg-card">
+          <div className="flex items-center gap-3">
             <span
               style={{
                 display: "inline-flex",
@@ -166,48 +145,52 @@ const InsuranceCasePage = () => {
               >
                 Insurance Case
               </Text>
-              <Title level={3} style={{ margin: 0 }}>
+              <h1 className="text-xl font-semibold text-foreground">
                 {isRenewalMode
                   ? "Renew Insurance Policy"
                   : isEditMode
                     ? `Edit Case — ${caseId}`
                     : "New Insurance Case"}
-              </Title>
+              </h1>
+              {isEditMode && !isRenewalMode ? (
+                <Text type="secondary">
+                  <ShieldCheck
+                    size={14}
+                    style={{ verticalAlign: "-2px", marginRight: 6 }}
+                  />
+                  Editing existing case
+                </Text>
+              ) : null}
             </div>
-          </Space>
+          </div>
 
+          <Button onClick={() => navigate("/insurance")}>Cancel</Button>
+        </div>
+
+        <div className="px-4 py-6 md:px-8 md:py-8 space-y-4">
           {isRenewalMode ? (
             <Alert
               type="info"
               showIcon
               message="Renewal Mode"
               description="Customer, vehicle, and previous policy details copied. Select 'Claim Taken Last Year' in Step 3, then proceed to quotations."
-              style={{ marginTop: 12 }}
             />
-          ) : isEditMode ? (
-            <Text type="secondary">
-              <ShieldCheck
-                size={14}
-                style={{ verticalAlign: "-2px", marginRight: 6 }}
-              />
-              Editing existing case — changes will update the record.
-            </Text>
           ) : null}
-        </Space>
-      </Card>
 
-      {error ? <Alert type="error" showIcon message={error} /> : null}
+          {error ? <Alert type="error" showIcon message={error} /> : null}
 
-      <Spin spinning={loading}>
-        <NewInsuranceCaseForm
-          mode={isEditMode ? "edit" : "create"}
-          initialValues={initialValues}
-          onCancel={() => navigate("/insurance")}
-          onSubmit={handleSubmit}
-          onDelete={() => navigate("/insurance")}
-        />
-      </Spin>
-    </Space>
+          <Spin spinning={loading}>
+            <NewInsuranceCaseForm
+              mode={isEditMode ? "edit" : "create"}
+              initialValues={initialValues}
+              onCancel={() => navigate("/insurance")}
+              onSubmit={handleSubmit}
+              onDelete={() => navigate("/insurance")}
+            />
+          </Spin>
+        </div>
+      </div>
+    </div>
   );
 };
 
