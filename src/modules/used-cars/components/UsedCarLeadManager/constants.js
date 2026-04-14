@@ -4,13 +4,13 @@ export const INSPECTION_QUEUE_STAGE = "Inspection Queue";
 export const COLUMN_PAGE_SIZE = 20;
 
 export const PIPELINE_COLUMNS = [
-  { key: "New", label: "New", color: "#64748b", bg: "#f8fafc", border: "#e2e8f0" },
-  { key: "Not Answered", label: "Not Answered", color: "#7c3aed", bg: "#faf5ff", border: "#e9d5ff" },
-  { key: "Connected", label: "Connected", color: "#0284c7", bg: "#f0f9ff", border: "#bae6fd" },
-  { key: "Callback Scheduled", label: "Callback", color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
-  { key: "Qualified", label: "Qualified", color: "#059669", bg: "#f0fdf4", border: "#a7f3d0" },
-  { key: "Inspection Scheduled", label: "Inspection", color: "#4f46e5", bg: "#eef2ff", border: "#c7d2fe" },
-  { key: "Closed", label: "Closed", color: "#e11d48", bg: "#fff1f2", border: "#fecdd3" },
+  { key: "New",                  label: "New",        color: "#475569", bg: "#f8fafc", border: "#cbd5e1" },
+  { key: "Not Answered",         label: "Not Ans.",   color: "#ea580c", bg: "#fff7ed", border: "#fed7aa" },
+  { key: "Connected",            label: "Connected",  color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  { key: "Callback Scheduled",   label: "Callback",   color: "#ca8a04", bg: "#fefce8", border: "#fef08a" },
+  { key: "Qualified",            label: "Qualified",  color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" },
+  { key: "Inspection Scheduled", label: "Inspection", color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe" },
+  { key: "Closed",               label: "Closed",     color: "#dc2626", bg: "#fef2f2", border: "#fecaca" },
 ];
 
 export const LEAD_STATUS_OPTIONS = PIPELINE_COLUMNS.map((c) => c.key);

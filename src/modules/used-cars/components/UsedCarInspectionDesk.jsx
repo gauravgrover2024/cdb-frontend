@@ -281,7 +281,7 @@ function fmtInrOrPending(value) {
 
 function QueueMetric({ label, value, helper, tone = "slate" }) {
   const toneMap = {
-    slate: "text-slate-900 dark:text-slate-100",
+    slate: "text-foreground dark:text-card-foreground",
     emerald: "text-emerald-700 dark:text-emerald-300",
     amber: "text-amber-700 dark:text-amber-300",
     violet: "text-violet-700 dark:text-violet-300",
@@ -289,8 +289,8 @@ function QueueMetric({ label, value, helper, tone = "slate" }) {
     sky: "text-sky-700 dark:text-sky-300",
   };
   return (
-    <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
+    <div className="rounded-[22px] border border-border bg-muted/50 px-4 py-3 dark:border-border dark:bg-muted/20">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
         {label}
       </p>
       <p
@@ -326,16 +326,16 @@ function ScoreBadge({ score }) {
 function TyreLifeBar({ treadMm }) {
   const life = tyreLifeFromTread(treadMm);
   return (
-    <div className="mt-2 rounded-[12px] border border-slate-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+    <div className="mt-2 rounded-[12px] border border-border bg-card px-3 py-2 dark:border-border dark:bg-card">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+        <span className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground">
           Tyre Life — {life.pct}%
         </span>
-        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+        <span className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground">
           ~{life.km} km remaining
         </span>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted dark:bg-muted">
         <div
           style={{ width: `${life.pct}%`, background: life.color }}
           className="h-full rounded-full transition-all duration-500"
@@ -393,7 +393,7 @@ function InspectionQueueCard({ lead, active, onClick }) {
             {lead.name}
           </p>
           <p
-            className={`mt-1 text-xs font-medium ${active ? "text-white/70 dark:text-slate-700" : "text-slate-500 dark:text-slate-400"}`}
+            className={`mt-1 text-xs font-medium ${active ? "text-primary-foreground/70 dark:text-foreground/70" : "text-muted-foreground dark:text-muted-foreground"}`}
           >
             {lead.mobile} · {lead.make} {lead.model}
             {lead.variant ? ` ${lead.variant}` : ""}

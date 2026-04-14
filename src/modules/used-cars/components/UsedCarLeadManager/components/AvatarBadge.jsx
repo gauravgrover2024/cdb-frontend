@@ -2,7 +2,7 @@ import React from "react";
 import { getInitials } from "../utils/leadUtils";
 
 export default function AvatarBadge({ name, size = 36 }) {
-  const palette = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+  const palette = ["#2563eb", "#7c3aed", "#16a34a", "#d97706", "#dc2626", "#0891b2", "#9333ea"];
   const idx = (name || "?").charCodeAt(0) % palette.length;
 
   return (
