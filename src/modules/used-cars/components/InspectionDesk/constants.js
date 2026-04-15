@@ -52,26 +52,6 @@ export const PHOTO_BUCKETS = [
 // ── Lead verification fields ─────────────────────────────────────
 export const LEAD_VERIFICATION_FIELDS = [
   {
-    key: "sellerIdentity",
-    labelEn: "Seller Identity Matched",
-    labelHi: "Seller ki pehchaan confirm hui",
-  },
-  {
-    key: "ownerPresence",
-    labelEn: "Registered Owner Present",
-    labelHi: "RC waala maalik maujood hai",
-  },
-  {
-    key: "mobileVerified",
-    labelEn: "Mobile Number Verified",
-    labelHi: "Mobile number sahi hai",
-  },
-  {
-    key: "addressVerified",
-    labelEn: "Address Confirmed",
-    labelHi: "Address confirm hua",
-  },
-  {
     key: "rcAvailable",
     labelEn: "RC Book Available",
     labelHi: "RC haath mein hai",
@@ -92,20 +72,11 @@ export const LEAD_VERIFICATION_FIELDS = [
     labelHi: "Engine number match hua",
   },
   {
-    key: "hypothecationConfirmed",
-    labelEn: "Hypothecation Status Confirmed",
-    labelHi: "Hypothecation confirm hua",
-  },
-  {
     key: "insuranceConfirmed",
     labelEn: "Insurance Paper Verified",
     labelHi: "Insurance paper dekha",
   },
-  {
-    key: "challansChecked",
-    labelEn: "Challans Checked on Vahan",
-    labelHi: "Challan Vahan pe check kiya",
-  },
+
   {
     key: "pucChecked",
     labelEn: "PUC Certificate Verified",
@@ -196,6 +167,18 @@ export const OPTION_FAMILIES = {
     { value: "Not Available", severity: "high" },
     { value: "Review", severity: "medium" },
   ],
+  featurePresence: [
+    { value: "Present", severity: "ok" },
+    { value: "Added Later", severity: "medium" },
+    { value: "Not Present", severity: "high" },
+    { value: "Not Applicable", severity: "low" },
+  ],
+  retainedAccessory: [
+    { value: "OEM Present", severity: "ok" },
+    { value: "Replaced / Changed", severity: "medium" },
+    { value: "Retained by Customer", severity: "medium" },
+    { value: "Not Available", severity: "high" },
+  ],
   binary: [
     { value: "Yes", severity: "ok" },
     { value: "No", severity: "high" },
@@ -240,6 +223,131 @@ export const OPTION_FAMILIES = {
     { value: "2 Keys", severity: "ok" },
     { value: "3+ Keys", severity: "ok" },
   ],
+  engineOil: [
+    { value: "OK", severity: "ok" },
+    { value: "Low Level", severity: "medium" },
+    { value: "Dirty / Dark", severity: "medium" },
+    { value: "Contaminated (Milky / Sludge)", severity: "high" },
+    { value: "Leak Suspected", severity: "high" },
+  ],
+  engineStart: [
+    { value: "Starts Smoothly", severity: "ok" },
+    { value: "Slight Delay / Rough Start", severity: "medium" },
+    { value: "Hard Start", severity: "high" },
+    { value: "Does Not Start Properly", severity: "critical" },
+  ],
+  engineNoise: [
+    { value: "Smooth / Normal", severity: "ok" },
+    { value: "Slight Noise / Vibration", severity: "low" },
+    { value: "Noticeable Noise / Roughness", severity: "medium" },
+    { value: "Heavy Noise / Severe Vibration", severity: "high" },
+  ],
+  leakage: [
+    { value: "No Leakage", severity: "ok" },
+    { value: "Minor Seepage", severity: "low" },
+    { value: "Visible Leakage", severity: "medium" },
+    { value: "Heavy Leakage / Dripping", severity: "high" },
+  ],
+  batteryCondition: [
+    { value: "Healthy", severity: "ok" },
+    { value: "Weak", severity: "medium" },
+    { value: "Needs Replacement", severity: "high" },
+    { value: "Not Working / Dead", severity: "critical" },
+  ],
+  exhaust: [
+    { value: "Normal", severity: "ok" },
+    { value: "Slight Rust / Noise", severity: "low" },
+    { value: "Leak / Damage", severity: "medium" },
+    { value: "Severe Noise / Broken", severity: "high" },
+  ],
+  engineMounting: [
+    { value: "Normal", severity: "ok" },
+    { value: "Minor Vibration", severity: "low" },
+    { value: "Excess Vibration / Wear", severity: "medium" },
+    { value: "Severe Issue / Mount Failure", severity: "high" },
+  ],
+  cngKit: [
+    { value: "Working Properly", severity: "ok" },
+    { value: "Aftermarket Fitment", severity: "low" },
+    { value: "Leak / Smell Suspected", severity: "high" },
+    { value: "Not Working / Major Issue", severity: "critical" },
+    { value: "Not Available", severity: "low" },
+  ],
+  interiorTrim: [
+    { value: "Clean / Well Maintained", severity: "ok" },
+    { value: "Minor Wear & Tear", severity: "low" },
+    { value: "Damaged / Loose Parts", severity: "medium" },
+    { value: "Broken / Poor Condition", severity: "high" },
+    { value: "Not Available", severity: "low" },
+  ],
+  warningLight: [
+    { value: "Off (Normal)", severity: "ok" },
+    { value: "On", severity: "high" },
+    { value: "Blinking", severity: "critical" },
+    { value: "Not Available", severity: "low" },
+  ],
+  audioSystem: [
+    { value: "Working Properly", severity: "ok" },
+    { value: "Minor Issue", severity: "low" },
+    { value: "Not Working Properly", severity: "medium" },
+    { value: "Not Working", severity: "high" },
+    { value: "Retained by Customer", severity: "low" },
+    { value: "Not Available", severity: "low" },
+  ],
+  powerWindows: [
+    { value: "All Working", severity: "ok" },
+    { value: "Some Not Working", severity: "medium" },
+    { value: "Not Working", severity: "high" },
+    { value: "Not Available", severity: "low" },
+  ],
+  lockSystem: [
+    { value: "Working Properly", severity: "ok" },
+    { value: "Intermittent / Partial Issue", severity: "low" },
+    { value: "Not Working Properly", severity: "medium" },
+    { value: "Not Working", severity: "high" },
+    { value: "Not Available", severity: "low" },
+  ],
+  functionCheck: [
+    { value: "Fully Functional", severity: "ok" },
+    { value: "Minor Issue", severity: "low" },
+    { value: "Partial Failure", severity: "medium" },
+    { value: "Not Working", severity: "high" },
+    { value: "Not Available", severity: "low" },
+  ],
+  wearCondition: [
+    { value: "Clean / Well Maintained", severity: "ok" },
+    { value: "Minor Wear", severity: "low" },
+    { value: "Worn / Damaged", severity: "medium" },
+    { value: "Heavily Worn / Torn", severity: "high" },
+    { value: "Not Available", severity: "low" },
+  ],
+  handbrakeLever: [
+    { value: "Working Properly", severity: "ok" },
+    { value: "Weak Hold", severity: "medium" },
+    { value: "Not Holding Properly", severity: "high" },
+    { value: "Not Working", severity: "critical" },
+    { value: "Not Available", severity: "low" },
+  ],
+  sunroofOperation: [
+    { value: "Working Properly", severity: "ok" },
+    { value: "Minor Issue (Noise / Slow)", severity: "low" },
+    { value: "Not Working Properly", severity: "medium" },
+    { value: "Not Working", severity: "high" },
+    { value: "Not Available", severity: "low" },
+  ],
+  airbagStatus: [
+    { value: "OK (Not Deployed)", severity: "ok" },
+    { value: "Warning Light On", severity: "high" },
+    { value: "Deployed", severity: "critical" },
+    { value: "Missing / Tampered", severity: "critical" },
+    { value: "Not Available", severity: "low" },
+  ],
+  absEscStatus: [
+    { value: "OK (No Warning)", severity: "ok" },
+    { value: "Warning Light On", severity: "high" },
+    { value: "System Fault / Disabled", severity: "critical" },
+    { value: "Not Available", severity: "low" },
+  ],
 };
 
 export const ITEM_OPTION_OVERRIDES = {
@@ -247,9 +355,6 @@ export const ITEM_OPTION_OVERRIDES = {
   radiatorSupport: "structural",
   lowerCrossMember: "structural",
   upperCrossMember: "structural",
-  coreStructure: "structural",
-  isWaterlogged: "binary",
-  accidentEvidence: "verification",
   headlamps: "lights",
   taillamps: "lights",
   fogLamps: "lights",
@@ -271,8 +376,42 @@ export const ITEM_OPTION_OVERRIDES = {
   ownerManual: "binary",
   serviceRecord: "binary",
   marketability: "market",
-  odometerConsistency: "verification",
-  odometer: "verification",
+  oilLevel: "engineOil",
+  engineStart: "engineStart",
+  engineNoise: "engineNoise",
+  engineLeakage: "leakage",
+  batteryCondition: "batteryCondition",
+  exhaustSystem: "exhaust",
+  engineMounting: "engineMounting",
+  cngKit: "cngKit",
+  dashboardTrim: "interiorTrim",
+  seatsUpholstery: "interiorTrim",
+  headliner: "interiorTrim",
+  doorPadsTrim: "interiorTrim",
+  checkEngineLight: "warningLight",
+  absLight: "warningLight",
+  airbagLight: "warningLight",
+  batteryLight: "warningLight",
+  oilPressureLight: "warningLight",
+  infotainment: "audioSystem",
+  speakers: "audioSystem",
+  powerWindows: "powerWindows",
+  centralLocking: "lockSystem",
+  reverseCamera: "functionCheck",
+  hornSteeringCtrl: "functionCheck",
+  steeringWheel: "wearCondition",
+  gearKnob: "wearCondition",
+  handbrakeHandle: "handbrakeLever",
+  sunroof: "sunroofOperation",
+  airbags: "airbagStatus",
+  absEsc: "absEscStatus",
+  oemInfotainment: "retainedAccessory",
+  oemCruiseControl: "featurePresence",
+  oemKeylessEntry: "featurePresence",
+  oemPushStart: "featurePresence",
+  oemSteeringAudio: "featurePresence",
+  oemAndroidAuto: "featurePresence",
+  oemGps: "featurePresence",
   registrationMatched: "verification",
 };
 
@@ -327,6 +466,13 @@ export function getItemOptionFamily(item, section) {
 
 export function getItemOptions(item, section) {
   const family = getItemOptionFamily(item, section);
+  if (family === "warningLight") {
+    const warningLightType = getWarningLightType(item?.key);
+    return OPTION_FAMILIES.warningLight.map((option) => ({
+      ...option,
+      severity: getWarningLightSeverity(warningLightType, option.value),
+    }));
+  }
   return OPTION_FAMILIES[family] || OPTION_FAMILIES.mechanical;
 }
 
@@ -354,6 +500,20 @@ export function allowsMultiSelect(item, section) {
 export function getStatusSeverity(status, item, section) {
   const statuses = normalizeStatusList(status);
   if (!statuses.length || isPositiveInspectionStatus(statuses)) return "";
+  if (getItemOptionFamily(item, section) === "warningLight") {
+    const current = String(statuses[0] || "");
+    const map = {
+      low: "Low",
+      medium: "Medium",
+      high: "High",
+      critical: "Critical",
+      ok: "",
+    };
+    return (
+      map[getWarningLightSeverity(getWarningLightType(item?.key), current)] ||
+      "Medium"
+    );
+  }
   const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
   const topSeverity = statuses.reduce((best, current) => {
     const currentSeverity =
@@ -376,6 +536,15 @@ export function getOptionTone(option) {
   if (
     value === "original" ||
     value === "ok" ||
+    value === "off (normal)" ||
+    value === "starts smoothly" ||
+    value === "smooth / normal" ||
+    value === "no leakage" ||
+    value === "healthy" ||
+    value === "normal" ||
+    value === "working properly" ||
+    value === "all working" ||
+    value === "present" ||
     value === "good" ||
     value === "working" ||
     value === "verified" ||
@@ -390,6 +559,7 @@ export function getOptionTone(option) {
   }
   if (
     value.includes("replace") ||
+    value.includes("does not start") ||
     value.includes("missing") ||
     value.includes("not working") ||
     value.includes("deployed") ||
@@ -420,6 +590,11 @@ export function getOptionTone(option) {
     value.includes("repaint") ||
     value.includes("dent") ||
     value.includes("uneven") ||
+    value.includes("rough start") ||
+    value.includes("delay") ||
+    value.includes("dirty") ||
+    value.includes("visible leakage") ||
+    value.includes("some not working") ||
     value.includes("low") ||
     value.includes("warning") ||
     value.includes("weak")
@@ -442,6 +617,15 @@ export function getOptionActiveTone(option) {
   if (
     value === "original" ||
     value === "ok" ||
+    value === "off (normal)" ||
+    value === "starts smoothly" ||
+    value === "smooth / normal" ||
+    value === "no leakage" ||
+    value === "healthy" ||
+    value === "normal" ||
+    value === "working properly" ||
+    value === "all working" ||
+    value === "present" ||
     value === "good" ||
     value === "working" ||
     value === "verified" ||
@@ -457,6 +641,7 @@ export function getOptionActiveTone(option) {
   }
   if (
     value.includes("replace") ||
+    value.includes("does not start") ||
     value.includes("missing") ||
     value.includes("not working") ||
     value.includes("deployed") ||
@@ -489,6 +674,11 @@ export function getOptionActiveTone(option) {
     value.includes("repaint") ||
     value.includes("dent") ||
     value.includes("uneven") ||
+    value.includes("rough start") ||
+    value.includes("delay") ||
+    value.includes("dirty") ||
+    value.includes("visible leakage") ||
+    value.includes("some not working") ||
     value.includes("low") ||
     value.includes("warning") ||
     value.includes("weak")
@@ -508,27 +698,33 @@ export function getOptionActiveTone(option) {
   };
 }
 
+export function getWarningLightType(itemKey) {
+  const map = {
+    checkEngineLight: "engine",
+    absLight: "abs",
+    airbagLight: "airbag",
+    batteryLight: "battery",
+    oilPressureLight: "oil",
+  };
+  return map[itemKey] || "engine";
+}
+
+export function getWarningLightSeverity(type, status) {
+  const map = {
+    engine: { On: "high", Blinking: "critical" },
+    abs: { On: "high", Blinking: "critical" },
+    airbag: { On: "critical", Blinking: "critical" },
+    battery: { On: "medium", Blinking: "high" },
+    oil: { On: "critical", Blinking: "critical" },
+  };
+
+  if (status === "Off (Normal)") return "ok";
+  if (status === "Not Available") return "low";
+
+  return map[type]?.[String(status || "").split(" ")[0]] || "medium";
+}
+
 // ── Standalone option lists ──────────────────────────────────────
-
-export const TRANSMISSION_OPTS = [
-  "Manual 4-speed",
-  "Manual 5-speed",
-  "Manual 6-speed",
-  "Automatic",
-  "AMT",
-  "CVT",
-  "DCT",
-  "IMT",
-];
-
-export const AIRBAG_OPTS = [
-  "0 — Koi airbag nahi",
-  "2 — Driver + Co-driver",
-  "4 — Front + Side airbags",
-  "6 — 6 airbags",
-  "7 — 7 airbags",
-  "8+ — 8 ya zyada",
-];
 
 export const TYRE_BRANDS = [
   "MRF",
@@ -545,7 +741,6 @@ export const TYRE_BRANDS = [
 
 export const NOGO_REASONS = [
   "Major accident damage — Bada accident damage",
-  "Flood damaged — Baadh mein dooba tha",
   "Chassis / frame bent — Chassis tedhi ho gayi",
   "Tampered odometer — Odometer se chedhchad",
   "Chassis number tampered — Chassis number badla gaya",
@@ -557,14 +752,6 @@ export const NOGO_REASONS = [
   "Price mismatch — Daam zyada maang raha",
   "Flood / Water damage — Paani ghusa tha",
   "Other — Kuch aur wajah",
-];
-
-export const SEAT_OPTS = [
-  "Fabric — Kapda",
-  "Leather — Chamda",
-  "Leatherette — Leatherette",
-  "Rexine — Rexine",
-  "Half Leather — Half chamda",
 ];
 
 // ── END PART 1 ──────────────────────────────────────────────────
@@ -688,35 +875,11 @@ export const INSPECTION_SECTIONS = [
         labelEn: "Radiator Support / Headlight Support",
         labelHi: "Radiator support",
       },
-      {
-        key: "lowerCrossMember",
-        labelEn: "Lower Cross Member",
-        labelHi: "Lower cross member",
-      },
-      {
-        key: "upperCrossMember",
-        labelEn: "Upper Cross Member",
-        labelHi: "Upper cross member",
-      },
+
       {
         key: "underbodyRust",
         labelEn: "Underbody Rust / Corrosion",
         labelHi: "Neeche zang",
-      },
-      {
-        key: "coreStructure",
-        labelEn: "Core Structure Integrity",
-        labelHi: "Core dhaancha theek hai",
-      },
-      {
-        key: "isWaterlogged",
-        labelEn: "Any Waterlogging Evidence",
-        labelHi: "Paani ghusa tha kya?",
-      },
-      {
-        key: "accidentEvidence",
-        labelEn: "Accident Evidence (repaint/filler)",
-        labelHi: "Accident ke nishan",
       },
     ],
   },
@@ -786,41 +949,12 @@ export const INSPECTION_SECTIONS = [
         labelHi: "Charon indicators",
         preset: "electrical",
       },
-      {
-        key: "reverseLight",
-        labelEn: "Reverse Light",
-        labelHi: "Reverse light",
-        preset: "electrical",
-      },
-      {
-        key: "wipersWashers",
-        labelEn: "Front Wipers & Washers",
-        labelHi: "Wiper aur washer",
-        preset: "mechanical",
-      },
-      {
-        key: "rearWiper",
-        labelEn: "Rear Wiper (if fitted)",
-        labelHi: "Peeche ka wiper",
-        preset: "mechanical",
-      },
+
       {
         key: "bumpersGrille",
         labelEn: "Bumpers & Grille / Trims",
         labelHi: "Bumper aur grille",
         preset: "body",
-      },
-      {
-        key: "antenna",
-        labelEn: "Antenna / Shark Fin",
-        labelHi: "Antenna",
-        preset: "electrical",
-      },
-      {
-        key: "sunroofGlass",
-        labelEn: "Sunroof Glass (if fitted)",
-        labelHi: "Sunroof sheesa",
-        preset: "glass",
       },
     ],
   },
@@ -887,48 +1021,21 @@ export const INSPECTION_SECTIONS = [
         labelHi: "Wheel caps",
         preset: "body",
       },
-      {
-        key: "suspension",
-        labelEn: "Suspension — Shocks & Struts",
-        labelHi: "Suspension",
-        preset: "mechanical",
-      },
-      {
-        key: "suspensionBushes",
-        labelEn: "Suspension Bushes & Ball Joints",
-        labelHi: "Bushes aur ball joints",
-        preset: "mechanical",
-      },
+
       {
         key: "brakes",
         labelEn: "Brakes — Disc / Drum",
         labelHi: "Brakes",
         preset: "mechanical",
       },
-      {
-        key: "brakeFluid",
-        labelEn: "Brake Fluid Level",
-        labelHi: "Brake fluid level",
-        preset: "mechanical",
-      },
+
       {
         key: "handbrake",
         labelEn: "Handbrake / Parking Brake",
         labelHi: "Handbrake",
         preset: "mechanical",
       },
-      {
-        key: "steeringAlignment",
-        labelEn: "Steering Alignment / Pull",
-        labelHi: "Steering alignment",
-        preset: "mechanical",
-      },
-      {
-        key: "steeringRack",
-        labelEn: "Steering Rack & Column",
-        labelHi: "Steering rack",
-        preset: "mechanical",
-      },
+
       {
         key: "powerSteering",
         labelEn: "Power Steering — Fluid / EPS",
@@ -975,51 +1082,13 @@ export const INSPECTION_SECTIONS = [
         labelEn: "Engine Oil Level & Colour",
         labelHi: "Engine oil level aur rang",
       },
-      {
-        key: "coolantLevel",
-        labelEn: "Coolant Level",
-        labelHi: "Coolant level",
-      },
+
       {
         key: "batteryCondition",
         labelEn: "Battery Condition",
         labelHi: "Battery ka haal",
       },
-      {
-        key: "batteryVoltage",
-        labelEn: "Battery Voltage (ideal 12.4V+)",
-        labelHi: "Battery voltage",
-      },
-      {
-        key: "alternator",
-        labelEn: "Alternator & Charging System",
-        labelHi: "Alternator",
-      },
-      {
-        key: "coolingSystem",
-        labelEn: "Cooling System / Radiator",
-        labelHi: "Cooling system",
-      },
-      {
-        key: "acCompressor",
-        labelEn: "AC Compressor Belt & Body",
-        labelHi: "AC compressor",
-      },
-      {
-        key: "airFilter",
-        labelEn: "Air Filter Condition",
-        labelHi: "Air filter",
-      },
-      {
-        key: "throttleBody",
-        labelEn: "Throttle Body — Clean?",
-        labelHi: "Throttle body saaf hai?",
-      },
-      {
-        key: "fuelSystem",
-        labelEn: "Fuel Lines / Tank — No Leak",
-        labelHi: "Fuel system leak nahi",
-      },
+
       {
         key: "exhaustSystem",
         labelEn: "Exhaust System / Silencer",
@@ -1030,40 +1099,11 @@ export const INSPECTION_SECTIONS = [
         labelEn: "Engine Mounting",
         labelHi: "Engine mounting",
       },
-      {
-        key: "clutch",
-        labelEn: "Clutch Feel & Bite Point",
-        labelHi: "Clutch ka feel",
-      },
-      {
-        key: "gearbox",
-        labelEn: "Gearbox / Gear Shifting",
-        labelHi: "Gearbox aur gear shifting",
-      },
-      {
-        key: "automaticShifts",
-        labelEn: "Automatic Transmission Shifts",
-        labelHi: "AT gear shifts",
-      },
-      {
-        key: "propshaft",
-        labelEn: "Propshaft / CV Joints",
-        labelHi: "Propshaft / CV joint",
-      },
-      {
-        key: "timingBelt",
-        labelEn: "Timing Belt / Chain Condition",
-        labelHi: "Timing belt ya chain",
-      },
+
       {
         key: "cngKit",
         labelEn: "CNG Kit — if fitted",
         labelHi: "CNG kit agar laga ho",
-      },
-      {
-        key: "engineWiring",
-        labelEn: "Engine Bay Wiring Harness",
-        labelHi: "Engine wiring",
       },
     ],
   },
@@ -1092,21 +1132,9 @@ export const INSPECTION_SECTIONS = [
         preset: "body",
       },
       {
-        key: "seatBelts",
-        labelEn: "Seat Belts — All",
-        labelHi: "Sabke seat belts",
-        preset: "safety",
-      },
-      {
         key: "headliner",
         labelEn: "Headliner / Roof Lining",
         labelHi: "Upar ki lining",
-        preset: "body",
-      },
-      {
-        key: "floorCarpet",
-        labelEn: "Floor Carpet & Mats",
-        labelHi: "Neeche ka carpet",
         preset: "body",
       },
       {
@@ -1114,12 +1142,6 @@ export const INSPECTION_SECTIONS = [
         labelEn: "Door Pads & Interior Trims",
         labelHi: "Darwaze ke andar ke pads",
         preset: "body",
-      },
-      {
-        key: "instrumentCluster",
-        labelEn: "Instrument Cluster & Warning Lights",
-        labelHi: "Cluster aur warning lights",
-        preset: "electrical",
       },
       {
         key: "checkEngineLight",
@@ -1159,111 +1181,57 @@ export const INSPECTION_SECTIONS = [
       },
       {
         key: "speakers",
-        labelEn: "Speakers — All Working",
-        labelHi: "Sabke speakers",
-        preset: "electrical",
+        labelEn: "Speakers / Audio Output",
+        labelHi: "Speakers / audio output",
+        preset: "retainedAccessory",
       },
       {
         key: "powerWindows",
         labelEn: "Power Windows — All 4",
         labelHi: "Charon power windows",
-        preset: "electrical",
+        preset: "powerWindows",
       },
       {
         key: "centralLocking",
         labelEn: "Central Locking System",
         labelHi: "Central locking",
-        preset: "electrical",
-      },
-      {
-        key: "acCooling",
-        labelEn: "AC Cooling & Blower",
-        labelHi: "AC thanda aur blower",
-        preset: "ac",
-      },
-      {
-        key: "heater",
-        labelEn: "Heater Function",
-        labelHi: "Heater kaam karta hai?",
-        preset: "electrical",
-      },
-      {
-        key: "climateControl",
-        labelEn: "Climate Control / Auto AC",
-        labelHi: "Climate control",
-        preset: "electrical",
+        preset: "lockSystem",
       },
       {
         key: "reverseCamera",
         labelEn: "Reverse Camera & Sensors",
         labelHi: "Reverse camera aur sensors",
-        preset: "electrical",
-      },
-      {
-        key: "parkingSensors",
-        labelEn: "Parking Sensors",
-        labelHi: "Parking sensors",
-        preset: "electrical",
-      },
-      {
-        key: "cabinLights",
-        labelEn: "Cabin Lights & Dome Light",
-        labelHi: "Andar ki lights",
-        preset: "electrical",
+        preset: "functionCheck",
       },
       {
         key: "hornSteeringCtrl",
         labelEn: "Horn & Steering Controls",
         labelHi: "Horn aur steering ke buttons",
-        preset: "electrical",
+        preset: "functionCheck",
       },
       {
         key: "steeringWheel",
         labelEn: "Steering Wheel Condition",
         labelHi: "Steering wheel ka haal",
-        preset: "body",
+        preset: "wearCondition",
       },
       {
         key: "gearKnob",
         labelEn: "Gear Knob & Gear Boot",
         labelHi: "Gear knob",
-        preset: "body",
+        preset: "wearCondition",
       },
       {
         key: "handbrakeHandle",
         labelEn: "Handbrake Handle & Lever",
         labelHi: "Handbrake handle",
-        preset: "mechanical",
+        preset: "handbrakeLever",
       },
       {
         key: "sunroof",
         labelEn: "Sunroof Operation (if fitted)",
         labelHi: "Sunroof kaam karta hai?",
-        preset: "electrical",
-      },
-      {
-        key: "wirelessCharging",
-        labelEn: "Wireless Charging Pad (if fitted)",
-        labelHi: "Wireless charging",
-        preset: "electrical",
-      },
-      {
-        key: "usbAuxPorts",
-        labelEn: "USB / AUX Ports",
-        labelHi: "USB aur AUX ports",
-        preset: "electrical",
-      },
-      {
-        key: "rearDefogger",
-        labelEn: "Rear Defogger",
-        labelHi: "Rear defogger",
-        preset: "electrical",
-      },
-      {
-        key: "odometer",
-        labelEn: "Odometer Reading Consistent",
-        labelHi: "Odometer reading sahi lagti",
-        preset: "mechanical",
+        preset: "sunroofOperation",
       },
     ],
   },
@@ -1281,9 +1249,9 @@ export const INSPECTION_SECTIONS = [
     items: [
       {
         key: "airbags",
-        labelEn: "Airbags — Count & Status",
-        labelHi: "Airbags — kitne hain aur kaisi haalat",
-        preset: "safety",
+        labelEn: "Airbags — Status",
+        labelHi: "Airbags — kaisi haalat",
+        preset: "airbagStatus",
       },
       {
         key: "airbagCount",
@@ -1295,73 +1263,7 @@ export const INSPECTION_SECTIONS = [
         key: "absEsc",
         labelEn: "ABS / ESC System",
         labelHi: "ABS aur ESC system",
-        preset: "safety",
-      },
-      {
-        key: "seatBeltDriver",
-        labelEn: "Driver Seat Belt — Pre-tensioner OK",
-        labelHi: "Driver seat belt",
-        preset: "safety",
-      },
-      {
-        key: "seatBeltPassenger",
-        labelEn: "All Passenger Seat Belts",
-        labelHi: "Sabke seat belts",
-        preset: "safety",
-      },
-      {
-        key: "childLock",
-        labelEn: "Child Lock on Rear Doors",
-        labelHi: "Rear door child lock",
-        preset: "electrical",
-      },
-      {
-        key: "isofix",
-        labelEn: "ISOFIX Child Seat Anchors",
-        labelHi: "ISOFIX anchors",
-        preset: "safety",
-      },
-      {
-        key: "tpms",
-        labelEn: "TPMS — Tyre Pressure Alerts",
-        labelHi: "TPMS tyre pressure system",
-        preset: "electrical",
-      },
-      {
-        key: "warningTriangle",
-        labelEn: "Warning Triangle Present",
-        labelHi: "Warning triangle hai?",
-        preset: "safety",
-      },
-      {
-        key: "firstAidKit",
-        labelEn: "First Aid Kit Present",
-        labelHi: "First aid kit hai?",
-        preset: "safety",
-      },
-      {
-        key: "fireExtinguisher",
-        labelEn: "Fire Extinguisher (if applicable)",
-        labelHi: "Fire extinguisher",
-        preset: "safety",
-      },
-      {
-        key: "keysCount",
-        labelEn: "Number of Keys Available",
-        labelHi: "Kitni chaabiyan hain?",
-        preset: "safety",
-      },
-      {
-        key: "ownerManual",
-        labelEn: "Owner's Manual Available",
-        labelHi: "Owner manual hai?",
-        preset: "safety",
-      },
-      {
-        key: "serviceRecord",
-        labelEn: "Service Records Available",
-        labelHi: "Service record hai?",
-        preset: "safety",
+        preset: "absEscStatus",
       },
     ],
   },
@@ -1402,24 +1304,6 @@ export const INSPECTION_SECTIONS = [
         preset: "road",
       },
       {
-        key: "clutchBite",
-        labelEn: "Clutch Bite Point (MT only)",
-        labelHi: "Clutch bite point",
-        preset: "road",
-      },
-      {
-        key: "gearShiftRoad",
-        labelEn: "Gear Shift Quality on Road",
-        labelHi: "Road pe gear shifting",
-        preset: "road",
-      },
-      {
-        key: "autoGearRoad",
-        labelEn: "Auto / AMT Shift Quality",
-        labelHi: "Auto gear ka kaam",
-        preset: "road",
-      },
-      {
         key: "vibrationSpeed",
         labelEn: "Vibration at High Speed",
         labelHi: "Speed pe kaampan",
@@ -1430,24 +1314,6 @@ export const INSPECTION_SECTIONS = [
         labelEn: "Car Pulling Left / Right",
         labelHi: "Gaadi ek taraf khichti hai?",
         preset: "road",
-      },
-      {
-        key: "acOnRoad",
-        labelEn: "AC Cooling While Driving",
-        labelHi: "Drive karte waqt AC ka thanda",
-        preset: "ac",
-      },
-      {
-        key: "odometerConsistency",
-        labelEn: "Odometer Reading Consistent",
-        labelHi: "Odometer sahi lag raha",
-        preset: "road",
-      },
-      {
-        key: "marketability",
-        labelEn: "Overall Marketability Grade",
-        labelHi: "Bechne ki overall grade",
-        preset: "market",
       },
     ],
   },
@@ -1469,208 +1335,12 @@ export const INSPECTION_SECTIONS = [
         labelHi: "AC thanda karta hai?",
         preset: "ac",
       },
-      {
-        key: "heaterPerf",
-        labelEn: "Heater Performance",
-        labelHi: "Heater kaam karta hai?",
-        preset: "electrical",
-      },
-      {
-        key: "blowerSpeeds",
-        labelEn: "Blower — All Speeds Working",
-        labelHi: "Blower ki saari speeds",
-        preset: "electrical",
-      },
-      {
-        key: "climateControlAc",
-        labelEn: "Climate Control / Auto AC",
-        labelHi: "Auto climate control",
-        preset: "electrical",
-      },
-      {
-        key: "acLeaks",
-        labelEn: "AC Refrigerant Leaks",
-        labelHi: "AC mein leak hai?",
-        preset: "mechanical",
-      },
+
       {
         key: "acCompressorNoise",
         labelEn: "AC Compressor Noise",
         labelHi: "AC compressor ki awaaz",
         preset: "mechanical",
-      },
-      {
-        key: "condenserCondition",
-        labelEn: "AC Condenser Condition",
-        labelHi: "AC condenser ka haal",
-        preset: "mechanical",
-      },
-      {
-        key: "acFilterClean",
-        labelEn: "AC Cabin Filter — Clean?",
-        labelHi: "AC cabin filter saaf hai?",
-        preset: "mechanical",
-      },
-    ],
-  },
-
-  {
-    key: "oemFeatures",
-    titleEn: "OEM Features & Specifications Verification",
-    titleHi: "Factory Features ki Jaanch",
-    icon: "📋",
-    color: "#6366f1",
-    preset: "verification",
-    items: [
-      {
-        key: "oemPowerWindows",
-        labelEn: "Power Windows — Count Verified",
-        labelHi: "Power windows confirm",
-        preset: "verification",
-      },
-      {
-        key: "oemAirbags",
-        labelEn: "Airbag Count — Matches OEM Spec",
-        labelHi: "Airbag count OEM se mela",
-        preset: "verification",
-      },
-      {
-        key: "oemAbs",
-        labelEn: "ABS Fitted as per Variant",
-        labelHi: "ABS variant ke hisaab se hai",
-        preset: "verification",
-      },
-      {
-        key: "oemEsc",
-        labelEn: "ESC / Stability Control",
-        labelHi: "ESC stability control",
-        preset: "verification",
-      },
-      {
-        key: "oemCentralLock",
-        labelEn: "Central Locking — OEM or Aftermarket",
-        labelHi: "Central lock OEM ya aftermarket",
-        preset: "verification",
-      },
-      {
-        key: "oemRearDefogger",
-        labelEn: "Rear Defogger Verified",
-        labelHi: "Rear defogger confirm",
-        preset: "verification",
-      },
-      {
-        key: "oemReverseCamera",
-        labelEn: "Reverse Camera — OEM or Added Later",
-        labelHi: "Reverse camera OEM ya baad mein",
-        preset: "verification",
-      },
-      {
-        key: "oemParkingSensors",
-        labelEn: "Parking Sensors — OEM or Added",
-        labelHi: "Parking sensors OEM ya aftermarket",
-        preset: "verification",
-      },
-      {
-        key: "oemSunroof",
-        labelEn: "Sunroof — OEM or Aftermarket Cut",
-        labelHi: "Sunroof OEM ya cut karaya",
-        preset: "verification",
-      },
-      {
-        key: "oemAlloys",
-        labelEn: "Alloy Wheels — OEM or Changed",
-        labelHi: "Alloy wheels OEM ya badle",
-        preset: "verification",
-      },
-      {
-        key: "oemInfotainment",
-        labelEn: "Infotainment — OEM or Replaced",
-        labelHi: "Infotainment OEM ya badla",
-        preset: "verification",
-      },
-      {
-        key: "oemSeatUpholstery",
-        labelEn: "Seat Upholstery — OEM or Modified",
-        labelHi: "Seats OEM ya cover laga",
-        preset: "verification",
-      },
-      {
-        key: "oemFogLamps",
-        labelEn: "Fog Lamps — OEM or Added Later",
-        labelHi: "Fog lamps OEM ya baad mein lage",
-        preset: "verification",
-      },
-      {
-        key: "oemKeylessEntry",
-        labelEn: "Keyless Entry / Smart Key Present",
-        labelHi: "Keyless entry hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemPushStart",
-        labelEn: "Push Button Start Present",
-        labelHi: "Push start hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemCruiseControl",
-        labelEn: "Cruise Control Present",
-        labelHi: "Cruise control hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemSteeringAudio",
-        labelEn: "Steering Mounted Audio Controls",
-        labelHi: "Steering pe music controls",
-        preset: "verification",
-      },
-      {
-        key: "oemAndroidAuto",
-        labelEn: "Android Auto / Apple CarPlay",
-        labelHi: "Android Auto / CarPlay hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemGps",
-        labelEn: "Built-in GPS / Navigation",
-        labelHi: "Built-in GPS hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemTpms",
-        labelEn: "TPMS — Tyre Pressure Monitor",
-        labelHi: "TPMS system hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemLaneAssist",
-        labelEn: "Lane Assist / ADAS Features",
-        labelHi: "Lane assist ya ADAS hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemRearAC",
-        labelEn: "Rear AC Vents Present",
-        labelHi: "Rear AC vents hain?",
-        preset: "verification",
-      },
-      {
-        key: "oemAmbientLight",
-        labelEn: "Ambient Lighting (if applicable)",
-        labelHi: "Ambient lighting hai?",
-        preset: "verification",
-      },
-      {
-        key: "oemVentilatedSeats",
-        labelEn: "Ventilated / Heated Seats",
-        labelHi: "Ventilated seats hain?",
-        preset: "verification",
-      },
-      {
-        key: "oemAutoHeadlamps",
-        labelEn: "Auto Headlamps / Rain Sensing Wiper",
-        labelHi: "Auto headlamps ya rain sensor",
-        preset: "verification",
       },
     ],
   },
@@ -1741,6 +1411,11 @@ export const toFileList = (files = [], prefix = "file") =>
     thumbUrl: file.thumbUrl || file.preview || file.url,
     preview: file.preview || file.thumbUrl || file.url,
     evidenceTag: file.evidenceTag || "",
+    customTagName: file.customTagName || "",
+    publicId: file.publicId || file.public_id || "",
+    format: file.format || "",
+    size: file.size || 0,
+    source: file.source || "r2",
   }));
 
 export const fromFileList = (files = []) =>
@@ -1751,6 +1426,11 @@ export const fromFileList = (files = []) =>
     thumbUrl: file.thumbUrl || file.preview || file.url,
     preview: file.preview || file.thumbUrl || file.url,
     evidenceTag: file.evidenceTag || "",
+    customTagName: file.customTagName || "",
+    publicId: file.publicId || file.public_id || "",
+    format: file.format || "",
+    size: file.size || 0,
+    source: file.source || "r2",
   }));
 
 export const normalizeEvidenceFiles = (files = []) =>
@@ -1762,6 +1442,11 @@ export const normalizeEvidenceFiles = (files = []) =>
     thumbUrl: file.thumbUrl || file.preview || file.url,
     preview: file.preview || file.thumbUrl || file.url,
     evidenceTag: file.evidenceTag || "",
+    customTagName: file.customTagName || "",
+    publicId: file.publicId || file.public_id || "",
+    format: file.format || "",
+    size: file.size || 0,
+    source: file.source || "r2",
   }));
 export function isPositiveInspectionStatus(status) {
   if (Array.isArray(status)) status = status.filter(Boolean);
@@ -1772,11 +1457,42 @@ export function isPositiveInspectionStatus(status) {
   if (!values.length) return false;
 
   const negativeTokens = [
-    "scratch", "dent", "repair", "replace", "rust", "crack", "leak",
-    "noise", "vibration", "warning", "missing", "mismatch", "issue",
-    "critical", "observe", "not working", "very low", "low",
-    "black smoke", "blue smoke", "white smoke", "grey smoke",
-    "jammed", "damage"
+    "scratch",
+    "dent",
+    "repair",
+    "replace",
+    "rust",
+    "crack",
+    "leak",
+    "noise",
+    "vibration",
+    "warning",
+    "missing",
+    "mismatch",
+    "issue",
+    "critical",
+    "observe",
+    "not working",
+    "very low",
+    "low",
+    "weak",
+    "average",
+    "minor issue",
+    "minor wear",
+    "partial",
+    "intermittent",
+    "monitor",
+    "review",
+    "worn",
+    "aftermarket",
+    "added later",
+    "not available",
+    "black smoke",
+    "blue smoke",
+    "white smoke",
+    "grey smoke",
+    "jammed",
+    "damage",
   ];
 
   return !values.some((value) =>

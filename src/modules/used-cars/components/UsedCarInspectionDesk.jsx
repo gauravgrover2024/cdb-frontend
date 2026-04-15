@@ -18,13 +18,13 @@ import {
   Select,
   Tabs,
   TimePicker,
-  Upload,
   message,
 } from "antd";
 import { useReactToPrint } from "react-to-print";
 import {
   ArrowLeftOutlined,
   CameraOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   FileSearchOutlined,
   FileTextOutlined,
@@ -35,11 +35,7 @@ import {
   UserOutlined,
   SaveOutlined,
 } from "@ant-design/icons";
-import {
-  INSPECTION_QUEUE_STAGE,
-  SAMPLE_LEADS,
-  STORAGE_KEY,
-} from "./UsedCarLeadManager/constants";
+import { INSPECTION_QUEUE_STAGE } from "./UsedCarLeadManager/constants";
 import { dayjs, fmt, fmtInr } from "./UsedCarLeadManager/utils/formatters";
 import {
   getInsuranceDisplay,
@@ -49,6 +45,8 @@ import {
   normalizeLeadRecord,
   normText,
 } from "./UsedCarLeadManager/utils/leadUtils";
+import { usedCarsApi } from "../../../api/usedCars";
+import { uploadMultipleFiles } from "../../../api/uploads";
 
 import {
   INSPECTION_DONE_STAGE,
@@ -59,11 +57,8 @@ import {
   PHOTO_BUCKETS,
   LEAD_VERIFICATION_FIELDS,
   SEVERITY_OPTIONS,
-  TRANSMISSION_OPTS,
-  AIRBAG_OPTS,
   TYRE_BRANDS,
   NOGO_REASONS,
-  SEAT_OPTS,
   INSPECTION_SECTIONS,
   tyreLifeFromTread,
   calcSectionScore,
@@ -81,18 +76,111 @@ import {
   getOptionActiveTone,
   getOptionTone,
 } from "./InspectionDesk/constants";
+import {
+  buildNoGoNarrative,
+  buildRefurbContext,
+} from "./InspectionDesk/refurb";
 
 const { TextArea } = Input;
 const { Panel } = Collapse;
 
-
 function getTaggedEvidenceFile(files = [], aliases = []) {
   const aliasSet = new Set(
-    aliases.map((entry) => String(entry || "").trim().toLowerCase()),
+    aliases.map((entry) =>
+      String(entry || "")
+        .trim()
+        .toLowerCase(),
+    ),
   );
   return files.find((file) =>
-    aliasSet.has(String(file.evidenceTag || "").trim().toLowerCase()),
+    aliasSet.has(
+      String(file.evidenceTag || "")
+        .trim()
+        .toLowerCase(),
+    ),
   );
+}
+
+function getEvidenceTagLabel(file = {}) {
+  if (String(file.evidenceTag || "").toLowerCase() === "others") {
+    return file.customTagName || "Others";
+  }
+  return file.evidenceTag || "";
+}
+
+function buildPhotoBucketsFromEvidence(files = []) {
+  const normalized = normalizeEvidenceFiles(files);
+  return Object.fromEntries(
+    PHOTO_BUCKETS.map((bucket) => [
+      bucket.key,
+      normalized.filter((file) => {
+        const tag = String(getEvidenceTagLabel(file) || "")
+          .trim()
+          .toLowerCase();
+        return (
+          tag === String(bucket.labelEn).toLowerCase() ||
+          tag === String(bucket.key).toLowerCase()
+        );
+      }),
+    ]),
+  );
+}
+
+function buildEvidenceTags(files = [], evidenceTargets = []) {
+  return Array.from(
+    new Set(
+      [
+        ...PHOTO_BUCKETS.map((bucket) => bucket.labelEn),
+        ...evidenceTargets.map((item) => item.label).filter(Boolean),
+        ...normalizeEvidenceFiles(files)
+          .map((file) => getEvidenceTagLabel(file))
+          .filter(Boolean),
+      ].filter(Boolean),
+    ),
+  );
+}
+
+function uniqStrings(values = []) {
+  return Array.from(
+    new Set(values.map((entry) => normText(entry)).filter(Boolean)),
+  );
+}
+
+function stripNoGoNarrative(text = "") {
+  return normText(
+    String(text || "").replace(/No-Go reasons:[^.]*(?:\.)?/gi, " "),
+  );
+}
+
+function chunkItems(items = [], size = 4) {
+  const out = [];
+  for (let index = 0; index < items.length; index += size) {
+    out.push(items.slice(index, index + size));
+  }
+  return out;
+}
+
+function FormValueSink() {
+  return null;
+}
+
+function scrollInspectionItemIntoView(itemKey, retries = 0) {
+  const node = document.querySelector(`[data-inspection-item="${itemKey}"]`);
+  if (!node) {
+    if (retries < 8) {
+      window.setTimeout(
+        () => scrollInspectionItemIntoView(itemKey, retries + 1),
+        40,
+      );
+    }
+    return;
+  }
+  node.scrollIntoView({ behavior: "auto", block: "start", inline: "nearest" });
+  const root =
+    document.scrollingElement || document.documentElement || document.body;
+  if (root && typeof root.scrollTop === "number") {
+    root.scrollTop = Math.max(0, root.scrollTop - 118);
+  }
 }
 
 // ── Inspection state badge ───────────────────────────────────────
@@ -175,13 +263,20 @@ const buildReportValues = (lead) => {
   return {
     // Visit details
     inspectionId: inspection?.inspectionId || "",
+    customerName: report?.customerName || lead?.name || "",
     executiveName: inspection?.executiveName || lead?.assignedTo || "",
     executiveMobile: inspection?.executiveMobile || "",
     inspectionLocation: report?.inspectionLocation || lead?.address || "",
     registrationNumber: report?.registrationNumber || lead?.regNo || "",
+    insuranceType:
+      report?.insuranceType || lead?.insuranceCategory || lead?.insurance || "",
     insuranceExpiry: report?.insuranceExpiry
       ? dayjs(report.insuranceExpiry)
       : null,
+    makeConfirmation: report?.makeConfirmation || lead?.make || undefined,
+    modelConfirmation: report?.modelConfirmation || lead?.model || undefined,
+    variantConfirmation:
+      report?.variantConfirmation || lead?.variant || undefined,
     inspectionDate: dayjs(baseDate),
     inspectionTime: dayjs(baseDate),
 
@@ -208,70 +303,129 @@ const buildReportValues = (lead) => {
     // OEM feature counts
     airbagCount: report?.airbagCount || undefined,
     powerWindowCount: report?.powerWindowCount || undefined,
-    transmissionType: report?.transmissionType || undefined,
     seatMaterial: report?.seatMaterial || undefined,
-    fuelType: report?.fuelType || lead?.fuel || undefined,
 
     // Final decision
     verdict: inspection?.verdict || undefined,
     noGoReason: inspection?.noGoReason || "",
-    estimatedRefurbCost: report?.estimatedRefurbCost || null,
+    estimatedRefurbCost: report?.estimatedRefurbCost ?? null,
     evaluatorPrice: report?.evaluatorPrice || getPrice(lead) || null,
+    suggestedBuyPrice: report?.suggestedBuyPrice ?? null,
     negotiationNotes: report?.negotiationNotes || "",
     overallRemarks: inspection?.remarks || report?.overallRemarks || "",
   };
 };
 
 // ── Build report payload from form values (for saving) ───────────
-const buildReportPayload = (values) => ({
-  inspectionLocation: normText(values.inspectionLocation),
-  registrationNumber: normText(values.registrationNumber),
-  insuranceExpiry: values.insuranceExpiry
-    ? dayjs(values.insuranceExpiry).toISOString()
-    : "",
-  leadVerification: Object.fromEntries(
-    LEAD_VERIFICATION_FIELDS.map((f) => [
-      f.key,
-      values.leadVerification?.[f.key],
-    ]),
-  ),
-  photoBuckets: Object.fromEntries(
-    PHOTO_BUCKETS.map((b) => [
-      b.key,
-      fromFileList(values.photoBuckets?.[b.key] || []),
-    ]),
-  ),
-  bulkEvidence: fromFileList(values.bulkEvidence || []),
-  items: Object.fromEntries(
-    INSPECTION_SECTIONS.flatMap((s) =>
-      s.items.map((item) => [
-        item.key,
-        {
-          status: normalizeStatusList(values.items?.[item.key]?.status),
-          severity: values.items?.[item.key]?.severity || "",
-          photos: fromFileList(values.items?.[item.key]?.photos || []),
-          ...(item.hasTread
-            ? { treadDepth: values.items?.[item.key]?.treadDepth || "" }
-            : {}),
-          ...(item.hasBrand
-            ? { tyreBrand: values.items?.[item.key]?.tyreBrand || "" }
-            : {}),
-        },
+const buildReportPayload = (values, reportLead, liveState = {}) => {
+  const resolvedItems =
+    values.items ||
+    liveState.items ||
+    reportLead?.inspection?.report?.items ||
+    {};
+  const resolvedLeadVerification =
+    values.leadVerification ||
+    liveState.leadVerification ||
+    reportLead?.inspection?.report?.leadVerification ||
+    {};
+  const resolvedBulkEvidence =
+    values.bulkEvidence ||
+    liveState.bulkEvidence ||
+    reportLead?.inspection?.report?.bulkEvidence ||
+    [];
+  const bulkEvidence = fromFileList(resolvedBulkEvidence);
+  const evidenceTargets = getEvidenceTargets(resolvedItems);
+  const refurb = buildRefurbContext({
+    lead: reportLead,
+    values: {
+      ...values,
+      items: resolvedItems,
+      bulkEvidence: resolvedBulkEvidence,
+    },
+  });
+  const explicitNoGo = values.verdict === NOGO_REASON;
+  const shouldTreatNoGo = explicitNoGo || (!values.verdict && refurb.noGo);
+  const noGoReasons = shouldTreatNoGo ? uniqStrings(refurb.noGoReasons || []) : [];
+  const noGoNarrative = shouldTreatNoGo
+    ? buildNoGoNarrative({
+        ...refurb,
+        noGoReasons,
+      })
+    : "";
+  const cleanedOverall = stripNoGoNarrative(values.overallRemarks);
+  const overallRemarks = [cleanedOverall, noGoNarrative]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    customerName: normText(values.customerName),
+    inspectionLocation: normText(values.inspectionLocation),
+    registrationNumber: normText(values.registrationNumber),
+    insuranceType: normText(values.insuranceType),
+    insuranceExpiry: values.insuranceExpiry
+      ? dayjs(values.insuranceExpiry).toISOString()
+      : "",
+    makeConfirmation: normText(values.makeConfirmation),
+    modelConfirmation: normText(values.modelConfirmation),
+    variantConfirmation: normText(values.variantConfirmation),
+    leadVerification: Object.fromEntries(
+      LEAD_VERIFICATION_FIELDS.map((f) => [
+        f.key,
+        resolvedLeadVerification?.[f.key],
       ]),
     ),
-  ),
-  airbagCount: values.airbagCount || "",
-  powerWindowCount: values.powerWindowCount || "",
-  transmissionType: values.transmissionType || "",
-  seatMaterial: values.seatMaterial || "",
-  fuelType: values.fuelType || "",
-  estimatedRefurbCost: Number(values.estimatedRefurbCost) || null,
-  evaluatorPrice: Number(values.evaluatorPrice) || null,
-  negotiationNotes: normText(values.negotiationNotes),
-  overallRemarks: normText(values.overallRemarks),
-  reportVersion: REPORT_VERSION,
-  generatedAt: new Date().toISOString(),
-});
+    photoBuckets: buildPhotoBucketsFromEvidence(bulkEvidence),
+    bulkEvidence,
+    evidenceTags: buildEvidenceTags(bulkEvidence, evidenceTargets),
+    items: Object.fromEntries(
+      INSPECTION_SECTIONS.flatMap((s) =>
+        s.items.map((item) => [
+          item.key,
+          {
+            status: normalizeStatusList(resolvedItems?.[item.key]?.status),
+            severity: resolvedItems?.[item.key]?.severity || "",
+            photos: fromFileList(resolvedItems?.[item.key]?.photos || []),
+            ...(item.hasTread
+              ? {
+                  treadDepth:
+                    resolvedItems?.[item.key]?.treadDepth === ""
+                      ? null
+                      : Number(resolvedItems?.[item.key]?.treadDepth) || null,
+                }
+              : {}),
+            ...(item.hasBrand
+              ? { tyreBrand: resolvedItems?.[item.key]?.tyreBrand || "" }
+              : {}),
+          },
+        ]),
+      ),
+    ),
+    airbagCount: values.airbagCount || "",
+    powerWindowCount: values.powerWindowCount || "",
+    seatMaterial: values.seatMaterial || "",
+    estimatedRefurbCost: shouldTreatNoGo
+      ? 0
+      : Number(values.estimatedRefurbCost ?? refurb.totalCost) || 0,
+    evaluatorPrice: Number(values.evaluatorPrice) || null,
+    suggestedBuyPrice: shouldTreatNoGo
+      ? 0
+      : refurb.suggestedBuyPrice || 0,
+    negotiationNotes: normText(values.negotiationNotes),
+    overallRemarks,
+    noGoReasons,
+    refurb: {
+      ...refurb,
+      noGo: shouldTreatNoGo,
+      noGoReasons,
+      totalCost: shouldTreatNoGo ? 0 : Number(refurb.totalCost || 0),
+      suggestedBuyPrice: shouldTreatNoGo
+        ? 0
+        : Number(refurb.suggestedBuyPrice || 0),
+    },
+    reportVersion: REPORT_VERSION,
+    generatedAt: new Date().toISOString(),
+  };
+};
 
 // ── END PART 2J — END OF ALL PART 2 SUB-PARTS ───────────────────
 
@@ -486,6 +640,10 @@ function InspectionQueueCard({ lead, active, onClick }) {
 function VerificationCard({ field, checked, onToggle }) {
   const [localChecked, setLocalChecked] = useState(Boolean(checked));
 
+  useEffect(() => {
+    setLocalChecked(Boolean(checked));
+  }, [checked]);
+
   const activeStyle = localChecked
     ? {
         borderColor: "#047857",
@@ -558,7 +716,6 @@ function SectionItemCard({
   onValueChange,
 }) {
   const itemRef = useRef(null);
-  const advanceTimerRef = useRef(null);
   const [manuallyExpanded, setManuallyExpanded] = useState(false);
   const options = getItemOptions(item, section);
   const multiSelect = allowsMultiSelect(item, section);
@@ -567,10 +724,7 @@ function SectionItemCard({
   const hasBrand = Boolean(item.hasBrand);
   const form = Form.useFormInstance();
   const currentItemValue = itemValue || {};
-  const [localStatusVal, setLocalStatusVal] = useState(
-    normalizeStatusList(currentItemValue.status),
-  );
-  const statusVal = localStatusVal;
+  const statusVal = normalizeStatusList(currentItemValue.status);
   const severityVal = currentItemValue.severity;
   const treadVal = currentItemValue.treadDepth;
   const answered = statusVal.length > 0;
@@ -588,19 +742,10 @@ function SectionItemCard({
     return () => window.clearTimeout(timeout);
   }, [autoOpen, clearAutoOpen]);
 
-  useEffect(
-    () => () => {
-      if (advanceTimerRef.current) {
-        window.clearTimeout(advanceTimerRef.current);
-      }
-    },
-    [],
-  );
-
   const handleStatusSelect = useCallback(
     (status) => {
       const currentValue = form.getFieldValue([formName, item.key]) || {};
-      const currentStatuses = normalizeStatusList(localStatusVal);
+      const currentStatuses = normalizeStatusList(currentValue.status);
       const nextStatuses = multiSelect
         ? currentStatuses.includes(status)
           ? currentStatuses.filter((entry) => entry !== status)
@@ -608,7 +753,6 @@ function SectionItemCard({
         : currentStatuses[0] === status
           ? []
           : [status];
-      setLocalStatusVal(nextStatuses);
       form.setFieldsValue({
         [formName]: {
           ...(form.getFieldValue(formName) || {}),
@@ -623,32 +767,18 @@ function SectionItemCard({
         },
       });
       onValueChange?.();
-      if (!nextStatuses.length) return;
-      if (advanceTimerRef.current) {
-        window.clearTimeout(advanceTimerRef.current);
-      }
-      if (multiSelect) {
-        advanceTimerRef.current = window.setTimeout(() => {
-          onAdvance(item.key);
-        }, 90);
-        return;
-      }
+      const shouldAdvance =
+        currentStatuses.length === 0 && nextStatuses.length > 0;
+      if (!shouldAdvance) return;
       onAdvance(item.key);
     },
-    [
-      form,
-      formName,
-      item,
-      localStatusVal,
-      multiSelect,
-      onAdvance,
-      onValueChange,
-      section,
-    ],
+    [form, formName, item, multiSelect, onAdvance, onValueChange, section],
   );
 
   const showEvidenceUploader =
-    photoEligible && statusVal.length > 0 && !isPositiveInspectionStatus(statusVal);
+    photoEligible &&
+    statusVal.length > 0 &&
+    !isPositiveInspectionStatus(statusVal);
 
   if (isCollapsed) {
     return (
@@ -864,7 +994,8 @@ function SectionItemCard({
       {isTyre && treadVal > 0 ? <TyreLifeBar treadMm={treadVal} /> : null}
       {showEvidenceUploader ? (
         <p className="mt-3 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-          This part has been added to the Evidence Vault. Upload and tag the supporting photos from the evidence block above.
+          This part has been added to the Evidence Vault. Upload and tag the
+          supporting photos from the evidence block above.
         </p>
       ) : null}
     </div>
@@ -874,7 +1005,18 @@ function SectionItemCard({
 function ReportSummaryCard({ reportLead, reportItems, liveValues = {} }) {
   const score = calcOverallScore(reportItems);
   const liveRegNo = liveValues.registrationNumber || reportLead.regNo;
-  const liveFuel = liveValues.fuelType || reportLead.fuel;
+  const liveInsuranceType =
+    liveValues.insuranceType ||
+    reportLead.insuranceCategory ||
+    reportLead.insurance ||
+    "Pending";
+  const liveVehicle = [
+    liveValues.makeConfirmation || reportLead.make,
+    liveValues.modelConfirmation || reportLead.model,
+    liveValues.variantConfirmation || reportLead.variant,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const liveSchedule =
     liveValues.inspectionDate && liveValues.inspectionTime
       ? dayjs(liveValues.inspectionDate)
@@ -899,8 +1041,8 @@ function ReportSummaryCard({ reportLead, reportItems, liveValues = {} }) {
       />
       <QueueMetric
         label="Insurance"
-        value={getInsuranceDisplay(reportLead) || "Pending"}
-        helper={`Reg: ${liveRegNo || "Pending"} · Fuel: ${liveFuel || "Pending"}`}
+        value={liveInsuranceType}
+        helper={`Reg: ${liveRegNo || "Pending"} · ${liveVehicle || "Vehicle pending"}`}
         tone="amber"
       />
       <QueueMetric
@@ -948,15 +1090,27 @@ function getSectionCounts(section, itemValues) {
   );
 }
 
-function getMediaDiscipline(photoBuckets = {}, itemValues = {}, bulkEvidence = []) {
+function getMediaDiscipline(
+  photoBuckets = {},
+  itemValues = {},
+  bulkEvidence = [],
+) {
   const normalizedBulkEvidence = normalizeEvidenceFiles(bulkEvidence);
   const requiredPhotos = PHOTO_BUCKETS.map((bucket) => ({
     key: bucket.key,
     label: bucket.labelEn,
     files:
       photoBuckets[bucket.key] ||
-      (getTaggedEvidenceFile(normalizedBulkEvidence, [bucket.labelEn, bucket.key])
-        ? [getTaggedEvidenceFile(normalizedBulkEvidence, [bucket.labelEn, bucket.key])]
+      (getTaggedEvidenceFile(normalizedBulkEvidence, [
+        bucket.labelEn,
+        bucket.key,
+      ])
+        ? [
+            getTaggedEvidenceFile(normalizedBulkEvidence, [
+              bucket.labelEn,
+              bucket.key,
+            ]),
+          ]
         : []),
   }));
   const capturedRequired = requiredPhotos.filter(
@@ -969,18 +1123,25 @@ function getMediaDiscipline(photoBuckets = {}, itemValues = {}, bulkEvidence = [
         label: item.labelEn,
         status: itemValues?.[item.key]?.status,
         photos: [
-          ...((itemValues?.[item.key]?.photos || []).filter(Boolean)),
-          ...normalizedBulkEvidence.filter(
-            (file) =>
-              String(file.evidenceTag || "").trim().toLowerCase() ===
-              String(item.labelEn || item.label || "").trim().toLowerCase(),
-          ),
+          ...(itemValues?.[item.key]?.photos || []).filter(Boolean),
+          ...normalizedBulkEvidence.filter((file) => {
+            const tag = String(getEvidenceTagLabel(file) || "")
+              .trim()
+              .toLowerCase();
+            return (
+              tag ===
+                String(item.labelEn || item.label || "")
+                  .trim()
+                  .toLowerCase() || tag === String(item.key || "").toLowerCase()
+            );
+          }),
         ],
         eligible: isPhotoEligibleItem(item, section),
       }))
       .filter(
         (item) =>
           item.eligible &&
+          Boolean(item.label) &&
           normalizeStatusList(item.status).length > 0 &&
           !isPositiveInspectionStatus(item.status),
       ),
@@ -1008,7 +1169,7 @@ function getEvidenceTargets(itemValues = {}) {
     section.items
       .map((item) => ({
         key: item.key,
-        label: item.labelEn,
+        label: item.labelEn || item.labelHi || item.key,
         status: itemValues?.[item.key]?.status,
         eligible: isPhotoEligibleItem(item, section),
       }))
@@ -1135,26 +1296,37 @@ function StatusChip({ status }) {
   );
 }
 
-function ReportPhotoTile({ title, file }) {
+function ReportPhotoTile({ title, file, tagLabel }) {
   const src = getStoredFileSrc(file);
+  const normalizedTitle = String(title || "").trim().toLowerCase();
+  const normalizedTag = String(tagLabel || "").trim().toLowerCase();
+  const showTagLabel = Boolean(tagLabel) && normalizedTag !== normalizedTitle;
   return (
     <div className="overflow-hidden rounded-[20px] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.03]">
-      <div className="aspect-[1.2/0.82] bg-slate-100 dark:bg-white/[0.05]">
+      <div className="aspect-[1.28/0.92] bg-slate-100 dark:bg-white/[0.05]">
         {src ? (
-          <img src={src} alt={title} className="h-full w-full object-cover" />
+          <img
+            src={src}
+            alt={title}
+            className="h-full w-full object-contain [image-rendering:auto]"
+            loading="eager"
+            decoding="async"
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-slate-300 dark:text-slate-600">
             <CameraOutlined style={{ fontSize: 28 }} />
           </div>
         )}
       </div>
-      <div className="px-3 py-2.5">
+      <div className="px-3 py-2.5 text-center">
         <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
           {title}
         </p>
-        <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
-          {file?.name || "Photo pending"}
-        </p>
+        {showTagLabel ? (
+          <p className="mt-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+            Tag: {tagLabel}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -1188,6 +1360,58 @@ function InspectionReportDocumentView({
       getTaggedEvidenceFile(bulkEvidence, [bucket.labelEn, bucket.key]) ||
       null,
   })).filter((entry) => entry.file);
+  const mandatoryTagAliases = new Set(
+    PHOTO_BUCKETS.flatMap((bucket) => [
+      String(bucket.labelEn || "")
+        .trim()
+        .toLowerCase(),
+      String(bucket.key || "")
+        .trim()
+        .toLowerCase(),
+    ]),
+  );
+  const defectFromItems = INSPECTION_SECTIONS.flatMap((section) =>
+    section.items.flatMap((item) => {
+      const value = itemValues?.[item.key] || {};
+      if (
+        !normalizeStatusList(value.status).length ||
+        isPositiveInspectionStatus(value.status)
+      ) {
+        return [];
+      }
+      return normalizeEvidenceFiles(value.photos || []).map((file) => ({
+        title: item.labelEn,
+        file: {
+          ...file,
+          evidenceTag: file.evidenceTag || item.labelEn,
+        },
+      }));
+    }),
+  );
+  const defectFromBulk = bulkEvidence
+    .map((file) => {
+      const tag = String(getEvidenceTagLabel(file) || "")
+        .trim()
+        .toLowerCase();
+      if (!tag || mandatoryTagAliases.has(tag)) return null;
+      return {
+        title: getEvidenceTagLabel(file),
+        file,
+      };
+    })
+    .filter(Boolean);
+  const defectCards = Object.values(
+    [...defectFromItems, ...defectFromBulk].reduce((acc, entry) => {
+      const key =
+        entry.file.publicId ||
+        entry.file.url ||
+        entry.file.preview ||
+        entry.file.uid ||
+        `${entry.title}-${Math.random().toString(36).slice(2, 8)}`;
+      if (!acc[key]) acc[key] = entry;
+      return acc;
+    }, {}),
+  );
   const heroPhoto =
     (photoBuckets.frontView || [])[0] ||
     getTaggedEvidenceFile(bulkEvidence, ["Front View", "frontView"]) ||
@@ -1197,12 +1421,26 @@ function InspectionReportDocumentView({
     getTaggedEvidenceFile(bulkEvidence, ["Right Side Profile", "rightSide"]) ||
     bucketCards[0]?.file ||
     null;
+  const bucketCardsWithFront = (() => {
+    if (!heroPhoto) return bucketCards;
+    const hasFrontCard = bucketCards.some(
+      (entry) => String(entry.title || "").toLowerCase() === "front view",
+    );
+    if (hasFrontCard) return bucketCards;
+    return [{ title: "Front View", file: heroPhoto }, ...bucketCards];
+  })();
+  const mandatoryChunks = chunkItems(bucketCardsWithFront, 4);
+  const defectChunks = chunkItems(defectCards, 4);
   const summarySections = INSPECTION_SECTIONS.map((section) => ({
     ...section,
     completion: calcSectionScore(section.key, itemValues),
     ...getSectionCounts(section, itemValues),
   }));
-  const mediaDiscipline = getMediaDiscipline(photoBuckets, itemValues, bulkEvidence);
+  const mediaDiscipline = getMediaDiscipline(
+    photoBuckets,
+    itemValues,
+    bulkEvidence,
+  );
   const autoSummary = buildSmartAutoSummary({
     lead: reportLead,
     report,
@@ -1212,7 +1450,10 @@ function InspectionReportDocumentView({
   const reportHighlights = [
     report?.registrationNumber || reportLead?.regNo || "Registration pending",
     reportLead?.mfgYear || "Year pending",
-    reportLead?.fuel || report?.fuelType || "Fuel pending",
+    reportLead?.fuel || "Fuel pending",
+    report?.insuranceType ||
+      reportLead?.insuranceCategory ||
+      "Insurance pending",
     getMileage(reportLead) || "Kms pending",
   ];
 
@@ -1241,11 +1482,13 @@ function InspectionReportDocumentView({
               Inspection Report
             </div>
             <h3 className="mt-3 text-2xl font-black tracking-tight text-slate-950 dark:text-white md:text-[28px]">
-              {reportLead.make} {reportLead.model} {reportLead.variant}
+              {report?.makeConfirmation || reportLead.make}{" "}
+              {report?.modelConfirmation || reportLead.model}{" "}
+              {report?.variantConfirmation || reportLead.variant}
             </h3>
             <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-              {reportLead.name} · {reportLead.mobile} · Generated{" "}
-              {fmt(submittedAt)}
+              {report?.customerName || reportLead.name} · {reportLead.mobile} ·
+              Generated {fmt(submittedAt)}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1328,11 +1571,14 @@ function InspectionReportDocumentView({
                     At a glance
                   </p>
                   <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-                    {reportLead.make} {reportLead.model}
+                    {report?.makeConfirmation || reportLead.make}{" "}
+                    {report?.modelConfirmation || reportLead.model}
                   </h2>
                   <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {reportLead.variant || "Variant pending"} ·{" "}
-                    {reportLead.fuel || report?.fuelType || "Fuel pending"}
+                    {report?.variantConfirmation ||
+                      reportLead.variant ||
+                      "Variant pending"}{" "}
+                    · {reportLead.fuel || "Fuel pending"}
                   </p>
                 </div>
                 <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-center dark:border-emerald-500/30 dark:bg-emerald-500/10">
@@ -1387,6 +1633,11 @@ function InspectionReportDocumentView({
                   helper={
                     reportLead?.inspection?.executiveMobile || "Mobile pending"
                   }
+                />
+                <DocumentStat
+                  label="Customer"
+                  value={report?.customerName || reportLead?.name || "Pending"}
+                  helper={reportLead?.mobile || "Mobile pending"}
                 />
                 <DocumentStat
                   label="Registration"
@@ -1535,9 +1786,6 @@ function InspectionReportDocumentView({
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-600 dark:border-white/10 dark:text-slate-300">
-                      Answered {section.good + section.issue}/{section.total}
-                    </span>
                     <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
                       Clean {section.good}
                     </span>
@@ -1566,11 +1814,11 @@ function InspectionReportDocumentView({
                 Evidence pack
               </p>
               <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-                Vehicle Images
+                Mandatory Images
               </h2>
             </div>
             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
-              {bucketCards.length} photos
+              {bucketCardsWithFront.length} photos
             </span>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -1602,13 +1850,14 @@ function InspectionReportDocumentView({
               tone="blue"
             />
           </div>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {bucketCards.length ? (
-              bucketCards.map((entry) => (
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {mandatoryChunks[0]?.length ? (
+              mandatoryChunks[0].map((entry) => (
                 <ReportPhotoTile
                   key={entry.title}
                   title={entry.title}
                   file={entry.file}
+                  tagLabel={entry.title}
                 />
               ))
             ) : (
@@ -1618,6 +1867,71 @@ function InspectionReportDocumentView({
             )}
           </div>
         </DocumentPage>
+        {mandatoryChunks.slice(1).map((chunk, chunkIndex) => (
+          <DocumentPage key={`mandatory-images-${chunkIndex}`}>
+            <h2 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+              Mandatory Images (contd.)
+            </h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {chunk.map((entry) => (
+                <ReportPhotoTile
+                  key={`${entry.title}-${entry.file?.uid || entry.file?.url || chunkIndex}`}
+                  title={entry.title}
+                  file={entry.file}
+                  tagLabel={entry.title}
+                />
+              ))}
+            </div>
+          </DocumentPage>
+        ))}
+        <DocumentPage>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Evidence pack
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                All Defect Images
+              </h2>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
+              {defectCards.length} photos
+            </span>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {defectChunks[0]?.length ? (
+              defectChunks[0].map((entry, index) => (
+                <ReportPhotoTile
+                  key={`defect-photo-${index}-${entry.file?.uid || entry.file?.url || entry.title}`}
+                  title={entry.title}
+                  file={entry.file}
+                  tagLabel={entry.title}
+                />
+              ))
+            ) : (
+              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-medium text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                No defect-tagged photos attached.
+              </div>
+            )}
+          </div>
+        </DocumentPage>
+        {defectChunks.slice(1).map((chunk, chunkIndex) => (
+          <DocumentPage key={`defect-images-${chunkIndex}`}>
+            <h2 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+              All Defect Images (contd.)
+            </h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {chunk.map((entry, index) => (
+                <ReportPhotoTile
+                  key={`defect-photo-contd-${chunkIndex}-${index}-${entry.file?.uid || entry.file?.url || entry.title}`}
+                  title={entry.title}
+                  file={entry.file}
+                  tagLabel={entry.title}
+                />
+              ))}
+            </div>
+          </DocumentPage>
+        ))}
 
         {INSPECTION_SECTIONS.map((section, index) => {
           const counts = getSectionCounts(section, itemValues);
@@ -1726,19 +2040,40 @@ function InspectionReportDocumentView({
                   tone="blue"
                 />
                 <DocumentStat
-                  label="Transmission"
-                  value={report?.transmissionType || "Not captured"}
-                  helper="Variant-level gearbox verification"
+                  label="Make confirmed"
+                  value={
+                    report?.makeConfirmation ||
+                    reportLead?.make ||
+                    "Not captured"
+                  }
+                  helper="Lead + inspection confirmation"
                 />
                 <DocumentStat
-                  label="Seat material"
-                  value={report?.seatMaterial || "Not captured"}
-                  helper="Cabin upholstery"
+                  label="Model confirmed"
+                  value={
+                    report?.modelConfirmation ||
+                    reportLead?.model ||
+                    "Not captured"
+                  }
+                  helper="Lead + inspection confirmation"
                 />
                 <DocumentStat
-                  label="Fuel type"
-                  value={report?.fuelType || reportLead?.fuel || "Not captured"}
-                  helper="Lead + physical verification"
+                  label="Variant confirmed"
+                  value={
+                    report?.variantConfirmation ||
+                    reportLead?.variant ||
+                    "Not captured"
+                  }
+                  helper="Lead + inspection confirmation"
+                />
+                <DocumentStat
+                  label="Insurance type"
+                  value={
+                    report?.insuranceType ||
+                    reportLead?.insuranceCategory ||
+                    "Not captured"
+                  }
+                  helper="Copied from lead and confirmed"
                 />
                 <DocumentStat
                   label="Estimated refurb"
@@ -1746,21 +2081,15 @@ function InspectionReportDocumentView({
                   helper="Expected rectification budget"
                   tone="amber"
                 />
+                <DocumentStat
+                  label="Suggested buy price"
+                  value={fmtInrOrPending(report?.suggestedBuyPrice)}
+                  helper="Seller ask minus refurb reserve"
+                  tone="emerald"
+                />
               </div>
             </div>
-            <div className="space-y-4">
-              <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-white/[0.03]">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
-                  Evaluator pricing
-                </p>
-                <p className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white">
-                  {fmtInrOrPending(report?.evaluatorPrice)}
-                </p>
-                <p className="mt-2 text-sm font-medium leading-7 text-slate-500 dark:text-slate-400">
-                  {report?.negotiationNotes ||
-                    "Evaluator negotiation notes abhi capture nahi hue hain."}
-                </p>
-              </div>
+            
               <div className="rounded-[24px] border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">
                   Final remarks
@@ -1776,7 +2105,6 @@ function InspectionReportDocumentView({
                 ) : null}
               </div>
             </div>
-          </div>
         </DocumentPage>
       </div>
     </section>
@@ -1870,7 +2198,7 @@ function VisitUpdateModal({
                     />
                   </Form.Item>
                   <Form.Item
-                    label="Executive Name / Nirikshak ka Naam"
+                    label="Executive Name"
                     name="rescheduleExecutiveName"
                     rules={[
                       { required: true, message: "Executive naam bharo." },
@@ -1940,15 +2268,9 @@ function VisitUpdateModal({
 export default function UsedCarInspectionDesk() {
   const reportPrintRef = useRef(null);
   const advanceGuardRef = useRef({ itemKey: null, at: 0 });
-  const [leads, setLeads] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : SAMPLE_LEADS;
-      return parsed.map(normalizeLeadRecord);
-    } catch {
-      return SAMPLE_LEADS.map(normalizeLeadRecord);
-    }
-  });
+  const advanceScrollTimeoutRef = useRef(null);
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [queueFilter, setQueueFilter] = useState("Scheduled");
   const [search, setSearch] = useState("");
@@ -1962,44 +2284,140 @@ export default function UsedCarInspectionDesk() {
   const [visitForm] = Form.useForm();
   const [reportForm] = Form.useForm();
   const watchedItems = Form.useWatch("items", reportForm);
-  const watchedPhotoBuckets = Form.useWatch("photoBuckets", reportForm);
-  const watchedInspectionLocation = Form.useWatch("inspectionLocation", reportForm);
-  const watchedRegistrationNumber = Form.useWatch("registrationNumber", reportForm);
-  const watchedFuelType = Form.useWatch("fuelType", reportForm);
+  const watchedInspectionLocation = Form.useWatch(
+    "inspectionLocation",
+    reportForm,
+  );
+  const watchedRegistrationNumber = Form.useWatch(
+    "registrationNumber",
+    reportForm,
+  );
+  const watchedInsuranceType = Form.useWatch("insuranceType", reportForm);
+  const watchedMakeConfirmation = Form.useWatch("makeConfirmation", reportForm);
+  const watchedModelConfirmation = Form.useWatch(
+    "modelConfirmation",
+    reportForm,
+  );
+  const watchedVariantConfirmation = Form.useWatch(
+    "variantConfirmation",
+    reportForm,
+  );
   const watchedInsuranceExpiry = Form.useWatch("insuranceExpiry", reportForm);
   const watchedInspectionDate = Form.useWatch("inspectionDate", reportForm);
   const watchedInspectionTime = Form.useWatch("inspectionTime", reportForm);
   const watchedBulkEvidence = Form.useWatch("bulkEvidence", reportForm);
   const watchedLeadVerification = Form.useWatch("leadVerification", reportForm);
+  const watchedVerdict = Form.useWatch("verdict", reportForm);
+  const watchedEvaluatorPrice = Form.useWatch("evaluatorPrice", reportForm);
+  const [reportSyncTick, setReportSyncTick] = useState(0);
   const reportLead = leads.find((l) => l.id === reportLeadId) || null;
-  const liveReportItems =
-    watchedItems ||
-    reportLead?.inspection?.report?.items ||
-    {};
+  const liveReportItems = useMemo(() => {
+    const formItems = reportForm.getFieldValue("items");
+    if (formItems && Object.keys(formItems).length) return formItems;
+    if (watchedItems && Object.keys(watchedItems).length) return watchedItems;
+    return reportLead?.inspection?.report?.items || {};
+  }, [
+    reportForm,
+    reportLead?.inspection?.report?.items,
+    reportSyncTick,
+    watchedItems,
+  ]);
+  const liveBulkEvidence = useMemo(() => {
+    const formFiles = normalizeEvidenceFiles(
+      reportForm.getFieldValue("bulkEvidence") || [],
+    );
+    if (formFiles.length) return formFiles;
+    const watchedFiles = normalizeEvidenceFiles(watchedBulkEvidence || []);
+    if (watchedFiles.length) return watchedFiles;
+    return normalizeEvidenceFiles(
+      reportLead?.inspection?.report?.bulkEvidence || [],
+    );
+  }, [
+    reportForm,
+    reportLead?.inspection?.report?.bulkEvidence,
+    reportSyncTick,
+    watchedBulkEvidence,
+  ]);
+  const liveLeadVerification = useMemo(() => {
+    const formValue = reportForm.getFieldValue("leadVerification");
+    if (formValue && Object.keys(formValue).length) return formValue;
+    if (
+      watchedLeadVerification &&
+      Object.keys(watchedLeadVerification).length
+    ) {
+      return watchedLeadVerification;
+    }
+    return reportLead?.inspection?.report?.leadVerification || {};
+  }, [
+    reportForm,
+    reportLead?.inspection?.report?.leadVerification,
+    reportSyncTick,
+    watchedLeadVerification,
+  ]);
   const evidenceTargets = getEvidenceTargets(liveReportItems || {});
   const usedEvidenceTags = useMemo(() => {
-    const files = normalizeEvidenceFiles(watchedBulkEvidence || []);
-    return new Set(files.map((f) => f.evidenceTag).filter(Boolean));
-  }, [watchedBulkEvidence]);
-  const evidenceTagSuggestions = useMemo(
-    () =>
-      Array.from(
-        new Set([
-          ...PHOTO_BUCKETS.map((bucket) => bucket.labelEn),
-          ...evidenceTargets.map((item) => item.label).filter(Boolean),
-        ]),
-      ),
-    [evidenceTargets],
-  );
-  const [, setReportSyncTick] = useState(0);
+    const files = normalizeEvidenceFiles(liveBulkEvidence || []);
+    return new Set(files.map((f) => getEvidenceTagLabel(f)).filter(Boolean));
+  }, [liveBulkEvidence]);
+  const evidenceTagSuggestions = useMemo(() => {
+    const tags = buildEvidenceTags(liveBulkEvidence || [], evidenceTargets);
+    return tags.includes("Others") ? tags : [...tags, "Others"];
+  }, [evidenceTargets, liveBulkEvidence]);
+  const evidenceTagCounts = useMemo(() => {
+    return normalizeEvidenceFiles(liveBulkEvidence || []).reduce(
+      (acc, file) => {
+        const label = getEvidenceTagLabel(file);
+        if (!label) return acc;
+        acc[label] = (acc[label] || 0) + 1;
+        return acc;
+      },
+      {},
+    );
+  }, [liveBulkEvidence]);
+  const bulkUploadInputRef = useRef(null);
   const forceReportSync = useCallback(
     () => setReportSyncTick((current) => current + 1),
     [],
   );
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
-  }, [leads]);
+    return () => {
+      if (advanceScrollTimeoutRef.current) {
+        window.clearTimeout(advanceScrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const replaceLead = useCallback((lead) => {
+    if (!lead) return;
+    setLeads((current) => {
+      const nextLead = normalizeLeadRecord(lead);
+      const exists = current.some((item) => item.id === nextLead.id);
+      return exists
+        ? current.map((item) => (item.id === nextLead.id ? nextLead : item))
+        : [nextLead, ...current];
+    });
+  }, []);
+
+  const loadLeads = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await usedCarsApi.listLeads({
+        limit: 5000,
+        includeClosed: true,
+      });
+      setLeads((response.data || []).map(normalizeLeadRecord));
+    } catch (error) {
+      message.error(error.message || "Could not load inspection queue.");
+      setLeads([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLeads();
+  }, [loadLeads]);
 
   const updateLead = useCallback((leadId, updater) => {
     setLeads((current) =>
@@ -2014,13 +2432,25 @@ export default function UsedCarInspectionDesk() {
     );
   }, []);
 
+  const persistLead = useCallback(
+    async (lead) => {
+      const response = await usedCarsApi.updateLead(lead.id, lead);
+      replaceLead(response.data);
+      return response.data;
+    },
+    [replaceLead],
+  );
+
   useEffect(() => {
     if (!reportLeadId) return;
     const currentLead = leads.find((lead) => lead.id === reportLeadId);
     if (!currentLead) return;
     const nextAddress = normText(watchedInspectionLocation);
     const nextRegNo = normText(watchedRegistrationNumber);
-    const nextFuel = normText(watchedFuelType);
+    const nextInsuranceType = normText(watchedInsuranceType);
+    const nextMake = normText(watchedMakeConfirmation);
+    const nextModel = normText(watchedModelConfirmation);
+    const nextVariant = normText(watchedVariantConfirmation);
     const nextInsuranceExpiry = watchedInsuranceExpiry
       ? dayjs(watchedInsuranceExpiry).toISOString()
       : "";
@@ -2028,7 +2458,10 @@ export default function UsedCarInspectionDesk() {
     if (
       nextAddress === (currentLead.address || "") &&
       nextRegNo === (currentLead.regNo || "") &&
-      nextFuel === (currentLead.fuel || "") &&
+      nextInsuranceType === (currentLead.insuranceCategory || "") &&
+      nextMake === (currentLead.make || "") &&
+      nextModel === (currentLead.model || "") &&
+      nextVariant === (currentLead.variant || "") &&
       nextInsuranceExpiry === (currentLead.insuranceExpiry || "")
     ) {
       return;
@@ -2038,17 +2471,23 @@ export default function UsedCarInspectionDesk() {
       ...lead,
       address: nextAddress || lead.address,
       regNo: nextRegNo || lead.regNo,
-      fuel: nextFuel || lead.fuel,
+      insuranceCategory: nextInsuranceType || lead.insuranceCategory,
+      make: nextMake || lead.make,
+      model: nextModel || lead.model,
+      variant: nextVariant || lead.variant,
       insuranceExpiry: nextInsuranceExpiry || lead.insuranceExpiry || "",
     }));
   }, [
     leads,
     reportLeadId,
     updateLead,
-    watchedFuelType,
     watchedInspectionLocation,
+    watchedInsuranceType,
     watchedInsuranceExpiry,
+    watchedMakeConfirmation,
+    watchedModelConfirmation,
     watchedRegistrationNumber,
+    watchedVariantConfirmation,
   ]);
 
   const inspectionPool = useMemo(
@@ -2164,6 +2603,136 @@ export default function UsedCarInspectionDesk() {
     }).length;
     return { scheduled, rescheduled, draft, completed, nogo, passed, dueToday };
   }, [inspectionPool]);
+  const liveRefurbSummary = useMemo(
+    () =>
+      reportLead
+        ? buildRefurbContext({
+            lead: reportLead,
+            values: {
+              items: liveReportItems,
+              insuranceType: watchedInsuranceType,
+              insuranceExpiry: watchedInsuranceExpiry,
+              evaluatorPrice: watchedEvaluatorPrice,
+            },
+          })
+        : null,
+    [
+      liveReportItems,
+      reportLead,
+      watchedEvaluatorPrice,
+      watchedInsuranceExpiry,
+      watchedInsuranceType,
+    ],
+  );
+
+  useEffect(() => {
+    if (!reportLead || !liveRefurbSummary) return;
+    const effectiveNoGo =
+      watchedVerdict === NOGO_REASON ||
+      (!watchedVerdict && liveRefurbSummary.noGo);
+    const currentRefurb = Number(
+      reportForm.getFieldValue("estimatedRefurbCost") || 0,
+    );
+    const nextRefurb = Number(effectiveNoGo ? 0 : liveRefurbSummary.totalCost || 0);
+    const currentSuggested = Number(
+      reportForm.getFieldValue("suggestedBuyPrice") || 0,
+    );
+    const nextSuggested = Number(
+      effectiveNoGo ? 0 : liveRefurbSummary.suggestedBuyPrice || 0,
+    );
+    const rawOverall = normText(reportForm.getFieldValue("overallRemarks"));
+    const currentOverall = stripNoGoNarrative(rawOverall);
+    const autoNoGoLine = effectiveNoGo
+      ? buildNoGoNarrative({
+          ...liveRefurbSummary,
+          noGoReasons: uniqStrings(liveRefurbSummary.noGoReasons || []),
+        })
+      : "";
+    const nextOverall = effectiveNoGo
+      ? [currentOverall, autoNoGoLine].filter(Boolean).join(" ")
+      : currentOverall;
+
+    if (
+      currentRefurb === nextRefurb &&
+      currentSuggested === nextSuggested &&
+      rawOverall === nextOverall
+    ) {
+      return;
+    }
+
+    reportForm.setFieldsValue({
+      estimatedRefurbCost: nextRefurb,
+      suggestedBuyPrice: nextSuggested,
+      overallRemarks: nextOverall,
+    });
+    forceReportSync();
+  }, [
+    forceReportSync,
+    liveRefurbSummary,
+    reportForm,
+    reportLead,
+    watchedVerdict,
+  ]);
+
+  const makeOptions = useMemo(
+    () =>
+      Array.from(new Set(leads.map((lead) => lead.make).filter(Boolean))).map(
+        (value) => ({ value, label: value }),
+      ),
+    [leads],
+  );
+
+  const modelOptions = useMemo(() => {
+    const activeMake =
+      watchedMakeConfirmation || reportLead?.make || selectedLead?.make || "";
+    return Array.from(
+      new Set(
+        leads
+          .filter((lead) => !activeMake || lead.make === activeMake)
+          .map((lead) => lead.model)
+          .filter(Boolean),
+      ),
+    ).map((value) => ({ value, label: value }));
+  }, [leads, reportLead?.make, selectedLead?.make, watchedMakeConfirmation]);
+
+  const variantOptions = useMemo(() => {
+    const activeMake =
+      watchedMakeConfirmation || reportLead?.make || selectedLead?.make || "";
+    const activeModel =
+      watchedModelConfirmation ||
+      reportLead?.model ||
+      selectedLead?.model ||
+      "";
+    return Array.from(
+      new Set(
+        leads
+          .filter(
+            (lead) =>
+              (!activeMake || lead.make === activeMake) &&
+              (!activeModel || lead.model === activeModel),
+          )
+          .map((lead) => lead.variant)
+          .filter(Boolean),
+      ),
+    ).map((value) => ({ value, label: value }));
+  }, [
+    leads,
+    reportLead?.make,
+    reportLead?.model,
+    selectedLead?.make,
+    selectedLead?.model,
+    watchedMakeConfirmation,
+    watchedModelConfirmation,
+  ]);
+
+  const insuranceTypeOptions = useMemo(
+    () =>
+      ["Comprehensive", "Zero-Dep", "Third Party", "Expired"].map((value) => ({
+        value,
+        label: value,
+      })),
+    [],
+  );
 
   const openVisitUpdate = useCallback(
     (lead) => {
@@ -2203,23 +2772,28 @@ export default function UsedCarInspectionDesk() {
         existing.inspectionId ||
         `INS-${dayjs().format("YYYYMMDD")}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
       if (!existing.inspectionId || !existing.startedAt) {
-        updateLead(lead.id, (current) => ({
-          ...current,
+        const startedLead = normalizeLeadRecord({
+          ...lead,
           inspection: {
-            ...current.inspection,
+            ...lead.inspection,
             inspectionId,
-            executiveName: existing.executiveName || current.assignedTo || "",
+            executiveName: existing.executiveName || lead.assignedTo || "",
             executiveMobile: existing.executiveMobile || "",
             startedAt: existing.startedAt || new Date().toISOString(),
             lastOutcome: existing.lastOutcome || "draft",
           },
           activities: existing.startedAt
-            ? current.activities
+            ? lead.activities
             : [
                 mkActivity("inspection", "Inspection started", inspectionId),
-                ...(current.activities || []),
+                ...(lead.activities || []),
               ],
-        }));
+        });
+        replaceLead(startedLead);
+        persistLead(startedLead).catch((error) => {
+          message.error(error.message || "Could not start inspection.");
+          loadLeads();
+        });
       }
       reportForm.setFieldsValue(
         buildReportValues({
@@ -2237,62 +2811,55 @@ export default function UsedCarInspectionDesk() {
       setAutoOpenItemKey(null);
       setReportLeadId(lead.id);
     },
-    [forceReportSync, reportForm, updateLead],
+    [forceReportSync, loadLeads, persistLead, replaceLead, reportForm],
   );
 
-  const handleAdvanceToNextItem = useCallback(
-    (currentItemKey) => {
-      const now = Date.now();
-      if (
-        advanceGuardRef.current.itemKey === currentItemKey &&
-        now - advanceGuardRef.current.at < 250
-      ) {
-        return;
+  const handleAdvanceToNextItem = useCallback((currentItemKey) => {
+    const now = Date.now();
+    if (
+      advanceGuardRef.current.itemKey === currentItemKey &&
+      now - advanceGuardRef.current.at < 180
+    ) {
+      return;
+    }
+    advanceGuardRef.current = { itemKey: currentItemKey, at: now };
+
+    const flatItems = INSPECTION_SECTIONS.flatMap((section) =>
+      section.items.map((item) => ({
+        sectionKey: section.key,
+        itemKey: item.key,
+      })),
+    );
+    const currentIndex = flatItems.findIndex(
+      (entry) => entry.itemKey === currentItemKey,
+    );
+    if (currentIndex < 0 || currentIndex >= flatItems.length - 1) {
+      const finalNode = document.querySelector("#inspection-final-decision");
+      if (finalNode) {
+        finalNode.scrollIntoView({
+          behavior: "auto",
+          block: "start",
+          inline: "nearest",
+        });
       }
-      advanceGuardRef.current = { itemKey: currentItemKey, at: now };
+      return;
+    }
+    const next = flatItems[currentIndex + 1];
 
-      // Find next unanswered item across all sections
-      let found = false;
-      let next = null;
-
-      for (const section of INSPECTION_SECTIONS) {
-        for (const item of section.items) {
-          if (
-            found &&
-            !normalizeStatusList(
-              reportForm.getFieldValue(["items", item.key, "status"]),
-            ).length
-          ) {
-            next = { sectionKey: section.key, itemKey: item.key };
-            break;
-          }
-          if (item.key === currentItemKey) found = true;
-        }
-        if (next) break;
-      }
-
-      if (!next) return;
-
-      setActiveSectionKeys([next.sectionKey]);
-      setAutoOpenItemKey(next.itemKey);
-      const scrollToNextItem = () => {
-        const node = document.querySelector(
-          `[data-inspection-item="${next.itemKey}"]`,
-        );
-        if (node) {
-          node.scrollIntoView({ behavior: "auto", block: "start" });
-        }
-      };
-      requestAnimationFrame(() => {
-        scrollToNextItem();
-        window.setTimeout(() => {
-          scrollToNextItem();
-          requestAnimationFrame(scrollToNextItem);
-        }, 120);
-      });
-    },
-    [reportForm],
-  );
+    if (advanceScrollTimeoutRef.current) {
+      window.clearTimeout(advanceScrollTimeoutRef.current);
+    }
+    setActiveSectionKeys([next.sectionKey]);
+    setAutoOpenItemKey(next.itemKey);
+    window.requestAnimationFrame(() => {
+      scrollInspectionItemIntoView(next.itemKey);
+    });
+    advanceScrollTimeoutRef.current = window.setTimeout(() => {
+      scrollInspectionItemIntoView(next.itemKey);
+      window.setTimeout(() => scrollInspectionItemIntoView(next.itemKey), 120);
+      window.setTimeout(() => scrollInspectionItemIntoView(next.itemKey), 220);
+    }, 90);
+  }, []);
 
   const handleTyreBrandSeed = useCallback(
     (sourceItemKey, value) => {
@@ -2316,16 +2883,84 @@ export default function UsedCarInspectionDesk() {
   );
 
   const handleBulkEvidenceTag = useCallback(
-    (uid, evidenceTag) => {
+    (uid, evidenceTag, customTagName = "") => {
       const currentFiles = normalizeEvidenceFiles(
         reportForm.getFieldValue("bulkEvidence") || [],
       );
       reportForm.setFieldsValue({
         bulkEvidence: currentFiles.map((file) =>
-          file.uid === uid ? { ...file, evidenceTag } : file,
+          file.uid === uid
+            ? {
+                ...file,
+                evidenceTag,
+                customTagName:
+                  evidenceTag === "Others" ? normText(customTagName) : "",
+              }
+            : file,
         ),
       });
       forceReportSync();
+    },
+    [forceReportSync, reportForm],
+  );
+
+  const handleBulkEvidenceDelete = useCallback(
+    (uid) => {
+      const currentFiles = normalizeEvidenceFiles(
+        reportForm.getFieldValue("bulkEvidence") || [],
+      );
+      reportForm.setFieldsValue({
+        bulkEvidence: currentFiles.filter((file) => file.uid !== uid),
+      });
+      forceReportSync();
+    },
+    [forceReportSync, reportForm],
+  );
+
+  const handleBulkEvidenceUpload = useCallback(
+    async (incomingFiles = []) => {
+      const files = Array.from(incomingFiles || []).filter(Boolean);
+      if (!files.length) return;
+      try {
+        message.loading({
+          content: `Uploading ${files.length} photo${files.length > 1 ? "s" : ""}...`,
+          key: "inspection-bulk-upload",
+        });
+        const uploaded = await uploadMultipleFiles(files);
+        const currentFiles = normalizeEvidenceFiles(
+          reportForm.getFieldValue("bulkEvidence") || [],
+        );
+        reportForm.setFieldsValue({
+          bulkEvidence: [
+            ...currentFiles,
+            ...uploaded.map((file, index) => ({
+              uid:
+                file.public_id || file.publicId || `r2-${Date.now()}-${index}`,
+              name: file.original_name || file.name || `Photo ${index + 1}`,
+              status: "done",
+              url: file.url || file.secure_url,
+              thumbUrl: file.url || file.secure_url,
+              preview: file.url || file.secure_url,
+              publicId: file.public_id || file.publicId || "",
+              format: file.format || "",
+              size: file.size || 0,
+              source: "r2",
+              evidenceTag: "",
+              customTagName: "",
+            })),
+          ],
+        });
+        forceReportSync();
+        message.success({
+          content: `${uploaded.length} photo${uploaded.length > 1 ? "s" : ""} uploaded to evidence vault.`,
+          key: "inspection-bulk-upload",
+        });
+      } catch (error) {
+        message.error({
+          content: error.message || "Could not upload evidence photos.",
+          key: "inspection-bulk-upload",
+        });
+      }
     },
     [forceReportSync, reportForm],
   );
@@ -2342,24 +2977,24 @@ export default function UsedCarInspectionDesk() {
               .second(0)
               .toISOString()
           : null;
-      updateLead(selectedLead.id, (lead) => ({
-        ...lead,
+      const nextLead = normalizeLeadRecord({
+        ...selectedLead,
         status: "Inspection Scheduled",
         pipelineStage: INSPECTION_QUEUE_STAGE,
         assignedTo:
           normText(values.rescheduleExecutiveName) ||
-          lead.inspection?.executiveName ||
-          lead.assignedTo,
-        inspectionScheduledAt: nextAt || lead.inspectionScheduledAt,
+          selectedLead.inspection?.executiveName ||
+          selectedLead.assignedTo,
+        inspectionScheduledAt: nextAt || selectedLead.inspectionScheduledAt,
         inspection: {
-          ...lead.inspection,
+          ...selectedLead.inspection,
           executiveName:
             normText(values.rescheduleExecutiveName) ||
-            lead.inspection?.executiveName ||
-            lead.assignedTo,
+            selectedLead.inspection?.executiveName ||
+            selectedLead.assignedTo,
           executiveMobile:
             normText(values.rescheduleExecutiveMobile) ||
-            lead.inspection?.executiveMobile ||
+            selectedLead.inspection?.executiveMobile ||
             "",
           lastOutcome: values.reschedule ? "rescheduled" : "not-conducted",
           rescheduledAt: nextAt,
@@ -2377,134 +3012,230 @@ export default function UsedCarInspectionDesk() {
               ? `${fmt(nextAt)} — ${normText(values.rescheduleExecutiveName)}`
               : normText(values.remarks) || "Visit not completed.",
           ),
-          ...(lead.activities || []),
+          ...(selectedLead.activities || []),
         ],
-      }));
+      });
+      replaceLead(nextLead);
+      await persistLead(nextLead);
       setVisitModalOpen(false);
       visitForm.resetFields();
       message.success("Visit update save ho gaya.");
     } catch {}
-  }, [selectedLead, updateLead, visitForm]);
+  }, [persistLead, replaceLead, selectedLead, visitForm]);
 
-  const handleSaveDraft = useCallback(() => {
+  const handleSaveDraft = useCallback(async () => {
     if (!reportLead) return;
-    const values = reportForm.getFieldsValue(true);
-    updateLead(reportLead.id, (lead) => ({
-      ...lead,
-      address: normText(values.inspectionLocation) || lead.address,
-      regNo: normText(values.registrationNumber) || lead.regNo,
-      fuel: normText(values.fuelType) || lead.fuel,
-      insuranceExpiry: values.insuranceExpiry
-        ? dayjs(values.insuranceExpiry).toISOString()
-        : lead.insuranceExpiry || "",
-      inspection: {
-        ...lead.inspection,
-        inspectionId:
-          values.inspectionId || lead.inspection?.inspectionId || "",
-        executiveName: normText(values.executiveName),
-        executiveMobile: normText(values.executiveMobile),
-        startedAt: lead.inspection?.startedAt || new Date().toISOString(),
-        lastOutcome: "draft",
-        remarks: normText(values.overallRemarks),
-        report: buildReportPayload(values),
-        reportVersion: REPORT_VERSION,
-      },
-    }));
-    message.success("Draft save ho gaya — koi bhi data lost nahi hua.");
-  }, [reportForm, reportLead, updateLead]);
+    try {
+      const values = reportForm.getFieldsValue(true);
+      const reportPayload = buildReportPayload(values, reportLead, {
+        items: liveReportItems,
+        bulkEvidence: liveBulkEvidence,
+        leadVerification: liveLeadVerification,
+      });
+      const isNoGoDraft =
+        values.verdict === NOGO_REASON || Boolean(reportPayload.refurb?.noGo);
+      const nextLead = normalizeLeadRecord({
+        ...reportLead,
+        name: normText(values.customerName) || reportLead.name,
+        address: normText(values.inspectionLocation) || reportLead.address,
+        regNo: normText(values.registrationNumber) || reportLead.regNo,
+        insuranceCategory:
+          normText(values.insuranceType) || reportLead.insuranceCategory,
+        make: normText(values.makeConfirmation) || reportLead.make,
+        model: normText(values.modelConfirmation) || reportLead.model,
+        variant: normText(values.variantConfirmation) || reportLead.variant,
+        insuranceExpiry: values.insuranceExpiry
+          ? dayjs(values.insuranceExpiry).toISOString()
+          : reportLead.insuranceExpiry || "",
+        status: "Inspection Scheduled",
+        pipelineStage: INSPECTION_QUEUE_STAGE,
+        currentStage: "inspection",
+        isClosed: false,
+        closureReason: "",
+        closureNotes: "",
+        closedAt: null,
+        inspection: {
+          ...reportLead.inspection,
+          inspectionId:
+            values.inspectionId || reportLead.inspection?.inspectionId || "",
+          executiveName: normText(values.executiveName),
+          executiveMobile: normText(values.executiveMobile),
+          startedAt:
+            reportLead.inspection?.startedAt || new Date().toISOString(),
+          lastOutcome: "draft",
+          verdict: values.verdict || reportLead.inspection?.verdict || "",
+          noGoReason: isNoGoDraft
+            ? normText(values.noGoReason) ||
+              reportPayload.noGoReasons?.[0] ||
+              ""
+            : "",
+          remarks: reportPayload.overallRemarks,
+          noGoReasons: isNoGoDraft ? reportPayload.noGoReasons || [] : [],
+          report: reportPayload,
+          reportVersion: REPORT_VERSION,
+        },
+      });
+      replaceLead(nextLead);
+      await persistLead(nextLead);
+      message.success("Draft save ho gaya — koi bhi data lost nahi hua.");
+    } catch (error) {
+      message.error(error.message || "Could not save inspection draft.");
+      loadLeads();
+    }
+  }, [
+    liveBulkEvidence,
+    liveLeadVerification,
+    liveReportItems,
+    loadLeads,
+    persistLead,
+    replaceLead,
+    reportForm,
+    reportLead,
+  ]);
 
   const handleSubmitReport = useCallback(async () => {
     if (!reportLead) return;
     try {
-      const values = await reportForm.validateFields();
+      await reportForm.validateFields();
+      const values = reportForm.getFieldsValue(true);
+      const reportPayload = buildReportPayload(values, reportLead, {
+        items: liveReportItems,
+        bulkEvidence: liveBulkEvidence,
+        leadVerification: liveLeadVerification,
+      });
       const inspectedAt = dayjs(values.inspectionDate)
         .hour(dayjs(values.inspectionTime).hour())
         .minute(dayjs(values.inspectionTime).minute())
         .second(0)
         .toISOString();
       const verdict = values.verdict;
-      const isNogo = verdict === NOGO_REASON;
-      updateLead(reportLead.id, (lead) => {
-        const nextInspection = {
-          ...lead.inspection,
-          inspectionId: values.inspectionId || lead.inspection?.inspectionId,
-          executiveName: normText(values.executiveName),
-          executiveMobile: normText(values.executiveMobile),
-          startedAt: lead.inspection?.startedAt || new Date().toISOString(),
-          submittedAt: new Date().toISOString(),
-          inspectedAt,
-          lastOutcome: isNogo ? "no-go" : "completed",
-          verdict,
-          noGoReason: normText(values.noGoReason),
-          remarks: normText(values.overallRemarks),
-          reportVersion: REPORT_VERSION,
-          report: buildReportPayload(values),
-        };
-        if (isNogo) {
-          return {
-            ...lead,
-            address: normText(values.inspectionLocation) || lead.address,
-            regNo: normText(values.registrationNumber) || lead.regNo,
-            fuel: normText(values.fuelType) || lead.fuel,
-            insuranceExpiry: values.insuranceExpiry
-              ? dayjs(values.insuranceExpiry).toISOString()
-              : lead.insuranceExpiry || "",
-            status: "Closed",
-            pipelineStage: "Lead Closed",
-            closureReason: NOGO_REASON,
-            notes: normText(values.noGoReason) || lead.notes,
-            inspection: nextInspection,
-            activities: [
-              mkActivity(
-                "lead-closed",
-                "Lead closed from inspection — No-Go",
-                normText(values.noGoReason) || "No-go car after inspection.",
-              ),
-              ...(lead.activities || []),
-            ],
-          };
-        }
-        return {
-          ...lead,
-          address: normText(values.inspectionLocation) || lead.address,
-          regNo: normText(values.registrationNumber) || lead.regNo,
-          fuel: normText(values.fuelType) || lead.fuel,
-          insuranceExpiry: values.insuranceExpiry
-            ? dayjs(values.insuranceExpiry).toISOString()
-            : lead.insuranceExpiry || "",
-          status: "Inspection Passed",
-          pipelineStage: INSPECTION_DONE_STAGE,
-          inspection: nextInspection,
-          activities: [
-            mkActivity(
-              "inspection",
-              "Inspection completed — Passed",
-              normText(values.overallRemarks) ||
-                "Vehicle cleared for next stage.",
-            ),
-            ...(lead.activities || []),
-          ],
-        };
-      });
-      const nextLead = filteredLeads.find(
-        (l) =>
-          l.id !== reportLead.id && getInspectionState(l).key !== "completed",
+      const isNogo =
+        verdict === NOGO_REASON || (!verdict && reportPayload.refurb?.noGo);
+      const nextInspection = {
+        ...reportLead.inspection,
+        inspectionId:
+          values.inspectionId || reportLead.inspection?.inspectionId,
+        executiveName: normText(values.executiveName),
+        executiveMobile: normText(values.executiveMobile),
+        startedAt: reportLead.inspection?.startedAt || new Date().toISOString(),
+        submittedAt: new Date().toISOString(),
+        inspectedAt,
+        lastOutcome: isNogo ? "no-go" : "completed",
+        verdict: isNogo ? NOGO_REASON : verdict,
+        noGoReason: isNogo
+          ? normText(values.noGoReason) || reportPayload.noGoReasons?.[0] || ""
+          : "",
+        noGoReasons: isNogo ? reportPayload.noGoReasons || [] : [],
+        remarks: reportPayload.overallRemarks,
+        reportVersion: REPORT_VERSION,
+        report: reportPayload,
+      };
+      const nextLead = normalizeLeadRecord(
+        isNogo
+          ? {
+              ...reportLead,
+              name: normText(values.customerName) || reportLead.name,
+              address:
+                normText(values.inspectionLocation) || reportLead.address,
+              regNo: normText(values.registrationNumber) || reportLead.regNo,
+              insuranceCategory:
+                normText(values.insuranceType) || reportLead.insuranceCategory,
+              make: normText(values.makeConfirmation) || reportLead.make,
+              model: normText(values.modelConfirmation) || reportLead.model,
+              variant:
+                normText(values.variantConfirmation) || reportLead.variant,
+              insuranceExpiry: values.insuranceExpiry
+                ? dayjs(values.insuranceExpiry).toISOString()
+                : reportLead.insuranceExpiry || "",
+              status: "Closed",
+              pipelineStage: "Lead Closed",
+              currentStage: "closed",
+              isClosed: true,
+              closureReason: NOGO_REASON,
+              closureNotes:
+                normText(values.noGoReason) ||
+                reportPayload.noGoReasons?.join(", ") ||
+                "",
+              notes:
+                normText(values.noGoReason) ||
+                reportPayload.noGoReasons?.join(", ") ||
+                reportLead.notes,
+              inspection: nextInspection,
+              activities: [
+                mkActivity(
+                  "lead-closed",
+                  "Lead closed from inspection — No-Go",
+                  reportPayload.noGoReasons?.join(", ") ||
+                    normText(values.noGoReason) ||
+                    "No-go car after inspection.",
+                ),
+                ...(reportLead.activities || []),
+              ],
+            }
+          : {
+              ...reportLead,
+              name: normText(values.customerName) || reportLead.name,
+              address:
+                normText(values.inspectionLocation) || reportLead.address,
+              regNo: normText(values.registrationNumber) || reportLead.regNo,
+              insuranceCategory:
+                normText(values.insuranceType) || reportLead.insuranceCategory,
+              make: normText(values.makeConfirmation) || reportLead.make,
+              model: normText(values.modelConfirmation) || reportLead.model,
+              variant:
+                normText(values.variantConfirmation) || reportLead.variant,
+              insuranceExpiry: values.insuranceExpiry
+                ? dayjs(values.insuranceExpiry).toISOString()
+                : reportLead.insuranceExpiry || "",
+              status: "Inspection Passed",
+              pipelineStage: INSPECTION_DONE_STAGE,
+              currentStage: "background-check",
+              isClosed: false,
+              closureReason: "",
+              closureNotes: "",
+              closedAt: null,
+              inspection: nextInspection,
+              activities: [
+                mkActivity(
+                  "inspection",
+                  "Inspection completed — Passed",
+                  normText(values.overallRemarks) ||
+                    "Vehicle cleared for next stage.",
+                ),
+                ...(reportLead.activities || []),
+              ],
+            },
       );
-      setReportLeadId(null);
-      setReportMode("edit");
-      setSelectedLeadId(nextLead?.id || null);
-      reportForm.resetFields();
+      replaceLead(nextLead);
+      await persistLead(nextLead);
+      setSelectedLeadId(nextLead.id);
+      setReportLeadId(nextLead.id);
+      setReportMode("view");
       message.success(
         isNogo
           ? "No-go report submit hua. Lead band kar di gayi."
           : "Inspection report submit ho gaya. Vehicle aage bhej diya.",
       );
-    } catch {
+    } catch (error) {
+      if (Array.isArray(error?.errorFields) && error.errorFields.length) {
+        message.error(
+          "Kuch required fields bhari nahi hain. Please check karein.",
+        );
+        return;
+      }
       message.error(
-        "Kuch required fields bhari nahi hain. Please check karein.",
+        error?.message || "Inspection submit karte waqt issue aaya.",
       );
     }
-  }, [filteredLeads, reportForm, reportLead, updateLead]);
+  }, [
+    liveBulkEvidence,
+    liveLeadVerification,
+    liveReportItems,
+    persistLead,
+    reportForm,
+    reportLead,
+    replaceLead,
+  ]);
 
   const handleDownloadReport = useReactToPrint({
     contentRef: reportPrintRef,
@@ -2532,6 +3263,14 @@ export default function UsedCarInspectionDesk() {
     },
   });
 
+  if (loading) {
+    return (
+      <div className="flex min-h-[55vh] items-center justify-center rounded-[32px] border border-slate-200 bg-white text-sm font-semibold text-slate-500 dark:border-white/10 dark:bg-black dark:text-slate-300">
+        Loading inspection queue...
+      </div>
+    );
+  }
+
   if (reportLeadId && reportLead) {
     const reportReadOnly = reportMode === "view";
     if (reportReadOnly) {
@@ -2549,14 +3288,24 @@ export default function UsedCarInspectionDesk() {
       );
     }
     const reportItems = liveReportItems;
+    const totalChecklistItems = INSPECTION_SECTIONS.reduce(
+      (sum, section) => sum + section.items.length,
+      0,
+    );
+    const answeredChecklistItems = INSPECTION_SECTIONS.reduce(
+      (sum, section) => {
+        const counts = getSectionCounts(section, reportItems);
+        return sum + counts.good + counts.issue;
+      },
+      0,
+    );
+    const currentBulkEvidence = liveBulkEvidence;
     const currentPhotoBuckets =
-      watchedPhotoBuckets ||
-      reportLead.inspection?.report?.photoBuckets ||
-      {};
+      buildPhotoBucketsFromEvidence(currentBulkEvidence);
     const mediaDiscipline = getMediaDiscipline(
       currentPhotoBuckets,
       reportItems,
-      watchedBulkEvidence || reportLead.inspection?.report?.bulkEvidence || [],
+      currentBulkEvidence,
     );
     return (
       <section className="space-y-4">
@@ -2606,7 +3355,10 @@ export default function UsedCarInspectionDesk() {
             reportItems={reportItems}
             liveValues={{
               registrationNumber: watchedRegistrationNumber,
-              fuelType: watchedFuelType,
+              insuranceType: watchedInsuranceType,
+              makeConfirmation: watchedMakeConfirmation,
+              modelConfirmation: watchedModelConfirmation,
+              variantConfirmation: watchedVariantConfirmation,
               inspectionDate: watchedInspectionDate,
               inspectionTime: watchedInspectionTime,
             }}
@@ -2619,7 +3371,14 @@ export default function UsedCarInspectionDesk() {
             layout="vertical"
             size="middle"
             disabled={reportReadOnly}
+            onValuesChange={() => forceReportSync()}
           >
+            <Form.Item name="bulkEvidence" hidden preserve>
+              <FormValueSink />
+            </Form.Item>
+            <Form.Item name="leadVerification" hidden preserve>
+              <FormValueSink />
+            </Form.Item>
             <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
               <div className="space-y-4">
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
@@ -2640,7 +3399,7 @@ export default function UsedCarInspectionDesk() {
                       />
                     </Form.Item>
                     <Form.Item
-                      label="Inspection Executive / Nirikshak ka Naam"
+                      label="Inspection Executive"
                       name="executiveName"
                       rules={[
                         { required: true, message: "Executive naam bharo." },
@@ -2650,6 +3409,19 @@ export default function UsedCarInspectionDesk() {
                       <Input
                         prefix={<UserOutlined />}
                         placeholder="Evaluator ka poora naam"
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Customer Name"
+                      name="customerName"
+                      rules={[
+                        { required: true, message: "Customer name bharo." },
+                      ]}
+                      className="!mb-0"
+                    >
+                      <Input
+                        prefix={<UserOutlined />}
+                        placeholder="Seller / customer ka naam"
                       />
                     </Form.Item>
                     <Form.Item
@@ -2670,18 +3442,6 @@ export default function UsedCarInspectionDesk() {
                       label={
                         <div className="flex w-full items-center justify-between gap-2">
                           <span>Inspection Location</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              reportForm.setFieldValue(
-                                "inspectionLocation",
-                                reportLead.address || "",
-                              )
-                            }
-                            className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:text-slate-300"
-                          >
-                            Same as lead
-                          </button>
                         </div>
                       }
                       name="inspectionLocation"
@@ -2694,18 +3454,6 @@ export default function UsedCarInspectionDesk() {
                       label={
                         <div className="flex w-full items-center justify-between gap-2">
                           <span>Registration Number</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              reportForm.setFieldValue(
-                                "registrationNumber",
-                                reportLead.regNo || "",
-                              )
-                            }
-                            className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:text-slate-300"
-                          >
-                            Same as lead
-                          </button>
                         </div>
                       }
                       name="registrationNumber"
@@ -2720,7 +3468,22 @@ export default function UsedCarInspectionDesk() {
                       <Input placeholder="e.g. HR26DE9898" />
                     </Form.Item>
                     <Form.Item
-                      label="Insurance Expiry / Insurance ki last date"
+                      label={
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>Insurance Type</span>
+                        </div>
+                      }
+                      name="insuranceType"
+                      className="!mb-0"
+                    >
+                      <Select
+                        allowClear
+                        placeholder="Insurance type select karo"
+                        options={insuranceTypeOptions}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label="Insurance Expiry"
                       name="insuranceExpiry"
                       className="!mb-0"
                     >
@@ -2758,12 +3521,13 @@ export default function UsedCarInspectionDesk() {
                       <VerificationCard
                         key={`${reportLeadId || "inspection"}-${field.key}`}
                         field={field}
-                        checked={Boolean(watchedLeadVerification?.[field.key])}
+                        checked={Boolean(liveLeadVerification?.[field.key])}
                         onToggle={(next) => {
                           reportForm.setFieldsValue({
                             leadVerification: {
-                              ...(reportForm.getFieldValue("leadVerification") ||
-                                {}),
+                              ...(reportForm.getFieldValue(
+                                "leadVerification",
+                              ) || {}),
                               [field.key]: next,
                             },
                           });
@@ -2775,65 +3539,66 @@ export default function UsedCarInspectionDesk() {
                 </div>
 
                 <div className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-3">
                     <Form.Item
-                      label="Airbag Count"
-                      name="airbagCount"
+                      label={
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>Make Confirmation</span>
+                        </div>
+                      }
+                      name="makeConfirmation"
                       className="!mb-0"
                     >
                       <Select
                         allowClear
-                        options={AIRBAG_OPTS.map((v) => ({
-                          value: v,
-                          label: v,
-                        }))}
-                      />
-                    </Form.Item>
-                    <Form.Item
-                      label="Transmission Type"
-                      name="transmissionType"
-                      className="!mb-0"
-                    >
-                      <Select
-                        allowClear
-                        options={TRANSMISSION_OPTS.map((v) => ({
-                          value: v,
-                          label: v,
-                        }))}
-                      />
-                    </Form.Item>
-                    <Form.Item
-                      label="Seat Material"
-                      name="seatMaterial"
-                      className="!mb-0"
-                    >
-                      <Select
-                        allowClear
-                        options={SEAT_OPTS.map((v) => ({ value: v, label: v }))}
+                        showSearch
+                        placeholder="Make confirm karo"
+                        options={makeOptions}
+                        onChange={() => {
+                          reportForm.setFieldsValue({
+                            modelConfirmation: undefined,
+                            variantConfirmation: undefined,
+                          });
+                        }}
                       />
                     </Form.Item>
                     <Form.Item
                       label={
                         <div className="flex w-full items-center justify-between gap-2">
-                          <span>Fuel Type</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              reportForm.setFieldValue(
-                                "fuelType",
-                                reportLead.fuel || "",
-                              )
-                            }
-                            className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-white/10 dark:text-slate-300"
-                          >
-                            Same as lead
-                          </button>
+                          <span>Model Confirmation</span>
                         </div>
                       }
-                      name="fuelType"
+                      name="modelConfirmation"
                       className="!mb-0"
                     >
-                      <Input placeholder="Fuel type" />
+                      <Select
+                        allowClear
+                        showSearch
+                        placeholder="Model confirm karo"
+                        options={modelOptions}
+                        onChange={() =>
+                          reportForm.setFieldValue(
+                            "variantConfirmation",
+                            undefined,
+                          )
+                        }
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>Variant Confirmation</span>
+                        </div>
+                      }
+                      name="variantConfirmation"
+                      className="!mb-0"
+                    >
+                      <Select
+                        allowClear
+                        showSearch
+                        placeholder="Variant confirm karo"
+                        options={variantOptions}
+                      />
                     </Form.Item>
                   </div>
                 </div>
@@ -2873,109 +3638,137 @@ export default function UsedCarInspectionDesk() {
                           Evidence Vault
                         </p>
                         <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                          Upload all field photos together, then tag them against mandatory buckets or imperfect parts.
+                          Upload all field photos together, then tag them
+                          against mandatory buckets or imperfect parts.
                         </p>
                       </div>
                       <Button
                         icon={<CameraOutlined />}
                         className="!rounded-full"
-                        onClick={() => {
-                          const trigger = document.querySelector(
-                            ".inspection-bulk-upload input[type='file']",
-                          );
-                          trigger?.click();
-                        }}
+                        onClick={() => bulkUploadInputRef.current?.click()}
                       >
                         Bulk Upload Photos
                       </Button>
                     </div>
-                    <Form.Item
-                      name="bulkEvidence"
-                      valuePropName="fileList"
-                      getValueFromEvent={(e) => e?.fileList}
-                      className="inspection-bulk-upload !mb-0 mt-3"
-                    >
-                      <Upload
-                        beforeUpload={() => false}
-                        multiple
-                        listType="picture"
-                        accept="image/*"
-                        showUploadList={false}
-                      >
-                        <span className="hidden" />
-                      </Upload>
-                    </Form.Item>
+                    <input
+                      ref={bulkUploadInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      style={{ display: "none" }}
+                      onChange={(event) => {
+                        handleBulkEvidenceUpload(event.target.files);
+                        event.target.value = "";
+                      }}
+                    />
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {evidenceTagSuggestions.slice(0, 18).map((label) => {
+                      {evidenceTagSuggestions.map((label) => {
                         const isUsed = usedEvidenceTags.has(label);
+                        const count = evidenceTagCounts[label] || 0;
                         return (
                           <span
                             key={`evidence-tag-${label}`}
                             className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
                               isUsed
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-600 line-through dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
                                 : "border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-[#11151b] dark:text-slate-400"
                             }`}
                           >
                             {isUsed ? `✓ ${label}` : label}
+                            {count ? ` (${count})` : ""}
                           </span>
                         );
                       })}
                     </div>
-                    {normalizeEvidenceFiles(watchedBulkEvidence || []).length ? (
+                    {currentBulkEvidence.length ? (
                       <div className="mt-4 space-y-2">
-                        {normalizeEvidenceFiles(watchedBulkEvidence || []).map(
-                          (file) => {
-                            const fileSrc = file.thumbUrl || file.url || file.preview || (file.originFileObj ? URL.createObjectURL(file.originFileObj) : "");
-                            const availableTags = evidenceTagSuggestions.filter(
-                              (tag) => tag === file.evidenceTag || !usedEvidenceTags.has(tag),
-                            );
-                            return (
-                              <div
-                                key={file.uid}
-                                className="flex items-stretch gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-white/[0.03]"
-                              >
-                                <div className="w-1/4 shrink-0 overflow-hidden rounded-[12px] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
-                                  {fileSrc ? (
-                                    <img
-                                      src={fileSrc}
-                                      alt={file.name}
-                                      className="h-full w-full object-cover"
-                                      style={{ minHeight: 64, maxHeight: 96 }}
-                                    />
-                                  ) : (
-                                    <div className="flex h-full min-h-[64px] items-center justify-center text-slate-300 dark:text-slate-600">
-                                      <CameraOutlined style={{ fontSize: 22 }} />
-                                    </div>
-                                  )}
-                                </div>
+                        {currentBulkEvidence.map((file) => {
+                          const fileSrc =
+                            file.thumbUrl ||
+                            file.url ||
+                            file.preview ||
+                            (file.originFileObj
+                              ? URL.createObjectURL(file.originFileObj)
+                              : "");
+                          const availableTags = evidenceTagSuggestions.filter(
+                            (tag) =>
+                              tag === file.evidenceTag ||
+                              tag === "Others" ||
+                              !usedEvidenceTags.has(tag),
+                          );
+                          const isOtherTag = file.evidenceTag === "Others";
+                          return (
+                            <div
+                              key={file.uid}
+                              className="flex items-stretch gap-3 rounded-[16px] border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-white/[0.03]"
+                            >
+                              <div className="w-1/4 shrink-0 overflow-hidden rounded-[12px] border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
+                                {fileSrc ? (
+                                  <img
+                                    src={fileSrc}
+                                    alt={file.name}
+                                    className="h-full w-full object-cover"
+                                    style={{ minHeight: 64, maxHeight: 96 }}
+                                  />
+                                ) : (
+                                  <div className="flex h-full min-h-[64px] items-center justify-center text-slate-300 dark:text-slate-600">
+                                    <CameraOutlined style={{ fontSize: 22 }} />
+                                  </div>
+                                )}
+                              </div>
                                 <div className="flex flex-1 flex-col justify-center gap-1.5">
-                                  <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-                                    {file.name}
-                                  </p>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                      {file.name}
+                                    </p>
+                                    <Button
+                                      type="text"
+                                      size="small"
+                                      icon={<DeleteOutlined />}
+                                      onClick={() =>
+                                        handleBulkEvidenceDelete(file.uid)
+                                      }
+                                      className="!h-6 !w-6 !min-w-6 !rounded-full !p-0 !text-slate-400 hover:!text-rose-600 dark:!text-slate-500 dark:hover:!text-rose-400"
+                                    />
+                                  </div>
                                   <Select
                                     size="small"
                                     value={file.evidenceTag || undefined}
-                                    onChange={(value) =>
-                                      handleBulkEvidenceTag(file.uid, value)
-                                    }
-                                    placeholder="Tag this photo..."
-                                    className="w-full"
-                                    options={availableTags.map((tag) => ({
-                                      value: tag,
-                                      label: tag,
-                                    }))}
-                                    showSearch
-                                    allowClear
-                                    filterOption={(input, option) =>
-                                      (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                                  onChange={(value) =>
+                                    handleBulkEvidenceTag(file.uid, value)
+                                  }
+                                  placeholder="Tag this photo..."
+                                  className="w-full"
+                                  options={availableTags.map((tag) => ({
+                                    value: tag,
+                                    label: tag,
+                                  }))}
+                                  showSearch
+                                  allowClear
+                                  filterOption={(input, option) =>
+                                    (option?.label ?? "")
+                                      .toLowerCase()
+                                      .includes(input.toLowerCase())
+                                  }
+                                />
+                                {isOtherTag ? (
+                                  <Input
+                                    size="small"
+                                    placeholder="Enter custom tag name"
+                                    value={file.customTagName || ""}
+                                    onChange={(event) =>
+                                      handleBulkEvidenceTag(
+                                        file.uid,
+                                        "Others",
+                                        event.target.value,
+                                      )
                                     }
                                   />
-                                </div>
+                                ) : null}
                               </div>
-                            );
-                          },
-                        )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="mt-4 rounded-[16px] border border-dashed border-slate-200 px-4 py-4 text-sm font-medium text-slate-500 dark:border-white/10 dark:text-slate-400">
@@ -2994,7 +3787,8 @@ export default function UsedCarInspectionDesk() {
                         Detailed Inspection Checklist
                       </p>
                       <p className="mt-1 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                        Work top to bottom. Clean parts move fast, imperfect visual parts ask for evidence.
+                        Work top to bottom. Clean parts move fast, imperfect
+                        visual parts ask for evidence.
                       </p>
                     </div>
                   </div>
@@ -3011,65 +3805,56 @@ export default function UsedCarInspectionDesk() {
                     const counts = getSectionCounts(section, reportItems);
                     const answeredCount = counts.good + counts.issue;
                     return (
-                    <Panel
-                      key={section.key}
-                      className="!mb-3 !rounded-[22px] !border !border-slate-200 !bg-white dark:!border-white/10 dark:!bg-[#11151b]"
-                      header={
-                        <div className="flex items-center justify-between gap-3 py-1">
-                          <div className="flex items-center gap-3">
-                            <span
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
-                              style={{ background: section.color }}
-                            >
-                              {getSectionOrder(section.key)}
-                            </span>
-                            <div>
-                              <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">
-                                {section.titleEn}
-                              </p>
-                              <div className="mt-1 flex flex-wrap items-center gap-2">
-                                <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:border-white/10 dark:text-slate-400">
-                                  {answeredCount}/{section.items.length} answered
-                                </span>
-                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
-                                  Clean {counts.good}
-                                </span>
-                                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
-                                  Issues {counts.issue}
-                                </span>
-                              </div>
-                              {activeSectionKeys.includes(section.key) ? (
-                                <p className="mt-2 text-[11px] font-semibold text-sky-600 dark:text-sky-300">
-                                  Start from the first unanswered card in this section.
+                      <Panel
+                        key={section.key}
+                        className="!mb-3 !rounded-[22px] !border !border-slate-200 !bg-white dark:!border-white/10 dark:!bg-[#11151b]"
+                        header={
+                          <div className="flex items-center justify-between gap-3 py-1">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black text-white"
+                                style={{ background: section.color }}
+                              >
+                                {getSectionOrder(section.key)}
+                              </span>
+                              <div>
+                                <p className="text-sm font-black tracking-tight text-slate-900 dark:text-slate-100">
+                                  {section.titleEn}
                                 </p>
-                              ) : null}
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:border-white/10 dark:text-slate-400">
+                                    {answeredCount}/{section.items.length}{" "}
+                                    answered
+                                  </span>
+                                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                    Clean {counts.good}
+                                  </span>
+                                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                                    Issues {counts.issue}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
+                        }
+                      >
+                        <div className="grid gap-3">
+                          {section.items.map((item) => (
+                            <SectionItemCard
+                              key={`${reportLeadId || "inspection"}-${item.key}`}
+                              item={item}
+                              section={section}
+                              formName="items"
+                              itemValue={reportItems?.[item.key] || {}}
+                              autoOpen={autoOpenItemKey === item.key}
+                              clearAutoOpen={() => setAutoOpenItemKey(null)}
+                              onAdvance={handleAdvanceToNextItem}
+                              onSeedTyreBrand={handleTyreBrandSeed}
+                              onValueChange={forceReportSync}
+                            />
+                          ))}
                         </div>
-                      }
-                    >
-                      <div className="mb-3 rounded-[18px] border border-sky-100 bg-sky-50/80 px-4 py-3 dark:border-sky-500/20 dark:bg-sky-500/10">
-                        <p className="text-xs font-semibold text-sky-700 dark:text-sky-300">
-                          Fill this section top to bottom. Answered cards collapse, and evidence appears only for imperfect visible parts.
-                        </p>
-                      </div>
-                      <div className="grid gap-3">
-                        {section.items.map((item) => (
-                          <SectionItemCard
-                            key={`${reportLeadId || "inspection"}-${item.key}`}
-                            item={item}
-                            section={section}
-                            formName="items"
-                            itemValue={reportItems?.[item.key] || {}}
-                            autoOpen={autoOpenItemKey === item.key}
-                            clearAutoOpen={() => setAutoOpenItemKey(null)}
-                            onAdvance={handleAdvanceToNextItem}
-                            onSeedTyreBrand={handleTyreBrandSeed}
-                            onValueChange={forceReportSync}
-                          />
-                        ))}
-                      </div>
-                    </Panel>
+                      </Panel>
                     );
                   })}
                 </Collapse>
@@ -3110,6 +3895,7 @@ export default function UsedCarInspectionDesk() {
                       <InputNumber
                         className="w-full"
                         min={0}
+                        readOnly
                         placeholder="e.g. 25000"
                         formatter={(v) =>
                           `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -3117,27 +3903,21 @@ export default function UsedCarInspectionDesk() {
                         parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
                       />
                     </Form.Item>
+
                     <Form.Item
-                      label="Evaluator's Price / Evaluator ki Keemat"
-                      name="evaluatorPrice"
+                      label="Suggested Buy Price / Suggest ki hui buy price"
+                      name="suggestedBuyPrice"
                       className="!mb-0"
                     >
                       <InputNumber
                         className="w-full"
                         min={0}
-                        placeholder="e.g. 450000"
+                        readOnly
                         formatter={(v) =>
                           `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                         }
                         parser={(v) => v?.replace(/₹\s?|(,*)/g, "")}
                       />
-                    </Form.Item>
-                    <Form.Item
-                      label="Negotiation Notes / Mol-tol ki Baatein"
-                      name="negotiationNotes"
-                      className="!mb-0"
-                    >
-                      <Input placeholder="Seller ne kya kaha? Koi deal point?" />
                     </Form.Item>
                   </div>
                   <Form.Item
@@ -3195,21 +3975,13 @@ export default function UsedCarInspectionDesk() {
                 {/* Sticky Action Footer */}
                 {reportMode !== "view" ? (
                   <div className="sticky bottom-4 z-[90] mt-6 flex items-center justify-between rounded-[24px] border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md dark:border-white/10 dark:bg-[#090b0e]/95 lg:px-6">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                       <ScoreBadge score={calcOverallScore(reportItems)} />
                       <div className="hidden sm:block">
-                        {(() => {
-                          const totalItems = INSPECTION_SECTIONS.reduce((sum, s) => sum + s.items.length, 0);
-                          const answeredItems = INSPECTION_SECTIONS.reduce((sum, s) => {
-                            const counts = getSectionCounts(s, reportItems);
-                            return sum + counts.good + counts.issue;
-                          }, 0);
-                          return (
-                            <p className="text-[11px] font-bold text-slate-500 lg:text-xs dark:text-slate-400">
-                              {answeredItems} / {totalItems} Answered
-                            </p>
-                          );
-                        })()}
+                        <p className="text-[11px] font-bold text-slate-500 lg:text-xs dark:text-slate-400">
+                          {answeredChecklistItems} / {totalChecklistItems}{" "}
+                          Answered
+                        </p>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -3480,7 +4252,10 @@ export default function UsedCarInspectionDesk() {
                         <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                           <div className="grid gap-3 md:grid-cols-2">
                             {[
-                              ["Seller Address", selectedLead.address || "Pending"],
+                              [
+                                "Seller Address",
+                                selectedLead.address || "Pending",
+                              ],
                               [
                                 "Fuel / Year",
                                 `${selectedLead.fuel || "—"} · ${selectedLead.mfgYear || "—"}`,
@@ -3510,7 +4285,10 @@ export default function UsedCarInspectionDesk() {
                                 "Expected Price",
                                 fmtInrOrPending(getPrice(selectedLead)),
                               ],
-                              ["Mileage", getMileage(selectedLead) || "Pending"],
+                              [
+                                "Mileage",
+                                getMileage(selectedLead) || "Pending",
+                              ],
                             ].map(([label, value]) => (
                               <div
                                 key={label}
@@ -3583,8 +4361,8 @@ export default function UsedCarInspectionDesk() {
                             </div>
                           </div>
                         </div>
-                      )
-                    }
+                      ),
+                    },
                   ]}
                 />
               </div>

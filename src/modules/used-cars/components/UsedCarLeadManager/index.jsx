@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   DatePicker,
@@ -29,8 +29,6 @@ import {
   LEAD_DESK_STAGE,
   LEAD_STATUS_OPTIONS,
   PIPELINE_COLUMNS,
-  SAMPLE_LEADS,
-  STORAGE_KEY,
 } from "./constants";
 import AvatarBadge from "./components/AvatarBadge";
 import ActivityTimeline from "./components/ActivityTimeline";
@@ -38,9 +36,8 @@ import CallScriptPanel from "./components/CallScriptPanel";
 import KanbanColumn from "./components/KanbanColumn";
 import { dayjs, fmt, fmtDate, fmtInr } from "./utils/formatters";
 import { useTheme } from "../../../../context/ThemeContext";
+import { usedCarsApi } from "../../../../api/usedCars";
 import {
-  buildLeadSignature,
-  firstPresent,
   genId,
   getCallScriptItems,
   getColMeta,
@@ -54,12 +51,9 @@ import {
   isOverdue,
   mkActivity,
   normInsurance,
-  normMoney,
-  normalizeHeaderKey,
   normalizeLeadRecord,
   normStatus,
   normText,
-  pickMapped,
 } from "./utils/leadUtils";
 
 const LEAD_WINDOW_OPTIONS = ["Today", "7 Days", "15 Days", "All Leads"];
@@ -73,14 +67,8 @@ const QUEUE_FILTER_OPTIONS = [
 
 export default function UsedCarLeadManager() {
   const { isDarkMode } = useTheme();
-  const [leads, setLeads] = useState(() => {
-    try {
-      const r = localStorage.getItem(STORAGE_KEY);
-      return r ? JSON.parse(r).map(normalizeLeadRecord) : SAMPLE_LEADS.map(normalizeLeadRecord);
-    } catch {
-      return SAMPLE_LEADS.map(normalizeLeadRecord);
-    }
-  });
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("All");
   const [sourceFilter, setSourceFilter] = useState("All Sources");
@@ -119,9 +107,33 @@ export default function UsedCarLeadManager() {
     () => PIPELINE_COLUMNS.filter((col) => col.key !== "Qualified"),
     [],
   );
+  const replaceLead = useCallback((lead) => {
+    if (!lead) return;
+    setLeads((current) => {
+      const nextLead = normalizeLeadRecord(lead);
+      const exists = current.some((item) => item.id === nextLead.id);
+      return exists
+        ? current.map((item) => (item.id === nextLead.id ? nextLead : item))
+        : [nextLead, ...current];
+    });
+  }, []);
+
+  const loadLeads = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await usedCarsApi.listLeads({ limit: 5000, includeClosed: true });
+      setLeads((response.data || []).map(normalizeLeadRecord));
+    } catch (error) {
+      message.error(error.message || "Could not load used car leads.");
+      setLeads([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
-  }, [leads]);
+    loadLeads();
+  }, [loadLeads]);
 
   useEffect(() => {
     if (!dropTarget) return;
@@ -425,21 +437,27 @@ export default function UsedCarLeadManager() {
     [selected],
   );
 
-  const patch = (id, data, activity = null) => {
-    setLeads((cur) =>
-      cur.map((l) =>
-        l.id !== id
-          ? l
-          : {
-              ...l,
-              ...data,
-              activities: activity
-                ? [activity, ...(l.activities || [])]
-                : l.activities || [],
-            },
-      ),
-    );
-  };
+  const patch = useCallback(
+    async (id, data, activity = null) => {
+      const optimisticLead = normalizeLeadRecord({
+        ...data,
+        activities: activity
+          ? [activity, ...(data.activities || [])]
+          : data.activities || [],
+      });
+      replaceLead(optimisticLead);
+      try {
+        const response = await usedCarsApi.updateLead(id, optimisticLead);
+        replaceLead(response.data);
+        return response.data;
+      } catch (error) {
+        message.error(error.message || "Could not save lead update.");
+        await loadLeads();
+        throw error;
+      }
+    },
+    [loadLeads, replaceLead],
+  );
 
   const openCard = (id) => {
     setSelectedId(id);
@@ -826,10 +844,11 @@ export default function UsedCarLeadManager() {
           mkActivity("lead-created", "Lead created", "Added manually."),
         ],
       };
-      setLeads((cur) => [normalizeLeadRecord(lead), ...cur]);
+      const response = await usedCarsApi.createLead(lead);
+      replaceLead(response.data);
       setIsAddOpen(false);
       addForm.resetFields();
-      openCard(lead.id);
+      openCard(response.data.id);
       message.success("Lead added.");
     } catch {}
   };
@@ -842,37 +861,17 @@ export default function UsedCarLeadManager() {
       const evenAssignee = normText(values.evenAssignee);
       const onlyUnassigned = Boolean(values.onlyUnassigned);
       if (!from || !to || !oddAssignee || !evenAssignee) return;
-      let touched = 0;
-      setLeads((current) =>
-        current.map((lead) => {
-          const leadDate = dayjs(
-            lead.leadDate,
-            ["DD MMM YYYY", "DD-MM-YYYY", "YYYY-MM-DD"],
-            true,
-          );
-          const withinRange =
-            leadDate.isValid() &&
-            !leadDate.isBefore(dayjs(from).startOf("day")) &&
-            !leadDate.isAfter(dayjs(to).endOf("day"));
-          const assignable =
-            withinRange &&
-            (!onlyUnassigned || !normText(lead.assignedTo));
-          if (!assignable) return lead;
-          const dayNumber = leadDate.date();
-          const assignee = dayNumber % 2 === 0 ? evenAssignee : oddAssignee;
-          touched += 1;
-          return {
-            ...lead,
-            assignedTo: assignee,
-            activities: [
-              mkActivity("lead-updated", "Lead assigned", `Assigned to ${assignee}`),
-              ...(lead.activities || []),
-            ],
-          };
-        }),
-      );
+      const response = await usedCarsApi.bulkAssign({
+        from: dayjs(from).startOf("day").toISOString(),
+        to: dayjs(to).endOf("day").toISOString(),
+        oddAssignee,
+        evenAssignee,
+        onlyUnassigned,
+      });
+      await loadLeads();
       setIsAssignOpen(false);
       assignForm.resetFields();
+      const touched = Number(response?.updated || 0);
       message.success(
         touched
           ? `Assigned ${touched} lead${touched > 1 ? "s" : ""} using odd/even rule.`
@@ -888,8 +887,8 @@ export default function UsedCarLeadManager() {
         "This will empty the lead desk so you can re-import fresh data. This action only affects the browser-stored lead board.",
       okText: "Clear Leads",
       okButtonProps: { danger: true },
-      onOk: () => {
-        localStorage.removeItem(STORAGE_KEY);
+      onOk: async () => {
+        await usedCarsApi.clearLeads({ all: true });
         setLeads([]);
         setSelectedId(null);
         setDrawerOpen(false);
@@ -943,99 +942,28 @@ export default function UsedCarLeadManager() {
       }
       const header = rows[hi].map((c) => normText(c));
       const data = rows.slice(hi + 1).filter((r) => r.some((c) => normText(c)));
-      const existingLeadIds = new Set(
-        leads.map((lead) => normText(lead.leadId).toLowerCase()).filter(Boolean),
-      );
-      const existingSignatures = new Set(
-        leads.map(buildLeadSignature).filter(Boolean),
-      );
-      const seenLeadIds = new Set(existingLeadIds);
-      const seenSignatures = new Set(existingSignatures);
-      const fresh = data
-        .map((row, i) => {
-          const mapped = {};
-          header.forEach((k, ci) => {
-            mapped[normalizeHeaderKey(k)] = row[ci];
-          });
-          return {
-            id: genId("UL"),
-            name: normText(pickMapped(mapped, ["Name"])),
-            mobile: normText(pickMapped(mapped, ["Mobile"])),
-            address: [
-              normText(pickMapped(mapped, ["Area"])),
-              normText(
-                pickMapped(mapped, ["City", "Pincode City"]),
-              ),
-            ]
-              .filter(Boolean)
-              .join(", "),
-            leadDate:
-              normText(
-                firstPresent(
-                  pickMapped(mapped, ["Added Date", "Lead Date", "Status Date", "Status Updated Date"]),
-                  pickMapped(mapped, ["Date", "Created Date"]),
-                ),
-              ) || fmtDate(new Date()),
-            leadId: normText(
-              pickMapped(mapped, ["C2B Lead Id", "Lead ID"]) || `IMP-${i + 1}`,
-            ),
-            make: normText(pickMapped(mapped, ["Make"])),
-            model: normText(pickMapped(mapped, ["Model"])),
-            variant: normText(pickMapped(mapped, ["Version", "Variant"])),
-            mfgYear: normText(pickMapped(mapped, ["Mfg Year"])),
-            color: normText(pickMapped(mapped, ["Color"])),
-            mileage: normText(pickMapped(mapped, ["Mileage", "Milage"])),
-            fuel: normText(pickMapped(mapped, ["Fuel"])),
-            regNo: normText(pickMapped(mapped, ["Regno", "Reg No"])),
-            ownership: normText(pickMapped(mapped, ["Owner", "Ownership"])),
-            insurance: normText(pickMapped(mapped, ["Insurance"])),
-            insuranceCategory: normInsurance(pickMapped(mapped, ["Insurance"])),
-            hypothecation: null,
-            bankName: "",
-            accidentPaintHistory: null,
-            accidentPaintNotes: "",
-            source: normText(pickMapped(mapped, ["Source"])),
-            expectedPrice: normMoney(
-              firstPresent(
-                pickMapped(mapped, ["Expected Price"]),
-                pickMapped(mapped, ["Expected price", "Price Expected"]),
-                pickMapped(mapped, ["Expected Amount", "Price", "Quoted Price"]),
-              ),
-            ),
-            updatedExpectedPrice: null,
-            status: normStatus(pickMapped(mapped, ["Status"])),
-            pipelineStage: LEAD_DESK_STAGE,
-            assignedTo: normText(pickMapped(mapped, ["Executive Name"])),
-            nextFollowUp: null,
-            inspectionScheduledAt: null,
-            closureReason: "",
-            notes: normText(pickMapped(mapped, ["Note against status"])),
-            activities: [
-              mkActivity(
-                "lead-imported",
-                "Lead imported",
-                normText(pickMapped(mapped, ["Status"])) || "New",
-              ),
-            ],
-          };
-        })
-        .filter((lead) => {
-          const leadIdKey = normText(lead.leadId).toLowerCase();
-          const sigKey = buildLeadSignature(lead);
-          if ((leadIdKey && seenLeadIds.has(leadIdKey)) || (sigKey && seenSignatures.has(sigKey))) {
-            return false;
-          }
-          if (leadIdKey) seenLeadIds.add(leadIdKey);
-          if (sigKey) seenSignatures.add(sigKey);
-          return true;
+      const importRows = data.map((row) => {
+        const mapped = {};
+        header.forEach((key, ci) => {
+          mapped[key] = row[ci];
         });
-      if (!fresh.length) {
-        message.info("All leads already exist.");
+        return mapped;
+      });
+      const response = await usedCarsApi.importLeads({
+        leads: importRows,
+        importFileName: file.name,
+        importBatchId: `LEAD-IMPORT-${Date.now()}`,
+        importedByName: "Used Cars Lead Desk",
+      });
+      await loadLeads();
+      const imported = Number(response?.summary?.imported || 0);
+      const skipped = Number(response?.summary?.skipped || 0);
+      if (!imported) {
+        message.info(skipped ? "All leads already exist." : "No valid leads found in the file.");
         return;
       }
-      setLeads((cur) => [...fresh.map(normalizeLeadRecord), ...cur]);
       message.success(
-        `Imported ${fresh.length} new lead${fresh.length > 1 ? "s" : ""}.`,
+        `Imported ${imported} new lead${imported > 1 ? "s" : ""}${skipped ? ` • ${skipped} skipped as duplicates` : ""}.`,
       );
     } catch (e) {
       message.error(e.message || "Import failed.");
@@ -1045,6 +973,14 @@ export default function UsedCarLeadManager() {
   };
 
   const colMeta = selected ? getColMeta(selected.status) : null;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[55vh] items-center justify-center rounded-[32px] border border-slate-200 bg-white text-sm font-semibold text-slate-500 dark:border-white/10 dark:bg-black dark:text-slate-300">
+        Loading used car leads...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1207,40 +1143,51 @@ export default function UsedCarLeadManager() {
           zIndex: 50,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
             style={{
-              width: 30,
-              height: 30,
-              background: "linear-gradient(135deg,#6366f1,#0ea5e9)",
-              borderRadius: 8,
+              width: 28,
+              height: 28,
+              background: "linear-gradient(135deg,#4f46e5,#0ea5e9)",
+              borderRadius: 9,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <CarOutlined style={{ color: "#fff", fontSize: 15 }} />
+            <CarOutlined style={{ color: "#fff", fontSize: 14 }} />
           </div>
-          <span
-            style={{
-              fontWeight: 800,
-              fontSize: 16,
-              color: themeTokens.textStrong,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Lead Pipeline
-          </span>
-          <span style={{ fontSize: 11, color: themeTokens.textMuted, fontWeight: 600 }}>
-            Used Car Procurement
-          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <span
+              style={{
+                fontWeight: 800,
+                fontSize: 15,
+                color: themeTokens.textStrong,
+                letterSpacing: "-0.02em",
+                lineHeight: 1.1,
+              }}
+            >
+              Lead Pipeline
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                color: themeTokens.textMuted,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+              }}
+            >
+              Used Car Procurement Desk
+            </span>
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <Button
             size="small"
             icon={<PhoneOutlined />}
             onClick={handleWorkNextLead}
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 12, fontWeight: 700, borderRadius: 10 }}
           >
             Start Calling Queue
           </Button>
@@ -1258,7 +1205,7 @@ export default function UsedCarLeadManager() {
               if (fileRef.current) fileRef.current.value = "";
               fileRef.current?.click();
             }}
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 12, borderRadius: 10 }}
           >
             Import
           </Button>
@@ -1273,7 +1220,7 @@ export default function UsedCarLeadManager() {
               });
               setIsAssignOpen(true);
             }}
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 12, borderRadius: 10 }}
           >
             Assign Leads
           </Button>
@@ -1281,7 +1228,7 @@ export default function UsedCarLeadManager() {
             size="small"
             danger
             onClick={handleClearLeads}
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 12, borderRadius: 10 }}
           >
             Clear Leads
           </Button>
@@ -1294,6 +1241,7 @@ export default function UsedCarLeadManager() {
               background: "linear-gradient(135deg,#6366f1,#4f46e5)",
               border: "none",
               fontSize: 12,
+              borderRadius: 10,
             }}
           >
             Add Lead
@@ -1306,7 +1254,7 @@ export default function UsedCarLeadManager() {
         style={{
           background: themeTokens.topNavBg,
           borderBottom: `1px solid ${themeTokens.panelBorder}`,
-          padding: "14px 24px 16px",
+          padding: "12px 24px 14px",
         }}
       >
         <div
@@ -1337,10 +1285,10 @@ export default function UsedCarLeadManager() {
                   width: "100%",
                   borderRadius: 24,
                   fontSize: 12,
-                  border: `1px solid ${isDarkMode ? "#475569" : "#94a3b8"}`,
+                  border: `1px solid ${isDarkMode ? "#64748b" : "#64748b"}`,
                   boxShadow: isDarkMode
-                    ? "0 0 0 1px rgba(71,85,105,0.18)"
-                    : "0 0 0 1px rgba(148,163,184,0.14)",
+                    ? "0 0 0 1px rgba(100,116,139,0.34)"
+                    : "0 0 0 1px rgba(100,116,139,0.18)",
                 }}
                 size="small"
               />

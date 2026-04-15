@@ -1,24 +1,5 @@
 import { apiClient } from "./client";
 
-const parseUploadResponse = async (res) => {
-  const text = await res.text();
-  let data = {};
-
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = {};
-  }
-
-  if (!res.ok) {
-    throw new Error(
-      data?.message || data?.error || text || "File upload request failed",
-    );
-  }
-
-  return data;
-};
-
 export const uploadSingleFile = async (file) => {
   if (!file) throw new Error("No file selected for upload");
 
@@ -36,4 +17,20 @@ export const uploadSingleFile = async (file) => {
     ...first,
     secure_url: first.url,
   };
+};
+
+export const uploadMultipleFiles = async (files = []) => {
+  const validFiles = Array.from(files || []).filter(Boolean);
+  if (!validFiles.length) throw new Error("No files selected for upload");
+
+  const formData = new FormData();
+  validFiles.forEach((file) => formData.append("files", file));
+
+  const payload = await apiClient.upload("/api/upload", formData);
+  const uploaded = Array.isArray(payload?.data) ? payload.data : [];
+
+  return uploaded.map((file) => ({
+    ...file,
+    secure_url: file.url,
+  }));
 };
