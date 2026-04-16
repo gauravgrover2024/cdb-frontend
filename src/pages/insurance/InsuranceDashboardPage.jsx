@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, PencilLine, Trash2, Eye, ShieldCheck, RefreshCw } from "lucide-react";
+import { Plus, PencilLine, Trash2, Eye, ShieldCheck, RefreshCw, Zap, ShieldPlus } from "lucide-react";
 import {
   Alert,
   Button,
@@ -9,6 +9,7 @@ import {
   message,
   Pagination,
   Popconfirm,
+  Space,
   Tag,
   Tooltip,
   Typography,
@@ -266,6 +267,19 @@ const InsuranceDashboardPage = () => {
     [navigate],
   );
 
+  const handleExtendCase = useCallback(
+    (record) => {
+      const id = getCaseId(record);
+      if (!id) {
+        message.error("Invalid case ID");
+        return;
+      }
+      // Navigate to new case form with extend flag
+      navigate(`/insurance/new?renewFrom=${id}&extend=true`);
+    },
+    [navigate],
+  );
+
   const stats = useMemo(() => {
     const total = cases.length;
     const draftCount = cases.filter((c) => c.status === "draft").length;
@@ -356,15 +370,24 @@ const InsuranceDashboardPage = () => {
               </div>
             </div>
 
-            <Button
-              type="primary"
-              size="large"
-              icon={<Plus size={18} />}
-              onClick={() => navigate("/insurance/new")}
-              className="w-full shrink-0 sm:w-auto"
-            >
-              New Insurance Case
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                icon={<RefreshCw size={18} />}
+                onClick={() => setPolicyFilter("renewal30")}
+                className="hidden sm:inline-flex"
+              >
+                Due for Renewal
+              </Button>
+              <Button
+                type="primary"
+                size="large"
+                icon={<Plus size={18} />}
+                onClick={() => navigate("/insurance/new")}
+                className="w-full shrink-0 sm:w-auto"
+              >
+                New Insurance Case
+              </Button>
+            </div>
           </div>
         </section>
 
@@ -853,56 +876,63 @@ const InsuranceDashboardPage = () => {
                             </div>
                           </div>
                         </section>
-                        <div className="mt-2 flex flex-wrap items-center justify-end gap-1 border-t border-slate-200/70 pt-2 dark:border-slate-800">
-                          {!isDraft && (
-                            <Tooltip title="Renew policy">
-                              <button
-                                type="button"
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
-                                onClick={() => handleRenewCase(record)}
-                              >
-                                <RefreshCw size={14} />
-                              </button>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="View details">
-                            <button
-                              type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-sky-700 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300"
-                              onClick={() => {
-                                setSelectedCase(record);
-                                setPreviewVisible(true);
-                              }}
-                            >
-                              <Eye size={14} />
-                            </button>
-                          </Tooltip>
-                          <Tooltip title={isDraft ? "Continue case" : "Edit case"}>
-                            <button
-                              type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300"
-                              onClick={() => navigate(`/insurance/edit/${id}`)}
-                            >
-                              <PencilLine size={14} />
-                            </button>
-                          </Tooltip>
-                          <Popconfirm
-                            title="Delete case"
-                            description={`Delete "${record.caseId}"? This cannot be undone.`}
-                            onConfirm={() => handleDeleteCase(id, record.caseId)}
-                            okText="Delete"
-                            okType="danger"
-                            cancelText="Cancel"
+                        <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200/70 pt-3 dark:border-slate-800">
+                          <Button
+                            size="small"
+                            icon={<RefreshCw size={14} />}
+                            onClick={() => handleRenewCase(record)}
+                            className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
                           >
-                            <Tooltip title="Delete">
+                            Renew Policy
+                          </Button>
+                          <Button
+                            size="small"
+                            icon={<Zap size={14} />}
+                            onClick={() => handleExtendCase(record)}
+                            className="border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300"
+                          >
+                            Extend Policy
+                          </Button>
+                          <Space size={4}>
+                            <Tooltip title="View details">
                               <button
                                 type="button"
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                                className="flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-sky-700 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300"
+                                onClick={() => {
+                                  setSelectedCase(record);
+                                  setPreviewVisible(true);
+                                }}
                               >
-                                <Trash2 size={14} />
+                                <Eye size={14} />
                               </button>
                             </Tooltip>
-                          </Popconfirm>
+                            <Tooltip title={isDraft ? "Continue case" : "Edit case"}>
+                              <button
+                                type="button"
+                                className="flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300"
+                                onClick={() => navigate(`/insurance/edit/${id}`)}
+                              >
+                                <PencilLine size={14} />
+                              </button>
+                            </Tooltip>
+                            <Popconfirm
+                              title="Delete case"
+                              description={`Delete "${record.caseId}"? This cannot be undone.`}
+                              onConfirm={() => handleDeleteCase(id, record.caseId)}
+                              okText="Delete"
+                              okType="danger"
+                              cancelText="Cancel"
+                            >
+                              <Tooltip title="Delete">
+                                <button
+                                  type="button"
+                                  className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </Tooltip>
+                            </Popconfirm>
+                          </Space>
                         </div>
                       </div>
                     </article>

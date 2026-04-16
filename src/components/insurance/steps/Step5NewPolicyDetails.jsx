@@ -33,15 +33,60 @@ const Step5NewPolicyDetails = ({
 }) => {
   return (
     <Card size="small" title="New Policy Details" bordered>
-      {!acceptedQuote ? (
-        <Alert
-          type="warning"
-          showIcon
-          message="No accepted quote selected yet."
-          description="Please accept a quote in Step 4 to auto-fill policy details."
-          style={{ marginBottom: 12 }}
-        />
-      ) : null}
+      ) : null }
+      <Card
+        size="small"
+        title="Vehicle Pricing Info"
+        bordered={false}
+        className="mb-4 bg-slate-50/50 dark:bg-slate-900/30"
+      >
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={8}>
+            <Text strong>Ex-Showroom Price (₹) *</Text>
+            <InputNumber
+              min={0}
+              value={Number(formData.exShowroomPrice || 0)}
+              onChange={(v) => setField("exShowroomPrice", Number(v || 0))}
+              style={{ width: "100%", marginTop: 6 }}
+              placeholder="0.00"
+            />
+          </Col>
+          {formData.vehicleType === "New Car" ? (
+            <Col xs={24} md={8}>
+              <Text strong>Date of Sale *</Text>
+              <Input
+                type="date"
+                value={formData.dateOfSale}
+                onChange={handleChange("dateOfSale")}
+                style={{ marginTop: 6 }}
+              />
+            </Col>
+          ) : (
+            <>
+              <Col xs={24} md={8}>
+                <Text strong>Date of Purchase *</Text>
+                <Input
+                  type="date"
+                  value={formData.dateOfPurchase}
+                  onChange={handleChange("dateOfPurchase")}
+                  style={{ marginTop: 6 }}
+                />
+              </Col>
+              <Col xs={24} md={8}>
+                <Text strong>Current Odometer Reading *</Text>
+                <InputNumber
+                  min={0}
+                  value={Number(formData.odometerReading || 0)}
+                  onChange={(v) => setField("odometerReading", Number(v || 0))}
+                  style={{ width: "100%", marginTop: 6 }}
+                  placeholder="Kms"
+                />
+              </Col>
+            </>
+          )}
+        </Row>
+      </Card>
+
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
           <Text strong>Insurance Company *</Text>
@@ -268,6 +313,46 @@ const Step5NewPolicyDetails = ({
           />
         </Col>
       </Row>
+
+      <Divider style={{ marginBlock: 16 }} />
+
+      <Card
+        size="small"
+        title="Extended Warranty Details"
+        bordered={false}
+        className="mb-4 bg-amber-50/50 dark:bg-amber-900/10"
+      >
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={8}>
+            <Text strong>EW Commencement Date</Text>
+            <Input
+              type="date"
+              value={formData.ewCommencementDate}
+              onChange={handleChange("ewCommencementDate")}
+              style={{ marginTop: 6 }}
+            />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text strong>EW Expiry Date</Text>
+            <Input
+              type="date"
+              value={formData.ewExpiryDate}
+              onChange={handleChange("ewExpiryDate")}
+              style={{ marginTop: 6 }}
+            />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text strong>Kms Coverage</Text>
+            <InputNumber
+              min={0}
+              value={Number(formData.kmsCoverage || 0)}
+              onChange={(v) => setField("kmsCoverage", Number(v || 0))}
+              style={{ width: "100%", marginTop: 6 }}
+              placeholder="e.g. 100000"
+            />
+          </Col>
+        </Row>
+      </Card>
 
       <Divider style={{ marginBlock: 16 }} />
 

@@ -22,6 +22,7 @@ export const STEP_TITLES = [
   "Step 5: New Policy Details",
   "Step 6: Documents",
   "Step 7: Payment",
+  "Step 8: Payout Details",
 ];
 
 export const STEP_ICON_MAP = {
@@ -32,6 +33,7 @@ export const STEP_ICON_MAP = {
   5: FileCheck2,
   6: FolderOpen,
   7: Wallet,
+  8: CreditCard,
 };
 
 export const durationOptions = [

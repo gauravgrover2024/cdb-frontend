@@ -31,6 +31,7 @@ import Step4InsuranceQuotes from "./steps/Step4InsuranceQuotes";
 import Step5NewPolicyDetails from "./steps/Step5NewPolicyDetails";
 import Step6Documents from "./steps/Step6Documents";
 import Step7Payment from "./steps/Step7Payment";
+import Step8Payout from "./steps/Step8Payout";
 import {
   STEP_TITLES,
   STEP_ICON_MAP,
@@ -55,10 +56,11 @@ const initialFormState = {
   vehicleType: "New Car",
   policyDoneBy: "Autocredits India LLP",
   brokerName: "",
-  sourceOrigin: "",
   employeeName: "",
-  /** Selected system user id when picked from employees list */
   employeeUserId: "",
+  sourceOrigin: "",
+  referenceName: "",
+  referencePhone: "",
 
   customerName: "",
   companyName: "",
@@ -88,8 +90,14 @@ const initialFormState = {
   engineNumber: "",
   chassisNumber: "",
   typesOfVehicle: "Four Wheeler",
-  manufactureMonth: "",
   manufactureYear: "",
+  manufactureDate: "",
+  regAuthority: "",
+  dateOfReg: "",
+  fuelType: "",
+  batteryNumber: "",
+  chargerNumber: "",
+  hypothecation: "",
 
   previousInsuranceCompany: "Bajaj General Insurance Limited",
   previousPolicyNumber: "",
@@ -117,6 +125,22 @@ const initialFormState = {
   subventionAmount: 0,
   newHypothecation: "Not Applicable",
   newRemarks: "",
+
+  // New fields for upgrade
+  exShowroomPrice: 0,
+  dateOfSale: "",
+  dateOfPurchase: "",
+  odometerReading: 0,
+  policyPurchaseDate: "",
+
+  // Extended Warranty
+  ewCommencementDate: "",
+  ewExpiryDate: "",
+  kmsCoverage: 0,
+
+  // Payout Details
+  insurance_receivables: [],
+  insurance_payables: [],
 
   customerPaymentExpected: 0,
   customerPaymentReceived: 0,
@@ -354,56 +378,63 @@ const calcExpiryDate = (startDate, years) => {
 const validateStep1 = (data) => {
   const errors = {};
   const isCompany = data.buyerType === "Company";
-  if (!data.employeeName.trim())
+  if (!(data.employeeName || "").trim())
     errors.employeeName = "Employee name is required";
-  if (!data.mobile.trim()) errors.mobile = "Mobile number is required";
-  else if (!/^\d{10}$/.test(data.mobile.trim()))
+  if (!(data.mobile || "").trim()) errors.mobile = "Mobile number is required";
+  else if (!/^\d{10}$/.test((data.mobile || "").trim()))
     errors.mobile = "Enter a valid 10-digit mobile number";
   if (
-    data.alternatePhone.trim() &&
-    !/^\d{10}$/.test(data.alternatePhone.trim())
+    (data.alternatePhone || "").trim() &&
+    !/^\d{10}$/.test((data.alternatePhone || "").trim())
   )
     errors.alternatePhone = "Enter a valid 10-digit alternate number";
-  if (!data.email.trim()) errors.email = "Email address is required";
-  if (!data.pincode.trim()) errors.pincode = "Pincode is required";
-  else if (!/^\d{6}$/.test(data.pincode.trim()))
+  if (!(data.email || "").trim()) errors.email = "Email address is required";
+  if (!(data.pincode || "").trim()) errors.pincode = "Pincode is required";
+  else if (!/^\d{6}$/.test((data.pincode || "").trim()))
     errors.pincode = "Enter a valid 6-digit pincode";
-  if (!data.city.trim()) errors.city = "City is required";
+  if (!(data.city || "").trim()) errors.city = "City is required";
   if (isCompany) {
-    if (!data.companyName.trim())
+    if (!(data.companyName || "").trim())
       errors.companyName = "Company name is required";
-    if (!data.contactPersonName.trim())
+    if (!(data.contactPersonName || "").trim())
       errors.contactPersonName = "Contact person name is required";
-    if (!data.panNumber.trim()) errors.panNumber = "PAN number is required";
-    if (!data.residenceAddress.trim())
+    if (!(data.panNumber || "").trim()) errors.panNumber = "PAN number is required";
+    if (!(data.residenceAddress || "").trim())
       errors.residenceAddress = "Residence address is required";
   } else {
-    if (!data.customerName.trim())
+    if (!(data.customerName || "").trim())
       errors.customerName = "Customer name is required";
-    if (!data.gender.trim()) errors.gender = "Gender is required";
-    if (!data.residenceAddress.trim())
+    if (!(data.gender || "").trim()) errors.gender = "Gender is required";
+    if (!(data.residenceAddress || "").trim())
       errors.residenceAddress = "Residence address is required";
   }
+
+  if ((data.referenceName || "").trim() && !(data.referencePhone || "").trim()) {
+    errors.referencePhone = "Reference mobile is required if name is provided";
+  }
+
   return errors;
 };
 
 const validateStep2 = (data) => {
   const errors = {};
-  if (!data.registrationNumber.trim())
+  if (!(data.registrationNumber || "").trim())
     errors.registrationNumber = "Registration number is required";
-  if (!data.vehicleMake.trim()) errors.vehicleMake = "Vehicle make is required";
-  if (!data.vehicleModel.trim())
+  if (!(data.vehicleMake || "").trim()) errors.vehicleMake = "Vehicle make is required";
+  if (!(data.vehicleModel || "").trim())
     errors.vehicleModel = "Vehicle model is required";
-  if (!data.vehicleVariant.trim())
+  if (!(data.vehicleVariant || "").trim())
     errors.vehicleVariant = "Vehicle variant is required";
-  if (!data.engineNumber.trim())
+  if (!(data.engineNumber || "").trim())
     errors.engineNumber = "Engine number is required";
-  if (!data.chassisNumber.trim())
+  if (!(data.chassisNumber || "").trim())
     errors.chassisNumber = "Chassis number is required";
-  if (!data.manufactureMonth.trim())
-    errors.manufactureMonth = "Manufacture month is required";
-  if (!data.manufactureYear.trim())
+  if (!(data.manufactureYear || "").trim())
     errors.manufactureYear = "Manufacture year is required";
+  // Updated to use manufactureDate instead of manufactureMonth
+  if (!(data.manufactureDate || "").trim())
+    errors.manufactureDate = "Manufacture date is required";
+
   return errors;
 };
 
@@ -1099,7 +1130,7 @@ const NewInsuranceCaseForm = ({
     if (!handleStepValidation()) return;
     setStep((prev) => {
       if (isNewCar && prev === 2) return 4;
-      return Math.min(prev + 1, 6);
+      return Math.min(prev + 1, 8);
     });
     setShowErrors(false);
     // persistNow({ silent: true }); // Auto-save disabled
@@ -1339,27 +1370,56 @@ const NewInsuranceCaseForm = ({
   return (
     <Card bordered>
       <Space direction="vertical" size={16} style={{ width: "100%" }}>
-        <div>
-          <span className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
-            <CurrentStepIcon size={16} />
-          </span>
-          <Title level={4} style={{ margin: 0 }}>
-            {currentStepTitle}
-          </Title>
-          <Text type="secondary">{stepHelpText}</Text>
-        </div>
+      <div className="mb-6 rounded-2xl border border-slate-200/70 bg-white/50 p-5 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/50">
+        <Row gutter={[16, 16]} align="middle">
+          <Col flex="48px">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-700 shadow-sm dark:bg-sky-900/30 dark:text-sky-400">
+              <CurrentStepIcon size={24} />
+            </div>
+          </Col>
+          <Col flex="auto">
+            <h1 className="m-0 text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+              {currentStepTitle}
+            </h1>
+            <Text type="secondary" className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              {stepHelpText}
+            </Text>
+          </Col>
+          <Col xs={24} md={12}>
+            <div className="flex items-center justify-end rounded-lg bg-slate-100/50 p-1 dark:bg-slate-800/50">
+              {/* Optional progress indicator or global status can go here */}
+              <div className="px-3">
+                <Text type="secondary" className="text-[10px] font-bold uppercase tracking-widest">
+                  Step {step} of {visibleSteps.length + (isNewCar ? 0 : 1)}
+                </Text>
+              </div>
+            </div>
+          </Col>
+        </Row>
+      </div>
 
+      <div className="mb-8 overflow-x-auto rounded-2xl border border-slate-200/70 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-950">
         <Steps
+          type="navigation"
+          size="small"
           current={stepIndex}
+          className="custom-steps-nav"
           items={visibleSteps.map((s) => {
             const StepIcon = STEP_ICON_MAP[s.originalStep] || CreditCard;
             return {
-              title: s.title.replace(/^Step\s*\d+\s*:\s*/i, ""),
+              title: (
+                <span className="text-[11px] font-bold uppercase tracking-tight">
+                  {s.title.replace(/^Step\s*\d+\s*:\s*/i, "")}
+                </span>
+              ),
               icon: <StepIcon size={14} />,
               onClick: () => setStep(s.originalStep),
+              status: step === s.originalStep ? "process" : step > s.originalStep ? "finish" : "wait",
             };
           })}
+          style={{ paddingBlock: 4 }}
         />
+      </div>
 
         {stepErrorsAlert}
 
@@ -1471,6 +1531,15 @@ const NewInsuranceCaseForm = ({
             />
           )}
 
+          {step === 8 && (
+            <Step8Payout
+              formData={formData}
+              setField={setField}
+              setFormData={setFormData}
+              schedulePersist={schedulePersist}
+            />
+          )}
+
           {step === 6 && (
             <Step6Documents
               documents={documents}
@@ -1514,7 +1583,7 @@ const NewInsuranceCaseForm = ({
               </Space>
             </Col>
             <Col>
-              {step < 6 ? (
+              {step < 8 ? (
                 <Button type="primary" onClick={goNext}>
                   Next
                 </Button>

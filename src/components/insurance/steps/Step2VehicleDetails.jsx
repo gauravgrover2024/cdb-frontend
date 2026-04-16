@@ -111,6 +111,25 @@ const Step2VehicleDetails = ({
             <Text type="danger">{step2Errors.registrationNumber}</Text>
           ) : null}
         </Col>
+        <Col xs={24} md={12}>
+          <Text strong>Registration Authority</Text>
+          <Input
+            value={formData.regAuthority}
+            onChange={handleChange("regAuthority")}
+            style={{ marginTop: 6 }}
+            placeholder="e.g. DL-01"
+          />
+        </Col>
+        <Col xs={24} md={12}>
+          <Text strong>Date of Registration</Text>
+          <Input
+            type="date"
+            value={formData.dateOfReg}
+            onChange={handleChange("dateOfReg")}
+            style={{ marginTop: 6 }}
+          />
+        </Col>
+
         <Col xs={24}>
           <Text strong>Search Car (Make / Model)</Text>
           <AutoComplete
@@ -289,14 +308,46 @@ const Step2VehicleDetails = ({
               style={{ marginTop: 6 }}
               placeholder="Optional"
             />
-            {formData.cubicCapacity &&
-              vehicleSearchOptions.length > 0 && (
-                <Text type="success" style={{ fontSize: 12 }}>
-                  ✓ Auto-filled from search
-                </Text>
-              )}
           </Space>
         </Col>
+        <Col xs={24} md={12}>
+          <Text strong>Fuel Type</Text>
+          <Select
+            value={formData.fuelType || undefined}
+            onChange={(v) => setField("fuelType", v)}
+            style={{ width: "100%", marginTop: 6 }}
+            placeholder="Select fuel type"
+            options={[
+              { label: "Petrol", value: "Petrol" },
+              { label: "Diesel", value: "Diesel" },
+              { label: "Petrol + CNG", value: "Petrol + CNG" },
+              { label: "EV", value: "EV" },
+              { label: "Other", value: "Other" },
+            ]}
+          />
+        </Col>
+        {formData.fuelType === "EV" && (
+          <>
+            <Col xs={24} md={12}>
+              <Text strong>Battery Number</Text>
+              <Input
+                value={formData.batteryNumber}
+                onChange={handleChange("batteryNumber")}
+                style={{ marginTop: 6 }}
+                placeholder="Enter battery number"
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text strong>Charger Number</Text>
+              <Input
+                value={formData.chargerNumber}
+                onChange={handleChange("chargerNumber")}
+                style={{ marginTop: 6 }}
+                placeholder="Enter charger number"
+              />
+            </Col>
+          </>
+        )}
         <Col xs={24} md={12}>
           <Text strong>Engine Number *</Text>
           <Input
@@ -366,6 +417,25 @@ const Step2VehicleDetails = ({
             <Text type="danger">{step2Errors.manufactureYear}</Text>
           ) : null}
         </Col>
+        <Col xs={24} md={12}>
+          <Text strong>Manufacture Date</Text>
+          <Input
+            type="date"
+            value={formData.manufactureDate}
+            onChange={handleChange("manufactureDate")}
+            style={{ marginTop: 6 }}
+          />
+        </Col>
+        <Col xs={24} md={12}>
+          <Text strong>Hypothecation</Text>
+          <Input
+            value={formData.hypothecation}
+            onChange={handleChange("hypothecation")}
+            style={{ marginTop: 6 }}
+            placeholder="Financier name (if any)"
+          />
+        </Col>
+
       </Row>
       <Divider style={{ marginBlock: 12 }} />
       <Alert

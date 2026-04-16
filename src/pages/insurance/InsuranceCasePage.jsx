@@ -21,6 +21,7 @@ const InsuranceCasePage = () => {
 
   const queryParams = new URLSearchParams(location.search);
   const renewFromId = queryParams.get("renewFrom");
+  const isExtendMode = queryParams.get("extend") === "true";
   const isRenewalMode = Boolean(renewFromId);
 
   const initialValues = useMemo(() => {
@@ -61,6 +62,17 @@ const InsuranceCasePage = () => {
         inhousePaymentExpected: 0,
         inhousePaymentReceived: 0,
         paymentHistory: [],
+        // Reset pricing and payout fields for renewal
+        exShowroomPrice: renewFromCase.exShowroomPrice || 0,
+        dateOfSale: renewFromCase.dateOfSale || "",
+        dateOfPurchase: renewFromCase.dateOfPurchase || "",
+        odometerReading: renewFromCase.odometerReading || 0,
+        policyPurchaseDate: "",
+        ewCommencementDate: "",
+        ewExpiryDate: "",
+        kmsCoverage: 0,
+        insurance_receivables: [],
+        insurance_payables: [],
       };
     }
     return loadedCase || stateSeed || null;
@@ -146,11 +158,13 @@ const InsuranceCasePage = () => {
                 Insurance Case
               </Text>
               <h1 className="text-xl font-semibold text-foreground">
-                {isRenewalMode
-                  ? "Renew Insurance Policy"
-                  : isEditMode
-                    ? `Edit Case — ${caseId}`
-                    : "New Insurance Case"}
+                {isExtendMode
+                  ? "Extend Insurance/Warranty"
+                  : isRenewalMode
+                    ? "Renew Insurance Policy"
+                    : isEditMode
+                      ? `Edit Case — ${caseId}`
+                      : "New Insurance Case"}
               </h1>
               {isEditMode && !isRenewalMode ? (
                 <Text type="secondary">
@@ -172,8 +186,12 @@ const InsuranceCasePage = () => {
             <Alert
               type="info"
               showIcon
-              message="Renewal Mode"
-              description="Customer, vehicle, and previous policy details copied. Select 'Claim Taken Last Year' in Step 3, then proceed to quotations."
+              message={isExtendMode ? "Extension Mode" : "Renewal Mode"}
+              description={
+                isExtendMode
+                  ? "Customer and vehicle details copied. Proceed to Step 5 to add Extended Warranty details."
+                  : "Customer, vehicle, and previous policy details copied. Select 'Claim Taken Last Year' in Step 3, then proceed to quotations."
+              }
             />
           ) : null}
 

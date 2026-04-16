@@ -36,6 +36,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { loansApi } from "../../../../../api/loans";
+import { insuranceApi } from "../../../../../api/insurance";
 import { paymentsApi } from "../../../../../api/payments";
 import { deliveryOrdersApi } from "../../../../../api/deliveryOrders";
 import { buildPaymentCaseSnapshot } from "../../../../payments/utils/paymentCaseSnapshot";
@@ -153,7 +154,7 @@ const AUTO_COMMISSION_META_SOURCE = "payments_negative_balance_commission_auto";
 const COLLECTIONS_AUTO_PAYMENT_KEY_PREFIX =
   "collections_commission_receivable:";
 const normalizePayoutId = (row = {}) =>
-  String(row?.payoutId || row?.id || "").trim();
+  String(row?.payoutId || row?.id || row?._id || "").trim();
 
 const stripReceivableRuntimeFields = (row = {}) => {
   const {
@@ -340,6 +341,19 @@ const calculateDaysPending = (receivedDate, createdDate) => {
   const start = createdDate ? dayjs(createdDate) : dayjs();
   const today = dayjs();
   return today.diff(start, "day");
+};
+
+const addActivityLog = (existingLog, action, details) => {
+  const log = safeArray(existingLog);
+  return [
+    ...log,
+    {
+      timestamp: new Date().toISOString(),
+      action,
+      details,
+      date: dayjs().format("DD MMM YYYY, hh:mm A"),
+    },
+  ];
 };
 
 const toUiStatus = (rawStatus, paymentStatus) => {
@@ -995,9 +1009,26 @@ const MiniMetric = ({
 /* ==============================
    Component
 ============================== */
+
+const isFlattenedReceivable = (obj) => {
+  if (!obj) return false;
+  // A flattened receivable from the 'receivables' collection has payout_direction/payout_type at the top level
+  // and NO 'loan_receivables' array.
+  return (
+    obj.payoutId &&
+    obj.payout_direction &&
+    !obj.loan_receivables &&
+    !obj.insurance_receivables
+  );
+};
+
 const PayoutReceivablesDashboard = () => {
   const [messageApi, messageContextHolder] = message.useMessage();
+  const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [insuranceCases, setInsuranceCases] = useState([]);
+  const [moduleFilter, setModuleFilter] = useState("All"); // "All" | "Finance" | "Insurance"
   const [statusFilter, setStatusFilter] = useState("All");
   const [bankFilter, setBankFilter] = useState("All");
   const [searchText, setSearchText] = useState("");
@@ -1199,8 +1230,12 @@ const PayoutReceivablesDashboard = () => {
 
   const loadReceivables = async () => {
     try {
+      setLoading(true);
       let allLoans = [];
+      let allInsurance = [];
       let usedFastCollectionsEndpoint = false;
+
+      // 1. Fetch Loans & Receivables
       try {
         const fastRes = await loansApi.getCollectionsReceivables({
           limit: 12000,
@@ -1212,23 +1247,15 @@ const PayoutReceivablesDashboard = () => {
           usedFastCollectionsEndpoint = true;
         }
       } catch (_) {
-        // Graceful fallback for older backend deployments that don't have
-        // /api/loans/collections/receivables yet.
+        // Fallback
       }
 
       if (!usedFastCollectionsEndpoint) {
         const pageSize = 300;
         let skip = 0;
         let hasMore = true;
-
         while (hasMore) {
-          const res = await loansApi.getAll({
-            limit: pageSize,
-            skip,
-            noCount: true,
-            sortBy: "leadDate",
-            sortDir: "desc",
-          });
+          const res = await loansApi.getAll({ limit: pageSize, skip, noCount: true });
           const pageLoans = safeArray(res?.data);
           allLoans.push(...pageLoans);
           hasMore = Boolean(res?.hasMore);
@@ -1236,53 +1263,68 @@ const PayoutReceivablesDashboard = () => {
         }
       }
 
-      const receivables = allLoans.flatMap((loan) => {
-        const receivableList = collectReceivableRows(loan);
-        const derivedBankReceivable =
-          buildMissingBankReceivableFromDisbursedBank(loan, receivableList);
-        const mergedRows = derivedBankReceivable
-          ? [...receivableList, derivedBankReceivable]
-          : receivableList;
+      // 2. Fetch Insurance Cases
+      try {
+        const insuranceRes = await insuranceApi.getAll({ limit: 500 });
+        allInsurance = safeArray(insuranceRes?.data);
+      } catch (err) {
+        console.error("Failed to load insurance cases:", err);
+      }
 
-        return mergedRows.map((p) => ({
+      // 3. Process Loan Sources
+      const loanReceivables = allLoans.flatMap((obj) => {
+        if (isFlattenedReceivable(obj)) {
+          // It's already a receivable from the 'receivables' collection
+          return [obj];
+        }
+        // It's a full Loan object
+        const list = collectReceivableRows(obj);
+        const derived = buildMissingBankReceivableFromDisbursedBank(obj, list);
+        return (derived ? [...list, derived] : list).map((p) => ({
           ...p,
-          payoutId: p?.payoutId || p?.id,
-          id: p?.id || p?.payoutId,
-          loanId: loan.loanId || loan.id || "-",
-          loanMongoId: loan._id || loan.id,
-          disbursementDate: firstValidDate(
-            loan?.disbursement_date,
-            loan?.approval_disbursedDate,
-            loan?.disbursedDate,
-            loan?.disbursementDate,
-            loan?.approval_banksData?.[0]?.disbursedDate,
-          ),
-          deliveryDate: firstValidDate(
-            loan?.delivery_date,
-            loan?.deliveryDate,
-            loan?.vehicleDeliveryDate,
-            loan?.postfile_delivery_date,
-            loan?.postfile_deliveryDate,
-          ),
-          customerName: getCustomerNameFromLoan(loan),
-          payment_history: safeArray(p.payment_history),
-          activity_log: safeArray(p.activity_log),
-          created_date:
-            String(p?.meta_source || "").trim() === AUTO_COMMISSION_META_SOURCE
-              ? firstValidDate(
-                  loan?.delivery_date,
-                  loan?.deliveryDate,
-                  loan?.vehicleDeliveryDate,
-                  loan?.approval_disbursedDate,
-                  getCreatedDate(p),
-                )
-              : getCreatedDate(p),
+          loanId: obj.loanId || obj.id || "-",
+          loanMongoId: obj._id || obj.id,
+          customerName: getCustomerNameFromLoan(obj),
+          dealerName: obj.dealerName || obj.delivery_dealerName || "-",
+        }));
+      }).map(r => ({ ...r, __sourceModule: "Finance" }));
+
+      // 4. Process Insurance Sources
+      const insuranceReceivables = allInsurance.flatMap((ic) => {
+        const list = safeArray(ic.insurance_receivables || ic.receivables);
+        return list.map((r) => ({
+          ...r,
+          __sourceModule: "Insurance",
+          loanId: ic.caseId || "-",
+          insuranceMongoId: ic._id,
+          customerName: ic.customerName || ic.customerSnapshot?.customerName || "-",
+          dealerName: ic.newInsuranceCompany || "-",
+          payment_history: safeArray(r.payment_history),
+          activity_log: safeArray(r.activity_log),
+          created_date: r.created_date || ic.createdAt,
         }));
       });
-      setRows(receivables);
+
+      const combined = [...loanReceivables, ...insuranceReceivables].map(p => ({
+        ...p,
+        payoutId: p?.payoutId || p?.id,
+        id: p?.id || p?.payoutId,
+        payment_history: safeArray(p.payment_history),
+        activity_log: safeArray(p.activity_log),
+      })).sort((a, b) => {
+        const dateA = dayjs(getCreatedDate(a) || 0);
+        const dateB = dayjs(getCreatedDate(b) || 0);
+        return dateB.diff(dateA);
+      });
+
+      setLoans(allLoans);
+      setInsuranceCases(allInsurance);
+      setRows(combined);
     } catch (err) {
       console.error("Failed to load receivables:", err);
       messageApi.error("Failed to load receivables");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1294,86 +1336,59 @@ const PayoutReceivablesDashboard = () => {
     payoutId,
     patch,
     activityAction = null,
-    options = {},
   ) => {
-    const shouldReload = options?.reload !== false;
-    const normalizedPayoutId = String(payoutId || "").trim();
-    if (!normalizedPayoutId) return;
-    const sourceMatch = rows.find(
-      (row) => normalizePayoutId(row) === normalizedPayoutId,
-    );
-    if (!sourceMatch?.loanId) return;
+    const normalizedId = String(payoutId || "").trim();
+    const sourceMatch = rows.find((r) => normalizePayoutId(r) === normalizedId);
+    if (!sourceMatch) return;
 
+    const isInsurance = sourceMatch.__sourceModule === "Insurance";
+
+    if (isInsurance) {
+      const targetIc = insuranceCases.find((ic) => ic._id === sourceMatch.insuranceMongoId);
+      if (!targetIc) return;
+
+      const updatedList = safeArray(targetIc.insurance_receivables).map((p) => {
+        if (normalizePayoutId(p) !== normalizedId) return p;
+        const updated = { ...p, ...patch };
+        if (activityAction) {
+          updated.activity_log = addActivityLog(
+            p.activity_log,
+            activityAction.action,
+            activityAction.details,
+          );
+        }
+        return updated;
+      });
+
+      try {
+        await insuranceApi.update(targetIc._id, { insurance_receivables: updatedList });
+        await loadReceivables();
+        messageApi.success("Insurance receivable updated");
+      } catch (err) {
+        console.error("Failed to update insurance receivable:", err);
+        messageApi.error("Failed to update receivable");
+      }
+      return;
+    }
+
+    // Existing Finance (Loan) logic
     const seedRow = stripReceivableRuntimeFields(sourceMatch);
-    const nextPatch = { ...patch };
-
-    let updatedRow = null;
     try {
-      const saveRes = await loansApi.updateCollectionReceivable(
-        normalizedPayoutId,
+      await loansApi.updateCollectionReceivable(
+        normalizedId,
         {
           loanId: sourceMatch.loanId,
-          patch: nextPatch,
+          patch,
           seedRow,
           activityAction,
         },
       );
-
-      const savedDoc = saveRes?.data || null;
-      updatedRow = savedDoc
-        ? {
-            ...(savedDoc?.payload && typeof savedDoc.payload === "object"
-              ? savedDoc.payload
-              : {}),
-            id:
-              savedDoc?.payload?.id || savedDoc?.payoutId || normalizedPayoutId,
-            payoutId: savedDoc?.payoutId || normalizedPayoutId,
-            payout_type: savedDoc?.payout_type,
-            payout_party_name: savedDoc?.payout_party_name,
-            payout_direction: savedDoc?.payout_direction,
-            payout_status: savedDoc?.payout_status,
-            payout_percentage: savedDoc?.payout_percentage,
-            payout_amount: savedDoc?.payout_amount,
-            net_payout_amount: savedDoc?.net_payout_amount,
-            tds_amount: savedDoc?.tds_amount,
-            tds_percentage: savedDoc?.tds_percentage,
-            payout_received_date: savedDoc?.payout_received_date,
-            created_date: savedDoc?.created_date,
-            payout_createdAt: savedDoc?.payout_createdAt,
-            payment_history: safeArray(savedDoc?.payment_history),
-            activity_log: safeArray(savedDoc?.activity_log),
-            meta_source: savedDoc?.meta_source,
-          }
-        : null;
+      await loadReceivables();
+      messageApi.success("Receivable updated");
     } catch (err) {
       console.error("Failed to update receivable:", err);
       messageApi.error("Failed to update receivable");
-      return null;
     }
-
-    if (updatedRow) {
-      try {
-        // Keep frontend sync best-effort only; backend now owns canonical sync.
-        await syncAutoCommissionReceivableIntoPayments({
-          loanId: sourceMatch.loanId,
-          receivableRow: updatedRow,
-        });
-      } catch (syncError) {
-        console.warn(
-          "Auto sync into Payments failed (non-blocking):",
-          syncError,
-        );
-      }
-    }
-
-    if (shouldReload) {
-      try {
-        await loadReceivables();
-      } catch (reloadErr) {
-        console.warn("Receivables reload failed after save:", reloadErr);
-      }
-    }
-    return updatedRow;
   };
 
   /* ==============================
@@ -1647,6 +1662,9 @@ const PayoutReceivablesDashboard = () => {
   ============================== */
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
+      const moduleOk = moduleFilter === "All" || r.__sourceModule === moduleFilter;
+      if (!moduleOk) return false;
+
       const paymentStatus = getPaymentStatus(r);
       const uiStatus = toUiStatus(r.payout_status, paymentStatus);
 
@@ -2967,7 +2985,20 @@ const PayoutReceivablesDashboard = () => {
         )}
 
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-[#2b2b2b] dark:bg-[#1f1f1f]">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-8">
+            <div className="xl:col-span-1">
+              <Select
+                value={moduleFilter}
+                onChange={(v) => setModuleFilter(v || "All")}
+                size="large"
+                className="w-full"
+                placeholder="Source"
+              >
+                <Option value="All">All Sources</Option>
+                <Option value="Finance">Finance</Option>
+                <Option value="Insurance">Insurance</Option>
+              </Select>
+            </div>
             <div className="xl:col-span-2">
               <Input
                 prefix={<SearchOutlined />}

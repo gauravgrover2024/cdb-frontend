@@ -35,6 +35,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { loansApi } from "../../../../../api/loans";
+import { insuranceApi } from "../../../../../api/insurance";
 
 const { Option } = Select;
 
@@ -70,18 +71,20 @@ const getPayablesKey = (loan) => {
   return "loan_payables";
 };
 
-const getCustomerNameFromLoan = (loan) => {
+const getCustomerNameFromLoan = (obj) => {
   return (
-    loan?.customerName ||
-    loan?.profile_customerName ||
-    loan?.profile_applicantName ||
-    loan?.profile_applicant_name ||
-    loan?.applicantName ||
-    loan?.applicant_name ||
-    loan?.leadName ||
-    loan?.customer ||
-    loan?.fullName ||
-    loan?.name ||
+    obj?.customerName ||
+    obj?.profile_customerName ||
+    obj?.profile_applicantName ||
+    obj?.profile_applicant_name ||
+    obj?.applicantName ||
+    obj?.applicant_name ||
+    obj?.leadName ||
+    obj?.customer ||
+    obj?.customerSnapshot?.customerName ||
+    obj?.customerSnapshot?.companyName ||
+    obj?.fullName ||
+    obj?.name ||
     "-"
   );
 };
@@ -139,6 +142,9 @@ const toBackendStatus = (uiStatus) => {
   return "Expected";
 };
 
+const normalizePayoutId = (row = {}) =>
+  String(row?.payoutId || row?.id || row?._id || "").trim();
+
 const getPaymentStatus = (record) => {
   const expectedAmount = getExpectedAmount(record);
   const paymentHistory = safeArray(record?.payment_history);
@@ -161,6 +167,9 @@ const PayoutPayablesDashboard = () => {
   const [messageApi, messageContextHolder] = message.useMessage();
   const [rows, setRows] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [insuranceCases, setInsuranceCases] = useState([]);
+  const [moduleFilter, setModuleFilter] = useState("All"); // "All" | "Finance" | "Insurance"
+  const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All");
   const [partyFilter, setPartyFilter] = useState("All");
   const [searchText, setSearchText] = useState("");
@@ -184,18 +193,19 @@ const PayoutPayablesDashboard = () => {
 
   const loadPayables = async () => {
     try {
+      setLoading(true);
       const pageSize = 300;
       let skip = 0;
       let hasMore = true;
-      const allLoans = [];
+      let allLoans = [];
+      let allInsurance = [];
 
+      // 1. Fetch Loans
       while (hasMore) {
         const res = await loansApi.getAll({
           limit: pageSize,
           skip,
           noCount: true,
-          filterLoanType: "New Car",
-          view: "dashboard",
           sortBy: "leadDate",
           sortDir: "desc",
         });
@@ -205,22 +215,20 @@ const PayoutPayablesDashboard = () => {
         skip += pageSize;
       }
 
-      const payables = allLoans.flatMap((loan) => {
+      // 2. Fetch Insurance Cases
+      try {
+        const insuranceRes = await insuranceApi.getAll({ limit: 500 });
+        allInsurance = safeArray(insuranceRes?.data);
+      } catch (err) {
+        console.error("Failed to load insurance cases:", err);
+      }
+
+      // 3. Process Loan payables
+      const loanPayables = allLoans.flatMap((loan) => {
         const list = getPayablesArray(loan);
-
-        const payableList = list.filter((p) => {
-          const type = p?.payout_type;
-          const direction = p?.payout_direction;
-          return (
-            type === "Dealer" ||
-            type === "Source" ||
-            type === "Broker" ||
-            direction === "Payable"
-          );
-        });
-
-        return payableList.map((p) => ({
+        return list.map((p) => ({
           ...p,
+          __sourceModule: "Finance",
           loanId: loan.loanId || loan.id || "-",
           loanMongoId: loan._id || loan.id,
           customerName: getCustomerNameFromLoan(loan),
@@ -231,11 +239,36 @@ const PayoutPayablesDashboard = () => {
         }));
       });
 
+      // 4. Process Insurance payables
+      const insurancePayables = allInsurance.flatMap((ic) => {
+        const list = safeArray(ic.insurance_payables || ic.payables);
+        return list.map((p) => ({
+          ...p,
+          __sourceModule: "Insurance",
+          loanId: ic.caseId || "-",
+          insuranceMongoId: ic._id,
+          customerName: getCustomerNameFromLoan(ic),
+          dealerName: ic.newInsuranceCompany || "-",
+          payment_history: safeArray(p.payment_history),
+          activity_log: safeArray(p.activity_log),
+          created_date: getCreatedDate(p),
+        }));
+      });
+
+      const combined = [...loanPayables, ...insurancePayables].sort((a, b) => {
+        const dateA = dayjs(getCreatedDate(a) || 0);
+        const dateB = dayjs(getCreatedDate(b) || 0);
+        return dateB.diff(dateA);
+      });
+
       setLoans(allLoans);
-      setRows(payables);
+      setInsuranceCases(allInsurance);
+      setRows(combined);
     } catch (err) {
       console.error("Failed to load payables:", err);
       messageApi.error("Failed to load payables");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -244,6 +277,39 @@ const PayoutPayablesDashboard = () => {
   }, []);
 
   const updatePayableInBackend = async (payoutId, patch, activityAction = null) => {
+    const sourceMatch = rows.find((r) => r.payoutId === payoutId);
+    if (!sourceMatch) return;
+
+    const isInsurance = sourceMatch.__sourceModule === "Insurance";
+
+    if (isInsurance) {
+      const targetIc = insuranceCases.find((ic) => ic._id === sourceMatch.insuranceMongoId);
+      if (!targetIc) return;
+
+      const updatedList = safeArray(targetIc.insurance_payables).map((p) => {
+        if (p.payoutId !== payoutId) return p;
+        const updated = { ...p, ...patch };
+        if (activityAction) {
+          updated.activity_log = addActivityLog(
+            p.activity_log,
+            activityAction.action,
+            activityAction.details,
+          );
+        }
+        return updated;
+      });
+
+      try {
+        await insuranceApi.update(targetIc._id, { insurance_payables: updatedList });
+        await loadPayables();
+        messageApi.success("Insurance payable updated");
+      } catch (err) {
+        console.error("Failed to update insurance payable:", err);
+        messageApi.error("Failed to update payable");
+      }
+      return;
+    }
+
     const sourceLoans = Array.isArray(loans) ? loans : [];
     let targetLoan = null;
     let updatedList = null;
@@ -406,6 +472,9 @@ const PayoutPayablesDashboard = () => {
   ============================== */
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
+      const moduleOk = moduleFilter === "All" || r.__sourceModule === moduleFilter;
+      if (!moduleOk) return false;
+
       const paymentStatus = getPaymentStatus(r);
       const uiStatus = toUiStatus(r.payout_status, paymentStatus);
 
@@ -442,7 +511,7 @@ const PayoutPayablesDashboard = () => {
 
       return statusOk && partyOk && searchOk && ageOk && typeOk;
     });
-  }, [rows, statusFilter, partyFilter, searchText, ageFilter, typeFilter]);
+  }, [rows, moduleFilter, statusFilter, partyFilter, searchText, ageFilter, typeFilter]);
 
   /* ==============================
      Payment History Management
@@ -1005,7 +1074,19 @@ const PayoutPayablesDashboard = () => {
         )}
 
         <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-[#252525] rounded-2xl p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
+            <div className="xl:col-span-1">
+              <Select
+                value={moduleFilter}
+                onChange={setModuleFilter}
+                size="large"
+                className="w-full"
+              >
+                <Option value="All">All Sources</Option>
+                <Option value="Finance">Finance</Option>
+                <Option value="Insurance">Insurance</Option>
+              </Select>
+            </div>
             <div className="xl:col-span-2">
               <Input
                 prefix={<SearchOutlined />}
@@ -1054,7 +1135,8 @@ const PayoutPayablesDashboard = () => {
             partyFilter !== "All" ||
             searchText ||
             ageFilter !== "All" ||
-            typeFilter !== "All") && (
+            typeFilter !== "All" ||
+            moduleFilter !== "All") && (
             <div className="mt-3">
               <Button
                 onClick={() => {
@@ -1063,6 +1145,7 @@ const PayoutPayablesDashboard = () => {
                   setSearchText("");
                   setAgeFilter("All");
                   setTypeFilter("All");
+                  setModuleFilter("All");
                 }}
               >
                 Clear All Filters
@@ -1097,7 +1180,8 @@ const PayoutPayablesDashboard = () => {
 
       <div className="bg-white dark:bg-[#141414] border border-slate-200 dark:border-[#252525] rounded-2xl overflow-hidden">
         <Table
-          rowKey={(r) => r.payoutId || r.id}
+          rowKey={(r) => normalizePayoutId(r)}
+          loading={loading}
           rowSelection={{
             selectedRowKeys,
             onChange: (keys, rowsSelected) => {
