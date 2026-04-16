@@ -20,7 +20,6 @@ import {
   TimePicker,
   message,
 } from "antd";
-import { useReactToPrint } from "react-to-print";
 import {
   ArrowLeftOutlined,
   CameraOutlined,
@@ -80,6 +79,7 @@ import {
   buildNoGoNarrative,
   buildRefurbContext,
 } from "./InspectionDesk/refurb";
+import { downloadInspectionReportPdf } from "./InspectionDesk/pdfLibService";
 
 const { TextArea } = Input;
 const { Panel } = Collapse;
@@ -3237,31 +3237,21 @@ export default function UsedCarInspectionDesk() {
     replaceLead,
   ]);
 
-  const handleDownloadReport = useReactToPrint({
-    contentRef: reportPrintRef,
-    documentTitle: reportLead?.inspection?.inspectionId || "inspection-report",
-    pageStyle: `
-      @page { margin: 12mm; }
-      html, body { background: #ffffff !important; }
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-      .inspection-report-pages {
-        max-width: 960px !important;
-        margin: 0 auto !important;
-      }
-      .inspection-report-pages section {
-        break-inside: avoid;
-        page-break-inside: avoid;
-        margin-bottom: 24px;
-        box-shadow: none !important;
-      }
-    `,
-    onPrintError: () => {
-      message.error("Report print karte waqt issue aaya. Please try again.");
-    },
-  });
+  const handleDownloadReport = useCallback(async () => {
+    if (!reportLead) return;
+    try {
+      await downloadInspectionReportPdf(reportLead, {
+        fileName: reportLead?.inspection?.inspectionId
+          ? `${reportLead.inspection.inspectionId}-report.pdf`
+          : "inspection-report.pdf",
+      });
+      message.success("Inspection report PDF download ho gaya.");
+    } catch (error) {
+      message.error(
+        error?.message || "PDF download karte waqt issue aaya. Retry karein.",
+      );
+    }
+  }, [reportLead]);
 
   if (loading) {
     return (
