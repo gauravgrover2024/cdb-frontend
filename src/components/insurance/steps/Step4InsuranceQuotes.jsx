@@ -43,15 +43,12 @@ const Step4InsuranceQuotes = ({
   setPlanFeaturesModal,
 }) => {
   return (
-    <Space direction="vertical" size={12} style={{ width: "100%" }}>
-      <Card
-        size="small"
-        title="Add New Quote"
-        bordered
-        className="border-slate-200 dark:border-slate-700 dark:bg-slate-950/30 [&_.ant-card-head]:border-slate-200 dark:[&_.ant-card-head]:border-slate-700 [&_.ant-card-head-title]:text-slate-900 dark:[&_.ant-card-head-title]:text-slate-100"
-      >
+    <div className="flex flex-col gap-8">
+      {/* Section 1: Quote Form */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-400">Add New Quote</h3>
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Insurance Company *</Text>
             <Input
               value={quoteDraft.insuranceCompany}
@@ -65,7 +62,7 @@ const Step4InsuranceQuotes = ({
               placeholder="Insurance Company"
             />
           </Col>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Coverage Type *</Text>
             <Select
               value={quoteDraft.coverageType}
@@ -78,6 +75,22 @@ const Step4InsuranceQuotes = ({
                 { label: "Third Party", value: "Third Party" },
                 { label: "Own Damage", value: "Own Damage" },
               ]}
+              placeholder="Select type"
+            />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text strong>Policy Duration *</Text>
+            <Select
+              value={quoteDraft.policyDuration}
+              onChange={(v) =>
+                setQuoteDraft((p) => ({ ...p, policyDuration: v }))
+              }
+              style={{ width: "100%", marginTop: 6 }}
+              options={durationOptions.map((d) => ({
+                label: d,
+                value: d,
+              }))}
+              placeholder="Duration"
             />
           </Col>
           <Col xs={24} md={8}>
@@ -119,35 +132,6 @@ const Step4InsuranceQuotes = ({
               style={{ width: "100%", marginTop: 6 }}
             />
           </Col>
-          <Col xs={24} md={12}>
-            <Text strong>Policy Duration *</Text>
-            <Select
-              value={quoteDraft.policyDuration}
-              onChange={(v) =>
-                setQuoteDraft((p) => ({ ...p, policyDuration: v }))
-              }
-              style={{ width: "100%", marginTop: 6 }}
-              options={durationOptions.map((d) => ({
-                label: d,
-                value: d,
-              }))}
-            />
-          </Col>
-          <Col xs={24} md={12}>
-            <Text strong>NCB Discount (%)</Text>
-            <InputNumber
-              min={0}
-              max={100}
-              value={Number(quoteDraft.ncbDiscount || 0)}
-              onChange={(v) =>
-                setQuoteDraft((p) => ({
-                  ...p,
-                  ncbDiscount: Number(v || 0),
-                }))
-              }
-              style={{ width: "100%", marginTop: 6 }}
-            />
-          </Col>
           <Col xs={24} md={8}>
             <Text strong>OD Amount (₹)</Text>
             <InputNumber
@@ -177,13 +161,22 @@ const Step4InsuranceQuotes = ({
             />
           </Col>
           <Col xs={24} md={8}>
+            <Text strong>NCB Discount (%)</Text>
+            <InputNumber
+              min={0}
+              max={100}
+              value={Number(quoteDraft.ncbDiscount || 0)}
+              onChange={(v) =>
+                setQuoteDraft((p) => ({
+                  ...p,
+                  ncbDiscount: Number(v || 0),
+                }))
+              }
+              style={{ width: "100%", marginTop: 6 }}
+            />
+          </Col>
+          <Col xs={24} md={8}>
             <Text strong>Add-ons Amount (₹)</Text>
-            <Text
-              type="secondary"
-              style={{ display: "block", fontSize: 11, marginTop: 2 }}
-            >
-              Bulk add-on ₹ (also counts in base premium)
-            </Text>
             <InputNumber
               min={0}
               value={Number(quoteDraft.addOnsAmount || 0)}
@@ -199,77 +192,69 @@ const Step4InsuranceQuotes = ({
         </Row>
 
         <Divider
-          className="border-slate-200 dark:border-slate-700/80"
-          style={{ marginBlock: 16 }}
+          className="border-slate-100 dark:border-slate-800"
+          style={{ marginBlock: 24 }}
         />
 
-        <Card
-          size="small"
-          className="rounded-[10px] border border-slate-200 bg-slate-50/95 dark:border-slate-700 dark:bg-slate-900/60"
-          styles={{ body: { padding: "16px 16px 8px" } }}
-          title={
-            <Text
-              strong
-              className="text-[14px] text-slate-900 dark:text-slate-100"
-            >
-              Additional Add-ons (Optional)
-            </Text>
-          }
-          extra={
-            <Space size="small" wrap>
-              <Button
-                size="small"
-                type="primary"
-                className="!border-emerald-600 !bg-emerald-600 hover:!bg-emerald-700 dark:!border-emerald-500 dark:!bg-emerald-600 dark:hover:!bg-emerald-500"
-                onClick={() =>
-                  setQuoteDraft((p) => ({
-                    ...p,
-                    addOns: addOnCatalog.reduce(
-                      (acc, n) => ({ ...acc, [n]: 0 }),
-                      {},
-                    ),
-                    addOnsIncluded: addOnCatalog.reduce(
-                      (acc, n) => ({ ...acc, [n]: true }),
-                      {},
-                    ),
-                  }))
-                }
-              >
-                Select All (₹0)
-              </Button>
-              <Button
-                size="small"
-                danger
-                onClick={() =>
-                  setQuoteDraft((p) => ({
-                    ...p,
-                    addOns: addOnCatalog.reduce(
-                      (acc, n) => ({ ...acc, [n]: 0 }),
-                      {},
-                    ),
-                    addOnsIncluded: addOnCatalog.reduce(
-                      (acc, n) => ({ ...acc, [n]: false }),
-                      {},
-                    ),
-                  }))
-                }
-              >
-                Deselect All
-              </Button>
-            </Space>
-          }
-        >
-          <Alert
-            type="info"
-            showIcon
-            message={
-              <span className="text-xs leading-relaxed text-slate-700 dark:text-slate-200">
-                Select add-ons with ₹0 amount to include them without charges,
-                or enter custom amounts for premium calculation.
-              </span>
-            }
-            className="mb-3.5 border-sky-200/80 bg-sky-50/90 dark:border-slate-600 dark:bg-slate-950/80 [&_.anticon]:text-sky-600 dark:[&_.anticon]:text-sky-400"
-          />
+        <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-5 dark:border-slate-800 dark:bg-slate-900/40">
+          <div className="mb-4 rounded-lg border border-sky-100 bg-sky-50/50 p-3 dark:border-sky-900/30 dark:bg-sky-950/20">
+            <Row gutter={[16, 8]} align="middle">
+              <Col xs={24} md={6}>
+                <h4 className="m-0 text-[13px] font-bold uppercase tracking-wide text-slate-500">
+                  Additional Add-ons (Optional)
+                </h4>
+              </Col>
+              <Col xs={24} md={10}>
+                <Text className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+                  Select ₹0 to include without charges, or enter custom amounts.
+                </Text>
+              </Col>
+              <Col xs={24} md={8} className="md:text-right">
+                <Space size="small">
+                  <Button
+                    size="small"
+                    type="primary"
+                    className="!border-emerald-600 !bg-emerald-600 hover:!bg-emerald-700 text-[10px] h-7"
+                    onClick={() =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        addOns: addOnCatalog.reduce(
+                          (acc, n) => ({ ...acc, [n]: 0 }),
+                          {},
+                        ),
+                        addOnsIncluded: addOnCatalog.reduce(
+                          (acc, n) => ({ ...acc, [n]: true }),
+                          {},
+                        ),
+                      }))
+                    }
+                  >
+                    Select All (₹0)
+                  </Button>
+                  <Button
+                    size="small"
+                    danger
+                    className="text-[10px] h-7"
+                    onClick={() =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        addOns: addOnCatalog.reduce(
+                          (acc, n) => ({ ...acc, [n]: 0 }),
+                          {},
+                        ),
+                        addOnsIncluded: addOnCatalog.reduce(
+                          (acc, n) => ({ ...acc, [n]: false }),
+                          {},
+                        ),
+                      }))
+                    }
+                  >
+                    Deselect All
+                  </Button>
+                </Space>
+              </Col>
+            </Row>
+          </div>
 
           <Row gutter={[12, 12]}>
             {addOnCatalog.map((name) => {
@@ -335,7 +320,7 @@ const Step4InsuranceQuotes = ({
               );
             })}
           </Row>
-        </Card>
+        </div>
 
         <div className="mt-4 rounded-lg border border-purple-200/90 bg-purple-50/95 p-4 dark:border-purple-900/60 dark:bg-purple-950/40">
           <Row gutter={[16, 16]}>
@@ -486,18 +471,21 @@ const Step4InsuranceQuotes = ({
         </div>
 
         <Divider style={{ marginBlock: 16 }} />
-        <Row gutter={[16, 16]} align="middle">
+        <Row gutter={[16, 16]} align="middle" className="mt-6 border-t border-slate-100 pt-6 dark:border-slate-800">
           <Col xs={24} md={12}>
             <Space wrap>
               <Button
                 type="primary"
-                icon={<span className="text-base leading-none">+</span>}
+                size="large"
+                icon={<span className="text-xl leading-none">+</span>}
                 onClick={addQuote}
                 disabled={!quoteDraft.insuranceCompany.trim()}
+                className="h-11 px-6 shadow-none"
               >
-                Add Quote
+                Add Quote to List
               </Button>
               <Button
+                size="large"
                 onClick={() =>
                   setQuoteDraft({
                     ...initialQuoteDraft,
@@ -507,35 +495,37 @@ const Step4InsuranceQuotes = ({
                     },
                   })
                 }
+                className="h-11 border-slate-200 dark:border-slate-800"
               >
-                Reset
+                Reset Form
               </Button>
             </Space>
           </Col>
           <Col xs={24} md={12}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Tip: fill company & premiums above, tune add-ons, then Add Quote
-              to save this row to the list.
-            </Text>
+            <div className="rounded-lg bg-sky-50 p-3 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
+              <Text className="text-xs">
+                💡 <b>Tip:</b> Fill premiums & duration, tune your add-ons, then click <b>Add Quote</b> to compare rows below.
+              </Text>
+            </div>
           </Col>
         </Row>
-      </Card>
+      </div>
 
-      <Card
-        size="small"
-        title={`Generated Quotes (${quotes.length})`}
-        extra={
-          acceptedQuote ? (
-            <Text type="success">
-              Accepted: {acceptedQuote.insuranceCompany}
-            </Text>
+      {/* Section 2: Quote List */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+            Generated Quotes ({quotes.length})
+          </h3>
+          {acceptedQuote ? (
+            <div className="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              <span className="text-xs font-bold uppercase">Accepted: {acceptedQuote.insuranceCompany}</span>
+            </div>
           ) : (
-            <Text type="secondary">No accepted quote</Text>
-          )
-        }
-        bordered
-        className="border-slate-200 dark:border-slate-700 dark:bg-slate-950/20 [&_.ant-card-head]:border-slate-200 dark:[&_.ant-card-head]:border-slate-700"
-      >
+            <Text type="secondary" className="text-xs italic">No quote accepted yet</Text>
+          )}
+        </div>
         {quoteRows.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -625,7 +615,7 @@ const Step4InsuranceQuotes = ({
             <Text type="danger">At least 1 quote is required.</Text>
           </div>
         ) : null}
-      </Card>
+      </div>
 
       <Modal
         title={
@@ -671,7 +661,7 @@ const Step4InsuranceQuotes = ({
           </div>
         )}
       </Modal>
-    </Space>
+    </div>
   );
 };
 

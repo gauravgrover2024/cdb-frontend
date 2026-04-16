@@ -22,12 +22,13 @@ const { Text, Title } = Typography;
 const Step8Payout = ({ formData, setField, setFormData, schedulePersist }) => {
   const premiumBase = parseFloat(formData.newTotalPremium || 0);
 
-  const receivables = Array.isArray(formData.insurance_receivables)
-    ? formData.insurance_receivables
-    : [];
-  const payables = Array.isArray(formData.insurance_payables)
-    ? formData.insurance_payables
-    : [];
+  const receivables = useMemo(() => 
+    Array.isArray(formData.insurance_receivables) ? formData.insurance_receivables : []
+  , [formData.insurance_receivables]);
+
+  const payables = useMemo(() => 
+    Array.isArray(formData.insurance_payables) ? formData.insurance_payables : []
+  , [formData.insurance_payables]);
 
   const generatePayoutId = (type) => {
     const year = new Date().getFullYear();
@@ -70,7 +71,7 @@ const Step8Payout = ({ formData, setField, setFormData, schedulePersist }) => {
       },
     ];
     setField("insurance_receivables", newList);
-    schedulePersist(250);
+    // schedulePersist(250);
   };
 
   const addPayable = () => {
@@ -92,7 +93,7 @@ const Step8Payout = ({ formData, setField, setFormData, schedulePersist }) => {
       },
     ];
     setField("insurance_payables", newList);
-    schedulePersist(250);
+    // schedulePersist(250);
   };
 
   const updatePayout = (list, setListName, id, field, value) => {
@@ -112,13 +113,13 @@ const Step8Payout = ({ formData, setField, setFormData, schedulePersist }) => {
       return updated;
     });
     setField(setListName, newList);
-    schedulePersist(250);
+    // schedulePersist(250);
   };
 
   const deletePayout = (list, setListName, id) => {
     const newList = list.filter((item) => item.id !== id);
     setField(setListName, newList);
-    schedulePersist(250);
+    // schedulePersist(250);
   };
 
   const totals = useMemo(() => {
@@ -138,8 +139,9 @@ const Step8Payout = ({ formData, setField, setFormData, schedulePersist }) => {
   }, [receivables, payables]);
 
   return (
-    <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <Card size="small" className="bg-slate-50 dark:bg-slate-900/40">
+    <div className="flex flex-col gap-8">
+      {/* Section 1: Payout Summary */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
         <Row gutter={16} align="middle">
           <Col>
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-400">
@@ -159,24 +161,21 @@ const Step8Payout = ({ formData, setField, setFormData, schedulePersist }) => {
             </div>
           </Col>
         </Row>
-      </Card>
+      </div>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
-          <Card
-            size="small"
-            title={
-              <Space>
-                <TrendingUp size={16} className="text-emerald-500" />
-                <span>Receivables</span>
-              </Space>
-            }
-            extra={
-              <Button type="primary" size="small" icon={<Plus size={14} />} onClick={addReceivable}>
-                Add
-              </Button>
-            }
-          >
+      {/* Section 2: Ledger Items */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Receivables Column */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={18} className="text-emerald-500" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Receivables</h3>
+            </div>
+            <Button type="primary" size="small" icon={<Plus size={14} />} onClick={addReceivable} className="shadow-none">
+              Add Receivable
+            </Button>
+          </div>
             {receivables.length === 0 ? (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No receivables" />
             ) : (
@@ -190,41 +189,35 @@ const Step8Payout = ({ formData, setField, setFormData, schedulePersist }) => {
                 />
               ))
             )}
-          </Card>
-        </Col>
+        </div>
 
-        <Col xs={24} lg={12}>
-          <Card
-            size="small"
-            title={
-              <Space>
-                <TrendingDown size={16} className="text-rose-500" />
-                <span>Payables</span>
-              </Space>
-            }
-            extra={
-              <Button type="primary" size="small" icon={<Plus size={14} />} onClick={addPayable}>
-                Add
-              </Button>
-            }
-          >
-            {payables.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No payables" />
-            ) : (
-              payables.map((item) => (
-                <PayoutItemCard
-                  key={item.id}
-                  item={item}
-                  onUpdate={(f, v) => updatePayout(payables, "insurance_payables", item.id, f, v)}
-                  onDelete={() => deletePayout(payables, "insurance_payables", item.id)}
-                  type="Payable"
-                />
-              ))
-            )}
-          </Card>
-        </Col>
-      </Row>
-    </Space>
+        {/* Payables Column */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingDown size={18} className="text-rose-500" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Payables</h3>
+            </div>
+            <Button type="primary" size="small" icon={<Plus size={14} />} onClick={addPayable} className="shadow-none">
+              Add Payable
+            </Button>
+          </div>
+          {payables.length === 0 ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No payables tracked" />
+          ) : (
+            payables.map((item) => (
+              <PayoutItemCard
+                key={item.id}
+                item={item}
+                onUpdate={(f, v) => updatePayout(payables, "insurance_payables", item.id, f, v)}
+                onDelete={() => deletePayout(payables, "insurance_payables", item.id)}
+                type="Payable"
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -242,7 +235,7 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type }) => {
       </div>
 
       <Row gutter={[12, 12]}>
-        <Col span={12}>
+        <Col span={8}>
           <Text type="secondary" className="text-[10px] uppercase font-bold">Party Name</Text>
           <Input
             size="small"
@@ -251,7 +244,7 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type }) => {
             placeholder="Name"
           />
         </Col>
-        <Col span={12}>
+        <Col span={8}>
           <Text type="secondary" className="text-[10px] uppercase font-bold">Payout %</Text>
           <InputNumber
             size="small"
@@ -262,11 +255,21 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type }) => {
           />
         </Col>
         <Col span={8}>
+          <Text type="secondary" className="text-[10px] uppercase font-bold">TDS %</Text>
+          <InputNumber
+            size="small"
+            style={{ width: "100%" }}
+            value={item.tds_percentage}
+            onChange={(v) => onUpdate("tds_percentage", v)}
+            placeholder="5%"
+          />
+        </Col>
+        <Col span={8}>
           <Text type="secondary" className="text-[10px] uppercase font-bold">Amt (Gross)</Text>
           <div className="text-sm font-semibold">₹{Math.round(item.payout_amount || 0).toLocaleString("en-IN")}</div>
         </Col>
         <Col span={8}>
-          <Text type="secondary" className="text-[10px] uppercase font-bold">TDS ({item.tds_percentage}%)</Text>
+          <Text type="secondary" className="text-[10px] uppercase font-bold">TDS Amt</Text>
           <div className="text-sm text-rose-500">-₹{Math.round(item.tds_amount || 0).toLocaleString("en-IN")}</div>
         </Col>
         <Col span={8}>

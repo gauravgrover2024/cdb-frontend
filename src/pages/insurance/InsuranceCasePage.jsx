@@ -125,89 +125,22 @@ const InsuranceCasePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="w-full">
-        <div className="flex items-center justify-between gap-3 px-4 py-5 md:px-8 md:py-6 border-b border-border bg-card">
-          <div className="flex items-center gap-3">
-            <span
-              style={{
-                display: "inline-flex",
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                alignItems: "center",
-                justifyContent: "center",
-                background: isEditMode
-                  ? "rgba(250, 173, 20, 0.12)"
-                  : "rgba(29, 155, 240, 0.12)",
-              }}
-            >
-              {isEditMode ? <PencilLine size={18} /> : <Plus size={18} />}
-            </span>
-            <div>
-              <Text
-                type="secondary"
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  letterSpacing: 0.8,
-                  textTransform: "uppercase",
-                  fontWeight: 700,
-                }}
-              >
-                Insurance Case
-              </Text>
-              <h1 className="text-xl font-semibold text-foreground">
-                {isExtendMode
-                  ? "Extend Insurance/Warranty"
-                  : isRenewalMode
-                    ? "Renew Insurance Policy"
-                    : isEditMode
-                      ? `Edit Case — ${caseId}`
-                      : "New Insurance Case"}
-              </h1>
-              {isEditMode && !isRenewalMode ? (
-                <Text type="secondary">
-                  <ShieldCheck
-                    size={14}
-                    style={{ verticalAlign: "-2px", marginRight: 6 }}
-                  />
-                  Editing existing case
-                </Text>
-              ) : null}
-            </div>
-          </div>
-
-          <Button onClick={() => navigate("/insurance")}>Cancel</Button>
+    <div className="min-h-screen bg-transparent">
+      {error ? (
+        <div className="p-4">
+          <Alert type="error" showIcon message={error} />
         </div>
+      ) : null}
 
-        <div className="px-4 py-6 md:px-8 md:py-8 space-y-4">
-          {isRenewalMode ? (
-            <Alert
-              type="info"
-              showIcon
-              message={isExtendMode ? "Extension Mode" : "Renewal Mode"}
-              description={
-                isExtendMode
-                  ? "Customer and vehicle details copied. Proceed to Step 5 to add Extended Warranty details."
-                  : "Customer, vehicle, and previous policy details copied. Select 'Claim Taken Last Year' in Step 3, then proceed to quotations."
-              }
-            />
-          ) : null}
-
-          {error ? <Alert type="error" showIcon message={error} /> : null}
-
-          <Spin spinning={loading}>
-            <NewInsuranceCaseForm
-              mode={isEditMode ? "edit" : "create"}
-              initialValues={initialValues}
-              onCancel={() => navigate("/insurance")}
-              onSubmit={handleSubmit}
-              onDelete={() => navigate("/insurance")}
-            />
-          </Spin>
-        </div>
-      </div>
+      <Spin spinning={loading}>
+        <NewInsuranceCaseForm
+          mode={isEditMode ? "edit" : "create"}
+          initialValues={initialValues}
+          onCancel={() => navigate("/insurance")}
+          onSubmit={handleSubmit}
+          onDelete={() => navigate("/insurance")}
+        />
+      </Spin>
     </div>
   );
 };

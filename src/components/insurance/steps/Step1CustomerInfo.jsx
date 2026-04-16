@@ -33,10 +33,12 @@ const Step1CustomerInfo = ({
   getCustomerId,
 }) => {
   return (
-    <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <Card size="small" title="Basic Setup" bordered>
+    <div className="flex flex-col gap-8">
+      {/* Section 1: Basic Setup */}
+      <div className="rounded-xl border border-slate-200 bg-white/50 p-6 dark:border-slate-800 dark:bg-slate-900/50">
+        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-400">Basic Setup</h3>
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Buyer Type *</Text>
             <div style={{ marginTop: 6 }}>
               <Radio.Group
@@ -51,7 +53,7 @@ const Step1CustomerInfo = ({
               />
             </div>
           </Col>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Vehicle Type *</Text>
             <div style={{ marginTop: 6 }}>
               <Radio.Group
@@ -68,7 +70,7 @@ const Step1CustomerInfo = ({
               />
             </div>
           </Col>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Policy Done By *</Text>
             <Input
               value={formData.policyDoneBy}
@@ -77,7 +79,7 @@ const Step1CustomerInfo = ({
               style={{ marginTop: 6 }}
             />
           </Col>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Broker Name</Text>
             <Input
               value={formData.brokerName}
@@ -86,7 +88,7 @@ const Step1CustomerInfo = ({
               style={{ marginTop: 6 }}
             />
           </Col>
-          <Col xs={24}>
+          <Col xs={24} md={16}>
             <Text strong>Source Origin</Text>
             <Input
               value={formData.sourceOrigin}
@@ -96,18 +98,19 @@ const Step1CustomerInfo = ({
             />
           </Col>
         </Row>
-      </Card>
+      </div>
 
-      <Card size="small" title="Customer Information" bordered>
+      {/* Section 2: Customer Information */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-400">Customer Details</h3>
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Employee (staff) *</Text>
             <Text
               type="secondary"
-              style={{ display: "block", marginTop: 4, fontSize: 12 }}
+              style={{ display: "block", marginTop: 4, fontSize: 10 }}
             >
-              Search and pick from system users (database). This is not
-              the policy customer.
+              Search staff (database). Not policy customer.
             </Text>
             <AutoComplete
               value={formData.employeeName}
@@ -121,7 +124,7 @@ const Step1CustomerInfo = ({
               }}
               options={employeeOptions}
               loading={employeesLoading}
-              placeholder="Search staff by name or email"
+              placeholder="Search staff"
               style={{ width: "100%", marginTop: 6 }}
               onSelect={(id) => {
                 const emp = employeesList.find(
@@ -147,7 +150,7 @@ const Step1CustomerInfo = ({
           </Col>
           {isCompany ? (
             <>
-              <Col xs={24} md={12}>
+              <Col xs={24} md={8}>
                 <Text strong>Company Name *</Text>
                 <Input
                   value={formData.companyName}
@@ -162,7 +165,7 @@ const Step1CustomerInfo = ({
                   <Text type="danger">{step1Errors.companyName}</Text>
                 ) : null}
               </Col>
-              <Col xs={24} md={12}>
+              <Col xs={24} md={8}>
                 <Text strong>Contact Person Name *</Text>
                 <Input
                   value={formData.contactPersonName}
@@ -183,18 +186,17 @@ const Step1CustomerInfo = ({
               </Col>
             </>
           ) : (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={8}>
               <Text strong>Customer Name * — search CRM</Text>
               <Text
                 type="secondary"
                 style={{
                   display: "block",
                   marginTop: 4,
-                  fontSize: 12,
+                  fontSize: 10,
                 }}
               >
-                Same as loan form: type name, mobile, or PAN — select a
-                customer to auto-fill all fields below.
+                Type name, mobile, or PAN.
               </Text>
               <AutoComplete
                 value={formData.customerName}
@@ -222,8 +224,6 @@ const Step1CustomerInfo = ({
                         >
                           {c?.primaryMobile &&
                             `📱 ${c.primaryMobile}`}
-                          {c?.panNumber && ` · PAN ${c.panNumber}`}
-                          {c?.city && ` · ${c.city}`}
                         </div>
                       </div>
                     ),
@@ -250,7 +250,7 @@ const Step1CustomerInfo = ({
                   prefix={
                     <SearchOutlined style={{ color: "#94a3b8" }} />
                   }
-                  placeholder="Search customer by name or mobile…"
+                  placeholder="Search customer..."
                   allowClear
                   status={
                     showErrors && step1Errors.customerName
@@ -265,14 +265,13 @@ const Step1CustomerInfo = ({
               ) : null}
             </Col>
           )}
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Customer mobile * — search CRM</Text>
             <Text
               type="secondary"
-              style={{ display: "block", marginTop: 4, fontSize: 12 }}
+              style={{ display: "block", marginTop: 4, fontSize: 10 }}
             >
-              Type mobile number to search customers; pick a row to
-              auto-fill customer details from the Customers module.
+              Search by mobile to auto-fill.
             </Text>
             <AutoComplete
               value={formData.mobile}
@@ -308,8 +307,6 @@ const Step1CustomerInfo = ({
                       <div style={{ fontSize: 12, color: "#666" }}>
                         {c?.primaryMobile &&
                           `📱 ${c.primaryMobile}`}
-                        {c?.panNumber && ` · PAN ${c.panNumber}`}
-                        {c?.city && ` · ${c.city}`}
                       </div>
                     </div>
                   ),
@@ -323,7 +320,7 @@ const Step1CustomerInfo = ({
               <Input
                 addonBefore="+91"
                 maxLength={10}
-                placeholder="10-digit mobile — search & select customer"
+                placeholder="10-digit mobile"
                 status={
                   showErrors && step1Errors.mobile ? "error" : ""
                 }
@@ -334,8 +331,8 @@ const Step1CustomerInfo = ({
               <Text type="danger">{step1Errors.mobile}</Text>
             ) : null}
           </Col>
-          <Col xs={24} md={12}>
-            <Text strong>Alternate Phone Number</Text>
+          <Col xs={24} md={8}>
+            <Text strong>Alternate Phone</Text>
             <Input
               addonBefore="+91"
               value={formData.alternatePhone}
@@ -345,7 +342,7 @@ const Step1CustomerInfo = ({
               placeholder="Optional"
             />
           </Col>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>Email Address *</Text>
             <Input
               value={formData.email}
@@ -361,7 +358,7 @@ const Step1CustomerInfo = ({
             ) : null}
           </Col>
           {!isCompany ? (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={8}>
               <Text strong>Gender *</Text>
               <Select
                 value={formData.gender || undefined}
@@ -380,7 +377,7 @@ const Step1CustomerInfo = ({
               ) : null}
             </Col>
           ) : null}
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>PAN Number {isCompany ? "*" : ""}</Text>
             <Input
               value={formData.panNumber}
@@ -396,7 +393,7 @@ const Step1CustomerInfo = ({
             ) : null}
           </Col>
           {isCompany ? (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={8}>
               <Text strong>GST Number</Text>
               <Input
                 value={formData.gstNumber}
@@ -406,7 +403,7 @@ const Step1CustomerInfo = ({
               />
             </Col>
           ) : (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={8}>
               <Text strong>Aadhaar Number</Text>
               <Input
                 value={formData.aadhaarNumber}
@@ -416,7 +413,7 @@ const Step1CustomerInfo = ({
               />
             </Col>
           )}
-          <Col xs={24} md={12}>
+          <Col xs={24} md={16}>
             <Text strong>
               {isCompany ? "Office Address *" : "Residence Address *"}
             </Text>
@@ -436,7 +433,7 @@ const Step1CustomerInfo = ({
               <Text type="danger">{step1Errors.residenceAddress}</Text>
             ) : null}
           </Col>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={4}>
             <Text strong>Pincode *</Text>
             <Input
               value={formData.pincode}
@@ -444,13 +441,13 @@ const Step1CustomerInfo = ({
               maxLength={6}
               style={{ marginTop: 6 }}
               status={showErrors && step1Errors.pincode ? "error" : ""}
-              placeholder="6-digit pincode"
+              placeholder="Pincode"
             />
             {showErrors && step1Errors.pincode ? (
               <Text type="danger">{step1Errors.pincode}</Text>
             ) : null}
           </Col>
-          <Col xs={24} md={12}>
+          <Col xs={24} md={4}>
             <Text strong>City *</Text>
             <Input
               value={formData.city}
@@ -464,62 +461,67 @@ const Step1CustomerInfo = ({
             ) : null}
           </Col>
         </Row>
-      </Card>
+      </div>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={12}>
-          <Card size="small" title="Nominee (Optional)" bordered>
-            <Row gutter={[12, 12]}>
-              <Col span={24}>
-                <Input
-                  value={formData.nomineeName}
-                  onChange={handleChange("nomineeName")}
-                  placeholder="Nominee Name"
-                />
-              </Col>
-              <Col span={24}>
-                <Input
-                  value={formData.nomineeRelationship}
-                  onChange={handleChange("nomineeRelationship")}
-                  placeholder="Relationship"
-                />
-              </Col>
-              <Col span={24}>
-                <InputNumber
-                  min={0}
-                  value={Number(formData.nomineeAge || 0) || 0}
-                  onChange={(v) =>
-                    setField("nomineeAge", String(v ?? ""))
-                  }
-                  style={{ width: "100%" }}
-                  placeholder="Nominee Age"
-                />
-              </Col>
-            </Row>
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card size="small" title="Reference (Optional)" bordered>
-            <Row gutter={[12, 12]}>
-              <Col span={24}>
-                <Input
-                  value={formData.referenceName}
-                  onChange={handleChange("referenceName")}
-                  placeholder="Reference Name"
-                />
-              </Col>
-              <Col span={24}>
-                <Input
-                  value={formData.referencePhone}
-                  onChange={handleChange("referencePhone")}
-                  placeholder="Reference Phone"
-                />
-              </Col>
-            </Row>
-          </Card>
-        </Col>
-      </Row>
-    </Space>
+      {/* Section 3: Nominee & Reference */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">Nominee (Optional)</h3>
+          <Row gutter={[12, 12]}>
+            <Col span={24}>
+              <Text className="mb-1 block text-[11px] font-bold text-slate-400 uppercase">Name</Text>
+              <Input
+                value={formData.nomineeName}
+                onChange={handleChange("nomineeName")}
+                placeholder="Nominee Name"
+              />
+            </Col>
+            <Col span={24}>
+              <Text className="mb-1 block text-[11px] font-bold text-slate-400 uppercase">Relationship</Text>
+              <Input
+                value={formData.nomineeRelationship}
+                onChange={handleChange("nomineeRelationship")}
+                placeholder="Relationship"
+              />
+            </Col>
+            <Col span={24}>
+              <Text className="mb-1 block text-[11px] font-bold text-slate-400 uppercase">Age</Text>
+              <InputNumber
+                min={0}
+                value={Number(formData.nomineeAge || 0) || 0}
+                onChange={(v) =>
+                  setField("nomineeAge", String(v ?? ""))
+                }
+                style={{ width: "100%" }}
+                placeholder="Nominee Age"
+              />
+            </Col>
+          </Row>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">Reference (Optional)</h3>
+          <Row gutter={[12, 12]}>
+            <Col span={24}>
+              <Text className="mb-1 block text-[11px] font-bold text-slate-400 uppercase">Name</Text>
+              <Input
+                value={formData.referenceName}
+                onChange={handleChange("referenceName")}
+                placeholder="Reference Name"
+              />
+            </Col>
+            <Col span={24}>
+              <Text className="mb-1 block text-[11px] font-bold text-slate-400 uppercase">Phone</Text>
+              <Input
+                value={formData.referencePhone}
+                onChange={handleChange("referencePhone")}
+                placeholder="Reference Phone"
+              />
+            </Col>
+          </Row>
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, PencilLine, Trash2, Eye, ShieldCheck, RefreshCw, Zap, ShieldPlus } from "lucide-react";
+import { Plus, PencilLine, Trash2, Eye, ShieldCheck, RefreshCw, Zap } from "lucide-react";
 import {
   Alert,
   Button,
+  Divider,
   Empty,
   Input,
   message,
@@ -327,65 +328,40 @@ const InsuranceDashboardPage = () => {
   }, [filteredCases, page]);
 
   return (
-    <div className="h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-b from-sky-50 via-white to-white p-4 md:p-6 dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+    <div className="h-full min-h-0 bg-background p-4 md:p-6 dark:bg-slate-950">
       <div className="flex h-full min-h-0 flex-col gap-5">
-        {/* Header — matches loan dashboard command center */}
-        <section className="rounded-2xl border border-slate-200/70 bg-white/80 px-5 py-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+        {/* Modern Flat Header */}
+        <section className="px-1 pt-2">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 dark:border-sky-900/50 dark:bg-sky-950/40">
+            <div>
+              <div className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-              </div>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sky-600 dark:text-sky-400">
-                  Insurance Module
-                </p>
-                <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">
-                  Dashboard Command Center
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                  Insurance Dashboard
                 </h1>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Cases, policy snapshot, and actions — same layout as loans.
-                </p>
               </div>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Manage your insurance cases, renewals and task queue.
+              </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-              <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 dark:border-sky-900/40 dark:bg-sky-950/30">
-                <p className="text-slate-500 dark:text-slate-400">In view</p>
-                <p className="font-bold tabular-nums text-slate-900 dark:text-slate-100">
-                  {filteredCases.length}
-                </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-slate-800 dark:bg-slate-900">
+                <div className="h-1.5 w-1.5 rounded-full bg-sky-500"></div>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Draft: {stats.draft}</span>
               </div>
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-                <p className="text-slate-500 dark:text-slate-400">Submitted</p>
-                <p className="font-bold tabular-nums text-slate-900 dark:text-slate-100">
-                  {stats.submitted}
-                </p>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-slate-800 dark:bg-slate-900">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">Submitted: {stats.submitted}</span>
               </div>
-              <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/30">
-                <p className="text-slate-500 dark:text-slate-400">Draft</p>
-                <p className="font-bold tabular-nums text-slate-900 dark:text-slate-100">
-                  {stats.draft}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button
-                icon={<RefreshCw size={18} />}
-                onClick={() => setPolicyFilter("renewal30")}
-                className="hidden sm:inline-flex"
-              >
-                Due for Renewal
-              </Button>
+              <Divider type="vertical" height="24px" className="mx-1" />
               <Button
                 type="primary"
-                size="large"
-                icon={<Plus size={18} />}
+                icon={<Plus size={16} />}
                 onClick={() => navigate("/insurance/new")}
-                className="w-full shrink-0 sm:w-auto"
+                className="h-9 px-4 font-semibold shadow-none"
               >
-                New Insurance Case
+                New Case
               </Button>
             </div>
           </div>
@@ -513,39 +489,29 @@ const InsuranceDashboardPage = () => {
         </section>
 
         {/* Search + Filters - Exact Loans Dashboard Style */}
-        <section className="rounded-2xl border border-slate-200/70 bg-white/80 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
-          <div className="border-b border-slate-200/70 px-4 py-3 dark:border-slate-800">
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="px-4 py-3">
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <SearchOutlined className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by Customer Name, Mobile Number, Vehicle Number, or Policy Number..."
+                  placeholder="Search cases..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
                 />
               </div>
-              
               <Button
-                icon={<span className="text-base">↻</span>}
+                icon={<RefreshCw size={16} />}
                 onClick={loadCases}
-                className="h-10 px-3"
-              >
-                Refresh
-              </Button>
-              
-              <Button
-                type="primary"
-                icon={<Plus size={16} />}
-                onClick={() => navigate("/insurance/new")}
-                className="h-10 px-4"
-              >
-                New Case
-              </Button>
+                className="h-10 w-10 p-0 flex items-center justify-center border-slate-200 dark:border-slate-800 shadow-none"
+              />
             </div>
+          </div>
 
-            <div className="mt-3 flex items-center justify-between">
+          <div className="border-t border-slate-100 px-4 py-2 dark:border-slate-800">
+            <div className="flex items-center justify-between">
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center gap-2 text-sm font-semibold text-slate-900 transition-colors hover:text-sky-600 dark:text-slate-100"
@@ -601,7 +567,7 @@ const InsuranceDashboardPage = () => {
           )}
         </section>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
 
           <div className="flex-1 overflow-y-auto p-3 md:p-4">
             {error && (

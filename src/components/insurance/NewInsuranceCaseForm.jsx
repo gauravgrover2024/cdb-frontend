@@ -38,6 +38,8 @@ import {
   durationOptions,
   addOnCatalog,
 } from "./steps/allSteps";
+import InsuranceStickyHeader from "./InsuranceStickyHeader";
+import InsuranceStageFooter from "./InsuranceStageFooter";
 
 const { Text, Title } = Typography;
 
@@ -629,8 +631,7 @@ const NewInsuranceCaseForm = ({
           });
       }
 
-      // Persist latest customer-applied fields (debounced so React has updated state)
-      schedulePersist(250);
+      // schedulePersist(250);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -759,8 +760,7 @@ const NewInsuranceCaseForm = ({
           prev.manufactureYear,
       }));
 
-      // Persist vehicle-applied fields (debounced so React has updated state)
-      schedulePersist(250);
+      // schedulePersist(250);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -1015,7 +1015,7 @@ const NewInsuranceCaseForm = ({
 
   const handleChange = (field) => (event) => {
     setFormData((prev) => ({ ...prev, [field]: event?.target?.value }));
-    schedulePersist();
+    // schedulePersist();
   };
 
   const buildPersistPayload = useCallback(
@@ -1094,7 +1094,6 @@ const NewInsuranceCaseForm = ({
 
   const setField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Auto-save is disabled - user must manually click Save
     // schedulePersist();
   };
 
@@ -1133,7 +1132,7 @@ const NewInsuranceCaseForm = ({
       return Math.min(prev + 1, 8);
     });
     setShowErrors(false);
-    // persistNow({ silent: true }); // Auto-save disabled
+    // persistNow({ silent: true });
   };
 
   const goBack = () => {
@@ -1142,7 +1141,7 @@ const NewInsuranceCaseForm = ({
       return Math.max(prev - 1, 1);
     });
     setShowErrors(false);
-    persistNow({ silent: true });
+    // persistNow({ silent: true });
   };
 
   const addQuote = () => {
@@ -1164,7 +1163,7 @@ const NewInsuranceCaseForm = ({
       addOns: { ...initialQuoteDraft.addOns },
       addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
     });
-    persistNow({ silent: true });
+    // persistNow({ silent: true });
   };
 
   const acceptQuote = (id) => {
@@ -1188,7 +1187,7 @@ const NewInsuranceCaseForm = ({
         newTpExpiryDate: calcExpiryDate(startDate, odTp.tpYears),
       };
     });
-    persistNow({ silent: true });
+    // persistNow({ silent: true });
   };
 
   const handlePreviousPolicyStartOrDuration = (updated) => {
@@ -1228,7 +1227,7 @@ const NewInsuranceCaseForm = ({
 
       return next;
     });
-    schedulePersist();
+    // schedulePersist();
   };
 
   const handleNewPolicyStartOrDuration = (updated) => {
@@ -1268,7 +1267,7 @@ const NewInsuranceCaseForm = ({
 
       return next;
     });
-    schedulePersist();
+    // schedulePersist();
   };
 
   const handleSubmitFinal = async (event) => {
@@ -1367,397 +1366,329 @@ const NewInsuranceCaseForm = ({
     }));
   }, [quotes]);
 
+  const renderStep = () => {
+    switch (step) {
+      case 1:
+        return (
+          <Step1CustomerInfo
+            formData={formData}
+            setField={setField}
+            handleChange={handleChange}
+            showErrors={showErrors}
+            step1Errors={step1Errors}
+            isCompany={isCompany}
+            employeeOptions={employeeOptions}
+            employeesLoading={employeesLoading}
+            employeesList={employeesList}
+            customerSearchResults={customerSearchResults}
+            customerSearchLoading={customerSearchLoading}
+            searchCustomers={searchCustomers}
+            applyCustomerToForm={applyCustomerToForm}
+            getCustomerId={getCustomerId}
+          />
+        );
+      case 2:
+        return (
+          <Step2VehicleDetails
+            formData={formData}
+            setField={setField}
+            handleChange={handleChange}
+            showErrors={showErrors}
+            step2Errors={step2Errors}
+            vehicleSearchLoading={vehicleSearchLoading}
+            vehicleSearchInput={vehicleSearchInput}
+            setVehicleSearchInput={setVehicleSearchInput}
+            vehicleSearchLoading2={vehicleSearchLoading2}
+            vehicleSearchOptions={vehicleSearchOptions}
+            handleVehicleSearch={handleVehicleSearch}
+            applyVehicleToForm={applyVehicleToForm}
+            makeOptions={makeOptions}
+            modelOptions={modelOptions}
+            variantOptions={variantOptions}
+            vehicleSearchDebounceRef={vehicleSearchDebounceRef}
+            setVehicleSearchLoading={setVehicleSearchLoading}
+            vehiclesApi={vehiclesApi}
+          />
+        );
+      case 3:
+        if (isNewCar) return null;
+        return (
+          <Step3PreviousPolicy
+            formData={formData}
+            setField={setField}
+            handleChange={handleChange}
+            handlePreviousPolicyStartOrDuration={
+              handlePreviousPolicyStartOrDuration
+            }
+          />
+        );
+      case 4:
+        return (
+          <Step4InsuranceQuotes
+            quoteDraft={quoteDraft}
+            setQuoteDraft={setQuoteDraft}
+            quoteComputed={quoteComputed}
+            quotes={quotes}
+            quoteRows={quoteRows}
+            acceptedQuoteId={acceptedQuoteId}
+            acceptedQuote={acceptedQuote}
+            showErrors={showErrors}
+            addQuote={addQuote}
+            acceptQuote={acceptQuote}
+            initialQuoteDraft={initialQuoteDraft}
+            mapQuoteToDraft={mapQuoteToDraft}
+            durationOptions={durationOptions}
+            toINR={toINR}
+            getQuoteRowId={getQuoteRowId}
+            computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
+            formatStoredOrComputedIdv={formatStoredOrComputedIdv}
+            formatStoredOrComputedPremium={formatStoredOrComputedPremium}
+            planFeaturesModal={planFeaturesModal}
+            setPlanFeaturesModal={setPlanFeaturesModal}
+          />
+        );
+      case 5:
+        return (
+          <Step5NewPolicyDetails
+            formData={formData}
+            setField={setField}
+            handleChange={handleChange}
+            handleNewPolicyStartOrDuration={handleNewPolicyStartOrDuration}
+            acceptedQuote={acceptedQuote}
+            durationOptions={durationOptions}
+            paymentHistory={paymentHistory}
+            setPaymentModalVisible={setPaymentModalVisible}
+            insuranceDbId={insuranceDbId}
+            toINR={toINR}
+            insuranceApi={insuranceApi}
+          />
+        );
+      case 6:
+        return (
+          <Step6Documents
+            documents={documents}
+            setDocuments={setDocuments}
+            schedulePersist={schedulePersist}
+            docRows={docRows}
+            docsTaggedCount={docsTaggedCount}
+            allUploadedDocsTagged={allUploadedDocsTagged}
+          />
+        );
+      case 7:
+        return (
+          <Step7Payment
+            formData={formData}
+            setField={setField}
+            setFormData={setFormData}
+            paymentForm={paymentForm}
+            setPaymentForm={setPaymentForm}
+            paymentHistory={paymentHistory}
+            setPaymentHistory={setPaymentHistory}
+            schedulePersist={schedulePersist}
+          />
+        );
+      case 8:
+        return (
+          <Step8Payout
+            formData={formData}
+            setField={setField}
+            setFormData={setFormData}
+            schedulePersist={schedulePersist}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <Card bordered>
-      <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <div className="mb-6 rounded-2xl border border-slate-200/70 bg-white/50 p-5 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/50">
-        <Row gutter={[16, 16]} align="middle">
-          <Col flex="48px">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-700 shadow-sm dark:bg-sky-900/30 dark:text-sky-400">
-              <CurrentStepIcon size={24} />
-            </div>
-          </Col>
-          <Col flex="auto">
-            <h1 className="m-0 text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-              {currentStepTitle}
-            </h1>
-            <Text type="secondary" className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              {stepHelpText}
-            </Text>
-          </Col>
-          <Col xs={24} md={12}>
-            <div className="flex items-center justify-end rounded-lg bg-slate-100/50 p-1 dark:bg-slate-800/50">
-              {/* Optional progress indicator or global status can go here */}
-              <div className="px-3">
-                <Text type="secondary" className="text-[10px] font-bold uppercase tracking-widest">
-                  Step {step} of {visibleSteps.length + (isNewCar ? 0 : 1)}
-                </Text>
-              </div>
-            </div>
-          </Col>
-        </Row>
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/20">
+      <InsuranceStickyHeader
+        formData={formData}
+        activeStep={step}
+        onStepClick={setStep}
+      />
+
+      <div className="pt-[180px] pb-[80px]">
+        <div className="w-full px-4 py-6 md:px-6 lg:px-10">
+          {stepErrorsAlert && <div className="mb-6">{stepErrorsAlert}</div>}
+          <div className="space-y-8">{renderStep()}</div>
+        </div>
       </div>
 
-      <div className="mb-8 overflow-x-auto rounded-2xl border border-slate-200/70 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <Steps
-          type="navigation"
-          size="small"
-          current={stepIndex}
-          className="custom-steps-nav"
-          items={visibleSteps.map((s) => {
-            const StepIcon = STEP_ICON_MAP[s.originalStep] || CreditCard;
-            return {
-              title: (
-                <span className="text-[11px] font-bold uppercase tracking-tight">
-                  {s.title.replace(/^Step\s*\d+\s*:\s*/i, "")}
-                </span>
-              ),
-              icon: <StepIcon size={14} />,
-              onClick: () => setStep(s.originalStep),
-              status: step === s.originalStep ? "process" : step > s.originalStep ? "finish" : "wait",
-            };
-          })}
-          style={{ paddingBlock: 4 }}
-        />
-      </div>
+      <InsuranceStageFooter
+        activeStep={step}
+        onNext={step === 8 ? handleSubmitFinal : goNext}
+        onBack={goBack}
+        onSave={() => persistNow({ silent: false })}
+        onExit={onCancel}
+        isSaving={saving}
+        mode={mode}
+      />
 
-        {stepErrorsAlert}
+      <Modal
+        title="Record Payment"
+        open={paymentModalVisible}
+        onCancel={() => {
+          setPaymentModalVisible(false);
+          setPaymentForm({
+            amount: 0,
+            date: new Date().toISOString().slice(0, 10),
+            paymentType: "customer",
+            paymentMode: "Cash",
+            transactionRef: "",
+            remarks: "",
+          });
+        }}
+        onOk={() => {
+          if (paymentForm.amount <= 0) {
+            message.error("Amount must be greater than 0");
+            return;
+          }
+          const newPayment = {
+            _id: `payment-${Date.now()}`,
+            ...paymentForm,
+            amount: Number(paymentForm.amount),
+            recordedAt: new Date().toISOString(),
+          };
+          setPaymentHistory((prev) => [...prev, newPayment]);
 
-        <form onSubmit={handleSubmitFinal}>
-          {step === 1 && (
-            <Step1CustomerInfo
-              formData={formData}
-              setField={setField}
-              handleChange={handleChange}
-              showErrors={showErrors}
-              step1Errors={step1Errors}
-              isCompany={isCompany}
-              employeeOptions={employeeOptions}
-              employeesLoading={employeesLoading}
-              employeesList={employeesList}
-              customerSearchResults={customerSearchResults}
-              customerSearchLoading={customerSearchLoading}
-              searchCustomers={searchCustomers}
-              applyCustomerToForm={applyCustomerToForm}
-              getCustomerId={getCustomerId}
-            />
-          )}
+          if (paymentForm.paymentType === "customer") {
+            setFormData((prev) => ({
+              ...prev,
+              customerPaymentReceived:
+                Number(prev.customerPaymentReceived || 0) +
+                Number(paymentForm.amount),
+            }));
+          } else {
+            setFormData((prev) => ({
+              ...prev,
+              inhousePaymentReceived:
+                Number(prev.inhousePaymentReceived || 0) +
+                Number(paymentForm.amount),
+            }));
+          }
 
-          {step === 2 && (
-            <Step2VehicleDetails
-              formData={formData}
-              setField={setField}
-              handleChange={handleChange}
-              showErrors={showErrors}
-              step2Errors={step2Errors}
-              vehicleSearchLoading={vehicleSearchLoading}
-              vehicleSearchInput={vehicleSearchInput}
-              setVehicleSearchInput={setVehicleSearchInput}
-              vehicleSearchLoading2={vehicleSearchLoading2}
-              vehicleSearchOptions={vehicleSearchOptions}
-              handleVehicleSearch={handleVehicleSearch}
-              applyVehicleToForm={applyVehicleToForm}
-              makeOptions={makeOptions}
-              modelOptions={modelOptions}
-              variantOptions={variantOptions}
-              vehicleSearchDebounceRef={vehicleSearchDebounceRef}
-              setVehicleSearchLoading={setVehicleSearchLoading}
-              vehiclesApi={vehiclesApi}
-            />
-          )}
-
-          {step === 3 && !isNewCar && (
-            <Step3PreviousPolicy
-              formData={formData}
-              setField={setField}
-              handleChange={handleChange}
-              handlePreviousPolicyStartOrDuration={
-                handlePreviousPolicyStartOrDuration
+          setPaymentModalVisible(false);
+          setPaymentForm({
+            amount: 0,
+            date: new Date().toISOString().slice(0, 10),
+            paymentType: "customer",
+            paymentMode: "Cash",
+            transactionRef: "",
+            remarks: "",
+          });
+          // schedulePersist(250);
+          message.success("Payment recorded successfully");
+        }}
+        okText="Record Payment"
+      >
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <div>
+            <Text strong>Payment Type *</Text>
+            <Radio.Group
+              value={paymentForm.paymentType}
+              onChange={(e) =>
+                setPaymentForm((prev) => ({
+                  ...prev,
+                  paymentType: e.target.value,
+                }))
               }
-            />
-          )}
+              style={{ marginTop: 6, display: "block" }}
+              optionType="button"
+              buttonStyle="solid"
+            >
+              <Radio.Button value="customer">
+                Customer → AutoCredit
+              </Radio.Button>
+              <Radio.Button value="inhouse">
+                AutoCredit → Insurance Co.
+              </Radio.Button>
+            </Radio.Group>
+          </div>
 
-          {step === 4 && (
-            <Step4InsuranceQuotes
-              quoteDraft={quoteDraft}
-              setQuoteDraft={setQuoteDraft}
-              quoteComputed={quoteComputed}
-              quotes={quotes}
-              quoteRows={quoteRows}
-              acceptedQuoteId={acceptedQuoteId}
-              acceptedQuote={acceptedQuote}
-              showErrors={showErrors}
-              addQuote={addQuote}
-              acceptQuote={acceptQuote}
-              initialQuoteDraft={initialQuoteDraft}
-              mapQuoteToDraft={mapQuoteToDraft}
-              durationOptions={durationOptions}
-              toINR={toINR}
-              getQuoteRowId={getQuoteRowId}
-              computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
-              formatStoredOrComputedIdv={formatStoredOrComputedIdv}
-              formatStoredOrComputedPremium={formatStoredOrComputedPremium}
-              planFeaturesModal={planFeaturesModal}
-              setPlanFeaturesModal={setPlanFeaturesModal}
-            />
-          )}
-
-          {step === 5 && (
-            <Step5NewPolicyDetails
-              formData={formData}
-              setField={setField}
-              handleChange={handleChange}
-              handleNewPolicyStartOrDuration={handleNewPolicyStartOrDuration}
-              acceptedQuote={acceptedQuote}
-              durationOptions={durationOptions}
-              paymentHistory={paymentHistory}
-              setPaymentModalVisible={setPaymentModalVisible}
-              insuranceDbId={insuranceDbId}
-              toINR={toINR}
-              insuranceApi={insuranceApi}
-            />
-          )}
-
-          {step === 7 && (
-            <Step7Payment
-              formData={formData}
-              setField={setField}
-              setFormData={setFormData}
-              paymentForm={paymentForm}
-              setPaymentForm={setPaymentForm}
-              paymentHistory={paymentHistory}
-              setPaymentHistory={setPaymentHistory}
-              schedulePersist={schedulePersist}
-            />
-          )}
-
-          {step === 8 && (
-            <Step8Payout
-              formData={formData}
-              setField={setField}
-              setFormData={setFormData}
-              schedulePersist={schedulePersist}
-            />
-          )}
-
-          {step === 6 && (
-            <Step6Documents
-              documents={documents}
-              setDocuments={setDocuments}
-              schedulePersist={schedulePersist}
-              docRows={docRows}
-              docsTaggedCount={docsTaggedCount}
-              allUploadedDocsTagged={allUploadedDocsTagged}
-            />
-          )}
-
-          <Divider />
-          <Row justify="space-between" align="middle" gutter={[12, 12]}>
-            <Col>
-              {mode === "edit" && (
-                <Popconfirm
-                  title="Delete Case"
-                  description="Are you sure you want to delete this insurance case? This action cannot be undone."
-                  onConfirm={handleDelete}
-                  okText="Delete"
-                  okType="danger"
-                  cancelText="Cancel"
-                >
-                  <Button danger loading={deleting}>
-                    Delete
-                  </Button>
-                </Popconfirm>
-              )}
+          <Row gutter={[12, 12]}>
+            <Col xs={24} md={12}>
+              <Text strong>Amount (₹) *</Text>
+              <InputNumber
+                min={0}
+                value={paymentForm.amount}
+                onChange={(v) =>
+                  setPaymentForm((prev) => ({ ...prev, amount: v }))
+                }
+                style={{ width: "100%", marginTop: 6 }}
+                placeholder="Enter amount"
+              />
             </Col>
-            <Col>
-              <Button onClick={step === 1 ? onCancel : goBack}>
-                {step === 1 ? "Cancel" : "Previous"}
-              </Button>
-            </Col>
-            <Col>
-              <Space size={10}>
-                <Text type="secondary">
-                  Step {stepIndex + 1} of {visibleSteps.length}
-                </Text>
-                {saving ? <Text type="secondary">Saving…</Text> : null}
-              </Space>
-            </Col>
-            <Col>
-              {step < 8 ? (
-                <Button type="primary" onClick={goNext}>
-                  Next
-                </Button>
-              ) : (
-                <Button type="primary" htmlType="submit" loading={saving}>
-                  {mode === "edit" ? "Save Changes" : "Create Case"}
-                </Button>
-              )}
-            </Col>
-          </Row>
-        </form>
-
-        <Modal
-          title="Record Payment"
-          open={paymentModalVisible}
-          onCancel={() => {
-            setPaymentModalVisible(false);
-            setPaymentForm({
-              amount: 0,
-              date: new Date().toISOString().slice(0, 10),
-              paymentType: "customer",
-              paymentMode: "Cash",
-              transactionRef: "",
-              remarks: "",
-            });
-          }}
-          onOk={() => {
-            if (paymentForm.amount <= 0) {
-              message.error("Amount must be greater than 0");
-              return;
-            }
-            const newPayment = {
-              _id: `payment-${Date.now()}`,
-              ...paymentForm,
-              amount: Number(paymentForm.amount),
-              recordedAt: new Date().toISOString(),
-            };
-            setPaymentHistory((prev) => [...prev, newPayment]);
-
-            if (paymentForm.paymentType === "customer") {
-              setFormData((prev) => ({
-                ...prev,
-                customerPaymentReceived:
-                  Number(prev.customerPaymentReceived || 0) +
-                  Number(paymentForm.amount),
-              }));
-            } else {
-              setFormData((prev) => ({
-                ...prev,
-                inhousePaymentReceived:
-                  Number(prev.inhousePaymentReceived || 0) +
-                  Number(paymentForm.amount),
-              }));
-            }
-
-            setPaymentModalVisible(false);
-            setPaymentForm({
-              amount: 0,
-              date: new Date().toISOString().slice(0, 10),
-              paymentType: "customer",
-              paymentMode: "Cash",
-              transactionRef: "",
-              remarks: "",
-            });
-            schedulePersist(250);
-            message.success("Payment recorded successfully");
-          }}
-          okText="Record Payment"
-        >
-          <Space direction="vertical" size={12} style={{ width: "100%" }}>
-            <div>
-              <Text strong>Payment Type *</Text>
-              <Radio.Group
-                value={paymentForm.paymentType}
+            <Col xs={24} md={12}>
+              <Text strong>Date *</Text>
+              <Input
+                type="date"
+                value={paymentForm.date}
                 onChange={(e) =>
                   setPaymentForm((prev) => ({
                     ...prev,
-                    paymentType: e.target.value,
+                    date: e.target.value,
                   }))
                 }
-                style={{ marginTop: 6, display: "block" }}
-                optionType="button"
-                buttonStyle="solid"
-              >
-                <Radio.Button value="customer">
-                  Customer → AutoCredit
-                </Radio.Button>
-                <Radio.Button value="inhouse">
-                  AutoCredit → Insurance Co.
-                </Radio.Button>
-              </Radio.Group>
-            </div>
-
-            <Row gutter={[12, 12]}>
-              <Col xs={24} md={12}>
-                <Text strong>Amount (₹) *</Text>
-                <InputNumber
-                  min={0}
-                  value={paymentForm.amount}
-                  onChange={(v) =>
-                    setPaymentForm((prev) => ({ ...prev, amount: v }))
-                  }
-                  style={{ width: "100%", marginTop: 6 }}
-                  placeholder="Enter amount"
-                />
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Date *</Text>
-                <Input
-                  type="date"
-                  value={paymentForm.date}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      date: e.target.value,
-                    }))
-                  }
-                  style={{ marginTop: 6 }}
-                />
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Payment Mode *</Text>
-                <Select
-                  value={paymentForm.paymentMode}
-                  onChange={(v) =>
-                    setPaymentForm((prev) => ({ ...prev, paymentMode: v }))
-                  }
-                  style={{ width: "100%", marginTop: 6 }}
-                  options={[
-                    { label: "Cash", value: "Cash" },
-                    { label: "Cheque", value: "Cheque" },
-                    { label: "NEFT", value: "NEFT" },
-                    { label: "RTGS", value: "RTGS" },
-                    { label: "UPI", value: "UPI" },
-                    { label: "Card", value: "Card" },
-                    { label: "Other", value: "Other" },
-                  ]}
-                />
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Transaction Ref</Text>
-                <Input
-                  value={paymentForm.transactionRef}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      transactionRef: e.target.value,
-                    }))
-                  }
-                  style={{ marginTop: 6 }}
-                  placeholder="UTR / Cheque no."
-                />
-              </Col>
-              <Col xs={24}>
-                <Text strong>Remarks</Text>
-                <Input.TextArea
-                  rows={2}
-                  value={paymentForm.remarks}
-                  onChange={(e) =>
-                    setPaymentForm((prev) => ({
-                      ...prev,
-                      remarks: e.target.value,
-                    }))
-                  }
-                  style={{ marginTop: 6 }}
-                  placeholder="Optional notes"
-                />
-              </Col>
-            </Row>
-          </Space>
-        </Modal>
-      </Space>
-    </Card>
+                style={{ marginTop: 6 }}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text strong>Payment Mode *</Text>
+              <Select
+                value={paymentForm.paymentMode}
+                onChange={(v) =>
+                  setPaymentForm((prev) => ({ ...prev, paymentMode: v }))
+                }
+                style={{ width: "100%", marginTop: 6 }}
+                options={[
+                  { label: "Cash", value: "Cash" },
+                  { label: "Cheque", value: "Cheque" },
+                  { label: "NEFT", value: "NEFT" },
+                  { label: "RTGS", value: "RTGS" },
+                  { label: "UPI", value: "UPI" },
+                  { label: "Card", value: "Card" },
+                  { label: "Other", value: "Other" },
+                ]}
+              />
+            </Col>
+            <Col xs={24} md={12}>
+              <Text strong>Transaction Ref</Text>
+              <Input
+                value={paymentForm.transactionRef}
+                onChange={(e) =>
+                  setPaymentForm((prev) => ({
+                    ...prev,
+                    transactionRef: e.target.value,
+                  }))
+                }
+                style={{ marginTop: 6 }}
+                placeholder="UTR / Cheque no."
+              />
+            </Col>
+            <Col xs={24}>
+              <Text strong>Remarks</Text>
+              <Input.TextArea
+                rows={2}
+                value={paymentForm.remarks}
+                onChange={(e) =>
+                  setPaymentForm((prev) => ({
+                    ...prev,
+                    remarks: e.target.value,
+                  }))
+                }
+                style={{ marginTop: 6 }}
+                placeholder="Optional notes"
+              />
+            </Col>
+          </Row>
+        </Space>
+      </Modal>
+    </div>
   );
 };
+
+
 
 export default NewInsuranceCaseForm;

@@ -35,13 +35,10 @@ const Step2VehicleDetails = ({
   vehiclesApi,
 }) => {
   return (
-    <Card
-      size="small"
-      title="Vehicle Details - Search & Auto-Fill"
-      bordered
-    >
+    <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+      <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-400">Vehicle Details</h3>
       <Row gutter={[16, 16]}>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Registration Number *</Text>
           <Input
             value={formData.registrationNumber}
@@ -104,15 +101,15 @@ const Step2VehicleDetails = ({
           />
           {vehicleSearchLoading && (
             <Text style={{ fontSize: 12, color: "#999" }}>
-              🔍 Fetching vehicle data...
+              🔍 Fetching...
             </Text>
           )}
           {showErrors && step2Errors.registrationNumber ? (
             <Text type="danger">{step2Errors.registrationNumber}</Text>
           ) : null}
         </Col>
-        <Col xs={24} md={12}>
-          <Text strong>Registration Authority</Text>
+        <Col xs={24} md={8}>
+          <Text strong>Reg Authority</Text>
           <Input
             value={formData.regAuthority}
             onChange={handleChange("regAuthority")}
@@ -120,8 +117,8 @@ const Step2VehicleDetails = ({
             placeholder="e.g. DL-01"
           />
         </Col>
-        <Col xs={24} md={12}>
-          <Text strong>Date of Registration</Text>
+        <Col xs={24} md={8}>
+          <Text strong>Date of Reg</Text>
           <Input
             type="date"
             value={formData.dateOfReg}
@@ -136,7 +133,7 @@ const Step2VehicleDetails = ({
             value={vehicleSearchInput}
             onSearch={handleVehicleSearch}
             onChange={(val) => setVehicleSearchInput(val)}
-            placeholder="Type make/model (e.g. Hyundai Creta, Maruti Swift)..."
+            placeholder="Type make/model..."
             style={{ marginTop: 6, width: "100%" }}
             loading={vehicleSearchLoading2}
             notFoundContent={
@@ -158,14 +155,6 @@ const Step2VehicleDetails = ({
                     {option.data?.vehicleVariant || option.data?.variant
                       ? ` • ${option.data.vehicleVariant || option.data.variant}`
                       : ""}
-                    {option.data?.cubicCapacity || option.data?.cc
-                      ? ` • ${option.data.cubicCapacity || option.data.cc} CC`
-                      : ""}
-                    {option.data?.manufactureYear ||
-                    option.data?.mfgYear ||
-                    option.data?.year
-                      ? ` • ${option.data.manufactureYear || option.data.mfgYear || option.data.year}`
-                      : ""}
                   </div>
                 </div>
               ),
@@ -180,7 +169,7 @@ const Step2VehicleDetails = ({
           />
         </Col>
 
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Brand *</Text>
           <Space direction="vertical" style={{ width: "100%" }}>
             <Select
@@ -209,19 +198,13 @@ const Step2VehicleDetails = ({
                 </Select.Option>
               ))}
             </Select>
-            {formData.vehicleMake &&
-              vehicleSearchOptions.length > 0 && (
-                <Text type="success" style={{ fontSize: 12 }}>
-                  ✓ Auto-filled from search
-                </Text>
-              )}
           </Space>
           {showErrors && step2Errors.vehicleMake ? (
             <Text type="danger">{step2Errors.vehicleMake}</Text>
           ) : null}
         </Col>
 
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Model *</Text>
           <Space direction="vertical" style={{ width: "100%" }}>
             <Select
@@ -250,19 +233,13 @@ const Step2VehicleDetails = ({
                 </Select.Option>
               ))}
             </Select>
-            {formData.vehicleModel &&
-              vehicleSearchOptions.length > 0 && (
-                <Text type="success" style={{ fontSize: 12 }}>
-                  ✓ Auto-filled from search
-                </Text>
-              )}
           </Space>
           {showErrors && step2Errors.vehicleModel ? (
             <Text type="danger">{step2Errors.vehicleModel}</Text>
           ) : null}
         </Col>
 
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Vehicle Variant *</Text>
           <Space direction="vertical" style={{ width: "100%" }}>
             <Select
@@ -288,35 +265,27 @@ const Step2VehicleDetails = ({
                 </Select.Option>
               ))}
             </Select>
-            {formData.vehicleVariant &&
-              vehicleSearchOptions.length > 0 && (
-                <Text type="success" style={{ fontSize: 12 }}>
-                  ✓ Auto-filled from search
-                </Text>
-              )}
           </Space>
           {showErrors && step2Errors.vehicleVariant ? (
             <Text type="danger">{step2Errors.vehicleVariant}</Text>
           ) : null}
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Cubic Capacity (cc)</Text>
-          <Space direction="vertical" style={{ width: "100%" }}>
-            <Input
-              value={formData.cubicCapacity}
-              onChange={handleChange("cubicCapacity")}
-              style={{ marginTop: 6 }}
-              placeholder="Optional"
-            />
-          </Space>
+          <Input
+            value={formData.cubicCapacity}
+            onChange={handleChange("cubicCapacity")}
+            style={{ marginTop: 6 }}
+            placeholder="CC"
+          />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Fuel Type</Text>
           <Select
             value={formData.fuelType || undefined}
             onChange={(v) => setField("fuelType", v)}
             style={{ width: "100%", marginTop: 6 }}
-            placeholder="Select fuel type"
+            placeholder="Fuel"
             options={[
               { label: "Petrol", value: "Petrol" },
               { label: "Diesel", value: "Diesel" },
@@ -326,29 +295,7 @@ const Step2VehicleDetails = ({
             ]}
           />
         </Col>
-        {formData.fuelType === "EV" && (
-          <>
-            <Col xs={24} md={12}>
-              <Text strong>Battery Number</Text>
-              <Input
-                value={formData.batteryNumber}
-                onChange={handleChange("batteryNumber")}
-                style={{ marginTop: 6 }}
-                placeholder="Enter battery number"
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text strong>Charger Number</Text>
-              <Input
-                value={formData.chargerNumber}
-                onChange={handleChange("chargerNumber")}
-                style={{ marginTop: 6 }}
-                placeholder="Enter charger number"
-              />
-            </Col>
-          </>
-        )}
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Engine Number *</Text>
           <Input
             value={formData.engineNumber}
@@ -357,13 +304,13 @@ const Step2VehicleDetails = ({
             status={
               showErrors && step2Errors.engineNumber ? "error" : ""
             }
-            placeholder="Engine number"
+            placeholder="Engine #"
           />
           {showErrors && step2Errors.engineNumber ? (
             <Text type="danger">{step2Errors.engineNumber}</Text>
           ) : null}
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Chassis Number *</Text>
           <Input
             value={formData.chassisNumber}
@@ -372,13 +319,13 @@ const Step2VehicleDetails = ({
             status={
               showErrors && step2Errors.chassisNumber ? "error" : ""
             }
-            placeholder="Chassis number"
+            placeholder="Chassis #"
           />
           {showErrors && step2Errors.chassisNumber ? (
             <Text type="danger">{step2Errors.chassisNumber}</Text>
           ) : null}
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Types of Vehicle</Text>
           <Select
             value={formData.typesOfVehicle || "Four Wheeler"}
@@ -387,7 +334,7 @@ const Step2VehicleDetails = ({
             options={[{ label: "Four Wheeler", value: "Four Wheeler" }]}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Manufacture Month *</Text>
           <Input
             value={formData.manufactureMonth}
@@ -402,7 +349,7 @@ const Step2VehicleDetails = ({
             <Text type="danger">{step2Errors.manufactureMonth}</Text>
           ) : null}
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Manufacture Year *</Text>
           <Input
             value={formData.manufactureYear}
@@ -417,7 +364,7 @@ const Step2VehicleDetails = ({
             <Text type="danger">{step2Errors.manufactureYear}</Text>
           ) : null}
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Manufacture Date</Text>
           <Input
             type="date"
@@ -426,13 +373,13 @@ const Step2VehicleDetails = ({
             style={{ marginTop: 6 }}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Hypothecation</Text>
           <Input
             value={formData.hypothecation}
             onChange={handleChange("hypothecation")}
             style={{ marginTop: 6 }}
-            placeholder="Financier name (if any)"
+            placeholder="Financier name"
           />
         </Col>
 
@@ -443,7 +390,7 @@ const Step2VehicleDetails = ({
         showIcon
         message="All vehicle details must be accurate and will be verified during policy issuance."
       />
-    </Card>
+    </div>
   );
 };
 

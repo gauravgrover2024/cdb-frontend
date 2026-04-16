@@ -25,34 +25,32 @@ const Step6Documents = ({
   allUploadedDocsTagged,
 }) => {
   return (
-    <Space direction="vertical" size={12} style={{ width: "100%" }}>
-      <Card
-        size="small"
-        title="Documents"
-        extra={
-          <Space>
-            <Text type={allUploadedDocsTagged ? "success" : "secondary"}>
+    <div className="flex flex-col gap-8">
+      {/* Section 1: Upload */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Documentation</h3>
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase ${allUploadedDocsTagged ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
               Tagged {docsTaggedCount}/{documents.length}
-            </Text>
+            </div>
             <Button
+              size="small"
               danger
+              type="text"
               onClick={() => {
                 setDocuments([]);
-                schedulePersist(250);
+                // schedulePersist(250);
               }}
               disabled={!documents.length}
             >
               Clear All
             </Button>
-          </Space>
-        }
-        bordered
-      >
-        <Text type="secondary">
-          Upload files and tag them (RC, Forms, PAN, Aadhaar/GST, policies,
-          etc.).
-        </Text>
-        <Divider style={{ marginBlock: 12 }} />
+          </div>
+        </div>
+        <p className="mb-4 text-xs text-slate-500">
+          Upload files and tag them (RC, Forms, PAN, Aadhaar/GST, policies, etc.).
+        </p>
         <Dragger
           multiple
           beforeUpload={() => false}
@@ -71,7 +69,7 @@ const Step6Documents = ({
               }));
             if (incoming.length) {
               setDocuments((prev) => [...prev, ...incoming]);
-              schedulePersist(250);
+              // schedulePersist(250);
             }
           }}
         >
@@ -79,9 +77,11 @@ const Step6Documents = ({
           <p className="ant-upload-text">Click or drag files to upload</p>
           <p className="ant-upload-hint">Multiple files supported</p>
         </Dragger>
-      </Card>
+      </div>
 
-      <Card size="small" title="Uploaded Files" bordered>
+      {/* Section 2: Uploaded List */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-400">Uploaded Files</h3>
         <Table
           size="small"
           dataSource={docRows}
@@ -111,7 +111,7 @@ const Step6Documents = ({
                     setDocuments((prev) =>
                       prev.map((x) => (x.id === row.id ? { ...x, tag: v } : x)),
                     );
-                    schedulePersist(250);
+                    // schedulePersist(250);
                   }}
                 />
               ),
@@ -123,8 +123,8 @@ const Step6Documents = ({
             <Text type="secondary">No documents uploaded yet.</Text>
           </div>
         ) : null}
-      </Card>
-    </Space>
+      </div>
+    </div>
   );
 };
 

@@ -32,14 +32,10 @@ const Step5NewPolicyDetails = ({
   insuranceApi,
 }) => {
   return (
-    <Card size="small" title="New Policy Details" bordered>
-      ) : null }
-      <Card
-        size="small"
-        title="Vehicle Pricing Info"
-        bordered={false}
-        className="mb-4 bg-slate-50/50 dark:bg-slate-900/30"
-      >
+    <div className="flex flex-col gap-8">
+      {/* Section 1: Vehicle Pricing */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/30">
+        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-400">Vehicle Pricing Info</h3>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <Text strong>Ex-Showroom Price (₹) *</Text>
@@ -85,10 +81,10 @@ const Step5NewPolicyDetails = ({
             </>
           )}
         </Row>
-      </Card>
+      </div>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Insurance Company *</Text>
           <Input
             value={formData.newInsuranceCompany}
@@ -96,7 +92,7 @@ const Step5NewPolicyDetails = ({
             style={{ marginTop: 6 }}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Policy Type *</Text>
           <Select
             value={formData.newPolicyType}
@@ -113,13 +109,8 @@ const Step5NewPolicyDetails = ({
               { label: "Third Party", value: "Third Party" },
             ]}
           />
-          <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-            {formData.newPolicyType === "Comprehensive" && "OD + TP combined coverage"}
-            {formData.newPolicyType === "Stand Alone OD" && "OD coverage only"}
-            {formData.newPolicyType === "Third Party" && "TP coverage only"}
-          </Text>
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Policy Number</Text>
           <Input
             value={formData.newPolicyNumber}
@@ -127,7 +118,7 @@ const Step5NewPolicyDetails = ({
             style={{ marginTop: 6 }}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Issue Date *</Text>
           <Input
             type="date"
@@ -136,8 +127,8 @@ const Step5NewPolicyDetails = ({
             style={{ marginTop: 6 }}
           />
         </Col>
-        <Col xs={24} md={12}>
-          <Text strong>Policy Start Date *</Text>
+        <Col xs={24} md={8}>
+          <Text strong>Start Date *</Text>
           <Input
             type="date"
             value={formData.newPolicyStartDate}
@@ -148,11 +139,8 @@ const Step5NewPolicyDetails = ({
             }
             style={{ marginTop: 6 }}
           />
-          <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-            Policy coverage start date
-          </Text>
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Insurance Duration *</Text>
           <Select
             value={formData.newInsuranceDuration}
@@ -187,23 +175,14 @@ const Step5NewPolicyDetails = ({
                         value: d,
                       }))
             }
-            placeholder={
-              formData.newPolicyType === "Comprehensive"
-                ? "e.g., 1yr OD + 1yr TP"
-                : "e.g., 1 Year"
-            }
+            placeholder="Duration"
             disabled={!formData.newPolicyType}
           />
-          <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-            {formData.newPolicyType === "Comprehensive" && "Available: 1yr OD + 1yr TP, 1yr OD + 3yr TP, 2yr OD + 3yr TP, 3yr OD + 3yr TP"}
-            {formData.newPolicyType === "Stand Alone OD" && "Available: 1 Year, 2 Years, 3 Years (OD coverage only)"}
-            {formData.newPolicyType === "Third Party" && "Available: 1 Year, 2 Years, 3 Years (TP coverage only)"}
-          </Text>
         </Col>
 
         {formData.newPolicyType === "Comprehensive" && (
           <>
-            <Col xs={24} md={12}>
+            <Col xs={24} md={8}>
               <Text strong>OD Expiry Date *</Text>
               <Input
                 type="date"
@@ -211,11 +190,8 @@ const Step5NewPolicyDetails = ({
                 onChange={handleChange("newOdExpiryDate")}
                 style={{ marginTop: 6 }}
               />
-              <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-                Auto-calculated: Start Date + OD Duration - 1 Day
-              </Text>
             </Col>
-            <Col xs={24} md={12}>
+            <Col xs={24} md={8}>
               <Text strong>TP Expiry Date *</Text>
               <Input
                 type="date"
@@ -223,15 +199,12 @@ const Step5NewPolicyDetails = ({
                 onChange={handleChange("newTpExpiryDate")}
                 style={{ marginTop: 6 }}
               />
-              <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-                Auto-calculated: Start Date + TP Duration - 1 Day
-              </Text>
             </Col>
           </>
         )}
 
         {formData.newPolicyType === "Stand Alone OD" && (
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>OD Expiry Date *</Text>
             <Input
               type="date"
@@ -239,14 +212,11 @@ const Step5NewPolicyDetails = ({
               onChange={handleChange("newOdExpiryDate")}
               style={{ marginTop: 6 }}
             />
-            <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-              Auto-calculated: Start Date + Duration - 1 Day
-            </Text>
           </Col>
         )}
 
         {formData.newPolicyType === "Third Party" && (
-          <Col xs={24} md={12}>
+          <Col xs={24} md={8}>
             <Text strong>TP Expiry Date *</Text>
             <Input
               type="date"
@@ -254,12 +224,9 @@ const Step5NewPolicyDetails = ({
               onChange={handleChange("newTpExpiryDate")}
               style={{ marginTop: 6 }}
             />
-            <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-              Auto-calculated: Start Date + Duration - 1 Day
-            </Text>
           </Col>
         )}
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>NCB Discount (%)</Text>
           <InputNumber
             min={0}
@@ -269,7 +236,7 @@ const Step5NewPolicyDetails = ({
             style={{ width: "100%", marginTop: 6 }}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>IDV Amount (₹) *</Text>
           <InputNumber
             min={0}
@@ -278,7 +245,7 @@ const Step5NewPolicyDetails = ({
             style={{ width: "100%", marginTop: 6 }}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Total Premium (₹) *</Text>
           <InputNumber
             min={0}
@@ -289,7 +256,7 @@ const Step5NewPolicyDetails = ({
             style={{ width: "100%", marginTop: 6 }}
           />
         </Col>
-        <Col xs={24} md={12}>
+        <Col xs={24} md={8}>
           <Text strong>Hypothecation</Text>
           <Select
             value={formData.newHypothecation}
@@ -303,25 +270,21 @@ const Step5NewPolicyDetails = ({
             ]}
           />
         </Col>
-        <Col xs={24}>
+        <Col xs={24} md={16}>
           <Text strong>Remarks</Text>
           <Input.TextArea
-            rows={3}
+            rows={1}
             value={formData.newRemarks}
             onChange={handleChange("newRemarks")}
             style={{ marginTop: 6 }}
+            placeholder="Notes..."
           />
         </Col>
       </Row>
 
-      <Divider style={{ marginBlock: 16 }} />
-
-      <Card
-        size="small"
-        title="Extended Warranty Details"
-        bordered={false}
-        className="mb-4 bg-amber-50/50 dark:bg-amber-900/10"
-      >
+      {/* Section 2: Extended Warranty */}
+      <div className="rounded-xl border border-amber-200/50 bg-amber-50/30 p-6 dark:border-amber-900/30 dark:bg-amber-900/10">
+        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-amber-600/70 dark:text-amber-400/50">Extended Warranty Details</h3>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <Text strong>EW Commencement Date</Text>
@@ -352,26 +315,14 @@ const Step5NewPolicyDetails = ({
             />
           </Col>
         </Row>
-      </Card>
+      </div>
 
-      <Divider style={{ marginBlock: 16 }} />
-
-      <Card
-        size="small"
-        title="Payment Tracking (Optional)"
-        bordered={false}
-        className="bg-slate-50/50 dark:bg-slate-900/30"
-      >
-        <Text
-          type="secondary"
-          style={{ display: "block", marginBottom: 12, fontSize: 12 }}
-        >
-          Track customer and in-house payments. Leave at 0 if not
-          applicable. Used for "Fully Paid" vs "Payment Due" filters.
-        </Text>
+      {/* Section 3: Payment Tracking */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/30">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">Payment Tracking</h3>
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
-            <Text strong>Customer Payment Expected (₹)</Text>
+          <Col xs={24} md={6}>
+            <Text strong className="text-[11px] uppercase text-slate-500">Cust. Expected (₹)</Text>
             <InputNumber
               min={0}
               value={Number(formData.customerPaymentExpected || 0)}
@@ -382,8 +333,8 @@ const Step5NewPolicyDetails = ({
               placeholder="0"
             />
           </Col>
-          <Col xs={24} md={12}>
-            <Text strong>Customer Payment Received (₹)</Text>
+          <Col xs={24} md={6}>
+            <Text strong className="text-[11px] uppercase text-slate-500">Cust. Received (₹)</Text>
             <InputNumber
               min={0}
               value={Number(formData.customerPaymentReceived || 0)}
@@ -394,8 +345,8 @@ const Step5NewPolicyDetails = ({
               placeholder="0"
             />
           </Col>
-          <Col xs={24} md={12}>
-            <Text strong>In-house Payment Expected (₹)</Text>
+          <Col xs={24} md={6}>
+            <Text strong className="text-[11px] uppercase text-slate-500">In-house Expected (₹)</Text>
             <InputNumber
               min={0}
               value={Number(formData.inhousePaymentExpected || 0)}
@@ -406,8 +357,8 @@ const Step5NewPolicyDetails = ({
               placeholder="0"
             />
           </Col>
-          <Col xs={24} md={12}>
-            <Text strong>In-house Payment Received (₹)</Text>
+          <Col xs={24} md={6}>
+            <Text strong className="text-[11px] uppercase text-slate-500">In-house Received (₹)</Text>
             <InputNumber
               min={0}
               value={Number(formData.inhousePaymentReceived || 0)}
@@ -506,8 +457,8 @@ const Step5NewPolicyDetails = ({
             </Button>
           )}
         </Space>
-      </Card>
-    </Card>
+      </div>
+    </div>
   );
 };
 
