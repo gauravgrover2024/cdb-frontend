@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { buildUrl } from "../../../../api/client";
 import {
   PHOTO_BUCKETS,
   INSPECTION_SECTIONS,
@@ -184,11 +185,24 @@ async function fetchDocumentBlob(documentLike = {}) {
   const source = documentLike?.url || documentLike?.href || documentLike?.src;
   if (!source) return null;
 
-  const response = await fetch(source);
-  if (!response.ok) {
-    throw new Error(`Unable to fetch file (${response.status})`);
+  const fetchBlobOrThrow = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Unable to fetch file (${response.status})`);
+    }
+    return response.blob();
+  };
+
+  if (String(source).startsWith("data:")) {
+    return fetchBlobOrThrow(source);
   }
-  return await response.blob();
+
+  try {
+    return await fetchBlobOrThrow(source);
+  } catch {
+    const proxyUrl = buildUrl("/api/upload/file", { url: source });
+    return fetchBlobOrThrow(proxyUrl);
+  }
 }
 
 async function embedImageFromBlob(pdfDoc, blob) {
@@ -718,4 +732,120 @@ export async function downloadDocumentPackPdf({
   triggerPdfDownload(bytes, sanitizeFileName(fileName).endsWith(".pdf")
     ? sanitizeFileName(fileName)
     : `${sanitizeFileName(fileName)}.pdf`);
+}
+
+function collectPrintableStyleText() {
+  const cssChunks = [];
+  const sheets = Array.from(document.styleSheets || []);
+
+  sheets.forEach((sheet) => {
+    try {
+      const rules = Array.from(sheet.cssRules || []);
+      if (!rules.length) return;
+      cssChunks.push(rules.map((rule) => rule.cssText).join("\n"));
+    } catch {
+      // Ignore cross-origin stylesheets that cannot be read.
+    }
+  });
+
+  return cssChunks.join("\n");
+}
+
+export async function printInspectionReportElementToPdf(element, options = {}) {
+  if (!element) {
+    throw new Error("Printable report view not available.");
+  }
+
+  const docTitle = safeText(
+    options.fileName || options.title || "inspection-report",
+    "inspection-report",
+  );
+  const styleText = collectPrintableStyleText();
+  const clonedHtml = element.outerHTML;
+
+  const printWindow = window.open("", "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    throw new Error("Popup blocked. Please allow popups and try again.");
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${docTitle}</title>
+    <style>
+      ${styleText}
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        color: #0f172a;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .inspection-report-pages {
+        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .inspection-report-pages section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        page-break-after: always;
+        break-after: page;
+        box-shadow: none !important;
+        margin: 0 !important;
+      }
+      .inspection-report-pages section:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      img {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    ${clonedHtml}
+  </body>
+</html>`);
+  printWindow.document.close();
+
+  await new Promise((resolve) => {
+    const images = Array.from(printWindow.document.images || []);
+    if (!images.length) {
+      setTimeout(resolve, 120);
+      return;
+    }
+    let pending = images.length;
+    const done = () => {
+      pending -= 1;
+      if (pending <= 0) resolve();
+    };
+    images.forEach((img) => {
+      if (img.complete) {
+        done();
+      } else {
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+      }
+    });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  printWindow.focus();
+  printWindow.print();
+
+  setTimeout(() => {
+    try {
+      printWindow.close();
+    } catch {}
+  }, 300);
 }

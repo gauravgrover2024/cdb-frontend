@@ -18,8 +18,7 @@ const STAGES = [
       "Capture seller leads, manage calls, assign queues, and move inspection-ready cars ahead.",
     path: "/used-cars",
     icon: "PhoneCall",
-    accent: "from-sky-500 to-cyan-500",
-    glow: "shadow-[0_12px_30px_rgba(14,165,233,0.22)]",
+    tone: "sky",
   },
   {
     key: "inspection",
@@ -28,8 +27,7 @@ const STAGES = [
       "Run field inspections, capture detailed findings, and generate evaluator-ready reports.",
     path: "/used-cars/inspection",
     icon: "ClipboardCheck",
-    accent: "from-emerald-500 to-teal-500",
-    glow: "shadow-[0_12px_30px_rgba(16,185,129,0.20)]",
+    tone: "emerald",
   },
   {
     key: "background-check",
@@ -38,8 +36,7 @@ const STAGES = [
       "Run comprehensive Vahan and service history background checks for inspection-cleared cars.",
     path: "/used-cars/background-check",
     icon: "ShieldCheck",
-    accent: "from-violet-500 to-fuchsia-500",
-    glow: "shadow-[0_12px_30px_rgba(139,92,246,0.18)]",
+    tone: "violet",
   },
   {
     key: "negotiation",
@@ -48,8 +45,7 @@ const STAGES = [
       "Capture vendor quotations, identify best offers, and bridge the gap with customer expectations.",
     path: "/used-cars/negotiation",
     icon: "Gavel",
-    accent: "from-amber-500 to-orange-500",
-    glow: "shadow-[0_12px_30px_rgba(245,158,11,0.18)]",
+    tone: "amber",
   },
   {
     key: "documentation",
@@ -58,8 +54,7 @@ const STAGES = [
       "Verify vehicle category, ownership, hypothecation, and KYC documents.",
     path: "/used-cars/documentation",
     icon: "FileSearch",
-    accent: "from-rose-500 to-pink-500",
-    glow: "shadow-[0_12px_30px_rgba(244,63,94,0.18)]",
+    tone: "rose",
   },
   {
     key: "procurement",
@@ -68,8 +63,7 @@ const STAGES = [
       "Vehicle pickup, document collection, driver assignment, and yard onboarding.",
     path: "/used-cars/procurement",
     icon: "Truck",
-    accent: "from-indigo-500 to-blue-500",
-    glow: "shadow-[0_12px_30px_rgba(99,102,241,0.18)]",
+    tone: "indigo",
   },
   {
     key: "stock",
@@ -78,29 +72,76 @@ const STAGES = [
       "Manage yard inventory, track refurbishment costs, and set active selling prices.",
     path: "/used-cars/stock",
     icon: "Store",
-    accent: "from-slate-600 to-slate-800",
-    glow: "shadow-[0_12px_30px_rgba(51,65,85,0.20)]",
+    tone: "slate",
   },
 ];
 
 function StageTab({ item, active, onClick, showConnector }) {
+  const toneClasses = {
+    sky: {
+      active: "border-sky-300 bg-sky-50 text-sky-800 shadow-[0_6px_20px_-16px_rgba(14,165,233,0.55)]",
+      icon: "bg-sky-100 text-sky-700 border-sky-200",
+      dot: "bg-sky-500",
+    },
+    emerald: {
+      active:
+        "border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_6px_20px_-16px_rgba(16,185,129,0.55)]",
+      icon: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      dot: "bg-emerald-500",
+    },
+    violet: {
+      active:
+        "border-violet-300 bg-violet-50 text-violet-800 shadow-[0_6px_20px_-16px_rgba(139,92,246,0.55)]",
+      icon: "bg-violet-100 text-violet-700 border-violet-200",
+      dot: "bg-violet-500",
+    },
+    amber: {
+      active:
+        "border-amber-300 bg-amber-50 text-amber-800 shadow-[0_6px_20px_-16px_rgba(245,158,11,0.55)]",
+      icon: "bg-amber-100 text-amber-700 border-amber-200",
+      dot: "bg-amber-500",
+    },
+    rose: {
+      active:
+        "border-rose-300 bg-rose-50 text-rose-800 shadow-[0_6px_20px_-16px_rgba(244,63,94,0.5)]",
+      icon: "bg-rose-100 text-rose-700 border-rose-200",
+      dot: "bg-rose-500",
+    },
+    indigo: {
+      active:
+        "border-indigo-300 bg-indigo-50 text-indigo-800 shadow-[0_6px_20px_-16px_rgba(99,102,241,0.5)]",
+      icon: "bg-indigo-100 text-indigo-700 border-indigo-200",
+      dot: "bg-indigo-500",
+    },
+    slate: {
+      active:
+        "border-slate-300 bg-slate-100 text-slate-800 shadow-[0_6px_20px_-16px_rgba(71,85,105,0.45)]",
+      icon: "bg-slate-200 text-slate-700 border-slate-300",
+      dot: "bg-slate-500",
+    },
+  };
+  const tone = toneClasses[item.tone] || toneClasses.slate;
+
   return (
     <div className="relative flex min-w-[168px] flex-1 items-center gap-2">
       <button
         type="button"
         onClick={onClick}
         title={item.description}
-        className={`group relative flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-[22px] border px-3 py-2.5 text-left transition-all duration-200 ${
+        className={`group relative flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-2xl border px-3 py-2.5 text-left transition-all duration-200 ${
           active
-            ? `border-transparent bg-gradient-to-r ${item.accent} text-white ${item.glow} dark:text-white`
-            : "border-slate-200/90 bg-white/80 text-slate-700 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:border-white/20 dark:hover:bg-white/[0.06]"
+            ? tone.active
+            : "border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50"
         }`}
       >
         <span
-          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border ${
+          className={`absolute left-0 top-0 h-full w-1 rounded-l-2xl transition-opacity ${active ? "opacity-100" : "opacity-0"} ${tone.dot}`}
+        />
+        <span
+          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border ${
             active
-              ? "border-white/25 bg-white/15 text-white"
-              : "border-slate-200 bg-slate-100 text-slate-500 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-300"
+              ? tone.icon
+              : "border-slate-200 bg-slate-100 text-slate-500"
           }`}
         >
           <Icon name={item.icon} size={17} />
@@ -115,7 +156,7 @@ function StageTab({ item, active, onClick, showConnector }) {
       </button>
       {showConnector ? (
         <div className="hidden xl:flex xl:w-7 xl:items-center">
-          <div className="h-[2px] w-full rounded-full bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-white/10 dark:via-white/20 dark:to-white/10" />
+          <div className="h-[2px] w-full rounded-full bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200" />
         </div>
       ) : null}
     </div>
@@ -129,9 +170,9 @@ export default function UsedCarsWorkspace({ stage = "lead-intake" }) {
   return (
     <ModuleFrame>
       <div className="space-y-3 md:space-y-4 xl:space-y-5">
-        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,rgba(248,250,252,0.95),rgba(255,255,255,1))] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(5,8,15,1),rgba(2,6,23,0.96))]">
+        <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
           <div className="px-4 py-3 md:px-5 xl:px-6">
-            <div className="rounded-[24px] border border-slate-200/90 bg-white/75 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none">
+            <div className="rounded-[20px] border border-slate-200 bg-slate-50/80 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
               <div className="flex flex-nowrap items-stretch gap-0 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {STAGES.map((item, index) => {
                   const isLeadIntakeActive =

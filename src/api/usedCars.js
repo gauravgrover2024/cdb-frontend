@@ -19,6 +19,7 @@ export const mapUsedCarLeadFromApi = (doc = {}) => {
   const scheduling = doc.scheduling || {};
   const externalRefs = doc.externalRefs || {};
   const inspection = doc.inspection || {};
+  const backgroundCheck = doc.backgroundCheck || {};
   const importMeta = doc.importMeta || {};
 
   return normalizeLeadRecord({
@@ -136,6 +137,16 @@ export const mapUsedCarLeadFromApi = (doc = {}) => {
       rescheduleExecutiveMobile: inspection.rescheduleExecutiveMobile || "",
       reportVersion: inspection.reportVersion || "",
       report: inspection.report || {},
+    },
+    backgroundCheck: {
+      status: backgroundCheck.status || "Pending",
+      formValues: backgroundCheck.formValues || {},
+      evidenceVault: safeArray(backgroundCheck.evidenceVault),
+      summary: backgroundCheck.summary || {},
+      notes: backgroundCheck.notes || "",
+      completedAt: backgroundCheck.completedAt || null,
+      updatedAt: backgroundCheck.updatedAt || null,
+      auditTrail: safeArray(backgroundCheck.auditTrail),
     },
     importMeta: {
       recordSource: importMeta.recordSource || "",
@@ -259,6 +270,7 @@ export const mapFlatLeadToApi = (lead = {}) => ({
     createdByName: item.createdByName,
   })),
   inspection: lead.inspection || {},
+  backgroundCheck: lead.backgroundCheck || {},
   importMeta: lead.importMeta || {},
   stageData: lead.stageData || {},
 });
@@ -299,6 +311,25 @@ export const usedCarsApi = {
   async patchWorkflow(id, payload) {
     const response = await apiClient.patch(`/api/used-cars/leads/${id}/workflow`, payload);
     return { ...response, data: mapUsedCarLeadFromApi(response?.data) };
+  },
+
+  async listBackgroundCheckLeads(params = {}) {
+    const response = await apiClient.get('/api/used-cars/background-check/leads', {
+      params,
+    });
+    return parseListResponse(response);
+  },
+
+  async saveBackgroundCheck(id, payload = {}) {
+    const response = await apiClient.put(
+      `/api/used-cars/leads/${id}/background-check`,
+      payload,
+    );
+    return { ...response, data: mapUsedCarLeadFromApi(response?.data) };
+  },
+
+  async downloadInspectionReportPdf(id) {
+    return apiClient.getBlob(`/api/used-cars/leads/${id}/inspection/report.pdf`);
   },
 
   async importLeads({ leads, importFileName, importBatchId, importedByName }) {

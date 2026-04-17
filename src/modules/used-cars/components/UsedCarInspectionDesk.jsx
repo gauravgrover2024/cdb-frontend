@@ -30,6 +30,7 @@ import {
   PhoneOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
+  RightOutlined,
   SearchOutlined,
   UserOutlined,
   SaveOutlined,
@@ -79,7 +80,6 @@ import {
   buildNoGoNarrative,
   buildRefurbContext,
 } from "./InspectionDesk/refurb";
-import { downloadInspectionReportPdf } from "./InspectionDesk/pdfLibService";
 
 const { TextArea } = Input;
 const { Panel } = Collapse;
@@ -3023,6 +3023,60 @@ export default function UsedCarInspectionDesk() {
     } catch {}
   }, [persistLead, replaceLead, selectedLead, visitForm]);
 
+  const handleSkipInspection = useCallback(
+    (lead) => {
+      if (!lead) return;
+      Modal.confirm({
+        title: "Skip inspection and move ahead?",
+        content:
+          "Ye lead bina inspection report ke directly Background Check stage mein move ho jayegi.",
+        okText: "Skip & Move",
+        cancelText: "Cancel",
+        okButtonProps: {
+          className:
+            "!rounded-full !bg-amber-500 hover:!bg-amber-600 !border-amber-500",
+        },
+        onOk: async () => {
+          const nowIso = new Date().toISOString();
+          const nextLead = normalizeLeadRecord({
+            ...lead,
+            status: "Inspection Passed",
+            pipelineStage: INSPECTION_DONE_STAGE,
+            currentStage: "background-check",
+            inspection: {
+              ...(lead.inspection || {}),
+              conducted: false,
+              verdict: "Inspection Skipped",
+              lastOutcome: "skipped",
+              submittedAt: lead.inspection?.submittedAt || nowIso,
+              inspectedAt: lead.inspection?.inspectedAt || nowIso,
+              remarks:
+                normText(lead.inspection?.remarks) ||
+                "Inspection skipped. Lead moved to Background Check.",
+            },
+            activities: [
+              mkActivity(
+                "inspection",
+                "Inspection skipped",
+                "Lead moved directly to Background Check stage.",
+              ),
+              ...(lead.activities || []),
+            ],
+          });
+          replaceLead(nextLead);
+          await persistLead(nextLead);
+          if (selectedLeadId === lead.id) {
+            setSelectedLeadId(nextLead.id);
+          }
+          message.success(
+            "Inspection skipped. Lead Background Check stage mein move ho gayi.",
+          );
+        },
+      });
+    },
+    [persistLead, replaceLead, selectedLeadId],
+  );
+
   const handleSaveDraft = useCallback(async () => {
     if (!reportLead) return;
     try {
@@ -3240,11 +3294,18 @@ export default function UsedCarInspectionDesk() {
   const handleDownloadReport = useCallback(async () => {
     if (!reportLead) return;
     try {
-      await downloadInspectionReportPdf(reportLead, {
-        fileName: reportLead?.inspection?.inspectionId
-          ? `${reportLead.inspection.inspectionId}-report.pdf`
-          : "inspection-report.pdf",
-      });
+      const reportFileName = reportLead?.inspection?.inspectionId
+        ? `${reportLead.inspection.inspectionId}-report.pdf`
+        : "inspection-report.pdf";
+      const blob = await usedCarsApi.downloadInspectionReportPdf(reportLead.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = reportFileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
       message.success("Inspection report PDF download ho gaya.");
     } catch (error) {
       message.error(
@@ -4145,6 +4206,15 @@ export default function UsedCarInspectionDesk() {
                   >
                     Visit Update
                   </Button>
+                  {!selectedLead.inspection?.submittedAt ? (
+                    <Button
+                      icon={<RightOutlined />}
+                      onClick={() => handleSkipInspection(selectedLead)}
+                      className="!rounded-full !border-amber-300 !text-amber-700 hover:!border-amber-400 hover:!text-amber-800 dark:!border-amber-500/40 dark:!text-amber-300 dark:hover:!border-amber-500 dark:hover:!text-amber-200"
+                    >
+                      Skip Inspection
+                    </Button>
+                  ) : null}
                   {selectedLead.inspection?.submittedAt ? (
                     <>
                       <Button

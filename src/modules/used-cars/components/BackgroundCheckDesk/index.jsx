@@ -13,19 +13,13 @@ import {
   Input,
   InputNumber,
   Modal,
-  Progress,
   Radio,
   Select,
-  Steps,
   Tag,
   Tabs,
   Tooltip,
   Upload,
   message,
-  Badge,
-  Alert,
-  Statistic,
-  Card,
 } from "antd";
 import {
   SaveOutlined,
@@ -33,14 +27,12 @@ import {
   EyeOutlined,
   PlusOutlined,
   CheckCircleFilled,
-  ExclamationCircleFilled,
   FileSearchOutlined,
   CheckOutlined,
   CloseOutlined,
   ArrowUpOutlined,
   CarOutlined,
   DownOutlined,
-  ClockCircleOutlined,
   CalendarOutlined,
   BankOutlined,
   WarningFilled,
@@ -48,32 +40,19 @@ import {
   InfoCircleOutlined,
   SyncOutlined,
   FilterOutlined,
-  HolderOutlined,
   FileTextOutlined,
-  DeleteOutlined,
   EditOutlined,
   HistoryOutlined,
   PaperClipOutlined,
   DashboardOutlined,
   ThunderboltOutlined,
-  FieldTimeOutlined,
   TrophyOutlined,
   SafetyCertificateOutlined,
-  RobotOutlined,
-  UserSwitchOutlined,
-  CheckSquareOutlined,
-  BorderOutlined,
-  PauseCircleOutlined,
   RightOutlined,
   LeftOutlined,
-  FilterFilled,
-  SortAscendingOutlined,
   ClearOutlined,
 } from "@ant-design/icons";
 import {
-  BGC_STORAGE_KEY,
-  BGC_SAMPLE_LEADS,
-  BGC_QUEUE_FILTERS,
   BGC_STATUS,
   OWNERSHIP_SERIAL_OPTS,
   FUEL_TYPE_OPTS,
@@ -86,70 +65,213 @@ import {
   getDefaultBgcValues,
 } from "./constants";
 import { dayjs } from "../UsedCarLeadManager/utils/formatters";
+import { usedCarsApi } from "../../../../api/usedCars";
+import { uploadMultipleFiles } from "../../../../api/uploads";
 
 const { TextArea } = Input;
-const { Dragger } = Upload;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// DESIGN TOKENS & THEME
-// ═══════════════════════════════════════════════════════════════════════════════
-const theme = {
-  colors: {
-    primary: {
-      DEFAULT: "#3b82f6",
-      light: "#60a5fa",
-      dark: "#2563eb",
-    },
-    success: {
-      DEFAULT: "#10b981",
-      light: "#34d399",
-      dark: "#059669",
-    },
-    warning: {
-      DEFAULT: "#f59e0b",
-      light: "#fbbf24",
-      dark: "#d97706",
-    },
-    danger: {
-      DEFAULT: "#ef4444",
-      light: "#f87171",
-      dark: "#dc2626",
-    },
-    info: {
-      DEFAULT: "#06b6d4",
-      light: "#22d3ee",
-      dark: "#0891b2",
-    },
-    violet: {
-      DEFAULT: "#8b5cf6",
-      light: "#a78bfa",
-      dark: "#7c3aed",
-    },
+const DATE_FIELDS = ["regdDate", "rcExpiry", "roadTaxExpiry", "lastServiceDate"];
+const FILE_FIELDS = [
+  "blacklistedFiles",
+  "theftFiles",
+  "echallanFiles",
+  "dtpFiles",
+  "serviceFiles",
+];
+
+const LOCAL_TO_BACKEND_STATUS = {
+  [BGC_STATUS.PENDING]: "Pending",
+  [BGC_STATUS.VAHAN_DONE]: "Vahan Done",
+  [BGC_STATUS.COMPLETE]: "BGC Complete",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  ESCALATED: "Escalated",
+};
+
+const BACKEND_TO_LOCAL_STATUS = {
+  Pending: BGC_STATUS.PENDING,
+  "Vahan Done": BGC_STATUS.VAHAN_DONE,
+  "BGC Complete": BGC_STATUS.COMPLETE,
+  Approved: "APPROVED",
+  Rejected: "REJECTED",
+  Escalated: "ESCALATED",
+};
+
+const safeArray = (value) => (Array.isArray(value) ? value : []);
+
+const toUploadFile = (file = {}) => {
+  const url = file.url || file.thumbUrl || file.preview || "";
+  return {
+    uid: file.uid || file.publicId || file._id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: file.name || file.fileName || file.originalName || "Document",
+    status: "done",
+    url,
+    thumbUrl: file.thumbUrl || url,
+    preview: file.preview || url,
+    type: file.type || file.mimeType || "",
+    size: file.size || 0,
+    response: file,
+    evidenceTag: file.evidenceTag || "",
+    customTagName: file.customTagName || "",
+    publicId: file.publicId || "",
+  };
+};
+
+const toUploadFileList = (files = []) => safeArray(files).filter(Boolean).map(toUploadFile);
+
+const serializeUploadFile = (file = {}) => {
+  const response = file.response && typeof file.response === "object" ? file.response : {};
+  const url = file.url || response.url || file.thumbUrl || file.preview || "";
+  return {
+    uid: String(file.uid || response.uid || response.publicId || ""),
+    name: file.name || response.name || "Document",
+    url,
+    thumbUrl: file.thumbUrl || response.thumbUrl || url,
+    preview: file.preview || response.preview || url,
+    evidenceTag: file.evidenceTag || response.evidenceTag || "",
+    customTagName: file.customTagName || response.customTagName || "",
+    publicId: file.publicId || response.publicId || "",
+    format: response.format || "",
+    size: Number(file.size || response.size || 0) || 0,
+    source: response.source || "r2",
+    uploadedAt: response.uploadedAt || new Date().toISOString(),
+  };
+};
+
+const normalizeDateField = (value) => {
+  if (!value) return null;
+  if (dayjs.isDayjs?.(value)) return value;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
+};
+
+const normalizeBgcFormValuesFromBackend = (lead = {}) => {
+  const defaults = getDefaultBgcValues(lead);
+  const formValues = lead?.backgroundCheck?.formValues || {};
+  const merged = { ...defaults, ...formValues };
+  DATE_FIELDS.forEach((key) => {
+    merged[key] = normalizeDateField(merged[key]);
+  });
+  FILE_FIELDS.forEach((key) => {
+    merged[key] = toUploadFileList(merged[key]);
+  });
+  return merged;
+};
+
+const serializeBgcFormValuesForBackend = (values = {}) => {
+  const payload = { ...(values || {}) };
+  DATE_FIELDS.forEach((key) => {
+    const value = payload[key];
+    if (!value) {
+      payload[key] = null;
+      return;
+    }
+    payload[key] = dayjs.isDayjs?.(value) ? value.toISOString() : String(value);
+  });
+  FILE_FIELDS.forEach((key) => {
+    payload[key] = safeArray(payload[key]).map(serializeUploadFile);
+  });
+  return payload;
+};
+
+const buildBgcEvidenceVault = (values = {}) => {
+  const sourceMap = {
+    blacklistedFiles: "Blacklist Proof",
+    theftFiles: "Theft Proof",
+    echallanFiles: "eChallan Proof",
+    dtpFiles: "DTP Proof",
+    serviceFiles: "Service Record",
+  };
+  return Object.entries(sourceMap).flatMap(([field, tag]) =>
+    safeArray(values[field]).map((file) => ({
+      ...serializeUploadFile(file),
+      evidenceTag: serializeUploadFile(file).evidenceTag || tag,
+    })),
+  );
+};
+
+const buildBgcSummary = (values = {}) => {
+  const riskFlags = [];
+  if (values.blacklisted === "Yes") riskFlags.push("Blacklisted");
+  if (values.theft === "Yes") riskFlags.push("Theft record");
+  if (values.challanPending === "Yes") riskFlags.push("Challan pending");
+  if (values.odometerStatus && values.odometerStatus !== "Not Tampered") {
+    riskFlags.push("Odometer concern");
+  }
+  if (values.floodedCar === "Yes") riskFlags.push("Flooded history");
+  if (values.totalLossVehicle === "Yes") riskFlags.push("Total loss history");
+
+  return {
+    vahanVerified: Boolean(values.ownerName && values.ownershipSerialNo),
+    serviceVerified: values.serviceHistoryAvailable === "Yes",
+    legalClear: values.blacklisted !== "Yes" && values.theft !== "Yes",
+    riskFlags,
+  };
+};
+
+const toBackendStatus = (status) =>
+  LOCAL_TO_BACKEND_STATUS[status] || "Pending";
+
+const toLocalStatus = (status) =>
+  BACKEND_TO_LOCAL_STATUS[status] || BGC_STATUS.PENDING;
+
+const mapApiLeadToDeskLead = (lead = {}) => {
+  const localStatus = toLocalStatus(lead?.backgroundCheck?.status);
+  const formValues = normalizeBgcFormValuesFromBackend(lead);
+  return {
+    ...lead,
+    id: lead.id || lead.backendId,
+    bgcStatus: localStatus,
+    bgcData: formValues,
+    auditTrail: safeArray(lead?.backgroundCheck?.auditTrail).map((event) => ({
+      type: event.type || "saved",
+      action: event.action || "Draft Saved",
+      note: event.note || "",
+      actor: event.actor || "",
+      timestamp: event.at
+        ? dayjs(event.at).format("DD/MM/YYYY, hh:mm A")
+        : dayjs().format("DD/MM/YYYY, hh:mm A"),
+    })),
+    inspectionScore:
+      Number(
+        lead?.inspection?.report?.overallScore ||
+          lead?.inspection?.report?.score ||
+          lead?.procurementScore ||
+          0,
+      ) || 0,
+  };
+};
+
+const ACTION_CONFIGS = {
+  approve: {
+    type: "approve",
+    title: "Approve Vehicle",
+    description:
+      "This vehicle will be approved and moved to the next pipeline stage. This action is logged.",
+    icon: <CheckOutlined />,
+    newStatus: "APPROVED",
+    auditType: "approved",
+    auditAction: "Vehicle Approved",
   },
-  shadows: {
-    sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-    DEFAULT: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-    md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-    lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-    xl: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-    glow: {
-      blue: "0 0 20px rgba(59, 130, 246, 0.25)",
-      green: "0 0 20px rgba(16, 185, 129, 0.25)",
-      red: "0 0 20px rgba(239, 68, 68, 0.25)",
-    },
+  reject: {
+    type: "reject",
+    title: "Reject Vehicle",
+    description:
+      "This vehicle will be rejected and removed from the active pipeline. The sourcing team will be notified.",
+    icon: <CloseOutlined />,
+    newStatus: "REJECTED",
+    auditType: "rejected",
+    auditAction: "Vehicle Rejected",
   },
-  radii: {
-    sm: "6px",
-    DEFAULT: "10px",
-    md: "14px",
-    lg: "20px",
-    xl: "28px",
-    full: "9999px",
-  },
-  transitions: {
-    fast: "150ms ease",
-    DEFAULT: "200ms ease",
-    slow: "300ms ease",
+  escalate: {
+    type: "escalate",
+    title: "Escalate for Review",
+    description:
+      "This vehicle will be flagged for senior officer review. Please include a reason.",
+    icon: <ArrowUpOutlined />,
+    newStatus: "ESCALATED",
+    auditType: "escalated",
+    auditAction: "Escalated for Senior Review",
   },
 };
 
@@ -186,6 +308,17 @@ function getHardRule(values) {
     };
   }
   return null;
+}
+
+function isAutoRejectedLead(lead = {}) {
+  const closure = String(lead?.closureReason || "").toLowerCase();
+  const auditTrail = Array.isArray(lead?.auditTrail) ? lead.auditTrail : [];
+  if (auditTrail.some((event) => event?.type === "auto_reject")) return true;
+  return (
+    closure.includes("automatic rejection required") ||
+    closure.includes("blacklisted") ||
+    closure.includes("theft record")
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -295,107 +428,6 @@ function InspectionScore({ score }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PROGRESS STEPS COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
-function BGCProgressSteps({ currentStatus }) {
-  const steps = [
-    {
-      key: BGC_STATUS.PENDING,
-      title: "Pending",
-      icon: <ClockCircleOutlined />,
-    },
-    {
-      key: BGC_STATUS.VAHAN_DONE,
-      title: "Vahan Done",
-      icon: <CheckCircleFilled />,
-    },
-    {
-      key: BGC_STATUS.COMPLETE,
-      title: "Complete",
-      icon: <CheckSquareOutlined />,
-    },
-  ];
-
-  const statusOrder = [
-    BGC_STATUS.PENDING,
-    BGC_STATUS.VAHAN_DONE,
-    BGC_STATUS.COMPLETE,
-  ];
-  const currentIndex = statusOrder.indexOf(currentStatus);
-
-  // Handle APPROVED/REJECTED/ESCALATED states
-  if (["APPROVED", "REJECTED", "ESCALATED"].includes(currentStatus)) {
-    return (
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 dark:border-white/10 dark:bg-white/5">
-        <div
-          className={`flex items-center gap-2 ${currentStatus === "APPROVED" ? "text-emerald-600" : currentStatus === "REJECTED" ? "text-red-600" : "text-violet-600"}`}
-        >
-          {currentStatus === "APPROVED" ? (
-            <CheckCircleFilled />
-          ) : currentStatus === "REJECTED" ? (
-            <CloseOutlined />
-          ) : (
-            <ArrowUpOutlined />
-          )}
-          <span className="text-sm font-bold capitalize">
-            {currentStatus.toLowerCase()}
-          </span>
-        </div>
-        <span className="text-xs text-slate-400">— Final Status</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 dark:border-white/10 dark:bg-white/5">
-      {steps.map((step, idx) => {
-        const isCompleted = idx < currentIndex;
-        const isCurrent = idx === currentIndex;
-        const isPending = idx > currentIndex;
-
-        return (
-          <React.Fragment key={step.key}>
-            <div className="flex items-center gap-2">
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs transition-all ${
-                  isCompleted
-                    ? "bg-emerald-500 text-white"
-                    : isCurrent
-                      ? "bg-blue-500 text-white ring-4 ring-blue-100 dark:ring-blue-900/50"
-                      : "bg-slate-100 text-slate-400 dark:bg-white/10 dark:text-slate-500"
-                }`}
-              >
-                {isCompleted ? <CheckOutlined /> : step.icon}
-              </div>
-              <span
-                className={`text-xs font-semibold hidden sm:inline ${
-                  isCompleted
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : isCurrent
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-slate-400 dark:text-slate-500"
-                }`}
-              >
-                {step.title}
-              </span>
-            </div>
-            {idx < steps.length - 1 && (
-              <div
-                className={`h-0.5 w-8 rounded-full ${
-                  isCompleted
-                    ? "bg-emerald-400"
-                    : "bg-slate-200 dark:bg-white/10"
-                }`}
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // HARD RULE ALERT
 // ═══════════════════════════════════════════════════════════════════════════════
 function HardRuleAlert({ rule }) {
@@ -486,31 +518,28 @@ function SectionCard({
   const [open, setOpen] = useState(defaultOpen);
 
   const badgeColors = {
-    blue: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
-    green:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
-    red: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
-    amber:
-      "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-    purple:
-      "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300",
+    blue: "bg-blue-100 text-blue-700",
+    green: "bg-emerald-100 text-emerald-700",
+    red: "bg-red-100 text-red-700",
+    amber: "bg-amber-100 text-amber-700",
+    purple: "bg-violet-100 text-violet-700",
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all hover:shadow-md dark:border-white/10 dark:bg-white/[0.02]">
+    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_12px_35px_-28px_rgba(15,23,42,0.5)] transition-all hover:shadow-[0_20px_42px_-30px_rgba(15,23,42,0.55)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.02]"
+        className="flex w-full items-center justify-between bg-gradient-to-r from-slate-50 to-white px-5 py-4 text-left transition-colors hover:from-sky-50 hover:to-white"
       >
         <div className="flex items-center gap-3">
           {icon && (
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/10">
-              <span className="text-slate-500 dark:text-slate-400">{icon}</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
+              <span className="text-slate-500">{icon}</span>
             </div>
           )}
           <div className="flex items-center gap-2">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-600 dark:text-slate-300">
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-600">
               {title}
             </h3>
             {badge && (
@@ -528,7 +557,7 @@ function SectionCard({
             {open ? "Hide" : "Show"}
           </span>
           <div
-            className={`flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 transition-transform duration-200 dark:bg-white/10 ${open ? "rotate-180" : ""}`}
+            className={`flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           >
             <DownOutlined className="text-[10px] text-slate-500" />
           </div>
@@ -538,54 +567,9 @@ function SectionCard({
       <div
         className={`transition-all duration-300 ${open ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"}`}
       >
-        <div className="border-t border-slate-100 px-5 py-5 dark:border-white/5">
+        <div className="border-t border-slate-100 px-5 py-5">
           {children}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// DATA FIELD ROW
-// ═══════════════════════════════════════════════════════════════════════════════
-function DataField({ label, value, flag, hasFile, onFileClick }) {
-  return (
-    <div className="group relative">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-        {label}
-      </p>
-      <div className="mt-1 flex items-center gap-2">
-        <div className="flex items-center gap-1.5">
-          {flag === true && (
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20">
-              <ExclamationCircleFilled className="text-[10px] text-red-500" />
-            </div>
-          )}
-          {flag === false && (
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
-              <CheckCircleFilled className="text-[10px] text-emerald-500" />
-            </div>
-          )}
-          <p
-            className={`text-sm font-bold transition-colors ${
-              flag === true
-                ? "text-red-600 dark:text-red-400"
-                : "text-slate-800 dark:text-slate-100"
-            }`}
-          >
-            {value}
-          </p>
-        </div>
-
-        {hasFile && (
-          <button
-            onClick={onFileClick}
-            className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-100 opacity-0 transition-all hover:bg-sky-200 group-hover:opacity-100 dark:bg-sky-500/20 dark:hover:bg-sky-500/30"
-          >
-            <EyeOutlined className="text-[10px] text-sky-600 dark:text-sky-400" />
-          </button>
-        )}
       </div>
     </div>
   );
@@ -595,202 +579,149 @@ function DataField({ label, value, flag, hasFile, onFileClick }) {
 // VAHAN SNAPSHOT
 // ═══════════════════════════════════════════════════════════════════════════════
 function VahanSnapshot({ values, lead }) {
-  const totalChallan = (values.echallanAmount || 0) + (values.dtpAmount || 0);
-  const hasChallan = values.challanPending === "Yes";
+  const totalChallan = Number(values.echallanAmount || 0) + Number(values.dtpAmount || 0);
+  const riskFlags = [
+    values.blacklisted === "Yes",
+    values.theft === "Yes",
+    values.hypothecation === "Yes",
+    values.partyPeshi?.includes("Applicable"),
+    values.challanPending === "Yes",
+  ].filter(Boolean).length;
+
+  const checks = [
+    {
+      label: "Blacklisted",
+      value: values.blacklisted || "No",
+      tone: values.blacklisted === "Yes" ? "danger" : "safe",
+    },
+    {
+      label: "Theft Record",
+      value: values.theft || "No",
+      tone: values.theft === "Yes" ? "danger" : "safe",
+    },
+    {
+      label: "Road Tax",
+      value: values.roadTaxStatus || "Pending",
+      tone: values.roadTaxStatus === "Paid" ? "safe" : "warn",
+    },
+    {
+      label: "RTO NOC",
+      value: values.rtoNocIssued || "Pending",
+      tone: values.rtoNocIssued === "Issued" ? "safe" : "warn",
+    },
+    {
+      label: "Hypothecation",
+      value: values.hypothecation || "No",
+      tone: values.hypothecation === "Yes" ? "warn" : "safe",
+    },
+    {
+      label: "Party Peshi",
+      value: values.partyPeshi || "Not Applicable",
+      tone: values.partyPeshi?.includes("Applicable") ? "warn" : "safe",
+    },
+  ];
+
+  const proofRows = [
+    { key: "blacklistedFiles", label: "Blacklist Proof" },
+    { key: "theftFiles", label: "Theft Proof" },
+    { key: "echallanFiles", label: "eChallan Proof" },
+    { key: "dtpFiles", label: "DTP Proof" },
+  ];
+
+  const getToneClass = (tone) => {
+    if (tone === "danger") return "border-red-200 bg-red-50 text-red-700";
+    if (tone === "warn") return "border-amber-200 bg-amber-50 text-amber-700";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  };
 
   return (
     <div className="space-y-4">
-      {/* Header Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-white/10 dark:from-white/5 dark:to-transparent">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Owner
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Owner</p>
+          <p className="mt-1 text-sm font-black text-slate-900">
+            {values.ownerName || lead?.name || "Pending"}
           </p>
-          <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
-            {values.ownerName || lead?.name || "—"}
+          <p className="mt-1 text-xs text-slate-500">{lead?.mobile || "Mobile pending"}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Vehicle</p>
+          <p className="mt-1 text-sm font-black text-slate-900">
+            {[values.make, values.model].filter(Boolean).join(" ") || "Pending"}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">{values.variant || "Variant pending"}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Registration</p>
+          <p className="mt-1 text-sm font-black text-slate-900">{lead?.regNo || "Pending"}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            RC: {values.rcExpiry ? dayjs(values.rcExpiry).format("DD MMM YYYY") : "Pending"}
           </p>
         </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-white/10 dark:from-white/5 dark:to-transparent">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Vehicle
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
-            {[values.make, values.model].filter(Boolean).join(" ") || "—"}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-white/10 dark:from-white/5 dark:to-transparent">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Reg. Year
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">
-            {values.mfgYear || lead?.mfgYear || "—"}
-          </p>
-        </div>
-
-        <div
-          className={`rounded-2xl border p-4 transition-colors ${
-            hasChallan
-              ? "border-red-200 bg-gradient-to-br from-red-50 to-white dark:border-red-500/30 dark:from-red-500/5 dark:to-transparent"
-              : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white dark:border-emerald-500/30 dark:from-emerald-500/5 dark:to-transparent"
-          }`}
-        >
-          <p
-            className={`text-[10px] font-semibold uppercase tracking-wider ${hasChallan ? "text-red-500" : "text-emerald-600"}`}
-          >
-            Challan
-          </p>
-          <p
-            className={`mt-1 text-sm font-bold ${hasChallan ? "text-red-600" : "text-emerald-600"}`}
-          >
-            {hasChallan ? `₹${totalChallan.toLocaleString("en-IN")}` : "Clear"}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Risk Snapshot</p>
+          <p className="mt-1 text-sm font-black text-slate-900">{riskFlags} active flags</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Challan: {totalChallan ? `₹${totalChallan.toLocaleString("en-IN")}` : "Clear"}
           </p>
         </div>
       </div>
 
-      {/* Key Details Grid */}
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-            Quick Overview
-          </p>
-          <Tag
-            className="!m-0"
-            color={values.hypothecation === "Yes" ? "orange" : "green"}
-          >
-            {values.hypothecation === "Yes" ? "Financed" : "Clear"}
-          </Tag>
-        </div>
-
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
-          <DataField
-            label="Ownership"
-            value={values.ownershipSerialNo || "—"}
-            flag={false}
-          />
-          <DataField
-            label="Fuel Type"
-            value={values.fuelType || "—"}
-            flag={false}
-          />
-          <DataField
-            label="RC Expiry"
-            value={
-              values.rcExpiry
-                ? dayjs(values.rcExpiry).format("DD MMM YYYY")
-                : "—"
-            }
-            flag={false}
-          />
-          <DataField
-            label="Road Tax"
-            value={values.roadTaxStatus || "—"}
-            flag={false}
-          />
-          <DataField
-            label="Blacklisted"
-            value={values.blacklisted || "—"}
-            flag={values.blacklisted === "Yes"}
-            hasFile={(values.blacklistedFiles || []).length > 0}
-            onFileClick={() => {
-              const file = (values.blacklistedFiles || [])[0];
-              if (file?.url || file?.preview)
-                window.open(file.url || file.preview, "_blank");
-            }}
-          />
-          <DataField
-            label="Theft Record"
-            value={values.theft || "—"}
-            flag={values.theft === "Yes"}
-            hasFile={(values.theftFiles || []).length > 0}
-            onFileClick={() => {
-              const file = (values.theftFiles || [])[0];
-              if (file?.url || file?.preview)
-                window.open(file.url || file.preview, "_blank");
-            }}
-          />
-          <DataField
-            label="RTO NOC"
-            value={values.rtoNocIssued || "—"}
-            flag={false}
-          />
-          <DataField
-            label="Party Peshi"
-            value={values.partyPeshi || "—"}
-            flag={values.partyPeshi?.includes("Applicable")}
-          />
-        </div>
-      </div>
-
-      {/* Document Hub */}
-      {(values.blacklistedFiles?.length > 0 ||
-        values.theftFiles?.length > 0 ||
-        values.echallanFiles?.length > 0 ||
-        values.dtpFiles?.length > 0) && (
-        <div className="rounded-2xl border border-sky-200/50 bg-gradient-to-r from-sky-50/50 to-transparent p-4 dark:border-sky-500/20 dark:from-sky-500/5">
-          <div className="mb-3 flex items-center gap-2">
-            <PaperClipOutlined className="text-sky-500" />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-              Document Hub
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              Vahan Check Snapshot
             </p>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+              Live from form
+            </span>
           </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            {checks.map((item) => (
+              <div
+                key={item.label}
+                className={`flex items-center justify-between rounded-xl border px-3 py-2 ${getToneClass(item.tone)}`}
+              >
+                <span className="text-xs font-semibold">{item.label}</span>
+                <span className="text-xs font-black">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <div className="flex flex-wrap gap-2">
-            {[
-              {
-                key: "blacklistedFiles",
-                label: "Blacklist",
-                count: values.blacklistedFiles?.length,
-              },
-              {
-                key: "theftFiles",
-                label: "Theft",
-                count: values.theftFiles?.length,
-              },
-              {
-                key: "echallanFiles",
-                label: "eChallan",
-                count: values.echallanFiles?.length,
-              },
-              { key: "dtpFiles", label: "DTP", count: values.dtpFiles?.length },
-            ].map((doc) => {
-              if (!values[doc.key]?.length) return null;
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Linked Proofs
+          </p>
+          <div className="space-y-2">
+            {proofRows.map((row) => {
+              const files = values[row.key] || [];
               return (
                 <button
-                  key={doc.key}
+                  key={row.key}
+                  type="button"
                   onClick={() => {
-                    const url =
-                      values[doc.key][0]?.url || values[doc.key][0]?.preview;
+                    const url = files?.[0]?.url || files?.[0]?.preview;
                     if (url) window.open(url, "_blank");
                   }}
-                  className="group flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-3 py-2 transition-all hover:border-sky-400 hover:shadow-sm dark:border-sky-500/30 dark:bg-white/5"
+                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition-all hover:border-sky-300 hover:bg-sky-50"
                 >
-                  <FileTextOutlined className="text-sky-500" />
-                  <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-300">
-                    {doc.label}
-                  </span>
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-[10px] font-bold text-sky-600 dark:bg-sky-500/20 dark:text-sky-300">
-                    {doc.count}
+                  <span className="text-xs font-semibold text-slate-700">{row.label}</span>
+                  <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                    {files.length}
                   </span>
                 </button>
               );
             })}
           </div>
         </div>
-      )}
+      </div>
 
       {values.vahanComments && (
-        <div className="rounded-2xl border border-slate-200 bg-amber-50/30 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
-          <div className="flex items-center gap-2 mb-2">
-            <EditOutlined className="text-amber-500" />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-              Comments
-            </p>
-          </div>
-          <p className="text-sm text-slate-700 dark:text-slate-300">
-            {values.vahanComments}
-          </p>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Analyst Note</p>
+          <p className="mt-2 text-sm text-slate-700">{values.vahanComments}</p>
         </div>
       )}
     </div>
@@ -801,151 +732,125 @@ function VahanSnapshot({ values, lead }) {
 // SERVICE SNAPSHOT
 // ═══════════════════════════════════════════════════════════════════════════════
 function ServiceSnapshot({ values }) {
-  const rows = [
+  const signalRows = [
     {
       label: "Service History",
-      value: values.serviceHistoryAvailable || "—",
-      flag: values.serviceHistoryAvailable === "No",
+      value: values.serviceHistoryAvailable || "Pending",
+      tone: values.serviceHistoryAvailable === "Yes" ? "safe" : "warn",
     },
     {
       label: "Accident History",
-      value: values.accidentHistory || "—",
-      flag: values.accidentHistory && values.accidentHistory !== "None",
+      value: values.accidentHistory || "Pending",
+      tone: values.accidentHistory && values.accidentHistory !== "None" ? "warn" : "safe",
     },
     {
-      label: "Last Service",
-      value: values.lastServiceDate
-        ? dayjs(values.lastServiceDate).format("DD MMM YYYY")
-        : "—",
-      flag: false,
+      label: "Odometer Integrity",
+      value: values.odometerStatus || "Pending",
+      tone: values.odometerStatus && values.odometerStatus !== "Not Tampered" ? "warn" : "safe",
     },
     {
-      label: "Odometer",
-      value: values.currentOdometer
-        ? `${Number(values.currentOdometer).toLocaleString("en-IN")} km`
-        : "—",
-      flag: false,
-    },
-    {
-      label: "Odometer Status",
-      value: values.odometerStatus || "—",
-      flag: values.odometerStatus && values.odometerStatus !== "Not Tampered",
-    },
-    {
-      label: "Flooded Car",
-      value: values.floodedCar || "—",
-      flag: values.floodedCar === "Yes",
-    },
-    {
-      label: "Total Loss",
-      value: values.totalLossVehicle || "—",
-      flag: values.totalLossVehicle === "Yes",
+      label: "Flood / Total Loss",
+      value:
+        values.floodedCar === "Yes" || values.totalLossVehicle === "Yes"
+          ? "Flagged"
+          : "Clear",
+      tone:
+        values.floodedCar === "Yes" || values.totalLossVehicle === "Yes"
+          ? "danger"
+          : "safe",
     },
   ];
 
+  const toneClass = (tone) => {
+    if (tone === "danger") return "border-red-200 bg-red-50 text-red-700";
+    if (tone === "warn") return "border-amber-200 bg-amber-50 text-amber-700";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  };
+
   return (
     <div className="space-y-4">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div
-          className={`rounded-2xl border p-4 transition-colors ${
-            values.floodedCar === "Yes"
-              ? "border-amber-200 bg-gradient-to-br from-amber-50 to-white dark:border-amber-500/30"
-              : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white dark:border-emerald-500/30"
-          }`}
-        >
-          <p
-            className={`text-[10px] font-semibold uppercase tracking-wider ${values.floodedCar === "Yes" ? "text-amber-600" : "text-emerald-600"}`}
-          >
-            Flood Status
-          </p>
-          <p
-            className={`mt-1 text-sm font-bold ${values.floodedCar === "Yes" ? "text-amber-600" : "text-emerald-600"}`}
-          >
-            {values.floodedCar === "Yes" ? "Affected" : "Clear"}
-          </p>
-        </div>
-
-        <div
-          className={`rounded-2xl border p-4 transition-colors ${
-            values.totalLossVehicle === "Yes"
-              ? "border-red-200 bg-gradient-to-br from-red-50 to-white dark:border-red-500/30"
-              : "border-slate-200 bg-gradient-to-br from-slate-50 to-white dark:border-white/10"
-          }`}
-        >
-          <p
-            className={`text-[10px] font-semibold uppercase tracking-wider ${values.totalLossVehicle === "Yes" ? "text-red-600" : "text-slate-500"}`}
-          >
-            Total Loss
-          </p>
-          <p
-            className={`mt-1 text-sm font-bold ${values.totalLossVehicle === "Yes" ? "text-red-600" : "text-slate-700 dark:text-slate-300"}`}
-          >
-            {values.totalLossVehicle === "Yes" ? "Yes" : "No"}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-white/10">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Service Available
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-            {values.serviceHistoryAvailable || "—"}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 dark:border-white/10">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            Odometer
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-            {values.odometerStatus || "—"}
-          </p>
-        </div>
-      </div>
-
-      {/* Details */}
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
-          {rows.map(({ label, value, flag }) => (
-            <DataField key={label} label={label} value={value} flag={flag} />
-          ))}
-        </div>
-      </div>
-
-      {values.serviceFiles?.length > 0 && (
-        <div className="rounded-2xl border border-sky-200/50 bg-gradient-to-r from-sky-50/50 to-transparent p-4 dark:border-sky-500/20 dark:from-sky-500/5">
-          <div className="flex items-center gap-2 mb-3">
-            <PaperClipOutlined className="text-sky-500" />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-              Service Documents ({values.serviceFiles.length})
-            </p>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {signalRows.map((item) => (
+          <div key={item.label} className={`rounded-2xl border p-4 ${toneClass(item.tone)}`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-75">{item.label}</p>
+            <p className="mt-1 text-sm font-black">{item.value}</p>
           </div>
-          <button
-            onClick={() => {
-              const url =
-                values.serviceFiles[0]?.url || values.serviceFiles[0]?.preview;
-              if (url) window.open(url, "_blank");
-            }}
-            className="flex items-center gap-2 text-sm text-sky-600 hover:text-sky-700 dark:text-sky-400"
-          >
-            <FileTextOutlined />
-            <span className="font-semibold">View Service Records</span>
-          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Service Fact Sheet
+          </p>
+          <div className="grid gap-2 md:grid-cols-2">
+            {[
+              [
+                "Last Service Date",
+                values.lastServiceDate
+                  ? dayjs(values.lastServiceDate).format("DD MMM YYYY")
+                  : "Pending",
+              ],
+              [
+                "Last Service Odometer",
+                values.lastServiceOdometer
+                  ? `${Number(values.lastServiceOdometer).toLocaleString("en-IN")} km`
+                  : "Pending",
+              ],
+              [
+                "Current Odometer",
+                values.currentOdometer
+                  ? `${Number(values.currentOdometer).toLocaleString("en-IN")} km`
+                  : "Pending",
+              ],
+              ["Migrated Vehicle", values.migratedVehicle || "Pending"],
+              ["Flooded Car", values.floodedCar || "Pending"],
+              ["Total Loss", values.totalLossVehicle || "Pending"],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+              >
+                <span className="text-xs font-semibold text-slate-700">{label}</span>
+                <span className="text-xs font-black text-slate-600">{value}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Service Evidence
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <span className="text-xs font-semibold text-slate-700">Documents</span>
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-black text-slate-600">
+                {(values.serviceFiles || []).length}
+              </span>
+            </div>
+            {(values.serviceFiles || []).length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const url = values.serviceFiles?.[0]?.url || values.serviceFiles?.[0]?.preview;
+                  if (url) window.open(url, "_blank");
+                }}
+                className="w-full rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-left text-xs font-bold text-sky-700 hover:border-sky-300"
+              >
+                Open service record
+              </button>
+            ) : (
+              <p className="text-xs text-slate-500">No service document uploaded.</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {values.serviceComments && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
-          <div className="flex items-center gap-2 mb-2">
-            <EditOutlined className="text-slate-400" />
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Comments
-            </p>
-          </div>
-          <p className="text-sm text-slate-700 dark:text-slate-300">
-            {values.serviceComments}
-          </p>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Analyst Note</p>
+          <p className="mt-2 text-sm text-slate-700">{values.serviceComments}</p>
         </div>
       )}
     </div>
@@ -1239,51 +1144,35 @@ function AuditTimeline({ events }) {
   }
 
   return (
-    <div className="relative space-y-0">
-      {events.map((event, idx) => {
+    <div className="space-y-2">
+      {[...events].reverse().map((event, idx) => {
         const cfg = typeConfig[event.type] || typeConfig.info;
-        const isLast = idx === events.length - 1;
-
         return (
-          <div key={idx} className="relative flex gap-4 pb-6">
-            {/* Timeline connector */}
-            <div className="flex flex-col items-center">
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-sm ${cfg.bg}`}
-              >
-                {cfg.icon}
-              </div>
-              {!isLast && (
-                <div className="mt-3 h-full w-0.5 flex-1 bg-gradient-to-b from-slate-200 to-transparent dark:from-white/10" />
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 pt-1">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                    {event.action}
-                  </p>
-                  {event.actor && (
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      by {event.actor}
-                    </p>
-                  )}
+          <div
+            key={`${event.timestamp || "event"}-${idx}`}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-3">
+                <div className={`mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg text-white ${cfg.bg}`}>
+                  {cfg.icon}
                 </div>
-                <span className="whitespace-nowrap text-xs text-slate-400">
-                  {event.timestamp}
-                </span>
-              </div>
-
-              {event.note && (
-                <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    {event.note}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-800">{event.action}</p>
+                  <p className="text-xs text-slate-500">
+                    {event.actor ? `by ${event.actor}` : "System"}
                   </p>
                 </div>
-              )}
+              </div>
+              <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                {event.timestamp}
+              </span>
             </div>
+            {event.note ? (
+              <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                {event.note}
+              </p>
+            ) : null}
           </div>
         );
       })}
@@ -1303,7 +1192,7 @@ function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
             onClick={onApprove}
             loading={saving}
             disabled={disabled}
-            className="!flex !items-center !gap-2 !rounded-xl !border-emerald-300 !bg-emerald-50 !px-4 !py-2 !text-sm !font-bold !text-emerald-700 transition-all hover:!border-emerald-400 hover:!bg-emerald-100 hover:shadow-sm disabled:!opacity-50 dark:!border-emerald-500/30 dark:!bg-emerald-500/10 dark:!text-emerald-400"
+            className="!flex !items-center !gap-2 !rounded-xl !border-emerald-300 !bg-emerald-50 !px-4 !py-2 !text-sm !font-bold !text-emerald-700 transition-all hover:!border-emerald-400 hover:!bg-emerald-100 hover:shadow-sm disabled:!opacity-50"
             icon={<CheckOutlined />}
           >
             Approve
@@ -1314,7 +1203,7 @@ function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
       <Button
         onClick={onReject}
         loading={saving}
-        className="!flex !items-center !gap-2 !rounded-xl !border-red-200 !bg-red-50 !px-4 !py-2 !text-sm !font-bold !text-red-600 transition-all hover:!border-red-300 hover:!bg-red-100 hover:shadow-sm dark:!border-red-500/30 dark:!bg-red-500/10 dark:!text-red-400"
+        className="!flex !items-center !gap-2 !rounded-xl !border-red-200 !bg-red-50 !px-4 !py-2 !text-sm !font-bold !text-red-600 transition-all hover:!border-red-300 hover:!bg-red-100 hover:shadow-sm"
         icon={<CloseOutlined />}
       >
         Reject
@@ -1326,7 +1215,7 @@ function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
             onClick={onEscalate}
             loading={saving}
             disabled={disabled}
-            className="!flex !items-center !gap-2 !rounded-xl !border-violet-200 !bg-violet-50 !px-4 !py-2 !text-sm !font-bold !text-violet-700 transition-all hover:!border-violet-300 hover:!bg-violet-100 hover:shadow-sm disabled:!opacity-50 dark:!border-violet-500/30 dark:!bg-violet-500/10 dark:!text-violet-400"
+            className="!flex !items-center !gap-2 !rounded-xl !border-violet-200 !bg-violet-50 !px-4 !py-2 !text-sm !font-bold !text-violet-700 transition-all hover:!border-violet-300 hover:!bg-violet-100 hover:shadow-sm disabled:!opacity-50"
             icon={<ArrowUpOutlined />}
           >
             Escalate
@@ -1342,21 +1231,44 @@ function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function QueueCard({ lead, active, onClick }) {
   const rule = getHardRule(lead.bgcData || {});
+  const tone =
+    lead.bgcStatus === BGC_STATUS.PENDING
+      ? "amber"
+      : lead.bgcStatus === BGC_STATUS.VAHAN_DONE
+        ? "sky"
+        : lead.bgcStatus === BGC_STATUS.COMPLETE || lead.bgcStatus === "APPROVED"
+          ? "emerald"
+          : lead.bgcStatus === "ESCALATED"
+            ? "violet"
+            : "rose";
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
+      className={`relative w-full overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200 ${
         active
-          ? "border-blue-400 bg-blue-50/50 shadow-lg ring-2 ring-blue-100 dark:border-blue-500/50 dark:bg-blue-500/10 dark:ring-blue-500/20"
-          : "border-slate-200/80 bg-white shadow-sm hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.05]"
+          ? "border-blue-400 bg-gradient-to-br from-blue-50 to-white shadow-lg ring-2 ring-blue-100"
+          : "border-slate-200 bg-white shadow-[0_8px_20px_-16px_rgba(15,23,42,0.4)] hover:border-slate-300 hover:shadow-[0_12px_26px_-16px_rgba(15,23,42,0.45)]"
       }`}
     >
+      <div
+        className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${
+          tone === "amber"
+            ? "bg-amber-400"
+            : tone === "sky"
+              ? "bg-sky-400"
+              : tone === "emerald"
+                ? "bg-emerald-400"
+                : tone === "violet"
+                  ? "bg-violet-400"
+                  : "bg-rose-400"
+        }`}
+      />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+            <h4 className="text-sm font-bold text-slate-900 truncate">
               {lead.make} {lead.model}
             </h4>
             {rule?.type === "auto-reject" && (
@@ -1365,10 +1277,10 @@ function QueueCard({ lead, active, onClick }) {
               </div>
             )}
           </div>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs text-slate-500">
             {lead.variant} · {lead.mfgYear}
           </p>
-          <p className="mt-1.5 text-xs font-bold tracking-wider text-slate-700 dark:text-slate-300">
+          <p className="mt-1.5 text-xs font-bold tracking-wider text-slate-700">
             {lead.regNo}
           </p>
         </div>
@@ -1376,16 +1288,16 @@ function QueueCard({ lead, active, onClick }) {
         <InspectionScore score={lead.inspectionScore} />
       </div>
 
-      <div className="mt-3 flex items-center justify-between">
-        <p className="text-[10px] font-semibold text-slate-400 truncate max-w-[120px]">
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
           {lead.assignedTo}
         </p>
         <StatusBadge status={lead.bgcStatus} size="small" />
       </div>
 
       {rule && rule.type !== "auto-reject" && (
-        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 dark:border-amber-500/20 dark:bg-amber-500/10">
-          <span className="flex items-center gap-1 text-[9px] font-semibold text-amber-700 dark:text-amber-400">
+        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1">
+          <span className="flex items-center gap-1 text-[9px] font-semibold text-amber-700">
             <WarningFilled />
             Manual Review Required
           </span>
@@ -1399,16 +1311,50 @@ function QueueCard({ lead, active, onClick }) {
 // EVIDENCE UPLOAD
 // ═══════════════════════════════════════════════════════════════════════════════
 function EvidenceUpload({ label, maxCount = 1, fileList = [], onChange }) {
+  const handleUpload = useCallback(
+    async ({ file, onSuccess, onError }) => {
+      try {
+        const uploaded = await uploadMultipleFiles([file]);
+        const first = uploaded?.[0];
+        if (!first?.url) {
+          throw new Error("Upload succeeded but URL missing.");
+        }
+        onSuccess(first);
+      } catch (error) {
+        onError(error);
+      }
+    },
+    [],
+  );
+
   return (
     <Upload
       listType="picture-card"
       fileList={fileList}
+      customRequest={handleUpload}
       onPreview={(file) => {
         if (file.url || file.preview)
           window.open(file.url || file.preview, "_blank");
       }}
-      onChange={({ fileList: newFileList }) => onChange(newFileList)}
-      beforeUpload={() => false}
+      onChange={({ fileList: newFileList }) => {
+        const normalized = newFileList.map((file) => {
+          const response =
+            file.response && typeof file.response === "object"
+              ? file.response
+              : {};
+          const url = file.url || response.url || file.thumbUrl || file.preview;
+          return {
+            ...file,
+            status: file.status || "done",
+            url,
+            thumbUrl: file.thumbUrl || response.thumbUrl || url,
+            preview: file.preview || response.preview || url,
+            publicId: file.publicId || response.publicId || "",
+            response,
+          };
+        });
+        onChange(normalized);
+      }}
       accept="image/*,application/pdf"
       maxCount={maxCount}
     >
@@ -1628,15 +1574,8 @@ function ConfirmModal({ open, config, onConfirm, onCancel }) {
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function UsedCarBackgroundCheckDesk() {
-  const [leads, setLeads] = useState(() => {
-    try {
-      const stored = localStorage.getItem(BGC_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : BGC_SAMPLE_LEADS;
-    } catch {
-      return BGC_SAMPLE_LEADS;
-    }
-  });
-
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(null);
@@ -1648,63 +1587,215 @@ export default function UsedCarBackgroundCheckDesk() {
     open: false,
     config: null,
   });
-  const [autoSaveTimer, setAutoSaveTimer] = useState(null);
+  const autoSaveTimerRef = useRef(null);
+  const autoSaveSeqRef = useRef(0);
 
-  // Persist leads
-  useEffect(() => {
+  const loadLeads = useCallback(async () => {
     try {
-      localStorage.setItem(BGC_STORAGE_KEY, JSON.stringify(leads));
-    } catch {}
-  }, [leads]);
+      setLoading(true);
+      const response = await usedCarsApi.listBackgroundCheckLeads({
+        limit: 5000,
+        includeClosed: "false",
+      });
+      const rows = safeArray(response?.data).map(mapApiLeadToDeskLead);
+      setLeads(rows);
+      setSelectedId((prev) =>
+        prev && rows.some((entry) => entry.id === prev)
+          ? prev
+          : rows[0]?.id || null,
+      );
+    } catch (error) {
+      message.error(
+        error?.message || "Background check leads load karte waqt issue aaya.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLeads();
+  }, [loadLeads]);
 
   const selectedLead = useMemo(
     () => leads.find((l) => l.id === selectedId),
     [leads, selectedId],
   );
 
+  const resolveStatusOnSave = useCallback(
+    (values, requestedStatus) => {
+      const rule = getHardRule(values);
+      if (rule?.type === "auto-reject") {
+        return {
+          status: "REJECTED",
+          autoRule: rule,
+          reopened: false,
+        };
+      }
+
+      if (
+        selectedLead?.bgcStatus === "REJECTED" &&
+        isAutoRejectedLead(selectedLead) &&
+        (!requestedStatus || requestedStatus === "REJECTED")
+      ) {
+        return {
+          status: BGC_STATUS.PENDING,
+          autoRule: null,
+          reopened: true,
+        };
+      }
+
+      return {
+        status: requestedStatus || BGC_STATUS.PENDING,
+        autoRule: null,
+        reopened: false,
+      };
+    },
+    [selectedLead],
+  );
+
   // Load form on lead change
   useEffect(() => {
     if (!selectedLead) return;
     const defaults = getDefaultBgcValues(selectedLead);
-    const saved = selectedLead.bgcData || {};
+    const saved = selectedLead.bgcData || normalizeBgcFormValuesFromBackend(selectedLead);
     const merged = { ...defaults, ...saved };
     bgcForm.setFieldsValue(merged);
     setFormValues(merged);
   }, [selectedId, bgcForm, selectedLead]);
 
+  const persistLead = useCallback(
+    async (leadId, localStatus, values, options = {}) => {
+      const serializedValues = serializeBgcFormValuesForBackend(values);
+      const backendStatus = toBackendStatus(localStatus);
+      const summary = buildBgcSummary(serializedValues);
+
+      const payload = {
+        status: backendStatus,
+        formValues: serializedValues,
+        evidenceVault: buildBgcEvidenceVault(serializedValues),
+        summary,
+        notes: serializedValues.serviceComments || serializedValues.vahanComments || "",
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (options.appendAudit) payload.appendAudit = options.appendAudit;
+      if (options.activity) payload.activity = options.activity;
+      if (typeof options.syncWorkflow === "boolean") {
+        payload.syncWorkflow = options.syncWorkflow;
+      }
+      if (options.closureReason) payload.closureReason = options.closureReason;
+
+      const updated = await usedCarsApi.saveBackgroundCheck(leadId, payload);
+      const mapped = mapApiLeadToDeskLead(updated?.data);
+      setLeads((prev) =>
+        prev.map((item) => (item.id === leadId ? { ...item, ...mapped } : item)),
+      );
+      return mapped;
+    },
+    [],
+  );
+
   const filteredLeads = useMemo(() => {
     let list = leads;
-    if (activeFilter !== "All")
+    if (activeFilter !== "All") {
       list = list.filter((l) => l.bgcStatus === activeFilter);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
         (l) =>
-          l.name.toLowerCase().includes(q) ||
-          l.regNo.toLowerCase().includes(q) ||
-          l.make.toLowerCase().includes(q) ||
-          l.model.toLowerCase().includes(q),
+          String(l.name || "").toLowerCase().includes(q) ||
+          String(l.regNo || "").toLowerCase().includes(q) ||
+          String(l.make || "").toLowerCase().includes(q) ||
+          String(l.model || "").toLowerCase().includes(q),
       );
     }
     return list;
-  }, [leads, activeFilter, search]);
+  }, [activeFilter, leads, search]);
+
+  const queueFilters = useMemo(
+    () => [
+      { key: "All", label: "All", count: leads.length },
+      {
+        key: BGC_STATUS.PENDING,
+        label: "Pending",
+        count: leads.filter((l) => l.bgcStatus === BGC_STATUS.PENDING).length,
+      },
+      {
+        key: BGC_STATUS.VAHAN_DONE,
+        label: "Vahan Done",
+        count: leads.filter((l) => l.bgcStatus === BGC_STATUS.VAHAN_DONE).length,
+      },
+      {
+        key: BGC_STATUS.COMPLETE,
+        label: "BGC Complete",
+        count: leads.filter((l) => l.bgcStatus === BGC_STATUS.COMPLETE).length,
+      },
+      {
+        key: "APPROVED",
+        label: "Approved",
+        count: leads.filter((l) => l.bgcStatus === "APPROVED").length,
+      },
+      {
+        key: "ESCALATED",
+        label: "Escalated",
+        count: leads.filter((l) => l.bgcStatus === "ESCALATED").length,
+      },
+      {
+        key: "REJECTED",
+        label: "Rejected",
+        count: leads.filter((l) => l.bgcStatus === "REJECTED").length,
+      },
+    ],
+    [leads],
+  );
 
   const handleValuesChange = useCallback(
     (_, all) => {
       setFormValues(all);
+      if (!selectedId) return;
+      const liveRule = getHardRule(all);
+      setLeads((prev) =>
+        prev.map((lead) => {
+          if (lead.id !== selectedId) return lead;
+          const nextLead = { ...lead, bgcData: all };
+          if (
+            !liveRule &&
+            lead.bgcStatus === "REJECTED" &&
+            isAutoRejectedLead(lead)
+          ) {
+            nextLead.bgcStatus = BGC_STATUS.PENDING;
+          }
+          return nextLead;
+        }),
+      );
 
-      // Auto-save after 2 seconds of inactivity
-      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      const seq = ++autoSaveSeqRef.current;
       const timer = setTimeout(() => {
-        if (selectedId) {
-          setLeads((prev) =>
-            prev.map((l) => (l.id === selectedId ? { ...l, bgcData: all } : l)),
-          );
+        if (!selectedId) return;
+        let localStatus = selectedLead?.bgcStatus || BGC_STATUS.PENDING;
+        if (
+          !liveRule &&
+          localStatus === "REJECTED" &&
+          isAutoRejectedLead(selectedLead)
+        ) {
+          localStatus = BGC_STATUS.PENDING;
         }
-      }, 2000);
-      setAutoSaveTimer(timer);
+        persistLead(selectedId, localStatus, all, { syncWorkflow: false }).catch(
+          () => {
+            if (seq === autoSaveSeqRef.current) {
+              message.warning(
+                "Auto-save miss hua. Manual Save Draft use kar sakte ho.",
+              );
+            }
+          },
+        );
+      }, 1500);
+      autoSaveTimerRef.current = timer;
     },
-    [selectedId, autoSaveTimer],
+    [persistLead, selectedId, selectedLead],
   );
 
   const pushAuditEvent = useCallback((leadId, type, action, note = "") => {
@@ -1727,108 +1818,244 @@ export default function UsedCarBackgroundCheckDesk() {
     );
   }, []);
 
+  useEffect(
+    () => () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    },
+    [],
+  );
+
   const handleSaveDraft = useCallback(async () => {
     if (!selectedId) return;
     setSaving(true);
-    const vals = bgcForm.getFieldsValue(true);
-    setLeads((prev) =>
-      prev.map((l) => (l.id === selectedId ? { ...l, bgcData: vals } : l)),
-    );
-    pushAuditEvent(selectedId, "saved", "Draft Saved");
-    await new Promise((r) => setTimeout(r, 400));
-    setSaving(false);
-    message.success("Draft saved successfully");
-  }, [bgcForm, selectedId, pushAuditEvent]);
+    try {
+      const vals = bgcForm.getFieldsValue(true);
+      const { status: nextStatus, autoRule, reopened } = resolveStatusOnSave(
+        vals,
+        selectedLead?.bgcStatus || BGC_STATUS.PENDING,
+      );
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === selectedId
+            ? { ...l, bgcData: vals, bgcStatus: nextStatus }
+            : l,
+        ),
+      );
+      const auditType = autoRule
+        ? "auto_reject"
+        : reopened
+          ? "reopened"
+          : "saved";
+      const auditAction = autoRule
+        ? "Auto-Rejected by System (on save)"
+        : reopened
+          ? "Re-opened after rule correction"
+          : "Draft Saved";
+      const auditNote = autoRule ? autoRule.reason : "";
+
+      pushAuditEvent(selectedId, auditType, auditAction, auditNote);
+
+      await persistLead(selectedId, nextStatus, vals, {
+        appendAudit: {
+          type: auditType,
+          action: auditAction,
+          note: auditNote,
+          actor: "You",
+          at: new Date().toISOString(),
+        },
+        activity: {
+          type: "background-check",
+          title: autoRule
+            ? "Auto-rejected on save"
+            : reopened
+              ? "Background check re-opened"
+              : "Background check draft saved",
+          detail: autoRule
+            ? autoRule.reason
+            : reopened
+              ? "Auto-reject trigger cleared and lead reopened."
+              : "Draft saved from background-check desk.",
+          actorName: "You",
+          at: new Date().toISOString(),
+        },
+        syncWorkflow: true,
+        closureReason: autoRule ? autoRule.reason : "",
+      });
+      message.success(
+        autoRule
+          ? "Auto-reject rule save ke baad apply ho gaya."
+          : reopened
+            ? "Lead reopened and saved successfully."
+            : "Draft saved successfully",
+      );
+    } catch (error) {
+      message.error(error?.message || "Draft save karte waqt issue aaya.");
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    bgcForm,
+    persistLead,
+    pushAuditEvent,
+    resolveStatusOnSave,
+    selectedId,
+    selectedLead?.bgcStatus,
+  ]);
 
   const handleMarkVahanDone = useCallback(async () => {
     if (!selectedId) return;
     setSaving(true);
-    const vals = bgcForm.getFieldsValue(true);
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === selectedId
-          ? { ...l, bgcData: vals, bgcStatus: BGC_STATUS.VAHAN_DONE }
-          : l,
-      ),
-    );
-    pushAuditEvent(selectedId, "vahan_done", "Vahan Check Completed");
-    await new Promise((r) => setTimeout(r, 400));
-    setSaving(false);
-    message.success("Vahan Check marked as done");
-    setActiveTab("service");
-  }, [bgcForm, selectedId, pushAuditEvent]);
+    try {
+      const vals = bgcForm.getFieldsValue(true);
+      const { status: nextStatus, autoRule } = resolveStatusOnSave(
+        vals,
+        BGC_STATUS.VAHAN_DONE,
+      );
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === selectedId
+            ? { ...l, bgcData: vals, bgcStatus: nextStatus }
+            : l,
+        ),
+      );
+      const auditType = autoRule ? "auto_reject" : "vahan_done";
+      const auditAction = autoRule
+        ? "Auto-Rejected by System (on save)"
+        : "Vahan Check Completed";
+      const auditNote = autoRule ? autoRule.reason : "";
+      pushAuditEvent(selectedId, auditType, auditAction, auditNote);
+      await persistLead(selectedId, nextStatus, vals, {
+        appendAudit: {
+          type: auditType,
+          action: auditAction,
+          note: auditNote,
+          actor: "You",
+          at: new Date().toISOString(),
+        },
+        activity: {
+          type: "background-check",
+          title: autoRule ? "Auto-rejected on save" : "Vahan check completed",
+          detail: autoRule
+            ? autoRule.reason
+            : "Lead moved to service verification in background-check desk.",
+          actorName: "You",
+          at: new Date().toISOString(),
+        },
+        closureReason: autoRule ? autoRule.reason : "",
+      });
+      if (autoRule) {
+        message.warning("Auto-reject rule save ke baad apply ho gaya.");
+      } else {
+        message.success("Vahan Check marked as done");
+        setActiveTab("service");
+      }
+    } catch (error) {
+      message.error(error?.message || "Vahan done update nahi ho paya.");
+    } finally {
+      setSaving(false);
+    }
+  }, [bgcForm, persistLead, pushAuditEvent, resolveStatusOnSave, selectedId]);
 
   const handleMarkComplete = useCallback(async () => {
     if (!selectedId) return;
     setSaving(true);
-    const vals = bgcForm.getFieldsValue(true);
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === selectedId
-          ? { ...l, bgcData: vals, bgcStatus: BGC_STATUS.COMPLETE }
-          : l,
-      ),
-    );
-    pushAuditEvent(selectedId, "complete", "Background Check Completed");
-    await new Promise((r) => setTimeout(r, 400));
-    setSaving(false);
-    message.success("Background Check completed!");
-  }, [bgcForm, selectedId, pushAuditEvent]);
-
-  const ACTION_CONFIGS = {
-    approve: {
-      type: "approve",
-      title: "Approve Vehicle",
-      description:
-        "This vehicle will be approved and moved to the next pipeline stage. This action is logged.",
-      icon: <CheckOutlined />,
-      newStatus: "APPROVED",
-      auditType: "approved",
-      auditAction: "Vehicle Approved",
-    },
-    reject: {
-      type: "reject",
-      title: "Reject Vehicle",
-      description:
-        "This vehicle will be rejected and removed from the active pipeline. The sourcing team will be notified.",
-      icon: <CloseOutlined />,
-      newStatus: "REJECTED",
-      auditType: "rejected",
-      auditAction: "Vehicle Rejected",
-    },
-    escalate: {
-      type: "escalate",
-      title: "Escalate for Review",
-      description:
-        "This vehicle will be flagged for senior officer review. Please include a reason.",
-      icon: <ArrowUpOutlined />,
-      newStatus: "ESCALATED",
-      auditType: "escalated",
-      auditAction: "Escalated for Senior Review",
-    },
-  };
+    try {
+      const vals = bgcForm.getFieldsValue(true);
+      const { status: nextStatus, autoRule } = resolveStatusOnSave(
+        vals,
+        BGC_STATUS.COMPLETE,
+      );
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === selectedId
+            ? { ...l, bgcData: vals, bgcStatus: nextStatus }
+            : l,
+        ),
+      );
+      const auditType = autoRule ? "auto_reject" : "complete";
+      const auditAction = autoRule
+        ? "Auto-Rejected by System (on save)"
+        : "Background Check Completed";
+      const auditNote = autoRule ? autoRule.reason : "";
+      pushAuditEvent(selectedId, auditType, auditAction, auditNote);
+      await persistLead(selectedId, nextStatus, vals, {
+        appendAudit: {
+          type: auditType,
+          action: auditAction,
+          note: auditNote,
+          actor: "You",
+          at: new Date().toISOString(),
+        },
+        activity: {
+          type: "background-check",
+          title: autoRule
+            ? "Auto-rejected on save"
+            : "Background check completed",
+          detail: autoRule
+            ? autoRule.reason
+            : "Lead cleared from background check.",
+          actorName: "You",
+          at: new Date().toISOString(),
+        },
+        closureReason: autoRule ? autoRule.reason : "",
+      });
+      message.success(
+        autoRule
+          ? "Auto-reject rule save ke baad apply ho gaya."
+          : "Background Check completed!",
+      );
+    } catch (error) {
+      message.error(error?.message || "Background check complete nahi ho paya.");
+    } finally {
+      setSaving(false);
+    }
+  }, [bgcForm, persistLead, pushAuditEvent, resolveStatusOnSave, selectedId]);
 
   const openActionModal = useCallback((type) => {
     setConfirmModal({ open: true, config: ACTION_CONFIGS[type] });
   }, []);
 
   const handleActionConfirm = useCallback(
-    (note) => {
+    async (note) => {
       const cfg = confirmModal.config;
       if (!cfg || !selectedId) return;
-      const vals = bgcForm.getFieldsValue(true);
-      setLeads((prev) =>
-        prev.map((l) =>
-          l.id === selectedId
-            ? { ...l, bgcData: vals, bgcStatus: cfg.newStatus }
-            : l,
-        ),
-      );
-      pushAuditEvent(selectedId, cfg.auditType, cfg.auditAction, note);
-      setConfirmModal({ open: false, config: null });
-      message.success(`${cfg.auditAction} successfully`);
+      setSaving(true);
+      try {
+        const vals = bgcForm.getFieldsValue(true);
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === selectedId
+              ? { ...l, bgcData: vals, bgcStatus: cfg.newStatus }
+              : l,
+          ),
+        );
+        pushAuditEvent(selectedId, cfg.auditType, cfg.auditAction, note);
+        await persistLead(selectedId, cfg.newStatus, vals, {
+          appendAudit: {
+            type: cfg.auditType,
+            action: cfg.auditAction,
+            note,
+            actor: "You",
+            at: new Date().toISOString(),
+          },
+          activity: {
+            type: "background-check",
+            title: cfg.auditAction,
+            detail: note || cfg.description,
+            actorName: "You",
+            at: new Date().toISOString(),
+          },
+          closureReason: cfg.newStatus === "REJECTED" ? note : undefined,
+        });
+        setConfirmModal({ open: false, config: null });
+        message.success(`${cfg.auditAction} successfully`);
+      } catch (error) {
+        message.error(error?.message || "Action apply nahi ho paaya.");
+      } finally {
+        setSaving(false);
+      }
     },
-    [confirmModal, selectedId, bgcForm, pushAuditEvent],
+    [bgcForm, confirmModal, persistLead, pushAuditEvent, selectedId],
   );
 
   const hardRule = useMemo(() => getHardRule(formValues), [formValues]);
@@ -1836,25 +2063,6 @@ export default function UsedCarBackgroundCheckDesk() {
   const hasHypothecation = formValues.hypothecation === "Yes";
   const hasChallan = formValues.challanPending === "Yes";
   const roadTaxSameAsRc = formValues.roadTaxSameAsRc;
-
-  // Auto-reject trigger
-  useEffect(() => {
-    if (!selectedId || !hardRule || hardRule.type !== "auto-reject") return;
-    const lead = leads.find((l) => l.id === selectedId);
-    if (!lead) return;
-    if (lead.bgcStatus === "REJECTED" || lead.bgcStatus === "APPROVED") return;
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === selectedId ? { ...l, bgcStatus: "REJECTED" } : l,
-      ),
-    );
-    pushAuditEvent(
-      selectedId,
-      "auto_reject",
-      "Auto-Rejected by System",
-      hardRule.reason,
-    );
-  }, [hardRule, selectedId]);
 
   // Count stats
   const stats = useMemo(
@@ -1871,44 +2079,39 @@ export default function UsedCarBackgroundCheckDesk() {
     [leads],
   );
 
+  const commandDeck = (
+    <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-[#fdfefe] via-[#f8fbff] to-[#f7fefb] px-5 py-5 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.38)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_6%_10%,rgba(96,165,250,0.22),transparent_32%),radial-gradient(circle_at_90%_12%,rgba(244,114,182,0.15),transparent_28%),radial-gradient(circle_at_65%_100%,rgba(34,197,94,0.14),transparent_42%)]" />
+      <div className="relative flex flex-col gap-3">
+        <p className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+          Background Check Desk
+        </p>
+        <h2 className="text-[22px] font-black tracking-tight text-slate-900 md:text-[26px]">
+          Compliance & Risk Command Center
+        </h2>
+        <p className="max-w-3xl text-xs font-medium text-slate-600">
+          Fast queue triage, legal checks, service validation, and audit-safe decisions.
+          {` ${stats.total} vehicles currently in queue.`}
+        </p>
+      </div>
+    </div>
+  );
+
   // ── QUEUE PANEL ────────────────────────────────────────────
   const QueuePanel = (
     <div className="flex h-full flex-col gap-4">
       {/* Header Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_16px_35px_-28px_rgba(15,23,42,0.42)]">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white">
             <DashboardOutlined />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              BGC Queue
+            <h2 className="text-sm font-bold text-slate-800">
+              Queue
             </h2>
             <p className="text-xs text-slate-400">{stats.total} vehicles</p>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="rounded-xl bg-amber-50 px-3 py-2 text-center dark:bg-amber-500/10">
-            <p className="text-lg font-black text-amber-600">{stats.pending}</p>
-            <p className="text-[9px] font-semibold text-amber-500 uppercase">
-              Pending
-            </p>
-          </div>
-          <div className="rounded-xl bg-sky-50 px-3 py-2 text-center dark:bg-sky-500/10">
-            <p className="text-lg font-black text-sky-600">{stats.vahanDone}</p>
-            <p className="text-[9px] font-semibold text-sky-500 uppercase">
-              Vahan
-            </p>
-          </div>
-          <div className="rounded-xl bg-emerald-50 px-3 py-2 text-center dark:bg-emerald-500/10">
-            <p className="text-lg font-black text-emerald-600">
-              {stats.complete}
-            </p>
-            <p className="text-[9px] font-semibold text-emerald-500 uppercase">
-              Complete
-            </p>
           </div>
         </div>
 
@@ -1920,7 +2123,7 @@ export default function UsedCarBackgroundCheckDesk() {
             placeholder="Search name, reg, make..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:focus:border-blue-500 dark:focus:ring-blue-500/20"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
           />
           {search && (
             <button
@@ -1932,27 +2135,32 @@ export default function UsedCarBackgroundCheckDesk() {
           )}
         </div>
 
-        {/* Filters */}
-        <div className="mt-4">
-          <div className="mb-2 flex items-center gap-2">
-            <FilterOutlined className="text-[10px] text-slate-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Filter by Status
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {BGC_QUEUE_FILTERS.map((f) => (
+        <div className="mt-4 space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Filter by status
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {queueFilters.map((filter) => (
               <button
-                key={f}
+                key={filter.key}
                 type="button"
-                onClick={() => setActiveFilter(f)}
-                className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold transition-all ${
-                  activeFilter === f
-                    ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-500/20 dark:text-blue-300"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
+                onClick={() => setActiveFilter(filter.key)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-all ${
+                  activeFilter === filter.key
+                    ? "border-blue-300 bg-blue-50 text-blue-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                 }`}
               >
-                {f}
+                {filter.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[9px] ${
+                    activeFilter === filter.key
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {filter.count}
+                </span>
               </button>
             ))}
           </div>
@@ -1962,8 +2170,8 @@ export default function UsedCarBackgroundCheckDesk() {
       {/* Lead List */}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
         {filteredLeads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-12 dark:border-white/10">
-            <FilterOutlined className="mb-3 text-2xl text-slate-300 dark:text-slate-600" />
+          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-12">
+            <FilterOutlined className="mb-3 text-2xl text-slate-300" />
             <p className="text-sm font-semibold text-slate-500">
               No matches found
             </p>
@@ -2447,15 +2655,6 @@ export default function UsedCarBackgroundCheckDesk() {
     </div>
   );
 
-  // ── EVIDENCE TAB ───────────────────────────────────────────
-  const EvidenceTab = (
-    <div className="space-y-5">
-      <SectionCard title="Smart Evidence Viewer" icon={<EyeOutlined />}>
-        <SmartEvidenceViewer values={formValues} />
-      </SectionCard>
-    </div>
-  );
-
   // ── AUDIT TAB ──────────────────────────────────────────────
   const AuditTab = (
     <div className="space-y-5">
@@ -2465,19 +2664,33 @@ export default function UsedCarBackgroundCheckDesk() {
     </div>
   );
 
+  if (loading) {
+    return (
+      <section className="space-y-4">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8">
+          <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
+            <SyncOutlined spin />
+            Loading background-check queue...
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   // ── EMPTY STATE ────────────────────────────────────────────
   if (!selectedId) {
     return (
       <section className="space-y-4">
+        {commandDeck}
         <div className="grid gap-4 lg:grid-cols-[340px_1fr] xl:grid-cols-[380px_1fr]">
           <div>{QueuePanel}</div>
 
-          <div className="flex min-h-[500px] items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white dark:border-white/10 dark:from-transparent dark:to-white/[0.02]">
+          <div className="flex min-h-[500px] items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white">
             <div className="text-center">
-              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <FileSearchOutlined className="text-3xl text-slate-400" />
               </div>
-              <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">
+              <h3 className="text-lg font-bold text-slate-700">
                 Select a Vehicle
               </h3>
               <p className="mt-2 max-w-sm text-sm text-slate-500">
@@ -2494,7 +2707,7 @@ export default function UsedCarBackgroundCheckDesk() {
                     Pending
                   </p>
                 </div>
-                <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
+                <div className="h-8 w-px bg-slate-200" />
                 <div className="text-center">
                   <p className="text-2xl font-black text-sky-500">
                     {stats.vahanDone}
@@ -2503,7 +2716,7 @@ export default function UsedCarBackgroundCheckDesk() {
                     Vahan
                   </p>
                 </div>
-                <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
+                <div className="h-8 w-px bg-slate-200" />
                 <div className="text-center">
                   <p className="text-2xl font-black text-emerald-500">
                     {stats.complete}
@@ -2523,23 +2736,23 @@ export default function UsedCarBackgroundCheckDesk() {
   // ── DETAIL VIEW ────────────────────────────────────────────
   return (
     <section className="space-y-4">
+      {commandDeck}
       <div className="grid gap-4 lg:grid-cols-[340px_1fr] xl:grid-cols-[380px_1fr]">
         {/* Left — Queue */}
         <div>{QueuePanel}</div>
 
         {/* Right — BGC Form */}
-        <div className="rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0e1014]">
+        <div className="rounded-3xl border border-slate-200 bg-white shadow-[0_18px_45px_-30px_rgba(15,23,42,0.45)]">
           {/* Header */}
-          <div className="rounded-t-3xl border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white p-5 dark:border-white/10 dark:from-white/5 dark:to-transparent">
+          <div className="rounded-t-3xl border-b border-slate-100 bg-gradient-to-r from-sky-50/60 via-white to-emerald-50/40 p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                     Background Check
                   </p>
-                  <BGCProgressSteps currentStatus={selectedLead?.bgcStatus} />
                 </div>
-                <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                <h2 className="text-xl font-black tracking-tight text-slate-900">
                   {selectedLead?.make} {selectedLead?.model}
                 </h2>
                 <p className="mt-0.5 text-sm font-semibold text-slate-500">
@@ -2580,6 +2793,12 @@ export default function UsedCarBackgroundCheckDesk() {
               size="middle"
               onValuesChange={handleValuesChange}
             >
+              <div className="mb-4">
+                <SectionCard title="Evidence Vault" icon={<PaperClipOutlined />}>
+                  <SmartEvidenceViewer values={formValues} />
+                </SectionCard>
+              </div>
+
               <Tabs
                 activeKey={activeTab}
                 onChange={setActiveTab}
@@ -2606,23 +2825,13 @@ export default function UsedCarBackgroundCheckDesk() {
                     children: ServiceTab,
                   },
                   {
-                    key: "evidence",
-                    label: (
-                      <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
-                        <PaperClipOutlined />
-                        Evidence
-                      </span>
-                    ),
-                    children: EvidenceTab,
-                  },
-                  {
                     key: "audit",
                     label: (
                       <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
                         <HistoryOutlined />
                         Audit Trail
                         {(selectedLead?.auditTrail || []).length > 0 && (
-                          <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[9px] font-black text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                          <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[9px] font-black text-slate-600">
                             {selectedLead.auditTrail.length}
                           </span>
                         )}
@@ -2635,7 +2844,7 @@ export default function UsedCarBackgroundCheckDesk() {
 
               {/* Sticky Footer */}
               <div className="sticky bottom-4 z-50 mt-6">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-5 py-4 shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl dark:border-white/10 dark:bg-[#090b0e]/95">
+                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl">
                   <div className="flex items-center gap-3">
                     <StatusBadge status={selectedLead?.bgcStatus} />
                     <span className="text-xs text-slate-400">
@@ -2662,7 +2871,7 @@ export default function UsedCarBackgroundCheckDesk() {
                           onClick={handleMarkVahanDone}
                           loading={saving}
                           icon={<RightOutlined />}
-                          className="!flex !items-center !gap-2 !rounded-xl !border-sky-300 !bg-sky-50 !px-4 !py-2 !font-semibold !text-sky-700 hover:!bg-sky-100 dark:!border-sky-500/40 dark:!bg-sky-500/10 dark:!text-sky-400"
+                          className="!flex !items-center !gap-2 !rounded-xl !border-sky-300 !bg-sky-50 !px-4 !py-2 !font-semibold !text-sky-700 hover:!bg-sky-100"
                         >
                           Mark Vahan Done
                         </Button>
