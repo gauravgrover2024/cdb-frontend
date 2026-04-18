@@ -1,26 +1,410 @@
+// Step4InsuranceQuotes.jsx
+
 import React from "react";
 import {
   Button,
-  Checkbox,
-  Col,
   Divider,
-  Empty,
   Input,
   InputNumber,
   Modal,
-  Row,
   Select,
   Space,
-  Tag,
   Typography,
+  Tooltip,
+  Popconfirm,
 } from "antd";
-import { PlusCircle, RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  PlusOutlined,
+  ReloadOutlined,
+  CheckCircleFilled,
+  InfoCircleOutlined,
+  SafetyCertificateOutlined,
+  ThunderboltOutlined,
+  FileTextOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
 import PlanFeaturesModalBody from "../PlanFeaturesModalBody";
 import { addOnCatalog } from "./allSteps";
 
 const { Text } = Typography;
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ── FieldBlock ──
+const FieldBlock = ({ label, required, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+      {label}
+      {required && <span className="ml-0.5 text-rose-400">*</span>}
+    </label>
+    {children}
+  </div>
+);
+
+// ── TickerRow ──
+const TickerRow = ({ label, value, valueClass = "text-slate-800", bold }) => (
+  <div
+    className={`flex items-center justify-between py-1 ${
+      bold ? "border-t border-slate-100 pt-2" : ""
+    }`}
+  >
+    <span className="text-xs text-slate-400">{label}</span>
+    <span
+      className={`text-sm tabular-nums font-semibold ${valueClass} ${
+        bold ? "font-bold" : ""
+      }`}
+    >
+      {value}
+    </span>
+  </div>
+);
+
+// ── BreakupRow ──
+const BreakupRow = ({ label, value, bold, muted, indent }) => (
+  <div
+    className={`flex items-center justify-between py-1.5
+      ${bold ? "border-t border-slate-100 mt-1 pt-2.5" : ""}
+      ${indent ? "pl-3" : ""}
+    `}
+  >
+    <span
+      className={`text-[12px] ${
+        bold
+          ? "font-bold text-slate-800"
+          : muted
+            ? "text-slate-400"
+            : "text-slate-500"
+      }`}
+    >
+      {label}
+    </span>
+    <span
+      className={`tabular-nums text-[12px] ${
+        bold
+          ? "font-black text-slate-900"
+          : muted
+            ? "text-slate-400"
+            : "font-semibold text-slate-700"
+      }`}
+    >
+      {value}
+    </span>
+  </div>
+);
+
+// ── addonPalette ──
+const addonPalette = [
+  {
+    bg: "bg-sky-50",
+    ring: "ring-sky-200",
+    dot: "bg-sky-400",
+    text: "text-sky-700",
+    activeBg: "bg-sky-100",
+    activeRing: "ring-sky-400",
+  },
+  {
+    bg: "bg-violet-50",
+    ring: "ring-violet-200",
+    dot: "bg-violet-400",
+    text: "text-violet-700",
+    activeBg: "bg-violet-100",
+    activeRing: "ring-violet-400",
+  },
+  {
+    bg: "bg-emerald-50",
+    ring: "ring-emerald-200",
+    dot: "bg-emerald-400",
+    text: "text-emerald-700",
+    activeBg: "bg-emerald-100",
+    activeRing: "ring-emerald-400",
+  },
+  {
+    bg: "bg-amber-50",
+    ring: "ring-amber-200",
+    dot: "bg-amber-400",
+    text: "text-amber-700",
+    activeBg: "bg-amber-100",
+    activeRing: "ring-amber-400",
+  },
+  {
+    bg: "bg-rose-50",
+    ring: "ring-rose-200",
+    dot: "bg-rose-400",
+    text: "text-rose-700",
+    activeBg: "bg-rose-100",
+    activeRing: "ring-rose-400",
+  },
+  {
+    bg: "bg-teal-50",
+    ring: "ring-teal-200",
+    dot: "bg-teal-400",
+    text: "text-teal-700",
+    activeBg: "bg-teal-100",
+    activeRing: "ring-teal-400",
+  },
+];
+
+// ── QuoteCard ──
+const QuoteCard = ({
+  row,
+  idx,
+  acceptedQuoteId,
+  getQuoteRowId,
+  computeQuoteBreakupFromRow,
+  formatStoredOrComputedIdv,
+  formatStoredOrComputedPremium,
+  toINR,
+  quoteRows,
+  acceptQuote,
+  setQuoteDraft,
+  mapQuoteToDraft,
+  setPlanFeaturesModal,
+  onDelete,
+}) => {
+  const [showAllAddons, setShowAllAddons] = React.useState(false);
+
+  const rid = getQuoteRowId(row);
+  const isAccepted = String(acceptedQuoteId) === String(rid);
+  const breakup = computeQuoteBreakupFromRow(row);
+  const palette = addonPalette[idx % addonPalette.length];
+
+  const allPremiums = quoteRows.map(
+    (r) => computeQuoteBreakupFromRow(r)?.totalPremium ?? 0,
+  );
+  const minPremium = Math.min(...allPremiums);
+  const thisPremium = breakup?.totalPremium ?? 0;
+  const isCheapest = thisPremium === minPremium && quoteRows.length > 1;
+
+  const includedAddons = Object.entries(row.addOnsIncluded || {})
+    .filter(([, v]) => v)
+    .map(([k]) => ({ name: k, amt: Number(row.addOns?.[k] || 0) }));
+
+  const visibleAddons = showAllAddons
+    ? includedAddons
+    : includedAddons.slice(0, 4);
+
+  const initial = (row.insuranceCompany || "?")
+    .toString()
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="flex flex-col">
+      {/* Above-card: Logo + Company + IDV */}
+      <div className="mb-3 flex items-center justify-between px-1">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1
+              ${
+                isAccepted
+                  ? "bg-emerald-100 text-emerald-700 ring-emerald-200"
+                  : `${palette.activeBg} ${palette.text} ${palette.activeRing}`
+              }
+            `}
+          >
+            {initial}
+          </div>
+          <div>
+            <p className="m-0 text-sm font-bold text-slate-800 leading-tight">
+              {row.insuranceCompany || "—"}
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              {row.coverageType && (
+                <span className="text-[11px] text-slate-400">
+                  {row.coverageType}
+                </span>
+              )}
+              {row.coverageType && row.policyDuration && (
+                <span className="text-[10px] text-slate-300">·</span>
+              )}
+              {row.policyDuration && (
+                <span className="text-[11px] text-slate-400">
+                  {row.policyDuration}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            IDV – Cover Value
+          </p>
+          <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+            {formatStoredOrComputedIdv(row)}
+          </p>
+        </div>
+      </div>
+
+      {/* Card Body */}
+      <div
+        className={`
+          relative flex flex-col rounded-2xl bg-white transition-all duration-200
+          ${
+            isAccepted
+              ? "shadow-[0_4px_24px_rgba(52,211,153,0.13)] ring-1 ring-emerald-300"
+              : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)]"
+          }
+        `}
+      >
+        {/* Accepted */}
+        {(isAccepted || isCheapest) && (
+          <div className="absolute -top-2.5 left-4 flex items-center gap-1">
+            {isAccepted && (
+              <span className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-black text-white shadow-sm">
+                <CheckCircleFilled className="text-[9px]" /> Accepted
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Premium Breakup */}
+        <div className="px-5 pt-5 pb-3">
+          <p className="m-0 mb-3 text-sm font-black text-slate-800">
+            Premium Breakup
+          </p>
+
+          <BreakupRow
+            label="Own Damage"
+            value={toINR(breakup?.odAmt ?? 0)}
+            bold
+          />
+          <BreakupRow
+            label="Basic Own Damage"
+            value={toINR(breakup?.odAmt ?? 0)}
+            indent
+            muted
+          />
+          {Number(row.ncbDiscount || 0) > 0 && (
+            <BreakupRow
+              label={`NCB Discount (${Number(row.ncbDiscount || 0)}%)`}
+              value={`-${toINR(breakup?.ncbAmount ?? 0)}`}
+              indent
+              muted
+            />
+          )}
+
+          <BreakupRow
+            label="Third Party"
+            value={toINR(breakup?.tpAmt ?? 0)}
+            bold
+          />
+          <BreakupRow
+            label="Basic Third Party"
+            value={toINR(breakup?.tpAmt ?? 0)}
+            indent
+            muted
+          />
+
+          {includedAddons.length > 0 && (
+            <>
+              <BreakupRow
+                label="Add Ons"
+                value={toINR(breakup?.addOnsTotal ?? 0)}
+                bold
+              />
+              {visibleAddons.map(({ name, amt }) => (
+                <BreakupRow
+                  key={name}
+                  label={name}
+                  value={amt > 0 ? toINR(amt) : "included"}
+                  indent
+                  muted
+                />
+              ))}
+              {includedAddons.length > 4 && (
+                <button
+                  onClick={() => setShowAllAddons((p) => !p)}
+                  className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-[#E8192C] hover:text-[#c91525] transition-colors"
+                >
+                  <span
+                    className={`inline-block transition-transform duration-200 ${
+                      showAllAddons ? "rotate-180" : ""
+                    }`}
+                  >
+                    ▾
+                  </span>
+                  {showAllAddons
+                    ? "Show Less"
+                    : `+${includedAddons.length - 4} More Add-ons`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Dashed separator */}
+        <div className="mx-5 border-t border-dashed border-slate-200" />
+
+        {/* Total Amount */}
+        <div className="px-5 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-black text-slate-800">
+              Total Amount
+            </span>
+            <span
+              className={`text-xl font-black tabular-nums ${
+                isAccepted ? "text-emerald-600" : "text-slate-900"
+              }`}
+            >
+              {formatStoredOrComputedPremium(row)}
+            </span>
+          </div>
+          <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
+            Prices are inclusive of GST
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2 px-5 pb-5">
+          <button
+            onClick={() => acceptQuote(rid)}
+            className={`
+              w-full rounded-xl py-2.5 text-[13px] font-black tracking-wide
+              transition-all cursor-pointer border-0 shadow-sm
+              ${
+                isAccepted
+                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "bg-[#E8192C] text-white hover:bg-[#c91525]"
+              }
+            `}
+          >
+            {isAccepted ? "✓ Accepted Plan" : "Accept This Plan"}
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setQuoteDraft(mapQuoteToDraft(row))}
+              title="Edit quote"
+              className="flex h-8 w-8 items-center justify-center rounded-xl border-0 bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            >
+              <EditOutlined className="text-xs" />
+            </button>
+
+            <Popconfirm
+              title="Delete this quote?"
+              description="This action cannot be undone."
+              onConfirm={() => onDelete(rid)}
+              okText="Delete"
+              cancelText="Cancel"
+              okButtonProps={{
+                danger: true,
+                className: "!bg-[#E8192C] !border-[#E8192C]",
+              }}
+            >
+              <button
+                title="Delete quote"
+                className="flex h-8 w-8 items-center justify-center rounded-xl border-0 bg-rose-50 text-[#E8192C] ring-1 ring-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+              >
+                <DeleteOutlined className="text-xs" />
+              </button>
+            </Popconfirm>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Step4InsuranceQuotes ──
 const Step4InsuranceQuotes = ({
   quoteDraft,
   setQuoteDraft,
@@ -32,6 +416,7 @@ const Step4InsuranceQuotes = ({
   showErrors,
   addQuote,
   acceptQuote,
+  deleteQuote,
   initialQuoteDraft,
   mapQuoteToDraft,
   durationOptions,
@@ -43,66 +428,43 @@ const Step4InsuranceQuotes = ({
   planFeaturesModal,
   setPlanFeaturesModal,
 }) => {
-  const selectedAddOnNames = addOnCatalog.filter(
-    (n) => quoteDraft.addOnsIncluded?.[n],
-  );
-
-  // ── Preview card computed values ─────────────────────────────────────────
-  const tierInfo =
-    selectedAddOnNames.length === 0
-      ? { label: "Basic", color: "bg-white/10 text-violet-200" }
-      : selectedAddOnNames.length <= 3
-        ? { label: "Standard", color: "bg-blue-400/25 text-blue-100" }
-        : selectedAddOnNames.length <= 6
-          ? { label: "Premium", color: "bg-violet-400/25 text-violet-100" }
-          : { label: "Elite", color: "bg-amber-400/25 text-amber-200" };
-
-  // Form completeness (out of ~8 key fields)
-  const filledFields = [
-    quoteDraft.insuranceCompany,
-    quoteDraft.coverageType,
-    quoteDraft.policyDuration,
-    quoteDraft.vehicleIdv > 0,
-    quoteDraft.odAmount > 0 || quoteDraft.thirdPartyAmount > 0,
-    quoteDraft.ncbDiscount >= 0,
-  ].filter(Boolean).length;
-  const completePct = Math.round((filledFields / 6) * 100);
-
-  const resetDraft = () =>
-    setQuoteDraft({
-      ...initialQuoteDraft,
-      addOns: { ...initialQuoteDraft.addOns },
-      addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
-    });
-
   return (
-    <div className="flex flex-col gap-8">
-      {/* ════════════════════════════════════════════════════════════════════
-          Section 1 — Quote Builder  (left: form | right: live preview)
-         ════════════════════════════════════════════════════════════════════ */}
-      <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        {/* Header */}
-        <div className="flex items-center gap-3 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-          <ShieldCheck size={18} className="text-violet-500" />
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Add New Quote
-          </h3>
+    <div className="min-h-screen bg-slate-50 p-6 font-sans">
+      {/* Page Header */}
+      <div className="mb-8 flex flex-wrap items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 ring-1 ring-violet-200">
+          <SafetyCertificateOutlined className="text-base text-violet-600" />
         </div>
+        <div>
+          <h2 className="m-0 text-lg font-black tracking-tight text-slate-800">
+            Insurance Quotes
+          </h2>
+          <p className="m-0 text-xs text-slate-400">
+            Add quotes, compare plans and accept the best one
+          </p>
+        </div>
+        {acceptedQuote && (
+          <div className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 ring-1 ring-emerald-200">
+            <CheckCircleFilled className="text-emerald-500 text-xs" />
+            <span className="text-[11px] font-bold text-emerald-700">
+              {acceptedQuote.insuranceCompany} · Accepted
+            </span>
+          </div>
+        )}
+      </div>
 
-        {/* Two-column layout */}
-        <div className="flex flex-col lg:flex-row">
-          {/* ── LEFT COLUMN: form + add-ons + actions ── */}
-          <div className="min-w-0 flex-1 p-6 lg:border-r lg:border-slate-100 lg:dark:border-slate-800">
-            {/* ─ Primary fields ─────────────────────────────────────── */}
-            <Row gutter={[16, 16]}>
-              {/* Insurance Company */}
-              <Col xs={24} md={12}>
-                <Text
-                  strong
-                  className="text-[11px] uppercase tracking-wider text-slate-500"
-                >
-                  Insurance Company *
-                </Text>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
+        {/* LEFT column */}
+        <div className="flex flex-col gap-5">
+          {/* Quote Details */}
+          <section className="rounded-2xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+            <p className="mb-5 m-0 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              <ThunderboltOutlined className="text-amber-400" />
+              Quote Details
+            </p>
+            <div className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+              <FieldBlock label="Insurance Company" required>
                 <Input
                   value={quoteDraft.insuranceCompany}
                   onChange={(e) =>
@@ -111,103 +473,117 @@ const Step4InsuranceQuotes = ({
                       insuranceCompany: e.target.value,
                     }))
                   }
-                  style={{ marginTop: 6 }}
                   placeholder="e.g. HDFC ERGO"
                 />
-              </Col>
+              </FieldBlock>
 
-              {/* Coverage Type */}
-              <Col xs={24} md={12}>
-                <Text
-                  strong
-                  className="text-[11px] uppercase tracking-wider text-slate-500"
-                >
-                  Coverage Type *
-                </Text>
+              <FieldBlock label="Coverage Type" required>
                 <Select
                   value={quoteDraft.coverageType}
                   onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      coverageType: v,
-                      policyDuration: "",
-                    }))
+                    setQuoteDraft((p) => ({ ...p, coverageType: v }))
                   }
-                  style={{ width: "100%", marginTop: 6 }}
+                  placeholder="Select type"
+                  className="w-full"
                   options={[
                     { label: "Comprehensive", value: "Comprehensive" },
-                    { label: "Stand Alone OD", value: "Stand Alone OD" },
                     { label: "Third Party", value: "Third Party" },
+                    { label: "Own Damage", value: "Own Damage" },
                   ]}
-                  placeholder="Select type"
                 />
-              </Col>
+              </FieldBlock>
 
-              {/* Policy Duration */}
-              <Col xs={24} md={12}>
-                <Text
-                  strong
-                  className="text-[11px] uppercase tracking-wider text-slate-500"
-                >
-                  Policy Duration *
-                </Text>
+              <FieldBlock label="Policy Duration" required>
                 <Select
-                  value={quoteDraft.policyDuration || undefined}
+                  value={quoteDraft.policyDuration}
                   onChange={(v) =>
                     setQuoteDraft((p) => ({ ...p, policyDuration: v }))
                   }
-                  style={{ width: "100%", marginTop: 6 }}
-                  options={
-                    quoteDraft.coverageType === "Comprehensive"
-                      ? [
-                          {
-                            label: "1yr OD + 1yr TP",
-                            value: "1yr OD + 1yr TP",
-                          },
-                          {
-                            label: "1yr OD + 3yr TP",
-                            value: "1yr OD + 3yr TP",
-                          },
-                          {
-                            label: "2yr OD + 3yr TP",
-                            value: "2yr OD + 3yr TP",
-                          },
-                          {
-                            label: "3yr OD + 3yr TP",
-                            value: "3yr OD + 3yr TP",
-                          },
-                        ]
-                      : quoteDraft.coverageType === "Stand Alone OD"
-                        ? [
-                            { label: "1 Year", value: "1 Year" },
-                            { label: "2 Years", value: "2 Years" },
-                            { label: "3 Years", value: "3 Years" },
-                          ]
-                        : quoteDraft.coverageType === "Third Party"
-                          ? [
-                              { label: "1 Year", value: "1 Year" },
-                              { label: "2 Years", value: "2 Years" },
-                              { label: "3 Years", value: "3 Years" },
-                            ]
-                          : []
-                  }
-                  placeholder={
-                    quoteDraft.coverageType
-                      ? "Select duration"
-                      : "Select coverage type first"
-                  }
-                  disabled={!quoteDraft.coverageType}
+                  placeholder="Duration"
+                  className="w-full"
+                  options={durationOptions.map((d) => ({
+                    label: d,
+                    value: d,
+                  }))}
                 />
-              </Col>
+              </FieldBlock>
 
-              {/* NCB */}
-              <Col xs={24} md={12}>
-                <Text
-                  strong
-                  className="text-[11px] uppercase tracking-wider text-slate-500"
-                >
-                  NCB Discount (%)
-                </Text>
+              <FieldBlock label="Vehicle IDV (₹)">
+                <InputNumber
+                  min={0}
+                  value={Number(quoteDraft.vehicleIdv || 0)}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      vehicleIdv: Number(v || 0),
+                    }))
+                  }
+                  className="w-full"
+                  addonBefore="₹"
+                  formatter={(v) =>
+                    `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                />
+              </FieldBlock>
+
+              <FieldBlock label="CNG IDV (₹)">
+                <InputNumber
+                  min={0}
+                  value={Number(quoteDraft.cngIdv || 0)}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({ ...p, cngIdv: Number(v || 0) }))
+                  }
+                  className="w-full"
+                  addonBefore="₹"
+                />
+              </FieldBlock>
+
+              <FieldBlock label="Accessories IDV (₹)">
+                <InputNumber
+                  min={0}
+                  value={Number(quoteDraft.accessoriesIdv || 0)}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      accessoriesIdv: Number(v || 0),
+                    }))
+                  }
+                  className="w-full"
+                  addonBefore="₹"
+                />
+              </FieldBlock>
+
+              <FieldBlock label="OD Amount (₹)">
+                <InputNumber
+                  min={0}
+                  value={Number(quoteDraft.odAmount || 0)}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      odAmount: Number(v || 0),
+                    }))
+                  }
+                  className="w-full"
+                  addonBefore="₹"
+                />
+              </FieldBlock>
+
+              <FieldBlock label="3rd Party Amount (₹)">
+                <InputNumber
+                  min={0}
+                  value={Number(quoteDraft.thirdPartyAmount || 0)}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      thirdPartyAmount: Number(v || 0),
+                    }))
+                  }
+                  className="w-full"
+                  addonBefore="₹"
+                />
+              </FieldBlock>
+
+              <FieldBlock label="NCB Discount (%)">
                 <InputNumber
                   min={0}
                   max={100}
@@ -218,715 +594,414 @@ const Step4InsuranceQuotes = ({
                       ncbDiscount: Number(v || 0),
                     }))
                   }
-                  style={{ width: "100%", marginTop: 6 }}
+                  className="w-full"
                   addonAfter="%"
                 />
-              </Col>
-            </Row>
+              </FieldBlock>
 
-            {/* ─ IDV fields ──────────────────────────────────────────── */}
-            <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                IDV (Insured Declared Value)
-              </p>
-              <Row gutter={[12, 12]}>
-                <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">
-                    Vehicle IDV (₹)
-                  </Text>
-                  <InputNumber
-                    min={0}
-                    value={Number(quoteDraft.vehicleIdv || 0)}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        vehicleIdv: Number(v || 0),
-                      }))
-                    }
-                    style={{ width: "100%", marginTop: 4 }}
-                    controls={false}
-                  />
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">
-                    CNG IDV (₹)
-                  </Text>
-                  <InputNumber
-                    min={0}
-                    value={Number(quoteDraft.cngIdv || 0)}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({ ...p, cngIdv: Number(v || 0) }))
-                    }
-                    style={{ width: "100%", marginTop: 4 }}
-                    controls={false}
-                  />
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">
-                    Accessories IDV (₹)
-                  </Text>
-                  <InputNumber
-                    min={0}
-                    value={Number(quoteDraft.accessoriesIdv || 0)}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        accessoriesIdv: Number(v || 0),
-                      }))
-                    }
-                    style={{ width: "100%", marginTop: 4 }}
-                    controls={false}
-                  />
-                </Col>
-              </Row>
+              <FieldBlock label="Add-ons Amount (₹)">
+                <InputNumber
+                  min={0}
+                  value={Number(quoteDraft.addOnsAmount || 0)}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      addOnsAmount: Number(v || 0),
+                    }))
+                  }
+                  className="w-full"
+                  addonBefore="₹"
+                />
+              </FieldBlock>
             </div>
+          </section>
 
-            {/* ─ Premium fields ──────────────────────────────────────── */}
-            <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Premium Amounts
-              </p>
-              <Row gutter={[12, 12]}>
-                <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">
-                    OD Premium (₹)
-                  </Text>
-                  <InputNumber
-                    min={0}
-                    value={Number(quoteDraft.odAmount || 0)}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        odAmount: Number(v || 0),
-                      }))
-                    }
-                    style={{ width: "100%", marginTop: 4 }}
-                    controls={false}
-                  />
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">
-                    3rd Party (₹)
-                  </Text>
-                  <InputNumber
-                    min={0}
-                    value={Number(quoteDraft.thirdPartyAmount || 0)}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        thirdPartyAmount: Number(v || 0),
-                      }))
-                    }
-                    style={{ width: "100%", marginTop: 4 }}
-                    controls={false}
-                  />
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">
-                    Bulk Add-ons (₹)
-                  </Text>
-                  <InputNumber
-                    min={0}
-                    value={Number(quoteDraft.addOnsAmount || 0)}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        addOnsAmount: Number(v || 0),
-                      }))
-                    }
-                    style={{ width: "100%", marginTop: 4 }}
-                    controls={false}
-                  />
-                </Col>
-              </Row>
-            </div>
-
-            {/* ─ Add-ons catalog ─────────────────────────────────────── */}
-            <Divider
-              className="border-slate-100 dark:border-slate-800"
-              style={{ marginBlock: 20 }}
-            />
-            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
-              {/* Add-ons header */}
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Individual Add-ons{" "}
-                    <span className="font-normal text-slate-400">
-                      (optional)
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-slate-400">
-                    ₹0 = included free; enter amount for charged coverage
-                  </p>
-                </div>
-                <Space size={6}>
-                  <Button
-                    size="small"
-                    className="!border-emerald-500 !text-emerald-600 text-[10px] h-6"
-                    onClick={() =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        addOns: addOnCatalog.reduce(
-                          (acc, n) => ({ ...acc, [n]: 0 }),
-                          {},
-                        ),
-                        addOnsIncluded: addOnCatalog.reduce(
-                          (acc, n) => ({ ...acc, [n]: true }),
-                          {},
-                        ),
-                      }))
-                    }
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    size="small"
-                    danger
-                    className="text-[10px] h-6"
-                    onClick={() =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        addOns: addOnCatalog.reduce(
-                          (acc, n) => ({ ...acc, [n]: 0 }),
-                          {},
-                        ),
-                        addOnsIncluded: addOnCatalog.reduce(
-                          (acc, n) => ({ ...acc, [n]: false }),
-                          {},
-                        ),
-                      }))
-                    }
-                  >
-                    Clear
-                  </Button>
-                </Space>
+          {/* Add-on Catalogue */}
+          <section className="rounded-2xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                  Additional Add-ons
+                </p>
+                <Tooltip title="Select ₹0 to include without extra charges, or enter a custom amount.">
+                  <InfoCircleOutlined className="cursor-help text-slate-300 text-[11px]" />
+                </Tooltip>
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-violet-100 px-1 text-[9px] font-bold text-violet-600">
+                  {
+                    addOnCatalog.filter((n) => quoteDraft.addOnsIncluded?.[n])
+                      .length
+                  }
+                  /{addOnCatalog.length}
+                </span>
               </div>
+              <Space size={6}>
+                <button
+                  onClick={() =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      addOns: addOnCatalog.reduce(
+                        (a, n) => ({ ...a, [n]: 0 }),
+                        {},
+                      ),
+                      addOnsIncluded: addOnCatalog.reduce(
+                        (a, n) => ({ ...a, [n]: true }),
+                        {},
+                      ),
+                    }))
+                  }
+                  className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer border-0"
+                >
+                  ✓ Select All
+                </button>
+                <button
+                  onClick={() =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      addOns: addOnCatalog.reduce(
+                        (a, n) => ({ ...a, [n]: 0 }),
+                        {},
+                      ),
+                      addOnsIncluded: addOnCatalog.reduce(
+                        (a, n) => ({ ...a, [n]: false }),
+                        {},
+                      ),
+                    }))
+                  }
+                  className="rounded-lg bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 transition-colors cursor-pointer border-0"
+                >
+                  ✕ Clear All
+                </button>
+              </Space>
+            </div>
 
-              <Row gutter={[10, 10]}>
-                {addOnCatalog.map((name) => {
-                  const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
-                  const amt = Number(quoteDraft.addOns?.[name] || 0);
-                  return (
-                    <Col xs={24} sm={12} xl={8} key={name}>
+            {/* Pill strip */}
+            <div className="flex flex-wrap gap-2 mb-5">
+              {addOnCatalog.map((name, i) => {
+                const palette = addonPalette[i % addonPalette.length];
+                const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
+                return (
+                  <button
+                    key={name}
+                    onClick={() => {
+                      const on = !included;
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        addOnsIncluded: {
+                          ...p.addOnsIncluded,
+                          [name]: on,
+                        },
+                        addOns: {
+                          ...p.addOns,
+                          [name]: on ? Number(p.addOns?.[name] || 0) : 0,
+                        },
+                      }));
+                    }}
+                    className={`
+                      flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold
+                      ring-1 transition-all duration-150 cursor-pointer border-0
+                      ${
+                        included
+                          ? `${palette.activeBg} ${palette.activeRing} ${palette.text} shadow-sm`
+                          : "bg-slate-50 ring-slate-200 text-slate-500 hover:bg-slate-100"
+                      }
+                    `}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                        included ? palette.dot : "bg-slate-300"
+                      }`}
+                    />
+                    {name}
+                    {included && (
+                      <span className="ml-0.5 text-[10px] opacity-70">✓</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Amount inputs for selected add-ons */}
+            {addOnCatalog.some((n) => quoteDraft.addOnsIncluded?.[n]) ? (
+              <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-4">
+                <p className="m-0 mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Set Amounts for Selected Add-ons
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {addOnCatalog.map((name, i) => {
+                    const palette = addonPalette[i % addonPalette.length];
+                    const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
+                    if (!included) return null;
+                    const amt = Number(quoteDraft.addOns?.[name] || 0);
+                    return (
                       <div
-                        className={`rounded-lg border p-2.5 transition-all ${
-                          included
-                            ? "border-violet-300 bg-violet-50 shadow-sm dark:border-violet-700 dark:bg-violet-950/30"
-                            : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50"
-                        }`}
+                        key={name}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ring-1 ${palette.bg} ${palette.ring}`}
                       >
-                        <Checkbox
-                          checked={included}
-                          onChange={(e) => {
-                            const on = e.target.checked;
+                        <span
+                          className={`shrink-0 text-[11px] font-semibold ${palette.text} flex-1 leading-snug`}
+                        >
+                          {name}
+                        </span>
+                        <InputNumber
+                          min={0}
+                          size="small"
+                          value={amt}
+                          addonBefore="₹"
+                          controls={false}
+                          placeholder="0"
+                          onChange={(v) =>
                             setQuoteDraft((p) => ({
                               ...p,
-                              addOnsIncluded: {
-                                ...p.addOnsIncluded,
-                                [name]: on,
-                              },
                               addOns: {
                                 ...p.addOns,
-                                [name]: on ? Number(p.addOns?.[name] || 0) : 0,
+                                [name]: Number(v ?? 0),
                               },
-                            }));
-                          }}
-                          className="items-start [&_.ant-checkbox]:mt-0.5"
-                        >
-                          <Text className="text-xs font-semibold leading-snug text-slate-800 dark:text-slate-100">
-                            {name}
-                          </Text>
-                        </Checkbox>
-                        <div className="ml-6 mt-2">
-                          <InputNumber
-                            min={0}
-                            size="small"
-                            disabled={!included}
-                            value={amt}
-                            addonBefore="₹"
-                            controls={false}
-                            placeholder="0"
-                            onChange={(v) =>
-                              setQuoteDraft((p) => ({
-                                ...p,
-                                addOns: {
-                                  ...p.addOns,
-                                  [name]: Number(v ?? 0),
-                                },
-                              }))
-                            }
-                            className="w-full max-w-full"
-                          />
-                        </div>
+                            }))
+                          }
+                          className="w-32 shrink-0"
+                        />
                       </div>
-                    </Col>
-                  );
-                })}
-              </Row>
-            </div>
-
-            {/* ─ Action buttons ──────────────────────────────────────── */}
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Button
-                type="primary"
-                size="large"
-                icon={<PlusCircle size={15} />}
-                onClick={addQuote}
-                disabled={!quoteDraft.insuranceCompany.trim()}
-                className="h-10 px-5"
-              >
-                Add Quote to List
-              </Button>
-              <Button
-                size="large"
-                icon={<RotateCcw size={14} />}
-                onClick={resetDraft}
-                className="h-10 border-slate-200 dark:border-slate-700"
-              >
-                Reset Form
-              </Button>
-              <div className="ml-auto hidden rounded-lg bg-sky-50 px-3 py-1.5 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400 md:block">
-                <Text className="text-[11px]">
-                  💡 <b>Tip:</b> Fill amounts then click <b>Add Quote</b> to
-                  compare.
-                </Text>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* ── RIGHT COLUMN: Live Preview Card ── */}
-          <div className="w-full shrink-0 p-4 lg:w-[300px] xl:w-[340px] lg:p-5">
-            <div className="lg:sticky lg:top-4">
-              {/* Gradient preview card */}
-              <div className="rounded-2xl bg-gradient-to-b from-violet-600 via-violet-700 to-indigo-800 p-5 text-white shadow-2xl">
-                {/* Card header */}
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-violet-300/80">
-                    Live Quote Preview
-                  </p>
-                  {/* Coverage Tier badge */}
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${tierInfo.color}`}
-                  >
-                    {tierInfo.label}
-                  </span>
-                </div>
-                <h3 className="mt-1 truncate text-base font-bold text-white">
-                  {quoteDraft.insuranceCompany || (
-                    <span className="text-violet-300/60 italic">
-                      Enter insurer name…
-                    </span>
-                  )}
-                </h3>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {quoteDraft.coverageType && (
-                    <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-violet-100">
-                      {quoteDraft.coverageType}
-                    </span>
-                  )}
-                  {quoteDraft.policyDuration && (
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-violet-200">
-                      {quoteDraft.policyDuration}
-                    </span>
-                  )}
-                </div>
-
-                {/* Form completeness mini-bar */}
-                <div className="mt-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-[9px] text-violet-400/70">
-                      Form completion
-                    </span>
-                    <span className="text-[9px] font-bold text-violet-300">
-                      {completePct}%
-                    </span>
-                  </div>
-                  <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-300 to-indigo-300 transition-all duration-500"
-                      style={{ width: `${completePct}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Live Premium Estimate block (requested breakdown) */}
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-xl bg-white/10 px-4 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
-                      Live Premium Estimate
-                    </p>
-
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[11px] font-semibold text-violet-100">
-                            Total Premium
-                          </p>
-                          <p className="text-[9px] text-violet-300/70">
-                            Taxable + 18% GST
-                          </p>
-                        </div>
-                        <p className="text-sm font-bold tabular-nums text-white">
-                          {toINR(quoteComputed.totalPremium)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[11px] font-semibold text-violet-100">
-                            Base Premium
-                          </p>
-                          <p className="text-[9px] text-violet-300/70">
-                            OD {toINR(quoteComputed.odAmt)} · 3P{" "}
-                            {toINR(quoteComputed.tpAmt)}
-                          </p>
-                        </div>
-                        <p className="text-sm font-bold tabular-nums text-white">
-                          {toINR(quoteComputed.basePremium)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[11px] font-semibold text-violet-100">
-                            Add-ons
-                          </p>
-                          <p className="text-[9px] text-violet-300/70">
-                            Bulk + selected
-                          </p>
-                        </div>
-                        <p className="text-sm font-bold tabular-nums text-white">
-                          {toINR(quoteComputed.addOnsTotal)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-[11px] font-semibold text-violet-100">
-                            NCB Discount
-                          </p>
-                          <p className="text-[9px] text-violet-300/70">
-                            {Number(quoteDraft.ncbDiscount || 0)}% on base
-                          </p>
-                        </div>
-                        <p className="text-sm font-bold tabular-nums text-emerald-300">
-                          -{toINR(quoteComputed.ncbAmount)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-start justify-between gap-2 border-t border-white/15 pt-2">
-                        <div>
-                          <p className="text-[11px] font-semibold text-violet-100">
-                            GST 18%
-                          </p>
-                          <p className="text-[9px] text-violet-300/70">
-                            On {toINR(quoteComputed.taxableAmount)}
-                          </p>
-                        </div>
-                        <p className="text-sm font-bold tabular-nums text-white">
-                          {toINR(quoteComputed.gstAmount)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/10 px-4 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
-                      IDV Breakdown
-                    </p>
-                    <div className="mt-2 space-y-1.5 text-[11px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-violet-100">Vehicle</span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {toINR(quoteDraft.vehicleIdv || 0)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-violet-100">CNG</span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {toINR(quoteDraft.cngIdv || 0)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-violet-100">Accessories</span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {toINR(quoteDraft.accessoriesIdv || 0)}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between border-t border-white/15 pt-2">
-                        <span className="font-semibold text-violet-100">
-                          Total IDV
-                        </span>
-                        <span className="text-sm font-bold tabular-nums text-white">
-                          {toINR(quoteComputed.totalIdv)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/10 px-4 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
-                      Taxable Breakdown
-                    </p>
-                    <div className="mt-2 space-y-1.5 text-[11px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-violet-100">OD Amount</span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {toINR(quoteComputed.odAmt)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-violet-100">3rd Party</span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {toINR(quoteComputed.tpAmt)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-violet-100">Add-ons</span>
-                        <span className="font-semibold tabular-nums text-white">
-                          {toINR(quoteComputed.addOnsTotal)}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between border-t border-white/15 pt-2">
-                        <span className="font-semibold text-violet-100">
-                          Taxable Total
-                        </span>
-                        <span className="text-sm font-bold tabular-nums text-white">
-                          {toINR(quoteComputed.taxableAmount)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA */}
-                <button
-                  type="button"
-                  onClick={addQuote}
-                  disabled={!quoteDraft.insuranceCompany.trim()}
-                  className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-bold text-violet-700 shadow transition-all hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  + Add to Quotes List
-                </button>
-              </div>
-
-              {/* Selected add-ons — enhanced detail rows */}
-              {selectedAddOnNames.length > 0 && (
-                <div className="mt-3 rounded-xl border border-violet-200/60 bg-violet-50/60 p-4 dark:border-violet-800/40 dark:bg-violet-950/20">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-violet-500 dark:text-violet-400">
-                      Included Add-ons
-                    </p>
-                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
-                      {selectedAddOnNames.length} selected
-                    </span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {selectedAddOnNames.map((name) => {
-                      const amt = Number(quoteDraft.addOns?.[name] || 0);
-                      return (
-                        <div
-                          key={name}
-                          className="flex items-center justify-between gap-2"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" />
-                            <span className="text-[11px] text-violet-700 dark:text-violet-300">
-                              {name}
-                            </span>
-                          </div>
-                          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-violet-800 dark:text-violet-200">
-                            {amt === 0 ? (
-                              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                FREE
-                              </span>
-                            ) : (
-                              `₹${amt.toLocaleString("en-IN")}`
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* Add-ons subtotal */}
-                  {quoteComputed.addOnsTotal > 0 && (
-                    <div className="mt-3 flex items-center justify-between border-t border-violet-200/60 pt-2 dark:border-violet-700/40">
-                      <span className="text-[10px] font-bold text-violet-500 dark:text-violet-400">
-                        Add-ons Subtotal
-                      </span>
-                      <span className="text-[11px] font-bold text-violet-700 dark:text-violet-200">
-                        {toINR(quoteComputed.addOnsTotal)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* No-data hint */}
-              {quoteComputed.basePremium === 0 && (
-                <p className="mt-3 text-center text-[11px] text-slate-400 dark:text-slate-600">
-                  Enter premium amounts to see live calculation ↑
+            ) : (
+              <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 px-4 py-5 text-center">
+                <p className="m-0 text-xs text-slate-400">
+                  No add-ons selected. Click any pill above to include it.
                 </p>
-              )}
+              </div>
+            )}
+          </section>
+
+          {/* Action Row */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={addQuote}
+              disabled={!quoteDraft.insuranceCompany.trim()}
+              className="h-10 px-6 font-bold !bg-violet-600 hover:!bg-violet-700 !border-0 shadow-sm"
+            >
+              Add Quote
+            </Button>
+            <Button
+              size="large"
+              icon={<ReloadOutlined />}
+              onClick={() =>
+                setQuoteDraft({
+                  ...initialQuoteDraft,
+                  addOns: { ...initialQuoteDraft.addOns },
+                  addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
+                })
+              }
+              className="h-10 !border-slate-200 !text-slate-500 hover:!text-slate-700"
+            >
+              Reset
+            </Button>
+            <span className="text-[11px] text-slate-400 italic">
+              💡 Fill premiums & IDV, configure add-ons, then click{" "}
+              <b className="text-slate-600">Add Quote</b>.
+            </span>
+          </div>
+        </div>
+        {/* end LEFT column */}
+
+        {/* RIGHT column — sticky ticker */}
+        <div className="flex flex-col gap-5">
+          <div className="sticky top-6 flex flex-col gap-4 rounded-2xl bg-white p-5 ring-1 ring-slate-200 shadow-sm">
+            <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              Live Premium Estimate
+            </p>
+
+            {/* Hero total */}
+            <div className="rounded-xl bg-violet-50 px-4 py-4 ring-1 ring-violet-100">
+              <div className="text-[10px] uppercase tracking-widest text-violet-500 font-semibold">
+                Total Premium
+              </div>
+              <div className="mt-1 text-3xl font-black tabular-nums text-violet-700">
+                {toINR(quoteComputed.totalPremium)}
+              </div>
+              <div className="mt-0.5 text-[11px] text-violet-400">
+                Taxable + 18% GST
+              </div>
+            </div>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                {
+                  label: "Base Premium",
+                  value: toINR(quoteComputed.basePremium),
+                  sub: `OD ${toINR(quoteComputed.odAmt)} · 3P ${toINR(quoteComputed.tpAmt)}`,
+                  bg: "bg-slate-50",
+                  ring: "ring-slate-100",
+                  val: "text-slate-800",
+                },
+                {
+                  label: "Add-ons",
+                  value: toINR(quoteComputed.addOnsTotal),
+                  sub: "Bulk + selected",
+                  bg: "bg-violet-50",
+                  ring: "ring-violet-100",
+                  val: "text-violet-700",
+                },
+                {
+                  label: "NCB Discount",
+                  value: `-${toINR(quoteComputed.ncbAmount)}`,
+                  sub: `${Number(quoteDraft.ncbDiscount || 0)}% on base`,
+                  bg: "bg-emerald-50",
+                  ring: "ring-emerald-100",
+                  val: "text-emerald-700",
+                },
+                {
+                  label: "GST 18%",
+                  value: toINR(quoteComputed.gstAmount),
+                  sub: `On ${toINR(quoteComputed.taxableAmount)}`,
+                  bg: "bg-sky-50",
+                  ring: "ring-sky-100",
+                  val: "text-sky-700",
+                },
+              ].map(({ label, value, sub, bg, ring, val }) => (
+                <div
+                  key={label}
+                  className={`rounded-lg px-3 py-2.5 ring-1 ${bg} ${ring}`}
+                >
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                    {label}
+                  </div>
+                  <div
+                    className={`text-base font-black tabular-nums mt-0.5 ${val}`}
+                  >
+                    {value}
+                  </div>
+                  <div className="text-[10px] text-slate-400 leading-snug mt-0.5">
+                    {sub}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Divider className="!border-slate-100 !my-0" />
+
+            {/* IDV Breakdown */}
+            <div>
+              <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                IDV Breakdown
+              </p>
+              <TickerRow
+                label="Vehicle"
+                value={toINR(quoteDraft.vehicleIdv || 0)}
+              />
+              <TickerRow label="CNG" value={toINR(quoteDraft.cngIdv || 0)} />
+              <TickerRow
+                label="Accessories"
+                value={toINR(quoteDraft.accessoriesIdv || 0)}
+              />
+              <TickerRow
+                label="Total IDV"
+                value={toINR(quoteComputed.totalIdv)}
+                bold
+                valueClass="text-slate-900"
+              />
+            </div>
+
+            <Divider className="!border-slate-100 !my-0" />
+
+            {/* Taxable Breakdown */}
+            <div>
+              <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Taxable Breakdown
+              </p>
+              <TickerRow label="OD Amount" value={toINR(quoteComputed.odAmt)} />
+              <TickerRow label="3rd Party" value={toINR(quoteComputed.tpAmt)} />
+              <TickerRow
+                label="Add-ons"
+                value={toINR(quoteComputed.addOnsTotal)}
+              />
+              <TickerRow
+                label="Taxable Total"
+                value={toINR(quoteComputed.taxableAmount)}
+                bold
+                valueClass="text-slate-900"
+              />
             </div>
           </div>
         </div>
+        {/* end RIGHT column */}
       </div>
+      {/* end two-column grid */}
 
-      {/* ════════════════════════════════════════════════════════════════════
-          Section 2 — Generated Quotes List
-         ════════════════════════════════════════════════════════════════════ */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-            Generated Quotes ({quotes.length})
-          </h3>
-          {acceptedQuote ? (
-            <div className="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="text-xs font-bold uppercase">
-                Accepted: {acceptedQuote.insuranceCompany}
-              </span>
-            </div>
-          ) : (
-            <Text type="secondary" className="text-xs italic">
-              No quote accepted yet
-            </Text>
+      {/* Generated Quotes */}
+      <section className="mt-8 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-slate-700">
+              Quotes List
+            </span>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+              {quotes.length}
+            </span>
+          </div>
+          {acceptedQuote && (
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+              <CheckCircleFilled className="text-[10px]" />
+              {acceptedQuote.insuranceCompany} · Accepted
+            </span>
           )}
         </div>
 
         {quoteRows.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <span className="text-slate-500 dark:text-slate-400">
-                No quotes yet. Add one using the form above.
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white py-14">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 ring-1 ring-slate-200">
+              <SafetyCertificateOutlined className="text-2xl text-slate-300" />
+            </div>
+            <div className="text-center">
+              <p className="m-0 text-sm font-semibold text-slate-500">
+                No quotes generated yet
+              </p>
+              <p className="m-0 mt-1 text-xs text-slate-400">
+                Fill the form above and click{" "}
+                <b className="text-slate-600">Add Quote</b> to get started.
+              </p>
+            </div>
+            {showErrors && (
+              <span className="rounded-xl bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-500 ring-1 ring-rose-200">
+                ⚠ At least 1 quote is required to proceed.
               </span>
-            }
-          />
+            )}
+          </div>
         ) : (
-          <div className="flex flex-col gap-4">
-            {quoteRows.map((row) => {
-              const rid = getQuoteRowId(row);
-              const isAccepted = String(acceptedQuoteId) === String(rid);
-              return (
-                <div
-                  key={String(rid)}
-                  className={`rounded-xl border p-4 shadow-sm transition-colors ${
-                    isAccepted
-                      ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/30"
-                      : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/50"
-                  }`}
-                >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    {/* Left: Insurer info */}
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                      <div
-                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base font-bold uppercase ${
-                          isAccepted
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
-                            : "border border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                        }`}
-                      >
-                        {(row.insuranceCompany || "?").toString().slice(0, 1)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {row.insuranceCompany || "—"}
-                          </span>
-                          {isAccepted && (
-                            <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
-                              ✓ Accepted
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 flex flex-wrap gap-1.5">
-                          {row.coverageType && (
-                            <Tag color="blue" className="!text-[10px]">
-                              {row.coverageType}
-                            </Tag>
-                          )}
-                          {row.policyDuration && (
-                            <Tag className="!text-[10px]">
-                              {row.policyDuration}
-                            </Tag>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right: Key numbers + actions */}
-                    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                      <div className="text-right">
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                          IDV
-                        </div>
-                        <div className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-200">
-                          {formatStoredOrComputedIdv(row)}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                          Total Premium
-                        </div>
-                        <div className="text-base font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                          {formatStoredOrComputedPremium(row)}
-                        </div>
-                      </div>
-                      <Space wrap size={[6, 6]}>
-                        <Button
-                          size="small"
-                          onClick={() =>
-                            setPlanFeaturesModal({ open: true, row })
-                          }
-                        >
-                          Details
-                        </Button>
-                        <Button
-                          size="small"
-                          type={isAccepted ? "primary" : "default"}
-                          onClick={() => acceptQuote(rid)}
-                          className={
-                            isAccepted
-                              ? "!bg-emerald-600 !border-emerald-600"
-                              : ""
-                          }
-                        >
-                          {isAccepted ? "Accepted ✓" : "Accept"}
-                        </Button>
-                        <Button
-                          size="small"
-                          type="link"
-                          className="px-1"
-                          onClick={() => setQuoteDraft(mapQuoteToDraft(row))}
-                        >
-                          Load
-                        </Button>
-                      </Space>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {quoteRows.map((row, idx) => (
+              <QuoteCard
+                key={String(getQuoteRowId(row))}
+                row={row}
+                idx={idx}
+                acceptedQuoteId={acceptedQuoteId}
+                getQuoteRowId={getQuoteRowId}
+                computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
+                formatStoredOrComputedIdv={formatStoredOrComputedIdv}
+                formatStoredOrComputedPremium={formatStoredOrComputedPremium}
+                toINR={toINR}
+                quoteRows={quoteRows}
+                acceptQuote={acceptQuote}
+                setQuoteDraft={setQuoteDraft}
+                mapQuoteToDraft={mapQuoteToDraft}
+                setPlanFeaturesModal={setPlanFeaturesModal}
+                onDelete={deleteQuote}
+              />
+            ))}
           </div>
         )}
+      </section>
 
-        {showErrors && quotes.length === 0 ? (
-          <div className="mt-3 rounded-lg bg-red-50 px-4 py-2 dark:bg-red-950/30">
-            <Text type="danger" className="text-xs">
-              ⚠ At least 1 quote is required to continue.
-            </Text>
-          </div>
-        ) : null}
-      </div>
-
-      {/* ── Plan Features Modal ───────────────────────────────────────────── */}
+      {/* Plan Features Modal */}
       <Modal
         title={
-          <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            Plan features
+          <span className="text-base font-bold text-slate-800">
+            Plan Features
           </span>
         }
         open={planFeaturesModal.open}
@@ -937,6 +1012,7 @@ const Step4InsuranceQuotes = ({
         destroyOnClose
         zIndex={1100}
         getContainer={() => document.body}
+        className="[&_.ant-modal-content]:rounded-2xl"
         styles={{
           body: {
             padding: 0,
@@ -946,7 +1022,6 @@ const Step4InsuranceQuotes = ({
           header: { marginBottom: 0 },
           content: { padding: 0 },
         }}
-        className="[&_.ant-modal-content]:rounded-2xl [&_.ant-modal-header]:border-slate-200 [&_.ant-modal-header]:px-6 [&_.ant-modal-header]:py-4 dark:[&_.ant-modal-header]:border-slate-700"
       >
         {planFeaturesModal.row ? (
           <PlanFeaturesModalBody
