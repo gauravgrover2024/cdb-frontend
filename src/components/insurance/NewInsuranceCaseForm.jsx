@@ -6,6 +6,7 @@ import {
   Card,
   Col,
   Divider,
+  Drawer,
   Input,
   InputNumber,
   message,
@@ -16,9 +17,10 @@ import {
   Select,
   Space,
   Steps,
+  Tag,
   Typography,
 } from "antd";
-import { CreditCard } from "lucide-react";
+import { CheckCircle2, CreditCard, LayoutList } from "lucide-react";
 import { insuranceApi } from "../../api/insurance";
 import { customersApi } from "../../api/customers";
 import { vehiclesApi } from "../../api/vehicles";
@@ -40,6 +42,7 @@ import {
 } from "./steps/allSteps";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
+import { useInsuranceStore } from "./store/useInsuranceStore";
 
 const { Text, Title } = Typography;
 
@@ -125,6 +128,7 @@ const initialFormState = {
   newIdvAmount: 0,
   newTotalPremium: 0,
   subventionAmount: 0,
+  subventionEntries: [],
   newHypothecation: "Not Applicable",
   newRemarks: "",
 
@@ -477,6 +481,17 @@ const NewInsuranceCaseForm = ({
     initialValues?._id || initialValues?.id || null,
   );
   const [saving, setSaving] = useState(false);
+
+  // ── New UI state ─────────────────────────────────────────────────────────
+  /** Controls the floating Case Summary side-drawer */
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  /** True after Step 8 is submitted successfully */
+  const [submitted, setSubmitted] = useState(false);
+  /** Auto-generated case reference shown on the success screen */
+  const [caseReference, setCaseReference] = useState("");
+
+  // ── Zustand store (sync-target for localStorage draft persistence) ────────
+  const syncToStore = useInsuranceStore((s) => s.syncData);
   const persistTimerRef = React.useRef(null);
   const persistInFlightRef = React.useRef(false);
   const persistQueuedRef = React.useRef(false);
@@ -994,10 +1009,16 @@ const NewInsuranceCaseForm = ({
       Number(quoteDraft.vehicleIdv || 0) +
       Number(quoteDraft.cngIdv || 0) +
       Number(quoteDraft.accessoriesIdv || 0);
+
+    // ── NCB applies ONLY on OD premium (IRDAI standard).
+    //    TP premium is fixed by regulator — NCB never reduces it.
+    //    Add-ons are also excluded from NCB benefit.
+    const ncbAmount = Math.round(
+      (odAmt * Number(quoteDraft.ncbDiscount || 0)) / 100,
+    );
     const basePremium = odAmt + tpAmt + addOnsTotal;
-    const ncbAmount = (basePremium * Number(quoteDraft.ncbDiscount || 0)) / 100;
     const taxableAmount = Math.max(basePremium - ncbAmount, 0);
-    const gstAmount = taxableAmount * 0.18;
+    const gstAmount = Math.round(taxableAmount * 0.18);
     const totalPremium = taxableAmount + gstAmount;
     return {
       selectedAddOnsTotal,
@@ -1012,6 +1033,7 @@ const NewInsuranceCaseForm = ({
       totalPremium,
     };
   }, [quoteDraft]);
+
 
   const handleChange = (field) => (event) => {
     setFormData((prev) => ({ ...prev, [field]: event?.target?.value }));
@@ -1052,9 +1074,11 @@ const NewInsuranceCaseForm = ({
           const created = res?.data || res;
           const id = created?._id || created?.id || created?.data?._id;
           if (id) setInsuranceDbId(id);
+          if (!silent) message.success("Draft saved ✓");
           return created;
         } else {
           const res = await insuranceApi.update(insuranceDbId, payload);
+          if (!silent) message.success("Draft saved ✓");
           return res?.data || res;
         }
       } catch (err) {
@@ -1085,6 +1109,19 @@ const NewInsuranceCaseForm = ({
     },
     [persistNow],
   );
+
+  // ── Sync React state → Zustand store (localStorage draft persistence) ─────
+  useEffect(() => {
+    syncToStore({
+      formData,
+      quotes,
+      acceptedQuoteId,
+      documents,
+      paymentHistory,
+      step,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, quotes, acceptedQuoteId, documents, paymentHistory, step]);
 
   useEffect(() => {
     return () => {
@@ -1275,9 +1312,12 @@ const NewInsuranceCaseForm = ({
     const lastStep = visibleSteps[visibleSteps.length - 1]?.originalStep;
     if (step !== lastStep) return;
     const saved = await persistNow({
-      silent: false,
+      silent: true,
       patch: { status: "submitted" },
     });
+    const ref = `CASE-${Date.now()}`;
+    setCaseReference(ref);
+    setSubmitted(true);
     onSubmit?.(saved || buildPersistPayload({ status: "submitted" }));
   };
 
@@ -1485,6 +1525,7 @@ const NewInsuranceCaseForm = ({
             paymentHistory={paymentHistory}
             setPaymentHistory={setPaymentHistory}
             schedulePersist={schedulePersist}
+            acceptedQuote={acceptedQuote}
           />
         );
       case 8:
@@ -1500,6 +1541,85 @@ const NewInsuranceCaseForm = ({
         return null;
     }
   };
+
+  // ─── Computed values for Case Summary drawer ──────────────────────────────
+  const summaryGrossPremium = Number(formData.newTotalPremium || 0);
+  const summaryTotalCollected = paymentHistory.reduce(
+    (s, p) => s + Number(p.amount || 0),
+    0,
+  );
+  const summaryBalanceDue = Math.max(0, summaryGrossPremium - summaryTotalCollected);
+  const summaryReceivables = Array.isArray(formData.insurance_receivables)
+    ? formData.insurance_receivables
+    : [];
+  const summaryPayables = Array.isArray(formData.insurance_payables)
+    ? formData.insurance_payables
+    : [];
+  const summaryNetMargin =
+    summaryReceivables.reduce((s, r) => s + Number(r.net_payout_amount || 0), 0) -
+    summaryPayables.reduce((s, p) => s + Number(p.net_payout_amount || 0), 0);
+
+  // ─── Step 8 success screen ────────────────────────────────────────────────
+  if (submitted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 dark:bg-slate-950">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+            <CheckCircle2 size={44} className="text-emerald-500" />
+          </div>
+          <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            Case Submitted!
+          </h2>
+          <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+            Your insurance case has been successfully submitted and saved.
+          </p>
+          <div className="mb-8 rounded-xl border border-slate-100 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Case Reference
+            </p>
+            <p className="mt-1 text-2xl font-bold tracking-wide text-slate-900 dark:text-white">
+              {caseReference}
+            </p>
+          </div>
+          <div className="mb-4 space-y-2 text-left">
+            {(formData.customerName || formData.companyName) && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Customer</span>
+                <span className="font-medium text-slate-800 dark:text-slate-200">
+                  {formData.customerName || formData.companyName}
+                </span>
+              </div>
+            )}
+            {formData.registrationNumber && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Vehicle</span>
+                <span className="font-medium text-slate-800 dark:text-slate-200">
+                  {formData.registrationNumber}
+                </span>
+              </div>
+            )}
+            {summaryGrossPremium > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Total Premium</span>
+                <span className="font-semibold text-emerald-600">
+                  {toINR(summaryGrossPremium)}
+                </span>
+              </div>
+            )}
+          </div>
+          <Button
+            type="primary"
+            size="large"
+            block
+            onClick={() => onCancel?.()}
+            className="mt-4 h-11"
+          >
+            Done
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/20">
@@ -1685,10 +1805,173 @@ const NewInsuranceCaseForm = ({
           </Row>
         </Space>
       </Modal>
+
+      {/* ── Floating Case Summary Button (fixed bottom-right) ─────────────── */}
+      <button
+        onClick={() => setSummaryOpen(true)}
+        title="Case Summary"
+        className="fixed bottom-24 right-6 z-50 flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
+      >
+        <LayoutList size={15} />
+        Case Summary
+      </button>
+
+      {/* ── Case Summary Drawer ───────────────────────────────────────────── */}
+      <Drawer
+        open={summaryOpen}
+        onClose={() => setSummaryOpen(false)}
+        title={
+          <span className="font-semibold text-slate-800 dark:text-slate-100">
+            📋 Case Summary
+          </span>
+        }
+        width={360}
+        placement="right"
+        styles={{ body: { padding: 0 } }}
+        zIndex={1200}
+      >
+        <div className="flex flex-col gap-0 divide-y divide-slate-100 dark:divide-slate-800">
+          {/* Customer */}
+          <SummarySection title="Customer">
+            <SummaryField label="Name" value={formData.customerName || formData.companyName || "—"} />
+            <SummaryField label="Mobile" value={formData.mobile ? `+91 ${formData.mobile}` : "—"} />
+            <SummaryField label="Email" value={formData.email || "—"} />
+            <SummaryField label="Buyer Type" value={formData.buyerType || "—"} />
+          </SummarySection>
+
+          {/* Vehicle */}
+          <SummarySection title="Vehicle">
+            <SummaryField label="Reg No." value={formData.registrationNumber || "—"} />
+            <SummaryField
+              label="Make / Model"
+              value={
+                [formData.vehicleMake, formData.vehicleModel].filter(Boolean).join(" ") || "—"
+              }
+            />
+            <SummaryField label="Variant" value={formData.vehicleVariant || "—"} />
+            <SummaryField label="Fuel" value={formData.fuelType || "—"} />
+          </SummarySection>
+
+          {/* Previous Policy */}
+          {formData.vehicleType !== "New Car" && (
+            <SummarySection title="Previous Policy">
+              <SummaryField label="Insurer" value={formData.previousInsuranceCompany || "—"} />
+              <SummaryField label="Policy No." value={formData.previousPolicyNumber || "—"} />
+              <SummaryField
+                label="NCB"
+                value={`${formData.previousNcbDiscount ?? 0}%`}
+                badge={formData.claimTakenLastYear === "Yes" ? "Claim Taken" : undefined}
+                badgeColor="red"
+              />
+            </SummarySection>
+          )}
+
+          {/* Selected Quote */}
+          <SummarySection title="Accepted Quote">
+            <SummaryField label="Insurer" value={acceptedQuote?.insuranceCompany || "—"} />
+            <SummaryField label="Coverage" value={acceptedQuote?.coverageType || "—"} />
+            <SummaryField
+              label="IDV"
+              value={acceptedQuote ? toINR(acceptedQuote.totalIdv || acceptedQuote.vehicleIdv) : "—"}
+            />
+            <SummaryField
+              label="Gross Premium"
+              value={summaryGrossPremium > 0 ? toINR(summaryGrossPremium) : "—"}
+              highlight
+            />
+          </SummarySection>
+
+          {/* New Policy */}
+          <SummarySection title="New Policy">
+            <SummaryField label="Policy No." value={formData.newPolicyNumber || "—"} />
+            <SummaryField label="Insurer" value={formData.newInsuranceCompany || "—"} />
+            <SummaryField label="Start Date" value={formData.newPolicyStartDate || "—"} />
+            <SummaryField label="OD Expiry" value={formData.newOdExpiryDate || "—"} />
+          </SummarySection>
+
+          {/* Payment */}
+          <SummarySection title="Payment">
+            <SummaryField label="Total Premium" value={toINR(summaryGrossPremium)} />
+            <SummaryField label="Collected" value={toINR(summaryTotalCollected)} />
+            <SummaryField
+              label="Balance Due"
+              value={toINR(summaryBalanceDue)}
+              badge={summaryBalanceDue <= 0 && summaryGrossPremium > 0 ? "Fully Paid" : undefined}
+              badgeColor="green"
+              highlight={summaryBalanceDue > 0}
+            />
+          </SummarySection>
+
+          {/* Payout */}
+          <SummarySection title="Payout / Margin">
+            <SummaryField
+              label="Receivables"
+              value={toINR(
+                summaryReceivables.reduce((s, r) => s + Number(r.net_payout_amount || 0), 0)
+              )}
+            />
+            <SummaryField
+              label="Payables"
+              value={toINR(
+                summaryPayables.reduce((s, p) => s + Number(p.net_payout_amount || 0), 0)
+              )}
+            />
+            <SummaryField
+              label="Net Margin"
+              value={toINR(summaryNetMargin)}
+              highlight
+            />
+          </SummarySection>
+        </div>
+      </Drawer>
     </div>
   );
 };
 
 
 
+// ─── Case Summary Drawer sub-components ──────────────────────────────────────
+
+/** A titled section inside the Case Summary drawer. */
+const SummarySection = ({ title, children }) => (
+  <div className="px-5 py-4">
+    <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      {title}
+    </p>
+    <div className="space-y-2">{children}</div>
+  </div>
+);
+
+/**
+ * A single label → value row inside a SummarySection.
+ * @param {string}  label
+ * @param {string}  value
+ * @param {boolean} highlight   – bold emerald value
+ * @param {string}  badge       – optional badge text
+ * @param {string}  badgeColor  – 'green' | 'red' | 'orange'
+ */
+const SummaryField = ({ label, value, highlight, badge, badgeColor = "green" }) => (
+  <div className="flex items-center justify-between gap-2">
+    <span className="shrink-0 text-xs text-slate-500">{label}</span>
+    <span
+      className={`truncate text-right text-xs font-medium ${
+        highlight
+          ? "font-semibold text-emerald-600 dark:text-emerald-400"
+          : "text-slate-800 dark:text-slate-200"
+      }`}
+    >
+      {value}
+      {badge && (
+        <Tag
+          color={badgeColor}
+          className="ml-1.5 !text-[9px] !px-1 !py-0 !leading-tight"
+        >
+          {badge}
+        </Tag>
+      )}
+    </span>
+  </div>
+);
+
 export default NewInsuranceCaseForm;
+

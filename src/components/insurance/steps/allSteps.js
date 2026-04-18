@@ -69,3 +69,31 @@ export const requiredDocumentTags = [
   "Previous Year Policy",
   "New Year Policy",
 ];
+
+export const insurerList = [
+  "HDFC ERGO General Insurance",
+  "ICICI Lombard General Insurance",
+  "Bajaj Allianz General Insurance",
+  "Tata AIG General Insurance",
+  "Reliance General Insurance",
+  "SBI General Insurance",
+  "New India Assurance",
+  "National Insurance",
+  "Oriental Insurance",
+  "United India Insurance",
+  "Kotak General Insurance",
+  "Digit Insurance",
+  "Acko General Insurance",
+  "Chola MS General Insurance",
+  "IFFCO Tokio General Insurance",
+];
+
+/** Alias used by store and other modules */
+export const INSURERS = insurerList;
+
+/** Ant Design / HTML Select-compatible option array */
+export const INSURER_OPTIONS = insurerList.map((name) => ({
+  label: name,
+  value: name,
+}));
+
