@@ -20,33 +20,6 @@ import { addOnCatalog } from "./allSteps";
 
 const { Text } = Typography;
 
-// ─── Small helper: one row in the premium waterfall ──────────────────────────
-const PLine = ({ label, value, bold, accent, sub, divider }) => (
-  <>
-    {divider && <div className="my-2 border-t border-white/20" />}
-    <div className="flex items-baseline justify-between gap-2">
-      <span
-        className={`text-[11px] ${
-          sub ? "text-violet-300/70" : "text-violet-100"
-        }`}
-      >
-        {label}
-      </span>
-      <span
-        className={`text-right tabular-nums ${
-          bold
-            ? "text-sm font-bold text-white"
-            : accent
-              ? `text-sm font-semibold ${accent}`
-              : "text-[12px] font-medium text-white/90"
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  </>
-);
-
 // ─── Main component ───────────────────────────────────────────────────────────
 const Step4InsuranceQuotes = ({
   quoteDraft,
@@ -77,22 +50,12 @@ const Step4InsuranceQuotes = ({
   // ── Preview card computed values ─────────────────────────────────────────
   const tierInfo =
     selectedAddOnNames.length === 0
-      ? { label: "Basic",    color: "bg-white/10 text-violet-200" }
+      ? { label: "Basic", color: "bg-white/10 text-violet-200" }
       : selectedAddOnNames.length <= 3
         ? { label: "Standard", color: "bg-blue-400/25 text-blue-100" }
         : selectedAddOnNames.length <= 6
-          ? { label: "Premium",  color: "bg-violet-400/25 text-violet-100" }
-          : { label: "Elite",    color: "bg-amber-400/25 text-amber-200" };
-
-  // Premium split percentages for the visual bar
-  const _base = quoteComputed.basePremium;
-  const odPct   = _base > 0 ? Math.round((quoteComputed.odAmt / _base) * 100) : 0;
-  const tpPct   = _base > 0 ? Math.round((quoteComputed.tpAmt / _base) * 100) : 0;
-  const adPct   = _base > 0 ? Math.max(0, 100 - odPct - tpPct) : 0;
-
-  // Per-day & per-month approximations
-  const perDay   = quoteComputed.totalPremium > 0 ? Math.round(quoteComputed.totalPremium / 365) : 0;
-  const perMonth = quoteComputed.totalPremium > 0 ? Math.round(quoteComputed.totalPremium / 12)  : 0;
+          ? { label: "Premium", color: "bg-violet-400/25 text-violet-100" }
+          : { label: "Elite", color: "bg-amber-400/25 text-amber-200" };
 
   // Form completeness (out of ~8 key fields)
   const filledFields = [
@@ -134,7 +97,10 @@ const Step4InsuranceQuotes = ({
             <Row gutter={[16, 16]}>
               {/* Insurance Company */}
               <Col xs={24} md={12}>
-                <Text strong className="text-[11px] uppercase tracking-wider text-slate-500">
+                <Text
+                  strong
+                  className="text-[11px] uppercase tracking-wider text-slate-500"
+                >
                   Insurance Company *
                 </Text>
                 <Input
@@ -152,7 +118,10 @@ const Step4InsuranceQuotes = ({
 
               {/* Coverage Type */}
               <Col xs={24} md={12}>
-                <Text strong className="text-[11px] uppercase tracking-wider text-slate-500">
+                <Text
+                  strong
+                  className="text-[11px] uppercase tracking-wider text-slate-500"
+                >
                   Coverage Type *
                 </Text>
                 <Select
@@ -176,7 +145,10 @@ const Step4InsuranceQuotes = ({
 
               {/* Policy Duration */}
               <Col xs={24} md={12}>
-                <Text strong className="text-[11px] uppercase tracking-wider text-slate-500">
+                <Text
+                  strong
+                  className="text-[11px] uppercase tracking-wider text-slate-500"
+                >
                   Policy Duration *
                 </Text>
                 <Select
@@ -188,10 +160,22 @@ const Step4InsuranceQuotes = ({
                   options={
                     quoteDraft.coverageType === "Comprehensive"
                       ? [
-                          { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
-                          { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-                          { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-                          { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+                          {
+                            label: "1yr OD + 1yr TP",
+                            value: "1yr OD + 1yr TP",
+                          },
+                          {
+                            label: "1yr OD + 3yr TP",
+                            value: "1yr OD + 3yr TP",
+                          },
+                          {
+                            label: "2yr OD + 3yr TP",
+                            value: "2yr OD + 3yr TP",
+                          },
+                          {
+                            label: "3yr OD + 3yr TP",
+                            value: "3yr OD + 3yr TP",
+                          },
                         ]
                       : quoteDraft.coverageType === "Stand Alone OD"
                         ? [
@@ -218,7 +202,10 @@ const Step4InsuranceQuotes = ({
 
               {/* NCB */}
               <Col xs={24} md={12}>
-                <Text strong className="text-[11px] uppercase tracking-wider text-slate-500">
+                <Text
+                  strong
+                  className="text-[11px] uppercase tracking-wider text-slate-500"
+                >
                   NCB Discount (%)
                 </Text>
                 <InputNumber
@@ -244,7 +231,9 @@ const Step4InsuranceQuotes = ({
               </p>
               <Row gutter={[12, 12]}>
                 <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">Vehicle IDV (₹)</Text>
+                  <Text className="text-[11px] text-slate-500">
+                    Vehicle IDV (₹)
+                  </Text>
                   <InputNumber
                     min={0}
                     value={Number(quoteDraft.vehicleIdv || 0)}
@@ -259,7 +248,9 @@ const Step4InsuranceQuotes = ({
                   />
                 </Col>
                 <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">CNG IDV (₹)</Text>
+                  <Text className="text-[11px] text-slate-500">
+                    CNG IDV (₹)
+                  </Text>
                   <InputNumber
                     min={0}
                     value={Number(quoteDraft.cngIdv || 0)}
@@ -271,7 +262,9 @@ const Step4InsuranceQuotes = ({
                   />
                 </Col>
                 <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">Accessories IDV (₹)</Text>
+                  <Text className="text-[11px] text-slate-500">
+                    Accessories IDV (₹)
+                  </Text>
                   <InputNumber
                     min={0}
                     value={Number(quoteDraft.accessoriesIdv || 0)}
@@ -295,7 +288,9 @@ const Step4InsuranceQuotes = ({
               </p>
               <Row gutter={[12, 12]}>
                 <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">OD Premium (₹)</Text>
+                  <Text className="text-[11px] text-slate-500">
+                    OD Premium (₹)
+                  </Text>
                   <InputNumber
                     min={0}
                     value={Number(quoteDraft.odAmount || 0)}
@@ -310,7 +305,9 @@ const Step4InsuranceQuotes = ({
                   />
                 </Col>
                 <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">3rd Party (₹)</Text>
+                  <Text className="text-[11px] text-slate-500">
+                    3rd Party (₹)
+                  </Text>
                   <InputNumber
                     min={0}
                     value={Number(quoteDraft.thirdPartyAmount || 0)}
@@ -325,7 +322,9 @@ const Step4InsuranceQuotes = ({
                   />
                 </Col>
                 <Col xs={24} sm={8}>
-                  <Text className="text-[11px] text-slate-500">Bulk Add-ons (₹)</Text>
+                  <Text className="text-[11px] text-slate-500">
+                    Bulk Add-ons (₹)
+                  </Text>
                   <InputNumber
                     min={0}
                     value={Number(quoteDraft.addOnsAmount || 0)}
@@ -352,7 +351,10 @@ const Step4InsuranceQuotes = ({
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Individual Add-ons <span className="font-normal text-slate-400">(optional)</span>
+                    Individual Add-ons{" "}
+                    <span className="font-normal text-slate-400">
+                      (optional)
+                    </span>
                   </p>
                   <p className="mt-0.5 text-[10px] text-slate-400">
                     ₹0 = included free; enter amount for charged coverage
@@ -486,7 +488,8 @@ const Step4InsuranceQuotes = ({
               </Button>
               <div className="ml-auto hidden rounded-lg bg-sky-50 px-3 py-1.5 text-sky-600 dark:bg-sky-950/30 dark:text-sky-400 md:block">
                 <Text className="text-[11px]">
-                  💡 <b>Tip:</b> Fill amounts then click <b>Add Quote</b> to compare.
+                  💡 <b>Tip:</b> Fill amounts then click <b>Add Quote</b> to
+                  compare.
                 </Text>
               </div>
             </div>
@@ -503,7 +506,9 @@ const Step4InsuranceQuotes = ({
                     Live Quote Preview
                   </p>
                   {/* Coverage Tier badge */}
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${tierInfo.color}`}>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${tierInfo.color}`}
+                  >
                     {tierInfo.label}
                   </span>
                 </div>
@@ -530,8 +535,12 @@ const Step4InsuranceQuotes = ({
                 {/* Form completeness mini-bar */}
                 <div className="mt-3">
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-[9px] text-violet-400/70">Form completion</span>
-                    <span className="text-[9px] font-bold text-violet-300">{completePct}%</span>
+                    <span className="text-[9px] text-violet-400/70">
+                      Form completion
+                    </span>
+                    <span className="text-[9px] font-bold text-violet-300">
+                      {completePct}%
+                    </span>
                   </div>
                   <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
                     <div
@@ -541,164 +550,154 @@ const Step4InsuranceQuotes = ({
                   </div>
                 </div>
 
-                {/* IDV summary */}
-                <div className="mt-4 rounded-xl bg-white/10 px-4 py-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
-                    Total IDV
-                  </p>
-                  <p className="mt-0.5 text-xl font-bold text-white">
-                    {toINR(quoteComputed.totalIdv)}
-                  </p>
-                  {(quoteDraft.vehicleIdv > 0 ||
-                    quoteDraft.cngIdv > 0 ||
-                    quoteDraft.accessoriesIdv > 0) && (
-                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                      <span className="text-[10px] text-violet-300/70">Vehicle {toINR(quoteDraft.vehicleIdv || 0)}</span>
-                      {quoteDraft.cngIdv > 0 && <span className="text-[10px] text-violet-300/70">CNG {toINR(quoteDraft.cngIdv)}</span>}
-                      {quoteDraft.accessoriesIdv > 0 && <span className="text-[10px] text-violet-300/70">Acc. {toINR(quoteDraft.accessoriesIdv)}</span>}
-                    </div>
-                  )}
-                </div>
-
-                {/* Premium split visual bar */}
-                {_base > 0 && (
-                  <div className="mt-3 rounded-xl bg-white/8 px-4 py-3">
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
-                      Premium Split
+                {/* Live Premium Estimate block (requested breakdown) */}
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-xl bg-white/10 px-4 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
+                      Live Premium Estimate
                     </p>
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/10">
-                      {odPct > 0 && (
-                        <div
-                          className="h-full bg-blue-400 transition-all duration-500"
-                          style={{ width: `${odPct}%` }}
-                          title={`OD ${odPct}%`}
-                        />
-                      )}
-                      {tpPct > 0 && (
-                        <div
-                          className="h-full bg-purple-400 transition-all duration-500"
-                          style={{ width: `${tpPct}%` }}
-                          title={`TP ${tpPct}%`}
-                        />
-                      )}
-                      {adPct > 0 && (
-                        <div
-                          className="h-full bg-orange-400 transition-all duration-500"
-                          style={{ width: `${adPct}%` }}
-                          title={`Add-ons ${adPct}%`}
-                        />
-                      )}
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap gap-3">
-                      {odPct > 0 && (
-                        <span className="flex items-center gap-1 text-[9px] text-violet-300/70">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400" />
-                          OD {odPct}%
-                        </span>
-                      )}
-                      {tpPct > 0 && (
-                        <span className="flex items-center gap-1 text-[9px] text-violet-300/70">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-purple-400" />
-                          TP {tpPct}%
-                        </span>
-                      )}
-                      {adPct > 0 && (
-                        <span className="flex items-center gap-1 text-[9px] text-violet-300/70">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-400" />
-                          Add-ons {adPct}%
-                        </span>
-                      )}
+
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] font-semibold text-violet-100">
+                            Total Premium
+                          </p>
+                          <p className="text-[9px] text-violet-300/70">
+                            Taxable + 18% GST
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold tabular-nums text-white">
+                          {toINR(quoteComputed.totalPremium)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] font-semibold text-violet-100">
+                            Base Premium
+                          </p>
+                          <p className="text-[9px] text-violet-300/70">
+                            OD {toINR(quoteComputed.odAmt)} · 3P{" "}
+                            {toINR(quoteComputed.tpAmt)}
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold tabular-nums text-white">
+                          {toINR(quoteComputed.basePremium)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] font-semibold text-violet-100">
+                            Add-ons
+                          </p>
+                          <p className="text-[9px] text-violet-300/70">
+                            Bulk + selected
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold tabular-nums text-white">
+                          {toINR(quoteComputed.addOnsTotal)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] font-semibold text-violet-100">
+                            NCB Discount
+                          </p>
+                          <p className="text-[9px] text-violet-300/70">
+                            {Number(quoteDraft.ncbDiscount || 0)}% on base
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold tabular-nums text-emerald-300">
+                          -{toINR(quoteComputed.ncbAmount)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2 border-t border-white/15 pt-2">
+                        <div>
+                          <p className="text-[11px] font-semibold text-violet-100">
+                            GST 18%
+                          </p>
+                          <p className="text-[9px] text-violet-300/70">
+                            On {toINR(quoteComputed.taxableAmount)}
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold tabular-nums text-white">
+                          {toINR(quoteComputed.gstAmount)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                {/* Premium waterfall */}
-                <div className="mt-4 space-y-1.5">
-                  <PLine
-                    label="OD Premium"
-                    value={toINR(quoteComputed.odAmt)}
-                  />
-                  <PLine
-                    label="3rd Party"
-                    value={toINR(quoteComputed.tpAmt)}
-                  />
-                  {quoteComputed.addOnsTotal > 0 && (
-                    <PLine
-                      label="Add-ons"
-                      value={toINR(quoteComputed.addOnsTotal)}
-                    />
-                  )}
-                  <PLine
-                    label="Base Premium"
-                    value={toINR(quoteComputed.basePremium)}
-                    bold
-                    divider
-                  />
-                  {quoteComputed.ncbAmount > 0 && (
-                    <PLine
-                      label={`NCB (${Number(quoteDraft.ncbDiscount || 0)}%)`}
-                      value={`−${toINR(quoteComputed.ncbAmount)}`}
-                      accent="text-emerald-300"
-                    />
-                  )}
-                  <PLine
-                    label="Taxable"
-                    value={toINR(quoteComputed.taxableAmount)}
-                    divider
-                  />
-                  <PLine
-                    label="GST 18%"
-                    value={toINR(quoteComputed.gstAmount)}
-                    sub
-                  />
-
-                  {/* NCB savings callout */}
-                  {quoteComputed.ncbAmount > 0 && (
-                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-500/20 px-3 py-2">
-                      <span className="text-base">💰</span>
-                      <div>
-                        <p className="text-[10px] font-bold text-emerald-300">
-                          You save {toINR(quoteComputed.ncbAmount)}
-                        </p>
-                        <p className="text-[9px] text-emerald-400/70">
-                          {Number(quoteDraft.ncbDiscount || 0)}% NCB benefit applied
-                        </p>
+                  <div className="rounded-xl bg-white/10 px-4 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
+                      IDV Breakdown
+                    </p>
+                    <div className="mt-2 space-y-1.5 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-violet-100">Vehicle</span>
+                        <span className="font-semibold tabular-nums text-white">
+                          {toINR(quoteDraft.vehicleIdv || 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-violet-100">CNG</span>
+                        <span className="font-semibold tabular-nums text-white">
+                          {toINR(quoteDraft.cngIdv || 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-violet-100">Accessories</span>
+                        <span className="font-semibold tabular-nums text-white">
+                          {toINR(quoteDraft.accessoriesIdv || 0)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between border-t border-white/15 pt-2">
+                        <span className="font-semibold text-violet-100">
+                          Total IDV
+                        </span>
+                        <span className="text-sm font-bold tabular-nums text-white">
+                          {toINR(quoteComputed.totalIdv)}
+                        </span>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                {/* Total Premium — big highlight */}
-                <div className="mt-4 rounded-xl bg-white/20 px-4 py-3 text-center ring-1 ring-white/30">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-200">
-                    Total Premium (Gross)
-                  </p>
-                  <p className="mt-1 text-2xl font-bold tracking-tight text-white">
-                    {toINR(quoteComputed.totalPremium)}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-violet-300/60">
-                    Taxable {toINR(quoteComputed.taxableAmount)} + GST{" "}
-                    {toINR(quoteComputed.gstAmount)}
-                  </p>
-                  {/* Per-day / per-month cost */}
-                  {quoteComputed.totalPremium > 0 && (
-                    <div className="mt-3 flex items-center justify-center gap-4 border-t border-white/15 pt-3">
-                      <div className="text-center">
-                        <p className="text-[9px] text-violet-300/60">Per Day</p>
-                        <p className="mt-0.5 text-sm font-bold text-white/90">{toINR(perDay)}</p>
+                  <div className="rounded-xl bg-white/10 px-4 py-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-300/70">
+                      Taxable Breakdown
+                    </p>
+                    <div className="mt-2 space-y-1.5 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-violet-100">OD Amount</span>
+                        <span className="font-semibold tabular-nums text-white">
+                          {toINR(quoteComputed.odAmt)}
+                        </span>
                       </div>
-                      <div className="h-6 w-px bg-white/15" />
-                      <div className="text-center">
-                        <p className="text-[9px] text-violet-300/60">Per Month</p>
-                        <p className="mt-0.5 text-sm font-bold text-white/90">{toINR(perMonth)}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-violet-100">3rd Party</span>
+                        <span className="font-semibold tabular-nums text-white">
+                          {toINR(quoteComputed.tpAmt)}
+                        </span>
                       </div>
-                      <div className="h-6 w-px bg-white/15" />
-                      <div className="text-center">
-                        <p className="text-[9px] text-violet-300/60">Add-ons</p>
-                        <p className="mt-0.5 text-sm font-bold text-white/90">{selectedAddOnNames.length}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-violet-100">Add-ons</span>
+                        <span className="font-semibold tabular-nums text-white">
+                          {toINR(quoteComputed.addOnsTotal)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between border-t border-white/15 pt-2">
+                        <span className="font-semibold text-violet-100">
+                          Taxable Total
+                        </span>
+                        <span className="text-sm font-bold tabular-nums text-white">
+                          {toINR(quoteComputed.taxableAmount)}
+                        </span>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* CTA */}
@@ -727,10 +726,15 @@ const Step4InsuranceQuotes = ({
                     {selectedAddOnNames.map((name) => {
                       const amt = Number(quoteDraft.addOns?.[name] || 0);
                       return (
-                        <div key={name} className="flex items-center justify-between gap-2">
+                        <div
+                          key={name}
+                          className="flex items-center justify-between gap-2"
+                        >
                           <div className="flex items-center gap-1.5">
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" />
-                            <span className="text-[11px] text-violet-700 dark:text-violet-300">{name}</span>
+                            <span className="text-[11px] text-violet-700 dark:text-violet-300">
+                              {name}
+                            </span>
                           </div>
                           <span className="shrink-0 text-[11px] font-semibold tabular-nums text-violet-800 dark:text-violet-200">
                             {amt === 0 ? (
@@ -748,8 +752,12 @@ const Step4InsuranceQuotes = ({
                   {/* Add-ons subtotal */}
                   {quoteComputed.addOnsTotal > 0 && (
                     <div className="mt-3 flex items-center justify-between border-t border-violet-200/60 pt-2 dark:border-violet-700/40">
-                      <span className="text-[10px] font-bold text-violet-500 dark:text-violet-400">Add-ons Subtotal</span>
-                      <span className="text-[11px] font-bold text-violet-700 dark:text-violet-200">{toINR(quoteComputed.addOnsTotal)}</span>
+                      <span className="text-[10px] font-bold text-violet-500 dark:text-violet-400">
+                        Add-ons Subtotal
+                      </span>
+                      <span className="text-[11px] font-bold text-violet-700 dark:text-violet-200">
+                        {toINR(quoteComputed.addOnsTotal)}
+                      </span>
                     </div>
                   )}
                 </div>
