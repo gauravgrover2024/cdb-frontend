@@ -20,7 +20,7 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { CheckCircle2, CreditCard, LayoutList } from "lucide-react";
+import { CheckCircleFilled, UnorderedListOutlined } from "@ant-design/icons";
 import { insuranceApi } from "../../api/insurance";
 import { customersApi } from "../../api/customers";
 import { vehiclesApi } from "../../api/vehicles";
@@ -30,10 +30,11 @@ import Step1CustomerInfo from "./steps/Step1CustomerInfo";
 import Step2VehicleDetails from "./steps/Step2VehicleDetails";
 import Step3PreviousPolicy from "./steps/Step3PreviousPolicy";
 import Step4InsuranceQuotes from "./steps/Step4InsuranceQuotes";
-import Step5NewPolicyDetails from "./steps/Step5NewPolicyDetails";
-import Step6Documents from "./steps/Step6Documents";
-import Step7Payment from "./steps/Step7Payment";
-import Step8Payout from "./steps/Step8Payout";
+import Step5PremiumBreakup from "./steps/Step5PremiumBreakup";
+import Step6NewPolicyDetails from "./steps/Step5NewPolicyDetails";
+import Step7Documents from "./steps/Step6Documents";
+import Step8Payment from "./steps/Step7Payment";
+import Step9Payout from "./steps/Step8Payout";
 import {
   STEP_TITLES,
   STEP_ICON_MAP,
@@ -127,6 +128,7 @@ const initialFormState = {
   newNcbDiscount: 0,
   newIdvAmount: 0,
   newTotalPremium: 0,
+  payoutPercentage: 10,
   subventionAmount: 0,
   subventionEntries: [],
   newHypothecation: "Not Applicable",
@@ -404,7 +406,8 @@ const validateStep1 = (data) => {
       errors.companyName = "Company name is required";
     if (!(data.contactPersonName || "").trim())
       errors.contactPersonName = "Contact person name is required";
-    if (!(data.panNumber || "").trim()) errors.panNumber = "PAN number is required";
+    if (!(data.panNumber || "").trim())
+      errors.panNumber = "PAN number is required";
     if (!(data.residenceAddress || "").trim())
       errors.residenceAddress = "Residence address is required";
   } else {
@@ -415,7 +418,10 @@ const validateStep1 = (data) => {
       errors.residenceAddress = "Residence address is required";
   }
 
-  if ((data.referenceName || "").trim() && !(data.referencePhone || "").trim()) {
+  if (
+    (data.referenceName || "").trim() &&
+    !(data.referencePhone || "").trim()
+  ) {
     errors.referencePhone = "Reference mobile is required if name is provided";
   }
 
@@ -426,7 +432,8 @@ const validateStep2 = (data) => {
   const errors = {};
   if (!(data.registrationNumber || "").trim())
     errors.registrationNumber = "Registration number is required";
-  if (!(data.vehicleMake || "").trim()) errors.vehicleMake = "Vehicle make is required";
+  if (!(data.vehicleMake || "").trim())
+    errors.vehicleMake = "Vehicle make is required";
   if (!(data.vehicleModel || "").trim())
     errors.vehicleModel = "Vehicle model is required";
   if (!(data.vehicleVariant || "").trim())
@@ -986,6 +993,10 @@ const NewInsuranceCaseForm = ({
     quotes.find(
       (q) => String(getQuoteRowId(q)) === String(acceptedQuoteId ?? ""),
     ) || null;
+  const acceptedQuoteBreakup = useMemo(
+    () => (acceptedQuote ? computeQuoteBreakupFromRow(acceptedQuote) : null),
+    [acceptedQuote, computeQuoteBreakupFromRow],
+  );
   const docsTaggedCount = documents.filter((d) => d.tag).length;
   const allUploadedDocsTagged =
     documents.length > 0 && docsTaggedCount === documents.length;
@@ -1033,7 +1044,6 @@ const NewInsuranceCaseForm = ({
       totalPremium,
     };
   }, [quoteDraft]);
-
 
   const handleChange = (field) => (event) => {
     setFormData((prev) => ({ ...prev, [field]: event?.target?.value }));
@@ -1120,7 +1130,7 @@ const NewInsuranceCaseForm = ({
       paymentHistory,
       step,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, quotes, acceptedQuoteId, documents, paymentHistory, step]);
 
   useEffect(() => {
@@ -1166,7 +1176,7 @@ const NewInsuranceCaseForm = ({
     if (!handleStepValidation()) return;
     setStep((prev) => {
       if (isNewCar && prev === 2) return 4;
-      return Math.min(prev + 1, 8);
+      return Math.min(prev + 1, 9);
     });
     setShowErrors(false);
     // persistNow({ silent: true });
@@ -1342,7 +1352,7 @@ const NewInsuranceCaseForm = ({
     return STEP_TITLES[step - 1];
   }, [isNewCar, step]);
 
-  const CurrentStepIcon = STEP_ICON_MAP[step] || CreditCard;
+  const CurrentStepIcon = STEP_ICON_MAP[step] || null;
 
   const stepHelpText = useMemo(() => {
     if (step === 1) return "Fill personal, contact and nominee details.";
@@ -1488,13 +1498,42 @@ const NewInsuranceCaseForm = ({
           />
         );
       case 5:
+        if (!Step5PremiumBreakup) {
+          return (
+            <Alert
+              type="error"
+              showIcon
+              message="Step 5 component failed to load"
+              description="Please refresh once. If issue persists, contact support with this case ID."
+            />
+          );
+        }
         return (
-          <Step5NewPolicyDetails
+          <Step5PremiumBreakup
+            acceptedQuote={acceptedQuote}
+            acceptedQuoteBreakup={acceptedQuoteBreakup}
+            toINR={toINR}
+          />
+        );
+      case 6:
+        if (!Step6NewPolicyDetails) {
+          return (
+            <Alert
+              type="error"
+              showIcon
+              message="Step 6 component failed to load"
+              description="Please refresh once. If issue persists, contact support with this case ID."
+            />
+          );
+        }
+        return (
+          <Step6NewPolicyDetails
             formData={formData}
             setField={setField}
             handleChange={handleChange}
             handleNewPolicyStartOrDuration={handleNewPolicyStartOrDuration}
             acceptedQuote={acceptedQuote}
+            acceptedQuoteBreakup={acceptedQuoteBreakup}
             durationOptions={durationOptions}
             paymentHistory={paymentHistory}
             setPaymentModalVisible={setPaymentModalVisible}
@@ -1503,9 +1542,10 @@ const NewInsuranceCaseForm = ({
             insuranceApi={insuranceApi}
           />
         );
-      case 6:
+      case 7:
         return (
-          <Step6Documents
+          <Step7Documents
+            formData={formData}
             documents={documents}
             setDocuments={setDocuments}
             schedulePersist={schedulePersist}
@@ -1514,9 +1554,9 @@ const NewInsuranceCaseForm = ({
             allUploadedDocsTagged={allUploadedDocsTagged}
           />
         );
-      case 7:
+      case 8:
         return (
-          <Step7Payment
+          <Step8Payment
             formData={formData}
             setField={setField}
             setFormData={setFormData}
@@ -1528,13 +1568,25 @@ const NewInsuranceCaseForm = ({
             acceptedQuote={acceptedQuote}
           />
         );
-      case 8:
+      case 9:
+        if (!Step9Payout) {
+          return (
+            <Alert
+              type="error"
+              showIcon
+              message="Step 9 component failed to load"
+              description="Please refresh once. If issue persists, contact support with this case ID."
+            />
+          );
+        }
         return (
-          <Step8Payout
+          <Step9Payout
             formData={formData}
             setField={setField}
             setFormData={setFormData}
             schedulePersist={schedulePersist}
+            acceptedQuote={acceptedQuote}
+            acceptedQuoteBreakup={acceptedQuoteBreakup}
           />
         );
       default:
@@ -1548,7 +1600,10 @@ const NewInsuranceCaseForm = ({
     (s, p) => s + Number(p.amount || 0),
     0,
   );
-  const summaryBalanceDue = Math.max(0, summaryGrossPremium - summaryTotalCollected);
+  const summaryBalanceDue = Math.max(
+    0,
+    summaryGrossPremium - summaryTotalCollected,
+  );
   const summaryReceivables = Array.isArray(formData.insurance_receivables)
     ? formData.insurance_receivables
     : [];
@@ -1556,7 +1611,10 @@ const NewInsuranceCaseForm = ({
     ? formData.insurance_payables
     : [];
   const summaryNetMargin =
-    summaryReceivables.reduce((s, r) => s + Number(r.net_payout_amount || 0), 0) -
+    summaryReceivables.reduce(
+      (s, r) => s + Number(r.net_payout_amount || 0),
+      0,
+    ) -
     summaryPayables.reduce((s, p) => s + Number(p.net_payout_amount || 0), 0);
 
   // ─── Step 8 success screen ────────────────────────────────────────────────
@@ -1565,7 +1623,10 @@ const NewInsuranceCaseForm = ({
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 dark:bg-slate-950">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-            <CheckCircle2 size={44} className="text-emerald-500" />
+            <CheckCircleFilled
+              className="text-emerald-500"
+              style={{ fontSize: 44 }}
+            />
           </div>
           <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
             Case Submitted!
@@ -1623,11 +1684,13 @@ const NewInsuranceCaseForm = ({
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/20">
-      <InsuranceStickyHeader
-        formData={formData}
-        activeStep={step}
-        onStepClick={setStep}
-      />
+      {InsuranceStickyHeader ? (
+        <InsuranceStickyHeader
+          formData={formData}
+          activeStep={step}
+          onStepClick={setStep}
+        />
+      ) : null}
 
       <div className="pt-[180px] pb-[80px]">
         <div className="w-full px-4 py-6 md:px-6 lg:px-10">
@@ -1636,15 +1699,17 @@ const NewInsuranceCaseForm = ({
         </div>
       </div>
 
-      <InsuranceStageFooter
-        activeStep={step}
-        onNext={step === 8 ? handleSubmitFinal : goNext}
-        onBack={goBack}
-        onSave={() => persistNow({ silent: false })}
-        onExit={onCancel}
-        isSaving={saving}
-        mode={mode}
-      />
+      {InsuranceStageFooter ? (
+        <InsuranceStageFooter
+          activeStep={step}
+          onNext={step === 9 ? handleSubmitFinal : goNext}
+          onBack={goBack}
+          onSave={() => persistNow({ silent: false })}
+          onExit={onCancel}
+          isSaving={saving}
+          mode={mode}
+        />
+      ) : null}
 
       <Modal
         title="Record Payment"
@@ -1812,7 +1877,7 @@ const NewInsuranceCaseForm = ({
         title="Case Summary"
         className="fixed bottom-24 right-6 z-50 flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
       >
-        <LayoutList size={15} />
+        <UnorderedListOutlined style={{ fontSize: 15 }} />
         Case Summary
       </button>
 
@@ -1833,34 +1898,61 @@ const NewInsuranceCaseForm = ({
         <div className="flex flex-col gap-0 divide-y divide-slate-100 dark:divide-slate-800">
           {/* Customer */}
           <SummarySection title="Customer">
-            <SummaryField label="Name" value={formData.customerName || formData.companyName || "—"} />
-            <SummaryField label="Mobile" value={formData.mobile ? `+91 ${formData.mobile}` : "—"} />
+            <SummaryField
+              label="Name"
+              value={formData.customerName || formData.companyName || "—"}
+            />
+            <SummaryField
+              label="Mobile"
+              value={formData.mobile ? `+91 ${formData.mobile}` : "—"}
+            />
             <SummaryField label="Email" value={formData.email || "—"} />
-            <SummaryField label="Buyer Type" value={formData.buyerType || "—"} />
+            <SummaryField
+              label="Buyer Type"
+              value={formData.buyerType || "—"}
+            />
           </SummarySection>
 
           {/* Vehicle */}
           <SummarySection title="Vehicle">
-            <SummaryField label="Reg No." value={formData.registrationNumber || "—"} />
+            <SummaryField
+              label="Reg No."
+              value={formData.registrationNumber || "—"}
+            />
             <SummaryField
               label="Make / Model"
               value={
-                [formData.vehicleMake, formData.vehicleModel].filter(Boolean).join(" ") || "—"
+                [formData.vehicleMake, formData.vehicleModel]
+                  .filter(Boolean)
+                  .join(" ") || "—"
               }
             />
-            <SummaryField label="Variant" value={formData.vehicleVariant || "—"} />
+            <SummaryField
+              label="Variant"
+              value={formData.vehicleVariant || "—"}
+            />
             <SummaryField label="Fuel" value={formData.fuelType || "—"} />
           </SummarySection>
 
           {/* Previous Policy */}
           {formData.vehicleType !== "New Car" && (
             <SummarySection title="Previous Policy">
-              <SummaryField label="Insurer" value={formData.previousInsuranceCompany || "—"} />
-              <SummaryField label="Policy No." value={formData.previousPolicyNumber || "—"} />
+              <SummaryField
+                label="Insurer"
+                value={formData.previousInsuranceCompany || "—"}
+              />
+              <SummaryField
+                label="Policy No."
+                value={formData.previousPolicyNumber || "—"}
+              />
               <SummaryField
                 label="NCB"
                 value={`${formData.previousNcbDiscount ?? 0}%`}
-                badge={formData.claimTakenLastYear === "Yes" ? "Claim Taken" : undefined}
+                badge={
+                  formData.claimTakenLastYear === "Yes"
+                    ? "Claim Taken"
+                    : undefined
+                }
                 badgeColor="red"
               />
             </SummarySection>
@@ -1868,11 +1960,21 @@ const NewInsuranceCaseForm = ({
 
           {/* Selected Quote */}
           <SummarySection title="Accepted Quote">
-            <SummaryField label="Insurer" value={acceptedQuote?.insuranceCompany || "—"} />
-            <SummaryField label="Coverage" value={acceptedQuote?.coverageType || "—"} />
+            <SummaryField
+              label="Insurer"
+              value={acceptedQuote?.insuranceCompany || "—"}
+            />
+            <SummaryField
+              label="Coverage"
+              value={acceptedQuote?.coverageType || "—"}
+            />
             <SummaryField
               label="IDV"
-              value={acceptedQuote ? toINR(acceptedQuote.totalIdv || acceptedQuote.vehicleIdv) : "—"}
+              value={
+                acceptedQuote
+                  ? toINR(acceptedQuote.totalIdv || acceptedQuote.vehicleIdv)
+                  : "—"
+              }
             />
             <SummaryField
               label="Gross Premium"
@@ -1883,20 +1985,42 @@ const NewInsuranceCaseForm = ({
 
           {/* New Policy */}
           <SummarySection title="New Policy">
-            <SummaryField label="Policy No." value={formData.newPolicyNumber || "—"} />
-            <SummaryField label="Insurer" value={formData.newInsuranceCompany || "—"} />
-            <SummaryField label="Start Date" value={formData.newPolicyStartDate || "—"} />
-            <SummaryField label="OD Expiry" value={formData.newOdExpiryDate || "—"} />
+            <SummaryField
+              label="Policy No."
+              value={formData.newPolicyNumber || "—"}
+            />
+            <SummaryField
+              label="Insurer"
+              value={formData.newInsuranceCompany || "—"}
+            />
+            <SummaryField
+              label="Start Date"
+              value={formData.newPolicyStartDate || "—"}
+            />
+            <SummaryField
+              label="OD Expiry"
+              value={formData.newOdExpiryDate || "—"}
+            />
           </SummarySection>
 
           {/* Payment */}
           <SummarySection title="Payment">
-            <SummaryField label="Total Premium" value={toINR(summaryGrossPremium)} />
-            <SummaryField label="Collected" value={toINR(summaryTotalCollected)} />
+            <SummaryField
+              label="Total Premium"
+              value={toINR(summaryGrossPremium)}
+            />
+            <SummaryField
+              label="Collected"
+              value={toINR(summaryTotalCollected)}
+            />
             <SummaryField
               label="Balance Due"
               value={toINR(summaryBalanceDue)}
-              badge={summaryBalanceDue <= 0 && summaryGrossPremium > 0 ? "Fully Paid" : undefined}
+              badge={
+                summaryBalanceDue <= 0 && summaryGrossPremium > 0
+                  ? "Fully Paid"
+                  : undefined
+              }
               badgeColor="green"
               highlight={summaryBalanceDue > 0}
             />
@@ -1907,13 +2031,19 @@ const NewInsuranceCaseForm = ({
             <SummaryField
               label="Receivables"
               value={toINR(
-                summaryReceivables.reduce((s, r) => s + Number(r.net_payout_amount || 0), 0)
+                summaryReceivables.reduce(
+                  (s, r) => s + Number(r.net_payout_amount || 0),
+                  0,
+                ),
               )}
             />
             <SummaryField
               label="Payables"
               value={toINR(
-                summaryPayables.reduce((s, p) => s + Number(p.net_payout_amount || 0), 0)
+                summaryPayables.reduce(
+                  (s, p) => s + Number(p.net_payout_amount || 0),
+                  0,
+                ),
               )}
             />
             <SummaryField
@@ -1927,8 +2057,6 @@ const NewInsuranceCaseForm = ({
     </div>
   );
 };
-
-
 
 // ─── Case Summary Drawer sub-components ──────────────────────────────────────
 
@@ -1950,7 +2078,13 @@ const SummarySection = ({ title, children }) => (
  * @param {string}  badge       – optional badge text
  * @param {string}  badgeColor  – 'green' | 'red' | 'orange'
  */
-const SummaryField = ({ label, value, highlight, badge, badgeColor = "green" }) => (
+const SummaryField = ({
+  label,
+  value,
+  highlight,
+  badge,
+  badgeColor = "green",
+}) => (
   <div className="flex items-center justify-between gap-2">
     <span className="shrink-0 text-xs text-slate-500">{label}</span>
     <span
@@ -1974,4 +2108,3 @@ const SummaryField = ({ label, value, highlight, badge, badgeColor = "green" }) 
 );
 
 export default NewInsuranceCaseForm;
-

@@ -6,10 +6,8 @@ import {
   Divider,
   Input,
   InputNumber,
-  Modal,
   Select,
   Space,
-  Typography,
   Tooltip,
   Popconfirm,
 } from "antd";
@@ -20,21 +18,30 @@ import {
   InfoCircleOutlined,
   SafetyCertificateOutlined,
   ThunderboltOutlined,
-  FileTextOutlined,
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
-import PlanFeaturesModalBody from "../PlanFeaturesModalBody";
 import { addOnCatalog } from "./allSteps";
 
-const { Text } = Typography;
+const inrInputProps = {
+  formatter: (value) => {
+    const raw = `${value ?? ""}`.replace(/,/g, "");
+    if (!raw) return "";
+    const [whole, decimals] = raw.split(".");
+    const formattedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return decimals !== undefined
+      ? `${formattedWhole}.${decimals}`
+      : formattedWhole;
+  },
+  parser: (value) => `${value ?? ""}`.replace(/,/g, ""),
+};
 
 // ── FieldBlock ──
 const FieldBlock = ({ label, required, children }) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
       {label}
-      {required && <span className="ml-0.5 text-rose-400">*</span>}
+      {required && <span className="ml-0.5 text-[#D8B8B4]">*</span>}
     </label>
     {children}
   </div>
@@ -47,7 +54,7 @@ const TickerRow = ({ label, value, valueClass = "text-slate-800", bold }) => (
       bold ? "border-t border-slate-100 pt-2" : ""
     }`}
   >
-    <span className="text-xs text-slate-400">{label}</span>
+    <span className="text-xs text-slate-500">{label}</span>
     <span
       className={`text-sm tabular-nums font-semibold ${valueClass} ${
         bold ? "font-bold" : ""
@@ -71,7 +78,7 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
         bold
           ? "font-bold text-slate-800"
           : muted
-            ? "text-slate-400"
+            ? "text-slate-500"
             : "text-slate-500"
       }`}
     >
@@ -82,7 +89,7 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
         bold
           ? "font-black text-slate-900"
           : muted
-            ? "text-slate-400"
+            ? "text-slate-500"
             : "font-semibold text-slate-700"
       }`}
     >
@@ -91,55 +98,30 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
   </div>
 );
 
-// ── addonPalette ──
 const addonPalette = [
   {
-    bg: "bg-sky-50",
-    ring: "ring-sky-200",
-    dot: "bg-sky-400",
-    text: "text-sky-700",
-    activeBg: "bg-sky-100",
-    activeRing: "ring-sky-400",
+    bg: "bg-[#D6E6DF]/35",
+    ring: "ring-[#D6E6DF]",
+    dot: "bg-slate-600",
+    text: "text-slate-700",
+    activeBg: "bg-[#D6E6DF]/70",
+    activeRing: "ring-[#D6E6DF]",
   },
   {
-    bg: "bg-violet-50",
-    ring: "ring-violet-200",
-    dot: "bg-violet-400",
-    text: "text-violet-700",
-    activeBg: "bg-violet-100",
-    activeRing: "ring-violet-400",
+    bg: "bg-[#EEF3EF]/40",
+    ring: "ring-[#EEF3EF]",
+    dot: "bg-slate-600",
+    text: "text-slate-700",
+    activeBg: "bg-[#EEF3EF]/75",
+    activeRing: "ring-[#EEF3EF]",
   },
   {
-    bg: "bg-emerald-50",
-    ring: "ring-emerald-200",
-    dot: "bg-emerald-400",
-    text: "text-emerald-700",
-    activeBg: "bg-emerald-100",
-    activeRing: "ring-emerald-400",
-  },
-  {
-    bg: "bg-amber-50",
-    ring: "ring-amber-200",
-    dot: "bg-amber-400",
-    text: "text-amber-700",
-    activeBg: "bg-amber-100",
-    activeRing: "ring-amber-400",
-  },
-  {
-    bg: "bg-rose-50",
-    ring: "ring-rose-200",
-    dot: "bg-rose-400",
-    text: "text-rose-700",
-    activeBg: "bg-rose-100",
-    activeRing: "ring-rose-400",
-  },
-  {
-    bg: "bg-teal-50",
-    ring: "ring-teal-200",
-    dot: "bg-teal-400",
-    text: "text-teal-700",
-    activeBg: "bg-teal-100",
-    activeRing: "ring-teal-400",
+    bg: "bg-[#FAF8F1]/55",
+    ring: "ring-[#FAF8F1]",
+    dot: "bg-slate-600",
+    text: "text-slate-700",
+    activeBg: "bg-[#FAF8F1]",
+    activeRing: "ring-[#FAF8F1]",
   },
 ];
 
@@ -147,17 +129,16 @@ const addonPalette = [
 const QuoteCard = ({
   row,
   idx,
+  quoteRows,
   acceptedQuoteId,
   getQuoteRowId,
   computeQuoteBreakupFromRow,
   formatStoredOrComputedIdv,
   formatStoredOrComputedPremium,
   toINR,
-  quoteRows,
   acceptQuote,
   setQuoteDraft,
   mapQuoteToDraft,
-  setPlanFeaturesModal,
   onDelete,
 }) => {
   const [showAllAddons, setShowAllAddons] = React.useState(false);
@@ -166,13 +147,16 @@ const QuoteCard = ({
   const isAccepted = String(acceptedQuoteId) === String(rid);
   const breakup = computeQuoteBreakupFromRow(row);
   const palette = addonPalette[idx % addonPalette.length];
-
+  const ncbPct = Number(row.ncbDiscount || 0);
+  const ncbAmount = Number(breakup?.ncbAmount || 0);
+  const odBeforeNcb = Number(breakup?.odAmt || 0);
+  const odAfterNcb = Math.max(odBeforeNcb - ncbAmount, 0);
   const allPremiums = quoteRows.map(
     (r) => computeQuoteBreakupFromRow(r)?.totalPremium ?? 0,
   );
   const minPremium = Math.min(...allPremiums);
-  const thisPremium = breakup?.totalPremium ?? 0;
-  const isCheapest = thisPremium === minPremium && quoteRows.length > 1;
+  const isCheapest =
+    quoteRows.length > 1 && Number(breakup?.totalPremium || 0) === minPremium;
 
   const includedAddons = Object.entries(row.addOnsIncluded || {})
     .filter(([, v]) => v)
@@ -188,216 +172,220 @@ const QuoteCard = ({
     .toUpperCase();
 
   return (
-    <div className="flex flex-col">
-      {/* Above-card: Logo + Company + IDV */}
-      <div className="mb-3 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2.5">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1
-              ${
-                isAccepted
-                  ? "bg-emerald-100 text-emerald-700 ring-emerald-200"
-                  : `${palette.activeBg} ${palette.text} ${palette.activeRing}`
-              }
-            `}
-          >
-            {initial}
-          </div>
-          <div>
-            <p className="m-0 text-sm font-bold text-slate-800 leading-tight">
-              {row.insuranceCompany || "—"}
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              {row.coverageType && (
-                <span className="text-[11px] text-slate-400">
-                  {row.coverageType}
-                </span>
-              )}
-              {row.coverageType && row.policyDuration && (
-                <span className="text-[10px] text-slate-300">·</span>
-              )}
-              {row.policyDuration && (
-                <span className="text-[11px] text-slate-400">
-                  {row.policyDuration}
-                </span>
-              )}
+    <div
+      className={`
+        relative flex flex-col rounded-2xl bg-white transition-all duration-200
+        ${
+          isAccepted
+            ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#D6E6DF]"
+            : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)]"
+        }
+      `}
+    >
+      {/* Accepted badge */}
+      {isAccepted && (
+        <div className="absolute -top-2.5 left-4 flex items-center gap-1">
+          <span className="flex items-center gap-1 rounded-full bg-[#D6E6DF] px-2.5 py-0.5 text-[10px] font-black text-slate-800 shadow-sm">
+            <CheckCircleFilled className="text-[9px]" /> Accepted
+          </span>
+        </div>
+      )}
+      {!isAccepted && isCheapest && (
+        <div className="absolute -top-2.5 left-4 flex items-center gap-1">
+          <span className="rounded-full bg-[#FAF8F1] px-2.5 py-0.5 text-[10px] font-black text-slate-700 shadow-sm ring-1 ring-[#FAF8F1]">
+            Lowest Premium
+          </span>
+        </div>
+      )}
+
+      {/* In-card quote identity */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div
+              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1
+                  ${
+                    isAccepted
+                      ? "bg-[#D6E6DF]/70 text-slate-800 ring-[#D6E6DF]"
+                      : `${palette.activeBg} ${palette.text} ${palette.activeRing}`
+                  }
+                `}
+            >
+              {initial}
+            </div>
+            <div className="min-w-0">
+              <p className="m-0 truncate text-sm font-bold text-slate-800 leading-tight">
+                {row.insuranceCompany || "—"}
+              </p>
+              <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                {row.coverageType && (
+                  <span className="text-[11px] text-slate-500">
+                    {row.coverageType}
+                  </span>
+                )}
+                {row.coverageType && row.policyDuration && (
+                  <span className="text-[10px] text-slate-300">·</span>
+                )}
+                {row.policyDuration && (
+                  <span className="text-[11px] text-slate-500">
+                    {row.policyDuration}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="text-right">
-          <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            IDV – Cover Value
-          </p>
-          <p className="m-0 text-sm font-black tabular-nums text-slate-800">
-            {formatStoredOrComputedIdv(row)}
-          </p>
+
+          <div className="text-right shrink-0">
+            <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              IDV
+            </p>
+            <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+              {formatStoredOrComputedIdv(row)}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Card Body */}
-      <div
-        className={`
-          relative flex flex-col rounded-2xl bg-white transition-all duration-200
-          ${
-            isAccepted
-              ? "shadow-[0_4px_24px_rgba(52,211,153,0.13)] ring-1 ring-emerald-300"
-              : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)]"
-          }
-        `}
-      >
-        {/* Accepted */}
-        {(isAccepted || isCheapest) && (
-          <div className="absolute -top-2.5 left-4 flex items-center gap-1">
-            {isAccepted && (
-              <span className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-black text-white shadow-sm">
-                <CheckCircleFilled className="text-[9px]" /> Accepted
-              </span>
-            )}
-          </div>
+      {/* Section divider: identity -> pricing */}
+      <div className="mx-5 border-t border-slate-100" />
+
+      {/* Premium Breakup */}
+      <div className="px-5 pt-5 pb-3">
+        <p className="m-0 mb-3 text-sm font-black text-slate-800">
+          Premium Breakup
+        </p>
+
+        <BreakupRow label="Own Damage" value={toINR(odAfterNcb)} bold />
+        <BreakupRow
+          label="Own Damage before NCB"
+          value={toINR(odBeforeNcb)}
+          indent
+          muted
+        />
+        {ncbPct > 0 && (
+          <BreakupRow
+            label={`NCB Discount (${ncbPct}%)`}
+            value={`-${toINR(ncbAmount)}`}
+            indent
+            muted
+          />
         )}
 
-        {/* Premium Breakup */}
-        <div className="px-5 pt-5 pb-3">
-          <p className="m-0 mb-3 text-sm font-black text-slate-800">
-            Premium Breakup
-          </p>
+        <BreakupRow
+          label="Third Party"
+          value={toINR(breakup?.tpAmt ?? 0)}
+          bold
+        />
+        <BreakupRow
+          label="Basic Third Party"
+          value={toINR(breakup?.tpAmt ?? 0)}
+          indent
+          muted
+        />
 
-          <BreakupRow
-            label="Own Damage"
-            value={toINR(breakup?.odAmt ?? 0)}
-            bold
-          />
-          <BreakupRow
-            label="Basic Own Damage"
-            value={toINR(breakup?.odAmt ?? 0)}
-            indent
-            muted
-          />
-          {Number(row.ncbDiscount || 0) > 0 && (
+        {includedAddons.length > 0 && (
+          <>
             <BreakupRow
-              label={`NCB Discount (${Number(row.ncbDiscount || 0)}%)`}
-              value={`-${toINR(breakup?.ncbAmount ?? 0)}`}
-              indent
-              muted
+              label="Add Ons"
+              value={toINR(breakup?.addOnsTotal ?? 0)}
+              bold
             />
-          )}
-
-          <BreakupRow
-            label="Third Party"
-            value={toINR(breakup?.tpAmt ?? 0)}
-            bold
-          />
-          <BreakupRow
-            label="Basic Third Party"
-            value={toINR(breakup?.tpAmt ?? 0)}
-            indent
-            muted
-          />
-
-          {includedAddons.length > 0 && (
-            <>
+            {visibleAddons.map(({ name, amt }) => (
               <BreakupRow
-                label="Add Ons"
-                value={toINR(breakup?.addOnsTotal ?? 0)}
-                bold
+                key={name}
+                label={name}
+                value={amt > 0 ? toINR(amt) : "included"}
+                indent
+                muted
               />
-              {visibleAddons.map(({ name, amt }) => (
-                <BreakupRow
-                  key={name}
-                  label={name}
-                  value={amt > 0 ? toINR(amt) : "included"}
-                  indent
-                  muted
-                />
-              ))}
-              {includedAddons.length > 4 && (
-                <button
-                  onClick={() => setShowAllAddons((p) => !p)}
-                  className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-[#E8192C] hover:text-[#c91525] transition-colors"
+            ))}
+            {includedAddons.length > 4 && (
+              <button
+                onClick={() => setShowAllAddons((p) => !p)}
+                className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-slate-600 hover:text-slate-700 transition-colors"
+              >
+                <span
+                  className={`inline-block transition-transform duration-200 ${
+                    showAllAddons ? "rotate-180" : ""
+                  }`}
                 >
-                  <span
-                    className={`inline-block transition-transform duration-200 ${
-                      showAllAddons ? "rotate-180" : ""
-                    }`}
-                  >
-                    ▾
-                  </span>
-                  {showAllAddons
-                    ? "Show Less"
-                    : `+${includedAddons.length - 4} More Add-ons`}
-                </button>
-              )}
-            </>
-          )}
+                  ▾
+                </span>
+                {showAllAddons
+                  ? "Show Less"
+                  : `+${includedAddons.length - 4} More Add-ons`}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Dashed separator */}
+      <div className="mx-5 border-t border-dashed border-slate-200" />
+
+      {/* Total Amount */}
+      <div className="px-5 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-black text-slate-800">
+            Total Amount
+          </span>
+          <span
+            className={`text-xl font-black tabular-nums ${
+              isAccepted ? "text-slate-800" : "text-slate-900"
+            }`}
+          >
+            {formatStoredOrComputedPremium(row)}
+          </span>
         </div>
+        <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
+          Prices are inclusive of GST
+        </p>
+      </div>
 
-        {/* Dashed separator */}
-        <div className="mx-5 border-t border-dashed border-slate-200" />
-
-        {/* Total Amount */}
-        <div className="px-5 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-black text-slate-800">
-              Total Amount
-            </span>
-            <span
-              className={`text-xl font-black tabular-nums ${
-                isAccepted ? "text-emerald-600" : "text-slate-900"
-              }`}
-            >
-              {formatStoredOrComputedPremium(row)}
-            </span>
-          </div>
-          <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
-            Prices are inclusive of GST
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col gap-2 px-5 pb-5">
+      {/* Action Buttons */}
+      <div className="px-5 pb-5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => acceptQuote(rid)}
             className={`
-              w-full rounded-xl py-2.5 text-[13px] font-black tracking-wide
-              transition-all cursor-pointer border-0 shadow-sm
-              ${
-                isAccepted
-                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                  : "bg-[#E8192C] text-white hover:bg-[#c91525]"
-              }
-            `}
+                flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide
+                transition-all cursor-pointer border-0 shadow-sm
+                ${
+                  isAccepted
+                    ? "bg-[#D6E6DF] text-slate-800 hover:opacity-90"
+                    : "bg-[#D8B8B4] text-slate-800 hover:opacity-90"
+                }
+              `}
           >
-            {isAccepted ? "✓ Accepted Plan" : "Accept This Plan"}
+            {isAccepted ? "✓ Accepted" : "Accept"}
           </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setQuoteDraft(mapQuoteToDraft(row))}
-              title="Edit quote"
-              className="flex h-8 w-8 items-center justify-center rounded-xl border-0 bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
-            >
-              <EditOutlined className="text-xs" />
-            </button>
+          <button
+            onClick={() => setQuoteDraft(mapQuoteToDraft(row))}
+            title="Edit quote"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+          >
+            <EditOutlined className="text-xs" />
+          </button>
 
-            <Popconfirm
-              title="Delete this quote?"
-              description="This action cannot be undone."
-              onConfirm={() => onDelete(rid)}
-              okText="Delete"
-              cancelText="Cancel"
-              okButtonProps={{
-                danger: true,
-                className: "!bg-[#E8192C] !border-[#E8192C]",
-              }}
+          <Popconfirm
+            title="Delete this quote?"
+            description="This action cannot be undone."
+            onConfirm={() => onDelete(rid)}
+            okText="Delete"
+            cancelText="Cancel"
+            okButtonProps={{
+              danger: true,
+              className: "!bg-[#D8B8B4] !border-[#D8B8B4] !text-slate-800",
+            }}
+          >
+            <button
+              title="Delete quote"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#D8B8B4]/30 text-slate-700 ring-1 ring-[#D8B8B4] hover:bg-[#D8B8B4]/45 transition-colors cursor-pointer"
             >
-              <button
-                title="Delete quote"
-                className="flex h-8 w-8 items-center justify-center rounded-xl border-0 bg-rose-50 text-[#E8192C] ring-1 ring-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
-              >
-                <DeleteOutlined className="text-xs" />
-              </button>
-            </Popconfirm>
-          </div>
+              <DeleteOutlined className="text-xs" />
+            </button>
+          </Popconfirm>
         </div>
       </div>
     </div>
@@ -425,32 +413,39 @@ const Step4InsuranceQuotes = ({
   computeQuoteBreakupFromRow,
   formatStoredOrComputedIdv,
   formatStoredOrComputedPremium,
-  planFeaturesModal,
-  setPlanFeaturesModal,
 }) => {
+  const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
+
   return (
-    <div className="min-h-screen bg-slate-50 p-6 font-sans">
+    <div className="min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
       {/* Page Header */}
-      <div className="mb-8 flex flex-wrap items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 ring-1 ring-violet-200">
-          <SafetyCertificateOutlined className="text-base text-violet-600" />
-        </div>
-        <div>
-          <h2 className="m-0 text-lg font-black tracking-tight text-slate-800">
-            Insurance Quotes
-          </h2>
-          <p className="m-0 text-xs text-slate-400">
-            Add quotes, compare plans and accept the best one
-          </p>
-        </div>
-        {acceptedQuote && (
-          <div className="ml-auto flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 ring-1 ring-emerald-200">
-            <CheckCircleFilled className="text-emerald-500 text-xs" />
-            <span className="text-[11px] font-bold text-emerald-700">
-              {acceptedQuote.insuranceCompany} · Accepted
-            </span>
+      <div className="mb-5 rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200 shadow-sm md:px-5 md:py-3.5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF3EF] ring-1 ring-[#D6E6DF]">
+            <SafetyCertificateOutlined className="text-base text-slate-700" />
           </div>
-        )}
+          <div>
+            <h2 className="m-0 text-lg font-black tracking-tight text-slate-800">
+              Insurance Quotes
+            </h2>
+            <p className="m-0 text-xs text-slate-400">
+              Add quotes, compare plans and accept the best one
+            </p>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
+              Quotes: {quotes.length}
+            </span>
+            {acceptedQuote && (
+              <div className="flex items-center gap-1.5 rounded-full bg-[#D6E6DF]/65 px-3 py-1.5 ring-1 ring-[#D6E6DF]">
+                <CheckCircleFilled className="text-slate-700 text-xs" />
+                <span className="text-[11px] font-bold text-slate-800">
+                  {acceptedQuote.insuranceCompany} · Accepted
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -458,9 +453,9 @@ const Step4InsuranceQuotes = ({
         {/* LEFT column */}
         <div className="flex flex-col gap-5">
           {/* Quote Details */}
-          <section className="rounded-2xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+          <section className="rounded-2xl bg-white px-5 pb-5 pt-4 md:px-6 md:pb-6 md:pt-5 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
             <p className="mb-5 m-0 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              <ThunderboltOutlined className="text-amber-400" />
+              <ThunderboltOutlined className="text-[#D8B8B4]" />
               Quote Details
             </p>
             <div className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -520,9 +515,7 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full"
                   addonBefore="₹"
-                  formatter={(v) =>
-                    `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                  }
+                  {...inrInputProps}
                 />
               </FieldBlock>
 
@@ -535,6 +528,7 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full"
                   addonBefore="₹"
+                  {...inrInputProps}
                 />
               </FieldBlock>
 
@@ -550,6 +544,7 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full"
                   addonBefore="₹"
+                  {...inrInputProps}
                 />
               </FieldBlock>
 
@@ -565,6 +560,7 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full"
                   addonBefore="₹"
+                  {...inrInputProps}
                 />
               </FieldBlock>
 
@@ -580,6 +576,7 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full"
                   addonBefore="₹"
+                  {...inrInputProps}
                 />
               </FieldBlock>
 
@@ -611,13 +608,14 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full"
                   addonBefore="₹"
+                  {...inrInputProps}
                 />
               </FieldBlock>
             </div>
           </section>
 
           {/* Add-on Catalogue */}
-          <section className="rounded-2xl bg-white p-6 ring-1 ring-slate-200 shadow-sm">
+          <section className="rounded-2xl bg-white px-5 pb-5 pt-4 md:px-6 md:pb-6 md:pt-5 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-400">
@@ -626,7 +624,7 @@ const Step4InsuranceQuotes = ({
                 <Tooltip title="Select ₹0 to include without extra charges, or enter a custom amount.">
                   <InfoCircleOutlined className="cursor-help text-slate-300 text-[11px]" />
                 </Tooltip>
-                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-violet-100 px-1 text-[9px] font-bold text-violet-600">
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#EEF3EF] px-1 text-[9px] font-bold text-slate-700">
                   {
                     addOnCatalog.filter((n) => quoteDraft.addOnsIncluded?.[n])
                       .length
@@ -649,7 +647,7 @@ const Step4InsuranceQuotes = ({
                       ),
                     }))
                   }
-                  className="rounded-lg bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-600 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer border-0"
+                  className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-200 transition-colors cursor-pointer border-0"
                 >
                   ✓ Select All
                 </button>
@@ -667,7 +665,7 @@ const Step4InsuranceQuotes = ({
                       ),
                     }))
                   }
-                  className="rounded-lg bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 transition-colors cursor-pointer border-0"
+                  className="rounded-lg bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100 transition-colors cursor-pointer border-0"
                 >
                   ✕ Clear All
                 </button>
@@ -702,7 +700,7 @@ const Step4InsuranceQuotes = ({
                       ${
                         included
                           ? `${palette.activeBg} ${palette.activeRing} ${palette.text} shadow-sm`
-                          : "bg-slate-50 ring-slate-200 text-slate-500 hover:bg-slate-100"
+                          : "bg-white ring-slate-200 text-slate-500 hover:bg-slate-50"
                       }
                     `}
                   >
@@ -749,6 +747,7 @@ const Step4InsuranceQuotes = ({
                           addonBefore="₹"
                           controls={false}
                           placeholder="0"
+                          {...inrInputProps}
                           onChange={(v) =>
                             setQuoteDraft((p) => ({
                               ...p,
@@ -775,14 +774,28 @@ const Step4InsuranceQuotes = ({
           </section>
 
           {/* Action Row */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-r from-white via-slate-50/50 to-white p-3 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
             <Button
               type="primary"
               size="large"
               icon={<PlusOutlined />}
               onClick={addQuote}
-              disabled={!quoteDraft.insuranceCompany.trim()}
-              className="h-10 px-6 font-bold !bg-violet-600 hover:!bg-violet-700 !border-0 shadow-sm"
+              disabled={!canAddQuote}
+              style={
+                canAddQuote
+                  ? undefined
+                  : {
+                      background: "#FAF8F1",
+                      color: "#6b7280",
+                      borderColor: "#EEF3EF",
+                      opacity: 1,
+                    }
+              }
+              className={`h-10 px-6 font-bold !border-0 ${
+                canAddQuote
+                  ? "!bg-[#D8B8B4] hover:!opacity-90 !text-slate-800 shadow-sm"
+                  : "!bg-[#FAF8F1] !text-slate-500 !border !border-[#EEF3EF] !shadow-none"
+              }`}
             >
               Add Quote
             </Button>
@@ -810,20 +823,20 @@ const Step4InsuranceQuotes = ({
 
         {/* RIGHT column — sticky ticker */}
         <div className="flex flex-col gap-5">
-          <div className="sticky top-6 flex flex-col gap-4 rounded-2xl bg-white p-5 ring-1 ring-slate-200 shadow-sm">
-            <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <div className="sticky top-5 flex flex-col gap-4 rounded-2xl bg-white px-5 pb-5 pt-4 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
+            <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-500">
               Live Premium Estimate
             </p>
 
             {/* Hero total */}
-            <div className="rounded-xl bg-violet-50 px-4 py-4 ring-1 ring-violet-100">
-              <div className="text-[10px] uppercase tracking-widest text-violet-500 font-semibold">
+            <div className="rounded-xl bg-gradient-to-r from-[#EEF3EF] to-[#D6E6DF] px-4 py-4 ring-1 ring-[#D6E6DF]">
+              <div className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold">
                 Total Premium
               </div>
-              <div className="mt-1 text-3xl font-black tabular-nums text-violet-700">
+              <div className="mt-1 text-3xl font-black tabular-nums text-slate-800">
                 {toINR(quoteComputed.totalPremium)}
               </div>
-              <div className="mt-0.5 text-[11px] text-violet-400">
+              <div className="mt-0.5 text-[11px] text-slate-600">
                 Taxable + 18% GST
               </div>
             </div>
@@ -836,39 +849,39 @@ const Step4InsuranceQuotes = ({
                   value: toINR(quoteComputed.basePremium),
                   sub: `OD ${toINR(quoteComputed.odAmt)} · 3P ${toINR(quoteComputed.tpAmt)}`,
                   bg: "bg-slate-50",
-                  ring: "ring-slate-100",
+                  ring: "ring-slate-200",
                   val: "text-slate-800",
                 },
                 {
                   label: "Add-ons",
                   value: toINR(quoteComputed.addOnsTotal),
                   sub: "Bulk + selected",
-                  bg: "bg-violet-50",
-                  ring: "ring-violet-100",
-                  val: "text-violet-700",
+                  bg: "bg-[#EEF3EF]/70",
+                  ring: "ring-[#EEF3EF]",
+                  val: "text-slate-800",
                 },
                 {
                   label: "NCB Discount",
                   value: `-${toINR(quoteComputed.ncbAmount)}`,
-                  sub: `${Number(quoteDraft.ncbDiscount || 0)}% on base`,
-                  bg: "bg-emerald-50",
-                  ring: "ring-emerald-100",
-                  val: "text-emerald-700",
+                  sub: `${Number(quoteDraft.ncbDiscount || 0)}% on OD`,
+                  bg: "bg-[#D6E6DF]/60",
+                  ring: "ring-[#D6E6DF]",
+                  val: "text-slate-800",
                 },
                 {
                   label: "GST 18%",
                   value: toINR(quoteComputed.gstAmount),
                   sub: `On ${toINR(quoteComputed.taxableAmount)}`,
-                  bg: "bg-sky-50",
-                  ring: "ring-sky-100",
-                  val: "text-sky-700",
+                  bg: "bg-[#FAF8F1]",
+                  ring: "ring-[#FAF8F1]",
+                  val: "text-slate-800",
                 },
               ].map(({ label, value, sub, bg, ring, val }) => (
                 <div
                   key={label}
                   className={`rounded-lg px-3 py-2.5 ring-1 ${bg} ${ring}`}
                 >
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
                     {label}
                   </div>
                   <div
@@ -876,7 +889,7 @@ const Step4InsuranceQuotes = ({
                   >
                     {value}
                   </div>
-                  <div className="text-[10px] text-slate-400 leading-snug mt-0.5">
+                  <div className="text-[10px] text-slate-500 leading-snug mt-0.5">
                     {sub}
                   </div>
                 </div>
@@ -887,7 +900,7 @@ const Step4InsuranceQuotes = ({
 
             {/* IDV Breakdown */}
             <div>
-              <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 IDV Breakdown
               </p>
               <TickerRow
@@ -911,7 +924,7 @@ const Step4InsuranceQuotes = ({
 
             {/* Taxable Breakdown */}
             <div>
-              <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 Taxable Breakdown
               </p>
               <TickerRow label="OD Amount" value={toINR(quoteComputed.odAmt)} />
@@ -940,12 +953,12 @@ const Step4InsuranceQuotes = ({
             <span className="text-sm font-bold text-slate-700">
               Quotes List
             </span>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+            <span className="rounded-full bg-[#D8B8B4]/35 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-[#D8B8B4]">
               {quotes.length}
             </span>
           </div>
           {acceptedQuote && (
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#D6E6DF]/60 px-2.5 py-1 text-[11px] font-semibold text-slate-800 ring-1 ring-[#D6E6DF]">
               <CheckCircleFilled className="text-[10px]" />
               {acceptedQuote.insuranceCompany} · Accepted
             </span>
@@ -967,7 +980,7 @@ const Step4InsuranceQuotes = ({
               </p>
             </div>
             {showErrors && (
-              <span className="rounded-xl bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-500 ring-1 ring-rose-200">
+              <span className="rounded-xl bg-[#D8B8B4]/28 px-4 py-2 text-xs font-semibold text-slate-700 ring-1 ring-[#D8B8B4]">
                 ⚠ At least 1 quote is required to proceed.
               </span>
             )}
@@ -979,69 +992,22 @@ const Step4InsuranceQuotes = ({
                 key={String(getQuoteRowId(row))}
                 row={row}
                 idx={idx}
+                quoteRows={quoteRows}
                 acceptedQuoteId={acceptedQuoteId}
                 getQuoteRowId={getQuoteRowId}
                 computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
                 formatStoredOrComputedIdv={formatStoredOrComputedIdv}
                 formatStoredOrComputedPremium={formatStoredOrComputedPremium}
                 toINR={toINR}
-                quoteRows={quoteRows}
                 acceptQuote={acceptQuote}
                 setQuoteDraft={setQuoteDraft}
                 mapQuoteToDraft={mapQuoteToDraft}
-                setPlanFeaturesModal={setPlanFeaturesModal}
                 onDelete={deleteQuote}
               />
             ))}
           </div>
         )}
       </section>
-
-      {/* Plan Features Modal */}
-      <Modal
-        title={
-          <span className="text-base font-bold text-slate-800">
-            Plan Features
-          </span>
-        }
-        open={planFeaturesModal.open}
-        onCancel={() => setPlanFeaturesModal({ open: false, row: null })}
-        footer={null}
-        width={960}
-        centered
-        destroyOnClose
-        zIndex={1100}
-        getContainer={() => document.body}
-        className="[&_.ant-modal-content]:rounded-2xl"
-        styles={{
-          body: {
-            padding: 0,
-            maxHeight: "min(85vh, 900px)",
-            overflowY: "auto",
-          },
-          header: { marginBottom: 0 },
-          content: { padding: 0 },
-        }}
-      >
-        {planFeaturesModal.row ? (
-          <PlanFeaturesModalBody
-            key={String(getQuoteRowId(planFeaturesModal.row))}
-            row={planFeaturesModal.row}
-            acceptedQuoteId={acceptedQuoteId}
-            onAcceptAndClose={(rid) => {
-              acceptQuote(rid);
-              setPlanFeaturesModal({ open: false, row: null });
-            }}
-            getQuoteRowId={getQuoteRowId}
-            computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
-            toINR={toINR}
-          />
-        ) : (
-          <div className="px-8 py-10 text-center">
-            <Text type="secondary">No quote selected.</Text>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };

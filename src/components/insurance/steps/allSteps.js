@@ -19,10 +19,11 @@ export const STEP_TITLES = [
   "Step 2: Vehicle Details",
   "Step 3: Previous Policy Details",
   "Step 4: Insurance Quotes",
-  "Step 5: New Policy Details",
-  "Step 6: Documents",
-  "Step 7: Payment",
-  "Step 8: Payout Details",
+  "Step 5: Premium Breakup",
+  "Step 6: New Policy Details",
+  "Step 7: Documents",
+  "Step 8: Payment",
+  "Step 9: Payout Details",
 ];
 
 export const STEP_ICON_MAP = {
@@ -31,9 +32,10 @@ export const STEP_ICON_MAP = {
   3: History,
   4: ShieldCheck,
   5: FileCheck2,
-  6: FolderOpen,
-  7: Wallet,
-  8: CreditCard,
+  6: FileCheck2,
+  7: FolderOpen,
+  8: Wallet,
+  9: CreditCard,
 };
 
 export const durationOptions = [
@@ -96,4 +98,3 @@ export const INSURER_OPTIONS = insurerList.map((name) => ({
   label: name,
   value: name,
 }));
-

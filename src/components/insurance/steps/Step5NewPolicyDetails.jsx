@@ -1,11 +1,8 @@
 import React from "react";
 import dayjs from "dayjs";
 import {
-  Alert,
   Button,
-  Card,
   Col,
-  Divider,
   Input,
   InputNumber,
   message,
@@ -24,6 +21,7 @@ const Step5NewPolicyDetails = ({
   handleChange,
   handleNewPolicyStartOrDuration,
   acceptedQuote,
+  acceptedQuoteBreakup,
   durationOptions,
   paymentHistory,
   setPaymentModalVisible,
@@ -31,11 +29,79 @@ const Step5NewPolicyDetails = ({
   toINR,
   insuranceApi,
 }) => {
+  const acceptedQuoteId =
+    acceptedQuote?._id || acceptedQuote?.id || acceptedQuote?.quoteId || "—";
+  const acceptedCompany =
+    acceptedQuote?.insuranceCompany || formData.newInsuranceCompany || "—";
+  const acceptedPolicyType =
+    acceptedQuote?.coverageType || formData.newPolicyType || "—";
+  const acceptedDuration =
+    acceptedQuote?.policyDuration || formData.newInsuranceDuration || "—";
+  const acceptedIdv = acceptedQuoteBreakup
+    ? acceptedQuoteBreakup.totalIdv
+    : Number(formData.newIdvAmount || 0);
+  const acceptedPremium = acceptedQuote
+    ? Number(acceptedQuote.totalPremium || 0)
+    : Number(formData.newTotalPremium || 0);
+  const acceptedNcb = Number(
+    formData.newNcbDiscount || acceptedQuote?.ncbDiscount || 0,
+  );
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-5">
+      {/* Section 0: Accepted Quote Snapshot */}
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20 md:p-5">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2.5">
+          <div>
+            <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-400/70">
+              Policy Information
+            </h3>
+            <p className="m-0 text-xs text-emerald-700/70 dark:text-emerald-300/70">
+              Auto-filled from current accepted quote
+            </p>
+          </div>
+          <div className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900/60">
+            Quote ID: {acceptedQuoteId}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {[
+            { label: "Insurance Company", value: acceptedCompany },
+            { label: "Policy Type", value: acceptedPolicyType },
+            { label: "Insurance Duration", value: acceptedDuration },
+            {
+              label: "IDV Amount",
+              value: acceptedIdv > 0 ? toINR(acceptedIdv) : "—",
+            },
+            {
+              label: "Total Premium",
+              value: acceptedPremium > 0 ? toINR(acceptedPremium) : "—",
+            },
+          ].map(({ label, value }) => (
+            <div
+              key={label}
+              className="rounded-lg bg-white px-3 py-2.5 ring-1 ring-emerald-100 dark:bg-slate-950/50 dark:ring-emerald-900/40"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {label}
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {value}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-400">
+                From accepted quote
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Section 1: Vehicle Pricing */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/30">
-        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-slate-400">Vehicle Pricing Info</h3>
+      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 md:p-5">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
+          Vehicle Pricing Info
+        </h3>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <Text strong>Ex-Showroom Price (₹) *</Text>
@@ -83,7 +149,7 @@ const Step5NewPolicyDetails = ({
         </Row>
       </div>
 
-      <Row gutter={[16, 16]}>
+      <Row gutter={[14, 14]}>
         <Col xs={24} md={8}>
           <Text strong>Insurance Company *</Text>
           <Input
@@ -91,6 +157,9 @@ const Step5NewPolicyDetails = ({
             onChange={handleChange("newInsuranceCompany")}
             style={{ marginTop: 6 }}
           />
+          <div className="mt-1 text-[11px] text-slate-400">
+            From accepted quote
+          </div>
         </Col>
         <Col xs={24} md={8}>
           <Text strong>Policy Type *</Text>
@@ -109,6 +178,9 @@ const Step5NewPolicyDetails = ({
               { label: "Third Party", value: "Third Party" },
             ]}
           />
+          <div className="mt-1 text-[11px] text-slate-400">
+            From accepted quote
+          </div>
         </Col>
         <Col xs={24} md={8}>
           <Text strong>Policy Number</Text>
@@ -178,6 +250,9 @@ const Step5NewPolicyDetails = ({
             placeholder="Duration"
             disabled={!formData.newPolicyType}
           />
+          <div className="mt-1 text-[11px] text-slate-400">
+            Mapped from the accepted quote duration
+          </div>
         </Col>
 
         {formData.newPolicyType === "Comprehensive" && (
@@ -235,6 +310,9 @@ const Step5NewPolicyDetails = ({
             onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
             style={{ width: "100%", marginTop: 6 }}
           />
+          <div className="mt-1 text-[11px] text-slate-400">
+            From accepted quote: {acceptedNcb}%
+          </div>
         </Col>
         <Col xs={24} md={8}>
           <Text strong>IDV Amount (₹) *</Text>
@@ -244,17 +322,21 @@ const Step5NewPolicyDetails = ({
             onChange={(v) => setField("newIdvAmount", Number(v || 0))}
             style={{ width: "100%", marginTop: 6 }}
           />
+          <div className="mt-1 text-[11px] text-slate-400">
+            From accepted quote
+          </div>
         </Col>
         <Col xs={24} md={8}>
           <Text strong>Total Premium (₹) *</Text>
           <InputNumber
             min={0}
             value={Number(formData.newTotalPremium || 0)}
-            onChange={(v) =>
-              setField("newTotalPremium", Number(v || 0))
-            }
+            onChange={(v) => setField("newTotalPremium", Number(v || 0))}
             style={{ width: "100%", marginTop: 6 }}
           />
+          <div className="mt-1 text-[11px] text-slate-400">
+            From accepted quote
+          </div>
         </Col>
         <Col xs={24} md={8}>
           <Text strong>Hypothecation</Text>
@@ -269,6 +351,9 @@ const Step5NewPolicyDetails = ({
               { label: "SBI", value: "SBI" },
             ]}
           />
+          <div className="mt-1 text-[11px] text-slate-400">
+            Select the financed bank, or keep Not Applicable
+          </div>
         </Col>
         <Col xs={24} md={16}>
           <Text strong>Remarks</Text>
@@ -283,8 +368,10 @@ const Step5NewPolicyDetails = ({
       </Row>
 
       {/* Section 2: Extended Warranty */}
-      <div className="rounded-xl border border-amber-200/50 bg-amber-50/30 p-6 dark:border-amber-900/30 dark:bg-amber-900/10">
-        <h3 className="mb-5 text-sm font-bold uppercase tracking-wider text-amber-600/70 dark:text-amber-400/50">Extended Warranty Details</h3>
+      <div className="rounded-xl border border-amber-200/50 bg-amber-50/30 p-4 dark:border-amber-900/30 dark:bg-amber-900/10 md:p-5">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-amber-600/70 dark:text-amber-400/50">
+          Extended Warranty Details
+        </h3>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <Text strong>EW Commencement Date</Text>
@@ -318,11 +405,15 @@ const Step5NewPolicyDetails = ({
       </div>
 
       {/* Section 3: Payment Tracking */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/30">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">Payment Tracking</h3>
+      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 md:p-5">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
+          Payment Tracking
+        </h3>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">Cust. Expected (₹)</Text>
+            <Text strong className="text-[11px] uppercase text-slate-500">
+              Cust. Expected (₹)
+            </Text>
             <InputNumber
               min={0}
               value={Number(formData.customerPaymentExpected || 0)}
@@ -334,7 +425,9 @@ const Step5NewPolicyDetails = ({
             />
           </Col>
           <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">Cust. Received (₹)</Text>
+            <Text strong className="text-[11px] uppercase text-slate-500">
+              Cust. Received (₹)
+            </Text>
             <InputNumber
               min={0}
               value={Number(formData.customerPaymentReceived || 0)}
@@ -346,7 +439,9 @@ const Step5NewPolicyDetails = ({
             />
           </Col>
           <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">In-house Expected (₹)</Text>
+            <Text strong className="text-[11px] uppercase text-slate-500">
+              In-house Expected (₹)
+            </Text>
             <InputNumber
               min={0}
               value={Number(formData.inhousePaymentExpected || 0)}
@@ -358,7 +453,9 @@ const Step5NewPolicyDetails = ({
             />
           </Col>
           <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">In-house Received (₹)</Text>
+            <Text strong className="text-[11px] uppercase text-slate-500">
+              In-house Received (₹)
+            </Text>
             <InputNumber
               min={0}
               value={Number(formData.inhousePaymentReceived || 0)}
@@ -388,18 +485,14 @@ const Step5NewPolicyDetails = ({
                   dataIndex: "date",
                   key: "date",
                   width: 120,
-                  render: (d) =>
-                    d
-                      ? dayjs(d).format("DD MMM YYYY")
-                      : "—",
+                  render: (d) => (d ? dayjs(d).format("DD MMM YYYY") : "—"),
                 },
                 {
                   title: "Type",
                   dataIndex: "paymentType",
                   key: "type",
                   width: 100,
-                  render: (t) =>
-                    t === "customer" ? "Customer" : "In-house",
+                  render: (t) => (t === "customer" ? "Customer" : "In-house"),
                 },
                 {
                   title: "Amount",
@@ -444,12 +537,10 @@ const Step5NewPolicyDetails = ({
                 try {
                   await insuranceApi.syncReceivable(insuranceDbId);
                   message.success(
-                    "Customer payment synced to Receivables module"
+                    "Customer payment synced to Receivables module",
                   );
                 } catch (err) {
-                  message.error(
-                    err?.message || "Failed to sync receivable"
-                  );
+                  message.error(err?.message || "Failed to sync receivable");
                 }
               }}
             >

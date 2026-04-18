@@ -21,8 +21,10 @@ const formatMoney = (v) => {
 };
 
 const stepPillClass = (step) => {
-  if (step >= 7) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
-  if (step >= 4) return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300";
+  if (step >= 8)
+    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
+  if (step >= 4)
+    return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300";
   return "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300";
 };
 
@@ -31,10 +33,11 @@ const STEP_NAMES = {
   2: "Vehicle Details",
   3: "Previous Policy",
   4: "Quotes",
-  5: "Policy Details",
-  6: "Documents",
-  7: "Payment",
-  8: "Payout",
+  5: "Premium Breakup",
+  6: "Policy Details",
+  7: "Documents",
+  8: "Payment",
+  9: "Payout",
 };
 
 const STEP_ICONS = {
@@ -42,10 +45,11 @@ const STEP_ICONS = {
   2: "Car",
   3: "History",
   4: "Layout",
-  5: "FileText",
-  6: "Upload",
-  7: "CreditCard",
-  8: "Banknote",
+  5: "DollarSign",
+  6: "FileText",
+  7: "Upload",
+  8: "CreditCard",
+  9: "Banknote",
 };
 
 const InsuranceStickyHeader = ({
@@ -99,7 +103,8 @@ const InsuranceStickyHeader = ({
                 {data.mobile || "—"} • {data.email || "—"}
               </p>
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                PAN: {data.panNumber || "—"} {data.employeeName ? `• Staff: ${data.employeeName}` : ""}
+                PAN: {data.panNumber || "—"}{" "}
+                {data.employeeName ? `• Staff: ${data.employeeName}` : ""}
               </p>
             </div>
           </div>
@@ -115,10 +120,12 @@ const InsuranceStickyHeader = ({
             </p>
             <div className="flex flex-col gap-0.5 mt-0.5">
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                {data.newInsuranceDuration || "1yr OD + 1yr TP"} • {data.newPolicyType || "—"}
+                {data.newInsuranceDuration || "1yr OD + 1yr TP"} •{" "}
+                {data.newPolicyType || "—"}
               </p>
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                {data.newPolicyNumber || "No Policy #"} • Starts: {data.newPolicyStartDate || "—"}
+                {data.newPolicyNumber || "No Policy #"} • Starts:{" "}
+                {data.newPolicyStartDate || "—"}
               </p>
             </div>
           </div>
@@ -134,7 +141,8 @@ const InsuranceStickyHeader = ({
             </p>
             <div className="flex flex-col gap-0.5 mt-0.5">
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                IDV: {formatMoney(data.newIdvAmount)} • NCB: {data.newNcbDiscount || 0}%
+                IDV: {formatMoney(data.newIdvAmount)} • NCB:{" "}
+                {data.newNcbDiscount || 0}%
               </p>
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
                 Subvention: {formatMoney(data.subventionAmount)}
@@ -153,7 +161,8 @@ const InsuranceStickyHeader = ({
             </p>
             <div className="flex flex-col gap-0.5 mt-0.5">
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                Reg: {data.registrationNumber || "Unregistered"} • Year: {data.manufactureYear || "—"}
+                Reg: {data.registrationNumber || "Unregistered"} • Year:{" "}
+                {data.manufactureYear || "—"}
               </p>
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
                 Chassis: {data.chassisNumber || "—"}
@@ -168,7 +177,11 @@ const InsuranceStickyHeader = ({
               Customer Pmt
             </p>
             <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-              Bal: {formatMoney(asNumber(data.customerPaymentExpected) - asNumber(data.customerPaymentReceived))}
+              Bal:{" "}
+              {formatMoney(
+                asNumber(data.customerPaymentExpected) -
+                  asNumber(data.customerPaymentReceived),
+              )}
             </p>
             <div className="flex flex-col gap-0.5 mt-0.5">
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none text-emerald-600 dark:text-emerald-400">
@@ -187,7 +200,11 @@ const InsuranceStickyHeader = ({
               In-house Pmt
             </p>
             <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-              Bal: {formatMoney(asNumber(data.inhousePaymentExpected) - asNumber(data.inhousePaymentReceived))}
+              Bal:{" "}
+              {formatMoney(
+                asNumber(data.inhousePaymentExpected) -
+                  asNumber(data.inhousePaymentReceived),
+              )}
             </p>
             <div className="flex flex-col gap-0.5 mt-0.5">
               <p className="truncate text-[9px] text-slate-500 font-medium leading-none text-rose-600 dark:text-rose-400">
@@ -207,7 +224,9 @@ const InsuranceStickyHeader = ({
             <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
               ID: {String(data.id || data._id || "NEW").slice(-8)}
             </p>
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold mt-0.5 ${stepPillClass(activeStep)}`}>
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold mt-0.5 ${stepPillClass(activeStep)}`}
+            >
               {STEP_NAMES[activeStep]}
             </span>
           </div>
@@ -218,7 +237,7 @@ const InsuranceStickyHeader = ({
           {visibleSteps.map((stepNum, idx) => {
             const isActive = activeStep === stepNum;
             const isCompleted = activeStep > stepNum;
-            
+
             return (
               <React.Fragment key={stepNum}>
                 <button
@@ -227,33 +246,43 @@ const InsuranceStickyHeader = ({
                     isActive ? "opacity-100" : "opacity-60 hover:opacity-100"
                   }`}
                 >
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
-                    isActive 
-                      ? "border-sky-500 bg-sky-500 text-white shadow-[0_0_15px_rgba(14,165,233,0.3)]" 
-                      : isCompleted 
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20" 
-                        : "border-slate-200 bg-white text-slate-400 dark:border-slate-800 dark:bg-slate-900"
-                  }`}>
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
+                      isActive
+                        ? "border-sky-500 bg-sky-500 text-white shadow-[0_0_15px_rgba(14,165,233,0.3)]"
+                        : isCompleted
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20"
+                          : "border-slate-200 bg-white text-slate-400 dark:border-slate-800 dark:bg-slate-900"
+                    }`}
+                  >
                     {isCompleted ? (
                       <Icon name="Check" size={16} strokeWidth={3} />
                     ) : (
                       <Icon name={STEP_ICONS[stepNum]} size={16} />
                     )}
                   </div>
-                  <span className={`text-[10px] font-bold tracking-tight whitespace-nowrap ${
-                    isActive ? "text-sky-600 dark:text-sky-400" : "text-slate-500"
-                  }`}>
+                  <span
+                    className={`text-[10px] font-bold tracking-tight whitespace-nowrap ${
+                      isActive
+                        ? "text-sky-600 dark:text-sky-400"
+                        : "text-slate-500"
+                    }`}
+                  >
                     {STEP_NAMES[stepNum]}
                   </span>
-                  
+
                   {isActive && (
                     <div className="absolute -bottom-2 h-1 w-full rounded-t-full bg-sky-500" />
                   )}
                 </button>
                 {idx < visibleSteps.length - 1 && (
-                  <div className={`h-[2px] flex-1 min-w-[20px] mx-2 mb-4 rounded-full transition-all duration-500 ${
-                    isCompleted ? "bg-emerald-400" : "bg-slate-200 dark:bg-slate-800"
-                  }`} />
+                  <div
+                    className={`h-[2px] flex-1 min-w-[20px] mx-2 mb-4 rounded-full transition-all duration-500 ${
+                      isCompleted
+                        ? "bg-emerald-400"
+                        : "bg-slate-200 dark:bg-slate-800"
+                    }`}
+                  />
                 )}
               </React.Fragment>
             );

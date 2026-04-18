@@ -12,6 +12,24 @@ const toINR = (num) =>
 const InsurancePreview = ({ visible, onClose, data }) => {
   if (!data) return null;
 
+  const receivables = Array.isArray(data.insurance_receivables)
+    ? data.insurance_receivables
+    : [];
+  const payables = Array.isArray(data.insurance_payables)
+    ? data.insurance_payables
+    : [];
+  const payoutReceivable = receivables.reduce(
+    (sum, r) => sum + Number(r.net_payout_amount || 0),
+    0,
+  );
+  const payoutPayable = payables.reduce(
+    (sum, p) => sum + Number(p.net_payout_amount || 0),
+    0,
+  );
+  const payoutMargin = payoutReceivable - payoutPayable;
+  const payoutPercent = Number(data.payoutPercentage ?? 0);
+  const subventionAmount = Number(data.subventionAmount || 0);
+
   // Quote columns
   const quoteColumns = [
     {
@@ -243,9 +261,55 @@ const InsurancePreview = ({ visible, onClose, data }) => {
           )}
         </section>
 
-        {/* Step 5: New Policy */}
+        {/* Step 5: Premium Breakup */}
+        {data.acceptedQuote && (
+          <section className="rounded-xl border border-slate-200/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+            <SectionHeader icon="💰" title="Step 5: Premium Breakup" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <Field
+                label="Insurance Company"
+                value={data.acceptedQuote.insuranceCompany}
+              />
+              <Field label="Zone" value={data.acceptedQuote.zone || "N/A"} />
+              <Field
+                label="IDV Amount"
+                value={toINR(data.acceptedQuote.totalIdv)}
+              />
+              <Field
+                label="OD Amount"
+                value={toINR(data.acceptedQuote.odAmount)}
+              />
+              <Field
+                label="TP Amount"
+                value={toINR(data.acceptedQuote.thirdPartyAmount)}
+              />
+              <Field
+                label="Add-ons Amount"
+                value={toINR(data.acceptedQuote.addOnsAmount)}
+              />
+              <Field
+                label="NCB Discount"
+                value={`${data.acceptedQuote.ncbDiscount || 0}%`}
+              />
+              <Field
+                label="Total Premium"
+                value={toINR(data.acceptedQuote.totalPremium)}
+                highlight={true}
+              />
+              <Field
+                label="GST (18%)"
+                value={toINR(
+                  data.acceptedQuote.totalPremium -
+                    data.acceptedQuote.taxableAmount || 0,
+                )}
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Step 6: New Policy */}
         <section className="rounded-xl border border-slate-200/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-          <SectionHeader icon="✨" title="Step 5: New Policy Details" />
+          <SectionHeader icon="✨" title="Step 6: New Policy Details" />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             <Field label="Insurance Company" value={data.newInsuranceCompany} />
             <Field
@@ -265,6 +329,7 @@ const InsurancePreview = ({ visible, onClose, data }) => {
             <Field label="NCB Discount" value={`${data.newNcbDiscount}%`} />
             <Field label="OD Expiry" value={data.newOdExpiryDate} />
             <Field label="TP Expiry" value={data.newTpExpiryDate} />
+            <Field label="Hypothecation" value={data.newHypothecation} />
           </div>
           {data.newRemarks && (
             <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-950/60">
@@ -278,9 +343,27 @@ const InsurancePreview = ({ visible, onClose, data }) => {
           )}
         </section>
 
-        {/* Step 6: Documents */}
+        {/* Step 9: Payout */}
         <section className="rounded-xl border border-slate-200/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-          <SectionHeader icon="📎" title="Step 6: Documents" />
+          <SectionHeader icon="📈" title="Step 9: Payout Details" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <Field label="Payout Percentage" value={`${payoutPercent}%`} />
+            <Field label="Subvention" value={toINR(subventionAmount)} />
+            <Field label="Receivables (Net)" value={toINR(payoutReceivable)} />
+            <Field label="Payables (Net)" value={toINR(payoutPayable)} />
+            <Field
+              label="Payout Margin"
+              value={toINR(payoutMargin)}
+              highlight={payoutMargin >= 0}
+            />
+            <Field label="Receivable Rows" value={String(receivables.length)} />
+            <Field label="Payable Rows" value={String(payables.length)} />
+          </div>
+        </section>
+
+        {/* Step 7: Documents */}
+        <section className="rounded-xl border border-slate-200/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <SectionHeader icon="📎" title="Step 7: Documents" />
           {data.documents && data.documents.length > 0 ? (
             <div className="overflow-x-auto">
               <Table
