@@ -5,6 +5,9 @@ import Button from "../../components/ui/Button";
 
 const InsuranceStageFooter = ({
   activeStep,
+  displayStep,
+  totalSteps = 9,
+  isLastStep,
   onNext,
   onBack,
   onSave,
@@ -12,7 +15,11 @@ const InsuranceStageFooter = ({
   isSaving,
   mode = "create",
 }) => {
-  const isLastStep = activeStep === 8;
+  const currentStepDisplay = Number(displayStep || activeStep || 1);
+  const computedIsLastStep =
+    typeof isLastStep === "boolean"
+      ? isLastStep
+      : currentStepDisplay === Number(totalSteps || 9);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[930] border-t border-border bg-white/80 backdrop-blur-xl shadow-[0_-2px_10px_rgba(0,0,0,0.05)] dark:bg-slate-950/80">
@@ -24,7 +31,7 @@ const InsuranceStageFooter = ({
             <span>
               Step:{" "}
               <span className="font-semibold text-foreground">
-                {activeStep} of 8
+                {currentStepDisplay} of {totalSteps}
               </span>
             </span>
           </div>
@@ -70,16 +77,20 @@ const InsuranceStageFooter = ({
               variant="default"
               size="sm"
               onClick={onNext}
-              loading={isSaving && isLastStep}
+              loading={isSaving && computedIsLastStep}
               className={`${
-                isLastStep
+                computedIsLastStep
                   ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
                   : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"
               } text-white border-none shadow-lg`}
             >
-              {isLastStep ? (
+              {computedIsLastStep ? (
                 <>
-                  <Icon name="CheckCircle" size={16} style={{ marginRight: 6 }} />
+                  <Icon
+                    name="CheckCircle"
+                    size={16}
+                    style={{ marginRight: 6 }}
+                  />
                   {mode === "edit" ? "Update Case" : "Complete Case"}
                 </>
               ) : (

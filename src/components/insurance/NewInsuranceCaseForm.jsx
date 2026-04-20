@@ -1702,6 +1702,9 @@ const NewInsuranceCaseForm = ({
       {InsuranceStageFooter ? (
         <InsuranceStageFooter
           activeStep={step}
+          displayStep={stepIndex + 1}
+          totalSteps={visibleSteps.length}
+          isLastStep={stepIndex === visibleSteps.length - 1}
           onNext={step === 9 ? handleSubmitFinal : goNext}
           onBack={goBack}
           onSave={() => persistNow({ silent: false })}
