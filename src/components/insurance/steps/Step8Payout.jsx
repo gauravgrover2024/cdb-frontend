@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import {
+  AutoComplete,
   Button,
   Col,
   Divider,
@@ -16,6 +17,8 @@ import {
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 
 const { Text, Title } = Typography;
+const sectionHeaderLabel =
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
 const formatMoney = (value, minimumFractionDigits = 0) =>
   `₹${Number(value || 0).toLocaleString("en-IN", {
@@ -28,9 +31,13 @@ const Step8Payout = ({
   setField,
   acceptedQuote,
   acceptedQuoteBreakup,
+  bankOptions = [],
 }) => {
   const netPremium = Number(
-    acceptedQuote?.totalPremium || formData.newTotalPremium || 0,
+    acceptedQuoteBreakup?.totalPremium ||
+      acceptedQuote?.totalPremium ||
+      formData.newTotalPremium ||
+      0,
   );
   const odAmount = Number(acceptedQuoteBreakup?.odAmt || 0);
   const addOnsAmount = Number(acceptedQuoteBreakup?.addOnsTotal || 0);
@@ -168,6 +175,28 @@ const Step8Payout = ({
 
   return (
     <div className="flex flex-col gap-8">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className={sectionHeaderLabel}>Payout information</div>
+            <h2 className="m-0 mt-1 text-[24px] font-black tracking-tight text-slate-800">
+              Payout details
+            </h2>
+            <p className="m-0 mt-1 text-sm text-slate-500">
+              Configure receivables/payables and track net margin
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !border-slate-200 !text-slate-700">
+              Premium: {formatMoney(netPremium)}
+            </Tag>
+            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF3EF] !border-[#D6E6DF] !text-slate-800">
+              Margin: {formatMoney(totals.margin, 2)}
+            </Tag>
+          </div>
+        </div>
+      </div>
+
       {/* Section 1: Real-time Quote Data */}
       <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
         <Row gutter={16} align="middle">
@@ -274,18 +303,18 @@ const Step8Payout = ({
           </Col>
           <Col xs={24} md={4}>
             <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Payout (%) *
+              Payout (%) (From Accepted Quote)
             </Text>
             <InputNumber
               min={0}
               max={100}
               value={payoutPercentage}
-              onChange={(v) => setField("payoutPercentage", Number(v || 0))}
               className="mt-1 w-full"
               addonAfter="%"
+              disabled
             />
             <div className="mt-1 text-[10px] text-slate-400">
-              Debounced (500ms)
+              Set at quote acceptance (editable in case if needed)
             </div>
           </Col>
           <Col xs={24} md={4}>
@@ -385,6 +414,7 @@ const Step8Payout = ({
               <PayoutItemCard
                 key={item.id}
                 item={item}
+                bankOptions={bankOptions}
                 onUpdate={(f, v) =>
                   updatePayout(
                     receivables,
@@ -432,6 +462,7 @@ const Step8Payout = ({
               <PayoutItemCard
                 key={item.id}
                 item={item}
+                bankOptions={bankOptions}
                 onUpdate={(f, v) =>
                   updatePayout(payables, "insurance_payables", item.id, f, v)
                 }
@@ -448,7 +479,7 @@ const Step8Payout = ({
   );
 };
 
-const PayoutItemCard = ({ item, onUpdate, onDelete, type }) => {
+const PayoutItemCard = ({ item, onUpdate, onDelete, type, bankOptions = [] }) => {
   const isReceivable = type === "Receivable";
   const cardClasses = isReceivable
     ? "border-[#D6E6DF] bg-white"
@@ -474,11 +505,14 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type }) => {
           <Text type="secondary" className="text-[10px] uppercase font-bold">
             Party Name
           </Text>
-          <Input
+          <AutoComplete
             size="small"
-            value={item.payout_party_name}
-            onChange={(e) => onUpdate("payout_party_name", e.target.value)}
-            placeholder="Name"
+            value={item.payout_party_name || ""}
+            onChange={(v) => onUpdate("payout_party_name", v)}
+            showSearch
+            placeholder="Select bank/party"
+            options={bankOptions.map((name) => ({ label: name, value: name }))}
+            style={{ width: "100%" }}
           />
         </Col>
         <Col span={8}>

@@ -1,0 +1,1 @@
+export const DEFAULT_PAYOUT_PERCENTAGE = 10;

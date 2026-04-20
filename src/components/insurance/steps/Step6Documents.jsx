@@ -11,6 +11,9 @@ import Button from "../../ui/Button";
 import LoanDocumentViewerModal from "../../../modules/loans/components/shared/LoanDocumentViewerModal";
 import { requiredDocumentTags } from "./allSteps";
 
+const sectionHeaderLabel =
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
+
 const DOCUMENT_MATRIX = {
   "new-car-insurance": {
     label: "New Car Insurance",
@@ -554,26 +557,20 @@ const Step6Documents = ({
       />
 
       <div className="flex flex-col gap-4">
-        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f7fbff_100%)] shadow-[0_12px_32px_rgba(15,23,42,0.04)]">
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
           <div className="px-5 py-5 md:px-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-sky-50 text-sky-700 ring-1 ring-sky-100">
-                    <Icon name="FolderOpen" size={20} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                      Documentation
-                    </div>
-                    <div className="truncate text-[26px] font-black tracking-tight text-slate-800">
-                      Document workspace
-                    </div>
-                  </div>
+                <div className={sectionHeaderLabel}>Documentation</div>
+                <div className="truncate text-[24px] font-black tracking-tight text-slate-800">
+                  Document workspace
+                </div>
+                <div className="mt-1 text-sm text-slate-500">
+                  Upload, tag and verify documents with requirement coverage
                 </div>
               </div>
 
-              <div className="w-full xl:w-auto xl:min-w-[240px]">
+              <div className="w-full xl:w-auto xl:min-w-[260px]">
                 <Select
                   value={scenario}
                   style={{ width: "100%" }}

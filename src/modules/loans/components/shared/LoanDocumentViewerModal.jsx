@@ -68,14 +68,14 @@ const withPdfZoomHash = (url, zoom, fitMode) => {
 
 const normalizeDocs = (documents = []) =>
   (Array.isArray(documents) ? documents : [])
-    .filter((doc) => hasValue(doc?.url))
+    .filter((doc) => hasValue(doc?.url) || hasValue(doc?.previewUrl))
     .map((doc, index) => ({
       id: doc?.id || `${doc?.url}-${index}`,
       name: doc?.name || doc?.tag || `Document ${index + 1}`,
       tag: doc?.tag || "",
       documentStage: doc?.documentStage || doc?.scope || (doc?.isPreFile ? "Pre-File" : "Post-File"),
       rawUrl: doc?.rawUrl || doc?.url,
-      url: buildAccessibleDocumentUrl(doc?.url),
+      url: buildAccessibleDocumentUrl(doc?.url || doc?.previewUrl),
       size: doc?.size || "",
       uploadedBy: doc?.uploadedBy || "",
       isImage: doc?.isImage ?? isImageUrl(doc?.url),
@@ -589,7 +589,7 @@ const LoanDocumentViewerModal = ({
           </div>
 
           {showThumbnailRail && docs.length > 1 && (
-            <div className="pointer-events-none absolute inset-x-4 bottom-4 z-30 opacity-0 transition-all duration-200 ease-out group-hover/viewer:pointer-events-auto group-hover/viewer:opacity-100 group-focus-within/viewer:pointer-events-auto group-focus-within/viewer:opacity-100">
+            <div className="absolute inset-x-4 bottom-4 z-30 pointer-events-auto opacity-100 transition-all duration-200 ease-out">
               <div className="rounded-xl border border-border/80 bg-background p-2 shadow-lg">
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {docs.map((doc, idx) => (

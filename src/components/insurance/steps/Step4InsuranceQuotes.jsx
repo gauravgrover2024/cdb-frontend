@@ -23,6 +23,18 @@ import {
 } from "@ant-design/icons";
 import { addOnCatalog } from "./allSteps";
 
+const sectionHeaderLabel =
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
+
+const NCB_SLAB_OPTIONS = [
+  { label: "0 Year (0%)", value: 0, percent: 0 },
+  { label: "1 Year (20%)", value: 1, percent: 20 },
+  { label: "2 Years (25%)", value: 2, percent: 25 },
+  { label: "3 Years (35%)", value: 3, percent: 35 },
+  { label: "4 Years (45%)", value: 4, percent: 45 },
+  { label: "5+ Years (50%)", value: 5, percent: 50 },
+];
+
 const inrInputProps = {
   formatter: (value) => {
     const raw = `${value ?? ""}`.replace(/,/g, "");
@@ -413,26 +425,60 @@ const Step4InsuranceQuotes = ({
   computeQuoteBreakupFromRow,
   formatStoredOrComputedIdv,
   formatStoredOrComputedPremium,
+  onSaveDraft,
+  isSaving = false,
 }) => {
   const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
+  const odAmt = Number(quoteComputed?.odAmt || 0);
+  const tpAmt = Number(quoteComputed?.tpAmt || 0);
+  const addOnsTotal = Number(quoteComputed?.addOnsTotal || 0);
+  const basePremium = odAmt + tpAmt + addOnsTotal;
+  const ncbAmount = Number(quoteComputed?.ncbAmount || 0);
+  const taxableAmount = Math.max(basePremium - ncbAmount, 0);
+  const gstAmount = Number(quoteComputed?.gstAmount || 0);
+  const totalPremium = taxableAmount + gstAmount;
+  const ncbPct = Number(quoteDraft?.ncbDiscount || 0);
+  const coverageType = String(quoteDraft?.coverageType || "Comprehensive");
+  const ncbYears =
+    NCB_SLAB_OPTIONS.find((item) => item.percent === ncbPct)?.value ?? null;
+  const handleNcbYearsChange = (years) => {
+    const selected = NCB_SLAB_OPTIONS.find((item) => item.value === years);
+    setQuoteDraft((p) => ({
+      ...p,
+      ncbClaimFreeYears: years,
+      ncbDiscount: Number(selected?.percent ?? p.ncbDiscount ?? 0),
+    }));
+  };
+  const basePremiumFormulaText =
+    coverageType === "Third Party"
+      ? `3P: ${toINR(tpAmt)}`
+      : coverageType === "Own Damage"
+        ? `OD: ${toINR(odAmt)} + Add-ons: ${toINR(addOnsTotal)}`
+        : `OD: ${toINR(odAmt)} + 3P: ${toINR(tpAmt)} + Add-ons: ${toINR(addOnsTotal)}`;
 
   return (
     <div className="min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
       {/* Page Header */}
-      <div className="mb-5 rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200 shadow-sm md:px-5 md:py-3.5">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF3EF] ring-1 ring-[#D6E6DF]">
-            <SafetyCertificateOutlined className="text-base text-slate-700" />
-          </div>
-          <div>
-            <h2 className="m-0 text-lg font-black tracking-tight text-slate-800">
-              Insurance Quotes
+      <div className="mb-5 rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className={sectionHeaderLabel}>Policy information</div>
+            <h2 className="m-0 mt-1 text-[24px] font-black tracking-tight text-slate-800">
+              Insurance quotes
             </h2>
-            <p className="m-0 text-xs text-slate-400">
-              Add quotes, compare plans and accept the best one
+            <p className="m-0 mt-1 text-sm text-slate-500">
+              Add, compare and accept the best quote
             </p>
           </div>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="middle"
+              onClick={onSaveDraft}
+              loading={isSaving}
+              className="!h-9 !rounded-lg !border-emerald-300 !bg-emerald-50 !px-3 !text-[12px] !font-semibold !text-emerald-700 hover:!bg-emerald-100 dark:!border-emerald-800 dark:!bg-emerald-950/30 dark:!text-emerald-300 dark:hover:!bg-emerald-950/50"
+            >
+              Save to DB
+            </Button>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
               Quotes: {quotes.length}
             </span>
@@ -593,6 +639,19 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full"
                   addonAfter="%"
+                />
+              </FieldBlock>
+
+              <FieldBlock label="Claim-Free Years (Auto NCB)">
+                <Select
+                  value={ncbYears}
+                  onChange={handleNcbYearsChange}
+                  placeholder="Select claim-free years"
+                  className="w-full"
+                  options={NCB_SLAB_OPTIONS.map((item) => ({
+                    label: item.label,
+                    value: item.value,
+                  }))}
                 />
               </FieldBlock>
 
@@ -834,10 +893,10 @@ const Step4InsuranceQuotes = ({
                 Total Premium
               </div>
               <div className="mt-1 text-3xl font-black tabular-nums text-slate-800">
-                {toINR(quoteComputed.totalPremium)}
+                {toINR(totalPremium)}
               </div>
               <div className="mt-0.5 text-[11px] text-slate-600">
-                Taxable + 18% GST
+                ({toINR(taxableAmount)} + {toINR(gstAmount)})
               </div>
             </div>
 
@@ -846,32 +905,35 @@ const Step4InsuranceQuotes = ({
               {[
                 {
                   label: "Base Premium",
-                  value: toINR(quoteComputed.basePremium),
-                  sub: `OD ${toINR(quoteComputed.odAmt)} · 3P ${toINR(quoteComputed.tpAmt)}`,
+                  value: toINR(basePremium),
+                  sub: basePremiumFormulaText,
                   bg: "bg-slate-50",
                   ring: "ring-slate-200",
                   val: "text-slate-800",
                 },
                 {
-                  label: "Add-ons",
-                  value: toINR(quoteComputed.addOnsTotal),
-                  sub: "Bulk + selected",
+                  label: "Add-ons Total",
+                  value: toINR(addOnsTotal),
+                  sub: "Individual + Add-ons field",
                   bg: "bg-[#EEF3EF]/70",
                   ring: "ring-[#EEF3EF]",
                   val: "text-slate-800",
                 },
                 {
                   label: "NCB Discount",
-                  value: `-${toINR(quoteComputed.ncbAmount)}`,
-                  sub: `${Number(quoteDraft.ncbDiscount || 0)}% on OD`,
+                  value: `-${toINR(ncbAmount)}`,
+                  sub:
+                    ncbPct > 0
+                      ? `${ncbPct}% on OD (for reference)`
+                      : "NCB percentage shown for reference only",
                   bg: "bg-[#D6E6DF]/60",
                   ring: "ring-[#D6E6DF]",
                   val: "text-slate-800",
                 },
                 {
                   label: "GST 18%",
-                  value: toINR(quoteComputed.gstAmount),
-                  sub: `On ${toINR(quoteComputed.taxableAmount)}`,
+                  value: toINR(gstAmount),
+                  sub: `On ${toINR(taxableAmount)}`,
                   bg: "bg-[#FAF8F1]",
                   ring: "ring-[#FAF8F1]",
                   val: "text-slate-800",
@@ -933,9 +995,10 @@ const Step4InsuranceQuotes = ({
                 label="Add-ons"
                 value={toINR(quoteComputed.addOnsTotal)}
               />
+              <TickerRow label="NCB Discount" value={`-${toINR(ncbAmount)}`} />
               <TickerRow
                 label="Taxable Total"
-                value={toINR(quoteComputed.taxableAmount)}
+                value={toINR(taxableAmount)}
                 bold
                 valueClass="text-slate-900"
               />

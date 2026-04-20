@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Alert,
   Button,
   Card,
   Divider,
@@ -9,7 +8,6 @@ import {
   Col,
   Space,
   Spin,
-  Tag,
   Typography,
 } from "antd";
 import { DownloadOutlined, CheckOutlined } from "@ant-design/icons";
@@ -221,52 +219,6 @@ const Step5PremiumBreakup = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Card */}
-      <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <Title level={4} className="!mb-1">
-                {insuranceCompany}
-              </Title>
-              <Text type="secondary" className="text-sm">
-                {coverageType} Coverage • {policyDuration}
-              </Text>
-            </div>
-            <Tag color="blue" className="!text-base px-3 py-1">
-              Zone: {zone}
-            </Tag>
-          </div>
-          <Divider className="!my-3" />
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-3 bg-white rounded border border-blue-100">
-              <Text type="secondary" className="text-xs">
-                IDV Amount
-              </Text>
-              <Title level={5} className="!mt-1 !mb-0 text-blue-600">
-                {toINR(totalIdv)}
-              </Title>
-            </div>
-            <div className="p-3 bg-white rounded border border-blue-100">
-              <Text type="secondary" className="text-xs">
-                Total Premium
-              </Text>
-              <Title level={5} className="!mt-1 !mb-0 text-green-600">
-                {toINR(totalPremium)}
-              </Title>
-            </div>
-            <div className="p-3 bg-white rounded border border-blue-100">
-              <Text type="secondary" className="text-xs">
-                GST Amount
-              </Text>
-              <Title level={5} className="!mt-1 !mb-0 text-orange-600">
-                {toINR(gstAmount)}
-              </Title>
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {/* OWN DAMAGE Section */}
       <Card className="border-l-4 border-l-sky-500">
         <Title level={5} className="!mb-4 flex items-center gap-2">
@@ -431,7 +383,7 @@ const Step5PremiumBreakup = ({
             size="large"
             icon={<DownloadOutlined />}
             onClick={handleDownloadPDF}
-            className="!height-12"
+            className="!h-12"
           >
             Download Premium Breakup PDF
           </Button>
@@ -442,21 +394,12 @@ const Step5PremiumBreakup = ({
             size="large"
             type="primary"
             icon={<CheckOutlined />}
-            className="!height-12 !bg-green-600 !hover:bg-green-700"
+            className="!h-12 !bg-green-600 !hover:bg-green-700"
           >
             Share Quotes
           </Button>
         </Col>
       </Row>
-
-      {/* Info Alert */}
-      <Alert
-        type="info"
-        showIcon
-        message="Premium Breakup Details"
-        description="Review the complete premium pricing breakdown above. Once accepted, you'll proceed to enter the new policy details."
-        className="!mt-4"
-      />
     </div>
   );
 };

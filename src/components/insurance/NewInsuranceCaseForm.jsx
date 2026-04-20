@@ -25,12 +25,12 @@ import { insuranceApi } from "../../api/insurance";
 import { customersApi } from "../../api/customers";
 import { vehiclesApi } from "../../api/vehicles";
 import { loansApi } from "../../api/loans";
+import { banksApi } from "../../api/banks";
 import { getEmployees } from "../../api/employees";
 import Step1CustomerInfo from "./steps/Step1CustomerInfo";
 import Step2VehicleDetails from "./steps/Step2VehicleDetails";
 import Step3PreviousPolicy from "./steps/Step3PreviousPolicy";
 import Step4InsuranceQuotes from "./steps/Step4InsuranceQuotes";
-import Step5PremiumBreakup from "./steps/Step5PremiumBreakup";
 import Step6NewPolicyDetails from "./steps/Step5NewPolicyDetails";
 import Step7Documents from "./steps/Step6Documents";
 import Step8Payment from "./steps/Step7Payment";
@@ -41,6 +41,9 @@ import {
   durationOptions,
   addOnCatalog,
 } from "./steps/allSteps";
+import {
+  DEFAULT_PAYOUT_PERCENTAGE,
+} from "./steps/payoutRates";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
 import { useInsuranceStore } from "./store/useInsuranceStore";
@@ -163,7 +166,7 @@ const initialQuoteDraft = {
   cngIdv: 0,
   accessoriesIdv: 0,
   policyDuration: "1yr OD + 3yr TP",
-  ncbDiscount: 50,
+  ncbDiscount: 0,
   odAmount: 0,
   thirdPartyAmount: 0,
   addOnsAmount: 0,
@@ -231,6 +234,15 @@ const mapQuoteToDraft = (q) => {
   if (sumParts === 0 && totalIdvStored > 0) {
     vehicleIdv = totalIdvStored;
   }
+  const normalizedNcbDiscount = Number(
+    q.ncbDiscount ?? q.newNcbDiscount ?? q.ncb_percentage ?? 0,
+  );
+  const normalizedOdAmount = Number(
+    q.odAmount ?? q.ownDamage ?? q.basicOwnDamage ?? q.odPremium ?? 0,
+  );
+  const normalizedTpAmount = Number(
+    q.thirdPartyAmount ?? q.thirdParty ?? q.basicThirdParty ?? q.tpPremium ?? 0,
+  );
 
   return {
     insuranceCompany: String(q.insuranceCompany ?? "").trim(),
@@ -241,9 +253,9 @@ const mapQuoteToDraft = (q) => {
     policyDuration: String(
       q.policyDuration || initialQuoteDraft.policyDuration,
     ),
-    ncbDiscount: Number(q.ncbDiscount) || 0,
-    odAmount: Number(q.odAmount) || 0,
-    thirdPartyAmount: Number(q.thirdPartyAmount) || 0,
+    ncbDiscount: normalizedNcbDiscount || 0,
+    odAmount: normalizedOdAmount || 0,
+    thirdPartyAmount: normalizedTpAmount || 0,
     addOnsAmount: Number(q.addOnsAmount) || 0,
     addOns: mergedAddOns,
     addOnsIncluded: mergedIncluded,
@@ -302,6 +314,13 @@ const computeQuoteBreakupFromRow = (q) => {
     };
   }
   const addOns = q.addOns && typeof q.addOns === "object" ? q.addOns : {};
+  const coverageType = String(q.coverageType || "Comprehensive");
+  const isThirdPartyOnly = coverageType === "Third Party";
+  const isOdOnly =
+    coverageType === "Own Damage" || coverageType === "Stand Alone OD";
+  const includesOd = !isThirdPartyOnly;
+  const includesTp = !isOdOnly;
+  const allowsAddOns = includesOd;
   const included =
     q.addOnsIncluded && typeof q.addOnsIncluded === "object"
       ? q.addOnsIncluded
@@ -310,9 +329,19 @@ const computeQuoteBreakupFromRow = (q) => {
     if (!included[name]) return sum;
     return sum + Number(addOns[name] || 0);
   }, 0);
-  const addOnsTotal = Number(q.addOnsAmount || 0) + selectedAddOnsTotal;
-  const odAmt = Number(q.odAmount || 0);
-  const tpAmt = Number(q.thirdPartyAmount || 0);
+  const rawAddOnsTotal = Number(q.addOnsAmount || 0) + selectedAddOnsTotal;
+  const addOnsTotal = allowsAddOns ? rawAddOnsTotal : 0;
+  const normalizedOdAmount = Number(
+    q.odAmount ?? q.ownDamage ?? q.basicOwnDamage ?? q.odPremium ?? 0,
+  );
+  const normalizedTpAmount = Number(
+    q.thirdPartyAmount ?? q.thirdParty ?? q.basicThirdParty ?? q.tpPremium ?? 0,
+  );
+  const normalizedNcbDiscount = Number(
+    q.ncbDiscount ?? q.newNcbDiscount ?? q.ncb_percentage ?? 0,
+  );
+  const odAmt = includesOd ? normalizedOdAmount : 0;
+  const tpAmt = includesTp ? normalizedTpAmount : 0;
   const idvParts =
     Number(q.vehicleIdv || 0) +
     Number(q.cngIdv || 0) +
@@ -321,15 +350,12 @@ const computeQuoteBreakupFromRow = (q) => {
   const totalIdv =
     Number.isFinite(storedIdv) && storedIdv > 0 ? storedIdv : idvParts;
   const basePremium = odAmt + tpAmt + addOnsTotal;
-  const ncbPct = Number(q.ncbDiscount || 0);
-  const ncbAmount = (basePremium * ncbPct) / 100;
+  const ncbPct = normalizedNcbDiscount;
+  // NCB is always applied on OD component only.
+  const ncbAmount = Math.round((odAmt * ncbPct) / 100);
   const taxableAmount = Math.max(basePremium - ncbAmount, 0);
-  const gstAmount = taxableAmount * 0.18;
-  const storedTotal = Number(q.totalPremium);
-  const totalPremium =
-    Number.isFinite(storedTotal) && storedTotal > 0
-      ? storedTotal
-      : taxableAmount + gstAmount;
+  const gstAmount = Math.round(taxableAmount * 0.18);
+  const totalPremium = taxableAmount + gstAmount;
 
   const addOnLines = addOnCatalog
     .filter((name) => included[name])
@@ -359,8 +385,6 @@ const formatStoredOrComputedIdv = (row) => {
 };
 
 const formatStoredOrComputedPremium = (row) => {
-  const s = Number(row?.totalPremium);
-  if (Number.isFinite(s) && s > 0) return toINR(s);
   return toINR(computeQuoteBreakupFromRow(row).totalPremium);
 };
 
@@ -381,6 +405,29 @@ const calcExpiryDate = (startDate, years) => {
   d.setFullYear(d.getFullYear() + Number(years || 1));
   d.setDate(d.getDate() - 1);
   return d.toISOString().slice(0, 10);
+};
+
+const buildAutoReceivableRow = (companyName, payoutPercentage, payoutAmount) => {
+  const year = new Date().getFullYear();
+  const random = Math.floor(Math.random() * 999999)
+    .toString()
+    .padStart(6, "0");
+
+  return {
+    id: Date.now(),
+    payoutId: `IR-${year}-${random}`,
+    payout_createdAt: new Date().toISOString(),
+    payout_type: "Bank",
+    payout_party_name: companyName || "",
+    payout_percentage: Number(payoutPercentage || 0),
+    payout_amount: Number(payoutAmount || 0),
+    tds_percentage: 0,
+    tds_amount: 0,
+    net_payout_amount: Number(payoutAmount || 0),
+    payout_status: "Expected",
+    payout_remarks: "Auto-generated from accepted quote",
+    _autoGenerated: true,
+  };
 };
 
 const validateStep1 = (data) => {
@@ -511,6 +558,7 @@ const NewInsuranceCaseForm = ({
   /** Staff / users from DB for Employee field (not customer records) */
   const [employeesList, setEmployeesList] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [bankOptions, setBankOptions] = useState([]);
 
   // Vehicle search (for Registration Number / Step-2 auto-fill)
   const [vehicleSearchLoading, setVehicleSearchLoading] = useState(false);
@@ -710,6 +758,37 @@ const NewInsuranceCaseForm = ({
     };
   }, []);
 
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        const res = await banksApi.getAll({ limit: 10000, sortBy: "name" });
+        const rows = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.data?.data)
+            ? res.data.data
+            : Array.isArray(res?.data?.banks)
+              ? res.data.banks
+              : [];
+
+        if (ignore) return;
+        const names = Array.from(
+          new Set(
+            rows
+              .map((row) => String(row?.name || row?.bankName || "").trim())
+              .filter(Boolean),
+          ),
+        );
+        setBankOptions(names);
+      } catch {
+        if (!ignore) setBankOptions([]);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   const employeeOptions = useMemo(() => {
     const q = String(formData.employeeName || "")
       .trim()
@@ -736,6 +815,7 @@ const NewInsuranceCaseForm = ({
       }))
       .filter((opt) => opt.value);
   }, [employeesList, formData.employeeName]);
+
 
   const applyVehicleToForm = useCallback(
     (vehicle) => {
@@ -987,6 +1067,14 @@ const NewInsuranceCaseForm = ({
 
   const isCompany = formData.buyerType === "Company";
   const isNewCar = formData.vehicleType === "New Car";
+  const shouldSkipStep = useCallback(
+    (stepNumber) => {
+      if (isNewCar && stepNumber === 3) return true;
+      if (stepNumber === 5) return true; // Premium Breakup removed from flow
+      return false;
+    },
+    [isNewCar],
+  );
   const step1Errors = useMemo(() => validateStep1(formData), [formData]);
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
   const acceptedQuote =
@@ -1007,15 +1095,29 @@ const NewInsuranceCaseForm = ({
     }
   }, [isNewCar, step]);
 
+  useEffect(() => {
+    if (step === 5) {
+      setStep(6);
+    }
+  }, [step]);
+
   const quoteComputed = useMemo(() => {
+    const coverageType = String(quoteDraft.coverageType || "Comprehensive");
+    const isThirdPartyOnly = coverageType === "Third Party";
+    const isOdOnly =
+      coverageType === "Own Damage" || coverageType === "Stand Alone OD";
+    const includesOd = !isThirdPartyOnly;
+    const includesTp = !isOdOnly;
+    const allowsAddOns = includesOd;
     const selectedAddOnsTotal = addOnCatalog.reduce((sum, name) => {
       if (!quoteDraft.addOnsIncluded?.[name]) return sum;
       return sum + Number(quoteDraft.addOns?.[name] || 0);
     }, 0);
-    const addOnsTotal =
+    const rawAddOnsTotal =
       Number(quoteDraft.addOnsAmount || 0) + selectedAddOnsTotal;
-    const odAmt = Number(quoteDraft.odAmount || 0);
-    const tpAmt = Number(quoteDraft.thirdPartyAmount || 0);
+    const addOnsTotal = allowsAddOns ? rawAddOnsTotal : 0;
+    const odAmt = includesOd ? Number(quoteDraft.odAmount || 0) : 0;
+    const tpAmt = includesTp ? Number(quoteDraft.thirdPartyAmount || 0) : 0;
     const totalIdv =
       Number(quoteDraft.vehicleIdv || 0) +
       Number(quoteDraft.cngIdv || 0) +
@@ -1175,8 +1277,9 @@ const NewInsuranceCaseForm = ({
     setShowErrors(true);
     if (!handleStepValidation()) return;
     setStep((prev) => {
-      if (isNewCar && prev === 2) return 4;
-      return Math.min(prev + 1, 9);
+      let next = Math.min(prev + 1, 9);
+      while (next < 9 && shouldSkipStep(next)) next += 1;
+      return next;
     });
     setShowErrors(false);
     // persistNow({ silent: true });
@@ -1184,8 +1287,9 @@ const NewInsuranceCaseForm = ({
 
   const goBack = () => {
     setStep((prev) => {
-      if (isNewCar && prev === 4) return 2;
-      return Math.max(prev - 1, 1);
+      let next = Math.max(prev - 1, 1);
+      while (next > 1 && shouldSkipStep(next)) next -= 1;
+      return next;
     });
     setShowErrors(false);
     // persistNow({ silent: true });
@@ -1213,28 +1317,85 @@ const NewInsuranceCaseForm = ({
     // persistNow({ silent: true });
   };
 
-  const acceptQuote = (id) => {
+  const acceptQuote = async (id) => {
+    const previousAcceptedId = acceptedQuoteId;
     setAcceptedQuoteId(id);
     const q = quotes.find((x) => String(getQuoteRowId(x)) === String(id));
     if (!q) return;
-    setFormData((prev) => {
-      const odTp = yearsFromDuration(q.policyDuration);
-      const startDate =
-        prev.newPolicyStartDate || new Date().toISOString().slice(0, 10);
-      return {
-        ...prev,
-        newInsuranceCompany: q.insuranceCompany,
-        newPolicyType: q.coverageType,
-        newInsuranceDuration: q.policyDuration,
-        newNcbDiscount: q.ncbDiscount,
-        newIdvAmount: q.totalIdv,
-        newTotalPremium: Math.round(q.totalPremium),
-        newPolicyStartDate: startDate,
-        newOdExpiryDate: calcExpiryDate(startDate, odTp.odYears),
-        newTpExpiryDate: calcExpiryDate(startDate, odTp.tpYears),
-      };
+
+    const policyStartDate = formData.newPolicyStartDate || new Date().toISOString().slice(0, 10);
+    let selectedPayoutPercentage = DEFAULT_PAYOUT_PERCENTAGE;
+    try {
+      const payoutRateRes = await insuranceApi.getPayoutRate({
+        companyName: q.insuranceCompany,
+        onDate: policyStartDate,
+      });
+      const apiRate = Number(payoutRateRes?.data?.payoutPercentage);
+      if (Number.isFinite(apiRate)) selectedPayoutPercentage = apiRate;
+    } catch {
+      selectedPayoutPercentage = DEFAULT_PAYOUT_PERCENTAGE;
+    }
+
+    Modal.confirm({
+      title: "Set Payout %",
+      content: (
+        <div className="space-y-2">
+          <p className="m-0 text-sm text-slate-600">
+            Accepted quote: <b>{q.insuranceCompany || "Insurance Company"}</b>
+          </p>
+          <InputNumber
+            min={0}
+            max={100}
+            defaultValue={selectedPayoutPercentage}
+            addonAfter="%"
+            className="w-full"
+            onChange={(v) => {
+              selectedPayoutPercentage = Number(v || 0);
+            }}
+          />
+        </div>
+      ),
+      okText: "Apply",
+      cancelText: "Cancel",
+      onOk: () => {
+        setFormData((prev) => {
+          const odTp = yearsFromDuration(q.policyDuration);
+          const startDate =
+            prev.newPolicyStartDate || new Date().toISOString().slice(0, 10);
+          const breakup = computeQuoteBreakupFromRow(q);
+          const payoutBaseAmount =
+            Number(breakup?.odAmt || 0) + Number(breakup?.addOnsTotal || 0);
+          const payoutAmount =
+            (payoutBaseAmount * Number(selectedPayoutPercentage || 0)) / 100;
+          const nextReceivable = buildAutoReceivableRow(
+            q.insuranceCompany,
+            selectedPayoutPercentage,
+            payoutAmount,
+          );
+          const existingReceivables = Array.isArray(prev.insurance_receivables)
+            ? prev.insurance_receivables.filter((row) => !row?._autoGenerated)
+            : [];
+
+          return {
+            ...prev,
+            newInsuranceCompany: q.insuranceCompany,
+            newPolicyType: q.coverageType,
+            newInsuranceDuration: q.policyDuration,
+            newNcbDiscount: q.ncbDiscount,
+            newIdvAmount: q.totalIdv,
+            newTotalPremium: Math.round(Number(breakup?.totalPremium || 0)),
+            newPolicyStartDate: startDate,
+            newOdExpiryDate: calcExpiryDate(startDate, odTp.odYears),
+            newTpExpiryDate: calcExpiryDate(startDate, odTp.tpYears),
+            payoutPercentage: Number(selectedPayoutPercentage || 0),
+            insurance_receivables: [...existingReceivables, nextReceivable],
+          };
+        });
+      },
+      onCancel: () => {
+        setAcceptedQuoteId(previousAcceptedId ?? null);
+      },
     });
-    // persistNow({ silent: true });
   };
 
   const handlePreviousPolicyStartOrDuration = (updated) => {
@@ -1332,13 +1493,13 @@ const NewInsuranceCaseForm = ({
   };
 
   const visibleSteps = useMemo(() => {
-    // If New Car, we skip "Previous Policy Details" (step 3 in original)
+    // Step 3 (for new cars) and step 5 (premium breakup) are hidden from flow
     const rows = STEP_TITLES.map((title, idx) => ({
       originalStep: idx + 1,
       title,
-    })).filter((s) => !(isNewCar && s.originalStep === 3));
+    })).filter((s) => !shouldSkipStep(s.originalStep));
     return rows;
-  }, [isNewCar]);
+  }, [shouldSkipStep]);
 
   const stepIndex = useMemo(() => {
     return Math.max(
@@ -1361,8 +1522,8 @@ const NewInsuranceCaseForm = ({
       return "For renewal cases & policy already expired cases.";
     if (step === 4)
       return "Add and manage quote options (at least 1 quote required).";
-    if (step === 5) return "Policy details (auto-filled from accepted quote).";
-    if (step === 6) return "Upload and tag documents (recommended).";
+    if (step === 6) return "Policy details (auto-filled from accepted quote).";
+    if (step === 7) return "Upload and tag documents (recommended).";
     return "";
   }, [step, isNewCar]);
 
@@ -1493,26 +1654,10 @@ const NewInsuranceCaseForm = ({
             computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
             formatStoredOrComputedIdv={formatStoredOrComputedIdv}
             formatStoredOrComputedPremium={formatStoredOrComputedPremium}
+            onSaveDraft={() => persistNow({ silent: false })}
+            isSaving={saving}
             planFeaturesModal={planFeaturesModal}
             setPlanFeaturesModal={setPlanFeaturesModal}
-          />
-        );
-      case 5:
-        if (!Step5PremiumBreakup) {
-          return (
-            <Alert
-              type="error"
-              showIcon
-              message="Step 5 component failed to load"
-              description="Please refresh once. If issue persists, contact support with this case ID."
-            />
-          );
-        }
-        return (
-          <Step5PremiumBreakup
-            acceptedQuote={acceptedQuote}
-            acceptedQuoteBreakup={acceptedQuoteBreakup}
-            toINR={toINR}
           />
         );
       case 6:
@@ -1587,6 +1732,7 @@ const NewInsuranceCaseForm = ({
             schedulePersist={schedulePersist}
             acceptedQuote={acceptedQuote}
             acceptedQuoteBreakup={acceptedQuoteBreakup}
+            bankOptions={bankOptions}
           />
         );
       default:
@@ -1595,7 +1741,9 @@ const NewInsuranceCaseForm = ({
   };
 
   // ─── Computed values for Case Summary drawer ──────────────────────────────
-  const summaryGrossPremium = Number(formData.newTotalPremium || 0);
+  const summaryGrossPremium = Number(
+    formData.newTotalPremium || acceptedQuoteBreakup?.totalPremium || 0,
+  );
   const summaryTotalCollected = paymentHistory.reduce(
     (s, p) => s + Number(p.amount || 0),
     0,
@@ -1683,7 +1831,24 @@ const NewInsuranceCaseForm = ({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/20">
+    <div
+      className="
+        min-h-screen bg-slate-50/50 dark:bg-slate-950/20
+        [&_.ant-card]:!rounded-xl
+        [&_.ant-card-body]:!p-5
+        [&_.ant-form-item]:!mb-4
+        [&_.ant-form-item-label_>label]:!text-sm [&_.ant-form-item-label_>label]:!font-medium
+        [&_.ant-input]:!h-10 [&_.ant-input]:!rounded-lg
+        [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-lg
+        [&_.ant-input-number-input-wrap]:!h-10 [&_.ant-input-number-input]:!h-10
+        [&_.ant-select-selector]:!h-10 [&_.ant-select-selector]:!rounded-lg
+        [&_.ant-select-selection-item]:!leading-10
+        [&_.ant-btn]:!rounded-lg [&_.ant-btn]:!h-10 [&_.ant-btn-lg]:!h-11
+        [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-lg
+        [&_.ant-picker-input_>input]:!h-8
+        [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10
+      "
+    >
       {InsuranceStickyHeader ? (
         <InsuranceStickyHeader
           formData={formData}
@@ -1692,10 +1857,10 @@ const NewInsuranceCaseForm = ({
         />
       ) : null}
 
-      <div className="pt-[180px] pb-[80px]">
-        <div className="w-full px-4 py-6 md:px-6 lg:px-10">
+      <div className="pt-[150px] pb-[96px]">
+        <div className="w-full px-3 py-4 md:px-5 lg:px-6">
           {stepErrorsAlert && <div className="mb-6">{stepErrorsAlert}</div>}
-          <div className="space-y-8">{renderStep()}</div>
+          <div className="space-y-5">{renderStep()}</div>
         </div>
       </div>
 

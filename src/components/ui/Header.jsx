@@ -17,6 +17,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { FEATURE_ACCESS } from "../../hooks/useRBAC";
 import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
+import PayoutSetupModal from "../payout/PayoutSetupModal";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ const Header = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
   const { isDarkMode, toggleTheme } = useTheme();
   const { user: userData, logout } = useAuth();
 
@@ -307,6 +309,12 @@ const Header = () => {
           desc: "Configure finance partners",
           roles: FEATURE_ACCESS.SUPERADMIN_BANKS,
         },
+        {
+          label: "Payout Setup",
+          path: "__payout_setup__",
+          desc: "Set company wise payout rates",
+          roles: FEATURE_ACCESS.SUPERADMIN_BANKS,
+        },
       ],
     },
   ];
@@ -374,6 +382,11 @@ const Header = () => {
   };
 
   const handleNavigation = (path) => {
+    if (path === "__payout_setup__") {
+      setIsPayoutModalOpen(true);
+      setMobileMenuOpen(false);
+      return;
+    }
     if (path === "/loans/new") {
       startNewLoanCase(navigate, "global-header");
       setMobileMenuOpen(false);
@@ -388,6 +401,7 @@ const Header = () => {
     logout();
     navigate("/login");
   };
+
 
   return (
     <>
@@ -774,6 +788,11 @@ const Header = () => {
           </div>
         </div>
       </div>
+
+      <PayoutSetupModal
+        open={isPayoutModalOpen}
+        onClose={() => setIsPayoutModalOpen(false)}
+      />
     </>
   );
 };

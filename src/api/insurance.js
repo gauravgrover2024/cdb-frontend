@@ -33,4 +33,14 @@ export const insuranceApi = {
       `/api/insurance/${encodeURIComponent(String(id || "").trim())}/sync-receivable`,
     );
   },
+
+  getPayoutRate: async ({ companyName, onDate } = {}) => {
+    return await apiClient.get("/api/insurance/payout-rates", {
+      params: { companyName, onDate },
+    });
+  },
+
+  upsertPayoutRate: async (payload = {}) => {
+    return await apiClient.post("/api/insurance/payout-rates", payload);
+  },
 };

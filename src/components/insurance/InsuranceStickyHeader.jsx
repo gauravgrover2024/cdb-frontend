@@ -33,7 +33,7 @@ const STEP_NAMES = {
   2: "Vehicle Details",
   3: "Previous Policy",
   4: "Quotes",
-  5: "Premium Breakup",
+  5: "Quote Summary",
   6: "Policy Details",
   7: "Documents",
   8: "Payment",
@@ -77,8 +77,10 @@ const InsuranceStickyHeader = ({
     const isNewCar = data.vehicleType === "New Car";
     return Object.keys(STEP_NAMES)
       .map((s) => parseInt(s))
-      .filter((s) => !(isNewCar && s === 3));
+      .filter((s) => !(isNewCar && s === 3))
+      .filter((s) => s !== 5);
   }, [data.vehicleType]);
+
 
   return (
     <div
@@ -86,154 +88,129 @@ const InsuranceStickyHeader = ({
       className="fixed left-0 right-0 z-[100] w-full border-b border-border bg-background/95 backdrop-blur-sm shadow-sm"
       style={{ top: 60 }}
     >
-      <div className="w-full px-2 sm:px-3 md:px-4 py-2 flex flex-col gap-2">
-        {/* Row 1: Summary Context */}
-        <div className="flex items-stretch overflow-x-auto rounded-xl border border-slate-300/70 bg-white/90 no-scrollbar dark:border-slate-800 dark:bg-slate-950/85">
-          {/* Customer Segment */}
-          <div className="min-w-[180px] px-3 py-1.5 bg-sky-50/65 dark:bg-sky-950/15">
-            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300">
-              <Icon name="User" size={10} />
+      <div className="w-full px-2 sm:px-3 md:px-4 py-2 space-y-2">
+        <div className="flex items-stretch gap-2 overflow-x-auto no-scrollbar">
+          <div className="min-w-[220px] rounded-xl border border-sky-200/70 bg-sky-50/70 px-3 py-2 dark:border-sky-900/60 dark:bg-sky-950/20">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+              <Icon name="User" size={12} />
               Customer
             </p>
-            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
               {data.customerName || data.companyName || "New Case"}
             </p>
-            <div className="flex flex-col gap-0.5 mt-0.5">
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                {data.mobile || "—"} • {data.email || "—"}
-              </p>
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                PAN: {data.panNumber || "—"}{" "}
-                {data.employeeName ? `• Staff: ${data.employeeName}` : ""}
-              </p>
-            </div>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              {customerLine || "Mobile / Email not added"}
+            </p>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              PAN: {data.panNumber || "—"}{" "}
+              {data.employeeName ? `• Staff: ${data.employeeName}` : ""}
+            </p>
           </div>
 
-          {/* Policy Segment */}
-          <div className="min-w-[200px] px-3 py-1.5 bg-emerald-50/65 border-l border-slate-300/30 dark:bg-emerald-950/15 dark:border-slate-800">
-            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-              <Icon name="Shield" size={10} />
-              Policy
-            </p>
-            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-              {policyCoreLabel}
-            </p>
-            <div className="flex flex-col gap-0.5 mt-0.5">
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                {data.newInsuranceDuration || "1yr OD + 1yr TP"} •{" "}
-                {data.newPolicyType || "—"}
-              </p>
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                {data.newPolicyNumber || "No Policy #"} • Starts:{" "}
-                {data.newPolicyStartDate || "—"}
-              </p>
-            </div>
-          </div>
-
-          {/* Premium Segment */}
-          <div className="min-w-[180px] px-3 py-1.5 bg-teal-50/65 border-l border-slate-300/30 dark:bg-teal-950/15 dark:border-slate-800">
-            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
-              <Icon name="IndianRupee" size={10} />
-              Premium & IDV
-            </p>
-            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-              {formatMoney(data.newTotalPremium)}
-            </p>
-            <div className="flex flex-col gap-0.5 mt-0.5">
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                IDV: {formatMoney(data.newIdvAmount)} • NCB:{" "}
-                {data.newNcbDiscount || 0}%
-              </p>
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                Subvention: {formatMoney(data.subventionAmount)}
-              </p>
-            </div>
-          </div>
-
-          {/* Vehicle Segment */}
-          <div className="min-w-[200px] px-3 py-1.5 bg-violet-50/65 border-l border-slate-300/30 dark:bg-violet-950/15 dark:border-slate-800">
-            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-              <Icon name="Car" size={10} />
+          <div className="min-w-[220px] rounded-xl border border-violet-200/70 bg-violet-50/70 px-3 py-2 dark:border-violet-900/60 dark:bg-violet-950/20">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+              <Icon name="Car" size={12} />
               Vehicle
             </p>
-            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-              {vehicleLine || "—"}
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {vehicleLine || data.registrationNumber || "Vehicle details pending"}
             </p>
-            <div className="flex flex-col gap-0.5 mt-0.5">
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                Reg: {data.registrationNumber || "Unregistered"} • Year:{" "}
-                {data.manufactureYear || "—"}
-              </p>
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                Chassis: {data.chassisNumber || "—"}
-              </p>
-            </div>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              Reg: {data.registrationNumber || "—"} • Year:{" "}
+              {data.manufactureYear || "—"}
+            </p>
           </div>
 
-          {/* Customer Financials Segment */}
-          <div className="min-w-[180px] px-3 py-1.5 bg-amber-50/65 border-l border-slate-300/30 dark:bg-amber-950/15 dark:border-slate-800">
-            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-              <Icon name="CreditCard" size={10} />
-              Customer Pmt
+          <div className="min-w-[220px] rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-3 py-2 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+              <Icon name="Shield" size={12} />
+              Policy
             </p>
-            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {policyCoreLabel}
+            </p>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              {data.newInsuranceDuration || "1yr OD + 1yr TP"} •{" "}
+              {data.newPolicyType || "—"}
+            </p>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              #{data.newPolicyNumber || "No Policy #"} • Start:{" "}
+              {data.newPolicyStartDate || "—"}
+            </p>
+          </div>
+
+          <div className="min-w-[220px] rounded-xl border border-teal-200/70 bg-teal-50/70 px-3 py-2 dark:border-teal-900/60 dark:bg-teal-950/20">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+              <Icon name="IndianRupee" size={12} />
+              Premium
+            </p>
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {formatMoney(data.newTotalPremium)}
+            </p>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              IDV: {formatMoney(data.newIdvAmount)} • NCB:{" "}
+              {data.newNcbDiscount || 0}%
+            </p>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              Subvention: {formatMoney(data.subventionAmount)}
+            </p>
+          </div>
+
+          <div className="min-w-[220px] rounded-xl border border-amber-200/70 bg-amber-50/70 px-3 py-2 dark:border-amber-900/60 dark:bg-amber-950/20">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              <Icon name="CreditCard" size={12} />
+              Customer Payment
+            </p>
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
               Bal:{" "}
               {formatMoney(
                 asNumber(data.customerPaymentExpected) -
                   asNumber(data.customerPaymentReceived),
               )}
             </p>
-            <div className="flex flex-col gap-0.5 mt-0.5">
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none text-emerald-600 dark:text-emerald-400">
-                Rec: {formatMoney(data.customerPaymentReceived)}
-              </p>
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                Exp: {formatMoney(data.customerPaymentExpected)}
-              </p>
-            </div>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              Rec: {formatMoney(data.customerPaymentReceived)} • Exp:{" "}
+              {formatMoney(data.customerPaymentExpected)}
+            </p>
           </div>
 
-          {/* In-house Financials Segment */}
-          <div className="min-w-[180px] px-3 py-1.5 bg-rose-50/65 border-l border-slate-300/30 dark:bg-rose-950/15 dark:border-slate-800">
-            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
-              <Icon name="Home" size={10} />
-              In-house Pmt
+          <div className="min-w-[220px] rounded-xl border border-rose-200/70 bg-rose-50/70 px-3 py-2 dark:border-rose-900/60 dark:bg-rose-950/20">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
+              <Icon name="Home" size={12} />
+              In-house Payment
             </p>
-            <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
               Bal:{" "}
               {formatMoney(
                 asNumber(data.inhousePaymentExpected) -
                   asNumber(data.inhousePaymentReceived),
               )}
             </p>
-            <div className="flex flex-col gap-0.5 mt-0.5">
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none text-rose-600 dark:text-rose-400">
-                Paid: {formatMoney(data.inhousePaymentReceived)}
-              </p>
-              <p className="truncate text-[9px] text-slate-500 font-medium leading-none">
-                Exp: {formatMoney(data.inhousePaymentExpected)}
-              </p>
-            </div>
+            <p className="truncate text-[11px] text-slate-600 dark:text-slate-400">
+              Paid: {formatMoney(data.inhousePaymentReceived)} • Exp:{" "}
+              {formatMoney(data.inhousePaymentExpected)}
+            </p>
           </div>
 
-          <div className="ml-auto min-w-[130px] px-3 py-1.5 bg-slate-50/65 border-l border-slate-300/30 dark:bg-slate-900/40 dark:border-slate-800">
-            <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-500">
-              <Icon name="BarChart2" size={10} />
+
+          <div className="ml-auto min-w-[170px] rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
+            <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+              <Icon name="BarChart2" size={12} />
               Workflow
             </p>
             <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
-              ID: {String(data.id || data._id || "NEW").slice(-8)}
+              Case ID: {String(data.id || data._id || "NEW").slice(-8)}
             </p>
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold mt-0.5 ${stepPillClass(activeStep)}`}
+            <div
+              className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${stepPillClass(activeStep)}`}
             >
               {STEP_NAMES[activeStep]}
-            </span>
+            </div>
           </div>
         </div>
 
         {/* Row 2: Horizontal Stepper */}
-        <div className="flex items-center justify-between px-1 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white/80 px-2 py-1.5 no-scrollbar dark:border-slate-800 dark:bg-slate-950/80">
           {visibleSteps.map((stepNum, idx) => {
             const isActive = activeStep === stepNum;
             const isCompleted = activeStep > stepNum;
@@ -242,45 +219,47 @@ const InsuranceStickyHeader = ({
               <React.Fragment key={stepNum}>
                 <button
                   onClick={() => onStepClick?.(stepNum)}
-                  className={`group relative flex flex-col items-center gap-1.5 transition-all duration-300 ${
-                    isActive ? "opacity-100" : "opacity-60 hover:opacity-100"
+                  className={`group flex items-center gap-1.5 rounded-lg border px-2 py-1 transition-all duration-200 ${
+                    isActive
+                      ? "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+                      : isCompleted
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
                   }`}
                 >
                   <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-xl border-2 transition-all duration-300 ${
+                    className={`flex h-5 w-5 items-center justify-center rounded-md border text-[10px] font-semibold transition-all duration-200 ${
                       isActive
-                        ? "border-sky-500 bg-sky-500 text-white shadow-[0_0_15px_rgba(14,165,233,0.3)]"
+                        ? "border-sky-500 bg-sky-500 text-white"
                         : isCompleted
-                          ? "border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20"
-                          : "border-slate-200 bg-white text-slate-400 dark:border-slate-800 dark:bg-slate-900"
+                          ? "border-emerald-500 bg-emerald-500 text-white"
+                          : "border-slate-300 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800"
                     }`}
                   >
                     {isCompleted ? (
-                      <Icon name="Check" size={16} strokeWidth={3} />
+                      <Icon name="Check" size={12} strokeWidth={3} />
                     ) : (
-                      <Icon name={STEP_ICONS[stepNum]} size={16} />
+                      <Icon name={STEP_ICONS[stepNum]} size={12} />
                     )}
                   </div>
                   <span
-                    className={`text-[10px] font-bold tracking-tight whitespace-nowrap ${
+                    className={`whitespace-nowrap text-[11px] font-semibold ${
                       isActive
                         ? "text-sky-600 dark:text-sky-400"
-                        : "text-slate-500"
+                        : isCompleted
+                          ? "text-emerald-700 dark:text-emerald-300"
+                          : "text-slate-500"
                     }`}
                   >
                     {STEP_NAMES[stepNum]}
                   </span>
-
-                  {isActive && (
-                    <div className="absolute -bottom-2 h-1 w-full rounded-t-full bg-sky-500" />
-                  )}
                 </button>
                 {idx < visibleSteps.length - 1 && (
                   <div
-                    className={`h-[2px] flex-1 min-w-[20px] mx-2 mb-4 rounded-full transition-all duration-500 ${
+                    className={`h-[2px] min-w-[10px] flex-1 rounded-full transition-all duration-300 ${
                       isCompleted
-                        ? "bg-emerald-400"
-                        : "bg-slate-200 dark:bg-slate-800"
+                        ? "bg-emerald-400/90"
+                        : "bg-slate-200/90 dark:bg-slate-800"
                     }`}
                   />
                 )}

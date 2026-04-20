@@ -220,7 +220,10 @@ const Step5NewPolicyDetails = ({
       );
 
   const acceptedPremium = Number(
-    acceptedQuote?.totalPremium || formData.newTotalPremium || 0,
+    acceptedQuoteBreakup?.totalPremium ||
+      acceptedQuote?.totalPremium ||
+      formData.newTotalPremium ||
+      0,
   );
 
   const acceptedOdAmount = Number(

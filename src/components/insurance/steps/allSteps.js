@@ -19,7 +19,7 @@ export const STEP_TITLES = [
   "Step 2: Vehicle Details",
   "Step 3: Previous Policy Details",
   "Step 4: Insurance Quotes",
-  "Step 5: Premium Breakup",
+  "Step 5: Quote Summary",
   "Step 6: New Policy Details",
   "Step 7: Documents",
   "Step 8: Payment",

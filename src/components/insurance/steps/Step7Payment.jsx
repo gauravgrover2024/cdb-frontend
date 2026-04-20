@@ -10,6 +10,7 @@ import {
   Popconfirm,
   Select,
   Table,
+  Tag,
   Typography,
   Tooltip,
 } from "antd";
@@ -51,6 +52,8 @@ const ENTRY_TYPES = {
 };
 
 const DEFAULT_PAYMENT_MODE = "Online Transfer/UPI";
+const sectionHeaderLabel =
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
 const UI = {
   ink: "#1f2937",
@@ -1137,17 +1140,25 @@ const Step7Payment = ({
 
   return (
     <div className="flex flex-col gap-5 font-sans">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-5 py-3.5 shadow-sm">
-        <div>
-          <h2 className="m-0 text-[13px] font-black uppercase tracking-[0.18em] text-slate-700">
-            Insurance Payment Workspace
-          </h2>
-          <p className="m-0 mt-0.5 text-[11px] text-slate-400">
-            3-party settlement · Insurer · Customer · Autocredits
-          </p>
-        </div>
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className={sectionHeaderLabel}>Payment information</div>
+            <h2 className="m-0 mt-1 text-[24px] font-black tracking-tight text-slate-800">
+              Insurance payment workspace
+            </h2>
+            <p className="m-0 mt-1 text-sm text-slate-500">
+              3-party settlement flow for insurer, customer and Autocredits
+            </p>
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !border-slate-200 !text-slate-700">
+              Premium: {INR(totalPremium)}
+            </Tag>
+            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF3EF] !border-[#D6E6DF] !text-slate-800">
+              Entries: {tableRows.length}
+            </Tag>
           {settlementStatus ? (
             <FlowIndicator label={settlementStatus} settled={false} />
           ) : null}
@@ -1166,6 +1177,7 @@ const Step7Payment = ({
           >
             {isLocked ? "Unlock ledger" : "Lock ledger"}
           </Button>
+        </div>
         </div>
       </div>
 
