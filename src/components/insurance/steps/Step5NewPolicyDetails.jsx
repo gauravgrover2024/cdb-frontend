@@ -1,19 +1,186 @@
 import React from "react";
 import dayjs from "dayjs";
+import { Col, Collapse, Input, InputNumber, Row, Select, Tag } from "antd";
 import {
-  Button,
-  Col,
-  Input,
-  InputNumber,
-  message,
-  Row,
-  Select,
-  Space,
-  Table,
-  Typography,
-} from "antd";
+  CalendarOutlined,
+  CarOutlined,
+  FileTextOutlined,
+  SafetyCertificateOutlined,
+  BankOutlined,
+  InfoCircleOutlined,
+} from "@ant-design/icons";
 
-const { Text } = Typography;
+const shellStyle =
+  "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
+
+const sectionHeaderLabel =
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
+
+const controlStyle = {
+  width: "100%",
+  marginTop: 8,
+  height: 44,
+  borderRadius: 14,
+};
+
+const inputControlStyle = {
+  ...controlStyle,
+  paddingTop: 0,
+  paddingBottom: 0,
+  lineHeight: "44px",
+};
+
+const computedDateStyle = {
+  ...inputControlStyle,
+  pointerEvents: "none",
+  cursor: "default",
+  background: "#fff",
+  color: "rgba(0,0,0,0.88)",
+};
+
+const textAreaStyle = {
+  width: "100%",
+  marginTop: 8,
+  borderRadius: 14,
+  minHeight: 86,
+};
+
+const labelClass =
+  "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
+
+const microHintClass = "mt-1 text-[11px] text-slate-400";
+
+const fieldWrapClass =
+  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px]";
+
+const CleanField = ({ label, required, hint, children, extra }) => (
+  <div className="pb-1">
+    <div className={labelClass}>
+      {label} {required ? <span className="text-[#D8B8B4]">*</span> : null}
+    </div>
+    {children}
+    {hint ? <div className={microHintClass}>{hint}</div> : null}
+    {extra ? <div className="mt-1">{extra}</div> : null}
+  </div>
+);
+
+const BreakupRow = ({ label, value, bold, muted, indent }) => (
+  <div
+    className={`flex items-center justify-between py-1.5 ${
+      bold ? "mt-1 border-t border-slate-100 pt-2.5" : ""
+    } ${indent ? "pl-3" : ""}`}
+  >
+    <span
+      className={`text-[12px] ${
+        bold
+          ? "font-bold text-slate-800"
+          : muted
+            ? "text-slate-500"
+            : "text-slate-500"
+      }`}
+    >
+      {label}
+    </span>
+    <span
+      className={`tabular-nums text-[12px] ${
+        bold
+          ? "font-black text-slate-900"
+          : muted
+            ? "text-slate-500"
+            : "font-semibold text-slate-700"
+      }`}
+    >
+      {value}
+    </span>
+  </div>
+);
+
+const MiniDateCard = ({ icon, label, value, tone = "slate" }) => {
+  const toneMap = {
+    slate: "bg-slate-50 ring-slate-200",
+    sage: "bg-[#EEF3EF] ring-[#D6E6DF]",
+    warm: "bg-[#FAF8F1] ring-[#FAF8F1]",
+  };
+
+  return (
+    <div className={`rounded-2xl px-4 py-3 ring-1 ${toneMap[tone]}`}>
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/80 text-slate-700 ring-1 ring-white/70">
+          {icon}
+        </span>
+        {label}
+      </div>
+      <div className="text-sm font-bold text-slate-800">{value || "—"}</div>
+    </div>
+  );
+};
+
+const getInitial = (name) => (name || "?").toString().slice(0, 2).toUpperCase();
+
+const formatDisplayDate = (value) =>
+  value ? dayjs(value).format("DD MMM YYYY") : "—";
+
+const formatCurrency = (value) => {
+  const num = Number(value || 0);
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(num);
+};
+
+const formatAmountInput = (value) => {
+  if (value === undefined || value === null || value === "") return "";
+  const cleaned = String(value).replace(/[^\d.-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === ".") return "";
+  const [whole, decimal] = cleaned.split(".");
+  const formattedWhole = new Intl.NumberFormat("en-IN").format(
+    Number(whole || 0),
+  );
+  return decimal !== undefined
+    ? `₹ ${formattedWhole}.${decimal}`
+    : `₹ ${formattedWhole}`;
+};
+
+const parseAmountInput = (value) => (value ? value.replace(/[₹,\s]/g, "") : "");
+
+const computeMinusOneDayExpiry = (startDate, years) => {
+  if (!startDate || !years) return "";
+  return dayjs(startDate)
+    .add(years, "year")
+    .subtract(1, "day")
+    .format("YYYY-MM-DD");
+};
+
+const getDurationYears = (policyType, durationValue) => {
+  const value = String(durationValue || "").trim();
+
+  if (!value) {
+    return { odYears: 0, tpYears: 0 };
+  }
+
+  if (policyType === "Comprehensive") {
+    const odMatch = value.match(/(\d+)\s*yr\s*OD/i);
+    const tpMatch = value.match(/(\d+)\s*yr\s*TP/i);
+    return {
+      odYears: odMatch ? Number(odMatch[1]) : 0,
+      tpYears: tpMatch ? Number(tpMatch[1]) : 0,
+    };
+  }
+
+  const genericMatch = value.match(/(\d+)/);
+  const years = genericMatch ? Number(genericMatch[1]) : 0;
+
+  if (policyType === "Stand Alone OD") {
+    return { odYears: years, tpYears: 0 };
+  }
+
+  if (policyType === "Third Party") {
+    return { odYears: 0, tpYears: years };
+  }
+
+  return { odYears: 0, tpYears: 0 };
+};
 
 const Step5NewPolicyDetails = ({
   formData,
@@ -22,533 +189,819 @@ const Step5NewPolicyDetails = ({
   handleNewPolicyStartOrDuration,
   acceptedQuote,
   acceptedQuoteBreakup,
-  durationOptions,
-  paymentHistory,
-  setPaymentModalVisible,
-  insuranceDbId,
-  toINR,
-  insuranceApi,
+  durationOptions = [],
 }) => {
+  const [showAllAcceptedAddons, setShowAllAcceptedAddons] =
+    React.useState(false);
+
   const acceptedQuoteId =
     acceptedQuote?._id || acceptedQuote?.id || acceptedQuote?.quoteId || "—";
+
   const acceptedCompany =
     acceptedQuote?.insuranceCompany || formData.newInsuranceCompany || "—";
+
   const acceptedPolicyType =
     acceptedQuote?.coverageType || formData.newPolicyType || "—";
+
   const acceptedDuration =
     acceptedQuote?.policyDuration || formData.newInsuranceDuration || "—";
-  const acceptedIdv = acceptedQuoteBreakup
-    ? acceptedQuoteBreakup.totalIdv
-    : Number(formData.newIdvAmount || 0);
-  const acceptedPremium = acceptedQuote
-    ? Number(acceptedQuote.totalPremium || 0)
-    : Number(formData.newTotalPremium || 0);
+
   const acceptedNcb = Number(
     formData.newNcbDiscount || acceptedQuote?.ncbDiscount || 0,
   );
 
-  return (
-    <div className="flex flex-col gap-5">
-      {/* Section 0: Accepted Quote Snapshot */}
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20 md:p-5">
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-2.5">
+  const acceptedIdv = acceptedQuoteBreakup?.totalIdv
+    ? Number(acceptedQuoteBreakup.totalIdv || 0)
+    : Number(
+        acceptedQuote?.vehicleIdv ||
+          acceptedQuote?.totalIdv ||
+          formData.newIdvAmount ||
+          0,
+      );
+
+  const acceptedPremium = Number(
+    acceptedQuote?.totalPremium || formData.newTotalPremium || 0,
+  );
+
+  const acceptedOdAmount = Number(
+    acceptedQuoteBreakup?.odAmt || acceptedQuote?.odAmount || 0,
+  );
+
+  const acceptedTpAmount = Number(
+    acceptedQuoteBreakup?.tpAmt || acceptedQuote?.thirdPartyAmount || 0,
+  );
+
+  const acceptedNcbAmount = Number(acceptedQuoteBreakup?.ncbAmount || 0);
+
+  const companyInitial = getInitial(acceptedCompany);
+
+  const includedAddons = Object.entries(acceptedQuote?.addOnsIncluded || {})
+    .filter(([, v]) => Boolean(v))
+    .map(([k]) => ({
+      name: k,
+      amt: Number(acceptedQuote?.addOns?.[k] || 0),
+    }));
+
+  const visibleAcceptedAddons = showAllAcceptedAddons
+    ? includedAddons
+    : includedAddons.slice(0, 4);
+
+  const acceptedAddOnsTotal =
+    acceptedQuoteBreakup?.addOnsTotal !== undefined
+      ? Number(acceptedQuoteBreakup?.addOnsTotal || 0)
+      : includedAddons.reduce((sum, item) => sum + Number(item.amt || 0), 0);
+
+  const durationSelectOptions =
+    formData.newPolicyType === "Comprehensive"
+      ? [
+          { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
+          { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+          { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+          { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+        ]
+      : formData.newPolicyType === "Stand Alone OD"
+        ? [
+            { label: "1 Year", value: "1 Year" },
+            { label: "2 Years", value: "2 Years" },
+            { label: "3 Years", value: "3 Years" },
+          ]
+        : formData.newPolicyType === "Third Party"
+          ? [
+              { label: "1 Year", value: "1 Year" },
+              { label: "2 Years", value: "2 Years" },
+              { label: "3 Years", value: "3 Years" },
+            ]
+          : durationOptions.map((d) => ({
+              label: d,
+              value: d,
+            }));
+
+  const derivedYears = React.useMemo(
+    () =>
+      getDurationYears(formData.newPolicyType, formData.newInsuranceDuration),
+    [formData.newPolicyType, formData.newInsuranceDuration],
+  );
+
+  const computedOdExpiry = React.useMemo(() => {
+    if (!formData.newPolicyStartDate || !derivedYears.odYears) return "";
+    return computeMinusOneDayExpiry(
+      formData.newPolicyStartDate,
+      derivedYears.odYears,
+    );
+  }, [formData.newPolicyStartDate, derivedYears.odYears]);
+
+  const computedTpExpiry = React.useMemo(() => {
+    if (!formData.newPolicyStartDate || !derivedYears.tpYears) return "";
+    return computeMinusOneDayExpiry(
+      formData.newPolicyStartDate,
+      derivedYears.tpYears,
+    );
+  }, [formData.newPolicyStartDate, derivedYears.tpYears]);
+
+  React.useEffect(() => {
+    const policyType = formData.newPolicyType;
+
+    if (policyType === "Comprehensive") {
+      if (formData.newOdExpiryDate !== computedOdExpiry) {
+        setField("newOdExpiryDate", computedOdExpiry);
+      }
+      if (formData.newTpExpiryDate !== computedTpExpiry) {
+        setField("newTpExpiryDate", computedTpExpiry);
+      }
+      return;
+    }
+
+    if (policyType === "Stand Alone OD") {
+      if (formData.newOdExpiryDate !== computedOdExpiry) {
+        setField("newOdExpiryDate", computedOdExpiry);
+      }
+      if (formData.newTpExpiryDate !== "") {
+        setField("newTpExpiryDate", "");
+      }
+      return;
+    }
+
+    if (policyType === "Third Party") {
+      if (formData.newTpExpiryDate !== computedTpExpiry) {
+        setField("newTpExpiryDate", computedTpExpiry);
+      }
+      if (formData.newOdExpiryDate !== "") {
+        setField("newOdExpiryDate", "");
+      }
+      return;
+    }
+
+    if (formData.newOdExpiryDate !== "") {
+      setField("newOdExpiryDate", "");
+    }
+    if (formData.newTpExpiryDate !== "") {
+      setField("newTpExpiryDate", "");
+    }
+  }, [
+    computedOdExpiry,
+    computedTpExpiry,
+    formData.newOdExpiryDate,
+    formData.newPolicyType,
+    formData.newTpExpiryDate,
+    setField,
+  ]);
+
+  const longPolicyNumberPreview =
+    formData.newPolicyNumber && formData.newPolicyNumber.length > 26 ? (
+      <div className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600 ring-1 ring-slate-200 break-all">
+        {formData.newPolicyNumber}
+      </div>
+    ) : null;
+
+  const amountInputProps = {
+    formatter: formatAmountInput,
+    parser: parseAmountInput,
+  };
+
+  const collapseItems = [
+    {
+      key: "1",
+      label: (
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF3EF] text-slate-700 ring-1 ring-[#D6E6DF]">
+            <CarOutlined />
+          </div>
           <div>
-            <h3 className="mb-1 text-sm font-bold uppercase tracking-wider text-emerald-700/80 dark:text-emerald-400/70">
-              Policy Information
-            </h3>
-            <p className="m-0 text-xs text-emerald-700/70 dark:text-emerald-300/70">
-              Auto-filled from current accepted quote
-            </p>
-          </div>
-          <div className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900/60">
-            Quote ID: {acceptedQuoteId}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {[
-            { label: "Insurance Company", value: acceptedCompany },
-            { label: "Policy Type", value: acceptedPolicyType },
-            { label: "Insurance Duration", value: acceptedDuration },
-            {
-              label: "IDV Amount",
-              value: acceptedIdv > 0 ? toINR(acceptedIdv) : "—",
-            },
-            {
-              label: "Total Premium",
-              value: acceptedPremium > 0 ? toINR(acceptedPremium) : "—",
-            },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              className="rounded-lg bg-white px-3 py-2.5 ring-1 ring-emerald-100 dark:bg-slate-950/50 dark:ring-emerald-900/40"
-            >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                {label}
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                {value}
-              </div>
-              <div className="mt-1 text-[10px] text-slate-400">
-                From accepted quote
-              </div>
+            <div className="text-sm font-bold text-slate-800">
+              Vehicle pricing
             </div>
-          ))}
+            <div className="text-xs text-slate-500">
+              Pricing, sale or purchase date, and odometer inputs
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Section 1: Vehicle Pricing */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 md:p-5">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
-          Vehicle Pricing Info
-        </h3>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={8}>
-            <Text strong>Ex-Showroom Price (₹) *</Text>
-            <InputNumber
-              min={0}
-              value={Number(formData.exShowroomPrice || 0)}
-              onChange={(v) => setField("exShowroomPrice", Number(v || 0))}
-              style={{ width: "100%", marginTop: 6 }}
-              placeholder="0.00"
-            />
-          </Col>
-          {formData.vehicleType === "New Car" ? (
+      ),
+      children: (
+        <div className="pt-3">
+          <Row gutter={[22, 20]}>
             <Col xs={24} md={8}>
-              <Text strong>Date of Sale *</Text>
-              <Input
-                type="date"
-                value={formData.dateOfSale}
-                onChange={handleChange("dateOfSale")}
-                style={{ marginTop: 6 }}
-              />
+              <div className={fieldWrapClass}>
+                <CleanField label="Ex-Showroom Price" required>
+                  <InputNumber
+                    min={0}
+                    value={Number(formData.exShowroomPrice || 0)}
+                    onChange={(v) =>
+                      setField("exShowroomPrice", Number(v || 0))
+                    }
+                    style={controlStyle}
+                    placeholder="₹ 0"
+                    {...amountInputProps}
+                  />
+                </CleanField>
+              </div>
             </Col>
-          ) : (
-            <>
+
+            {formData.vehicleType === "New Car" ? (
               <Col xs={24} md={8}>
-                <Text strong>Date of Purchase *</Text>
-                <Input
-                  type="date"
-                  value={formData.dateOfPurchase}
-                  onChange={handleChange("dateOfPurchase")}
-                  style={{ marginTop: 6 }}
-                />
+                <div className={fieldWrapClass}>
+                  <CleanField label="Date of Sale" required>
+                    <Input
+                      type="date"
+                      value={formData.dateOfSale}
+                      onChange={handleChange("dateOfSale")}
+                      style={inputControlStyle}
+                    />
+                  </CleanField>
+                </div>
               </Col>
+            ) : (
+              <>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Date of Purchase" required>
+                      <Input
+                        type="date"
+                        value={formData.dateOfPurchase}
+                        onChange={handleChange("dateOfPurchase")}
+                        style={inputControlStyle}
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Current Odometer Reading" required>
+                      <InputNumber
+                        min={0}
+                        value={Number(formData.odometerReading || 0)}
+                        onChange={(v) =>
+                          setField("odometerReading", Number(v || 0))
+                        }
+                        style={controlStyle}
+                        placeholder="Kms"
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+              </>
+            )}
+          </Row>
+        </div>
+      ),
+    },
+    {
+      key: "2",
+      label: (
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FAF8F1] text-slate-700 ring-1 ring-[#FAF8F1]">
+            <SafetyCertificateOutlined />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-slate-800">
+              Policy details
+            </div>
+            <div className="text-xs text-slate-500">
+              Coverage, duration, dates, NCB, IDV, premium, hypothecation
+            </div>
+          </div>
+        </div>
+      ),
+      children: (
+        <div className="pt-3">
+          <Row gutter={[22, 20]}>
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Insurance Company" required>
+                  <Input
+                    value={formData.newInsuranceCompany}
+                    onChange={handleChange("newInsuranceCompany")}
+                    style={inputControlStyle}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Policy Type" required>
+                  <Select
+                    value={formData.newPolicyType}
+                    onChange={(v) => {
+                      setField("newPolicyType", v);
+                      setField("newInsuranceDuration", "");
+                      setField("newOdExpiryDate", "");
+                      setField("newTpExpiryDate", "");
+                    }}
+                    style={controlStyle}
+                    options={[
+                      { label: "Comprehensive", value: "Comprehensive" },
+                      { label: "Stand Alone OD", value: "Stand Alone OD" },
+                      { label: "Third Party", value: "Third Party" },
+                    ]}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={16}>
+              <div className={fieldWrapClass}>
+                <CleanField
+                  label="Policy Number"
+                  extra={longPolicyNumberPreview}
+                >
+                  <Input
+                    value={formData.newPolicyNumber}
+                    onChange={handleChange("newPolicyNumber")}
+                    style={inputControlStyle}
+                    title={formData.newPolicyNumber || ""}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Issue Date" required>
+                  <Input
+                    type="date"
+                    value={formData.newIssueDate}
+                    onChange={handleChange("newIssueDate")}
+                    style={inputControlStyle}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Start Date" required>
+                  <Input
+                    type="date"
+                    value={formData.newPolicyStartDate}
+                    onChange={(e) =>
+                      handleNewPolicyStartOrDuration({
+                        newPolicyStartDate: e.target.value,
+                      })
+                    }
+                    style={inputControlStyle}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Insurance Duration" required>
+                  <Select
+                    value={formData.newInsuranceDuration}
+                    onChange={(v) =>
+                      handleNewPolicyStartOrDuration({
+                        newInsuranceDuration: v,
+                      })
+                    }
+                    style={controlStyle}
+                    options={durationSelectOptions}
+                    placeholder="Duration"
+                    disabled={!formData.newPolicyType}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            {formData.newPolicyType === "Comprehensive" && (
+              <>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="OD Expiry Date" required>
+                      <Input
+                        type="date"
+                        value={formData.newOdExpiryDate}
+                        style={computedDateStyle}
+                        readOnly
+                        tabIndex={-1}
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="TP Expiry Date" required>
+                      <Input
+                        type="date"
+                        value={formData.newTpExpiryDate}
+                        style={computedDateStyle}
+                        readOnly
+                        tabIndex={-1}
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+              </>
+            )}
+
+            {formData.newPolicyType === "Stand Alone OD" && (
               <Col xs={24} md={8}>
-                <Text strong>Current Odometer Reading *</Text>
-                <InputNumber
-                  min={0}
-                  value={Number(formData.odometerReading || 0)}
-                  onChange={(v) => setField("odometerReading", Number(v || 0))}
-                  style={{ width: "100%", marginTop: 6 }}
-                  placeholder="Kms"
-                />
+                <div className={fieldWrapClass}>
+                  <CleanField label="OD Expiry Date" required>
+                    <Input
+                      type="date"
+                      value={formData.newOdExpiryDate}
+                      style={computedDateStyle}
+                      readOnly
+                      tabIndex={-1}
+                    />
+                  </CleanField>
+                </div>
               </Col>
-            </>
-          )}
-        </Row>
-      </div>
+            )}
 
-      <Row gutter={[14, 14]}>
-        <Col xs={24} md={8}>
-          <Text strong>Insurance Company *</Text>
-          <Input
-            value={formData.newInsuranceCompany}
-            onChange={handleChange("newInsuranceCompany")}
-            style={{ marginTop: 6 }}
-          />
-          <div className="mt-1 text-[11px] text-slate-400">
-            From accepted quote
-          </div>
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>Policy Type *</Text>
-          <Select
-            value={formData.newPolicyType}
-            onChange={(v) => {
-              setField("newPolicyType", v);
-              setField("newInsuranceDuration", "");
-              setField("newOdExpiryDate", "");
-              setField("newTpExpiryDate", "");
-            }}
-            style={{ width: "100%", marginTop: 6 }}
-            options={[
-              { label: "Comprehensive", value: "Comprehensive" },
-              { label: "Stand Alone OD", value: "Stand Alone OD" },
-              { label: "Third Party", value: "Third Party" },
-            ]}
-          />
-          <div className="mt-1 text-[11px] text-slate-400">
-            From accepted quote
-          </div>
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>Policy Number</Text>
-          <Input
-            value={formData.newPolicyNumber}
-            onChange={handleChange("newPolicyNumber")}
-            style={{ marginTop: 6 }}
-          />
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>Issue Date *</Text>
-          <Input
-            type="date"
-            value={formData.newIssueDate}
-            onChange={handleChange("newIssueDate")}
-            style={{ marginTop: 6 }}
-          />
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>Start Date *</Text>
-          <Input
-            type="date"
-            value={formData.newPolicyStartDate}
-            onChange={(e) =>
-              handleNewPolicyStartOrDuration({
-                newPolicyStartDate: e.target.value,
-              })
-            }
-            style={{ marginTop: 6 }}
-          />
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>Insurance Duration *</Text>
-          <Select
-            value={formData.newInsuranceDuration}
-            onChange={(v) =>
-              handleNewPolicyStartOrDuration({
-                newInsuranceDuration: v,
-              })
-            }
-            style={{ width: "100%", marginTop: 6 }}
-            options={
-              formData.newPolicyType === "Comprehensive"
-                ? [
-                    { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
-                    { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-                    { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-                    { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
-                  ]
-                : formData.newPolicyType === "Stand Alone OD"
-                  ? [
-                      { label: "1 Year", value: "1 Year" },
-                      { label: "2 Years", value: "2 Years" },
-                      { label: "3 Years", value: "3 Years" },
-                    ]
-                  : formData.newPolicyType === "Third Party"
-                    ? [
-                        { label: "1 Year", value: "1 Year" },
-                        { label: "2 Years", value: "2 Years" },
-                        { label: "3 Years", value: "3 Years" },
-                      ]
-                    : durationOptions.map((d) => ({
-                        label: d,
-                        value: d,
-                      }))
-            }
-            placeholder="Duration"
-            disabled={!formData.newPolicyType}
-          />
-          <div className="mt-1 text-[11px] text-slate-400">
-            Mapped from the accepted quote duration
-          </div>
-        </Col>
+            {formData.newPolicyType === "Third Party" && (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="TP Expiry Date" required>
+                    <Input
+                      type="date"
+                      value={formData.newTpExpiryDate}
+                      style={computedDateStyle}
+                      readOnly
+                      tabIndex={-1}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+            )}
 
-        {formData.newPolicyType === "Comprehensive" && (
-          <>
             <Col xs={24} md={8}>
-              <Text strong>OD Expiry Date *</Text>
-              <Input
-                type="date"
-                value={formData.newOdExpiryDate}
-                onChange={handleChange("newOdExpiryDate")}
-                style={{ marginTop: 6 }}
-              />
+              <div className={fieldWrapClass}>
+                <CleanField label="NCB Discount (%)">
+                  <InputNumber
+                    min={0}
+                    max={100}
+                    value={Number(formData.newNcbDiscount || 0)}
+                    onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
+                    style={controlStyle}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="IDV Amount" required>
+                  <InputNumber
+                    min={0}
+                    value={Number(formData.newIdvAmount || 0)}
+                    onChange={(v) => setField("newIdvAmount", Number(v || 0))}
+                    style={controlStyle}
+                    placeholder="₹ 0"
+                    {...amountInputProps}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Total Premium" required>
+                  <InputNumber
+                    min={0}
+                    value={Number(formData.newTotalPremium || 0)}
+                    onChange={(v) =>
+                      setField("newTotalPremium", Number(v || 0))
+                    }
+                    style={controlStyle}
+                    placeholder="₹ 0"
+                    {...amountInputProps}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Hypothecation">
+                  <Select
+                    value={formData.newHypothecation}
+                    onChange={(v) => setField("newHypothecation", v)}
+                    style={controlStyle}
+                    options={[
+                      { label: "Not Applicable", value: "Not Applicable" },
+                      { label: "HDFC Bank", value: "HDFC Bank" },
+                      { label: "ICICI Bank", value: "ICICI Bank" },
+                      { label: "SBI", value: "SBI" },
+                    ]}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={16}>
+              <CleanField label="Remarks">
+                <Input.TextArea
+                  rows={2}
+                  value={formData.newRemarks}
+                  onChange={handleChange("newRemarks")}
+                  style={textAreaStyle}
+                  placeholder="Notes..."
+                />
+              </CleanField>
+            </Col>
+          </Row>
+        </div>
+      ),
+    },
+    {
+      key: "3",
+      label: (
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF3EF] text-slate-700 ring-1 ring-[#D6E6DF]">
+            <FileTextOutlined />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-slate-800">
+              Extended warranty
+            </div>
+            <div className="text-xs text-slate-500">
+              Optional warranty schedule and kilometers coverage
+            </div>
+          </div>
+        </div>
+      ),
+      children: (
+        <div className="pt-3">
+          <Row gutter={[22, 20]}>
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="EW Commencement Date">
+                  <Input
+                    type="date"
+                    value={formData.ewCommencementDate}
+                    onChange={handleChange("ewCommencementDate")}
+                    style={inputControlStyle}
+                  />
+                </CleanField>
+              </div>
             </Col>
             <Col xs={24} md={8}>
-              <Text strong>TP Expiry Date *</Text>
-              <Input
-                type="date"
-                value={formData.newTpExpiryDate}
-                onChange={handleChange("newTpExpiryDate")}
-                style={{ marginTop: 6 }}
-              />
+              <div className={fieldWrapClass}>
+                <CleanField label="EW Expiry Date">
+                  <Input
+                    type="date"
+                    value={formData.ewExpiryDate}
+                    onChange={handleChange("ewExpiryDate")}
+                    style={inputControlStyle}
+                  />
+                </CleanField>
+              </div>
             </Col>
-          </>
-        )}
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Kms Coverage">
+                  <InputNumber
+                    min={0}
+                    value={Number(formData.kmsCoverage || 0)}
+                    onChange={(v) => setField("kmsCoverage", Number(v || 0))}
+                    style={controlStyle}
+                    placeholder="e.g. 100000"
+                  />
+                </CleanField>
+              </div>
+            </Col>
+          </Row>
+        </div>
+      ),
+    },
+  ];
 
-        {formData.newPolicyType === "Stand Alone OD" && (
-          <Col xs={24} md={8}>
-            <Text strong>OD Expiry Date *</Text>
-            <Input
-              type="date"
-              value={formData.newOdExpiryDate}
-              onChange={handleChange("newOdExpiryDate")}
-              style={{ marginTop: 6 }}
-            />
-          </Col>
-        )}
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div className={sectionHeaderLabel}>Policy information</div>
+            <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
+              New policy details
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              Accepted quote converted into an editable policy record
+            </div>
+          </div>
 
-        {formData.newPolicyType === "Third Party" && (
-          <Col xs={24} md={8}>
-            <Text strong>TP Expiry Date *</Text>
-            <Input
-              type="date"
-              value={formData.newTpExpiryDate}
-              onChange={handleChange("newTpExpiryDate")}
-              style={{ marginTop: 6 }}
-            />
-          </Col>
-        )}
-        <Col xs={24} md={8}>
-          <Text strong>NCB Discount (%)</Text>
-          <InputNumber
-            min={0}
-            max={100}
-            value={Number(formData.newNcbDiscount || 0)}
-            onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
-            style={{ width: "100%", marginTop: 6 }}
-          />
-          <div className="mt-1 text-[11px] text-slate-400">
-            From accepted quote: {acceptedNcb}%
-          </div>
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>IDV Amount (₹) *</Text>
-          <InputNumber
-            min={0}
-            value={Number(formData.newIdvAmount || 0)}
-            onChange={(v) => setField("newIdvAmount", Number(v || 0))}
-            style={{ width: "100%", marginTop: 6 }}
-          />
-          <div className="mt-1 text-[11px] text-slate-400">
-            From accepted quote
-          </div>
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>Total Premium (₹) *</Text>
-          <InputNumber
-            min={0}
-            value={Number(formData.newTotalPremium || 0)}
-            onChange={(v) => setField("newTotalPremium", Number(v || 0))}
-            style={{ width: "100%", marginTop: 6 }}
-          />
-          <div className="mt-1 text-[11px] text-slate-400">
-            From accepted quote
-          </div>
-        </Col>
-        <Col xs={24} md={8}>
-          <Text strong>Hypothecation</Text>
-          <Select
-            value={formData.newHypothecation}
-            onChange={(v) => setField("newHypothecation", v)}
-            style={{ width: "100%", marginTop: 6 }}
-            options={[
-              { label: "Not Applicable", value: "Not Applicable" },
-              { label: "HDFC Bank", value: "HDFC Bank" },
-              { label: "ICICI Bank", value: "ICICI Bank" },
-              { label: "SBI", value: "SBI" },
-            ]}
-          />
-          <div className="mt-1 text-[11px] text-slate-400">
-            Select the financed bank, or keep Not Applicable
-          </div>
-        </Col>
-        <Col xs={24} md={16}>
-          <Text strong>Remarks</Text>
-          <Input.TextArea
-            rows={1}
-            value={formData.newRemarks}
-            onChange={handleChange("newRemarks")}
-            style={{ marginTop: 6 }}
-            placeholder="Notes..."
-          />
-        </Col>
-      </Row>
-
-      {/* Section 2: Extended Warranty */}
-      <div className="rounded-xl border border-amber-200/50 bg-amber-50/30 p-4 dark:border-amber-900/30 dark:bg-amber-900/10 md:p-5">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-amber-600/70 dark:text-amber-400/50">
-          Extended Warranty Details
-        </h3>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={8}>
-            <Text strong>EW Commencement Date</Text>
-            <Input
-              type="date"
-              value={formData.ewCommencementDate}
-              onChange={handleChange("ewCommencementDate")}
-              style={{ marginTop: 6 }}
-            />
-          </Col>
-          <Col xs={24} md={8}>
-            <Text strong>EW Expiry Date</Text>
-            <Input
-              type="date"
-              value={formData.ewExpiryDate}
-              onChange={handleChange("ewExpiryDate")}
-              style={{ marginTop: 6 }}
-            />
-          </Col>
-          <Col xs={24} md={8}>
-            <Text strong>Kms Coverage</Text>
-            <InputNumber
-              min={0}
-              value={Number(formData.kmsCoverage || 0)}
-              onChange={(v) => setField("kmsCoverage", Number(v || 0))}
-              style={{ width: "100%", marginTop: 6 }}
-              placeholder="e.g. 100000"
-            />
-          </Col>
-        </Row>
-      </div>
-
-      {/* Section 3: Payment Tracking */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 md:p-5">
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">
-          Payment Tracking
-        </h3>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">
-              Cust. Expected (₹)
-            </Text>
-            <InputNumber
-              min={0}
-              value={Number(formData.customerPaymentExpected || 0)}
-              onChange={(v) =>
-                setField("customerPaymentExpected", Number(v || 0))
-              }
-              style={{ width: "100%", marginTop: 6 }}
-              placeholder="0"
-            />
-          </Col>
-          <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">
-              Cust. Received (₹)
-            </Text>
-            <InputNumber
-              min={0}
-              value={Number(formData.customerPaymentReceived || 0)}
-              onChange={(v) =>
-                setField("customerPaymentReceived", Number(v || 0))
-              }
-              style={{ width: "100%", marginTop: 6 }}
-              placeholder="0"
-            />
-          </Col>
-          <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">
-              In-house Expected (₹)
-            </Text>
-            <InputNumber
-              min={0}
-              value={Number(formData.inhousePaymentExpected || 0)}
-              onChange={(v) =>
-                setField("inhousePaymentExpected", Number(v || 0))
-              }
-              style={{ width: "100%", marginTop: 6 }}
-              placeholder="0"
-            />
-          </Col>
-          <Col xs={24} md={6}>
-            <Text strong className="text-[11px] uppercase text-slate-500">
-              In-house Received (₹)
-            </Text>
-            <InputNumber
-              min={0}
-              value={Number(formData.inhousePaymentReceived || 0)}
-              onChange={(v) =>
-                setField("inhousePaymentReceived", Number(v || 0))
-              }
-              style={{ width: "100%", marginTop: 6 }}
-              placeholder="0"
-            />
-          </Col>
-        </Row>
-        {paymentHistory.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <Text strong style={{ display: "block", marginBottom: 8 }}>
-              Payment History ({paymentHistory.length})
-            </Text>
-            <Table
-              size="small"
-              dataSource={paymentHistory.map((p, idx) => ({
-                key: p._id || idx,
-                ...p,
-              }))}
-              pagination={false}
-              columns={[
-                {
-                  title: "Date",
-                  dataIndex: "date",
-                  key: "date",
-                  width: 120,
-                  render: (d) => (d ? dayjs(d).format("DD MMM YYYY") : "—"),
-                },
-                {
-                  title: "Type",
-                  dataIndex: "paymentType",
-                  key: "type",
-                  width: 100,
-                  render: (t) => (t === "customer" ? "Customer" : "In-house"),
-                },
-                {
-                  title: "Amount",
-                  dataIndex: "amount",
-                  key: "amount",
-                  width: 120,
-                  render: (a) => toINR(a),
-                },
-                {
-                  title: "Mode",
-                  dataIndex: "paymentMode",
-                  key: "mode",
-                  width: 100,
-                },
-                {
-                  title: "Ref",
-                  dataIndex: "transactionRef",
-                  key: "ref",
-                  width: 140,
-                },
-                {
-                  title: "Remarks",
-                  dataIndex: "remarks",
-                  key: "remarks",
-                },
-              ]}
-            />
-          </div>
-        )}
-        <Space style={{ marginTop: 12, width: "100%" }} direction="vertical">
-          <Button
-            type="dashed"
-            block
-            onClick={() => setPaymentModalVisible(true)}
-          >
-            + Record Payment
-          </Button>
-          {insuranceDbId && formData.customerPaymentExpected > 0 && (
-            <Button
-              block
-              onClick={async () => {
-                try {
-                  await insuranceApi.syncReceivable(insuranceDbId);
-                  message.success(
-                    "Customer payment synced to Receivables module",
-                  );
-                } catch (err) {
-                  message.error(err?.message || "Failed to sync receivable");
-                }
+          <div className="flex flex-wrap gap-2">
+            <Tag
+              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+              color="default"
+            >
+              Quote ID: {acceptedQuoteId}
+            </Tag>
+            <Tag
+              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+              style={{
+                background: "#EEF3EF",
+                borderColor: "#D6E6DF",
+                color: "#1f2937",
               }}
             >
-              Sync to Receivables Module
-            </Button>
-          )}
-        </Space>
+              {acceptedPolicyType}
+            </Tag>
+            <Tag
+              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+              style={{
+                background: "#FAF8F1",
+                borderColor: "#FAF8F1",
+                color: "#1f2937",
+              }}
+            >
+              {acceptedDuration}
+            </Tag>
+          </div>
+        </div>
       </div>
+
+      <Row gutter={[20, 20]} align="top">
+        <Col xs={24} xl={8}>
+          <div className="flex flex-col gap-4 md:sticky md:top-4">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#D6E6DF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6E6DF]/70 text-xs font-black text-slate-800 ring-1 ring-[#D6E6DF]">
+                      {companyInitial}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="m-0 truncate text-sm font-bold leading-tight text-slate-800">
+                        {acceptedCompany}
+                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        {acceptedPolicyType && (
+                          <span className="text-[11px] text-slate-500">
+                            {acceptedPolicyType}
+                          </span>
+                        )}
+                        {acceptedPolicyType && acceptedDuration && (
+                          <span className="text-[10px] text-slate-300">·</span>
+                        )}
+                        {acceptedDuration && (
+                          <span className="text-[11px] text-slate-500">
+                            {acceptedDuration}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      IDV
+                    </p>
+                    <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+                      {acceptedIdv > 0 ? formatCurrency(acceptedIdv) : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mx-5 border-t border-slate-100" />
+
+              <div className="px-5 pt-5 pb-3">
+                <p className="m-0 mb-3 text-sm font-black text-slate-800">
+                  Premium Breakup
+                </p>
+
+                <BreakupRow
+                  label="Own Damage"
+                  value={formatCurrency(acceptedOdAmount)}
+                  bold
+                />
+                <BreakupRow
+                  label="Basic Own Damage"
+                  value={formatCurrency(acceptedOdAmount)}
+                  indent
+                  muted
+                />
+
+                {acceptedNcb > 0 && (
+                  <BreakupRow
+                    label={`NCB Discount (${acceptedNcb}%)`}
+                    value={`-${formatCurrency(acceptedNcbAmount)}`}
+                    indent
+                    muted
+                  />
+                )}
+
+                <BreakupRow
+                  label="Third Party"
+                  value={formatCurrency(acceptedTpAmount)}
+                  bold
+                />
+                <BreakupRow
+                  label="Basic Third Party"
+                  value={formatCurrency(acceptedTpAmount)}
+                  indent
+                  muted
+                />
+
+                {includedAddons.length > 0 && (
+                  <>
+                    <BreakupRow
+                      label="Add Ons"
+                      value={formatCurrency(acceptedAddOnsTotal)}
+                      bold
+                    />
+                    {visibleAcceptedAddons.map(({ name, amt }) => (
+                      <BreakupRow
+                        key={name}
+                        label={name}
+                        value={amt > 0 ? formatCurrency(amt) : "included"}
+                        indent
+                        muted
+                      />
+                    ))}
+                    {includedAddons.length > 4 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllAcceptedAddons((p) => !p)}
+                        className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-slate-600 transition-colors hover:text-slate-700 cursor-pointer"
+                      >
+                        <span
+                          className={`inline-block transition-transform duration-200 ${
+                            showAllAcceptedAddons ? "rotate-180" : ""
+                          }`}
+                        >
+                          ▾
+                        </span>
+                        {showAllAcceptedAddons
+                          ? "Show Less"
+                          : `+${includedAddons.length - 4} More Add-ons`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="mx-5 border-t border-dashed border-slate-200" />
+
+              <div className="px-5 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-slate-800">
+                    Total Amount
+                  </span>
+                  <span className="text-xl font-black tabular-nums text-slate-900">
+                    {acceptedPremium > 0
+                      ? formatCurrency(acceptedPremium)
+                      : "—"}
+                  </span>
+                </div>
+                <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
+                  Prices are inclusive of GST
+                </p>
+              </div>
+            </div>
+
+            <div className={`${shellStyle} p-4`}>
+              <div className="mb-3 flex items-center gap-2">
+                <CalendarOutlined className="text-slate-600" />
+                <span className="text-sm font-bold text-slate-800">
+                  Important dates
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                <MiniDateCard
+                  icon={<CalendarOutlined />}
+                  label="Issue Date"
+                  value={formatDisplayDate(formData.newIssueDate)}
+                  tone="warm"
+                />
+                <MiniDateCard
+                  icon={<SafetyCertificateOutlined />}
+                  label="Policy Start"
+                  value={formatDisplayDate(formData.newPolicyStartDate)}
+                  tone="sage"
+                />
+                <MiniDateCard
+                  icon={<InfoCircleOutlined />}
+                  label="OD Expiry"
+                  value={formatDisplayDate(formData.newOdExpiryDate)}
+                  tone="slate"
+                />
+                <MiniDateCard
+                  icon={<BankOutlined />}
+                  label="TP Expiry"
+                  value={formatDisplayDate(formData.newTpExpiryDate)}
+                  tone="slate"
+                />
+              </div>
+            </div>
+          </div>
+        </Col>
+
+        <Col xs={24} xl={16}>
+          <div className={`${shellStyle} p-2 md:p-3`}>
+            <Collapse
+              ghost
+              defaultActiveKey={["1", "2", "3"]}
+              expandIconPosition="end"
+              items={collapseItems}
+            />
+          </div>
+        </Col>
+      </Row>
     </div>
   );
 };

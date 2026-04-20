@@ -16,7 +16,6 @@ import {
   Radio,
   Select,
   Tag,
-  Tabs,
   Tooltip,
   Upload,
   message,
@@ -40,11 +39,9 @@ import {
   InfoCircleOutlined,
   SyncOutlined,
   FilterOutlined,
-  FileTextOutlined,
   EditOutlined,
   HistoryOutlined,
   PaperClipOutlined,
-  DashboardOutlined,
   ThunderboltOutlined,
   TrophyOutlined,
   SafetyCertificateOutlined,
@@ -67,6 +64,7 @@ import {
 import { dayjs } from "../UsedCarLeadManager/utils/formatters";
 import { usedCarsApi } from "../../../../api/usedCars";
 import { uploadMultipleFiles } from "../../../../api/uploads";
+import "./theme.css";
 
 const { TextArea } = Input;
 
@@ -326,70 +324,19 @@ function isAutoRejectedLead(lead = {}) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function StatusBadge({ status, size = "default" }) {
   const configs = {
-    [BGC_STATUS.PENDING]: {
-      bg: "bg-amber-50 dark:bg-amber-500/10",
-      border: "border-amber-200 dark:border-amber-500/30",
-      text: "text-amber-700 dark:text-amber-400",
-      dot: "bg-amber-400",
-      pulse: true,
-    },
-    [BGC_STATUS.VAHAN_DONE]: {
-      bg: "bg-sky-50 dark:bg-sky-500/10",
-      border: "border-sky-200 dark:border-sky-500/30",
-      text: "text-sky-700 dark:text-sky-400",
-      dot: "bg-sky-400",
-      pulse: false,
-    },
-    [BGC_STATUS.COMPLETE]: {
-      bg: "bg-emerald-50 dark:bg-emerald-500/10",
-      border: "border-emerald-200 dark:border-emerald-500/30",
-      text: "text-emerald-700 dark:text-emerald-400",
-      dot: "bg-emerald-400",
-      pulse: false,
-    },
-    APPROVED: {
-      bg: "bg-green-50 dark:bg-green-500/10",
-      border: "border-green-200 dark:border-green-500/30",
-      text: "text-green-700 dark:text-green-400",
-      dot: "bg-green-500",
-      pulse: false,
-    },
-    REJECTED: {
-      bg: "bg-red-50 dark:bg-red-500/10",
-      border: "border-red-200 dark:border-red-500/30",
-      text: "text-red-700 dark:text-red-400",
-      dot: "bg-red-500",
-      pulse: false,
-    },
-    ESCALATED: {
-      bg: "bg-violet-50 dark:bg-violet-500/10",
-      border: "border-violet-200 dark:border-violet-500/30",
-      text: "text-violet-700 dark:text-violet-400",
-      dot: "bg-violet-500",
-      pulse: true,
-    },
+    [BGC_STATUS.PENDING]: "badge-pending",
+    [BGC_STATUS.VAHAN_DONE]: "badge-vahan",
+    [BGC_STATUS.COMPLETE]: "badge-complete",
+    APPROVED: "badge-approved",
+    REJECTED: "badge-rejected",
+    ESCALATED: "badge-escalated",
   };
-
-  const config = configs[status] || configs[BGC_STATUS.PENDING];
-  const sizeClasses =
-    size === "small"
-      ? "px-2 py-0.5 text-[9px] gap-1"
-      : "px-3 py-1 text-[10px] gap-1.5";
+  const badgeClass = configs[status] || configs[BGC_STATUS.PENDING];
+  const sizeClass = size === "small" ? "is-small" : "";
 
   return (
-    <span
-      className={`inline-flex items-center ${sizeClasses} rounded-full border font-bold uppercase tracking-wide ${config.bg} ${config.border} ${config.text}`}
-    >
-      <span className={`relative flex h-2 w-2`}>
-        {config.pulse && (
-          <span
-            className={`absolute inline-flex h-full w-full rounded-full ${config.dot} opacity-75 animate-ping`}
-          />
-        )}
-        <span
-          className={`relative inline-flex rounded-full h-2 w-2 ${config.dot}`}
-        />
-      </span>
+    <span className={`uc-bgc-status-badge ${badgeClass} ${sizeClass}`}>
+      <span className="uc-bgc-status-dot" />
       {status?.replace(/_/g, " ")}
     </span>
   );
@@ -400,28 +347,18 @@ function StatusBadge({ status, size = "default" }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function InspectionScore({ score }) {
   const getScoreConfig = (score) => {
-    if (score >= 80)
-      return { color: "#10b981", label: "Excellent", bg: "bg-emerald-50" };
-    if (score >= 60)
-      return { color: "#f59e0b", label: "Good", bg: "bg-amber-50" };
-    return { color: "#ef4444", label: "Poor", bg: "bg-red-50" };
+    if (score >= 80) return { color: "#437a22", label: "Excellent" };
+    if (score >= 60) return { color: "#da7101", label: "Good" };
+    return { color: "#c0392b", label: "Poor" };
   };
 
   const config = getScoreConfig(score);
 
   return (
     <Tooltip title={`${config.label} Condition (${score}%)`}>
-      <div
-        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 ${config.bg}`}
-        style={{ borderColor: `${config.color}30` }}
-      >
+      <div className="uc-bgc-score-pill" style={{ borderColor: `${config.color}55`, color: config.color }}>
         <TrophyOutlined style={{ color: config.color, fontSize: 12 }} />
-        <span
-          className="text-[11px] font-black"
-          style={{ color: config.color }}
-        >
-          {score}%
-        </span>
+        <span className="text-[10px] font-black">{score}%</span>
       </div>
     </Tooltip>
   );
@@ -433,72 +370,18 @@ function InspectionScore({ score }) {
 function HardRuleAlert({ rule }) {
   if (!rule) return null;
 
-  const configs = {
-    danger: {
-      bg: "bg-red-50 dark:bg-red-500/10",
-      border: "border-red-200 dark:border-red-500/30",
-      icon: "text-red-500",
-      title: "text-red-800 dark:text-red-300",
-      desc: "text-red-600 dark:text-red-400",
-      badge: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
-    },
-    warning: {
-      bg: "bg-amber-50 dark:bg-amber-500/10",
-      border: "border-amber-200 dark:border-amber-500/30",
-      icon: "text-amber-500",
-      title: "text-amber-800 dark:text-amber-300",
-      desc: "text-amber-600 dark:text-amber-400",
-      badge:
-        "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
-    },
-  };
-
-  const config = configs[rule.color] || configs.warning;
   const isAutoReject = rule.type === "auto-reject";
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border ${config.bg} ${config.border} p-4`}
-    >
-      {/* Decorative gradient */}
-      <div
-        className={`absolute inset-0 opacity-10 ${
-          isAutoReject
-            ? "bg-gradient-to-r from-red-500 to-rose-500"
-            : "bg-gradient-to-r from-amber-500 to-orange-500"
-        }`}
-      />
-
-      <div className="relative flex items-start gap-4">
-        <div
-          className={`flex-shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl bg-white dark:bg-white/10 shadow-sm ${config.icon}`}
-        >
+    <div className={`uc-bgc-rule-banner ${isAutoReject ? "danger" : "warn"}`}>
+      <div className="uc-bgc-rule-icon">
           {rule.icon}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Tag
-              className={`!m-0 text-[10px] font-black uppercase tracking-wider ${config.badge}`}
-            >
-              {isAutoReject ? "Auto-Reject" : "Manual Review Required"}
-            </Tag>
-            <span className="text-[10px] text-slate-400">
-              {isAutoReject
-                ? "Immediate action taken"
-                : "Senior approval needed"}
-            </span>
-          </div>
-          <p className={`text-sm font-bold ${config.desc}`}>{rule.reason}</p>
-        </div>
-
-        <Button
-          size="small"
-          icon={<InfoCircleOutlined />}
-          className="!flex-shrink-0"
-        >
-          Details
-        </Button>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="uc-bgc-rule-title">
+          {isAutoReject ? "Hard Rule Triggered — Auto Reject" : "Manual Approval Required"}
+        </p>
+        <p className="uc-bgc-rule-text">{rule.reason}</p>
       </div>
     </div>
   );
@@ -517,59 +400,39 @@ function SectionCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
-  const badgeColors = {
-    blue: "bg-blue-100 text-blue-700",
-    green: "bg-emerald-100 text-emerald-700",
-    red: "bg-red-100 text-red-700",
-    amber: "bg-amber-100 text-amber-700",
-    purple: "bg-violet-100 text-violet-700",
-  };
-
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_12px_35px_-28px_rgba(15,23,42,0.5)] transition-all hover:shadow-[0_20px_42px_-30px_rgba(15,23,42,0.55)]">
+    <div className="uc-bgc-section-card">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between bg-gradient-to-r from-slate-50 to-white px-5 py-4 text-left transition-colors hover:from-sky-50 hover:to-white"
+        className="uc-bgc-section-header"
       >
-        <div className="flex items-center gap-3">
+        <div className="uc-bgc-section-title-wrap">
           {icon && (
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
-              <span className="text-slate-500">{icon}</span>
+            <div className="uc-bgc-section-icon">
+              <span>{icon}</span>
             </div>
           )}
           <div className="flex items-center gap-2">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-slate-600">
-              {title}
-            </h3>
+            <h3 className="uc-bgc-section-title">{title}</h3>
             {badge && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeColors[badgeColor]}`}
-              >
+              <span className={`uc-bgc-section-badge badge-${badgeColor}`}>
                 {badge}
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-slate-400">
-            {open ? "Hide" : "Show"}
+        <div className="uc-bgc-section-right">
+          <span className="uc-bgc-section-toggle-text">{open ? "Hide" : "Show"}</span>
+          <span className={`uc-bgc-section-toggle-icon ${open ? "open" : ""}`}>
+            <DownOutlined className="text-[10px]" />
           </span>
-          <div
-            className={`flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          >
-            <DownOutlined className="text-[10px] text-slate-500" />
-          </div>
         </div>
       </button>
 
-      <div
-        className={`transition-all duration-300 ${open ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 overflow-hidden"}`}
-      >
-        <div className="border-t border-slate-100 px-5 py-5">
-          {children}
-        </div>
+      <div className={`${open ? "block" : "hidden"}`}>
+        <div className="uc-bgc-section-body">{children}</div>
       </div>
     </div>
   );
@@ -578,152 +441,64 @@ function SectionCard({
 // ═══════════════════════════════════════════════════════════════════════════════
 // VAHAN SNAPSHOT
 // ═══════════════════════════════════════════════════════════════════════════════
+function SnapshotValue({ label, value, tone = "neutral" }) {
+  return (
+    <div className="uc-bgc-sheet-cell">
+      <p className="uc-bgc-sheet-label">{label}</p>
+      <p className={`uc-bgc-sheet-value tone-${tone}`}>
+        <span className={`uc-bgc-sheet-dot tone-${tone}`} />
+        {value || "—"}
+      </p>
+    </div>
+  );
+}
+
 function VahanSnapshot({ values, lead }) {
-  const totalChallan = Number(values.echallanAmount || 0) + Number(values.dtpAmount || 0);
-  const riskFlags = [
-    values.blacklisted === "Yes",
-    values.theft === "Yes",
-    values.hypothecation === "Yes",
-    values.partyPeshi?.includes("Applicable"),
-    values.challanPending === "Yes",
-  ].filter(Boolean).length;
-
-  const checks = [
-    {
-      label: "Blacklisted",
-      value: values.blacklisted || "No",
-      tone: values.blacklisted === "Yes" ? "danger" : "safe",
-    },
-    {
-      label: "Theft Record",
-      value: values.theft || "No",
-      tone: values.theft === "Yes" ? "danger" : "safe",
-    },
-    {
-      label: "Road Tax",
-      value: values.roadTaxStatus || "Pending",
-      tone: values.roadTaxStatus === "Paid" ? "safe" : "warn",
-    },
-    {
-      label: "RTO NOC",
-      value: values.rtoNocIssued || "Pending",
-      tone: values.rtoNocIssued === "Issued" ? "safe" : "warn",
-    },
-    {
-      label: "Hypothecation",
-      value: values.hypothecation || "No",
-      tone: values.hypothecation === "Yes" ? "warn" : "safe",
-    },
-    {
-      label: "Party Peshi",
-      value: values.partyPeshi || "Not Applicable",
-      tone: values.partyPeshi?.includes("Applicable") ? "warn" : "safe",
-    },
-  ];
-
-  const proofRows = [
-    { key: "blacklistedFiles", label: "Blacklist Proof" },
-    { key: "theftFiles", label: "Theft Proof" },
-    { key: "echallanFiles", label: "eChallan Proof" },
-    { key: "dtpFiles", label: "DTP Proof" },
-  ];
-
-  const getToneClass = (tone) => {
-    if (tone === "danger") return "border-red-200 bg-red-50 text-red-700";
-    if (tone === "warn") return "border-amber-200 bg-amber-50 text-amber-700";
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  };
+  const centralChallan = Number(values.echallanAmount || 0);
+  const stateChallan = Number(values.dtpAmount || 0);
+  const totalChallan = centralChallan + stateChallan;
+  const makeModel = [values.make, values.model].filter(Boolean).join(" ");
+  const challanLabel = `${values.challanPending === "Yes" ? "Yes" : "No"} (₹${totalChallan.toLocaleString("en-IN")})`;
+  const rcExpiry = values.rcExpiry
+    ? dayjs(values.rcExpiry).format("DD MMM YYYY")
+    : "—";
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Owner</p>
-          <p className="mt-1 text-sm font-black text-slate-900">
-            {values.ownerName || lead?.name || "Pending"}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">{lead?.mobile || "Mobile pending"}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Vehicle</p>
-          <p className="mt-1 text-sm font-black text-slate-900">
-            {[values.make, values.model].filter(Boolean).join(" ") || "Pending"}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">{values.variant || "Variant pending"}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Registration</p>
-          <p className="mt-1 text-sm font-black text-slate-900">{lead?.regNo || "Pending"}</p>
-          <p className="mt-1 text-xs text-slate-500">
-            RC: {values.rcExpiry ? dayjs(values.rcExpiry).format("DD MMM YYYY") : "Pending"}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Risk Snapshot</p>
-          <p className="mt-1 text-sm font-black text-slate-900">{riskFlags} active flags</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Challan: {totalChallan ? `₹${totalChallan.toLocaleString("en-IN")}` : "Clear"}
-          </p>
-        </div>
+    <div className="uc-bgc-sheet">
+      <div className="uc-bgc-sheet-head">
+        <p className="uc-bgc-sheet-title">Vahan Snapshot</p>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-              Vahan Check Snapshot
-            </p>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600">
-              Live from form
-            </span>
-          </div>
-          <div className="grid gap-2 md:grid-cols-2">
-            {checks.map((item) => (
-              <div
-                key={item.label}
-                className={`flex items-center justify-between rounded-xl border px-3 py-2 ${getToneClass(item.tone)}`}
-              >
-                <span className="text-xs font-semibold">{item.label}</span>
-                <span className="text-xs font-black">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-            Linked Proofs
-          </p>
-          <div className="space-y-2">
-            {proofRows.map((row) => {
-              const files = values[row.key] || [];
-              return (
-                <button
-                  key={row.key}
-                  type="button"
-                  onClick={() => {
-                    const url = files?.[0]?.url || files?.[0]?.preview;
-                    if (url) window.open(url, "_blank");
-                  }}
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition-all hover:border-sky-300 hover:bg-sky-50"
-                >
-                  <span className="text-xs font-semibold text-slate-700">{row.label}</span>
-                  <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                    {files.length}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <div className="uc-bgc-sheet-grid uc-bgc-vahan-grid">
+        <SnapshotValue label="Owner Name" value={values.ownerName || lead?.name || "—"} tone="ok" />
+        <SnapshotValue label="Make / Model" value={makeModel || "—"} tone="ok" />
+        <SnapshotValue label="Fuel" value={values.fuelType || lead?.fuel || "—"} tone="ok" />
+        <SnapshotValue label="Mfg Year" value={values.mfgYear || lead?.mfgYear || "—"} tone="ok" />
+        <SnapshotValue
+          label="RC Expiry"
+          value={rcExpiry}
+          tone={values.rcExpiry ? "ok" : "neutral"}
+        />
+        <SnapshotValue
+          label="Hypothecation"
+          value={values.hypothecation || "No"}
+          tone={values.hypothecation === "Yes" ? "warn" : "ok"}
+        />
+        <SnapshotValue
+          label="Hypothecation Bank"
+          value={values.hypothecationBank || "—"}
+          tone="neutral"
+        />
+        <SnapshotValue label="Blacklisted" value={values.blacklisted || "No"} tone={values.blacklisted === "Yes" ? "danger" : "ok"} />
+        <SnapshotValue label="Theft Record" value={values.theft || "No"} tone={values.theft === "Yes" ? "danger" : "ok"} />
+        <SnapshotValue label="Challan Pending" value={challanLabel} tone={values.challanPending === "Yes" ? "warn" : "ok"} />
+        <SnapshotValue
+          label="RTO NOC"
+          value={values.rtoNocIssued || "Not Required"}
+          tone={values.rtoNocIssued?.includes("Pending") ? "warn" : "ok"}
+        />
+        <SnapshotValue label="Party Peshi" value={values.partyPeshi || "Not Applicable"} tone={values.partyPeshi?.includes("Applicable") ? "warn" : "ok"} />
       </div>
-
-      {values.vahanComments && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Analyst Note</p>
-          <p className="mt-2 text-sm text-slate-700">{values.vahanComments}</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -732,127 +507,76 @@ function VahanSnapshot({ values, lead }) {
 // SERVICE SNAPSHOT
 // ═══════════════════════════════════════════════════════════════════════════════
 function ServiceSnapshot({ values }) {
-  const signalRows = [
-    {
-      label: "Service History",
-      value: values.serviceHistoryAvailable || "Pending",
-      tone: values.serviceHistoryAvailable === "Yes" ? "safe" : "warn",
-    },
-    {
-      label: "Accident History",
-      value: values.accidentHistory || "Pending",
-      tone: values.accidentHistory && values.accidentHistory !== "None" ? "warn" : "safe",
-    },
-    {
-      label: "Odometer Integrity",
-      value: values.odometerStatus || "Pending",
-      tone: values.odometerStatus && values.odometerStatus !== "Not Tampered" ? "warn" : "safe",
-    },
-    {
-      label: "Flood / Total Loss",
-      value:
-        values.floodedCar === "Yes" || values.totalLossVehicle === "Yes"
-          ? "Flagged"
-          : "Clear",
-      tone:
-        values.floodedCar === "Yes" || values.totalLossVehicle === "Yes"
-          ? "danger"
-          : "safe",
-    },
-  ];
-
-  const toneClass = (tone) => {
-    if (tone === "danger") return "border-red-200 bg-red-50 text-red-700";
-    if (tone === "warn") return "border-amber-200 bg-amber-50 text-amber-700";
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  };
+  const lastServiceDate = values.lastServiceDate
+    ? dayjs(values.lastServiceDate).format("DD-MMM-YY")
+    : "—";
+  const lastServiceKm = values.lastServiceOdometer
+    ? `${Number(values.lastServiceOdometer).toLocaleString("en-IN")} km`
+    : "—";
+  const currentOdo = values.currentOdometer
+    ? `${Number(values.currentOdometer).toLocaleString("en-IN")} km`
+    : "—";
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {signalRows.map((item) => (
-          <div key={item.label} className={`rounded-2xl border p-4 ${toneClass(item.tone)}`}>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] opacity-75">{item.label}</p>
-            <p className="mt-1 text-sm font-black">{item.value}</p>
-          </div>
-        ))}
+    <div className="uc-bgc-sheet">
+      <div className="uc-bgc-sheet-head">
+        <p className="uc-bgc-sheet-title">Service Fact Sheet</p>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-            Service Fact Sheet
-          </p>
-          <div className="grid gap-2 md:grid-cols-2">
-            {[
-              [
-                "Last Service Date",
-                values.lastServiceDate
-                  ? dayjs(values.lastServiceDate).format("DD MMM YYYY")
-                  : "Pending",
-              ],
-              [
-                "Last Service Odometer",
-                values.lastServiceOdometer
-                  ? `${Number(values.lastServiceOdometer).toLocaleString("en-IN")} km`
-                  : "Pending",
-              ],
-              [
-                "Current Odometer",
-                values.currentOdometer
-                  ? `${Number(values.currentOdometer).toLocaleString("en-IN")} km`
-                  : "Pending",
-              ],
-              ["Migrated Vehicle", values.migratedVehicle || "Pending"],
-              ["Flooded Car", values.floodedCar || "Pending"],
-              ["Total Loss", values.totalLossVehicle || "Pending"],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-              >
-                <span className="text-xs font-semibold text-slate-700">{label}</span>
-                <span className="text-xs font-black text-slate-600">{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-            Service Evidence
-          </p>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <span className="text-xs font-semibold text-slate-700">Documents</span>
-              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-black text-slate-600">
-                {(values.serviceFiles || []).length}
-              </span>
-            </div>
-            {(values.serviceFiles || []).length > 0 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const url = values.serviceFiles?.[0]?.url || values.serviceFiles?.[0]?.preview;
-                  if (url) window.open(url, "_blank");
-                }}
-                className="w-full rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-left text-xs font-bold text-sky-700 hover:border-sky-300"
-              >
-                Open service record
-              </button>
-            ) : (
-              <p className="text-xs text-slate-500">No service document uploaded.</p>
-            )}
-          </div>
-        </div>
+      <div className="uc-bgc-sheet-grid uc-bgc-vahan-grid">
+        <SnapshotValue
+          label="Service History"
+          value={values.serviceHistoryAvailable || "Pending"}
+          tone={values.serviceHistoryAvailable === "Yes" ? "ok" : "warn"}
+        />
+        <SnapshotValue label="Last Service Date" value={lastServiceDate} tone={values.lastServiceDate ? "ok" : "neutral"} />
+        <SnapshotValue label="Last Service KM" value={lastServiceKm} tone={values.lastServiceOdometer ? "ok" : "neutral"} />
+        <SnapshotValue label="Current Odometer" value={currentOdo} tone={values.currentOdometer ? "ok" : "neutral"} />
+        <SnapshotValue
+          label="Odometer Status"
+          value={values.odometerStatus || "Pending"}
+          tone={
+            values.odometerStatus &&
+            values.odometerStatus !== "Not Tampered"
+              ? "danger"
+              : "ok"
+          }
+        />
+        <SnapshotValue
+          label="Accident History"
+          value={values.accidentHistory || "Pending"}
+          tone={
+            values.accidentHistory && values.accidentHistory !== "None"
+              ? "warn"
+              : "ok"
+          }
+        />
+        <SnapshotValue
+          label="Flooded Car"
+          value={values.floodedCar || "Pending"}
+          tone={values.floodedCar === "Yes" ? "danger" : "ok"}
+        />
+        <SnapshotValue
+          label="Total Loss Vehicle"
+          value={values.totalLossVehicle || "Pending"}
+          tone={values.totalLossVehicle === "Yes" ? "danger" : "ok"}
+        />
+        <SnapshotValue
+          label="Migrated Vehicle"
+          value={values.migratedVehicle || "Pending"}
+          tone={values.migratedVehicle === "Yes" ? "warn" : "ok"}
+        />
+        <SnapshotValue
+          label="Service Evidence"
+          value={`${values.serviceFiles?.length || 0} file(s)`}
+          tone="neutral"
+        />
+        <SnapshotValue
+          label="Service Remarks"
+          value={values.serviceComments || "No remarks"}
+          tone="neutral"
+        />
       </div>
-
-      {values.serviceComments && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Analyst Note</p>
-          <p className="mt-2 text-sm text-slate-700">{values.serviceComments}</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -862,7 +586,6 @@ function ServiceSnapshot({ values }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function SmartEvidenceViewer({ values }) {
   const [preview, setPreview] = useState(null);
-  const [viewMode, setViewMode] = useState("grid"); // grid or list
 
   const allFiles = [
     ...(values.blacklistedFiles || []).map((f) => ({
@@ -892,166 +615,58 @@ function SmartEvidenceViewer({ values }) {
     })),
   ];
 
-  const tagColors = {
-    red: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 border-red-200",
-    amber:
-      "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 border-amber-200",
-    blue: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border-blue-200",
-  };
-
   if (allFiles.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 py-12 dark:border-white/10 dark:bg-white/[0.02]">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/10">
-          <FileSearchOutlined className="text-2xl text-slate-400" />
-        </div>
-        <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-          No Evidence Files Attached
-        </p>
-        <p className="mt-1 text-xs text-slate-400">
-          Upload documents in the Vahan or Service tabs
-        </p>
+      <div className="uc-bgc-evidence-empty">
+        <FileSearchOutlined className="text-2xl text-slate-300" />
+        <p className="mt-2 text-xs text-slate-500">No evidence files attached</p>
       </div>
     );
   }
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-          {allFiles.length} File{allFiles.length !== 1 ? "s" : ""} Attached
-        </p>
-        <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-white/5">
-          <button
-            onClick={() => setViewMode("grid")}
-            className={`rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
-              viewMode === "grid"
-                ? "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white"
-                : "text-slate-500 hover:bg-slate-50"
-            }`}
-          >
-            Grid
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
-              viewMode === "list"
-                ? "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white"
-                : "text-slate-500 hover:bg-slate-50"
-            }`}
-          >
-            List
-          </button>
-        </div>
+      <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">
+        Smart Evidence Viewer
       </div>
-
-      {viewMode === "grid" ? (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-          {allFiles.map((file, idx) => {
-            const url = file.url || file.preview;
-            const isPdf =
-              file.name?.endsWith(".pdf") || file.type === "application/pdf";
-
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() =>
-                  url &&
-                  setPreview({
-                    url,
-                    name: file.name || file.tag,
-                    tag: file.tag,
-                    color: file.color,
-                  })
-                }
-                className="group relative aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 transition-all hover:border-sky-400 hover:shadow-lg dark:border-white/10 dark:bg-white/5"
-              >
-                {url && !isPdf ? (
-                  <img
-                    src={url}
-                    alt={file.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-2">
-                    <FileTextOutlined className="text-3xl text-slate-400" />
-                    <span className="text-[10px] font-bold text-slate-500">
-                      PDF
-                    </span>
-                  </div>
-                )}
-
-                <div className="absolute inset-0 flex flex-col justify-between p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <div className="flex justify-end">
-                    <span
-                      className={`rounded-full border px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider ${tagColors[file.color]}`}
-                    >
-                      {file.tag}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-sm">
-                      <EyeOutlined className="text-sky-600" />
-                    </div>
-                  </div>
+      <div className="uc-bgc-evidence-grid">
+        {allFiles.map((file, idx) => {
+          const url = file.url || file.preview;
+          const isPdf = file.name?.toLowerCase?.().endsWith(".pdf") || file.type === "application/pdf";
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() =>
+                url &&
+                setPreview({
+                  url,
+                  name: file.name || file.tag,
+                  tag: file.tag,
+                })
+              }
+              className="uc-bgc-ev-thumb"
+            >
+              {url && !isPdf ? (
+                <img src={url} alt={file.name || file.tag} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-slate-500">
+                  PDF
                 </div>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {allFiles.map((file, idx) => {
-            const url = file.url || file.preview;
-            return (
-              <button
-                key={idx}
-                onClick={() =>
-                  url &&
-                  setPreview({
-                    url,
-                    name: file.name || file.tag,
-                    tag: file.tag,
-                    color: file.color,
-                  })
-                }
-                className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition-all hover:border-sky-300 hover:shadow-sm dark:border-white/10 dark:bg-white/5"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-white/10">
-                  <FileTextOutlined className="text-slate-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    {file.name || `Document ${idx + 1}`}
-                  </p>
-                  <p className="text-xs text-slate-400">{file.tag}</p>
-                </div>
-                <EyeOutlined className="text-sky-500" />
-              </button>
-            );
-          })}
-        </div>
-      )}
+              )}
+              <span className="uc-bgc-ev-label">{file.tag}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Lightbox Modal */}
       <Modal
         open={!!preview}
         onCancel={() => setPreview(null)}
         footer={null}
-        title={
-          <div className="flex items-center gap-3">
-            <span
-              className={`rounded-lg border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${tagColors[preview?.color]}`}
-            >
-              {preview?.tag}
-            </span>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
-              {preview?.name}
-            </span>
-          </div>
-        }
-        width={800}
+        title={<span className="text-sm font-semibold text-slate-800">{preview?.name || "Evidence"}</span>}
+        width={760}
         centered
         className="evidence-modal"
         bodyStyle={{ padding: 0 }}
@@ -1065,7 +680,7 @@ function SmartEvidenceViewer({ values }) {
             />
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 dark:border-white/10">
+        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
           <Button icon={<LeftOutlined />} onClick={() => setPreview(null)}>
             Close
           </Button>
@@ -1185,14 +800,14 @@ function AuditTimeline({ events }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="uc-bgc-action-bar">
       <Tooltip title={disabled ? "Cannot approve auto-rejected vehicles" : ""}>
         <span>
           <Button
             onClick={onApprove}
             loading={saving}
             disabled={disabled}
-            className="!flex !items-center !gap-2 !rounded-xl !border-emerald-300 !bg-emerald-50 !px-4 !py-2 !text-sm !font-bold !text-emerald-700 transition-all hover:!border-emerald-400 hover:!bg-emerald-100 hover:shadow-sm disabled:!opacity-50"
+            className="uc-bgc-btn uc-bgc-btn-approve"
             icon={<CheckOutlined />}
           >
             Approve
@@ -1203,7 +818,7 @@ function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
       <Button
         onClick={onReject}
         loading={saving}
-        className="!flex !items-center !gap-2 !rounded-xl !border-red-200 !bg-red-50 !px-4 !py-2 !text-sm !font-bold !text-red-600 transition-all hover:!border-red-300 hover:!bg-red-100 hover:shadow-sm"
+        className="uc-bgc-btn uc-bgc-btn-reject"
         icon={<CloseOutlined />}
       >
         Reject
@@ -1215,7 +830,7 @@ function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
             onClick={onEscalate}
             loading={saving}
             disabled={disabled}
-            className="!flex !items-center !gap-2 !rounded-xl !border-violet-200 !bg-violet-50 !px-4 !py-2 !text-sm !font-bold !text-violet-700 transition-all hover:!border-violet-300 hover:!bg-violet-100 hover:shadow-sm disabled:!opacity-50"
+            className="uc-bgc-btn uc-bgc-btn-escalate"
             icon={<ArrowUpOutlined />}
           >
             Escalate
@@ -1229,83 +844,71 @@ function ActionButtons({ onApprove, onReject, onEscalate, saving, disabled }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // QUEUE CARD (IMPROVED)
 // ═══════════════════════════════════════════════════════════════════════════════
-function QueueCard({ lead, active, onClick }) {
+const QueueCard = React.memo(function QueueCard({ lead, active, onSelect }) {
   const rule = getHardRule(lead.bgcData || {});
-  const tone =
-    lead.bgcStatus === BGC_STATUS.PENDING
-      ? "amber"
-      : lead.bgcStatus === BGC_STATUS.VAHAN_DONE
-        ? "sky"
-        : lead.bgcStatus === BGC_STATUS.COMPLETE || lead.bgcStatus === "APPROVED"
-          ? "emerald"
-          : lead.bgcStatus === "ESCALATED"
-            ? "violet"
-            : "rose";
+  const cardRuleClass =
+    rule?.type === "auto-reject"
+      ? "is-auto-reject"
+      : rule?.type === "manual"
+        ? "is-manual"
+        : "";
+  const ruleLabel =
+    rule?.type === "auto-reject"
+      ? "Auto-Reject"
+      : rule?.type === "manual"
+        ? "Manual"
+        : "Clear";
+  const ruleClass =
+    rule?.type === "auto-reject"
+      ? "flag-reject"
+      : rule?.type === "manual"
+        ? "flag-manual"
+        : "flag-clear";
 
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`relative w-full overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200 ${
-        active
-          ? "border-blue-400 bg-gradient-to-br from-blue-50 to-white shadow-lg ring-2 ring-blue-100"
-          : "border-slate-200 bg-white shadow-[0_8px_20px_-16px_rgba(15,23,42,0.4)] hover:border-slate-300 hover:shadow-[0_12px_26px_-16px_rgba(15,23,42,0.45)]"
-      }`}
+      onClick={() => onSelect(lead.id)}
+      className={`uc-bgc-q-card ${active ? "is-active" : ""} ${cardRuleClass}`}
     >
-      <div
-        className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${
-          tone === "amber"
-            ? "bg-amber-400"
-            : tone === "sky"
-              ? "bg-sky-400"
-              : tone === "emerald"
-                ? "bg-emerald-400"
-                : tone === "violet"
-                  ? "bg-violet-400"
-                  : "bg-rose-400"
-        }`}
-      />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-bold text-slate-900 truncate">
+      <div className="uc-bgc-q-top">
+        <div className="min-w-0">
+          <h4 className="uc-bgc-q-title truncate">
               {lead.make} {lead.model}
-            </h4>
-            {rule?.type === "auto-reject" && (
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100">
-                <StopFilled className="text-[10px] text-red-500" />
-              </div>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
+          </h4>
+          <p className="uc-bgc-q-sub">
             {lead.variant} · {lead.mfgYear}
           </p>
-          <p className="mt-1.5 text-xs font-bold tracking-wider text-slate-700">
+          <p className="uc-bgc-q-reg">{lead.regNo}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <InspectionScore score={lead.inspectionScore} />
+          {rule?.type === "auto-reject" ? (
+            <StopFilled className="text-[12px] text-red-500" />
+          ) : null}
+        </div>
+      </div>
+
+      <div className="uc-bgc-q-bottom">
+        <p className="uc-bgc-q-agent">{lead.assignedTo}</p>
+        <div className="flex items-center gap-1.5">
+          <StatusBadge status={lead.bgcStatus} size="small" />
+          <span className={`uc-bgc-rule-flag ${ruleClass}`}>{ruleLabel}</span>
+        </div>
+      </div>
+
+      <div className="mt-1">
+        <p className="uc-bgc-q-regline">
+          {lead.name}
+          <span className="mx-1 text-slate-300">·</span>
+          <span className="font-semibold text-slate-500">
             {lead.regNo}
-          </p>
-        </div>
-
-        <InspectionScore score={lead.inspectionScore} />
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <p className="truncate rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
-          {lead.assignedTo}
-        </p>
-        <StatusBadge status={lead.bgcStatus} size="small" />
-      </div>
-
-      {rule && rule.type !== "auto-reject" && (
-        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1">
-          <span className="flex items-center gap-1 text-[9px] font-semibold text-amber-700">
-            <WarningFilled />
-            Manual Review Required
           </span>
-        </div>
-      )}
+        </p>
+      </div>
     </button>
   );
-}
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EVIDENCE UPLOAD
@@ -1386,70 +989,61 @@ function ChallanCard({
   const amount = values[amountName] || 0;
   const colors = {
     amber: {
-      bg: "bg-amber-50",
-      border: "border-amber-200",
-      icon: "text-amber-500",
-      accent: "text-amber-600",
-      hover: "hover:border-amber-300",
+      iconBg: "var(--warn-hl)",
+      iconColor: "var(--warn)",
+      amountColor: "var(--warn)",
     },
     rose: {
-      bg: "bg-rose-50",
-      border: "border-rose-200",
-      icon: "text-rose-500",
-      accent: "text-rose-600",
-      hover: "hover:border-rose-300",
+      iconBg: "var(--danger-hl)",
+      iconColor: "var(--danger)",
+      amountColor: "var(--danger)",
     },
   };
   const c = colors[colorScheme] || colors.amber;
 
   return (
-    <div
-      className={`rounded-2xl border ${c.border} ${c.bg} p-5 shadow-sm transition-all ${c.hover} hover:shadow-md dark:border-white/10 dark:${c.bg}/10`}
-    >
-      <div className="mb-4 flex items-center justify-between">
+    <div className="uc-bgc-challan-card">
+      <div className="uc-bgc-challan-header">
         <div className="flex items-center gap-3">
-          <div
-            className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-white/10 ${c.icon}`}
-          >
+          <div className="uc-bgc-challan-icon" style={{ background: c.iconBg, color: c.iconColor }}>
             {icon}
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <p className="uc-bgc-challan-label">
               {title}
             </p>
-            <p className={`text-sm font-bold ${c.accent}`}>{count} Pending</p>
+            <p className="text-xs font-bold text-slate-700">{count} Pending</p>
           </div>
         </div>
-
         <div className="text-right">
           <p className="text-[10px] text-slate-400">Total Liability</p>
-          <p className={`text-lg font-black ${c.accent}`}>
+          <p className="uc-bgc-challan-amount" style={{ color: c.amountColor }}>
             ₹{Number(amount).toLocaleString("en-IN")}
           </p>
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[10px] font-semibold text-slate-500">
+      <div className="uc-bgc-form-grid cols-2">
+        <div className="uc-bgc-form-group">
+          <label className="uc-bgc-form-label">
             Count
           </label>
-          <Form.Item name={countName} noStyle>
+          <Form.Item name={countName} className="!mb-0">
             <InputNumber
               min={0}
-              className="!w-full !rounded-xl"
+              className="!w-full"
               placeholder="Qty"
             />
           </Form.Item>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-semibold text-slate-500">
+        <div className="uc-bgc-form-group">
+          <label className="uc-bgc-form-label">
             Amount (₹)
           </label>
-          <Form.Item name={amountName} noStyle>
+          <Form.Item name={amountName} className="!mb-0">
             <InputNumber
               min={0}
-              className="!w-full !rounded-xl"
+              className="!w-full"
               placeholder="Amount"
               formatter={(v) =>
                 v ? `₹ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : ""
@@ -1460,17 +1054,17 @@ function ChallanCard({
         </div>
       </div>
 
-      <div className="border-t border-slate-200/50 pt-4 dark:border-white/10">
-        <p className="mb-2 text-[10px] font-semibold text-slate-500">
+      <div className="mt-3 border-t border-slate-200/70 pt-3">
+        <p className="uc-bgc-form-label mb-2">
           Evidence
         </p>
         <Form.Item
           name={filesName}
           valuePropName="fileList"
           getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)}
-          noStyle
+          className="!mb-0"
         >
-          <EvidenceUpload maxCount={3} />
+          <EvidenceUpload maxCount={5} />
         </Form.Item>
       </div>
     </div>
@@ -1751,25 +1345,16 @@ export default function UsedCarBackgroundCheckDesk() {
     [leads],
   );
 
+  const handleSelectLead = useCallback((leadId) => {
+    setSelectedId(leadId);
+    setActiveTab("vahan");
+  }, []);
+
   const handleValuesChange = useCallback(
     (_, all) => {
       setFormValues(all);
       if (!selectedId) return;
       const liveRule = getHardRule(all);
-      setLeads((prev) =>
-        prev.map((lead) => {
-          if (lead.id !== selectedId) return lead;
-          const nextLead = { ...lead, bgcData: all };
-          if (
-            !liveRule &&
-            lead.bgcStatus === "REJECTED" &&
-            isAutoRejectedLead(lead)
-          ) {
-            nextLead.bgcStatus = BGC_STATUS.PENDING;
-          }
-          return nextLead;
-        }),
-      );
 
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       const seq = ++autoSaveSeqRef.current;
@@ -2079,86 +1664,62 @@ export default function UsedCarBackgroundCheckDesk() {
     [leads],
   );
 
-  const commandDeck = (
-    <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-[#fdfefe] via-[#f8fbff] to-[#f7fefb] px-5 py-5 shadow-[0_18px_45px_-28px_rgba(15,23,42,0.38)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_6%_10%,rgba(96,165,250,0.22),transparent_32%),radial-gradient(circle_at_90%_12%,rgba(244,114,182,0.15),transparent_28%),radial-gradient(circle_at_65%_100%,rgba(34,197,94,0.14),transparent_42%)]" />
-      <div className="relative flex flex-col gap-3">
-        <p className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          Background Check Desk
-        </p>
-        <h2 className="text-[22px] font-black tracking-tight text-slate-900 md:text-[26px]">
-          Compliance & Risk Command Center
-        </h2>
-        <p className="max-w-3xl text-xs font-medium text-slate-600">
-          Fast queue triage, legal checks, service validation, and audit-safe decisions.
-          {` ${stats.total} vehicles currently in queue.`}
-        </p>
-      </div>
-    </div>
+  const tabNavItems = useMemo(
+    () => [
+      { key: "vahan", label: "Vahan Check", icon: <CarOutlined /> },
+      { key: "service", label: "Service History", icon: <HistoryOutlined /> },
+      {
+        key: "audit",
+        label: "Audit Trail",
+        icon: <HistoryOutlined />,
+        badge: (selectedLead?.auditTrail || []).length || 0,
+      },
+    ],
+    [selectedLead?.auditTrail],
   );
 
   // ── QUEUE PANEL ────────────────────────────────────────────
-  const QueuePanel = (
-    <div className="flex h-full flex-col gap-4">
-      {/* Header Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_16px_35px_-28px_rgba(15,23,42,0.42)]">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-            <DashboardOutlined />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">
-              Queue
-            </h2>
-            <p className="text-xs text-slate-400">{stats.total} vehicles</p>
-          </div>
-        </div>
-
-        {/* Search */}
+  const QueuePanel = useMemo(() => (
+    <div className="uc-bgc-sidebar-shell">
+      <div className="uc-bgc-sidebar-header">
+        <div className="uc-bgc-sidebar-title">BGC Queue</div>
+        <div className="uc-bgc-sidebar-count">{stats.total} Cars</div>
+      </div>
+      <div className="uc-bgc-sidebar-inner">
         <div className="relative">
-          <SearchOutlined className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <SearchOutlined className="uc-bgc-search-icon" />
           <input
             type="text"
-            placeholder="Search name, reg, make..."
+            placeholder="Name, reg, make..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="uc-bgc-search-input"
           />
-          {search && (
+          {search ? (
             <button
               onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="uc-bgc-search-clear"
+              type="button"
             >
               <ClearOutlined />
             </button>
-          )}
+          ) : null}
         </div>
 
-        <div className="mt-4 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+        <div className="mt-3 space-y-2">
+          <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
             Filter by status
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {queueFilters.map((filter) => (
               <button
                 key={filter.key}
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-all ${
-                  activeFilter === filter.key
-                    ? "border-blue-300 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                }`}
+                className={`uc-bgc-filter-chip ${activeFilter === filter.key ? "active" : ""}`}
               >
-                {filter.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[9px] ${
-                    activeFilter === filter.key
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                >
+                <span>{filter.label}</span>
+                <span className={`uc-bgc-filter-chip-count ${activeFilter === filter.key ? "active" : ""}`}>
                   {filter.count}
                 </span>
               </button>
@@ -2167,10 +1728,9 @@ export default function UsedCarBackgroundCheckDesk() {
         </div>
       </div>
 
-      {/* Lead List */}
-      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
+      <div className="uc-bgc-queue-list">
         {filteredLeads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-12">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 py-12">
             <FilterOutlined className="mb-3 text-2xl text-slate-300" />
             <p className="text-sm font-semibold text-slate-500">
               No matches found
@@ -2180,7 +1740,8 @@ export default function UsedCarBackgroundCheckDesk() {
                 setSearch("");
                 setActiveFilter("All");
               }}
-              className="mt-2 text-xs text-blue-500 hover:underline"
+              className="mt-2 text-xs text-[#01696f] hover:underline"
+              type="button"
             >
               Clear filters
             </button>
@@ -2191,21 +1752,27 @@ export default function UsedCarBackgroundCheckDesk() {
               key={lead.id}
               lead={lead}
               active={selectedId === lead.id}
-              onClick={() => {
-                setSelectedId(lead.id);
-                setActiveTab("vahan");
-              }}
+              onSelect={handleSelectLead}
             />
           ))
         )}
       </div>
     </div>
-  );
-
+  ), [
+    activeFilter,
+    filteredLeads,
+    handleSelectLead,
+    queueFilters,
+    search,
+    selectedId,
+    stats.total,
+  ]);
   // ── VAHAN TAB ──────────────────────────────────────────────
   const VahanTab = (
     <div className="space-y-5">
-      <VahanSnapshot values={formValues} lead={selectedLead} />
+      <SectionCard title="Vahan Check Snapshot" icon={<FileSearchOutlined />}>
+        <VahanSnapshot values={formValues} lead={selectedLead} />
+      </SectionCard>
 
       <SectionCard title="Vehicle Identity" icon={<CarOutlined />}>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -2479,7 +2046,9 @@ export default function UsedCarBackgroundCheckDesk() {
   // ── SERVICE TAB ────────────────────────────────────────────
   const ServiceTab = (
     <div className="space-y-5">
-      <ServiceSnapshot values={formValues} />
+      <SectionCard title="Service Fact Sheet" icon={<HistoryOutlined />}>
+        <ServiceSnapshot values={formValues} />
+      </SectionCard>
 
       <SectionCard title="Service History" icon={<HistoryOutlined />}>
         <div className="space-y-4">
@@ -2666,8 +2235,8 @@ export default function UsedCarBackgroundCheckDesk() {
 
   if (loading) {
     return (
-      <section className="space-y-4">
-        <div className="rounded-3xl border border-slate-200 bg-white p-8">
+      <section className="uc-bgc-theme space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8">
           <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
             <SyncOutlined spin />
             Loading background-check queue...
@@ -2680,12 +2249,11 @@ export default function UsedCarBackgroundCheckDesk() {
   // ── EMPTY STATE ────────────────────────────────────────────
   if (!selectedId) {
     return (
-      <section className="space-y-4">
-        {commandDeck}
-        <div className="grid gap-4 lg:grid-cols-[340px_1fr] xl:grid-cols-[380px_1fr]">
+      <section className="uc-bgc-theme">
+        <div className="uc-bgc-layout">
           <div>{QueuePanel}</div>
 
-          <div className="flex min-h-[500px] items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white">
+          <div className="uc-bgc-main-shell flex min-h-[500px] items-center justify-center">
             <div className="text-center">
               <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <FileSearchOutlined className="text-3xl text-slate-400" />
@@ -2735,24 +2303,23 @@ export default function UsedCarBackgroundCheckDesk() {
 
   // ── DETAIL VIEW ────────────────────────────────────────────
   return (
-    <section className="space-y-4">
-      {commandDeck}
-      <div className="grid gap-4 lg:grid-cols-[340px_1fr] xl:grid-cols-[380px_1fr]">
+    <section className="uc-bgc-theme">
+      <div className="uc-bgc-layout">
         {/* Left — Queue */}
         <div>{QueuePanel}</div>
 
         {/* Right — BGC Form */}
-        <div className="rounded-3xl border border-slate-200 bg-white shadow-[0_18px_45px_-30px_rgba(15,23,42,0.45)]">
+        <div className="uc-bgc-main-shell">
           {/* Header */}
-          <div className="rounded-t-3xl border-b border-slate-100 bg-gradient-to-r from-sky-50/60 via-white to-emerald-50/40 p-5">
+          <div className="uc-bgc-car-header">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     Background Check
                   </p>
                 </div>
-                <h2 className="text-xl font-black tracking-tight text-slate-900">
+                <h2 className="text-[22px] font-black tracking-tight text-slate-900">
                   {selectedLead?.make} {selectedLead?.model}
                 </h2>
                 <p className="mt-0.5 text-sm font-semibold text-slate-500">
@@ -2799,52 +2366,34 @@ export default function UsedCarBackgroundCheckDesk() {
                 </SectionCard>
               </div>
 
-              <Tabs
-                activeKey={activeTab}
-                onChange={setActiveTab}
-                className="bgc-tabs"
-                items={[
-                  {
-                    key: "vahan",
-                    label: (
-                      <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
-                        <CarOutlined />
-                        Vahan Check
-                      </span>
-                    ),
-                    children: VahanTab,
-                  },
-                  {
-                    key: "service",
-                    label: (
-                      <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
-                        <HistoryOutlined />
-                        Service History
-                      </span>
-                    ),
-                    children: ServiceTab,
-                  },
-                  {
-                    key: "audit",
-                    label: (
-                      <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
-                        <HistoryOutlined />
-                        Audit Trail
-                        {(selectedLead?.auditTrail || []).length > 0 && (
-                          <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[9px] font-black text-slate-600">
-                            {selectedLead.auditTrail.length}
-                          </span>
-                        )}
-                      </span>
-                    ),
-                    children: AuditTab,
-                  },
-                ]}
-              />
+              <div className="uc-bgc-tabbar" role="tablist" aria-label="Background check tabs">
+                {tabNavItems.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.key}
+                    className={`uc-bgc-tabbtn ${activeTab === tab.key ? "active" : ""}`}
+                    onClick={() => setActiveTab(tab.key)}
+                  >
+                    <span className="uc-bgc-tabbtn-icon">{tab.icon}</span>
+                    <span className="uc-bgc-tabbtn-label">{tab.label}</span>
+                    {tab.badge > 0 ? (
+                      <span className="uc-bgc-tabbtn-badge">{tab.badge}</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4">
+                {activeTab === "vahan" ? VahanTab : null}
+                {activeTab === "service" ? ServiceTab : null}
+                {activeTab === "audit" ? AuditTab : null}
+              </div>
 
               {/* Sticky Footer */}
               <div className="sticky bottom-4 z-50 mt-6">
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl">
+                <div className="uc-bgc-sticky-footer">
                   <div className="flex items-center gap-3">
                     <StatusBadge status={selectedLead?.bgcStatus} />
                     <span className="text-xs text-slate-400">
@@ -2860,7 +2409,7 @@ export default function UsedCarBackgroundCheckDesk() {
                       icon={<SaveOutlined />}
                       onClick={handleSaveDraft}
                       loading={saving}
-                      className="!flex !items-center !gap-2 !rounded-xl !px-4 !py-2"
+                      className="uc-bgc-btn uc-bgc-btn-ghost"
                     >
                       Save Draft
                     </Button>
@@ -2871,7 +2420,7 @@ export default function UsedCarBackgroundCheckDesk() {
                           onClick={handleMarkVahanDone}
                           loading={saving}
                           icon={<RightOutlined />}
-                          className="!flex !items-center !gap-2 !rounded-xl !border-sky-300 !bg-sky-50 !px-4 !py-2 !font-semibold !text-sky-700 hover:!bg-sky-100"
+                          className="uc-bgc-btn uc-bgc-btn-primary"
                         >
                           Mark Vahan Done
                         </Button>
@@ -2884,7 +2433,7 @@ export default function UsedCarBackgroundCheckDesk() {
                         onClick={handleMarkComplete}
                         loading={saving}
                         icon={<CheckOutlined />}
-                        className="!flex !items-center !gap-2 !rounded-xl !bg-emerald-500 !px-5 !py-2 !font-bold hover:!bg-emerald-600"
+                        className="uc-bgc-btn uc-bgc-btn-primary"
                       >
                         Mark BGC Complete
                       </Button>

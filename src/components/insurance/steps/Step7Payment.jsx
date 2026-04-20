@@ -52,36 +52,76 @@ const ENTRY_TYPES = {
 
 const DEFAULT_PAYMENT_MODE = "Online Transfer/UPI";
 
+const UI = {
+  ink: "#1f2937",
+  inkSoft: "#475569",
+  muted: "#94a3b8",
+  line: "#e2e8f0",
+  bg: "#ffffff",
+  bgSoft: "#f8fafc",
+
+  sage: {
+    color: "#607d75",
+    solid: "#7a978e",
+    bg: "#eef3ef",
+    border: "#d6e6df",
+  },
+  mint: {
+    color: "#5a836c",
+    solid: "#78a087",
+    bg: "#f2f7f3",
+    border: "#d9e8de",
+  },
+  warm: {
+    color: "#8b745a",
+    solid: "#b39672",
+    bg: "#faf8f1",
+    border: "#eadfcc",
+  },
+  rose: {
+    color: "#9d7378",
+    solid: "#c48d96",
+    bg: "#fbf1f3",
+    border: "#ead2d7",
+  },
+  slate: {
+    color: "#6b7b8f",
+    solid: "#8ea0b6",
+    bg: "#f4f7fa",
+    border: "#dde6ee",
+  },
+};
+
 const ENTRY_CONFIG = {
   [ENTRY_TYPES.INSURER_PAYMENT]: {
     label: "Payment to Insurance Co.",
-    color: "#6366f1",
-    bg: "#eef2ff",
-    border: "#c7d2fe",
+    color: UI.sage.color,
+    bg: UI.sage.bg,
+    border: UI.sage.border,
   },
   [ENTRY_TYPES.CUSTOMER_RECEIPT]: {
     label: "Receipt from Customer",
-    color: "#10b981",
-    bg: "#ecfdf5",
-    border: "#a7f3d0",
+    color: UI.mint.color,
+    bg: UI.mint.bg,
+    border: UI.mint.border,
   },
   [ENTRY_TYPES.SUBVENTION]: {
     label: "Subvention",
-    color: "#8b5cf6",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
+    color: UI.warm.color,
+    bg: UI.warm.bg,
+    border: UI.warm.border,
   },
   [ENTRY_TYPES.SUBVENTION_REFUND]: {
     label: "Subvention Refund to Customer",
-    color: "#f59e0b",
-    bg: "#fffbeb",
-    border: "#fde68a",
+    color: UI.rose.color,
+    bg: UI.rose.bg,
+    border: UI.rose.border,
   },
   [ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE]: {
     label: "Subvention (Not Recoverable)",
-    color: "#8b5cf6",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
+    color: UI.warm.color,
+    bg: UI.warm.bg,
+    border: UI.warm.border,
   },
 };
 
@@ -92,14 +132,17 @@ const ENTRY_FORM_OPTIONS = [
 ];
 
 const INR = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+
 const numberOrZero = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+
 const toAmount = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, n) : 0;
 };
+
 const preserveUserAmount = (currentValue, suggestedValue) =>
   toAmount(currentValue) > 0 ? toAmount(currentValue) : suggestedValue;
 
@@ -107,8 +150,9 @@ const inferEntryType = (row = {}) => {
   if (row.entryType) return row.entryType;
   if (row.paymentType === "inhouse") return ENTRY_TYPES.INSURER_PAYMENT;
   if (row.paymentType === "customer") return ENTRY_TYPES.CUSTOMER_RECEIPT;
-  if (row.paymentType === "subvention_nr")
+  if (row.paymentType === "subvention_nr") {
     return ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE;
+  }
   return ENTRY_TYPES.INSURER_PAYMENT;
 };
 
@@ -223,8 +267,9 @@ const computeTotals = (rows = [], premium = 0) => {
   };
 };
 
-const ProgressBar = ({ value, total, color = "#6366f1" }) => {
+const ProgressBar = ({ value, total, color = UI.sage.solid }) => {
   const pct = total > 0 ? Math.min(100, (value / total) * 100) : 0;
+
   return (
     <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
       <div
@@ -240,8 +285,8 @@ const MetricCard = ({
   value,
   sub,
   icon,
-  accent = "#6366f1",
-  accentBg = "#eef2ff",
+  accent = UI.sage.solid,
+  accentBg = UI.sage.bg,
   progress,
   progressTotal,
   tooltip,
@@ -264,6 +309,7 @@ const MetricCard = ({
         </Tooltip>
       )}
     </div>
+
     <div className="relative z-10">
       <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
         {title}
@@ -283,18 +329,23 @@ const MetricCard = ({
   </div>
 );
 
-const FlowIndicator = ({ label, settled }) => (
-  <div
-    className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold ${
-      settled
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-        : "border-slate-200 bg-slate-50 text-slate-600"
-    }`}
-  >
-    {settled ? <CheckCircleOutlined /> : <FieldTimeOutlined />}
-    {label}
-  </div>
-);
+const FlowIndicator = ({ label, settled }) => {
+  const tone = settled ? UI.sage : UI.slate;
+
+  return (
+    <div
+      className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold"
+      style={{
+        borderColor: tone.border,
+        backgroundColor: tone.bg,
+        color: tone.color,
+      }}
+    >
+      {settled ? <CheckCircleOutlined /> : <FieldTimeOutlined />}
+      {label}
+    </div>
+  );
+};
 
 const FormField = ({ label, children, required }) => (
   <div className="flex flex-col gap-1.5">
@@ -305,6 +356,7 @@ const FormField = ({ label, children, required }) => (
     {children}
   </div>
 );
+
 const Step7Payment = ({
   formData,
   setFormData,
@@ -428,14 +480,17 @@ const Step7Payment = ({
     0,
     totalPremium - totalSubventionRefundAssumed,
   );
+
   const suggestedInsurerAmountForAutocredits = totalPremium;
 
   const suggestedSubventionRefundAmount = Math.max(
     0,
     totalPremium - totalCustomerInsurerAssumed,
   );
+
   const totalCustomerRecoveryAssumed =
     totals.customerRecovered + currentDraftCustomerRecoveryAmount;
+
   const suggestedSubventionNonRecoverableAmount = Math.max(
     0,
     totals.insurerPaidByAutocredits - totalCustomerRecoveryAssumed,
@@ -454,6 +509,7 @@ const Step7Payment = ({
   useEffect(() => {
     if (didNormalizeInitialModeRef.current) return;
     didNormalizeInitialModeRef.current = true;
+
     setPaymentForm((prev) => {
       if ((prev?.paymentMode || "") !== "Cash") return prev;
       return { ...prev, paymentMode: DEFAULT_PAYMENT_MODE };
@@ -466,6 +522,7 @@ const Step7Payment = ({
       const nextInhouseReceived = totals.insurerPaidByAutocredits;
       const nextCustomerExpected = totals.customerNetReceivableWhenAcPays;
       const nextInhouseExpected = totalPremium;
+
       if (
         numberOrZero(prev.customerPaymentReceived) === nextCustomerReceived &&
         numberOrZero(prev.inhousePaymentReceived) === nextInhouseReceived &&
@@ -476,6 +533,7 @@ const Step7Payment = ({
       ) {
         return prev;
       }
+
       return {
         ...prev,
         customerPaymentReceived: nextCustomerReceived,
@@ -489,20 +547,28 @@ const Step7Payment = ({
 
   useEffect(() => {
     if (effectiveEntryType !== ENTRY_TYPES.INSURER_PAYMENT) return;
+
     setPaymentForm((prev) => {
       if (toAmount(prev?.amount) > 0) return prev;
+
       const preferredMode = prev?.paymentMode || DEFAULT_PAYMENT_MODE;
       const suggestedAmount =
         String(prev?.paidBy || "").toLowerCase() === "customer"
           ? suggestedInsurerAmountForCustomer
           : suggestedInsurerAmountForAutocredits;
+
       if (
         preferredMode === prev?.paymentMode &&
         suggestedAmount === toAmount(prev?.amount)
       ) {
         return prev;
       }
-      return { ...prev, paymentMode: preferredMode, amount: suggestedAmount };
+
+      return {
+        ...prev,
+        paymentMode: preferredMode,
+        amount: suggestedAmount,
+      };
     });
   }, [
     effectiveEntryType,
@@ -513,22 +579,28 @@ const Step7Payment = ({
 
   useEffect(() => {
     if (!isSubventionEntry) return;
+
     setPaymentForm((prev) => {
       if (toAmount(prev?.amount) > 0) return prev;
+
       const nextAmount =
         inferredSubventionFlow === "REFUND"
           ? suggestedSubventionRefundAmount
           : suggestedSubventionNonRecoverableAmount;
+
       const nextMode =
         inferredSubventionFlow === "REFUND"
           ? prev?.paymentMode || DEFAULT_PAYMENT_MODE
           : "";
+
       const nextDate =
         inferredSubventionFlow === "REFUND"
           ? prev?.date || dayjs().format("YYYY-MM-DD")
           : null;
+
       const nextRef =
         inferredSubventionFlow === "REFUND" ? prev?.transactionRef || "" : "";
+
       if (
         toAmount(prev?.amount) === nextAmount &&
         (prev?.paymentMode || "") === nextMode &&
@@ -537,6 +609,7 @@ const Step7Payment = ({
       ) {
         return prev;
       }
+
       return {
         ...prev,
         amount: nextAmount,
@@ -660,11 +733,13 @@ const Step7Payment = ({
       message.warning("Ledger is locked. Unlock it to delete entries.");
       return;
     }
+
     setPaymentHistory((prev) =>
       (Array.isArray(prev) ? prev : []).filter(
         (row) => String(row._id || "") !== String(id),
       ),
     );
+
     if (typeof schedulePersist === "function") schedulePersist(220);
     message.success("Entry removed");
   };
@@ -674,6 +749,7 @@ const Step7Payment = ({
       message.warning("Ledger is locked. Unlock it to edit entries.");
       return;
     }
+
     setEditingId(row._id);
     setEditDraft({
       ...row,
@@ -695,6 +771,7 @@ const Step7Payment = ({
       message.error("Please enter a valid amount before saving");
       return;
     }
+
     setPaymentHistory((prev) =>
       (Array.isArray(prev) ? prev : []).map((row) =>
         String(row._id || "") === String(id)
@@ -709,6 +786,7 @@ const Step7Payment = ({
           : row,
       ),
     );
+
     if (typeof schedulePersist === "function") schedulePersist(220);
     message.success("Entry updated");
     cancelEditRow();
@@ -721,24 +799,24 @@ const Step7Payment = ({
           row.entryType === ENTRY_TYPES.INSURER_PAYMENT &&
           String(row.paidBy || "").toLowerCase() === "customer";
 
-        let amountColor = "#f43f5e";
+        let amountColor = UI.rose.color;
         let amountDirection = "up";
         let amountPrefix = "-";
 
         if (row.entryType === ENTRY_TYPES.CUSTOMER_RECEIPT) {
-          amountColor = "#10b981";
+          amountColor = UI.mint.color;
           amountDirection = "down";
           amountPrefix = "+";
         } else if (isCustomerInsurerPayment) {
-          amountColor = "#2563eb";
+          amountColor = UI.slate.color;
           amountDirection = "neutral";
           amountPrefix = "";
         } else if (row.entryType === ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE) {
-          amountColor = "#8b5cf6";
+          amountColor = UI.warm.color;
           amountDirection = "down";
           amountPrefix = "";
         } else if (row.entryType === ENTRY_TYPES.SUBVENTION_REFUND) {
-          amountColor = "#f59e0b";
+          amountColor = UI.rose.color;
           amountDirection = "up";
           amountPrefix = "-";
         }
@@ -766,9 +844,11 @@ const Step7Payment = ({
   const subventionCardValue = subventionCardIsNR
     ? totals.subventionNotRecoverable
     : totals.subventionRefundPaid;
+
   const subventionCardSub = subventionCardIsNR
     ? `${INR(totals.subventionNotRecoverable)} amount adjusted`
     : `${INR(totals.subventionRefundPaid)} refunded to customer`;
+
   const subventionCardProgress = subventionCardValue;
   const subventionCardProgressTotal = subventionCardIsNR
     ? totals.subventionNotRecoverable || 1
@@ -781,12 +861,14 @@ const Step7Payment = ({
           {ENTRY_FORM_OPTIONS.map((v) => {
             const cfg = ENTRY_CONFIG[v];
             const active = effectiveEntryType === v;
+
             return (
               <button
                 key={v}
                 type="button"
                 onClick={() => {
                   if (isLocked) return;
+
                   if (v === ENTRY_TYPES.CUSTOMER_RECEIPT) {
                     setPaymentForm((p) => ({
                       ...p,
@@ -845,18 +927,21 @@ const Step7Payment = ({
                 }}
                 disabled={isLocked}
                 className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-[12px] font-semibold transition-all ${
-                  active
-                    ? "shadow-sm"
-                    : "border-slate-100 bg-slate-50/50 text-slate-500 hover:border-slate-200 hover:bg-white"
-                } ${isLocked ? "cursor-not-allowed opacity-60" : ""}`}
+                  isLocked ? "cursor-not-allowed opacity-60" : ""
+                }`}
                 style={
                   active
                     ? {
                         borderColor: cfg.border,
                         backgroundColor: cfg.bg,
                         color: cfg.color,
+                        boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
                       }
-                    : {}
+                    : {
+                        borderColor: UI.line,
+                        backgroundColor: UI.bgSoft,
+                        color: UI.inkSoft,
+                      }
                 }
               >
                 <span
@@ -873,34 +958,51 @@ const Step7Payment = ({
       {effectiveEntryType === ENTRY_TYPES.INSURER_PAYMENT ? (
         <FormField label="Paid By">
           <div className="grid grid-cols-2 gap-2">
-            {["Autocredits", "Customer"].map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                disabled={isLocked}
-                onClick={() =>
-                  setPaymentForm((p) => ({
-                    ...p,
-                    paidBy: opt,
-                    paymentType: opt === "Customer" ? "customer" : "inhouse",
-                    amount: preserveUserAmount(
-                      p?.amount,
-                      opt === "Customer"
-                        ? suggestedInsurerAmountForCustomer
-                        : suggestedInsurerAmountForAutocredits,
-                    ),
-                    paymentMode: DEFAULT_PAYMENT_MODE,
-                  }))
-                }
-                className={`rounded-xl border py-2 text-[12px] font-semibold transition-all ${
-                  effectivePaidBy === opt
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm"
-                    : "border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200 hover:bg-white"
-                } ${isLocked ? "cursor-not-allowed opacity-60" : ""}`}
-              >
-                {opt}
-              </button>
-            ))}
+            {["Autocredits", "Customer"].map((opt) => {
+              const active = effectivePaidBy === opt;
+              const tone = opt === "Autocredits" ? UI.sage : UI.warm;
+
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={isLocked}
+                  onClick={() =>
+                    setPaymentForm((p) => ({
+                      ...p,
+                      paidBy: opt,
+                      paymentType: opt === "Customer" ? "customer" : "inhouse",
+                      amount: preserveUserAmount(
+                        p?.amount,
+                        opt === "Customer"
+                          ? suggestedInsurerAmountForCustomer
+                          : suggestedInsurerAmountForAutocredits,
+                      ),
+                      paymentMode: DEFAULT_PAYMENT_MODE,
+                    }))
+                  }
+                  className={`rounded-xl border py-2 text-[12px] font-semibold transition-all ${
+                    isLocked ? "cursor-not-allowed opacity-60" : ""
+                  }`}
+                  style={
+                    active
+                      ? {
+                          borderColor: tone.border,
+                          backgroundColor: tone.bg,
+                          color: tone.color,
+                          boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+                        }
+                      : {
+                          borderColor: UI.line,
+                          backgroundColor: UI.bgSoft,
+                          color: UI.inkSoft,
+                        }
+                  }
+                >
+                  {opt}
+                </button>
+              );
+            })}
           </div>
         </FormField>
       ) : (
@@ -932,6 +1034,7 @@ const Step7Payment = ({
             placeholder="0"
           />
         </FormField>
+
         {!isSubventionNonTransactional ? (
           <FormField label="Date">
             <Input
@@ -959,6 +1062,7 @@ const Step7Payment = ({
               style={{ width: "100%" }}
             />
           </FormField>
+
           <FormField label="Ref / UTR">
             <Input
               value={paymentForm.transactionRef || ""}
@@ -974,7 +1078,14 @@ const Step7Payment = ({
           </FormField>
         </div>
       ) : (
-        <div className="flex items-start gap-2 rounded-xl border border-dashed border-violet-200 bg-violet-50/70 px-3 py-2.5 text-[11px] text-violet-700">
+        <div
+          className="flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[11px]"
+          style={{
+            borderColor: UI.warm.border,
+            backgroundColor: UI.warm.bg,
+            color: UI.warm.color,
+          }}
+        >
           <InfoCircleOutlined className="mt-0.5 flex-shrink-0" />
           Non-recoverable subvention: only amount and remarks are required.
         </div>
@@ -994,7 +1105,14 @@ const Step7Payment = ({
       </FormField>
 
       {showValidationBanner ? (
-        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] text-amber-700">
+        <div
+          className="flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[11px]"
+          style={{
+            borderColor: UI.rose.border,
+            backgroundColor: UI.rose.bg,
+            color: UI.rose.color,
+          }}
+        >
           <ExclamationCircleOutlined className="mt-0.5 flex-shrink-0" />
           <div>
             Entered amount {INR(paymentForm?.amount)} exceeds suggested
@@ -1009,7 +1127,8 @@ const Step7Payment = ({
         icon={<PlusOutlined />}
         onClick={addLedgerEntry}
         disabled={isLocked}
-        className="!mt-auto !h-10 !w-full !rounded-xl !border-0 !bg-indigo-600 !font-bold !text-white hover:!bg-indigo-700 disabled:!bg-slate-300"
+        className="!mt-auto !h-10 !w-full !rounded-xl !border-0 !font-bold !text-white disabled:!bg-slate-300"
+        style={{ backgroundColor: UI.sage.solid }}
       >
         Record Entry
       </Button>
@@ -1027,8 +1146,11 @@ const Step7Payment = ({
             3-party settlement · Insurer · Customer · Autocredits
           </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          {settlementStatus ? <FlowIndicator label={settlementStatus} /> : null}
+          {settlementStatus ? (
+            <FlowIndicator label={settlementStatus} settled={false} />
+          ) : null}
           <FlowIndicator label="Insurer settled" settled={insurerSettled} />
           <FlowIndicator label="Customer settled" settled={customerSettled} />
           <Button
@@ -1036,10 +1158,10 @@ const Step7Payment = ({
             size="small"
             icon={isLocked ? <UnlockOutlined /> : <LockOutlined />}
             onClick={() => setIsLocked((prev) => !prev)}
-            className={
+            style={
               isLocked
-                ? "!border-emerald-200 !text-emerald-700"
-                : "!border-slate-200 !text-slate-600"
+                ? { borderColor: UI.sage.border, color: UI.sage.color }
+                : { borderColor: UI.slate.border, color: UI.slate.color }
             }
           >
             {isLocked ? "Unlock ledger" : "Lock ledger"}
@@ -1048,14 +1170,24 @@ const Step7Payment = ({
       </div>
 
       {isLocked ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-700">
+        <div
+          className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-[12px]"
+          style={{
+            borderColor: UI.sage.border,
+            backgroundColor: UI.sage.bg,
+            color: UI.sage.color,
+          }}
+        >
           <div className="flex items-center gap-2 font-semibold">
             <CheckCircleOutlined />
             Ledger is locked. Entries cannot be added, edited, or deleted until
             unlocked.
           </div>
           {fullySettled ? (
-            <span className="rounded-full bg-white/80 px-3 py-1 text-[11px] font-bold text-emerald-700">
+            <span
+              className="rounded-full px-3 py-1 text-[11px] font-bold"
+              style={{ backgroundColor: "#ffffffcc", color: UI.sage.color }}
+            >
               Auto-locked after settlement
             </span>
           ) : null}
@@ -1068,8 +1200,8 @@ const Step7Payment = ({
           value={INR(totalPremium)}
           sub="Payable to insurance company"
           icon={<BankOutlined style={{ fontSize: 16 }} />}
-          accent="#6366f1"
-          accentBg="#eef2ff"
+          accent={UI.sage.solid}
+          accentBg={UI.sage.bg}
           progress={totals.insurerPaidTotal}
           progressTotal={totalPremium}
           tooltip="The full premium amount that must be remitted to the insurer."
@@ -1079,8 +1211,10 @@ const Step7Payment = ({
           value={INR(Math.max(0, totals.insurerOutstanding))}
           sub={`${INR(totals.insurerPaidTotal)} paid of ${INR(totalPremium)}`}
           icon={<FieldTimeOutlined style={{ fontSize: 16 }} />}
-          accent={totals.insurerOutstanding <= 0 ? "#10b981" : "#f43f5e"}
-          accentBg={totals.insurerOutstanding <= 0 ? "#ecfdf5" : "#fff1f2"}
+          accent={
+            totals.insurerOutstanding <= 0 ? UI.sage.solid : UI.rose.solid
+          }
+          accentBg={totals.insurerOutstanding <= 0 ? UI.sage.bg : UI.rose.bg}
           progress={totals.insurerPaidTotal}
           progressTotal={totalPremium}
           tooltip="Remaining balance to be paid to the insurer."
@@ -1088,10 +1222,16 @@ const Step7Payment = ({
         <MetricCard
           title="Customer Outstanding"
           value={INR(Math.max(0, totals.customerOutstandingToAc))}
-          sub={`${INR(totals.customerRecovered)} of ${INR(totals.customerNetReceivableWhenAcPays)} recovered`}
+          sub={`${INR(totals.customerRecovered)} of ${INR(
+            totals.customerNetReceivableWhenAcPays,
+          )} recovered`}
           icon={<WalletOutlined style={{ fontSize: 16 }} />}
-          accent={totals.customerOutstandingToAc <= 0 ? "#10b981" : "#f59e0b"}
-          accentBg={totals.customerOutstandingToAc <= 0 ? "#ecfdf5" : "#fffbeb"}
+          accent={
+            totals.customerOutstandingToAc <= 0 ? UI.mint.solid : UI.warm.solid
+          }
+          accentBg={
+            totals.customerOutstandingToAc <= 0 ? UI.mint.bg : UI.warm.bg
+          }
           progress={totals.customerRecovered}
           progressTotal={totals.customerNetReceivableWhenAcPays || 1}
           tooltip="Amount still to be recovered from customer after subvention."
@@ -1101,8 +1241,8 @@ const Step7Payment = ({
           value={INR(subventionCardValue)}
           sub={subventionCardSub}
           icon={<SwapOutlined style={{ fontSize: 16 }} />}
-          accent="#8b5cf6"
-          accentBg="#f5f3ff"
+          accent={subventionCardIsNR ? UI.warm.solid : UI.slate.solid}
+          accentBg={subventionCardIsNR ? UI.warm.bg : UI.slate.bg}
           progress={subventionCardProgress}
           progressTotal={subventionCardProgressTotal}
           tooltip={
@@ -1137,17 +1277,34 @@ const Step7Payment = ({
               <p className="m-0 mt-0.5 text-[11px] text-slate-400">
                 Net AC Exposure:{" "}
                 <span
-                  className={`font-bold ${totals.acNetExposure > 0 ? "text-rose-600" : "text-emerald-600"}`}
+                  className={`font-bold ${
+                    totals.acNetExposure > 0
+                      ? "text-rose-600"
+                      : "text-emerald-600"
+                  }`}
                 >
                   {INR(totals.acNetExposure)}
                 </span>
               </p>
             </div>
+
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+              <span
+                className="rounded-full px-3 py-1 text-[11px] font-semibold"
+                style={{
+                  backgroundColor: UI.sage.bg,
+                  color: UI.sage.color,
+                }}
+              >
                 Insurer paid {INR(totals.insurerPaidTotal)}
               </span>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+              <span
+                className="rounded-full px-3 py-1 text-[11px] font-semibold"
+                style={{
+                  backgroundColor: UI.mint.bg,
+                  color: UI.mint.color,
+                }}
+              >
                 Recovered {INR(totals.customerRecovered)}
               </span>
             </div>
@@ -1172,7 +1329,7 @@ const Step7Payment = ({
                 pagination={false}
                 dataSource={tableRows}
                 scroll={{ x: 980 }}
-                rowClassName="group"
+                rowClassName={() => "group"}
                 columns={[
                   {
                     title: "Date",
@@ -1185,7 +1342,7 @@ const Step7Payment = ({
                           value={editDraft?.date || ""}
                           onChange={(e) =>
                             setEditDraft((prev) => ({
-                              ...prev,
+                              ...(prev || {}),
                               date: e.target.value,
                             }))
                           }
@@ -1232,7 +1389,7 @@ const Step7Payment = ({
                           value={editDraft?.amount}
                           onChange={(next) =>
                             setEditDraft((prev) => ({
-                              ...prev,
+                              ...(prev || {}),
                               amount: numberOrZero(next),
                             }))
                           }
@@ -1266,7 +1423,7 @@ const Step7Payment = ({
                           value={editDraft?.paymentMode || DEFAULT_PAYMENT_MODE}
                           onChange={(next) =>
                             setEditDraft((prev) => ({
-                              ...prev,
+                              ...(prev || {}),
                               paymentMode: next,
                             }))
                           }
@@ -1292,7 +1449,7 @@ const Step7Payment = ({
                           value={editDraft?.transactionRef || ""}
                           onChange={(e) =>
                             setEditDraft((prev) => ({
-                              ...prev,
+                              ...(prev || {}),
                               transactionRef: e.target.value,
                             }))
                           }
@@ -1312,7 +1469,7 @@ const Step7Payment = ({
                           value={editDraft?.remarks || ""}
                           onChange={(e) =>
                             setEditDraft((prev) => ({
-                              ...prev,
+                              ...(prev || {}),
                               remarks: e.target.value,
                             }))
                           }
@@ -1335,7 +1492,7 @@ const Step7Payment = ({
                             size="small"
                             icon={<SaveOutlined />}
                             aria-label="Save ledger entry"
-                            className="!text-emerald-600"
+                            style={{ color: UI.mint.color }}
                             onClick={() => saveEditRow(row._id)}
                           />
                           <Button
@@ -1343,18 +1500,18 @@ const Step7Payment = ({
                             size="small"
                             icon={<CloseOutlined />}
                             aria-label="Cancel ledger edit"
-                            className="!text-slate-500"
+                            style={{ color: UI.slate.color }}
                             onClick={cancelEditRow}
                           />
                         </div>
                       ) : (
-                        <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                           <Button
                             type="text"
                             size="small"
                             icon={<EditOutlined />}
                             aria-label="Edit ledger entry"
-                            className="!text-slate-400 hover:!text-indigo-500"
+                            style={{ color: UI.slate.color }}
                             onClick={() => beginEditRow(row)}
                           />
                           <Popconfirm
@@ -1370,7 +1527,7 @@ const Step7Payment = ({
                               size="small"
                               icon={<DeleteOutlined />}
                               aria-label="Delete ledger entry"
-                              className="!text-slate-400 hover:!text-rose-500"
+                              style={{ color: UI.rose.color }}
                             />
                           </Popconfirm>
                         </div>
@@ -1386,22 +1543,22 @@ const Step7Payment = ({
               {
                 label: "AC paid insurer",
                 value: INR(totals.insurerPaidByAutocredits),
-                accent: "#6366f1",
+                accent: UI.sage.color,
               },
               {
                 label: "Recoverable after subvention",
                 value: INR(totals.customerNetReceivableWhenAcPays),
-                accent: "#10b981",
+                accent: UI.mint.color,
               },
               {
                 label: "Subvention NR",
                 value: INR(totals.subventionNotRecoverable),
-                accent: "#f59e0b",
+                accent: UI.warm.color,
               },
               {
                 label: "Subvention refund",
                 value: INR(totals.subventionRefundPaid),
-                accent: "#8b5cf6",
+                accent: UI.slate.color,
               },
             ].map(({ label, value, accent }) => (
               <div
@@ -1438,7 +1595,8 @@ const Step7Payment = ({
             shape="circle"
             icon={<PlusOutlined />}
             onClick={() => setMobileComposerOpen(true)}
-            className="!fixed !bottom-6 !right-6 !z-50 !flex !h-14 !w-14 !items-center !justify-center !border-0 !bg-indigo-600 !shadow-xl"
+            className="!fixed !bottom-6 !right-6 !z-50 !flex !h-14 !w-14 !items-center !justify-center !border-0 !shadow-xl"
+            style={{ backgroundColor: UI.sage.solid }}
           />
           <Drawer
             title="Add Ledger Entry"
