@@ -21,11 +21,19 @@ export const initialFormData = {
   // Basic setup
   buyerType: "Individual",
   vehicleType: "New Car",
+  policyCategory: "Insurance Policy",
   policyDoneBy: "Autocredits India LLP",
   brokerName: "",
+  showroomName: "",
   employeeName: "",
   employeeUserId: "",
-  sourceOrigin: "",
+  source: "Direct",
+  sourceName: "",
+  dealerChannelName: "",
+  dealerChannelAddress: "",
+  payoutApplicable: "No",
+  payoutPercent: "",
+  sourceOrigin: "Direct",
 
   // Customer / Company details
   customerName: "",
@@ -45,12 +53,14 @@ export const initialFormData = {
   // Nominee & Reference
   nomineeName: "",
   nomineeRelationship: "",
+  nomineeDob: "",
   nomineeAge: "",
   referenceName: "",
   referencePhone: "",
 
   // Vehicle
   registrationNumber: "",
+  registrationAllotted: "Yes",
   vehicleMake: "",
   vehicleModel: "",
   vehicleVariant: "",
@@ -66,7 +76,7 @@ export const initialFormData = {
   fuelType: "",
   batteryNumber: "",
   chargerNumber: "",
-  hypothecation: "",
+  hypothecation: "Not applicable",
 
   // Previous Policy
   previousInsuranceCompany: "Bajaj General Insurance Limited",

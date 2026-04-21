@@ -17,7 +17,9 @@ export const getEmployees = async () => {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     });
     const raw = response?.data ?? response;
-    return Array.isArray(raw) ? raw : [];
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw?.data)) return raw.data;
+    return [];
   } catch (error) {
     console.error("Error fetching employees:", error);
     return [];

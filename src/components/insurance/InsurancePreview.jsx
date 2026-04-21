@@ -1362,9 +1362,23 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                   fields={[
                     { label: "Buyer Type", value: data.buyerType },
                     { label: "Vehicle Type", value: data.vehicleType },
+                    {
+                      label: "Policy Type",
+                      value: data.policyCategory || data.policyTypeSelector,
+                    },
                     { label: "Employee (Staff)", value: data.employeeName },
                     { label: "Policy Done By", value: data.policyDoneBy },
                     { label: "Broker Name", value: data.brokerName },
+                    { label: "Showroom Name", value: data.showroomName },
+                    { label: "Source", value: data.source || data.sourceOrigin },
+                    { label: "Source Name", value: data.sourceName },
+                    { label: "Dealer / Channel", value: data.dealerChannelName },
+                    {
+                      label: "Dealer / Channel Address",
+                      value: data.dealerChannelAddress,
+                    },
+                    { label: "Payout Applicable", value: data.payoutApplicable },
+                    { label: "Payout %", value: data.payoutPercent },
                     { label: "Source Origin", value: data.sourceOrigin },
                     { label: "Customer Name", value: data.customerName },
                     { label: "Company Name", value: data.companyName },
@@ -1394,6 +1408,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                       label: "Nominee Relationship",
                       value: data.nomineeRelationship,
                     },
+                    { label: "Nominee DOB", value: data.nomineeDob },
                     {
                       label: "Nominee Age",
                       value: firstFilled(data.nomineeAge, data.nominee_age),

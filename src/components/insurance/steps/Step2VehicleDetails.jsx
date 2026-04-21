@@ -3,22 +3,22 @@ import dayjs from "dayjs";
 import {
   Alert,
   AutoComplete,
+  Button,
+  Checkbox,
   Col,
   Collapse,
   Input,
+  Radio,
   Row,
   Select,
-  Space,
   Tag,
   Typography,
 } from "antd";
 import {
-  CalendarOutlined,
   CarOutlined,
-  SearchOutlined,
-  SafetyCertificateOutlined,
-  ToolOutlined,
   InfoCircleOutlined,
+  SafetyCertificateOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 
 const { Text } = Typography;
@@ -49,7 +49,7 @@ const labelClass =
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
 const fieldWrapClass =
-  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-select-clear]:!inset-inline-end-[10px] [&_.ant-select-arrow]:!inset-inline-end-[11px]";
+  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-select-clear]:!inset-inline-end-[10px] [&_.ant-select-arrow]:!inset-inline-end-[11px] [&_.ant-radio-button-wrapper]:!h-[38px] [&_.ant-radio-button-wrapper]:!leading-[36px]";
 
 const CleanField = ({ label, required, hint, children, extra }) => (
   <div className="pb-1">
@@ -76,27 +76,48 @@ const formatDisplayDate = (value) =>
 
 const getInitial = (name) => (name || "?").toString().slice(0, 2).toUpperCase();
 
+const TYPE_OF_VEHICLE_OPTIONS = [
+  { label: "Two Wheeler", value: "Two Wheeler" },
+  { label: "Four Wheeler", value: "Four Wheeler" },
+  { label: "Commercial", value: "Commercial" },
+];
+
+const FUEL_OPTIONS = [
+  { label: "Petrol", value: "Petrol" },
+  { label: "Diesel", value: "Diesel" },
+  { label: "Petrol + CNG", value: "Petrol + CNG" },
+  { label: "CNG", value: "CNG" },
+  { label: "EV", value: "EV" },
+  { label: "Hybrid", value: "Hybrid" },
+  { label: "Other", value: "Other" },
+];
+
 const Step2VehicleDetails = ({
   formData,
   setField,
   handleChange,
   showErrors,
   step2Errors,
-  vehicleSearchLoading,
-  vehicleSearchInput,
-  setVehicleSearchInput,
-  vehicleSearchLoading2,
-  vehicleSearchOptions,
-  handleVehicleSearch,
+  isNewCar,
+  isExtendedWarranty,
+  registrationLookupLoading,
+  registrationLookupOptions,
+  handleRegistrationSearch,
   applyVehicleToForm,
+  includeDiscontinuedVehicles,
+  setIncludeDiscontinuedVehicles,
   makeOptions,
   modelOptions,
   variantOptions,
-  vehicleSearchDebounceRef,
-  setVehicleSearchLoading,
-  vehiclesApi,
+  bankOptions,
+  isGeneratingTempReg,
+  vehiclePotentialMatch,
+  vehiclePotentialMatches,
+  vehicleMatchLoading,
+  vehicleMergeLoading,
+  onMergeVehicleMatch,
 }) => {
-  const registrationPreview = formData.registrationNumber || "DL01AB1234";
+  const registrationPreview = formData.registrationNumber || "Pending";
 
   const vehicleTitle =
     [formData.vehicleMake, formData.vehicleModel].filter(Boolean).join(" ") ||
@@ -105,9 +126,20 @@ const Step2VehicleDetails = ({
   const vehicleVariant = formData.vehicleVariant || "Variant pending";
   const vehicleInitial = getInitial(formData.vehicleMake || "VH");
 
-  const searchPreview =
-    vehicleSearchInput ||
-    `${formData.vehicleMake || ""} ${formData.vehicleModel || ""}`.trim();
+  const regDisabled =
+    isNewCar && String(formData.registrationAllotted) === "No";
+  const shouldShowEwExtra = Boolean(isExtendedWarranty);
+
+  const hypothecationOptions = [
+    { label: "Not applicable", value: "Not applicable" },
+    ...(Array.isArray(bankOptions)
+      ? bankOptions
+          .map((name) => String(name || "").trim())
+          .filter(Boolean)
+          .filter((name, index, arr) => arr.indexOf(name) === index)
+          .map((name) => ({ label: name, value: name }))
+      : []),
+  ];
 
   const collapseItems = [
     {
@@ -119,10 +151,11 @@ const Step2VehicleDetails = ({
           </div>
           <div>
             <div className="text-sm font-bold text-slate-800">
-              Registration & search
+              Registration & vehicle mapping
             </div>
             <div className="text-xs text-slate-500">
-              Registration lookup and quick vehicle search
+              Search by registration or auto-assign temp registration for new
+              cars
             </div>
           </div>
         </div>
@@ -130,72 +163,101 @@ const Step2VehicleDetails = ({
       children: (
         <div className="pt-3">
           <Row gutter={[22, 20]}>
-            <Col xs={24} md={8}>
+            {isNewCar ? (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Registration Allotted?" required>
+                    <Radio.Group
+                      value={formData.registrationAllotted || "Yes"}
+                      onChange={(e) => {
+                        const nextValue = e?.target?.value || "Yes";
+                        setField("registrationAllotted", nextValue);
+                        if (nextValue === "Yes") {
+                          if (
+                            String(formData.registrationNumber || "")
+                              .trim()
+                              .toUpperCase()
+                              .startsWith("TEMP_REDG_")
+                          ) {
+                            setField("registrationNumber", "");
+                          }
+                        }
+                      }}
+                      optionType="button"
+                      buttonStyle="solid"
+                      style={{ marginTop: 8 }}
+                    >
+                      <Radio.Button value="Yes">Yes</Radio.Button>
+                      <Radio.Button value="No">No</Radio.Button>
+                    </Radio.Group>
+                  </CleanField>
+                </div>
+              </Col>
+            ) : null}
+
+            <Col xs={24} md={isNewCar ? 16 : 24}>
               <div className={fieldWrapClass}>
                 <CleanField
                   label="Registration Number"
                   required
                   hint={
-                    vehicleSearchLoading ? "Fetching vehicle data..." : null
+                    regDisabled
+                      ? isGeneratingTempReg
+                        ? "Generating temporary registration..."
+                        : "Temporary registration assigned automatically"
+                      : registrationLookupLoading
+                        ? "Searching vehicle records..."
+                        : "Searches vehicle_master_records"
                   }
                 >
-                  <Input
-                    value={formData.registrationNumber}
-                    onChange={(e) => {
-                      const regNum = e.target.value;
-                      setField("registrationNumber", regNum);
-
-                      if (vehicleSearchDebounceRef.current) {
-                        clearTimeout(vehicleSearchDebounceRef.current);
+                  {regDisabled ? (
+                    <Input
+                      value={formData.registrationNumber}
+                      readOnly
+                      style={inputControlStyle}
+                      status={
+                        showErrors && step2Errors.registrationNumber
+                          ? "error"
+                          : ""
                       }
-
-                      if (regNum && regNum.length >= 3) {
-                        vehicleSearchDebounceRef.current = setTimeout(
-                          async () => {
-                            try {
-                              setVehicleSearchLoading(true);
-                              const res = await vehiclesApi.searchMasterRecords(
-                                regNum,
-                                1,
-                              );
-                              const vehicles = Array.isArray(res?.data)
-                                ? res.data
-                                : [];
-
-                              if (vehicles.length > 0) {
-                                const vehicle = vehicles[0];
-                                const vehicleReg = (
-                                  vehicle.registrationNumber ||
-                                  vehicle.regNo ||
-                                  ""
-                                ).toUpperCase();
-                                const inputReg = regNum.toUpperCase();
-
-                                if (vehicleReg === inputReg) {
-                                  applyVehicleToForm(vehicle);
-                                }
-                              }
-                            } catch (err) {
-                              console.error(
-                                "[Insurance][AutoFetchVehicle] error:",
-                                err,
-                              );
-                            } finally {
-                              setVehicleSearchLoading(false);
-                            }
-                          },
-                          800,
-                        );
+                      placeholder="TEMP_REDG_0001"
+                    />
+                  ) : (
+                    <AutoComplete
+                      value={formData.registrationNumber}
+                      options={registrationLookupOptions}
+                      onSearch={handleRegistrationSearch}
+                      onChange={(value) =>
+                        setField(
+                          "registrationNumber",
+                          String(value || "").toUpperCase(),
+                        )
                       }
-                    }}
-                    style={inputControlStyle}
-                    status={
-                      showErrors && step2Errors.registrationNumber
-                        ? "error"
-                        : ""
-                    }
-                    placeholder="e.g. DL01AB1234"
-                  />
+                      onSelect={(value, option) => {
+                        const normalized = String(value || "").toUpperCase();
+                        setField("registrationNumber", normalized);
+                        if (option?.vehicleData) {
+                          applyVehicleToForm(option.vehicleData);
+                        }
+                      }}
+                      style={{ marginTop: 8, width: "100%" }}
+                      notFoundContent={
+                        registrationLookupLoading
+                          ? "Searching..."
+                          : "No matching registration"
+                      }
+                    >
+                      <Input
+                        style={inputControlStyle}
+                        status={
+                          showErrors && step2Errors.registrationNumber
+                            ? "error"
+                            : ""
+                        }
+                        placeholder="e.g. DL01AB1234"
+                      />
+                    </AutoComplete>
+                  )}
                 </CleanField>
               </div>
               {showErrors && step2Errors.registrationNumber ? (
@@ -203,88 +265,35 @@ const Step2VehicleDetails = ({
               ) : null}
             </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Reg Authority">
-                  <Input
-                    value={formData.regAuthority}
-                    onChange={handleChange("regAuthority")}
-                    style={inputControlStyle}
-                    placeholder="e.g. DL-01"
-                  />
-                </CleanField>
-              </div>
-            </Col>
+            {shouldShowEwExtra ? (
+              <>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Reg Authority">
+                      <Input
+                        value={formData.regAuthority}
+                        onChange={handleChange("regAuthority")}
+                        style={inputControlStyle}
+                        placeholder="e.g. DL-01"
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Date of Reg">
-                  <Input
-                    type="date"
-                    value={formData.dateOfReg}
-                    onChange={handleChange("dateOfReg")}
-                    style={inputControlStyle}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24}>
-              <div className={fieldWrapClass}>
-                <CleanField
-                  label="Search Car (Make / Model)"
-                  hint={
-                    vehicleSearchInput.length < 2
-                      ? "Type at least 2 letters"
-                      : vehicleSearchLoading2
-                        ? "Searching..."
-                        : null
-                  }
-                >
-                  <AutoComplete
-                    value={vehicleSearchInput}
-                    onSearch={handleVehicleSearch}
-                    onChange={(val) => setVehicleSearchInput(val)}
-                    placeholder="Type make/model..."
-                    style={{ marginTop: 8, width: "100%" }}
-                    loading={vehicleSearchLoading2}
-                    notFoundContent={
-                      vehicleSearchInput.length < 2
-                        ? "Type at least 2 letters"
-                        : vehicleSearchLoading2
-                          ? "Searching..."
-                          : "No matching cars"
-                    }
-                    options={vehicleSearchOptions.map((option) => ({
-                      value: option.value,
-                      label: (
-                        <div>
-                          <div style={{ fontWeight: 500 }}>{option.label}</div>
-                          <div style={{ fontSize: 12, color: "#666" }}>
-                            {option.data?.registrationNumber ||
-                              option.data?.regNo ||
-                              ""}
-                            {option.data?.vehicleVariant || option.data?.variant
-                              ? ` • ${
-                                  option.data.vehicleVariant ||
-                                  option.data.variant
-                                }`
-                              : ""}
-                          </div>
-                        </div>
-                      ),
-                      data: option.data,
-                    }))}
-                    onSelect={(_, option) => {
-                      if (option?.data) {
-                        applyVehicleToForm(option.data);
-                        setVehicleSearchInput(option.value || "");
-                      }
-                    }}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Date of Reg">
+                      <Input
+                        type="date"
+                        value={formData.dateOfReg}
+                        onChange={handleChange("dateOfReg")}
+                        style={inputControlStyle}
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+              </>
+            ) : null}
           </Row>
         </div>
       ),
@@ -301,7 +310,7 @@ const Step2VehicleDetails = ({
               Vehicle profile
             </div>
             <div className="text-xs text-slate-500">
-              Make, model, variant, fuel and vehicle type
+              Make, model, variant mapping with fuel and cubic capacity autofill
             </div>
           </div>
         </div>
@@ -309,37 +318,49 @@ const Step2VehicleDetails = ({
       children: (
         <div className="pt-3">
           <Row gutter={[22, 20]}>
+            <Col xs={24}>
+              <Checkbox
+                checked={Boolean(includeDiscontinuedVehicles)}
+                onChange={(e) =>
+                  setIncludeDiscontinuedVehicles(Boolean(e?.target?.checked))
+                }
+                style={{ marginBottom: 4 }}
+              >
+                Include discontinued
+              </Checkbox>
+            </Col>
+
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Brand" required>
-                  <Space direction="vertical" style={{ width: "100%" }}>
-                    <Select
-                      value={formData.vehicleMake || undefined}
-                      placeholder="Select brand"
-                      allowClear
-                      onChange={(val) => {
-                        setField("vehicleMake", val || "");
-                        setField("vehicleModel", "");
-                        setField("vehicleVariant", "");
-                      }}
-                      style={controlStyle}
-                      showSearch
-                      filterOption={(input, option) =>
-                        String(option?.children || "")
-                          .toLowerCase()
-                          .includes(input.toLowerCase())
-                      }
-                      status={
-                        showErrors && step2Errors.vehicleMake ? "error" : ""
-                      }
-                    >
-                      {makeOptions.map((make) => (
-                        <Select.Option key={make} value={make}>
-                          {make}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Space>
+                <CleanField label="Vehicle Make" required>
+                  <Select
+                    value={formData.vehicleMake || undefined}
+                    placeholder="Select make"
+                    allowClear
+                    onChange={(val) => {
+                      setField("vehicleMake", val || "");
+                      setField("vehicleModel", "");
+                      setField("vehicleVariant", "");
+                      setField("fuelType", "");
+                      setField("cubicCapacity", "");
+                    }}
+                    style={controlStyle}
+                    showSearch
+                    filterOption={(input, option) =>
+                      String(option?.children || "")
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    status={
+                      showErrors && step2Errors.vehicleMake ? "error" : ""
+                    }
+                  >
+                    {makeOptions.map((make) => (
+                      <Select.Option key={make} value={make}>
+                        {make}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </CleanField>
               </div>
               {showErrors && step2Errors.vehicleMake ? (
@@ -349,35 +370,35 @@ const Step2VehicleDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Model" required>
-                  <Space direction="vertical" style={{ width: "100%" }}>
-                    <Select
-                      value={formData.vehicleModel || undefined}
-                      placeholder="Select model"
-                      allowClear
-                      onChange={(val) => {
-                        setField("vehicleModel", val || "");
-                        setField("vehicleVariant", "");
-                      }}
-                      disabled={!formData.vehicleMake}
-                      style={controlStyle}
-                      showSearch
-                      filterOption={(input, option) =>
-                        String(option?.children || "")
-                          .toLowerCase()
-                          .includes(input.toLowerCase())
-                      }
-                      status={
-                        showErrors && step2Errors.vehicleModel ? "error" : ""
-                      }
-                    >
-                      {modelOptions.map((model) => (
-                        <Select.Option key={model} value={model}>
-                          {model}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Space>
+                <CleanField label="Vehicle Model" required>
+                  <Select
+                    value={formData.vehicleModel || undefined}
+                    placeholder="Select model"
+                    allowClear
+                    onChange={(val) => {
+                      setField("vehicleModel", val || "");
+                      setField("vehicleVariant", "");
+                      setField("fuelType", "");
+                      setField("cubicCapacity", "");
+                    }}
+                    disabled={!formData.vehicleMake}
+                    style={controlStyle}
+                    showSearch
+                    filterOption={(input, option) =>
+                      String(option?.children || "")
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    status={
+                      showErrors && step2Errors.vehicleModel ? "error" : ""
+                    }
+                  >
+                    {modelOptions.map((model) => (
+                      <Select.Option key={model} value={model}>
+                        {model}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </CleanField>
               </div>
               {showErrors && step2Errors.vehicleModel ? (
@@ -388,31 +409,29 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Variant" required>
-                  <Space direction="vertical" style={{ width: "100%" }}>
-                    <Select
-                      value={formData.vehicleVariant || undefined}
-                      placeholder="Select variant"
-                      allowClear
-                      onChange={(val) => setField("vehicleVariant", val || "")}
-                      disabled={!formData.vehicleMake || !formData.vehicleModel}
-                      style={controlStyle}
-                      showSearch
-                      filterOption={(input, option) =>
-                        String(option?.children || "")
-                          .toLowerCase()
-                          .includes(input.toLowerCase())
-                      }
-                      status={
-                        showErrors && step2Errors.vehicleVariant ? "error" : ""
-                      }
-                    >
-                      {variantOptions.map((variant) => (
-                        <Select.Option key={variant} value={variant}>
-                          {variant}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Space>
+                  <Select
+                    value={formData.vehicleVariant || undefined}
+                    placeholder="Select variant"
+                    allowClear
+                    onChange={(val) => setField("vehicleVariant", val || "")}
+                    disabled={!formData.vehicleMake || !formData.vehicleModel}
+                    style={controlStyle}
+                    showSearch
+                    filterOption={(input, option) =>
+                      String(option?.children || "")
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    status={
+                      showErrors && step2Errors.vehicleVariant ? "error" : ""
+                    }
+                  >
+                    {variantOptions.map((variant) => (
+                      <Select.Option key={variant} value={variant}>
+                        {variant}
+                      </Select.Option>
+                    ))}
+                  </Select>
                 </CleanField>
               </div>
               {showErrors && step2Errors.vehicleVariant ? (
@@ -422,12 +441,33 @@ const Step2VehicleDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Cubic Capacity (cc)">
+                <CleanField
+                  label="Fuel Type"
+                  hint="Auto-filled from selected make/model/variant"
+                >
+                  <Select
+                    value={formData.fuelType || undefined}
+                    onChange={(v) => setField("fuelType", v || "")}
+                    style={controlStyle}
+                    placeholder="Fuel type"
+                    options={FUEL_OPTIONS}
+                    allowClear
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField
+                  label="Cubic Capacity (cc)"
+                  hint="Fetched from Engine & Transmission | Displacement"
+                >
                   <Input
                     value={formData.cubicCapacity}
                     onChange={handleChange("cubicCapacity")}
                     style={inputControlStyle}
-                    placeholder="CC"
+                    placeholder="Auto-filled"
                   />
                 </CleanField>
               </div>
@@ -435,32 +475,14 @@ const Step2VehicleDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Fuel Type">
-                  <Select
-                    value={formData.fuelType || undefined}
-                    onChange={(v) => setField("fuelType", v)}
-                    style={controlStyle}
-                    placeholder="Fuel"
-                    options={[
-                      { label: "Petrol", value: "Petrol" },
-                      { label: "Diesel", value: "Diesel" },
-                      { label: "Petrol + CNG", value: "Petrol + CNG" },
-                      { label: "EV", value: "EV" },
-                      { label: "Other", value: "Other" },
-                    ]}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Types of Vehicle">
+                <CleanField label="Type of Vehicle">
                   <Select
                     value={formData.typesOfVehicle || "Four Wheeler"}
-                    onChange={(v) => setField("typesOfVehicle", v)}
+                    onChange={(v) =>
+                      setField("typesOfVehicle", v || "Four Wheeler")
+                    }
                     style={controlStyle}
-                    options={[{ label: "Four Wheeler", value: "Four Wheeler" }]}
+                    options={TYPE_OF_VEHICLE_OPTIONS}
                   />
                 </CleanField>
               </div>
@@ -478,10 +500,10 @@ const Step2VehicleDetails = ({
           </div>
           <div>
             <div className="text-sm font-bold text-slate-800">
-              Identity & manufacturing
+              Identity & registration
             </div>
             <div className="text-xs text-slate-500">
-              Engine, chassis, manufacture details and hypothecation
+              Engine, chassis, manufacture and hypothecation details
             </div>
           </div>
         </div>
@@ -565,31 +587,56 @@ const Step2VehicleDetails = ({
               ) : null}
             </Col>
 
-            <Col xs={24} md={8}>
+            <Col xs={24} md={16}>
               <div className={fieldWrapClass}>
-                <CleanField label="Manufacture Date">
-                  <Input
-                    type="date"
-                    value={formData.manufactureDate}
-                    onChange={handleChange("manufactureDate")}
-                    style={inputControlStyle}
+                <CleanField label="Hypothecation">
+                  <Select
+                    value={formData.hypothecation || "Not applicable"}
+                    onChange={(v) =>
+                      setField("hypothecation", v || "Not applicable")
+                    }
+                    style={controlStyle}
+                    options={hypothecationOptions}
+                    showSearch
+                    filterOption={(input, option) =>
+                      String(option?.label || "")
+                        .toLowerCase()
+                        .includes(String(input || "").toLowerCase())
+                    }
                   />
                 </CleanField>
               </div>
             </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Hypothecation">
-                  <Input
-                    value={formData.hypothecation}
-                    onChange={handleChange("hypothecation")}
-                    style={inputControlStyle}
-                    placeholder="Financier name"
-                  />
-                </CleanField>
-              </div>
-            </Col>
+            {shouldShowEwExtra ? (
+              <>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Battery Number">
+                      <Input
+                        value={formData.batteryNumber}
+                        onChange={handleChange("batteryNumber")}
+                        style={inputControlStyle}
+                        placeholder="Battery number"
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Charger Number">
+                      <Input
+                        value={formData.chargerNumber}
+                        onChange={handleChange("chargerNumber")}
+                        style={inputControlStyle}
+                        placeholder="Charger number"
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+              </>
+            ) : null}
           </Row>
         </div>
       ),
@@ -606,7 +653,8 @@ const Step2VehicleDetails = ({
               Vehicle details
             </div>
             <div className="mt-1 text-sm text-slate-500">
-              Registration, search, specs and identity in the same policy theme
+              Registration-first capture with make/model autofill and
+              policy-safe identity fields
             </div>
           </div>
 
@@ -641,9 +689,9 @@ const Step2VehicleDetails = ({
         </div>
       </div>
 
-      <Row gutter={[20, 20]} align="top">
-        <Col xs={24} xl={8}>
-          <div className="flex flex-col gap-4 md:sticky md:top-4">
+      <Row gutter={[20, 20]} align="stretch">
+        <Col xs={24} xl={8} className="xl:self-stretch">
+          <div className="flex flex-col gap-4 xl:sticky xl:top-[150px]">
             <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#D6E6DF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
@@ -659,26 +707,16 @@ const Step2VehicleDetails = ({
                         <span className="text-[11px] text-slate-500">
                           {vehicleVariant}
                         </span>
-                        {formData.fuelType ? (
-                          <>
-                            <span className="text-[10px] text-slate-300">
-                              ·
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              {formData.fuelType}
-                            </span>
-                          </>
-                        ) : null}
                       </div>
                     </div>
                   </div>
 
                   <div className="shrink-0 text-right">
                     <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Search
+                      Policy Type
                     </p>
                     <p className="m-0 max-w-[120px] truncate text-sm font-black text-slate-800">
-                      {searchPreview || "—"}
+                      {isExtendedWarranty ? "EW Policy" : "Insurance"}
                     </p>
                   </div>
                 </div>
@@ -696,12 +734,13 @@ const Step2VehicleDetails = ({
                   value={formData.registrationNumber}
                 />
                 <SummaryRow
-                  label="Reg Authority"
-                  value={formData.regAuthority}
+                  label="Reg Allotted"
+                  value={formData.registrationAllotted || "Yes"}
                 />
-                <SummaryRow label="Brand" value={formData.vehicleMake} />
+                <SummaryRow label="Make" value={formData.vehicleMake} />
                 <SummaryRow label="Model" value={formData.vehicleModel} />
                 <SummaryRow label="Variant" value={formData.vehicleVariant} />
+                <SummaryRow label="Fuel" value={formData.fuelType} />
                 <SummaryRow
                   label="Cubic Capacity"
                   value={formData.cubicCapacity}
@@ -714,32 +753,145 @@ const Step2VehicleDetails = ({
                   label="Chassis Number"
                   value={formData.chassisNumber}
                 />
-              </div>
+                <SummaryRow label="Type" value={formData.typesOfVehicle} />
+                <SummaryRow
+                  label="Manufacture"
+                  value={
+                    formData.manufactureMonth && formData.manufactureYear
+                      ? `${formData.manufactureMonth}/${formData.manufactureYear}`
+                      : "—"
+                  }
+                />
+                <SummaryRow
+                  label="Hypothecation"
+                  value={formData.hypothecation || "Not applicable"}
+                />
 
-              <div className="mx-5 border-t border-dashed border-slate-200" />
-
-              <div className="px-5 py-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-slate-800">
-                    Vehicle Type
-                  </span>
-                  <span className="text-sm font-black text-slate-900">
-                    {formData.typesOfVehicle || "Four Wheeler"}
-                  </span>
-                </div>
-                <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
-                  Captured for policy issuance
-                </p>
+                {shouldShowEwExtra ? (
+                  <>
+                    <SummaryRow
+                      label="Reg Authority"
+                      value={formData.regAuthority}
+                    />
+                    <SummaryRow
+                      label="Date of Reg"
+                      value={formatDisplayDate(formData.dateOfReg)}
+                    />
+                    <SummaryRow
+                      label="Battery Number"
+                      value={formData.batteryNumber}
+                    />
+                    <SummaryRow
+                      label="Charger Number"
+                      value={formData.chargerNumber}
+                    />
+                  </>
+                ) : null}
               </div>
             </div>
 
-            
+            {(vehicleMatchLoading ||
+              vehiclePotentialMatch ||
+              (Array.isArray(vehiclePotentialMatches) &&
+                vehiclePotentialMatches.length > 0)) && (
+              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+                    Potential Vehicle Match
+                  </p>
+                  {vehiclePotentialMatch ? (
+                    <Tag className="!m-0 !rounded-full" color="gold">
+                      Score {vehiclePotentialMatch.score || 0}
+                    </Tag>
+                  ) : null}
+                </div>
+
+                {vehicleMatchLoading ? (
+                  <p className="m-0 text-xs text-slate-500">
+                    Scanning vehicle_master_records...
+                  </p>
+                ) : vehiclePotentialMatch ? (
+                  <>
+                    <div className="rounded-xl border border-amber-200 bg-white px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="m-0 text-sm font-bold text-slate-800">
+                            {vehiclePotentialMatch.registrationNumber || "—"}
+                          </p>
+                          <p className="m-0 text-xs text-slate-500">
+                            {[
+                              vehiclePotentialMatch.make,
+                              vehiclePotentialMatch.model,
+                              vehiclePotentialMatch.variant,
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </p>
+                          <p className="m-0 text-[11px] text-slate-400">
+                            {vehiclePotentialMatch.customerName ||
+                              "Customer unavailable"}
+                            {vehiclePotentialMatch.primaryMobile
+                              ? ` · ${vehiclePotentialMatch.primaryMobile}`
+                              : ""}
+                          </p>
+                        </div>
+                        <Button
+                          type="primary"
+                          size="small"
+                          loading={vehicleMergeLoading}
+                          onClick={() => onMergeVehicleMatch?.(vehiclePotentialMatch)}
+                        >
+                          Merge
+                        </Button>
+                      </div>
+                    </div>
+
+                    {Array.isArray(vehiclePotentialMatches) &&
+                    vehiclePotentialMatches.length > 1 ? (
+                      <div className="mt-2 flex flex-col gap-1.5">
+                        {vehiclePotentialMatches.slice(1, 3).map((row) => (
+                          <button
+                            type="button"
+                            key={String(
+                              row?._id || row?.registrationNumber || "",
+                            )}
+                            onClick={() => onMergeVehicleMatch?.(row)}
+                            className="w-full rounded-xl border border-amber-200/80 bg-white px-3 py-2 text-left transition hover:border-amber-300"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <p className="m-0 text-xs font-semibold text-slate-700">
+                                  {row?.registrationNumber || "—"}
+                                </p>
+                                <p className="m-0 text-[11px] text-slate-500">
+                                  {[row?.make, row?.model, row?.variant]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                </p>
+                              </div>
+                              <span className="text-[10px] text-amber-700">
+                                Merge this
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="m-0 text-xs text-slate-500">
+                    No historical match found yet.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className={`${shellStyle} p-4`}>
               <Alert
                 type="info"
                 showIcon
-                message="All vehicle details must be accurate and will be verified during policy issuance."
+                icon={<InfoCircleOutlined />}
+                message="Vehicle details must match registration/records and are used for quote + policy issuance."
               />
             </div>
           </div>

@@ -43,4 +43,23 @@ export const insuranceApi = {
   upsertPayoutRate: async (payload = {}) => {
     return await apiClient.post("/api/insurance/payout-rates", payload);
   },
+
+  getNextTempRegistration: async () => {
+    return await apiClient.post("/api/insurance/temp-registration/next");
+  },
+
+  resolveVehicleCubicCapacity: async (payload = {}) => {
+    return await apiClient.post(
+      "/api/insurance/vehicle-cubic-capacity/resolve",
+      payload,
+    );
+  },
+
+  findPotentialVehicleMatch: async (payload = {}) => {
+    return await apiClient.post("/api/insurance/vehicle-match/potential", payload);
+  },
+
+  mergeVehicleMatch: async (payload = {}) => {
+    return await apiClient.post("/api/insurance/vehicle-match/merge", payload);
+  },
 };

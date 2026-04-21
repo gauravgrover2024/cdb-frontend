@@ -47,6 +47,10 @@ import {
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
 import { useInsuranceStore } from "./store/useInsuranceStore";
+import {
+  lookupCityByPincode,
+  normalizePincode,
+} from "../../modules/loans/components/loan-form/pre-file/pincodeCityLookup";
 
 const { Text, Title } = Typography;
 
@@ -63,13 +67,19 @@ const normalizeCustomerSearchPayload = (payload) => {
 const initialFormState = {
   buyerType: "Individual",
   vehicleType: "New Car",
+  policyCategory: "Insurance Policy",
   policyDoneBy: "Autocredits India LLP",
   brokerName: "",
+  showroomName: "",
   employeeName: "",
   employeeUserId: "",
-  sourceOrigin: "",
-  referenceName: "",
-  referencePhone: "",
+  source: "Direct",
+  sourceName: "",
+  dealerChannelName: "",
+  dealerChannelAddress: "",
+  payoutApplicable: "No",
+  payoutPercent: "",
+  sourceOrigin: "Direct",
 
   customerName: "",
   companyName: "",
@@ -87,11 +97,13 @@ const initialFormState = {
 
   nomineeName: "",
   nomineeRelationship: "",
+  nomineeDob: "",
   nomineeAge: "",
   referenceName: "",
   referencePhone: "",
 
   registrationNumber: "",
+  registrationAllotted: "Yes",
   vehicleMake: "",
   vehicleModel: "",
   vehicleVariant: "",
@@ -99,6 +111,7 @@ const initialFormState = {
   engineNumber: "",
   chassisNumber: "",
   typesOfVehicle: "Four Wheeler",
+  manufactureMonth: "",
   manufactureYear: "",
   manufactureDate: "",
   regAuthority: "",
@@ -106,7 +119,7 @@ const initialFormState = {
   fuelType: "",
   batteryNumber: "",
   chargerNumber: "",
-  hypothecation: "",
+  hypothecation: "Not applicable",
 
   previousInsuranceCompany: "Bajaj General Insurance Limited",
   previousPolicyNumber: "",
@@ -433,8 +446,35 @@ const buildAutoReceivableRow = (companyName, payoutPercentage, payoutAmount) => 
 const validateStep1 = (data) => {
   const errors = {};
   const isCompany = data.buyerType === "Company";
+  const sourceMode = String(data.source || data.sourceOrigin || "Direct").trim();
+  const policyDoneBy = String(data.policyDoneBy || "").trim();
   if (!(data.employeeName || "").trim())
     errors.employeeName = "Employee name is required";
+  if (!(policyDoneBy || "").trim())
+    errors.policyDoneBy = "Policy done by is required";
+  if (!(sourceMode || "").trim()) errors.source = "Source is required";
+  if (sourceMode === "Direct") {
+    if (!(data.sourceName || "").trim())
+      errors.sourceName = "Source name is required for direct cases";
+  } else if (sourceMode === "Indirect") {
+    if (!(data.dealerChannelName || "").trim())
+      errors.dealerChannelName = "Dealer / Channel is required";
+    if (!(data.dealerChannelAddress || "").trim())
+      errors.dealerChannelAddress = "Dealer / Channel address is required";
+    if (!(data.payoutApplicable || "").trim())
+      errors.payoutApplicable = "Choose payout applicability";
+    if (
+      String(data.payoutApplicable || "").trim() === "Yes" &&
+      (!Number.isFinite(Number(data.payoutPercent || "")) ||
+        Number(data.payoutPercent || "") <= 0)
+    ) {
+      errors.payoutPercent = "Enter a valid payout %";
+    }
+  }
+  if (policyDoneBy === "Broker" && !(data.brokerName || "").trim())
+    errors.brokerName = "Broker name is required";
+  if (policyDoneBy === "Showroom" && !(data.showroomName || "").trim())
+    errors.showroomName = "Showroom name is required";
   if (!(data.mobile || "").trim()) errors.mobile = "Mobile number is required";
   else if (!/^\d{10}$/.test((data.mobile || "").trim()))
     errors.mobile = "Enter a valid 10-digit mobile number";
@@ -489,11 +529,10 @@ const validateStep2 = (data) => {
     errors.engineNumber = "Engine number is required";
   if (!(data.chassisNumber || "").trim())
     errors.chassisNumber = "Chassis number is required";
+  if (!(data.manufactureMonth || "").trim())
+    errors.manufactureMonth = "Manufacture month is required";
   if (!(data.manufactureYear || "").trim())
     errors.manufactureYear = "Manufacture year is required";
-  // Updated to use manufactureDate instead of manufactureMonth
-  if (!(data.manufactureDate || "").trim())
-    errors.manufactureDate = "Manufacture date is required";
 
   return errors;
 };
@@ -553,26 +592,34 @@ const NewInsuranceCaseForm = ({
   // Customer search (for Employee Name / Step-1 auto-fill)
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
+  const [cityLookupLoading, setCityLookupLoading] = useState(false);
   const customerSearchDebounceRef = React.useRef(null);
+  const cityLookupSeqRef = React.useRef(0);
 
   /** Staff / users from DB for Employee field (not customer records) */
   const [employeesList, setEmployeesList] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [bankOptions, setBankOptions] = useState([]);
 
-  // Vehicle search (for Registration Number / Step-2 auto-fill)
-  const [vehicleSearchLoading, setVehicleSearchLoading] = useState(false);
-  const vehicleSearchDebounceRef = React.useRef(null);
-
-  // Vehicle search (for searching by Make/Model) - like EMI Calculator
-  const [vehicleSearchInput, setVehicleSearchInput] = useState("");
-  const [vehicleSearchLoading2, setVehicleSearchLoading2] = useState(false);
-  const [vehicleSearchOptions, setVehicleSearchOptions] = useState([]);
-  const [, setVehiclesLoading] = useState(false);
+  // Vehicle search (Registration Number / Step-2 auto-fill)
+  const [registrationLookupLoading, setRegistrationLookupLoading] =
+    useState(false);
+  const [registrationLookupOptions, setRegistrationLookupOptions] = useState(
+    [],
+  );
+  const registrationLookupDebounceRef = React.useRef(null);
+  const [isGeneratingTempReg, setIsGeneratingTempReg] = useState(false);
+  const [includeDiscontinuedVehicles, setIncludeDiscontinuedVehicles] =
+    useState(false);
   const [makeOptions, setMakeOptions] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
   const [variantOptions, setVariantOptions] = useState([]);
-  const vehicleSearchDebounceRef2 = React.useRef(null);
+  const cubicSyncRef = React.useRef(new Set());
+  const [vehiclePotentialMatch, setVehiclePotentialMatch] = useState(null);
+  const [vehiclePotentialMatches, setVehiclePotentialMatches] = useState([]);
+  const [vehicleMatchLoading, setVehicleMatchLoading] = useState(false);
+  const [vehicleMergeLoading, setVehicleMergeLoading] = useState(false);
+  const vehicleMatchDebounceRef = React.useRef(null);
 
   const getCustomerId = (c) => c?._id || c?.id || null;
 
@@ -588,6 +635,9 @@ const NewInsuranceCaseForm = ({
       return "";
     }
   };
+
+  const isCompany = formData.buyerType === "Company";
+  const isNewCar = formData.vehicleType === "New Car";
 
   const applyCustomerToForm = useCallback(
     (customer) => {
@@ -606,7 +656,10 @@ const NewInsuranceCaseForm = ({
         // === PERSONAL DETAILS ===
         // Customer search must not overwrite employee (staff) — employee comes from users API
         customerName: customer?.customerName || prev.customerName,
-        companyName: customer?.companyName || prev.companyName,
+        companyName:
+          customer?.companyName ||
+          customer?.customerName ||
+          prev.companyName,
         contactPersonName:
           customer?.contactPersonName || prev.contactPersonName,
 
@@ -633,6 +686,7 @@ const NewInsuranceCaseForm = ({
         nomineeName: customer?.nomineeName || prev.nomineeName,
         nomineeRelationship:
           customer?.nomineeRelation || prev.nomineeRelationship,
+        nomineeDob: customer?.nomineeDob || prev.nomineeDob,
         nomineeAge: getAgeFromDob(customer?.nomineeDob) || prev.nomineeAge,
 
         // === REFERENCE DETAILS (Auto-fill from first reference in customer) ===
@@ -817,30 +871,49 @@ const NewInsuranceCaseForm = ({
   }, [employeesList, formData.employeeName]);
 
 
+  const parseCubicCapacityValue = useCallback((value) => {
+    if (value === undefined || value === null) return "";
+    const raw = String(value).trim();
+    if (!raw) return "";
+    const match = raw.match(/(\d{2,5})/);
+    return match ? match[1] : "";
+  }, []);
+
   const applyVehicleToForm = useCallback(
     (vehicle) => {
       if (!vehicle) return;
-
       setFormData((prev) => ({
         ...prev,
+        registrationAllotted: "Yes",
         registrationNumber:
           vehicle.registrationNumber ||
           vehicle.regNo ||
           vehicle.registration ||
           prev.registrationNumber,
-        vehicleMake: vehicle.vehicleMake || vehicle.make || prev.vehicleMake,
-        vehicleModel:
-          vehicle.vehicleModel || vehicle.model || prev.vehicleModel,
+        vehicleMake:
+          vehicle.vehicleMake ||
+          vehicle.make ||
+          vehicle.brand ||
+          prev.vehicleMake,
+        vehicleModel: vehicle.vehicleModel || vehicle.model || prev.vehicleModel,
         vehicleVariant:
           vehicle.vehicleVariant ||
           vehicle.variant ||
           vehicle.variantName ||
           prev.vehicleVariant,
+        fuelType:
+          vehicle.fuelType ||
+          vehicle.fuel ||
+          vehicle.vehicleFuelType ||
+          prev.fuelType,
         cubicCapacity:
-          vehicle.cubicCapacity ||
-          vehicle.cc ||
-          vehicle.engineCC ||
-          prev.cubicCapacity,
+          parseCubicCapacityValue(
+            vehicle.cubicCapacityCc ||
+              vehicle.cubicCapacity ||
+              vehicle.cc ||
+              vehicle.engineCC ||
+              "",
+          ) || prev.cubicCapacity,
         engineNumber:
           vehicle.engineNumber || vehicle.engineNo || prev.engineNumber,
         chassisNumber:
@@ -857,171 +930,392 @@ const NewInsuranceCaseForm = ({
           prev.manufactureMonth,
         manufactureYear:
           vehicle.manufactureYear ||
+          vehicle.yearOfManufacture ||
           vehicle.mfgYear ||
           vehicle.year ||
           prev.manufactureYear,
+        regAuthority:
+          vehicle.regAuthority || vehicle.registrationCity || prev.regAuthority,
+        dateOfReg:
+          vehicle.registrationDate ||
+          vehicle.dateOfReg ||
+          vehicle.date_of_reg ||
+          prev.dateOfReg,
+        hypothecation:
+          vehicle.hypothecation ||
+          vehicle.hypothecationBank ||
+          prev.hypothecation ||
+          "Not applicable",
       }));
-
-      // schedulePersist(250);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [parseCubicCapacityValue],
   );
 
-  // Search vehicles by make/model (like EMI Calculator using getAll)
-  const handleVehicleSearch = useCallback(
-    (q) => {
-      const query = String(q || "").trim();
-      setVehicleSearchInput(query);
+  const handleRegistrationSearch = useCallback((q) => {
+    const query = String(q || "").trim().toUpperCase();
+    if (registrationLookupDebounceRef.current) {
+      clearTimeout(registrationLookupDebounceRef.current);
+    }
 
-      if (vehicleSearchDebounceRef2.current) {
-        clearTimeout(vehicleSearchDebounceRef2.current);
+    if (!query || query.length < 2) {
+      setRegistrationLookupOptions([]);
+      return;
+    }
+
+    registrationLookupDebounceRef.current = setTimeout(async () => {
+      setRegistrationLookupLoading(true);
+      try {
+        const res = await vehiclesApi.searchMasterRecords(query, 10);
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        const options = rows.map((row) => {
+          const registration = String(
+            row?.registrationNumber || row?.regNo || "",
+          ).trim();
+          const make = String(row?.make || row?.vehicleMake || "").trim();
+          const model = String(row?.model || row?.vehicleModel || "").trim();
+          const variant = String(row?.variant || row?.vehicleVariant || "").trim();
+          const customerName = String(row?.customerName || "").trim();
+          const primaryMobile = String(row?.primaryMobile || "").trim();
+          return {
+            value: registration,
+            label: (
+              <div>
+                <div style={{ fontWeight: 600 }}>
+                  {registration || "Registration"}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  {[make, model, variant].filter(Boolean).join(" ")}
+                </div>
+                {(customerName || primaryMobile) && (
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                    {[customerName, primaryMobile].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+              </div>
+            ),
+            vehicleData: row,
+          };
+        });
+        setRegistrationLookupOptions(options);
+      } catch (err) {
+        console.error("[Insurance][RegistrationLookup] error:", err);
+        setRegistrationLookupOptions([]);
+      } finally {
+        setRegistrationLookupLoading(false);
       }
+    }, 280);
+  }, []);
 
-      // Debounce to prevent flooding backend
-      vehicleSearchDebounceRef2.current = setTimeout(async () => {
-        if (!query || query.length < 2) {
-          setVehicleSearchOptions([]);
-          return;
-        }
-
-        setVehicleSearchLoading2(true);
-        try {
-          // Search vehicles using getAll like EMI Calculator
-          const res = await vehiclesApi.getAll({ q: query, limit: 200 });
-          const rows = Array.isArray(res?.data) ? res.data : [];
-
-          // Extract unique make+model combinations
-          const seen = new Set();
-          const options = [];
-          rows.forEach((row) => {
-            const make = String(row.vehicleMake || row.make || "").trim();
-            const model = String(row.vehicleModel || row.model || "").trim();
-            if (!make || !model) return;
-            const key = `${make}|${model}`;
-            if (seen.has(key)) return;
-            seen.add(key);
-            options.push({
-              value: `${make} ${model}`,
-              label: `${make} ${model}`,
-              data: row,
-            });
-          });
-
-          setVehicleSearchOptions(options.slice(0, 10));
-        } catch (err) {
-          console.error("[Insurance][VehicleSearch] error:", err);
-          setVehicleSearchOptions([]);
-        } finally {
-          setVehicleSearchLoading2(false);
-        }
-      }, 450);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  // Fetch unique makes (like EMI Calculator)
   useEffect(() => {
     let ignore = false;
-
-    const fetchMakes = async () => {
-      if (vehicleSearchInput.length < 2) {
-        setMakeOptions([]);
-        return;
-      }
-
-      setVehiclesLoading(true);
+    (async () => {
       try {
-        const res = await vehiclesApi.getUniqueMakes(null, false);
-        const makes = Array.isArray(res?.data) ? res.data : [];
-        if (!ignore) {
-          setMakeOptions(makes);
-        }
+        const res = await vehiclesApi.getUniqueMakes(
+          null,
+          includeDiscontinuedVehicles,
+        );
+        if (ignore) return;
+        setMakeOptions(Array.isArray(res?.data) ? res.data : []);
       } catch (err) {
         console.error("[Insurance][FetchMakes] error:", err);
         if (!ignore) setMakeOptions([]);
-      } finally {
-        if (!ignore) setVehiclesLoading(false);
       }
-    };
-
-    fetchMakes();
+    })();
     return () => {
       ignore = true;
     };
-  }, [vehicleSearchInput]);
+  }, [includeDiscontinuedVehicles]);
 
-  // Fetch unique models when make is selected (like EMI Calculator)
   useEffect(() => {
     let ignore = false;
-
-    const fetchModels = async () => {
+    (async () => {
       if (!formData.vehicleMake) {
         setModelOptions([]);
         return;
       }
-
-      setVehiclesLoading(true);
       try {
         const res = await vehiclesApi.getUniqueModels(
           formData.vehicleMake,
           null,
-          false,
+          includeDiscontinuedVehicles,
         );
-        const models = Array.isArray(res?.data) ? res.data : [];
-        if (!ignore) {
-          setModelOptions(models);
-        }
+        if (ignore) return;
+        setModelOptions(Array.isArray(res?.data) ? res.data : []);
       } catch (err) {
         console.error("[Insurance][FetchModels] error:", err);
         if (!ignore) setModelOptions([]);
-      } finally {
-        if (!ignore) setVehiclesLoading(false);
       }
-    };
-
-    fetchModels();
+    })();
     return () => {
       ignore = true;
     };
-  }, [formData.vehicleMake]);
+  }, [formData.vehicleMake, includeDiscontinuedVehicles]);
 
-  // Fetch unique variants when make+model selected (like EMI Calculator)
   useEffect(() => {
     let ignore = false;
-
-    const fetchVariants = async () => {
+    (async () => {
       if (!formData.vehicleMake || !formData.vehicleModel) {
         setVariantOptions([]);
         return;
       }
-
-      setVehiclesLoading(true);
       try {
         const res = await vehiclesApi.getUniqueVariants(
           formData.vehicleMake,
           formData.vehicleModel,
           null,
-          false,
+          includeDiscontinuedVehicles,
         );
-        const variants = Array.isArray(res?.data) ? res.data : [];
-        if (!ignore) {
-          setVariantOptions(variants);
-        }
+        if (ignore) return;
+        setVariantOptions(Array.isArray(res?.data) ? res.data : []);
       } catch (err) {
         console.error("[Insurance][FetchVariants] error:", err);
         if (!ignore) setVariantOptions([]);
-      } finally {
-        if (!ignore) setVehiclesLoading(false);
       }
-    };
-
-    fetchVariants();
+    })();
     return () => {
       ignore = true;
     };
-  }, [formData.vehicleMake, formData.vehicleModel]);
+  }, [formData.vehicleMake, formData.vehicleModel, includeDiscontinuedVehicles]);
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      if (!isNewCar || String(formData.registrationAllotted || "Yes") !== "No") {
+        return;
+      }
+      const existingReg = String(formData.registrationNumber || "").trim();
+      if (existingReg) return;
+      setIsGeneratingTempReg(true);
+      try {
+        const res = await insuranceApi.getNextTempRegistration();
+        const nextTempReg = String(
+          res?.data?.registrationNumber || res?.registrationNumber || "",
+        ).trim();
+        if (!ignore && nextTempReg) {
+          setFormData((prev) => ({
+            ...prev,
+            registrationNumber: nextTempReg,
+          }));
+        }
+      } catch (err) {
+        console.error("[Insurance][TempRegistration] error:", err);
+      } finally {
+        if (!ignore) setIsGeneratingTempReg(false);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [formData.registrationAllotted, formData.registrationNumber, isNewCar]);
+
+  useEffect(() => {
+    if (!formData.vehicleMake || !formData.vehicleModel || !formData.vehicleVariant) {
+      return;
+    }
+    let ignore = false;
+    (async () => {
+      try {
+        const vehicleRes = await vehiclesApi.getByDetails(
+          formData.vehicleMake,
+          formData.vehicleModel,
+          formData.vehicleVariant,
+        );
+        const detailsRaw = vehicleRes?.data;
+        const details = Array.isArray(detailsRaw)
+          ? detailsRaw[0] || null
+          : detailsRaw || null;
+        const fuelCandidate = String(
+          details?.fuelType || details?.fuel || details?.vehicleFuelType || "",
+        ).trim();
+        if (!ignore && fuelCandidate) {
+          setFormData((prev) => ({
+            ...prev,
+            fuelType: fuelCandidate,
+          }));
+        }
+      } catch (err) {
+        console.error("[Insurance][VehicleDetailsAutoFill] error:", err);
+      }
+
+      try {
+        const res = await insuranceApi.resolveVehicleCubicCapacity({
+          make: formData.vehicleMake,
+          model: formData.vehicleModel,
+          variant: formData.vehicleVariant,
+          registrationNumber: formData.registrationNumber,
+        });
+        const cubicCapacity = parseCubicCapacityValue(
+          res?.data?.cubicCapacity ?? res?.cubicCapacity ?? "",
+        );
+        if (!ignore) {
+          setFormData((prev) => ({
+            ...prev,
+            cubicCapacity: cubicCapacity || "",
+          }));
+        }
+        if (cubicCapacity && formData.registrationNumber) {
+          const syncKey = `${String(formData.registrationNumber || "").toUpperCase()}|${cubicCapacity}|${formData.vehicleMake}|${formData.vehicleModel}|${formData.vehicleVariant}`;
+          if (!cubicSyncRef.current.has(syncKey)) {
+            cubicSyncRef.current.add(syncKey);
+          }
+        }
+      } catch (err) {
+        console.error("[Insurance][ResolveCubicCapacity] error:", err);
+        if (!ignore) {
+          setFormData((prev) => ({
+            ...prev,
+            cubicCapacity: "",
+          }));
+        }
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [
+    formData.registrationNumber,
+    formData.vehicleMake,
+    formData.vehicleModel,
+    formData.vehicleVariant,
+    parseCubicCapacityValue,
+  ]);
+
+  useEffect(() => {
+    if (vehicleMatchDebounceRef.current) {
+      clearTimeout(vehicleMatchDebounceRef.current);
+    }
+
+    if (step !== 2) {
+      setVehiclePotentialMatch(null);
+      setVehiclePotentialMatches([]);
+      setVehicleMatchLoading(false);
+      return;
+    }
+
+    const make = String(formData.vehicleMake || "").trim();
+    const model = String(formData.vehicleModel || "").trim();
+    const variant = String(formData.vehicleVariant || "").trim();
+    const engineNumber = String(formData.engineNumber || "").trim();
+    const chassisNumber = String(formData.chassisNumber || "").trim();
+
+    if (!make || !model || !variant || (!engineNumber && !chassisNumber)) {
+      setVehiclePotentialMatch(null);
+      setVehiclePotentialMatches([]);
+      setVehicleMatchLoading(false);
+      return;
+    }
+
+    vehicleMatchDebounceRef.current = setTimeout(async () => {
+      setVehicleMatchLoading(true);
+      try {
+        const res = await insuranceApi.findPotentialVehicleMatch({
+          make,
+          model,
+          variant,
+          manufactureMonth: formData.manufactureMonth,
+          manufactureYear: formData.manufactureYear,
+          engineNumber,
+          chassisNumber,
+          currentRegistrationNumber: formData.registrationNumber,
+        });
+        const matches = Array.isArray(res?.data?.data)
+          ? res.data.data
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
+        setVehiclePotentialMatches(matches);
+        setVehiclePotentialMatch(matches[0] || null);
+      } catch (err) {
+        console.error("[Insurance][VehicleMatch] error:", err);
+        setVehiclePotentialMatch(null);
+        setVehiclePotentialMatches([]);
+      } finally {
+        setVehicleMatchLoading(false);
+      }
+    }, 340);
+  }, [
+    formData.chassisNumber,
+    formData.engineNumber,
+    formData.manufactureMonth,
+    formData.manufactureYear,
+    formData.registrationNumber,
+    formData.vehicleMake,
+    formData.vehicleModel,
+    formData.vehicleVariant,
+    step,
+  ]);
+
+  const handleMergeVehicleMatch = useCallback(
+    async (candidate) => {
+      const activeCandidate = candidate || vehiclePotentialMatch;
+      if (!activeCandidate?._id) return;
+      setVehicleMergeLoading(true);
+      try {
+        const res = await insuranceApi.mergeVehicleMatch({
+          insuranceCaseId: insuranceDbId || undefined,
+          matchedVehicleRecordId: activeCandidate._id,
+          currentRegistrationNumber: formData.registrationNumber,
+          make: formData.vehicleMake,
+          model: formData.vehicleModel,
+          variant: formData.vehicleVariant,
+          manufactureMonth: formData.manufactureMonth,
+          manufactureYear: formData.manufactureYear,
+          engineNumber: formData.engineNumber,
+          chassisNumber: formData.chassisNumber,
+          hypothecation: formData.hypothecation,
+          customerName: formData.customerName || formData.companyName,
+          primaryMobile: formData.mobile,
+          cubicCapacityCc: Number(formData.cubicCapacity || 0),
+        });
+        const merged =
+          res?.data?.data?.mergedVehicleRecord ||
+          res?.data?.mergedVehicleRecord ||
+          null;
+        const canonicalRegistration =
+          res?.data?.data?.canonicalRegistration ||
+          res?.data?.canonicalRegistration ||
+          merged?.registrationNumber ||
+          "";
+
+        if (merged) {
+          applyVehicleToForm(merged);
+        }
+        if (canonicalRegistration) {
+          setFormData((prev) => ({
+            ...prev,
+            registrationAllotted: "Yes",
+            registrationNumber: String(canonicalRegistration).toUpperCase(),
+          }));
+        }
+        setVehiclePotentialMatch(null);
+        setVehiclePotentialMatches([]);
+        message.success("Vehicle history merged successfully");
+      } catch (err) {
+        console.error("[Insurance][VehicleMerge] error:", err);
+        message.error(err?.message || "Failed to merge vehicle history");
+      } finally {
+        setVehicleMergeLoading(false);
+      }
+    },
+    [
+      applyVehicleToForm,
+      formData.chassisNumber,
+      formData.companyName,
+      formData.cubicCapacity,
+      formData.customerName,
+      formData.engineNumber,
+      formData.hypothecation,
+      formData.manufactureMonth,
+      formData.manufactureYear,
+      formData.mobile,
+      formData.registrationNumber,
+      formData.vehicleMake,
+      formData.vehicleModel,
+      formData.vehicleVariant,
+      insuranceDbId,
+      vehiclePotentialMatch,
+    ],
+  );
 
   useEffect(() => {
     if (step !== 4) {
@@ -1031,7 +1325,56 @@ const NewInsuranceCaseForm = ({
 
   useEffect(() => {
     if (!initialValues) return;
-    setFormData((prev) => ({ ...prev, ...initialValues }));
+    const derivedSource = String(
+      initialValues?.source ||
+        initialValues?.sourceOrigin ||
+        initialValues?.recordSource ||
+        "Direct",
+    ).trim();
+    setFormData((prev) => ({
+      ...prev,
+      ...initialValues,
+      policyCategory:
+        initialValues?.policyCategory ||
+        initialValues?.policyTypeSelector ||
+        prev.policyCategory ||
+        "Insurance Policy",
+      source: derivedSource || "Direct",
+      sourceOrigin: derivedSource || "Direct",
+      sourceName:
+        initialValues?.sourceName ||
+        initialValues?.channelName ||
+        initialValues?.referenceName ||
+        prev.sourceName,
+      dealerChannelName:
+        initialValues?.dealerChannelName ||
+        initialValues?.dealerName ||
+        initialValues?.sourceDetails ||
+        prev.dealerChannelName,
+      dealerChannelAddress:
+        initialValues?.dealerChannelAddress ||
+        initialValues?.dealerAddress ||
+        prev.dealerChannelAddress,
+      payoutApplicable:
+        initialValues?.payoutApplicable || prev.payoutApplicable || "No",
+      payoutPercent:
+        initialValues?.payoutPercent ??
+        initialValues?.payoutPercentage ??
+        prev.payoutPercent,
+      registrationAllotted:
+        initialValues?.registrationAllotted ||
+        (String(initialValues?.registrationNumber || "")
+          .trim()
+          .toUpperCase()
+          .startsWith("TEMP_REDG_")
+          ? "No"
+          : prev.registrationAllotted || "Yes"),
+      nomineeDob: initialValues?.nomineeDob || prev.nomineeDob,
+      nomineeAge:
+        initialValues?.nomineeAge ||
+        getAgeFromDob(initialValues?.nomineeDob) ||
+        prev.nomineeAge,
+    }));
     const normalizedQuotes = normalizeQuotesFromApi(initialValues?.quotes);
     if (normalizedQuotes.length) {
       setQuotes(normalizedQuotes);
@@ -1065,8 +1408,57 @@ const NewInsuranceCaseForm = ({
       setInsuranceDbId(initialValues._id || initialValues.id);
   }, [initialValues]);
 
-  const isCompany = formData.buyerType === "Company";
-  const isNewCar = formData.vehicleType === "New Car";
+  useEffect(() => {
+    const derivedAge = getAgeFromDob(formData.nomineeDob);
+    if (String(formData.nomineeAge || "") === String(derivedAge || "")) return;
+    setFormData((prev) => ({
+      ...prev,
+      nomineeAge: derivedAge || "",
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.nomineeDob]);
+
+  useEffect(() => {
+    const pin = normalizePincode(formData.pincode);
+    if (!pin) {
+      setCityLookupLoading(false);
+      return;
+    }
+    const reqId = ++cityLookupSeqRef.current;
+    let cancelled = false;
+
+    (async () => {
+      setCityLookupLoading(true);
+      try {
+        const city = await lookupCityByPincode(pin);
+        if (cancelled || reqId !== cityLookupSeqRef.current) return;
+        if (!city) return;
+        setFormData((prev) => {
+          if (normalizePincode(prev.pincode) !== pin) return prev;
+          if (String(prev.city || "").trim() === String(city || "").trim())
+            return prev;
+          return { ...prev, city };
+        });
+      } catch {
+        // no-op
+      } finally {
+        if (!cancelled && reqId === cityLookupSeqRef.current) {
+          setCityLookupLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.pincode]);
+
+  useEffect(() => {
+    if (!isNewCar && String(formData.registrationAllotted || "").trim() !== "Yes") {
+      setFormData((prev) => ({ ...prev, registrationAllotted: "Yes" }));
+    }
+  }, [formData.registrationAllotted, isNewCar]);
+
   const shouldSkipStep = useCallback(
     (stepNumber) => {
       if (isNewCar && stepNumber === 3) return true;
@@ -1154,8 +1546,15 @@ const NewInsuranceCaseForm = ({
 
   const buildPersistPayload = useCallback(
     (patch = {}) => {
+      const normalizedSource = String(
+        formData.source || formData.sourceOrigin || "Direct",
+      ).trim() || "Direct";
       return {
         ...formData,
+        source: normalizedSource,
+        sourceOrigin: normalizedSource,
+        policyCategory: formData.policyCategory || "Insurance Policy",
+        policyTypeSelector: formData.policyCategory || "Insurance Policy",
         quotes,
         acceptedQuoteId,
         documents,
@@ -1241,10 +1640,43 @@ const NewInsuranceCaseForm = ({
     };
   }, []);
 
-  const setField = (field, value) => {
+  const setField = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     // schedulePersist();
-  };
+  }, []);
+
+  const handlePolicyDoneByChange = useCallback((value) => {
+    setFormData((prev) => {
+      const next = { ...prev, policyDoneBy: value || "Autocredits India LLP" };
+      if (value === "Broker") next.showroomName = "";
+      if (value === "Showroom") next.brokerName = "";
+      if (value === "Autocredits India LLP" || value === "Customer") {
+        next.brokerName = "";
+        next.showroomName = "";
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSourceChange = useCallback((value) => {
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        source: value || "Direct",
+        sourceOrigin: value || "Direct",
+      };
+      if (value === "Direct") {
+        next.dealerChannelName = "";
+        next.dealerChannelAddress = "";
+        next.payoutApplicable = "No";
+        next.payoutPercent = "";
+      } else if (value === "Indirect") {
+        next.sourceName = "";
+        if (!next.payoutApplicable) next.payoutApplicable = "No";
+      }
+      return next;
+    });
+  }, []);
 
   const handleStepValidation = () => {
     if (step === 1) return Object.keys(step1Errors).length === 0;
@@ -1593,9 +2025,12 @@ const NewInsuranceCaseForm = ({
             employeesList={employeesList}
             customerSearchResults={customerSearchResults}
             customerSearchLoading={customerSearchLoading}
+            cityLookupLoading={cityLookupLoading}
             searchCustomers={searchCustomers}
             applyCustomerToForm={applyCustomerToForm}
             getCustomerId={getCustomerId}
+            onPolicyDoneByChange={handlePolicyDoneByChange}
+            onSourceChange={handleSourceChange}
           />
         );
       case 2:
@@ -1606,19 +2041,24 @@ const NewInsuranceCaseForm = ({
             handleChange={handleChange}
             showErrors={showErrors}
             step2Errors={step2Errors}
-            vehicleSearchLoading={vehicleSearchLoading}
-            vehicleSearchInput={vehicleSearchInput}
-            setVehicleSearchInput={setVehicleSearchInput}
-            vehicleSearchLoading2={vehicleSearchLoading2}
-            vehicleSearchOptions={vehicleSearchOptions}
-            handleVehicleSearch={handleVehicleSearch}
+            isNewCar={isNewCar}
+            isExtendedWarranty={formData.policyCategory === "Extended Warranty"}
+            registrationLookupLoading={registrationLookupLoading}
+            registrationLookupOptions={registrationLookupOptions}
+            handleRegistrationSearch={handleRegistrationSearch}
             applyVehicleToForm={applyVehicleToForm}
+            includeDiscontinuedVehicles={includeDiscontinuedVehicles}
+            setIncludeDiscontinuedVehicles={setIncludeDiscontinuedVehicles}
             makeOptions={makeOptions}
             modelOptions={modelOptions}
             variantOptions={variantOptions}
-            vehicleSearchDebounceRef={vehicleSearchDebounceRef}
-            setVehicleSearchLoading={setVehicleSearchLoading}
-            vehiclesApi={vehiclesApi}
+            bankOptions={bankOptions}
+            isGeneratingTempReg={isGeneratingTempReg}
+            vehiclePotentialMatch={vehiclePotentialMatch}
+            vehiclePotentialMatches={vehiclePotentialMatches}
+            vehicleMatchLoading={vehicleMatchLoading}
+            vehicleMergeLoading={vehicleMergeLoading}
+            onMergeVehicleMatch={handleMergeVehicleMatch}
           />
         );
       case 3:

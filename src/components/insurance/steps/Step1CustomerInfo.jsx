@@ -3,6 +3,7 @@ import {
   AutoComplete,
   Col,
   Collapse,
+  DatePicker,
   Input,
   InputNumber,
   Radio,
@@ -12,6 +13,7 @@ import {
   Typography,
 } from "antd";
 import { UserOutlined, TeamOutlined, IdcardOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 
 const { Text } = Typography;
 
@@ -69,6 +71,18 @@ const SummaryRow = ({ label, value }) => (
 
 const getInitial = (name) => (name || "?").toString().slice(0, 2).toUpperCase();
 
+const POLICY_DONE_BY_OPTIONS = [
+  "Autocredits India LLP",
+  "Broker",
+  "Showroom",
+  "Customer",
+];
+
+const getPolicyTypePillLabel = (value) => {
+  if (String(value || "").trim() === "Extended Warranty") return "EW Policy";
+  return "Insurance";
+};
+
 const buildCustomerOption = (c, getCustomerId) => {
   const id = getCustomerId(c);
   if (!id) return null;
@@ -105,12 +119,15 @@ const Step1CustomerInfo = ({
   formData,
   setField,
   handleChange,
+  onPolicyDoneByChange,
+  onSourceChange,
   showErrors,
   step1Errors,
   isCompany,
   employeeOptions,
   employeesLoading,
   employeesList,
+  cityLookupLoading,
   customerSearchResults,
   customerSearchLoading,
   searchCustomers,
@@ -131,6 +148,13 @@ const Step1CustomerInfo = ({
     .slice(0, 12)
     .map((c) => buildCustomerOption(c, getCustomerId))
     .filter(Boolean);
+  const sourceMode = String(formData.source || formData.sourceOrigin || "Direct");
+  const policyDoneBy = String(formData.policyDoneBy || "Autocredits India LLP");
+  const nomineeDobLabel = (() => {
+    if (!formData.nomineeDob) return "DOB";
+    const parsed = dayjs(formData.nomineeDob);
+    return parsed.isValid() ? parsed.format("DD-MM-YYYY") : "DOB";
+  })();
 
   const collapseItems = [
     {
@@ -226,42 +250,225 @@ const Step1CustomerInfo = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
+                <CleanField label="Policy Type" required>
+                  <Radio.Group
+                    value={formData.policyCategory || "Insurance Policy"}
+                    onChange={(e) =>
+                      setField("policyCategory", e?.target?.value || "Insurance Policy")
+                    }
+                    optionType="button"
+                    buttonStyle="solid"
+                    options={[
+                      { label: "Insurance", value: "Insurance Policy" },
+                      { label: "EW Policy", value: "Extended Warranty" },
+                    ]}
+                    style={{ marginTop: 8, width: "100%" }}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
                 <CleanField label="Policy Done By" required>
-                  <Input
-                    value={formData.policyDoneBy}
-                    onChange={handleChange("policyDoneBy")}
-                    placeholder="Autocredits India LLP"
-                    style={inputControlStyle}
+                  <Select
+                    value={policyDoneBy || "Autocredits India LLP"}
+                    onChange={(value) => {
+                      if (onPolicyDoneByChange) onPolicyDoneByChange(value);
+                      else setField("policyDoneBy", value);
+                    }}
+                    style={controlStyle}
+                    options={POLICY_DONE_BY_OPTIONS.map((value) => ({
+                      label: value,
+                      value,
+                    }))}
+                    status={showErrors && step1Errors.policyDoneBy ? "error" : ""}
                   />
                 </CleanField>
               </div>
+              {showErrors && step1Errors.policyDoneBy ? (
+                <Text type="danger">{step1Errors.policyDoneBy}</Text>
+              ) : null}
             </Col>
+
+            {policyDoneBy === "Broker" ? (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Broker Name" required>
+                    <Input
+                      value={formData.brokerName}
+                      onChange={handleChange("brokerName")}
+                      placeholder="Enter broker name"
+                      style={inputControlStyle}
+                      status={showErrors && step1Errors.brokerName ? "error" : ""}
+                    />
+                  </CleanField>
+                </div>
+                {showErrors && step1Errors.brokerName ? (
+                  <Text type="danger">{step1Errors.brokerName}</Text>
+                ) : null}
+              </Col>
+            ) : null}
+
+            {policyDoneBy === "Showroom" ? (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Showroom Name" required>
+                    <Input
+                      value={formData.showroomName}
+                      onChange={handleChange("showroomName")}
+                      placeholder="Enter showroom name"
+                      style={inputControlStyle}
+                      status={showErrors && step1Errors.showroomName ? "error" : ""}
+                    />
+                  </CleanField>
+                </div>
+                {showErrors && step1Errors.showroomName ? (
+                  <Text type="danger">{step1Errors.showroomName}</Text>
+                ) : null}
+              </Col>
+            ) : null}
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Broker Name">
-                  <Input
-                    value={formData.brokerName}
-                    onChange={handleChange("brokerName")}
-                    placeholder="Broker (optional)"
-                    style={inputControlStyle}
+                <CleanField label="Source" required>
+                  <Select
+                    value={sourceMode || "Direct"}
+                    onChange={(value) => {
+                      if (onSourceChange) onSourceChange(value);
+                      else setField("source", value);
+                    }}
+                    style={controlStyle}
+                    options={[
+                      { label: "Direct", value: "Direct" },
+                      { label: "Indirect", value: "Indirect" },
+                    ]}
+                    status={showErrors && step1Errors.source ? "error" : ""}
                   />
                 </CleanField>
               </div>
+              {showErrors && step1Errors.source ? (
+                <Text type="danger">{step1Errors.source}</Text>
+              ) : null}
             </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Source Origin">
-                  <Input
-                    value={formData.sourceOrigin}
-                    onChange={handleChange("sourceOrigin")}
-                    placeholder="Lead source"
-                    style={inputControlStyle}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+            {sourceMode === "Direct" ? (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Source Name" required>
+                    <Input
+                      value={formData.sourceName}
+                      onChange={handleChange("sourceName")}
+                      placeholder="Enter source name"
+                      style={inputControlStyle}
+                      status={showErrors && step1Errors.sourceName ? "error" : ""}
+                    />
+                  </CleanField>
+                </div>
+                {showErrors && step1Errors.sourceName ? (
+                  <Text type="danger">{step1Errors.sourceName}</Text>
+                ) : null}
+              </Col>
+            ) : null}
+
+            {sourceMode === "Indirect" ? (
+              <>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Dealer / Channel" required>
+                      <Input
+                        value={formData.dealerChannelName}
+                        onChange={handleChange("dealerChannelName")}
+                        placeholder="Dealer / Channel"
+                        style={inputControlStyle}
+                        status={
+                          showErrors && step1Errors.dealerChannelName
+                            ? "error"
+                            : ""
+                        }
+                      />
+                    </CleanField>
+                  </div>
+                  {showErrors && step1Errors.dealerChannelName ? (
+                    <Text type="danger">{step1Errors.dealerChannelName}</Text>
+                  ) : null}
+                </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Dealer / Channel Address" required>
+                      <Input
+                        value={formData.dealerChannelAddress}
+                        onChange={handleChange("dealerChannelAddress")}
+                        placeholder="Dealer / Channel address"
+                        style={inputControlStyle}
+                        status={
+                          showErrors && step1Errors.dealerChannelAddress
+                            ? "error"
+                            : ""
+                        }
+                      />
+                    </CleanField>
+                  </div>
+                  {showErrors && step1Errors.dealerChannelAddress ? (
+                    <Text type="danger">{step1Errors.dealerChannelAddress}</Text>
+                  ) : null}
+                </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Payout Applicable" required>
+                      <Select
+                        value={formData.payoutApplicable || "No"}
+                        onChange={(value) => setField("payoutApplicable", value)}
+                        style={controlStyle}
+                        options={[
+                          { label: "No", value: "No" },
+                          { label: "Yes", value: "Yes" },
+                        ]}
+                        status={
+                          showErrors && step1Errors.payoutApplicable ? "error" : ""
+                        }
+                      />
+                    </CleanField>
+                  </div>
+                  {showErrors && step1Errors.payoutApplicable ? (
+                    <Text type="danger">{step1Errors.payoutApplicable}</Text>
+                  ) : null}
+                </Col>
+                {String(formData.payoutApplicable || "No") === "Yes" ? (
+                  <Col xs={24} md={8}>
+                    <div className={fieldWrapClass}>
+                      <CleanField label="Payout %" required>
+                        <InputNumber
+                          min={0}
+                          max={100}
+                          value={
+                            formData.payoutPercent === "" ||
+                            formData.payoutPercent === undefined ||
+                            formData.payoutPercent === null
+                              ? null
+                              : Number(formData.payoutPercent)
+                          }
+                          onChange={(value) =>
+                            setField(
+                              "payoutPercent",
+                              value === null ? "" : String(value),
+                            )
+                          }
+                          style={controlStyle}
+                          placeholder="Payout %"
+                          status={
+                            showErrors && step1Errors.payoutPercent ? "error" : ""
+                          }
+                        />
+                      </CleanField>
+                    </div>
+                    {showErrors && step1Errors.payoutPercent ? (
+                      <Text type="danger">{step1Errors.payoutPercent}</Text>
+                    ) : null}
+                  </Col>
+                ) : null}
+              </>
+            ) : null}
           </Row>
         </div>
       ),
@@ -291,14 +498,41 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={12}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Company Name" required>
-                      <Input
+                      <AutoComplete
                         value={formData.companyName}
-                        onChange={handleChange("companyName")}
-                        style={inputControlStyle}
+                        onSearch={(val) => {
+                          setField("companyName", val);
+                          searchCustomers(val);
+                        }}
+                        onChange={(val) => {
+                          const v = String(val ?? "");
+                          if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
+                          setField("companyName", v);
+                        }}
+                        options={customerOptions}
+                        onSelect={(customerId) => {
+                          const selected = customerSearchResults.find(
+                            (c) =>
+                              String(getCustomerId(c)) === String(customerId),
+                          );
+                          if (selected) applyCustomerToForm(selected);
+                        }}
+                        style={{ width: "100%", marginTop: 8 }}
+                        popupClassName="customer-autocomplete-dropdown"
+                        dropdownStyle={{
+                          padding: 8,
+                          borderRadius: 18,
+                          border: "1px solid #e2e8f0",
+                          boxShadow: "0 18px 45px rgba(15,23,42,0.10)",
+                          background: "#ffffff",
+                        }}
+                        notFoundContent={
+                          customerSearchLoading ? "Searching…" : "No companies"
+                        }
                         status={
                           showErrors && step1Errors.companyName ? "error" : ""
                         }
-                        placeholder="Enter company name"
+                        placeholder="Search company..."
                       />
                     </CleanField>
                   </div>
@@ -564,7 +798,12 @@ const Step1CustomerInfo = ({
                 <CleanField label="Pincode" required>
                   <Input
                     value={formData.pincode}
-                    onChange={handleChange("pincode")}
+                    onChange={(e) => {
+                      const digits = String(e?.target?.value || "")
+                        .replace(/\D/g, "")
+                        .slice(0, 6);
+                      setField("pincode", digits);
+                    }}
                     maxLength={6}
                     style={inputControlStyle}
                     status={showErrors && step1Errors.pincode ? "error" : ""}
@@ -579,7 +818,17 @@ const Step1CustomerInfo = ({
 
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
-                <CleanField label="City" required>
+                <CleanField
+                  label="City"
+                  required
+                  extra={
+                    cityLookupLoading ? (
+                      <Text className="text-[11px] text-slate-400">
+                        Detecting city from pincode...
+                      </Text>
+                    ) : null
+                  }
+                >
                   <Input
                     value={formData.city}
                     onChange={handleChange("city")}
@@ -656,7 +905,26 @@ const Step1CustomerInfo = ({
 
                 <Col span={24}>
                   <div className={fieldWrapClass}>
-                    <CleanField label="Age">
+                    <CleanField label="Date Of Birth">
+                      <DatePicker
+                        value={formData.nomineeDob ? dayjs(formData.nomineeDob) : null}
+                        onChange={(value) =>
+                          setField(
+                            "nomineeDob",
+                            value ? value.startOf("day").toISOString() : "",
+                          )
+                        }
+                        format="DD-MM-YYYY"
+                        style={controlStyle}
+                        placeholder="DD-MM-YYYY"
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+
+                <Col span={24}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label={`Age (${nomineeDobLabel})`}>
                       <InputNumber
                         min={0}
                         value={
@@ -666,9 +934,8 @@ const Step1CustomerInfo = ({
                             ? null
                             : Number(formData.nomineeAge)
                         }
-                        onChange={(v) =>
-                          setField("nomineeAge", v === null ? "" : String(v))
-                        }
+                        readOnly
+                        disabled
                         style={controlStyle}
                         placeholder="Nominee Age"
                       />
@@ -816,6 +1083,17 @@ const Step1CustomerInfo = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
+                background: "#5f9770",
+                borderColor: "#5f9770",
+                color: "#ffffff",
+              }}
+            >
+              {getPolicyTypePillLabel(formData.policyCategory)}
+            </Tag>
+
+            <Tag
+              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+              style={{
                 background: "#FAF8F1",
                 borderColor: "#FAF8F1",
                 color: "#1f2937",
@@ -827,9 +1105,9 @@ const Step1CustomerInfo = ({
         </div>
       </div>
 
-      <Row gutter={[20, 20]} align="top">
-        <Col xs={24} xl={8}>
-          <div className="xl:sticky xl:top-4 self-start">
+      <Row gutter={[20, 20]}>
+        <Col xs={24} xl={8} className="xl:self-stretch">
+          <div className="xl:sticky xl:top-[150px] self-start">
             <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#D6E6DF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
@@ -879,6 +1157,42 @@ const Step1CustomerInfo = ({
 
                 <SummaryRow label="Buyer Type" value={formData.buyerType} />
                 <SummaryRow label="Vehicle Type" value={formData.vehicleType} />
+                <SummaryRow
+                  label="Policy Type"
+                  value={formData.policyCategory || "Insurance Policy"}
+                />
+                <SummaryRow
+                  label="Policy Done By"
+                  value={formData.policyDoneBy}
+                />
+                {formData.policyDoneBy === "Broker" ? (
+                  <SummaryRow label="Broker Name" value={formData.brokerName} />
+                ) : null}
+                {formData.policyDoneBy === "Showroom" ? (
+                  <SummaryRow label="Showroom Name" value={formData.showroomName} />
+                ) : null}
+                <SummaryRow
+                  label="Source"
+                  value={formData.source || formData.sourceOrigin}
+                />
+                {(formData.source || formData.sourceOrigin) === "Direct" ? (
+                  <SummaryRow label="Source Name" value={formData.sourceName} />
+                ) : null}
+                {(formData.source || formData.sourceOrigin) === "Indirect" ? (
+                  <>
+                    <SummaryRow
+                      label="Dealer / Channel"
+                      value={formData.dealerChannelName}
+                    />
+                    <SummaryRow
+                      label="Payout Applicable"
+                      value={formData.payoutApplicable}
+                    />
+                    {String(formData.payoutApplicable || "").trim() === "Yes" ? (
+                      <SummaryRow label="Payout %" value={formData.payoutPercent} />
+                    ) : null}
+                  </>
+                ) : null}
                 <SummaryRow
                   label={isCompany ? "Company Name" : "Customer Name"}
                   value={
