@@ -466,6 +466,7 @@ const InsuranceDashboardPage = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [previewStageKey, setPreviewStageKey] = useState(null);
+  const [expandedLedgerCaseId, setExpandedLedgerCaseId] = useState(null);
 
   const [page, setPage] = useState(1);
   const pageSize = 12;
@@ -608,6 +609,7 @@ const InsuranceDashboardPage = () => {
 
   useEffect(() => {
     setPage(1);
+    setExpandedLedgerCaseId(null);
   }, [search, policyFilter, cases.length]);
 
   const paginatedCases = useMemo(() => {
@@ -799,12 +801,20 @@ const InsuranceDashboardPage = () => {
                 />
               </div>
             ) : (
-              <div className="min-w-[1240px] px-3 py-3">
-                <div className="grid grid-cols-[2.2fr_1.9fr_3fr_1.2fr] gap-0 border-b border-[#d6e6df]/70 bg-[#eef3ef]/40 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600 dark:border-[#2a3531] dark:bg-[#151f1b] dark:text-slate-300">
-                  <div>Customer & Vehicle</div>
-                  <div>Policy Details</div>
-                  <div>Payment Snapshot</div>
-                  <div>Workflow</div>
+              <div className="px-3 py-3 lg:min-w-[1240px]">
+                <div className="hidden lg:grid grid-cols-[2.2fr_1.9fr_3fr_1.2fr] gap-2 border-b border-[#d6e6df]/70 bg-[#eef3ef]/25 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600 dark:border-[#2a3531] dark:bg-[#151f1b] dark:text-slate-300">
+                  <div className="rounded-lg border border-[#d6e6df]/70 bg-[#eef3ef]/80 px-3 py-2 text-[#587f6f] dark:border-[#30413b] dark:bg-[#14211d] dark:text-[#9dc4ae]">
+                    Customer & Vehicle
+                  </div>
+                  <div className="rounded-lg border border-[#e6dcc8]/70 bg-[#faf8f1] px-3 py-2 text-[#8d7559] dark:border-[#453a2b] dark:bg-[#1e1a13] dark:text-[#d9bf9f]">
+                    Policy Details
+                  </div>
+                  <div className="rounded-lg border border-[#d5e3ef]/70 bg-[#f3f7fb] px-3 py-2 text-[#60788f] dark:border-[#2e3f4c] dark:bg-[#121c24] dark:text-[#a6bdd1]">
+                    Payment Snapshot
+                  </div>
+                  <div className="rounded-lg border border-[#e8d8dd]/70 bg-[#fbf1f3] px-3 py-2 text-[#8f5f6b] dark:border-[#47333a] dark:bg-[#21171b] dark:text-[#d2aeb7]">
+                    Workflow
+                  </div>
                 </div>
 
                 {paginatedCases.map((record) => {
@@ -845,11 +855,6 @@ const InsuranceDashboardPage = () => {
                   const paidByCustomer = Number(
                     record.customerPaymentReceived ||
                       record.customer_payment_received ||
-                      0,
-                  );
-                  const paidByInhouse = Number(
-                    record.inhousePaymentReceived ||
-                      record.inhouse_payment_received ||
                       0,
                   );
                   const due = Math.max(0, premium - paid);
@@ -920,6 +925,9 @@ const InsuranceDashboardPage = () => {
                         amountArrow,
                       };
                     });
+                  const leadLedgerEntry = paymentLedgerRows[0] || null;
+                  const overflowLedgerEntries = paymentLedgerRows.slice(1);
+                  const isLedgerExpanded = expandedLedgerCaseId === id;
 
                   const quotes = Array.isArray(record?.quotes) ? record.quotes : [];
                   const acceptedQuoteId =
@@ -964,8 +972,11 @@ const InsuranceDashboardPage = () => {
                       key={id}
                       className="mb-3 rounded-2xl border border-[#d6e6df]/70 bg-white/95 shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:border-[#b6cfc4] hover:shadow-md hover:bg-[#faf8f1]/35 dark:border-[#27342f] dark:bg-[#0f1614] dark:hover:border-[#3c4d46] dark:hover:bg-[#131b18]"
                     >
-                      <div className="grid grid-cols-[2.2fr_1.9fr_3fr_1.2fr] gap-0 px-4 py-3.5">
-                        <div className="pr-3">
+                      <div className="grid grid-cols-1 gap-2 px-3 py-3 lg:grid-cols-[2.2fr_1.9fr_3fr_1.2fr]">
+                        <div className="rounded-xl border border-[#d6e6df]/65 bg-[#eef3ef]/45 p-2.5 dark:border-[#2b3b35] dark:bg-[#131d1a]">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#587f6f] lg:hidden">
+                          Customer & Vehicle
+                        </p>
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-[11px] font-semibold text-slate-500">
                             ID: {caseRef}
@@ -991,7 +1002,10 @@ const InsuranceDashboardPage = () => {
                         <p className="text-[11px] text-slate-500">Source: {source}</p>
                         </div>
 
-                        <div className="pr-3">
+                        <div className="rounded-xl border border-[#e6dcc8]/65 bg-[#faf8f1]/70 p-2.5 dark:border-[#453a2b] dark:bg-[#1a1712]">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#8d7559] lg:hidden">
+                          Policy Details
+                        </p>
                         <p className="text-[14px] font-bold text-slate-900 dark:text-slate-100">{insurer}</p>
                         <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
                           Policy No:{" "}
@@ -1018,23 +1032,26 @@ const InsuranceDashboardPage = () => {
                         </div>
                         </div>
 
-                        <div className="pr-3">
+                        <div className="rounded-xl border border-[#d5e3ef]/65 bg-[#f4f8fc]/55 p-2.5 dark:border-[#2e3f4c] dark:bg-[#111a20]">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#60788f] lg:hidden">
+                          Payment Snapshot
+                        </p>
                         <div className="rounded-xl border border-[#d6e6df]/80 bg-gradient-to-br from-[#eef3ef]/55 via-white to-[#faf8f1]/60 p-2 dark:border-[#30413b] dark:from-[#111a17] dark:via-[#101917] dark:to-[#1b1913]">
                           <div className="grid grid-cols-4 gap-1.5">
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1.5 dark:border-[#30413b] dark:bg-[#101917]">
+                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
                               <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                                 Total Premium
                               </p>
-                              <p className="mt-0.5 text-[12px] font-black text-slate-900 dark:text-slate-100">
+                              <p className="mt-0.5 text-[11px] font-black text-slate-900 dark:text-slate-100">
                                 {formatInr(premium)}
                               </p>
                             </div>
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1.5 dark:border-[#30413b] dark:bg-[#101917]">
+                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
                               <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                                 Insurer Outstanding
                               </p>
                               <p
-                                className={`mt-0.5 text-[12px] font-black ${
+                                className={`mt-0.5 text-[11px] font-black ${
                                   snapshotInsurerDue > 0
                                     ? "text-[#b97f88]"
                                     : "text-[#5f9770]"
@@ -1043,12 +1060,12 @@ const InsuranceDashboardPage = () => {
                                 {formatInr(snapshotInsurerDue)}
                               </p>
                             </div>
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1.5 dark:border-[#30413b] dark:bg-[#101917]">
+                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
                               <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                                 Customer Outstanding
                               </p>
                               <p
-                                className={`mt-0.5 text-[12px] font-black ${
+                                className={`mt-0.5 text-[11px] font-black ${
                                   snapshotRecoveryDue > 0
                                     ? "text-[#9f8465]"
                                     : "text-[#5f9770]"
@@ -1057,49 +1074,99 @@ const InsuranceDashboardPage = () => {
                                 {formatInr(snapshotRecoveryDue)}
                               </p>
                             </div>
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1.5 dark:border-[#30413b] dark:bg-[#101917]">
+                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
                               <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                                 Subvention (Refund)
                               </p>
-                              <p className="mt-0.5 text-[12px] font-black text-[#8ea0b6]">
+                              <p className="mt-0.5 text-[11px] font-black text-[#8ea0b6]">
                                 {formatInr(snapshotSubventionRefund)}
                               </p>
                             </div>
                           </div>
 
                           <div className="mt-2 rounded-lg border border-[#d6e6df]/80 bg-white/90 p-2 dark:border-[#30413b] dark:bg-[#101917]">
-                            <div className="grid grid-cols-[140px_1fr_140px] gap-x-3 border-b border-[#e5eee4] px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:border-[#30413b]">
+                            <div className="grid grid-cols-[86px_1fr_140px] gap-x-2 border-b border-[#e5eee4] px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:border-[#30413b]">
                               <span>Date</span>
                               <span>Entry</span>
                               <span className="text-right">Amount</span>
                             </div>
                             {paymentLedgerRows.length ? (
-                              <div className="mt-1.5 space-y-0">
-                                {paymentLedgerRows.map((entry) => (
+                              <div className="relative mt-1.5">
+                                {leadLedgerEntry ? (
                                   <div
-                                    key={entry.key}
-                                    className="grid grid-cols-[140px_1fr_140px] items-center gap-x-3 border-b border-[#edf3ef] px-2 py-2.5 text-[12px] last:border-b-0 dark:border-[#24312c]"
+                                    key={leadLedgerEntry.key}
+                                    className="grid grid-cols-[86px_1fr_140px] items-center gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] dark:border-[#24312c]"
                                   >
                                     <span className="text-slate-600 dark:text-slate-300">
-                                      {entry.date}
+                                      {leadLedgerEntry.date}
                                     </span>
                                     <div className="min-w-0">
                                       <p
                                         className="truncate text-[13px] font-semibold text-slate-800 dark:text-slate-100"
-                                        title={entry.title}
+                                        title={leadLedgerEntry.title}
                                       >
                                         <span className="mr-1.5 text-[#5f9770]">●</span>
-                                        {entry.title}
+                                        {leadLedgerEntry.title}
                                       </p>
                                       <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-                                        {entry.subtitle}
+                                        {leadLedgerEntry.subtitle}
                                       </p>
                                     </div>
-                                    <span className={`text-right text-[13px] font-black ${entry.amountClass}`}>
-                                      {entry.amountArrow} {entry.amount}
+                                    <span className={`text-right text-[13px] font-black ${leadLedgerEntry.amountClass}`}>
+                                      {leadLedgerEntry.amountArrow} {leadLedgerEntry.amount}
                                     </span>
                                   </div>
-                                ))}
+                                ) : null}
+
+                                {overflowLedgerEntries.length > 0 ? (
+                                  <div className="mt-1 px-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setExpandedLedgerCaseId((prev) =>
+                                          prev === id ? null : id,
+                                        )
+                                      }
+                                      className="rounded-full border border-[#d6e6df] bg-[#eef3ef]/60 px-2.5 py-0.5 text-[10px] font-semibold text-[#5f9770] hover:bg-[#e5eee4] dark:border-[#30413b] dark:bg-[#13221c] dark:text-[#9dc4ae]"
+                                    >
+                                      {isLedgerExpanded
+                                        ? "Hide entries"
+                                        : `Show ${overflowLedgerEntries.length} more`}
+                                    </button>
+                                  </div>
+                                ) : null}
+
+                                {isLedgerExpanded && overflowLedgerEntries.length > 0 ? (
+                                  <div className="mt-1 rounded-lg border border-[#d6e6df]/90 bg-white p-2 shadow-xl dark:border-[#30413b] dark:bg-[#101917] lg:absolute lg:left-0 lg:right-0 lg:z-30">
+                                    <div className="space-y-0">
+                                      {overflowLedgerEntries.map((entry) => (
+                                        <div
+                                          key={entry.key}
+                                          className="grid grid-cols-[86px_1fr_140px] items-center gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] last:border-b-0 dark:border-[#24312c]"
+                                        >
+                                          <span className="text-slate-600 dark:text-slate-300">
+                                            {entry.date}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <p
+                                              className="truncate text-[13px] font-semibold text-slate-800 dark:text-slate-100"
+                                              title={entry.title}
+                                            >
+                                              <span className="mr-1.5 text-[#5f9770]">●</span>
+                                              {entry.title}
+                                            </p>
+                                            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                              {entry.subtitle}
+                                            </p>
+                                          </div>
+                                          <span className={`text-right text-[13px] font-black ${entry.amountClass}`}>
+                                            {entry.amountArrow} {entry.amount}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : (
                               <div className="flex h-[78px] items-center justify-center rounded-md border border-dashed border-[#d6e6df] text-[11px] text-slate-500 dark:border-[#30413b]">
@@ -1110,7 +1177,10 @@ const InsuranceDashboardPage = () => {
                         </div>
                         </div>
 
-                        <div className="pr-3">
+                        <div className="rounded-xl border border-[#e8d8dd]/65 bg-[#fbf1f3]/45 p-2.5 dark:border-[#47333a] dark:bg-[#1c1518]">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#8f5f6b] lg:hidden">
+                          Workflow
+                        </p>
                         <Tag color={isDraftPolicy(record) ? "default" : "success"} className="!m-0 !rounded-full !px-2 !py-0 !text-[10px]">
                           {statusLabel}
                         </Tag>
@@ -1144,11 +1214,11 @@ const InsuranceDashboardPage = () => {
                         )}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between gap-3 border-t border-[#e5eee4] px-4 py-2.5 dark:border-[#2b3934]">
+                      <div className="flex flex-col gap-2 border-t border-[#e5eee4] px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-[#2b3934]">
                         <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
                           {record.caseId || id} · {displayName}
                         </p>
-                        <Space size={6}>
+                        <Space size={6} wrap>
                           <Tooltip title="View">
                             <button
                               type="button"
