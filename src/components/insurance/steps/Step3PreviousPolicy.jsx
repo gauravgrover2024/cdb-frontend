@@ -21,6 +21,7 @@ import {
   CloseOutlined,
   CheckCircleFilled,
 } from "@ant-design/icons";
+import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 
 const shellStyle =
   "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
@@ -79,6 +80,14 @@ const ALL_ADDONS = [
   "Loss of Personal Belongings",
   "Outstation Emergency Cover",
   "Battery Cover",
+];
+
+const HYPOTHECATION_OPTIONS = [
+  { label: "Not Applicable", value: "Not Applicable" },
+  ...lenderHypothecationOptions.map((option) => ({
+    label: option.value,
+    value: option.value,
+  })),
 ];
 
 const CleanField = ({ label, required, hint, children, extra }) => (
@@ -658,12 +667,13 @@ const Step3PreviousPolicy = ({
                     value={formData.previousHypothecation}
                     onChange={(v) => setField("previousHypothecation", v)}
                     style={controlStyle}
-                    options={[
-                      { label: "Not Applicable", value: "Not Applicable" },
-                      { label: "HDFC Bank", value: "HDFC Bank" },
-                      { label: "ICICI Bank", value: "ICICI Bank" },
-                      { label: "SBI", value: "SBI" },
-                    ]}
+                    options={HYPOTHECATION_OPTIONS}
+                    showSearch
+                    filterOption={(input, option) =>
+                      String(option?.label || "")
+                        .toLowerCase()
+                        .includes(String(input || "").toLowerCase())
+                    }
                   />
                 </CleanField>
               </div>

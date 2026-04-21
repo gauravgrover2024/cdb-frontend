@@ -24,8 +24,8 @@ import { CheckCircleFilled, UnorderedListOutlined } from "@ant-design/icons";
 import { insuranceApi } from "../../api/insurance";
 import { customersApi } from "../../api/customers";
 import { vehiclesApi } from "../../api/vehicles";
+import { featuresApi } from "../../api/features";
 import { loansApi } from "../../api/loans";
-import { banksApi } from "../../api/banks";
 import { getEmployees } from "../../api/employees";
 import Step1CustomerInfo from "./steps/Step1CustomerInfo";
 import Step2VehicleDetails from "./steps/Step2VehicleDetails";
@@ -615,11 +615,14 @@ const NewInsuranceCaseForm = ({
   const [modelOptions, setModelOptions] = useState([]);
   const [variantOptions, setVariantOptions] = useState([]);
   const cubicSyncRef = React.useRef(new Set());
+  const vehicleDerivedCacheRef = React.useRef(new Map());
   const [vehiclePotentialMatch, setVehiclePotentialMatch] = useState(null);
   const [vehiclePotentialMatches, setVehiclePotentialMatches] = useState([]);
   const [vehicleMatchLoading, setVehicleMatchLoading] = useState(false);
   const [vehicleMergeLoading, setVehicleMergeLoading] = useState(false);
   const vehicleMatchDebounceRef = React.useRef(null);
+  const [customerVehicleRows, setCustomerVehicleRows] = useState([]);
+  const [customerVehicleLoading, setCustomerVehicleLoading] = useState(false);
 
   const getCustomerId = (c) => c?._id || c?.id || null;
 
@@ -816,25 +819,42 @@ const NewInsuranceCaseForm = ({
     let ignore = false;
     (async () => {
       try {
-        const res = await banksApi.getAll({ limit: 10000, sortBy: "name" });
-        const rows = Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res?.data?.data)
-            ? res.data.data
-            : Array.isArray(res?.data?.banks)
-              ? res.data.banks
-              : [];
+        const limit = 1000;
+        let skip = 0;
+        let page = [];
+        const bankSet = new Set();
+        let guard = 0;
+
+        do {
+          const res = await loansApi.getAll({
+            limit,
+            skip,
+            noCount: true,
+            view: "dashboard",
+            sortBy: "updatedAt",
+            sortDir: "desc",
+          });
+          page = Array.isArray(res?.data) ? res.data : [];
+          page.forEach((loan) => {
+            const topLevel = String(loan?.approval_bankName || "").trim();
+            if (topLevel) bankSet.add(topLevel);
+            if (Array.isArray(loan?.approval_banksData)) {
+              loan.approval_banksData.forEach((row) => {
+                const bankName = String(row?.bankName || "").trim();
+                if (bankName) bankSet.add(bankName);
+              });
+            }
+          });
+          skip += limit;
+          guard += 1;
+        } while (page.length === limit && guard < 20);
 
         if (ignore) return;
-        const names = Array.from(
-          new Set(
-            rows
-              .map((row) => String(row?.name || row?.bankName || "").trim())
-              .filter(Boolean),
-          ),
+        setBankOptions(
+          Array.from(bankSet).sort((a, b) => a.localeCompare(b)),
         );
-        setBankOptions(names);
-      } catch {
+      } catch (err) {
+        console.error("[Insurance][LoanApprovalBanks] load failed:", err);
         if (!ignore) setBankOptions([]);
       }
     })();
@@ -879,9 +899,80 @@ const NewInsuranceCaseForm = ({
     return match ? match[1] : "";
   }, []);
 
+  const normalizeVehicleToken = useCallback(
+    (value) =>
+      String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, ""),
+    [],
+  );
+
+  const normalizeVehicleMakeToken = useCallback(
+    (value) => {
+      const token = normalizeVehicleToken(value);
+      if (!token) return "";
+      if (token === "marutisuzuki" || token === "marutisuzukiindia")
+        return "maruti";
+      if (token === "bmwindia" || token === "bayerischemotorenwerke")
+        return "bmw";
+      return token;
+    },
+    [normalizeVehicleToken],
+  );
+
+  const normalizePersonToken = useCallback(
+    (value) =>
+      String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, ""),
+    [],
+  );
+
+  const normalizeFuelLabel = useCallback((value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const key = raw.toLowerCase();
+    if (key.includes("electric") || key.includes("ev")) return "EV";
+    if (key.includes("hybrid")) return "Hybrid";
+    if (
+      (key.includes("cng") && key.includes("petrol")) ||
+      (key.includes("petrol") && key.includes("cng"))
+    ) {
+      return "Petrol + CNG";
+    }
+    if (key.includes("cng")) return "CNG";
+    if (
+      key.includes("diesel") ||
+      key.includes("crdi") ||
+      key.includes("dci") ||
+      key.includes("tdi")
+    ) {
+      return "Diesel";
+    }
+    if (
+      key.includes("petrol") ||
+      key.includes("mpi") ||
+      key.includes("tsi") ||
+      key.includes("tgdi")
+    ) {
+      return "Petrol";
+    }
+    return raw;
+  }, []);
+
   const applyVehicleToForm = useCallback(
     (vehicle) => {
       if (!vehicle) return;
+      const normalizedFuel = normalizeFuelLabel(
+        vehicle.fuelType || vehicle.fuel || vehicle.vehicleFuelType || "",
+      );
+      const normalizedCubic = parseCubicCapacityValue(
+        vehicle.cubicCapacityCc ||
+          vehicle.cubicCapacity ||
+          vehicle.cc ||
+          vehicle.engineCC ||
+          "",
+      );
       setFormData((prev) => ({
         ...prev,
         registrationAllotted: "Yes",
@@ -901,19 +992,8 @@ const NewInsuranceCaseForm = ({
           vehicle.variant ||
           vehicle.variantName ||
           prev.vehicleVariant,
-        fuelType:
-          vehicle.fuelType ||
-          vehicle.fuel ||
-          vehicle.vehicleFuelType ||
-          prev.fuelType,
-        cubicCapacity:
-          parseCubicCapacityValue(
-            vehicle.cubicCapacityCc ||
-              vehicle.cubicCapacity ||
-              vehicle.cc ||
-              vehicle.engineCC ||
-              "",
-          ) || prev.cubicCapacity,
+        fuelType: normalizedFuel || "",
+        cubicCapacity: normalizedCubic || "",
         engineNumber:
           vehicle.engineNumber || vehicle.engineNo || prev.engineNumber,
         chassisNumber:
@@ -935,12 +1015,19 @@ const NewInsuranceCaseForm = ({
           vehicle.year ||
           prev.manufactureYear,
         regAuthority:
-          vehicle.regAuthority || vehicle.registrationCity || prev.regAuthority,
+          vehicle.regAuthority ||
+          vehicle.registrationCity ||
+          vehicle.reg_authority ||
+          prev.regAuthority,
         dateOfReg:
           vehicle.registrationDate ||
           vehicle.dateOfReg ||
           vehicle.date_of_reg ||
           prev.dateOfReg,
+        batteryNumber:
+          vehicle.batteryNumber || vehicle.battery_number || prev.batteryNumber,
+        chargerNumber:
+          vehicle.chargerNumber || vehicle.charger_number || prev.chargerNumber,
         hypothecation:
           vehicle.hypothecation ||
           vehicle.hypothecationBank ||
@@ -948,7 +1035,7 @@ const NewInsuranceCaseForm = ({
           "Not applicable",
       }));
     },
-    [parseCubicCapacityValue],
+    [normalizeFuelLabel, parseCubicCapacityValue],
   );
 
   const handleRegistrationSearch = useCallback((q) => {
@@ -1005,6 +1092,215 @@ const NewInsuranceCaseForm = ({
       }
     }, 280);
   }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    const customerName = String(
+      formData.customerName || formData.companyName || "",
+    ).trim();
+    const mobile = String(formData.mobile || "").trim();
+    const selectedCustomerId = String(formData.customerId || "").trim();
+
+    if (step !== 2 || isNewCar || (!customerName && mobile.length < 4)) {
+      setCustomerVehicleRows([]);
+      setCustomerVehicleLoading(false);
+      return;
+    }
+
+    (async () => {
+      setCustomerVehicleLoading(true);
+      try {
+        const queryList = [];
+        if (customerName.length >= 2) {
+          queryList.push(customerName);
+        } else if (mobile.length >= 4) {
+          queryList.push(mobile.slice(-4));
+        }
+        const payloads = await Promise.all(
+          queryList.map((query) => vehiclesApi.searchMasterRecords(query, 200)),
+        );
+        const merged = [];
+        payloads.forEach((payload) => {
+          const rows = Array.isArray(payload?.data) ? payload.data : [];
+          merged.push(...rows);
+        });
+
+        const dedup = new Map();
+        merged.forEach((row) => {
+          const key = String(
+            row?.registrationNumberNormalized ||
+              row?.registrationNumber ||
+              row?.regNo ||
+              "",
+          )
+            .trim()
+            .toUpperCase();
+          if (!key) return;
+          if (!dedup.has(key)) dedup.set(key, row);
+        });
+
+        const customerNameLc = customerName.toLowerCase();
+        const selectedCustomerToken = normalizePersonToken(customerNameLc);
+        const filtered = Array.from(dedup.values()).filter((row) => {
+          const rowCustomerId = String(
+            row?.customerId || row?.customer_id || "",
+          ).trim();
+          const rowCustomer = String(row?.customerName || "")
+            .trim()
+            .toLowerCase();
+          const rowCustomerToken = normalizePersonToken(rowCustomer);
+          const rowMobile = String(row?.primaryMobile || "").trim();
+          const nameMatch = customerNameLc
+            ? selectedCustomerToken &&
+              rowCustomerToken &&
+              (rowCustomerToken.includes(selectedCustomerToken) ||
+                selectedCustomerToken.includes(rowCustomerToken))
+            : false;
+          const customerIdMatch =
+            selectedCustomerId &&
+            rowCustomerId &&
+            selectedCustomerId === rowCustomerId;
+          const mobileMatch = mobile.length >= 4
+            ? rowMobile.replace(/\D/g, "").endsWith(mobile.slice(-4))
+            : false;
+
+          // Strict matching to avoid cross-customer bleed:
+          // 1) Prefer exact customer-id matches (when available)
+          // 2) Else prefer name match
+          // 3) Use mobile fallback only when no name is available
+          if (customerIdMatch) return true;
+          if (customerNameLc) return nameMatch;
+          return mobileMatch;
+        });
+
+        if (!ignore) setCustomerVehicleRows(filtered);
+      } catch (err) {
+        console.error("[Insurance][CustomerVehicles] load failed:", err);
+        if (!ignore) setCustomerVehicleRows([]);
+      } finally {
+        if (!ignore) setCustomerVehicleLoading(false);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    formData.companyName,
+    formData.customerId,
+    formData.customerName,
+    formData.mobile,
+    isNewCar,
+    normalizePersonToken,
+    step,
+  ]);
+
+  const hydrateVehicleSelectionOptions = useCallback(
+    async ({ make = "", model = "", variant = "" } = {}) => {
+      const nextMake = String(make || "").trim();
+      const nextModel = String(model || "").trim();
+      const nextVariant = String(variant || "").trim();
+      const pickBest = (options = [], rawValue = "", normalizer = normalizeVehicleToken) => {
+        const input = String(rawValue || "").trim();
+        if (!input) return "";
+        const inputToken = normalizer(input);
+        if (!inputToken) return input;
+        const exact = (options || []).find(
+          (option) => normalizer(option) === inputToken,
+        );
+        if (exact) return exact;
+        const fuzzy = (options || []).find((option) => {
+          const optionToken = normalizer(option);
+          return (
+            optionToken &&
+            (optionToken.includes(inputToken) || inputToken.includes(optionToken))
+          );
+        });
+        return fuzzy || input;
+      };
+
+      let resolvedMake = nextMake;
+      let resolvedModel = nextModel;
+      let resolvedVariant = nextVariant;
+
+      if (nextMake) {
+        setMakeOptions((prev) => {
+          const merged = new Set([...(prev || []), nextMake]);
+          return Array.from(merged).sort((a, b) => a.localeCompare(b));
+        });
+        const baseMakeOptions = Array.from(
+          new Set([...(makeOptions || []), nextMake]),
+        ).sort((a, b) => a.localeCompare(b));
+        resolvedMake = pickBest(baseMakeOptions, nextMake, normalizeVehicleMakeToken);
+      }
+
+      if (resolvedMake) {
+        try {
+          const res = await vehiclesApi.getUniqueModels(
+            resolvedMake,
+            null,
+            includeDiscontinuedVehicles,
+          );
+          const fetched = Array.isArray(res?.data) ? res.data : [];
+          const merged = new Set([
+            ...fetched,
+            ...(nextModel ? [nextModel] : []),
+          ]);
+          const modelList = Array.from(merged).sort((a, b) => a.localeCompare(b));
+          setModelOptions(modelList);
+          resolvedModel = pickBest(modelList, nextModel, normalizeVehicleToken);
+        } catch (err) {
+          console.error("[Insurance][HydrateModels] error:", err);
+          if (nextModel) {
+            setModelOptions((prev) => {
+              const merged = new Set([...(prev || []), nextModel]);
+              return Array.from(merged).sort((a, b) => a.localeCompare(b));
+            });
+          }
+        }
+      }
+
+      if (resolvedMake && resolvedModel) {
+        try {
+          const res = await vehiclesApi.getUniqueVariants(
+            resolvedMake,
+            resolvedModel,
+            null,
+            includeDiscontinuedVehicles,
+          );
+          const fetched = Array.isArray(res?.data) ? res.data : [];
+          const merged = new Set([
+            ...fetched,
+            ...(nextVariant ? [nextVariant] : []),
+          ]);
+          const variantList = Array.from(merged).sort((a, b) => a.localeCompare(b));
+          setVariantOptions(
+            variantList,
+          );
+          resolvedVariant = pickBest(
+            variantList,
+            nextVariant,
+            normalizeVehicleToken,
+          );
+        } catch (err) {
+          console.error("[Insurance][HydrateVariants] error:", err);
+          if (nextVariant) {
+            setVariantOptions((prev) => {
+              const merged = new Set([...(prev || []), nextVariant]);
+              return Array.from(merged).sort((a, b) => a.localeCompare(b));
+            });
+          }
+        }
+      }
+
+      return {
+        make: resolvedMake || nextMake,
+        model: resolvedModel || nextModel,
+        variant: resolvedVariant || nextVariant,
+      };
+    },
+    [includeDiscontinuedVehicles, makeOptions, normalizeVehicleMakeToken, normalizeVehicleToken],
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -1108,77 +1404,280 @@ const NewInsuranceCaseForm = ({
     };
   }, [formData.registrationAllotted, formData.registrationNumber, isNewCar]);
 
-  useEffect(() => {
-    if (!formData.vehicleMake || !formData.vehicleModel || !formData.vehicleVariant) {
-      return;
-    }
-    let ignore = false;
-    (async () => {
-      try {
-        const vehicleRes = await vehiclesApi.getByDetails(
-          formData.vehicleMake,
-          formData.vehicleModel,
-          formData.vehicleVariant,
-        );
-        const detailsRaw = vehicleRes?.data;
-        const details = Array.isArray(detailsRaw)
-          ? detailsRaw[0] || null
-          : detailsRaw || null;
-        const fuelCandidate = String(
-          details?.fuelType || details?.fuel || details?.vehicleFuelType || "",
-        ).trim();
-        if (!ignore && fuelCandidate) {
-          setFormData((prev) => ({
-            ...prev,
-            fuelType: fuelCandidate,
-          }));
-        }
-      } catch (err) {
-        console.error("[Insurance][VehicleDetailsAutoFill] error:", err);
+  const refreshVehicleDerivedFields = useCallback(
+    async ({
+      make = "",
+      model = "",
+      variant = "",
+      registrationNumber = "",
+      seedRow = null,
+      preserveExistingOnMiss = true,
+    } = {}) => {
+      const resolvedMake = String(
+        make ||
+          formData.vehicleMake ||
+          seedRow?.make ||
+          seedRow?.vehicleMake ||
+          "",
+      ).trim();
+      const resolvedModel = String(
+        model ||
+          formData.vehicleModel ||
+          seedRow?.model ||
+          seedRow?.vehicleModel ||
+          "",
+      ).trim();
+      const resolvedVariant = String(
+        variant ||
+          formData.vehicleVariant ||
+          seedRow?.variant ||
+          seedRow?.vehicleVariant ||
+          "",
+      ).trim();
+      const resolvedRegNo = String(
+        registrationNumber ||
+          formData.registrationNumber ||
+          seedRow?.registrationNumber ||
+          seedRow?.regNo ||
+          "",
+      ).trim();
+      const cacheKey = [
+        normalizeVehicleToken(resolvedMake),
+        normalizeVehicleToken(resolvedModel),
+        normalizeVehicleToken(resolvedVariant),
+      ].join("|");
+      const cached = vehicleDerivedCacheRef.current.get(cacheKey) || null;
+
+      let fallbackRow = seedRow || null;
+      let fuelCandidate = normalizeFuelLabel(
+        fallbackRow?.fuelType ||
+          fallbackRow?.fuel ||
+          fallbackRow?.vehicleFuelType ||
+          "",
+      );
+      let finalCubic = parseCubicCapacityValue(
+        fallbackRow?.cubicCapacityCc ||
+          fallbackRow?.cubicCapacity ||
+          fallbackRow?.cc ||
+          "",
+      );
+
+      if (!fuelCandidate && cached?.fuelType) {
+        fuelCandidate = normalizeFuelLabel(cached.fuelType);
+      }
+      if (!finalCubic && cached?.cubicCapacity) {
+        finalCubic = parseCubicCapacityValue(cached.cubicCapacity);
       }
 
-      try {
-        const res = await insuranceApi.resolveVehicleCubicCapacity({
-          make: formData.vehicleMake,
-          model: formData.vehicleModel,
-          variant: formData.vehicleVariant,
-          registrationNumber: formData.registrationNumber,
-        });
-        const cubicCapacity = parseCubicCapacityValue(
-          res?.data?.cubicCapacity ?? res?.cubicCapacity ?? "",
-        );
-        if (!ignore) {
-          setFormData((prev) => ({
-            ...prev,
-            cubicCapacity: cubicCapacity || "",
-          }));
-        }
-        if (cubicCapacity && formData.registrationNumber) {
-          const syncKey = `${String(formData.registrationNumber || "").toUpperCase()}|${cubicCapacity}|${formData.vehicleMake}|${formData.vehicleModel}|${formData.vehicleVariant}`;
+      // Instant visible update from seed/cache before deeper lookups.
+      if (fuelCandidate || finalCubic) {
+        setFormData((prev) => ({
+          ...prev,
+          fuelType:
+            fuelCandidate ||
+            (preserveExistingOnMiss ? prev.fuelType || "" : ""),
+          cubicCapacity:
+            finalCubic ||
+            (preserveExistingOnMiss ? prev.cubicCapacity || "" : ""),
+        }));
+      }
+
+      if (!resolvedMake || !resolvedModel || !resolvedVariant) {
+        if (!fuelCandidate && !finalCubic) return;
+        return;
+      }
+
+      // Fast path: use cache and skip network if already complete.
+      if (cached?.fuelType && cached?.cubicCapacity) {
+        if (resolvedRegNo && cached.cubicCapacity) {
+          const syncKey = `${String(resolvedRegNo || "").toUpperCase()}|${cached.cubicCapacity}|${resolvedMake}|${resolvedModel}|${resolvedVariant}`;
           if (!cubicSyncRef.current.has(syncKey)) {
             cubicSyncRef.current.add(syncKey);
           }
         }
-      } catch (err) {
-        console.error("[Insurance][ResolveCubicCapacity] error:", err);
-        if (!ignore) {
-          setFormData((prev) => ({
-            ...prev,
-            cubicCapacity: "",
-          }));
+        return;
+      }
+
+      const [detailsResult, featuresResult] = await Promise.allSettled([
+        vehiclesApi.getByDetails(resolvedMake, resolvedModel, resolvedVariant),
+        featuresApi.getBySelection({
+          make: resolvedMake,
+          model: resolvedModel,
+          variant: resolvedVariant,
+        }),
+      ]);
+
+      if (detailsResult.status === "fulfilled") {
+        const detailsRaw = detailsResult.value?.data;
+        const details = Array.isArray(detailsRaw)
+          ? detailsRaw[0] || null
+          : detailsRaw || null;
+        if (details) {
+          fallbackRow = details;
+          if (!fuelCandidate) {
+            fuelCandidate = normalizeFuelLabel(
+              details?.fuelType || details?.fuel || details?.vehicleFuelType || "",
+            );
+          }
+          if (!finalCubic) {
+            finalCubic = parseCubicCapacityValue(
+              details?.cubicCapacityCc ||
+                details?.cubicCapacity ||
+                details?.cc ||
+                details?.engineCC ||
+                "",
+            );
+          }
         }
       }
-    })();
-    return () => {
-      ignore = true;
-    };
+
+      let featureRows = [];
+      if (featuresResult.status === "fulfilled") {
+        featureRows = Array.isArray(featuresResult.value?.data)
+          ? featuresResult.value.data
+          : [];
+        if (!fuelCandidate) {
+          const fuelFeature = featureRows.find((row) =>
+            String(row?.name || "").toLowerCase().includes("fuel"),
+          );
+          fuelCandidate = normalizeFuelLabel(fuelFeature?.value || "");
+        }
+        if (!finalCubic) {
+          const displacementFeature = featureRows.find((row) =>
+            String(row?.name || "").toLowerCase().includes("displacement"),
+          );
+          finalCubic = parseCubicCapacityValue(displacementFeature?.value || "");
+        }
+      }
+
+      if ((!fuelCandidate || !finalCubic) && !fallbackRow) {
+        try {
+          const searchSeed = [resolvedMake, resolvedModel, resolvedVariant]
+            .filter(Boolean)
+            .join(" ");
+          const searchRes = await vehiclesApi.searchMasterRecords(searchSeed, 12);
+          const rows = Array.isArray(searchRes?.data) ? searchRes.data : [];
+          const targetMake = normalizeVehicleToken(resolvedMake);
+          const targetMakeAlias = normalizeVehicleMakeToken(resolvedMake);
+          const targetModel = normalizeVehicleToken(resolvedModel);
+          const targetVariant = normalizeVehicleToken(resolvedVariant);
+          fallbackRow =
+            rows.find((row) => {
+              const mk = normalizeVehicleMakeToken(
+                row?.make || row?.vehicleMake,
+              );
+              const md = normalizeVehicleToken(row?.model || row?.vehicleModel);
+              const vr = normalizeVehicleToken(row?.variant || row?.vehicleVariant);
+              return (
+                (mk.includes(targetMakeAlias) || targetMakeAlias.includes(mk) || mk.includes(targetMake)) &&
+                md.includes(targetModel) &&
+                (vr.includes(targetVariant) || targetVariant.includes(vr))
+              );
+            }) || rows[0] || null;
+
+          if (fallbackRow) {
+            if (!fuelCandidate) {
+              fuelCandidate = normalizeFuelLabel(
+                fallbackRow?.fuelType ||
+                  fallbackRow?.fuel ||
+                  fallbackRow?.vehicleFuelType ||
+                  "",
+              );
+            }
+            if (!finalCubic) {
+              finalCubic = parseCubicCapacityValue(
+                fallbackRow?.cubicCapacityCc ||
+                  fallbackRow?.cubicCapacity ||
+                  fallbackRow?.cc ||
+                  fallbackRow?.engineCC ||
+                  "",
+              );
+            }
+          }
+        } catch (err) {
+          console.error("[Insurance][VehicleFallbackSearch] error:", err);
+        }
+      }
+
+      try {
+        if (!finalCubic) {
+          const res = await insuranceApi.resolveVehicleCubicCapacity({
+            make: resolvedMake,
+            model: resolvedModel,
+            variant: resolvedVariant,
+            registrationNumber: resolvedRegNo,
+          });
+          const cubicCapacity = parseCubicCapacityValue(
+            res?.data?.cubicCapacity ?? res?.cubicCapacity ?? "",
+          );
+          finalCubic = cubicCapacity || finalCubic;
+        }
+      } catch (err) {
+        console.error("[Insurance][ResolveCubicCapacity] error:", err);
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        fuelType:
+          fuelCandidate ||
+          (preserveExistingOnMiss ? prev.fuelType || "" : ""),
+        cubicCapacity:
+          finalCubic ||
+          (preserveExistingOnMiss ? prev.cubicCapacity || "" : ""),
+      }));
+
+      vehicleDerivedCacheRef.current.set(cacheKey, {
+        fuelType: fuelCandidate || "",
+        cubicCapacity: finalCubic || "",
+      });
+
+      if (finalCubic && resolvedRegNo) {
+        const syncKey = `${String(resolvedRegNo || "").toUpperCase()}|${finalCubic}|${resolvedMake}|${resolvedModel}|${resolvedVariant}`;
+        if (!cubicSyncRef.current.has(syncKey)) {
+          cubicSyncRef.current.add(syncKey);
+        }
+      }
+    },
+    [
+      formData.registrationNumber,
+      formData.vehicleMake,
+      formData.vehicleModel,
+      formData.vehicleVariant,
+      normalizeFuelLabel,
+      normalizeVehicleMakeToken,
+      normalizeVehicleToken,
+      parseCubicCapacityValue,
+    ],
+  );
+
+  useEffect(() => {
+    if (!formData.vehicleMake || !formData.vehicleModel || !formData.vehicleVariant) {
+      return;
+    }
+    refreshVehicleDerivedFields({
+      make: formData.vehicleMake,
+      model: formData.vehicleModel,
+      variant: formData.vehicleVariant,
+      registrationNumber: formData.registrationNumber,
+      preserveExistingOnMiss: false,
+    });
   }, [
     formData.registrationNumber,
     formData.vehicleMake,
     formData.vehicleModel,
     formData.vehicleVariant,
-    parseCubicCapacityValue,
+    refreshVehicleDerivedFields,
   ]);
+
+  useEffect(() => {
+    const normalizedFuel = normalizeFuelLabel(formData.fuelType || "");
+    if (!normalizedFuel) return;
+    if (normalizedFuel === formData.fuelType) return;
+    setFormData((prev) => ({
+      ...prev,
+      fuelType: normalizedFuel,
+    }));
+  }, [formData.fuelType, normalizeFuelLabel]);
 
   useEffect(() => {
     if (vehicleMatchDebounceRef.current) {
@@ -1262,10 +1761,17 @@ const NewInsuranceCaseForm = ({
           manufactureYear: formData.manufactureYear,
           engineNumber: formData.engineNumber,
           chassisNumber: formData.chassisNumber,
+          dateOfReg: formData.dateOfReg,
+          regAuthority: formData.regAuthority,
+          fuelType: formData.fuelType,
+          typesOfVehicle: formData.typesOfVehicle,
+          batteryNumber: formData.batteryNumber,
+          chargerNumber: formData.chargerNumber,
           hypothecation: formData.hypothecation,
           customerName: formData.customerName || formData.companyName,
           primaryMobile: formData.mobile,
           cubicCapacityCc: Number(formData.cubicCapacity || 0),
+          overwriteHistoricalRecords: true,
         });
         const merged =
           res?.data?.data?.mergedVehicleRecord ||
@@ -1303,15 +1809,21 @@ const NewInsuranceCaseForm = ({
       formData.companyName,
       formData.cubicCapacity,
       formData.customerName,
+      formData.dateOfReg,
       formData.engineNumber,
+      formData.fuelType,
       formData.hypothecation,
       formData.manufactureMonth,
       formData.manufactureYear,
       formData.mobile,
+      formData.regAuthority,
       formData.registrationNumber,
+      formData.typesOfVehicle,
       formData.vehicleMake,
       formData.vehicleModel,
       formData.vehicleVariant,
+      formData.batteryNumber,
+      formData.chargerNumber,
       insuranceDbId,
       vehiclePotentialMatch,
     ],
@@ -2052,13 +2564,16 @@ const NewInsuranceCaseForm = ({
             makeOptions={makeOptions}
             modelOptions={modelOptions}
             variantOptions={variantOptions}
-            bankOptions={bankOptions}
             isGeneratingTempReg={isGeneratingTempReg}
             vehiclePotentialMatch={vehiclePotentialMatch}
             vehiclePotentialMatches={vehiclePotentialMatches}
             vehicleMatchLoading={vehicleMatchLoading}
             vehicleMergeLoading={vehicleMergeLoading}
             onMergeVehicleMatch={handleMergeVehicleMatch}
+            customerVehicleRows={customerVehicleRows}
+            customerVehicleLoading={customerVehicleLoading}
+            onRefreshVehicleDerivedFields={refreshVehicleDerivedFields}
+            onHydrateVehicleSelectionOptions={hydrateVehicleSelectionOptions}
           />
         );
       case 3:

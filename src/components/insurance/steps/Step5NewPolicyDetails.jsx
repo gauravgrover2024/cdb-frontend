@@ -9,6 +9,7 @@ import {
   BankOutlined,
   InfoCircleOutlined,
 } from "@ant-design/icons";
+import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 
 const shellStyle =
   "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
@@ -143,6 +144,14 @@ const formatAmountInput = (value) => {
 };
 
 const parseAmountInput = (value) => (value ? value.replace(/[₹,\s]/g, "") : "");
+
+const HYPOTHECATION_OPTIONS = [
+  { label: "Not Applicable", value: "Not Applicable" },
+  ...lenderHypothecationOptions.map((option) => ({
+    label: option.value,
+    value: option.value,
+  })),
+];
 
 const computeMinusOneDayExpiry = (startDate, years) => {
   if (!startDate || !years) return "";
@@ -682,12 +691,13 @@ const Step5NewPolicyDetails = ({
                     value={formData.newHypothecation}
                     onChange={(v) => setField("newHypothecation", v)}
                     style={controlStyle}
-                    options={[
-                      { label: "Not Applicable", value: "Not Applicable" },
-                      { label: "HDFC Bank", value: "HDFC Bank" },
-                      { label: "ICICI Bank", value: "ICICI Bank" },
-                      { label: "SBI", value: "SBI" },
-                    ]}
+                    options={HYPOTHECATION_OPTIONS}
+                    showSearch
+                    filterOption={(input, option) =>
+                      String(option?.label || "")
+                        .toLowerCase()
+                        .includes(String(input || "").toLowerCase())
+                    }
                   />
                 </CleanField>
               </div>

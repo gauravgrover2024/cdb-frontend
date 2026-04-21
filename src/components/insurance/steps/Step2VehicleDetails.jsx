@@ -1,14 +1,14 @@
 import React from "react";
 import dayjs from "dayjs";
 import {
-  Alert,
   AutoComplete,
   Button,
   Checkbox,
   Col,
   Collapse,
+  Drawer,
+  Empty,
   Input,
-  Radio,
   Row,
   Select,
   Tag,
@@ -16,10 +16,10 @@ import {
 } from "antd";
 import {
   CarOutlined,
-  InfoCircleOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
+import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 
 const { Text } = Typography;
 
@@ -46,18 +46,15 @@ const inputControlStyle = {
 const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
-const microHintClass = "mt-1 text-[11px] text-slate-400";
-
 const fieldWrapClass =
   "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-select-clear]:!inset-inline-end-[10px] [&_.ant-select-arrow]:!inset-inline-end-[11px] [&_.ant-radio-button-wrapper]:!h-[38px] [&_.ant-radio-button-wrapper]:!leading-[36px]";
 
-const CleanField = ({ label, required, hint, children, extra }) => (
+const CleanField = ({ label, required, children, extra }) => (
   <div className="pb-1">
     <div className={labelClass}>
       {label} {required ? <span className="text-[#D8B8B4]">*</span> : null}
     </div>
     {children}
-    {hint ? <div className={microHintClass}>{hint}</div> : null}
     {extra ? <div className="mt-1">{extra}</div> : null}
   </div>
 );
@@ -81,6 +78,19 @@ const TYPE_OF_VEHICLE_OPTIONS = [
   { label: "Four Wheeler", value: "Four Wheeler" },
   { label: "Commercial", value: "Commercial" },
 ];
+
+const normalizeVehicleToken = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const normalizeVehicleMakeToken = (value) => {
+  const token = normalizeVehicleToken(value);
+  if (!token) return "";
+  if (token === "marutisuzuki" || token === "marutisuzukiindia") return "maruti";
+  if (token === "bmwindia" || token === "bayerischemotorenwerke") return "bmw";
+  return token;
+};
 
 const FUEL_OPTIONS = [
   { label: "Petrol", value: "Petrol" },
@@ -109,13 +119,16 @@ const Step2VehicleDetails = ({
   makeOptions,
   modelOptions,
   variantOptions,
-  bankOptions,
   isGeneratingTempReg,
   vehiclePotentialMatch,
   vehiclePotentialMatches,
   vehicleMatchLoading,
   vehicleMergeLoading,
   onMergeVehicleMatch,
+  customerVehicleRows,
+  customerVehicleLoading,
+  onRefreshVehicleDerivedFields,
+  onHydrateVehicleSelectionOptions,
 }) => {
   const registrationPreview = formData.registrationNumber || "Pending";
 
@@ -129,17 +142,93 @@ const Step2VehicleDetails = ({
   const regDisabled =
     isNewCar && String(formData.registrationAllotted) === "No";
   const shouldShowEwExtra = Boolean(isExtendedWarranty);
+  const filteredCustomerVehicleRows = Array.isArray(customerVehicleRows)
+    ? customerVehicleRows.filter((row) => {
+        const mk = normalizeVehicleMakeToken(row?.make || row?.vehicleMake);
+        const md = normalizeVehicleToken(row?.model || row?.vehicleModel);
+        const vr = normalizeVehicleToken(row?.variant || row?.vehicleVariant);
+        const selectedMake = normalizeVehicleMakeToken(formData.vehicleMake);
+        const selectedModel = normalizeVehicleToken(formData.vehicleModel);
+        const selectedVariant = normalizeVehicleToken(formData.vehicleVariant);
+
+        if (
+          selectedMake &&
+          !(mk.includes(selectedMake) || selectedMake.includes(mk))
+        ) {
+          return false;
+        }
+        if (
+          selectedModel &&
+          !(md.includes(selectedModel) || selectedModel.includes(md))
+        ) {
+          return false;
+        }
+        if (
+          selectedVariant &&
+          !(vr.includes(selectedVariant) || selectedVariant.includes(vr))
+        )
+          return false;
+        return true;
+      })
+    : [];
+  const [showAllCustomerVehicles, setShowAllCustomerVehicles] =
+    React.useState(false);
+  const [isVehicleListDrawerOpen, setIsVehicleListDrawerOpen] =
+    React.useState(false);
+  const visibleCustomerVehicleRows = showAllCustomerVehicles
+    ? filteredCustomerVehicleRows
+    : filteredCustomerVehicleRows.slice(0, 4);
+  React.useEffect(() => {
+    setShowAllCustomerVehicles(false);
+  }, [formData.vehicleMake, formData.vehicleModel, formData.vehicleVariant]);
 
   const hypothecationOptions = [
     { label: "Not applicable", value: "Not applicable" },
-    ...(Array.isArray(bankOptions)
-      ? bankOptions
-          .map((name) => String(name || "").trim())
-          .filter(Boolean)
-          .filter((name, index, arr) => arr.indexOf(name) === index)
-          .map((name) => ({ label: name, value: name }))
-      : []),
+    ...lenderHypothecationOptions.map((option) => ({
+      label: option.value,
+      value: option.value,
+    })),
   ];
+
+  const handleUseCustomerVehicle = React.useCallback(
+    async (row) => {
+      const rawMake = row?.make || row?.vehicleMake;
+      const rawModel = row?.model || row?.vehicleModel;
+      const rawVariant = row?.variant || row?.vehicleVariant;
+      const resolved = await onHydrateVehicleSelectionOptions?.({
+        make: rawMake,
+        model: rawModel,
+        variant: rawVariant,
+      });
+      const nextMake = resolved?.make || rawMake;
+      const nextModel = resolved?.model || rawModel;
+      const nextVariant = resolved?.variant || rawVariant;
+      applyVehicleToForm({
+        ...row,
+        make: nextMake,
+        model: nextModel,
+        variant: nextVariant,
+        vehicleMake: nextMake,
+        vehicleModel: nextModel,
+        vehicleVariant: nextVariant,
+      });
+      setField("registrationAllotted", "Yes");
+      onRefreshVehicleDerivedFields?.({
+        make: nextMake,
+        model: nextModel,
+        variant: nextVariant,
+        registrationNumber: row?.registrationNumber || row?.regNo,
+        seedRow: row,
+        preserveExistingOnMiss: false,
+      });
+    },
+    [
+      applyVehicleToForm,
+      onHydrateVehicleSelectionOptions,
+      onRefreshVehicleDerivedFields,
+      setField,
+    ],
+  );
 
   const collapseItems = [
     {
@@ -167,29 +256,27 @@ const Step2VehicleDetails = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Registration Allotted?" required>
-                    <Radio.Group
+                    <Select
                       value={formData.registrationAllotted || "Yes"}
-                      onChange={(e) => {
-                        const nextValue = e?.target?.value || "Yes";
-                        setField("registrationAllotted", nextValue);
-                        if (nextValue === "Yes") {
-                          if (
-                            String(formData.registrationNumber || "")
-                              .trim()
-                              .toUpperCase()
-                              .startsWith("TEMP_REDG_")
-                          ) {
-                            setField("registrationNumber", "");
-                          }
+                      onChange={(nextValue) => {
+                        const resolved = nextValue || "Yes";
+                        setField("registrationAllotted", resolved);
+                        if (
+                          resolved === "Yes" &&
+                          String(formData.registrationNumber || "")
+                            .trim()
+                            .toUpperCase()
+                            .startsWith("TEMP_REDG_")
+                        ) {
+                          setField("registrationNumber", "");
                         }
                       }}
-                      optionType="button"
-                      buttonStyle="solid"
-                      style={{ marginTop: 8 }}
-                    >
-                      <Radio.Button value="Yes">Yes</Radio.Button>
-                      <Radio.Button value="No">No</Radio.Button>
-                    </Radio.Group>
+                      style={controlStyle}
+                      options={[
+                        { label: "Yes", value: "Yes" },
+                        { label: "No", value: "No" },
+                      ]}
+                    />
                   </CleanField>
                 </div>
               </Col>
@@ -200,15 +287,6 @@ const Step2VehicleDetails = ({
                 <CleanField
                   label="Registration Number"
                   required
-                  hint={
-                    regDisabled
-                      ? isGeneratingTempReg
-                        ? "Generating temporary registration..."
-                        : "Temporary registration assigned automatically"
-                      : registrationLookupLoading
-                        ? "Searching vehicle records..."
-                        : "Searches vehicle_master_records"
-                  }
                 >
                   {regDisabled ? (
                     <Input
@@ -233,11 +311,48 @@ const Step2VehicleDetails = ({
                           String(value || "").toUpperCase(),
                         )
                       }
-                      onSelect={(value, option) => {
+                      onSelect={async (value, option) => {
                         const normalized = String(value || "").toUpperCase();
                         setField("registrationNumber", normalized);
                         if (option?.vehicleData) {
-                          applyVehicleToForm(option.vehicleData);
+                          const nextMake =
+                            option?.vehicleData?.make ||
+                            option?.vehicleData?.vehicleMake;
+                          const nextModel =
+                            option?.vehicleData?.model ||
+                            option?.vehicleData?.vehicleModel;
+                          const nextVariant =
+                            option?.vehicleData?.variant ||
+                            option?.vehicleData?.vehicleVariant;
+                          const resolved =
+                            (await onHydrateVehicleSelectionOptions?.({
+                              make: nextMake,
+                              model: nextModel,
+                              variant: nextVariant,
+                            })) || {};
+                          const resolvedMake = resolved?.make || nextMake;
+                          const resolvedModel = resolved?.model || nextModel;
+                          const resolvedVariant =
+                            resolved?.variant || nextVariant;
+                          applyVehicleToForm({
+                            ...option.vehicleData,
+                            make: resolvedMake,
+                            model: resolvedModel,
+                            variant: resolvedVariant,
+                            vehicleMake: resolvedMake,
+                            vehicleModel: resolvedModel,
+                            vehicleVariant: resolvedVariant,
+                          });
+                          onRefreshVehicleDerivedFields?.({
+                            make: resolvedMake,
+                            model: resolvedModel,
+                            variant: resolvedVariant,
+                            registrationNumber:
+                              option?.vehicleData?.registrationNumber ||
+                              normalized,
+                            seedRow: option?.vehicleData,
+                            preserveExistingOnMiss: false,
+                          });
                         }
                       }}
                       style={{ marginTop: 8, width: "100%" }}
@@ -413,7 +528,20 @@ const Step2VehicleDetails = ({
                     value={formData.vehicleVariant || undefined}
                     placeholder="Select variant"
                     allowClear
-                    onChange={(val) => setField("vehicleVariant", val || "")}
+                    onChange={(val) => {
+                      setField("vehicleVariant", val || "");
+                      setField("fuelType", "");
+                      setField("cubicCapacity", "");
+                      if (val) {
+                        onRefreshVehicleDerivedFields?.({
+                          make: formData.vehicleMake,
+                          model: formData.vehicleModel,
+                          variant: val,
+                          registrationNumber: formData.registrationNumber,
+                          preserveExistingOnMiss: false,
+                        });
+                      }
+                    }}
                     disabled={!formData.vehicleMake || !formData.vehicleModel}
                     style={controlStyle}
                     showSearch
@@ -441,10 +569,7 @@ const Step2VehicleDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField
-                  label="Fuel Type"
-                  hint="Auto-filled from selected make/model/variant"
-                >
+                <CleanField label="Fuel Type">
                   <Select
                     value={formData.fuelType || undefined}
                     onChange={(v) => setField("fuelType", v || "")}
@@ -459,10 +584,7 @@ const Step2VehicleDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField
-                  label="Cubic Capacity (cc)"
-                  hint="Fetched from Engine & Transmission | Displacement"
-                >
+                <CleanField label="Cubic Capacity (cc)">
                   <Input
                     value={formData.cubicCapacity}
                     onChange={handleChange("cubicCapacity")}
@@ -790,6 +912,82 @@ const Step2VehicleDetails = ({
               </div>
             </div>
 
+            {!isNewCar &&
+            (customerVehicleLoading || filteredCustomerVehicleRows.length > 0) ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                    Customer Vehicles
+                  </p>
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    {filteredCustomerVehicleRows.length > 0 ? (
+                      <Tag className="!m-0 !rounded-full" color="default">
+                        {filteredCustomerVehicleRows.length} match
+                        {filteredCustomerVehicleRows.length > 1 ? "es" : ""}
+                      </Tag>
+                    ) : null}
+                    {filteredCustomerVehicleRows.length > 0 ? (
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold text-slate-600 transition hover:border-slate-300"
+                        onClick={() => setIsVehicleListDrawerOpen(true)}
+                      >
+                        See list of all cars
+                      </button>
+                    ) : null}
+                    {filteredCustomerVehicleRows.length > 4 ? (
+                      <button
+                        type="button"
+                        className="rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-0.5 font-semibold text-slate-700 transition hover:border-[#BFD8CD]"
+                        onClick={() =>
+                          setShowAllCustomerVehicles((prev) => !prev)
+                        }
+                      >
+                        {showAllCustomerVehicles ? "Show less" : "View more"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                {customerVehicleLoading ? (
+                  <p className="m-0 text-xs text-slate-500">
+                    Loading vehicles linked to this customer...
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {visibleCustomerVehicleRows.map((row) => (
+                      <button
+                        key={String(row?._id || row?.registrationNumber || "")}
+                        type="button"
+                        onClick={() => handleUseCustomerVehicle(row)}
+                        className="group w-full rounded-xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="m-0 text-xs font-semibold text-slate-800">
+                              {row?.registrationNumber || "—"}
+                            </p>
+                            <p className="m-0 text-[11px] text-slate-500">
+                              {[row?.make, row?.model, row?.variant]
+                                .filter(Boolean)
+                                .join(" ")}
+                            </p>
+                            <p className="m-0 text-[10px] text-slate-400">
+                              {[row?.customerName, row?.primaryMobile]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-semibold text-slate-700 opacity-80 transition group-hover:opacity-100">
+                            Use this
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             {(vehicleMatchLoading ||
               vehiclePotentialMatch ||
               (Array.isArray(vehiclePotentialMatches) &&
@@ -886,14 +1084,6 @@ const Step2VehicleDetails = ({
               </div>
             )}
 
-            <div className={`${shellStyle} p-4`}>
-              <Alert
-                type="info"
-                showIcon
-                icon={<InfoCircleOutlined />}
-                message="Vehicle details must match registration/records and are used for quote + policy issuance."
-              />
-            </div>
           </div>
         </Col>
 
@@ -908,6 +1098,55 @@ const Step2VehicleDetails = ({
           </div>
         </Col>
       </Row>
+      <Drawer
+        title="Customer vehicles"
+        placement="right"
+        width={520}
+        open={isVehicleListDrawerOpen}
+        onClose={() => setIsVehicleListDrawerOpen(false)}
+      >
+        {filteredCustomerVehicleRows.length ? (
+          <div className="flex flex-col gap-2">
+            {filteredCustomerVehicleRows.map((row) => (
+              <button
+                key={`drawer-${String(row?._id || row?.registrationNumber || "")}`}
+                type="button"
+                onClick={() => {
+                  handleUseCustomerVehicle(row);
+                  setIsVehicleListDrawerOpen(false);
+                }}
+                className="group w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-slate-300 hover:shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="m-0 text-xs font-semibold text-slate-800">
+                      {row?.registrationNumber || "—"}
+                    </p>
+                    <p className="m-0 text-[11px] text-slate-500">
+                      {[row?.make, row?.model, row?.variant]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </p>
+                    <p className="m-0 text-[10px] text-slate-400">
+                      {[row?.customerName, row?.primaryMobile]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-700 opacity-80 group-hover:opacity-100">
+                    Use this
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <Empty
+            description="No customer vehicles available for current make/model filters."
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        )}
+      </Drawer>
     </div>
   );
 };
