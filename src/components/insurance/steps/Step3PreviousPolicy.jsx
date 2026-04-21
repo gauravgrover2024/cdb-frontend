@@ -1,6 +1,8 @@
 import React from "react";
 import dayjs from "dayjs";
 import {
+  AutoComplete,
+  DatePicker,
   Checkbox,
   Col,
   Collapse,
@@ -12,7 +14,6 @@ import {
 } from "antd";
 import {
   CalendarOutlined,
-  FileTextOutlined,
   SafetyCertificateOutlined,
   BankOutlined,
   InfoCircleOutlined,
@@ -22,6 +23,7 @@ import {
   CheckCircleFilled,
 } from "@ant-design/icons";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
+import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 
 const shellStyle =
   "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
@@ -64,7 +66,7 @@ const labelClass =
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
 const fieldWrapClass =
-  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!bg-[#6aa27c] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!border-[#6aa27c] [&_.ant-checkbox:hover_.ant-checkbox-inner]:!border-[#6aa27c]";
+  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-picker]:!h-[44px] [&_.ant-picker]:!w-full [&_.ant-picker]:!rounded-[14px] [&_.ant-picker]:!px-[11px] [&_.ant-picker-input_>input]:!h-[42px] [&_.ant-picker-input_>input]:!leading-[42px] [&_.ant-picker-input_>input]:!text-[14px] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!bg-[#6aa27c] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!border-[#6aa27c] [&_.ant-checkbox:hover_.ant-checkbox-inner]:!border-[#6aa27c]";
 
 const ALL_ADDONS = [
   "Zero Depreciation",
@@ -220,33 +222,33 @@ const getDurationYears = (policyType, durationValue) => {
 };
 
 const buildDefaultQuoteState = () => ({
-  idv: 750000,
-  ownDamage: 45000,
-  basicOwnDamage: 45000,
-  ncbAmount: 50000,
+  idv: 0,
+  ownDamage: 0,
+  basicOwnDamage: 0,
+  ncbAmount: 0,
   thirdParty: 0,
   basicThirdParty: 0,
-  addOnsTotal: 5500,
-  totalPremium: 59450,
-  selectedAddOns: [
-    "Zero Depreciation",
-    "Consumables",
-    "Engine Protection",
-    "Roadside Assistance",
-  ],
+  addOnsTotal: 0,
+  totalPremium: 0,
+  selectedAddOns: [],
 });
+
+const toPositiveInt = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(n));
+};
 
 const Step3PreviousPolicy = ({
   formData,
   setField,
   handleChange,
   handlePreviousPolicyStartOrDuration,
+  showErrors = false,
+  step3Errors = {},
 }) => {
   const [showAllPreviewAddons, setShowAllPreviewAddons] = React.useState(false);
   const [isQuoteEditMode, setIsQuoteEditMode] = React.useState(false);
-  const [quoteSnapshot, setQuoteSnapshot] = React.useState(
-    buildDefaultQuoteState,
-  );
   const [quoteDraft, setQuoteDraft] = React.useState(buildDefaultQuoteState);
 
   const previewPolicyId =
@@ -255,22 +257,62 @@ const Step3PreviousPolicy = ({
   const previewCompany =
     formData.previousInsuranceCompany || "Previous Insurance Co.";
 
-  const previewPolicyType = formData.previousPolicyType || "Comprehensive";
+  const previewPolicyType = formData.previousPolicyType || "—";
 
-  const previewDuration = formData.previousPolicyDuration || "1yr OD + 1yr TP";
+  const previewDuration = formData.previousPolicyDuration || "—";
 
   const previewNcb = Number(formData.previousNcbDiscount || 0);
+  const isNewCar = String(formData.vehicleType || "").trim() === "New Car";
 
   const companyInitial = getInitial(previewCompany);
 
+  const quoteSnapshot = React.useMemo(() => {
+    const addOns =
+      Array.isArray(formData.previousSelectedAddOns) &&
+      formData.previousSelectedAddOns.length
+        ? formData.previousSelectedAddOns
+        : [];
+    return {
+      idv: toPositiveInt(formData.previousIdvAmount),
+      ownDamage: toPositiveInt(formData.previousOwnDamageAmount),
+      basicOwnDamage: toPositiveInt(
+        formData.previousBasicOwnDamageAmount ?? formData.previousOwnDamageAmount,
+      ),
+      ncbAmount: 0,
+      thirdParty: toPositiveInt(formData.previousThirdPartyAmount),
+      basicThirdParty: toPositiveInt(
+        formData.previousBasicThirdPartyAmount ?? formData.previousThirdPartyAmount,
+      ),
+      addOnsTotal: toPositiveInt(formData.previousAddOnsTotal),
+      totalPremium: toPositiveInt(formData.previousTotalPremium),
+      selectedAddOns: addOns,
+    };
+  }, [
+    formData.previousAddOnsTotal,
+    formData.previousBasicOwnDamageAmount,
+    formData.previousBasicThirdPartyAmount,
+    formData.previousIdvAmount,
+    formData.previousOwnDamageAmount,
+    formData.previousSelectedAddOns,
+    formData.previousThirdPartyAmount,
+    formData.previousTotalPremium,
+  ]);
+
+  const comprehensiveDurationOptions = React.useMemo(
+    () =>
+      isNewCar
+        ? [
+            { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+            { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+            { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+          ]
+        : [{ label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" }],
+    [isNewCar],
+  );
+
   const durationSelectOptions =
     formData.previousPolicyType === "Comprehensive"
-      ? [
-          { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
-          { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-          { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-          { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
-        ]
+      ? comprehensiveDurationOptions
       : formData.previousPolicyType === "Stand Alone OD"
         ? [
             { label: "1 Year", value: "1 Year" },
@@ -284,6 +326,41 @@ const Step3PreviousPolicy = ({
               { label: "3 Years", value: "3 Years" },
             ]
           : [];
+
+  React.useEffect(() => {
+    const policyType = String(formData.previousPolicyType || "").trim();
+    if (!policyType) return;
+    const currentDuration = String(formData.previousPolicyDuration || "").trim();
+
+    if (policyType === "Comprehensive") {
+      const allowed = comprehensiveDurationOptions.map((opt) => opt.value);
+      const nextDuration = allowed[0] || "";
+      if (!allowed.includes(currentDuration) && nextDuration) {
+        setField("previousPolicyDuration", nextDuration);
+      }
+      return;
+    }
+
+    if (policyType === "Third Party") {
+      const allowed = ["1 Year", "2 Years", "3 Years"];
+      if (!allowed.includes(currentDuration)) {
+        setField("previousPolicyDuration", "1 Year");
+      }
+      return;
+    }
+
+    if (policyType === "Stand Alone OD") {
+      const allowed = ["1 Year", "2 Years", "3 Years"];
+      if (!allowed.includes(currentDuration)) {
+        setField("previousPolicyDuration", "1 Year");
+      }
+    }
+  }, [
+    comprehensiveDurationOptions,
+    formData.previousPolicyDuration,
+    formData.previousPolicyType,
+    setField,
+  ]);
 
   const derivedYears = React.useMemo(
     () =>
@@ -380,9 +457,7 @@ const Step3PreviousPolicy = ({
     const ownDamage = Number(quoteDraft.ownDamage || 0);
     const thirdParty = Number(quoteDraft.thirdParty || 0);
     const addOnsTotal = Number(quoteDraft.addOnsTotal || 0);
-    const ncbAmount = Number(quoteDraft.ncbAmount || 0);
-
-    const basePremium = ownDamage + thirdParty + addOnsTotal - ncbAmount;
+    const basePremium = ownDamage + thirdParty + addOnsTotal;
     const gstInclusivePremium = Math.max(0, basePremium) * 1.18;
 
     return Math.round(gstInclusivePremium);
@@ -390,7 +465,6 @@ const Step3PreviousPolicy = ({
     quoteDraft.ownDamage,
     quoteDraft.thirdParty,
     quoteDraft.addOnsTotal,
-    quoteDraft.ncbAmount,
   ]);
 
   React.useEffect(() => {
@@ -430,7 +504,7 @@ const Step3PreviousPolicy = ({
       ...quoteDraft,
       ownDamage: Number(quoteDraft.ownDamage || 0),
       basicOwnDamage: Number(quoteDraft.ownDamage || 0),
-      ncbAmount: Number(quoteDraft.ncbAmount || 0),
+      ncbAmount: 0,
       thirdParty: Number(quoteDraft.thirdParty || 0),
       basicThirdParty: Number(quoteDraft.thirdParty || 0),
       addOnsTotal: Number(quoteDraft.addOnsTotal || 0),
@@ -438,10 +512,59 @@ const Step3PreviousPolicy = ({
       idv: Number(quoteDraft.idv || 0),
       selectedAddOns: quoteDraft.selectedAddOns || [],
     };
-    setQuoteSnapshot(cleaned);
     setQuoteDraft(cleaned);
+    setField("previousIdvAmount", cleaned.idv);
+    setField("previousOwnDamageAmount", cleaned.ownDamage);
+    setField("previousBasicOwnDamageAmount", cleaned.basicOwnDamage);
+    setField("previousThirdPartyAmount", cleaned.thirdParty);
+    setField("previousBasicThirdPartyAmount", cleaned.basicThirdParty);
+    setField("previousAddOnsTotal", cleaned.addOnsTotal);
+    setField("previousTotalPremium", cleaned.totalPremium);
+    setField("previousSelectedAddOns", cleaned.selectedAddOns);
     setIsQuoteEditMode(false);
   };
+
+  const standaloneAgeYears = React.useMemo(() => {
+    const regDateRaw = String(formData.dateOfReg || "").trim();
+    if (regDateRaw) {
+      const regDate = dayjs(regDateRaw);
+      if (regDate.isValid()) {
+        return dayjs().diff(regDate, "year", true);
+      }
+    }
+    const mfgYear = Number(formData.manufactureYear || 0);
+    if (Number.isFinite(mfgYear) && mfgYear > 1900) {
+      return dayjs().diff(dayjs(`${mfgYear}-01-01`), "year", true);
+    }
+    return null;
+  }, [formData.dateOfReg, formData.manufactureYear]);
+
+  const showStandaloneAgeWarning =
+    formData.previousPolicyType === "Stand Alone OD" &&
+    standaloneAgeYears != null &&
+    standaloneAgeYears > 3;
+
+  const suggestedNcb = React.useMemo(() => {
+    if (String(formData.claimTakenLastYear || "").trim() === "Yes") return 0;
+    const regDateRaw = String(formData.dateOfReg || "").trim();
+    if (!regDateRaw) return 0;
+    const regDate = dayjs(regDateRaw);
+    if (!regDate.isValid()) return 0;
+    const asOfRaw = String(formData.previousPolicyStartDate || "").trim();
+    const asOfDate = asOfRaw ? dayjs(asOfRaw) : dayjs();
+    if (!asOfDate.isValid()) return 0;
+    const elapsedYears = asOfDate.diff(regDate, "year");
+    if (elapsedYears <= 1) return 0;
+    if (elapsedYears === 2) return 20;
+    if (elapsedYears === 3) return 25;
+    if (elapsedYears === 4) return 35;
+    if (elapsedYears === 5) return 45;
+    return 50;
+  }, [
+    formData.claimTakenLastYear,
+    formData.dateOfReg,
+    formData.previousPolicyStartDate,
+  ]);
 
   const toggleAddon = (addon) => {
     setQuoteDraft((prev) => {
@@ -476,15 +599,26 @@ const Step3PreviousPolicy = ({
       children: (
         <div className="pt-3">
           <Row gutter={[22, 20]}>
-            <Col xs={24} md={8}>
+            <Col xs={24} md={16}>
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Company">
-                  <Input
+                  <AutoComplete
                     value={formData.previousInsuranceCompany}
-                    onChange={handleChange("previousInsuranceCompany")}
-                    style={inputControlStyle}
-                    placeholder="e.g., Bajaj"
-                  />
+                    style={controlStyle}
+                    options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
+                      value: name,
+                    }))}
+                    onChange={(value) =>
+                      setField("previousInsuranceCompany", String(value || ""))
+                    }
+                    filterOption={(inputValue, option) =>
+                      String(option?.value || "")
+                        .toLowerCase()
+                        .includes(String(inputValue || "").toLowerCase())
+                    }
+                  >
+                    <Input style={inputControlStyle} placeholder="e.g., Bajaj" />
+                  </AutoComplete>
                 </CleanField>
               </div>
             </Col>
@@ -509,6 +643,12 @@ const Step3PreviousPolicy = ({
                   />
                 </CleanField>
               </div>
+              {showStandaloneAgeWarning ? (
+                <div className="mt-1 text-[12px] text-red-500">
+                  Stand Alone OD is generally for vehicles up to 3 years old.
+                  Please verify eligibility.
+                </div>
+              ) : null}
             </Col>
 
             <Col xs={24} md={16}>
@@ -531,15 +671,22 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date">
-                  <Input
-                    type="date"
-                    value={formData.previousPolicyStartDate}
-                    onChange={(e) =>
+                  <DatePicker
+                    value={
+                      formData.previousPolicyStartDate
+                        ? dayjs(formData.previousPolicyStartDate)
+                        : null
+                    }
+                    onChange={(value) =>
                       handlePreviousPolicyStartOrDuration({
-                        previousPolicyStartDate: e.target.value,
+                        previousPolicyStartDate: value
+                          ? value.format("YYYY-MM-DD")
+                          : "",
                       })
                     }
-                    style={inputControlStyle}
+                    style={controlStyle}
+                    format="DD/MM/YYYY"
+                    placeholder="Select start date"
                   />
                 </CleanField>
               </div>
@@ -629,7 +776,46 @@ const Step3PreviousPolicy = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Claim Last Year">
+                <CleanField label="NCB Discount (%)">
+                  <Select
+                    value={Number(formData.previousNcbDiscount ?? 0)}
+                    onChange={(v) =>
+                      setField("previousNcbDiscount", Number(v ?? 0))
+                    }
+                    style={controlStyle}
+                    options={[
+                      { label: "0%", value: 0 },
+                      { label: "20%", value: 20 },
+                      { label: "25%", value: 25 },
+                      { label: "35%", value: 35 },
+                      { label: "45%", value: 45 },
+                      { label: "50%", value: 50 },
+                    ]}
+                  />
+                </CleanField>
+              </div>
+              {String(formData.claimTakenLastYear || "").trim() === "No" ? (
+                <div className="mt-1 text-[12px] text-slate-500">
+                  Suggested NCB:{" "}
+                  <span className="font-semibold text-slate-700">
+                    {suggestedNcb}%
+                  </span>
+                  {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
+                    <button
+                      type="button"
+                      className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
+                      onClick={() => setField("previousNcbDiscount", suggestedNcb)}
+                    >
+                      Use suggested
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Claim Last Year" required>
                   <Select
                     value={formData.claimTakenLastYear}
                     onChange={(v) => setField("claimTakenLastYear", v)}
@@ -639,25 +825,19 @@ const Step3PreviousPolicy = ({
                       { label: "No", value: "No" },
                     ]}
                     placeholder="Select"
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="NCB Discount (%)">
-                  <InputNumber
-                    min={0}
-                    max={100}
-                    value={Number(formData.previousNcbDiscount || 0)}
-                    onChange={(v) =>
-                      setField("previousNcbDiscount", Number(v || 0))
+                    status={
+                      showErrors && step3Errors?.claimTakenLastYear
+                        ? "error"
+                        : ""
                     }
-                    style={controlStyle}
                   />
                 </CleanField>
               </div>
+              {showErrors && step3Errors?.claimTakenLastYear ? (
+                <div className="mt-1 text-[12px] text-red-500">
+                  {step3Errors.claimTakenLastYear}
+                </div>
+              ) : null}
             </Col>
 
             <Col xs={24} md={8}>
@@ -847,7 +1027,7 @@ const Step3PreviousPolicy = ({
                       </CleanField>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className={fieldWrapClass}>
                         <CleanField label="Own Damage Amount">
                           <InputNumber
@@ -887,24 +1067,6 @@ const Step3PreviousPolicy = ({
                       </div>
 
                       <div className={fieldWrapClass}>
-                        <CleanField label="NCB Amount">
-                          <InputNumber
-                            min={0}
-                            value={Number(quoteDraft.ncbAmount || 0)}
-                            onChange={(v) =>
-                              setQuoteDraft((prev) => ({
-                                ...prev,
-                                ncbAmount: Number(v || 0),
-                              }))
-                            }
-                            style={controlStyle}
-                            placeholder="₹ 0"
-                            {...amountInputProps}
-                          />
-                        </CleanField>
-                      </div>
-
-                      <div className={fieldWrapClass}>
                         <CleanField label="Add-ons Total">
                           <InputNumber
                             min={0}
@@ -926,7 +1088,7 @@ const Step3PreviousPolicy = ({
                     <div className={fieldWrapClass}>
                       <CleanField
                         label="Total Premium"
-                        hint="Auto-calculated: (OD + TP + Add-ons - NCB) × 1.18"
+                        hint="Auto-calculated: (OD + TP + Add-ons) × 1.18"
                       >
                         <InputNumber
                           min={0}
@@ -995,14 +1157,12 @@ const Step3PreviousPolicy = ({
                       muted
                     />
 
-                    {previewNcb > 0 && (
-                      <BreakupRow
-                        label={`NCB Discount (${previewNcb}%)`}
-                        value={`-${formatCurrency(activeQuote.ncbAmount)}`}
-                        indent
-                        muted
-                      />
-                    )}
+                    <BreakupRow
+                      label="NCB %"
+                      value={`${previewNcb}%`}
+                      indent
+                      muted
+                    />
 
                     <BreakupRow
                       label="Third Party"

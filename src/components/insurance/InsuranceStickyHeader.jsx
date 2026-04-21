@@ -133,10 +133,12 @@ const InsuranceStickyHeader = ({
 
   const visibleSteps = useMemo(() => {
     const isNewCar = data.vehicleType === "New Car";
+    const isExtendedWarranty =
+      String(data.policyCategory || "").trim() === "Extended Warranty";
     return Object.keys(STEP_NAMES)
       .map((s) => parseInt(s, 10))
-      .filter((s) => !(isNewCar && s === 3));
-  }, [data.vehicleType]);
+      .filter((s) => !((isNewCar || isExtendedWarranty) && s === 3));
+  }, [data.policyCategory, data.vehicleType]);
 
   const currentStepIndex = Math.max(visibleSteps.indexOf(activeStep), 0);
 

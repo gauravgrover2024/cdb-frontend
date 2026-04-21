@@ -394,19 +394,6 @@ const Step2VehicleDetails = ({
                     </CleanField>
                   </div>
                 </Col>
-
-                <Col xs={24} md={8}>
-                  <div className={fieldWrapClass}>
-                    <CleanField label="Date of Reg">
-                      <Input
-                        type="date"
-                        value={formData.dateOfReg}
-                        onChange={handleChange("dateOfReg")}
-                        style={inputControlStyle}
-                      />
-                    </CleanField>
-                  </div>
-                </Col>
               </>
             ) : null}
           </Row>
@@ -709,26 +696,41 @@ const Step2VehicleDetails = ({
               ) : null}
             </Col>
 
-            <Col xs={24} md={16}>
+            <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Hypothecation">
-                  <Select
-                    value={formData.hypothecation || "Not applicable"}
-                    onChange={(v) =>
-                      setField("hypothecation", v || "Not applicable")
-                    }
-                    style={controlStyle}
-                    options={hypothecationOptions}
-                    showSearch
-                    filterOption={(input, option) =>
-                      String(option?.label || "")
-                        .toLowerCase()
-                        .includes(String(input || "").toLowerCase())
-                    }
+                <CleanField label="Date of Reg">
+                  <Input
+                    type="date"
+                    value={formData.dateOfReg}
+                    onChange={handleChange("dateOfReg")}
+                    style={inputControlStyle}
                   />
                 </CleanField>
               </div>
             </Col>
+
+            {shouldShowEwExtra ? (
+              <Col xs={24} md={16}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Hypothecation">
+                    <Select
+                      value={formData.hypothecation || "Not applicable"}
+                      onChange={(v) =>
+                        setField("hypothecation", v || "Not applicable")
+                      }
+                      style={controlStyle}
+                      options={hypothecationOptions}
+                      showSearch
+                      filterOption={(input, option) =>
+                        String(option?.label || "")
+                          .toLowerCase()
+                          .includes(String(input || "").toLowerCase())
+                      }
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+            ) : null}
 
             {shouldShowEwExtra ? (
               <>
@@ -885,19 +887,21 @@ const Step2VehicleDetails = ({
                   }
                 />
                 <SummaryRow
-                  label="Hypothecation"
-                  value={formData.hypothecation || "Not applicable"}
+                  label="Date of Reg"
+                  value={formatDisplayDate(formData.dateOfReg)}
                 />
+                {shouldShowEwExtra ? (
+                  <SummaryRow
+                    label="Hypothecation"
+                    value={formData.hypothecation || "Not applicable"}
+                  />
+                ) : null}
 
                 {shouldShowEwExtra ? (
                   <>
                     <SummaryRow
                       label="Reg Authority"
                       value={formData.regAuthority}
-                    />
-                    <SummaryRow
-                      label="Date of Reg"
-                      value={formatDisplayDate(formData.dateOfReg)}
                     />
                     <SummaryRow
                       label="Battery Number"

@@ -121,15 +121,23 @@ const initialFormState = {
   chargerNumber: "",
   hypothecation: "Not applicable",
 
-  previousInsuranceCompany: "Bajaj General Insurance Limited",
+  previousInsuranceCompany: "",
   previousPolicyNumber: "",
-  previousPolicyType: "Comprehensive",
+  previousPolicyType: "",
   previousPolicyStartDate: "",
-  previousPolicyDuration: "1yr OD + 1yr TP",
+  previousPolicyDuration: "",
   previousOdExpiryDate: "",
   previousTpExpiryDate: "",
-  claimTakenLastYear: "No",
-  previousNcbDiscount: 50,
+  claimTakenLastYear: "",
+  previousNcbDiscount: 0,
+  previousIdvAmount: 0,
+  previousOwnDamageAmount: 0,
+  previousBasicOwnDamageAmount: 0,
+  previousThirdPartyAmount: 0,
+  previousBasicThirdPartyAmount: 0,
+  previousAddOnsTotal: 0,
+  previousTotalPremium: 0,
+  previousSelectedAddOns: [],
   previousHypothecation: "Not Applicable",
   previousRemarks: "",
 
@@ -537,6 +545,14 @@ const validateStep2 = (data) => {
   return errors;
 };
 
+const validateStep3 = (data) => {
+  const errors = {};
+  if (!String(data?.claimTakenLastYear || "").trim()) {
+    errors.claimTakenLastYear = "Claim last year is required";
+  }
+  return errors;
+};
+
 const NewInsuranceCaseForm = ({
   onCancel,
   onSubmit,
@@ -641,6 +657,8 @@ const NewInsuranceCaseForm = ({
 
   const isCompany = formData.buyerType === "Company";
   const isNewCar = formData.vehicleType === "New Car";
+  const isExtendedWarranty =
+    String(formData.policyCategory || "").trim() === "Extended Warranty";
 
   const applyCustomerToForm = useCallback(
     (customer) => {
@@ -899,6 +917,22 @@ const NewInsuranceCaseForm = ({
     return match ? match[1] : "";
   }, []);
 
+  const normalizeDateInputValue = useCallback((value) => {
+    if (value === undefined || value === null) return "";
+    const raw = String(value).trim();
+    if (!raw) return "";
+    const parsed = dayjs(raw);
+    if (parsed.isValid()) return parsed.format("YYYY-MM-DD");
+    const dmy = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+    if (dmy) {
+      const dd = dmy[1].padStart(2, "0");
+      const mm = dmy[2].padStart(2, "0");
+      const yyyy = dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return raw.length >= 10 ? raw.slice(0, 10) : raw;
+  }, []);
+
   const normalizeVehicleToken = useCallback(
     (value) =>
       String(value || "")
@@ -1020,10 +1054,12 @@ const NewInsuranceCaseForm = ({
           vehicle.reg_authority ||
           prev.regAuthority,
         dateOfReg:
-          vehicle.registrationDate ||
-          vehicle.dateOfReg ||
-          vehicle.date_of_reg ||
-          prev.dateOfReg,
+          normalizeDateInputValue(
+            vehicle.registrationDate ||
+              vehicle.dateOfReg ||
+              vehicle.date_of_reg ||
+              prev.dateOfReg,
+          ) || prev.dateOfReg,
         batteryNumber:
           vehicle.batteryNumber || vehicle.battery_number || prev.batteryNumber,
         chargerNumber:
@@ -1035,7 +1071,7 @@ const NewInsuranceCaseForm = ({
           "Not applicable",
       }));
     },
-    [normalizeFuelLabel, parseCubicCapacityValue],
+    [normalizeDateInputValue, normalizeFuelLabel, parseCubicCapacityValue],
   );
 
   const handleRegistrationSearch = useCallback((q) => {
@@ -1931,6 +1967,21 @@ const NewInsuranceCaseForm = ({
   }, [formData.nomineeDob]);
 
   useEffect(() => {
+    const prevRemarks = String(formData.previousRemarks || "").trim();
+    const newRemarks = String(formData.newRemarks || "").trim();
+    if (!prevRemarks || newRemarks) return;
+    setFormData((prev) => {
+      const prevText = String(prev.previousRemarks || "").trim();
+      const newText = String(prev.newRemarks || "").trim();
+      if (!prevText || newText) return prev;
+      return {
+        ...prev,
+        newRemarks: prev.previousRemarks,
+      };
+    });
+  }, [formData.newRemarks, formData.previousRemarks]);
+
+  useEffect(() => {
     const pin = normalizePincode(formData.pincode);
     if (!pin) {
       setCityLookupLoading(false);
@@ -1973,14 +2024,15 @@ const NewInsuranceCaseForm = ({
 
   const shouldSkipStep = useCallback(
     (stepNumber) => {
-      if (isNewCar && stepNumber === 3) return true;
+      if ((isNewCar || isExtendedWarranty) && stepNumber === 3) return true;
       if (stepNumber === 5) return true; // Premium Breakup removed from flow
       return false;
     },
-    [isNewCar],
+    [isExtendedWarranty, isNewCar],
   );
   const step1Errors = useMemo(() => validateStep1(formData), [formData]);
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
+  const step3Errors = useMemo(() => validateStep3(formData), [formData]);
   const acceptedQuote =
     quotes.find(
       (q) => String(getQuoteRowId(q)) === String(acceptedQuoteId ?? ""),
@@ -1994,10 +2046,10 @@ const NewInsuranceCaseForm = ({
     documents.length > 0 && docsTaggedCount === documents.length;
 
   useEffect(() => {
-    if (isNewCar && step === 3) {
+    if ((isNewCar || isExtendedWarranty) && step === 3) {
       setStep(4);
     }
-  }, [isNewCar, step]);
+  }, [isExtendedWarranty, isNewCar, step]);
 
   useEffect(() => {
     if (step === 5) {
@@ -2052,7 +2104,22 @@ const NewInsuranceCaseForm = ({
   }, [quoteDraft]);
 
   const handleChange = (field) => (event) => {
-    setFormData((prev) => ({ ...prev, [field]: event?.target?.value }));
+    const nextValue = event?.target?.value;
+    setFormData((prev) => {
+      if (field === "previousRemarks") {
+        const oldPreviousRemarks = String(prev.previousRemarks || "");
+        const currentNewRemarks = String(prev.newRemarks || "");
+        const shouldSyncToNew =
+          !currentNewRemarks.trim() ||
+          currentNewRemarks.trim() === oldPreviousRemarks.trim();
+        return {
+          ...prev,
+          previousRemarks: nextValue,
+          ...(shouldSyncToNew ? { newRemarks: nextValue } : {}),
+        };
+      }
+      return { ...prev, [field]: nextValue };
+    });
     // schedulePersist();
   };
 
@@ -2193,6 +2260,8 @@ const NewInsuranceCaseForm = ({
   const handleStepValidation = () => {
     if (step === 1) return Object.keys(step1Errors).length === 0;
     if (step === 2) return Object.keys(step2Errors).length === 0;
+    if (step === 3 && !shouldSkipStep(3))
+      return Object.keys(step3Errors).length === 0;
     if (step === 4) return quotes.length > 0;
     return true;
   };
@@ -2462,14 +2531,14 @@ const NewInsuranceCaseForm = ({
   const stepHelpText = useMemo(() => {
     if (step === 1) return "Fill personal, contact and nominee details.";
     if (step === 2) return "Provide accurate vehicle information.";
-    if (step === 3 && !isNewCar)
+    if (step === 3 && !isNewCar && !isExtendedWarranty)
       return "For renewal cases & policy already expired cases.";
     if (step === 4)
       return "Add and manage quote options (at least 1 quote required).";
     if (step === 6) return "Policy details (auto-filled from accepted quote).";
     if (step === 7) return "Upload and tag documents (recommended).";
     return "";
-  }, [step, isNewCar]);
+  }, [step, isExtendedWarranty, isNewCar]);
 
   const stepErrorsAlert = useMemo(() => {
     if (!showErrors) return null;
@@ -2493,6 +2562,16 @@ const NewInsuranceCaseForm = ({
         />
       );
     }
+    if (step === 3 && Object.keys(step3Errors).length) {
+      return (
+        <Alert
+          type="error"
+          showIcon
+          message="Please fix required fields in Previous Policy Details."
+          description="Claim last year is mandatory."
+        />
+      );
+    }
     if (step === 4 && quotes.length === 0) {
       return (
         <Alert
@@ -2503,7 +2582,7 @@ const NewInsuranceCaseForm = ({
       );
     }
     return null;
-  }, [showErrors, step, step1Errors, step2Errors, quotes.length]);
+  }, [showErrors, step, step1Errors, step2Errors, step3Errors, quotes.length]);
 
   const docRows = useMemo(() => {
     return (documents || []).map((d) => ({
@@ -2554,7 +2633,7 @@ const NewInsuranceCaseForm = ({
             showErrors={showErrors}
             step2Errors={step2Errors}
             isNewCar={isNewCar}
-            isExtendedWarranty={formData.policyCategory === "Extended Warranty"}
+            isExtendedWarranty={isExtendedWarranty}
             registrationLookupLoading={registrationLookupLoading}
             registrationLookupOptions={registrationLookupOptions}
             handleRegistrationSearch={handleRegistrationSearch}
@@ -2577,12 +2656,14 @@ const NewInsuranceCaseForm = ({
           />
         );
       case 3:
-        if (isNewCar) return null;
+        if (isNewCar || isExtendedWarranty) return null;
         return (
           <Step3PreviousPolicy
             formData={formData}
             setField={setField}
             handleChange={handleChange}
+            showErrors={showErrors}
+            step3Errors={step3Errors}
             handlePreviousPolicyStartOrDuration={
               handlePreviousPolicyStartOrDuration
             }
@@ -3058,7 +3139,7 @@ const NewInsuranceCaseForm = ({
           </SummarySection>
 
           {/* Previous Policy */}
-          {formData.vehicleType !== "New Car" && (
+          {!isExtendedWarranty && formData.vehicleType !== "New Car" && (
             <SummarySection title="Previous Policy">
               <SummaryField
                 label="Insurer"
