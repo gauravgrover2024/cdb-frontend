@@ -1,10 +1,17 @@
 import React from "react";
 import dayjs from "dayjs";
-import { Col, Collapse, Input, InputNumber, Row, Select, Tag } from "antd";
+import {
+  Col,
+  Collapse,
+  DatePicker,
+  Input,
+  InputNumber,
+  Row,
+  Select,
+  Tag,
+} from "antd";
 import {
   CalendarOutlined,
-  CarOutlined,
-  FileTextOutlined,
   SafetyCertificateOutlined,
   BankOutlined,
   InfoCircleOutlined,
@@ -52,7 +59,7 @@ const labelClass =
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
 const fieldWrapClass =
-  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px]";
+  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-picker]:!h-[44px] [&_.ant-picker]:!w-full [&_.ant-picker]:!rounded-[14px] [&_.ant-picker-input>input]:!h-[42px] [&_.ant-picker-input>input]:!leading-[42px]";
 
 const CleanField = ({ label, required, hint, children, extra }) => (
   <div className="pb-1">
@@ -202,6 +209,9 @@ const Step5NewPolicyDetails = ({
 }) => {
   const [showAllAcceptedAddons, setShowAllAcceptedAddons] =
     React.useState(false);
+  const isExtendedWarranty =
+    String(formData.policyCategory || "").trim() === "Extended Warranty";
+  const isNewCar = String(formData.vehicleType || "").trim() === "New Car";
 
   const acceptedQuoteId =
     acceptedQuote?._id || acceptedQuote?.id || acceptedQuote?.quoteId || "—";
@@ -243,7 +253,7 @@ const Step5NewPolicyDetails = ({
     acceptedQuoteBreakup?.tpAmt || acceptedQuote?.thirdPartyAmount || 0,
   );
 
-  const acceptedNcbAmount = Number(acceptedQuoteBreakup?.ncbAmount || 0);
+  const acceptedNcbAmount = Number(acceptedQuoteBreakup?.ncbReferenceAmount || 0);
 
   const companyInitial = getInitial(acceptedCompany);
 
@@ -265,12 +275,13 @@ const Step5NewPolicyDetails = ({
 
   const durationSelectOptions =
     formData.newPolicyType === "Comprehensive"
-      ? [
-          { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
-          { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-          { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-          { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
-        ]
+      ? isNewCar
+        ? [
+            { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+            { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+            { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+          ]
+        : [{ label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" }]
       : formData.newPolicyType === "Stand Alone OD"
         ? [
             { label: "1 Year", value: "1 Year" },
@@ -287,6 +298,26 @@ const Step5NewPolicyDetails = ({
               label: d,
               value: d,
             }));
+
+  const ewDurationOptions = [
+    { label: "1 Year", value: "1 Year" },
+    { label: "2 Years", value: "2 Years" },
+    { label: "3 Years", value: "3 Years" },
+  ];
+
+  const ewYears = React.useMemo(() => {
+    const val = String(formData.newInsuranceDuration || "").trim();
+    if (val === "1 Year") return 1;
+    if (val === "2 Years") return 2;
+    if (val === "3 Years") return 3;
+    return 0;
+  }, [formData.newInsuranceDuration]);
+
+  const ewComputedEndDate = React.useMemo(() => {
+    const start = String(formData.ewCommencementDate || "").trim();
+    if (!start || !ewYears) return "";
+    return computeMinusOneDayExpiry(start, ewYears);
+  }, [ewYears, formData.ewCommencementDate]);
 
   const derivedYears = React.useMemo(
     () =>
@@ -311,6 +342,7 @@ const Step5NewPolicyDetails = ({
   }, [formData.newPolicyStartDate, derivedYears.tpYears]);
 
   React.useEffect(() => {
+    if (isExtendedWarranty) return;
     const policyType = formData.newPolicyType;
 
     if (policyType === "Comprehensive") {
@@ -355,41 +387,57 @@ const Step5NewPolicyDetails = ({
     formData.newOdExpiryDate,
     formData.newPolicyType,
     formData.newTpExpiryDate,
+    isExtendedWarranty,
     setField,
   ]);
 
-  const longPolicyNumberPreview =
-    formData.newPolicyNumber && formData.newPolicyNumber.length > 26 ? (
-      <div className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600 ring-1 ring-slate-200 break-all">
-        {formData.newPolicyNumber}
-      </div>
-    ) : null;
+  React.useEffect(() => {
+    if (!isExtendedWarranty) return;
+    const currentDuration = String(formData.newInsuranceDuration || "").trim();
+    if (!["1 Year", "2 Years", "3 Years"].includes(currentDuration)) {
+      setField("newInsuranceDuration", "1 Year");
+    }
+  }, [formData.newInsuranceDuration, isExtendedWarranty, setField]);
+
+  React.useEffect(() => {
+    if (!isExtendedWarranty) return;
+    if (formData.ewExpiryDate !== ewComputedEndDate) {
+      setField("ewExpiryDate", ewComputedEndDate);
+    }
+    if (formData.newOdExpiryDate !== ewComputedEndDate) {
+      setField("newOdExpiryDate", ewComputedEndDate);
+    }
+    if (formData.newTpExpiryDate !== "") {
+      setField("newTpExpiryDate", "");
+    }
+  }, [
+    ewComputedEndDate,
+    formData.ewExpiryDate,
+    formData.newOdExpiryDate,
+    formData.newTpExpiryDate,
+    isExtendedWarranty,
+    setField,
+  ]);
 
   const amountInputProps = {
     formatter: formatAmountInput,
     parser: parseAmountInput,
   };
 
-  const collapseItems = [
-    {
-      key: "1",
-      label: (
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF3EF] text-slate-700 ring-1 ring-[#D6E6DF]">
-            <CarOutlined />
+  if (isExtendedWarranty) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+          <div className={sectionHeaderLabel}>Policy information</div>
+          <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
+            Extended warranty details
           </div>
-          <div>
-            <div className="text-sm font-bold text-slate-800">
-              Vehicle pricing
-            </div>
-            <div className="text-xs text-slate-500">
-              Pricing, sale or purchase date, and odometer inputs
-            </div>
+          <div className="mt-1 text-sm text-slate-500">
+            Capture vehicle price context, tenure, coverage, premium and remarks
           </div>
         </div>
-      ),
-      children: (
-        <div className="pt-3">
+
+        <div className={`${shellStyle} p-5 md:p-6`}>
           <Row gutter={[22, 20]}>
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -397,9 +445,7 @@ const Step5NewPolicyDetails = ({
                   <InputNumber
                     min={0}
                     value={Number(formData.exShowroomPrice || 0)}
-                    onChange={(v) =>
-                      setField("exShowroomPrice", Number(v || 0))
-                    }
+                    onChange={(v) => setField("exShowroomPrice", Number(v || 0))}
                     style={controlStyle}
                     placeholder="₹ 0"
                     {...amountInputProps}
@@ -408,10 +454,10 @@ const Step5NewPolicyDetails = ({
               </div>
             </Col>
 
-            {formData.vehicleType === "New Car" ? (
+            {isNewCar ? (
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
-                  <CleanField label="Date of Sale" required>
+                  <CleanField label="Date of Sale of Vehicle" required>
                     <Input
                       type="date"
                       value={formData.dateOfSale}
@@ -452,12 +498,119 @@ const Step5NewPolicyDetails = ({
                 </Col>
               </>
             )}
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Policy Purchase Date" required>
+                  <Input
+                    type="date"
+                    value={formData.policyPurchaseDate}
+                    onChange={handleChange("policyPurchaseDate")}
+                    style={inputControlStyle}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Policy Duration" required>
+                  <Select
+                    value={formData.newInsuranceDuration}
+                    onChange={(v) => setField("newInsuranceDuration", v)}
+                    style={controlStyle}
+                    options={ewDurationOptions}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Policy Start Date" required>
+                  <Input
+                    type="date"
+                    value={formData.ewCommencementDate}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setField("ewCommencementDate", value);
+                      setField("newPolicyStartDate", value);
+                    }}
+                    style={inputControlStyle}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Policy End Date" required>
+                  <Input
+                    type="date"
+                    value={formData.ewExpiryDate}
+                    style={computedDateStyle}
+                    readOnly
+                    tabIndex={-1}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Kms Coverage" required>
+                  <Input
+                    value={String(formData.kmsCoverage ?? "")}
+                    onChange={(e) => setField("kmsCoverage", e.target.value)}
+                    style={inputControlStyle}
+                    placeholder="e.g. 100000 or Unlimited"
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Premium" required>
+                  <InputNumber
+                    min={0}
+                    value={Number(formData.newTotalPremium || 0)}
+                    onChange={(v) => setField("newTotalPremium", Number(v || 0))}
+                    style={controlStyle}
+                    placeholder="₹ 0"
+                    {...amountInputProps}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24}>
+              <CleanField label="Remarks">
+                <Input.TextArea
+                  rows={2}
+                  value={formData.newRemarks}
+                  onChange={handleChange("newRemarks")}
+                  style={textAreaStyle}
+                  placeholder="Notes..."
+                />
+              </CleanField>
+            </Col>
           </Row>
         </div>
-      ),
-    },
+      </div>
+    );
+  }
+
+  const longPolicyNumberPreview =
+    formData.newPolicyNumber && formData.newPolicyNumber.length > 26 ? (
+      <div className="rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600 ring-1 ring-slate-200 break-all">
+        {formData.newPolicyNumber}
+      </div>
+    ) : null;
+
+  const collapseItems = [
     {
-      key: "2",
+      key: "1",
       label: (
         <div className="flex items-start gap-3">
           <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FAF8F1] text-slate-700 ring-1 ring-[#FAF8F1]">
@@ -468,7 +621,7 @@ const Step5NewPolicyDetails = ({
               Policy details
             </div>
             <div className="text-xs text-slate-500">
-              Coverage, duration, dates, NCB, IDV, premium, hypothecation
+              Company, type, number, dates, duration, NCB, IDV and premium
             </div>
           </div>
         </div>
@@ -476,7 +629,7 @@ const Step5NewPolicyDetails = ({
       children: (
         <div className="pt-3">
           <Row gutter={[22, 20]}>
-            <Col xs={24} md={8}>
+            <Col xs={24} md={16}>
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Company" required>
                   <Input
@@ -529,11 +682,17 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Issue Date" required>
-                  <Input
-                    type="date"
-                    value={formData.newIssueDate}
-                    onChange={handleChange("newIssueDate")}
-                    style={inputControlStyle}
+                  <DatePicker
+                    value={
+                      formData.newIssueDate
+                        ? dayjs(formData.newIssueDate)
+                        : null
+                    }
+                    onChange={(d) =>
+                      setField("newIssueDate", d ? d.format("YYYY-MM-DD") : "")
+                    }
+                    format="DD/MM/YYYY"
+                    allowClear
                   />
                 </CleanField>
               </div>
@@ -541,16 +700,20 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Start Date" required>
-                  <Input
-                    type="date"
-                    value={formData.newPolicyStartDate}
-                    onChange={(e) =>
+                <CleanField label="Policy Start Date" required>
+                  <DatePicker
+                    value={
+                      formData.newPolicyStartDate
+                        ? dayjs(formData.newPolicyStartDate)
+                        : null
+                    }
+                    onChange={(d) =>
                       handleNewPolicyStartOrDuration({
-                        newPolicyStartDate: e.target.value,
+                        newPolicyStartDate: d ? d.format("YYYY-MM-DD") : "",
                       })
                     }
-                    style={inputControlStyle}
+                    format="DD/MM/YYYY"
+                    allowClear
                   />
                 </CleanField>
               </div>
@@ -575,68 +738,33 @@ const Step5NewPolicyDetails = ({
               </div>
             </Col>
 
-            {formData.newPolicyType === "Comprehensive" && (
-              <>
-                <Col xs={24} md={8}>
-                  <div className={fieldWrapClass}>
-                    <CleanField label="OD Expiry Date" required>
-                      <Input
-                        type="date"
-                        value={formData.newOdExpiryDate}
-                        style={computedDateStyle}
-                        readOnly
-                        tabIndex={-1}
-                      />
-                    </CleanField>
-                  </div>
-                </Col>
-                <Col xs={24} md={8}>
-                  <div className={fieldWrapClass}>
-                    <CleanField label="TP Expiry Date" required>
-                      <Input
-                        type="date"
-                        value={formData.newTpExpiryDate}
-                        style={computedDateStyle}
-                        readOnly
-                        tabIndex={-1}
-                      />
-                    </CleanField>
-                  </div>
-                </Col>
-              </>
-            )}
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="OD Expiry Date">
+                  <Input
+                    type="date"
+                    value={formData.newOdExpiryDate}
+                    style={computedDateStyle}
+                    readOnly
+                    tabIndex={-1}
+                  />
+                </CleanField>
+              </div>
+            </Col>
 
-            {formData.newPolicyType === "Stand Alone OD" && (
-              <Col xs={24} md={8}>
-                <div className={fieldWrapClass}>
-                  <CleanField label="OD Expiry Date" required>
-                    <Input
-                      type="date"
-                      value={formData.newOdExpiryDate}
-                      style={computedDateStyle}
-                      readOnly
-                      tabIndex={-1}
-                    />
-                  </CleanField>
-                </div>
-              </Col>
-            )}
-
-            {formData.newPolicyType === "Third Party" && (
-              <Col xs={24} md={8}>
-                <div className={fieldWrapClass}>
-                  <CleanField label="TP Expiry Date" required>
-                    <Input
-                      type="date"
-                      value={formData.newTpExpiryDate}
-                      style={computedDateStyle}
-                      readOnly
-                      tabIndex={-1}
-                    />
-                  </CleanField>
-                </div>
-              </Col>
-            )}
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="TP Expiry Date">
+                  <Input
+                    type="date"
+                    value={formData.newTpExpiryDate}
+                    style={computedDateStyle}
+                    readOnly
+                    tabIndex={-1}
+                  />
+                </CleanField>
+              </div>
+            </Col>
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -654,7 +782,7 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="IDV Amount" required>
+                <CleanField label="IDV Amount (₹)" required>
                   <InputNumber
                     min={0}
                     value={Number(formData.newIdvAmount || 0)}
@@ -669,7 +797,7 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Total Premium" required>
+                <CleanField label="Total Premium (₹)" required>
                   <InputNumber
                     min={0}
                     value={Number(formData.newTotalPremium || 0)}
@@ -713,67 +841,6 @@ const Step5NewPolicyDetails = ({
                   placeholder="Notes..."
                 />
               </CleanField>
-            </Col>
-          </Row>
-        </div>
-      ),
-    },
-    {
-      key: "3",
-      label: (
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF3EF] text-slate-700 ring-1 ring-[#D6E6DF]">
-            <FileTextOutlined />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-slate-800">
-              Extended warranty
-            </div>
-            <div className="text-xs text-slate-500">
-              Optional warranty schedule and kilometers coverage
-            </div>
-          </div>
-        </div>
-      ),
-      children: (
-        <div className="pt-3">
-          <Row gutter={[22, 20]}>
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="EW Commencement Date">
-                  <Input
-                    type="date"
-                    value={formData.ewCommencementDate}
-                    onChange={handleChange("ewCommencementDate")}
-                    style={inputControlStyle}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="EW Expiry Date">
-                  <Input
-                    type="date"
-                    value={formData.ewExpiryDate}
-                    onChange={handleChange("ewExpiryDate")}
-                    style={inputControlStyle}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Kms Coverage">
-                  <InputNumber
-                    min={0}
-                    value={Number(formData.kmsCoverage || 0)}
-                    onChange={(v) => setField("kmsCoverage", Number(v || 0))}
-                    style={controlStyle}
-                    placeholder="e.g. 100000"
-                  />
-                </CleanField>
-              </div>
             </Col>
           </Row>
         </div>
@@ -828,7 +895,7 @@ const Step5NewPolicyDetails = ({
 
       <Row gutter={[20, 20]} align="top">
         <Col xs={24} xl={8}>
-          <div className="flex flex-col gap-4 md:sticky md:top-4">
+          <div className="flex flex-col gap-4 xl:sticky xl:top-24">
             <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#D6E6DF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
@@ -1008,7 +1075,7 @@ const Step5NewPolicyDetails = ({
           <div className={`${shellStyle} p-2 md:p-3`}>
             <Collapse
               ghost
-              defaultActiveKey={["1", "2", "3"]}
+              defaultActiveKey={["1"]}
               expandIconPosition="end"
               items={collapseItems}
             />

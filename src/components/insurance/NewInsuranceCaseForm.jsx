@@ -168,7 +168,7 @@ const initialFormState = {
   // Extended Warranty
   ewCommencementDate: "",
   ewExpiryDate: "",
-  kmsCoverage: 0,
+  kmsCoverage: "",
 
   // Payout Details
   insurance_receivables: [],
@@ -183,10 +183,11 @@ const initialFormState = {
 const initialQuoteDraft = {
   insuranceCompany: "",
   coverageType: "Comprehensive",
+  hypothecation: "Not Applicable",
   vehicleIdv: 0,
   cngIdv: 0,
   accessoriesIdv: 0,
-  policyDuration: "1yr OD + 3yr TP",
+  policyDuration: "1yr OD + 1yr TP",
   ncbDiscount: 0,
   odAmount: 0,
   thirdPartyAmount: 0,
@@ -197,6 +198,86 @@ const initialQuoteDraft = {
     (acc, name) => ({ ...acc, [name]: false }),
     {},
   ),
+};
+
+const STEP4_NCB_STEPPING = {
+  0: 20,
+  20: 25,
+  25: 35,
+  35: 45,
+  45: 50,
+  50: 50,
+};
+
+const normalizeNcbStepValue = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  if (n >= 50) return 50;
+  if (n >= 45) return 45;
+  if (n >= 35) return 35;
+  if (n >= 25) return 25;
+  if (n >= 20) return 20;
+  return 0;
+};
+
+const getSuggestedStep4Ncb = ({
+  previousNcbDiscount = 0,
+  claimTakenLastYear = "",
+} = {}) => {
+  if (String(claimTakenLastYear || "").trim() === "Yes") return 0;
+  const normalizedPrevious = normalizeNcbStepValue(previousNcbDiscount);
+  return STEP4_NCB_STEPPING[normalizedPrevious] ?? 0;
+};
+
+const getStep4DurationOptions = ({ coverageType = "Comprehensive", isNewCar }) => {
+  if (coverageType === "Comprehensive") {
+    return isNewCar
+      ? ["1yr OD + 3yr TP", "2yr OD + 3yr TP", "3yr OD + 3yr TP"]
+      : ["1yr OD + 1yr TP"];
+  }
+  if (coverageType === "Third Party") return ["1 Year", "2 Years", "3 Years"];
+  return ["1 Year", "2 Years", "3 Years"];
+};
+
+const getDefaultStep4PolicyDuration = ({ coverageType = "Comprehensive", isNewCar }) =>
+  getStep4DurationOptions({ coverageType, isNewCar })[0] || "";
+
+const buildQuoteSignature = (quote = {}) => {
+  const normalizedCompany = String(quote.insuranceCompany || "")
+    .trim()
+    .toLowerCase();
+  const normalizedCoverageRaw = String(quote.coverageType || "").trim();
+  const normalizedCoverage =
+    normalizedCoverageRaw === "Own Damage"
+      ? "Stand Alone OD"
+      : normalizedCoverageRaw;
+  const normalizedDuration = String(quote.policyDuration || "").trim();
+  const included = quote.addOnsIncluded && typeof quote.addOnsIncluded === "object"
+    ? quote.addOnsIncluded
+    : {};
+  const addOns = quote.addOns && typeof quote.addOns === "object" ? quote.addOns : {};
+  const addOnSignature = addOnCatalog
+    .map((name) => {
+      const isIncluded = included[name] ? 1 : 0;
+      const amount = Number(addOns[name] || 0);
+      return `${name}:${isIncluded}:${amount}`;
+    })
+    .join("|");
+
+  return JSON.stringify({
+    insuranceCompany: normalizedCompany,
+    coverageType: normalizedCoverage,
+    hypothecation: String(quote.hypothecation || "").trim(),
+    policyDuration: normalizedDuration,
+    vehicleIdv: Number(quote.vehicleIdv || 0),
+    cngIdv: Number(quote.cngIdv || 0),
+    accessoriesIdv: Number(quote.accessoriesIdv || 0),
+    ncbDiscount: Number(quote.ncbDiscount || 0),
+    odAmount: Number(quote.odAmount || 0),
+    thirdPartyAmount: Number(quote.thirdPartyAmount || 0),
+    addOnsAmount: Number(quote.addOnsAmount || 0),
+    addOns: addOnSignature,
+  });
 };
 
 /** Stable id for quote rows (saved cases may only have _id). */
@@ -265,9 +346,16 @@ const mapQuoteToDraft = (q) => {
     q.thirdPartyAmount ?? q.thirdParty ?? q.basicThirdParty ?? q.tpPremium ?? 0,
   );
 
+  const normalizedCoverage = String(q.coverageType || "Comprehensive").trim();
+  const coverageType =
+    normalizedCoverage === "Own Damage" ? "Stand Alone OD" : normalizedCoverage;
+
   return {
     insuranceCompany: String(q.insuranceCompany ?? "").trim(),
-    coverageType: String(q.coverageType || "Comprehensive"),
+    coverageType,
+    hypothecation: String(
+      q.hypothecation || initialQuoteDraft.hypothecation || "Not Applicable",
+    ),
     vehicleIdv,
     cngIdv,
     accessoriesIdv,
@@ -350,8 +438,26 @@ const computeQuoteBreakupFromRow = (q) => {
     if (!included[name]) return sum;
     return sum + Number(addOns[name] || 0);
   }, 0);
-  const rawAddOnsTotal = Number(q.addOnsAmount || 0) + selectedAddOnsTotal;
-  const addOnsTotal = allowsAddOns ? rawAddOnsTotal : 0;
+  const hasAnySelectedAddOn = addOnCatalog.some((name) => Boolean(included[name]));
+  const flatAddOnsAmount = Number(q.addOnsAmount || 0);
+  const hasFlatOverride =
+    flatAddOnsAmount > 0 &&
+    hasAnySelectedAddOn &&
+    Math.round(flatAddOnsAmount) !== Math.round(selectedAddOnsTotal);
+  const addOnsTotal = allowsAddOns
+    ? hasAnySelectedAddOn
+      ? hasFlatOverride
+        ? flatAddOnsAmount
+        : selectedAddOnsTotal
+      : flatAddOnsAmount
+    : 0;
+  const addOnsSource = !allowsAddOns
+    ? "none"
+    : hasAnySelectedAddOn
+      ? hasFlatOverride
+        ? "flat_override"
+        : "selected"
+      : "flat";
   const normalizedOdAmount = Number(
     q.odAmount ?? q.ownDamage ?? q.basicOwnDamage ?? q.odPremium ?? 0,
   );
@@ -372,9 +478,8 @@ const computeQuoteBreakupFromRow = (q) => {
     Number.isFinite(storedIdv) && storedIdv > 0 ? storedIdv : idvParts;
   const basePremium = odAmt + tpAmt + addOnsTotal;
   const ncbPct = normalizedNcbDiscount;
-  // NCB is always applied on OD component only.
-  const ncbAmount = Math.round((odAmt * ncbPct) / 100);
-  const taxableAmount = Math.max(basePremium - ncbAmount, 0);
+  const ncbReferenceAmount = Math.round((odAmt * ncbPct) / 100);
+  const taxableAmount = Math.max(basePremium, 0);
   const gstAmount = Math.round(taxableAmount * 0.18);
   const totalPremium = taxableAmount + gstAmount;
 
@@ -387,11 +492,13 @@ const computeQuoteBreakupFromRow = (q) => {
 
   return {
     addOnsTotal,
+    addOnsSource,
     odAmt,
     tpAmt,
     totalIdv,
     basePremium,
-    ncbAmount,
+    ncbReferenceAmount,
+    ncbPct,
     taxableAmount,
     gstAmount,
     totalPremium,
@@ -566,6 +673,7 @@ const NewInsuranceCaseForm = ({
     ...(initialValues || {}),
   });
   const [quoteDraft, setQuoteDraft] = useState(initialQuoteDraft);
+  const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [quotes, setQuotes] = useState([]);
   const [acceptedQuoteId, setAcceptedQuoteId] = useState(null);
@@ -657,8 +765,41 @@ const NewInsuranceCaseForm = ({
 
   const isCompany = formData.buyerType === "Company";
   const isNewCar = formData.vehicleType === "New Car";
+  const policyCategoryKey = String(
+    formData.policyCategory || formData.policyTypeSelector || "",
+  )
+    .trim()
+    .toLowerCase();
   const isExtendedWarranty =
-    String(formData.policyCategory || "").trim() === "Extended Warranty";
+    policyCategoryKey === "extended warranty" ||
+    policyCategoryKey === "ew policy";
+  const step4SuggestedNcb = useMemo(
+    () =>
+      getSuggestedStep4Ncb({
+        previousNcbDiscount: formData.previousNcbDiscount,
+        claimTakenLastYear: formData.claimTakenLastYear,
+      }),
+    [formData.claimTakenLastYear, formData.previousNcbDiscount],
+  );
+  const step4VehicleAgeYears = useMemo(() => {
+    const regDateRaw = String(formData.dateOfReg || "").trim();
+    if (regDateRaw) {
+      const regDate = dayjs(regDateRaw);
+      if (regDate.isValid()) return dayjs().diff(regDate, "year", true);
+    }
+    const mfgYear = Number(formData.manufactureYear || 0);
+    if (Number.isFinite(mfgYear) && mfgYear > 1900) {
+      return dayjs().diff(dayjs(`${mfgYear}-01-01`), "year", true);
+    }
+    return null;
+  }, [formData.dateOfReg, formData.manufactureYear]);
+  const step4ShowStandaloneAgeWarning =
+    step4VehicleAgeYears != null && step4VehicleAgeYears > 3;
+  const step4SuggestedIdv = useMemo(() => {
+    const previousIdv = Number(formData.previousIdvAmount || 0);
+    if (!Number.isFinite(previousIdv) || previousIdv <= 0) return 0;
+    return Math.round(previousIdv * 0.9);
+  }, [formData.previousIdvAmount]);
 
   const applyCustomerToForm = useCallback(
     (customer) => {
@@ -2025,6 +2166,7 @@ const NewInsuranceCaseForm = ({
   const shouldSkipStep = useCallback(
     (stepNumber) => {
       if ((isNewCar || isExtendedWarranty) && stepNumber === 3) return true;
+      if (isExtendedWarranty && stepNumber === 4) return true;
       if (stepNumber === 5) return true; // Premium Breakup removed from flow
       return false;
     },
@@ -2052,6 +2194,12 @@ const NewInsuranceCaseForm = ({
   }, [isExtendedWarranty, isNewCar, step]);
 
   useEffect(() => {
+    if (isExtendedWarranty && step === 4) {
+      setStep(6);
+    }
+  }, [isExtendedWarranty, step]);
+
+  useEffect(() => {
     if (step === 5) {
       setStep(6);
     }
@@ -2069,9 +2217,28 @@ const NewInsuranceCaseForm = ({
       if (!quoteDraft.addOnsIncluded?.[name]) return sum;
       return sum + Number(quoteDraft.addOns?.[name] || 0);
     }, 0);
-    const rawAddOnsTotal =
-      Number(quoteDraft.addOnsAmount || 0) + selectedAddOnsTotal;
-    const addOnsTotal = allowsAddOns ? rawAddOnsTotal : 0;
+    const hasAnySelectedAddOn = addOnCatalog.some((name) =>
+      Boolean(quoteDraft.addOnsIncluded?.[name]),
+    );
+    const flatAddOnsAmount = Number(quoteDraft.addOnsAmount || 0);
+    const hasFlatOverride =
+      flatAddOnsAmount > 0 &&
+      hasAnySelectedAddOn &&
+      Math.round(flatAddOnsAmount) !== Math.round(selectedAddOnsTotal);
+    const addOnsTotal = allowsAddOns
+      ? hasAnySelectedAddOn
+        ? hasFlatOverride
+          ? flatAddOnsAmount
+          : selectedAddOnsTotal
+        : flatAddOnsAmount
+      : 0;
+    const addOnsSource = !allowsAddOns
+      ? "none"
+      : hasAnySelectedAddOn
+        ? hasFlatOverride
+          ? "flat_override"
+          : "selected"
+        : "flat";
     const odAmt = includesOd ? Number(quoteDraft.odAmount || 0) : 0;
     const tpAmt = includesTp ? Number(quoteDraft.thirdPartyAmount || 0) : 0;
     const totalIdv =
@@ -2079,29 +2246,87 @@ const NewInsuranceCaseForm = ({
       Number(quoteDraft.cngIdv || 0) +
       Number(quoteDraft.accessoriesIdv || 0);
 
-    // ── NCB applies ONLY on OD premium (IRDAI standard).
-    //    TP premium is fixed by regulator — NCB never reduces it.
-    //    Add-ons are also excluded from NCB benefit.
-    const ncbAmount = Math.round(
-      (odAmt * Number(quoteDraft.ncbDiscount || 0)) / 100,
-    );
+    const ncbPct = Number(quoteDraft.ncbDiscount || 0);
+    const ncbReferenceAmount = Math.round((odAmt * ncbPct) / 100);
     const basePremium = odAmt + tpAmt + addOnsTotal;
-    const taxableAmount = Math.max(basePremium - ncbAmount, 0);
+    const taxableAmount = Math.max(basePremium, 0);
     const gstAmount = Math.round(taxableAmount * 0.18);
     const totalPremium = taxableAmount + gstAmount;
     return {
       selectedAddOnsTotal,
       addOnsTotal,
+      addOnsSource,
       odAmt,
       tpAmt,
       totalIdv,
       basePremium,
-      ncbAmount,
+      ncbReferenceAmount,
+      ncbPct,
       taxableAmount,
       gstAmount,
       totalPremium,
     };
   }, [quoteDraft]);
+
+  useEffect(() => {
+    setQuoteDraft((prev) => {
+      if (editingQuoteId) return prev;
+      const nextDuration = getDefaultStep4PolicyDuration({
+        coverageType: prev.coverageType || "Comprehensive",
+        isNewCar,
+      });
+      const currentDuration = String(prev.policyDuration || "").trim();
+      const durationOptionsForCurrent = getStep4DurationOptions({
+        coverageType: prev.coverageType || "Comprehensive",
+        isNewCar,
+      });
+      const resolvedDuration = durationOptionsForCurrent.includes(currentDuration)
+        ? currentDuration
+        : nextDuration;
+      const nextNcb = Number(step4SuggestedNcb || 0);
+      const shouldSyncNcb =
+        !String(prev.insuranceCompany || "").trim() &&
+        Number(prev.odAmount || 0) === 0 &&
+        Number(prev.thirdPartyAmount || 0) === 0 &&
+        !addOnCatalog.some((name) => Boolean(prev.addOnsIncluded?.[name]));
+      const previousHypothecation = String(
+        formData.previousHypothecation || "Not Applicable",
+      ).trim();
+      const currentHypothecation = String(
+        prev.hypothecation || "Not Applicable",
+      ).trim();
+      const shouldSyncHypothecation =
+        !String(prev.insuranceCompany || "").trim() &&
+        Number(prev.odAmount || 0) === 0 &&
+        Number(prev.thirdPartyAmount || 0) === 0 &&
+        !addOnCatalog.some((name) => Boolean(prev.addOnsIncluded?.[name])) &&
+        (!currentHypothecation ||
+          currentHypothecation.toLowerCase() === "not applicable");
+
+      if (
+        resolvedDuration === currentDuration &&
+        (!shouldSyncNcb || Number(prev.ncbDiscount || 0) === nextNcb) &&
+        (!shouldSyncHypothecation ||
+          currentHypothecation === previousHypothecation)
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        policyDuration: resolvedDuration,
+        ...(shouldSyncNcb ? { ncbDiscount: nextNcb } : {}),
+        ...(shouldSyncHypothecation
+          ? { hypothecation: previousHypothecation || "Not Applicable" }
+          : {}),
+      };
+    });
+  }, [
+    editingQuoteId,
+    formData.previousHypothecation,
+    isNewCar,
+    step4SuggestedNcb,
+  ]);
 
   const handleChange = (field) => (event) => {
     const nextValue = event?.target?.value;
@@ -2262,7 +2487,7 @@ const NewInsuranceCaseForm = ({
     if (step === 2) return Object.keys(step2Errors).length === 0;
     if (step === 3 && !shouldSkipStep(3))
       return Object.keys(step3Errors).length === 0;
-    if (step === 4) return quotes.length > 0;
+    if (step === 4 && !shouldSkipStep(4)) return quotes.length > 0;
     return true;
   };
 
@@ -2308,25 +2533,102 @@ const NewInsuranceCaseForm = ({
     // persistNow({ silent: true });
   };
 
-  const addQuote = () => {
-    if (!quoteDraft.insuranceCompany.trim()) return;
-    const newQuote = {
-      id: Date.now(),
-      ...quoteDraft,
-      totalIdv: quoteComputed.totalIdv,
-      addOnsTotal: quoteComputed.addOnsTotal,
-      taxableAmount: quoteComputed.taxableAmount,
-      gstAmount: quoteComputed.gstAmount,
-      totalPremium: quoteComputed.totalPremium,
-      isAccepted: quotes.length === 0,
-    };
-    setQuotes((prev) => [...prev, newQuote]);
-    if (quotes.length === 0) setAcceptedQuoteId(newQuote.id);
+  const resetQuoteDraft = useCallback(() => {
     setQuoteDraft({
       ...initialQuoteDraft,
+      policyDuration: getDefaultStep4PolicyDuration({
+        coverageType: initialQuoteDraft.coverageType,
+        isNewCar,
+      }),
+      ncbDiscount: Number(step4SuggestedNcb || 0),
+      hypothecation: String(
+        formData.previousHypothecation || "Not Applicable",
+      ).trim(),
       addOns: { ...initialQuoteDraft.addOns },
       addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
     });
+    setEditingQuoteId(null);
+  }, [formData.previousHypothecation, isNewCar, step4SuggestedNcb]);
+
+  const startEditQuote = useCallback(
+    (quoteRow) => {
+      if (!quoteRow) return;
+      setEditingQuoteId(getQuoteRowId(quoteRow));
+      setQuoteDraft(mapQuoteToDraft(quoteRow));
+    },
+    [setQuoteDraft],
+  );
+
+  const deleteQuote = useCallback(
+    (id) => {
+      const quoteId = String(id ?? "");
+      let nextAcceptedId = acceptedQuoteId;
+      setQuotes((prev) => {
+        const filtered = (prev || []).filter(
+          (q) => String(getQuoteRowId(q)) !== quoteId,
+        );
+        const acceptedStillExists = filtered.some(
+          (q) => String(getQuoteRowId(q)) === String(nextAcceptedId ?? ""),
+        );
+        if (!acceptedStillExists) {
+          nextAcceptedId = null;
+        }
+        return filtered;
+      });
+      setAcceptedQuoteId(nextAcceptedId);
+      if (String(editingQuoteId ?? "") === quoteId) {
+        resetQuoteDraft();
+      }
+    },
+    [acceptedQuoteId, editingQuoteId, resetQuoteDraft],
+  );
+
+  const addQuote = () => {
+    if (!quoteDraft.insuranceCompany.trim()) return;
+    const normalizedQuotePayload = {
+      ...quoteDraft,
+      totalIdv: quoteComputed.totalIdv,
+      addOnsTotal: quoteComputed.addOnsTotal,
+      addOnsSource: quoteComputed.addOnsSource,
+      taxableAmount: quoteComputed.taxableAmount,
+      gstAmount: quoteComputed.gstAmount,
+      totalPremium: quoteComputed.totalPremium,
+    };
+
+    const nextSignature = buildQuoteSignature(normalizedQuotePayload);
+    const hasDuplicate = (quotes || []).some((existing) => {
+      const existingId = String(getQuoteRowId(existing));
+      if (editingQuoteId && existingId === String(editingQuoteId)) return false;
+      return buildQuoteSignature(existing) === nextSignature;
+    });
+    if (hasDuplicate) {
+      message.warning("Exact duplicate quote already exists.");
+      return;
+    }
+
+    if (editingQuoteId) {
+      setQuotes((prev) =>
+        (prev || []).map((q) => {
+          if (String(getQuoteRowId(q)) !== String(editingQuoteId)) return q;
+          return {
+            ...q,
+            ...normalizedQuotePayload,
+            id: getQuoteRowId(q),
+          };
+        }),
+      );
+      setEditingQuoteId(null);
+      resetQuoteDraft();
+      return;
+    }
+
+    const newQuote = {
+      id: Date.now(),
+      ...normalizedQuotePayload,
+      isAccepted: false,
+    };
+    setQuotes((prev) => [...prev, newQuote]);
+    resetQuoteDraft();
     // persistNow({ silent: true });
   };
 
@@ -2372,9 +2674,6 @@ const NewInsuranceCaseForm = ({
       cancelText: "Cancel",
       onOk: () => {
         setFormData((prev) => {
-          const odTp = yearsFromDuration(q.policyDuration);
-          const startDate =
-            prev.newPolicyStartDate || new Date().toISOString().slice(0, 10);
           const breakup = computeQuoteBreakupFromRow(q);
           const payoutBaseAmount =
             Number(breakup?.odAmt || 0) + Number(breakup?.addOnsTotal || 0);
@@ -2397,9 +2696,10 @@ const NewInsuranceCaseForm = ({
             newNcbDiscount: q.ncbDiscount,
             newIdvAmount: q.totalIdv,
             newTotalPremium: Math.round(Number(breakup?.totalPremium || 0)),
-            newPolicyStartDate: startDate,
-            newOdExpiryDate: calcExpiryDate(startDate, odTp.odYears),
-            newTpExpiryDate: calcExpiryDate(startDate, odTp.tpYears),
+            newHypothecation:
+              String(q.hypothecation || "").trim() ||
+              String(prev.previousHypothecation || "").trim() ||
+              "Not Applicable",
             payoutPercentage: Number(selectedPayoutPercentage || 0),
             insurance_receivables: [...existingReceivables, nextReceivable],
           };
@@ -2572,7 +2872,7 @@ const NewInsuranceCaseForm = ({
         />
       );
     }
-    if (step === 4 && quotes.length === 0) {
+    if (step === 4 && !shouldSkipStep(4) && quotes.length === 0) {
       return (
         <Alert
           type="error"
@@ -2582,7 +2882,15 @@ const NewInsuranceCaseForm = ({
       );
     }
     return null;
-  }, [showErrors, step, step1Errors, step2Errors, step3Errors, quotes.length]);
+  }, [
+    showErrors,
+    step,
+    step1Errors,
+    step2Errors,
+    step3Errors,
+    quotes.length,
+    shouldSkipStep,
+  ]);
 
   const docRows = useMemo(() => {
     return (documents || []).map((d) => ({
@@ -2670,6 +2978,7 @@ const NewInsuranceCaseForm = ({
           />
         );
       case 4:
+        if (isExtendedWarranty) return null;
         return (
           <Step4InsuranceQuotes
             quoteDraft={quoteDraft}
@@ -2682,15 +2991,21 @@ const NewInsuranceCaseForm = ({
             showErrors={showErrors}
             addQuote={addQuote}
             acceptQuote={acceptQuote}
+            deleteQuote={deleteQuote}
             initialQuoteDraft={initialQuoteDraft}
-            mapQuoteToDraft={mapQuoteToDraft}
-            durationOptions={durationOptions}
+            onStartEditQuote={startEditQuote}
+            editingQuoteId={editingQuoteId}
+            isNewCar={isNewCar}
+            suggestedNcbDiscount={step4SuggestedNcb}
+            suggestedIdv={step4SuggestedIdv}
+            showStandaloneAgeWarning={step4ShowStandaloneAgeWarning}
             toINR={toINR}
             getQuoteRowId={getQuoteRowId}
             computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
             formatStoredOrComputedIdv={formatStoredOrComputedIdv}
             formatStoredOrComputedPremium={formatStoredOrComputedPremium}
             onSaveDraft={() => persistNow({ silent: false })}
+            onResetQuoteDraft={resetQuoteDraft}
             isSaving={saving}
             planFeaturesModal={planFeaturesModal}
             setPlanFeaturesModal={setPlanFeaturesModal}

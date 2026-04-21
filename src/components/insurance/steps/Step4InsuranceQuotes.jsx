@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  AutoComplete,
   Button,
   Divider,
   Input,
@@ -22,40 +23,92 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import { addOnCatalog } from "./allSteps";
+import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
+import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
+import "./Step4InsuranceQuotes.css";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
-const NCB_SLAB_OPTIONS = [
-  { label: "0 Year (0%)", value: 0, percent: 0 },
-  { label: "1 Year (20%)", value: 1, percent: 20 },
-  { label: "2 Years (25%)", value: 2, percent: 25 },
-  { label: "3 Years (35%)", value: 3, percent: 35 },
-  { label: "4 Years (45%)", value: 4, percent: 45 },
-  { label: "5+ Years (50%)", value: 5, percent: 50 },
-];
-
 const inrInputProps = {
   formatter: (value) => {
-    const raw = `${value ?? ""}`.replace(/,/g, "");
+    const raw = `${value ?? ""}`.replace(/[^\d.-]/g, "");
     if (!raw) return "";
     const [whole, decimals] = raw.split(".");
-    const formattedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const formattedWhole = new Intl.NumberFormat("en-IN").format(
+      Number(whole || 0),
+    );
     return decimals !== undefined
       ? `${formattedWhole}.${decimals}`
       : formattedWhole;
   },
-  parser: (value) => `${value ?? ""}`.replace(/,/g, ""),
+  parser: (value) => `${value ?? ""}`.replace(/[^\d.-]/g, ""),
+};
+
+const NCB_OPTIONS = [0, 20, 25, 35, 45, 50].map((value) => ({
+  label: `${value}%`,
+  value,
+}));
+
+const HYPOTHECATION_OPTIONS = [
+  { label: "Not Applicable", value: "Not Applicable" },
+  ...lenderHypothecationOptions.map((option) => ({
+    label: option.value,
+    value: option.value,
+  })),
+];
+
+const INSURER_LOGO_DOMAIN_MAP = {
+  "Acko General Insurance Limited": "acko.com",
+  "Bajaj General Insurance Limited": "bajajallianz.com",
+  "Cholamandalam MS General Insurance Company Limited": "cholainsurance.com",
+  "Go Digit General Insurance Limited": "godigit.com",
+  "HDFC ERGO General Insurance Company Limited": "hdfcergo.com",
+  "ICICI Lombard General Insurance Company Limited": "icicilombard.com",
+  "IFFCO TOKIO General Insurance Company Limited": "iffcotokio.co.in",
+  "Zurich Kotak General Insurance Company (India) Limited": "kotakgeneral.com",
+  "Liberty General Insurance Limited": "libertyinsurance.in",
+  "Magma General Insurance Limited": "magmahdi.com",
+  "Navi General Insurance Limited": "navi.com",
+  "Royal Sundaram General Insurance Company Limited": "royalsundaram.in",
+  "SBI General Insurance Company Limited": "sbigeneral.in",
+  "Shriram General Insurance Company Limited": "shriramgi.com",
+  "Tata AIG General Insurance Company Limited": "tataaig.com",
+  "The New India Assurance Company Limited": "newindia.co.in",
+  "The Oriental Insurance Company Limited": "orientalinsurance.org.in",
+  "United India Insurance Company Limited": "uiic.co.in",
+  "Universal Sompo General Insurance Company Limited": "universalsompo.com",
+  "Zuno General Insurance Ltd.": "hizuno.com",
+};
+
+const getInsurerLogoCandidates = (companyName) => {
+  const company = String(companyName || "").trim();
+  if (!company) return [];
+  const domain = INSURER_LOGO_DOMAIN_MAP[company];
+  if (!domain) return [];
+  return [
+    `https://logo.clearbit.com/${domain}`,
+    `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+  ];
 };
 
 // ── FieldBlock ──
-const FieldBlock = ({ label, required, children }) => (
-  <div className="flex flex-col gap-1.5">
+const FieldBlock = ({
+  label,
+  required,
+  children,
+  className = "",
+  helper = null,
+}) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
     <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
       {label}
       {required && <span className="ml-0.5 text-[#D8B8B4]">*</span>}
     </label>
     {children}
+    <div className="min-h-[16px] pt-0.5 text-[11px] text-slate-500 leading-4">
+      {helper || <span className="opacity-0">.</span>}
+    </div>
   </div>
 );
 
@@ -149,8 +202,7 @@ const QuoteCard = ({
   formatStoredOrComputedPremium,
   toINR,
   acceptQuote,
-  setQuoteDraft,
-  mapQuoteToDraft,
+  onStartEditQuote,
   onDelete,
 }) => {
   const [showAllAddons, setShowAllAddons] = React.useState(false);
@@ -160,9 +212,7 @@ const QuoteCard = ({
   const breakup = computeQuoteBreakupFromRow(row);
   const palette = addonPalette[idx % addonPalette.length];
   const ncbPct = Number(row.ncbDiscount || 0);
-  const ncbAmount = Number(breakup?.ncbAmount || 0);
   const odBeforeNcb = Number(breakup?.odAmt || 0);
-  const odAfterNcb = Math.max(odBeforeNcb - ncbAmount, 0);
   const allPremiums = quoteRows.map(
     (r) => computeQuoteBreakupFromRow(r)?.totalPremium ?? 0,
   );
@@ -182,6 +232,13 @@ const QuoteCard = ({
     .toString()
     .slice(0, 2)
     .toUpperCase();
+  const logoCandidates = React.useMemo(
+    () => getInsurerLogoCandidates(row.insuranceCompany),
+    [row.insuranceCompany],
+  );
+  const [logoIdx, setLogoIdx] = React.useState(0);
+  React.useEffect(() => setLogoIdx(0), [row.insuranceCompany]);
+  const logoUrl = logoCandidates[logoIdx] || "";
 
   return (
     <div
@@ -223,7 +280,18 @@ const QuoteCard = ({
                   }
                 `}
             >
-              {initial}
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={row.insuranceCompany || "Insurer"}
+                  className="h-8 w-8 rounded-md object-contain bg-white"
+                  onError={(e) => {
+                    setLogoIdx((prev) => prev + 1);
+                  }}
+                />
+              ) : (
+                initial
+              )}
             </div>
             <div className="min-w-0">
               <p className="m-0 truncate text-sm font-bold text-slate-800 leading-tight">
@@ -267,21 +335,14 @@ const QuoteCard = ({
           Premium Breakup
         </p>
 
-        <BreakupRow label="Own Damage" value={toINR(odAfterNcb)} bold />
+        <BreakupRow label="Own Damage" value={toINR(odBeforeNcb)} bold />
         <BreakupRow
-          label="Own Damage before NCB"
+          label="Own Damage (Base)"
           value={toINR(odBeforeNcb)}
           indent
           muted
         />
-        {ncbPct > 0 && (
-          <BreakupRow
-            label={`NCB Discount (${ncbPct}%)`}
-            value={`-${toINR(ncbAmount)}`}
-            indent
-            muted
-          />
-        )}
+        <BreakupRow label="NCB %" value={`${ncbPct}%`} indent muted />
 
         <BreakupRow
           label="Third Party"
@@ -295,38 +356,49 @@ const QuoteCard = ({
           muted
         />
 
-        {includedAddons.length > 0 && (
+        {(includedAddons.length > 0 || Number(breakup?.addOnsTotal || 0) > 0) && (
           <>
             <BreakupRow
               label="Add Ons"
               value={toINR(breakup?.addOnsTotal ?? 0)}
               bold
             />
-            {visibleAddons.map(({ name, amt }) => (
+            {includedAddons.length > 0 ? (
+              <>
+                {visibleAddons.map(({ name, amt }) => (
+                  <BreakupRow
+                    key={name}
+                    label={name}
+                    value={amt > 0 ? toINR(amt) : "included"}
+                    indent
+                    muted
+                  />
+                ))}
+                {includedAddons.length > 4 && (
+                  <button
+                    onClick={() => setShowAllAddons((p) => !p)}
+                    className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-slate-600 hover:text-slate-700 transition-colors"
+                  >
+                    <span
+                      className={`inline-block transition-transform duration-200 ${
+                        showAllAddons ? "rotate-180" : ""
+                      }`}
+                    >
+                      ▾
+                    </span>
+                    {showAllAddons
+                      ? "Show Less"
+                      : `+${includedAddons.length - 4} More Add-ons`}
+                  </button>
+                )}
+              </>
+            ) : (
               <BreakupRow
-                key={name}
-                label={name}
-                value={amt > 0 ? toINR(amt) : "included"}
+                label="Add-ons Amount (Total)"
+                value={toINR(breakup?.addOnsTotal ?? 0)}
                 indent
                 muted
               />
-            ))}
-            {includedAddons.length > 4 && (
-              <button
-                onClick={() => setShowAllAddons((p) => !p)}
-                className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-slate-600 hover:text-slate-700 transition-colors"
-              >
-                <span
-                  className={`inline-block transition-transform duration-200 ${
-                    showAllAddons ? "rotate-180" : ""
-                  }`}
-                >
-                  ▾
-                </span>
-                {showAllAddons
-                  ? "Show Less"
-                  : `+${includedAddons.length - 4} More Add-ons`}
-              </button>
             )}
           </>
         )}
@@ -373,7 +445,7 @@ const QuoteCard = ({
           </button>
 
           <button
-            onClick={() => setQuoteDraft(mapQuoteToDraft(row))}
+            onClick={() => onStartEditQuote?.(row)}
             title="Edit quote"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
           >
@@ -416,16 +488,21 @@ const Step4InsuranceQuotes = ({
   showErrors,
   addQuote,
   acceptQuote,
-  deleteQuote,
   initialQuoteDraft,
-  mapQuoteToDraft,
-  durationOptions,
+  onStartEditQuote,
+  deleteQuote,
+  editingQuoteId = null,
+  isNewCar = false,
+  suggestedNcbDiscount = 0,
+  suggestedIdv = 0,
+  showStandaloneAgeWarning = false,
   toINR,
   getQuoteRowId,
   computeQuoteBreakupFromRow,
   formatStoredOrComputedIdv,
   formatStoredOrComputedPremium,
   onSaveDraft,
+  onResetQuoteDraft,
   isSaving = false,
 }) => {
   const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
@@ -433,31 +510,40 @@ const Step4InsuranceQuotes = ({
   const tpAmt = Number(quoteComputed?.tpAmt || 0);
   const addOnsTotal = Number(quoteComputed?.addOnsTotal || 0);
   const basePremium = odAmt + tpAmt + addOnsTotal;
-  const ncbAmount = Number(quoteComputed?.ncbAmount || 0);
-  const taxableAmount = Math.max(basePremium - ncbAmount, 0);
+  const taxableAmount = Number(quoteComputed?.taxableAmount || basePremium);
   const gstAmount = Number(quoteComputed?.gstAmount || 0);
   const totalPremium = taxableAmount + gstAmount;
   const ncbPct = Number(quoteDraft?.ncbDiscount || 0);
   const coverageType = String(quoteDraft?.coverageType || "Comprehensive");
-  const ncbYears =
-    NCB_SLAB_OPTIONS.find((item) => item.percent === ncbPct)?.value ?? null;
-  const handleNcbYearsChange = (years) => {
-    const selected = NCB_SLAB_OPTIONS.find((item) => item.value === years);
-    setQuoteDraft((p) => ({
-      ...p,
-      ncbClaimFreeYears: years,
-      ncbDiscount: Number(selected?.percent ?? p.ncbDiscount ?? 0),
-    }));
-  };
+
+  const durationSelectOptions = React.useMemo(() => {
+    if (coverageType === "Comprehensive") {
+      return isNewCar
+        ? ["1yr OD + 3yr TP", "2yr OD + 3yr TP", "3yr OD + 3yr TP"]
+        : ["1yr OD + 1yr TP"];
+    }
+    if (coverageType === "Third Party") return ["1 Year", "2 Years", "3 Years"];
+    return ["1 Year", "2 Years", "3 Years"];
+  }, [coverageType, isNewCar]);
+
+  React.useEffect(() => {
+    const current = String(quoteDraft?.policyDuration || "").trim();
+    if (durationSelectOptions.includes(current)) return;
+    const fallback = durationSelectOptions[0] || "";
+    setQuoteDraft((p) => ({ ...p, policyDuration: fallback }));
+  }, [durationSelectOptions, quoteDraft?.policyDuration, setQuoteDraft]);
+
+  const isStandAloneOd =
+    coverageType === "Stand Alone OD" || coverageType === "Own Damage";
   const basePremiumFormulaText =
     coverageType === "Third Party"
       ? `3P: ${toINR(tpAmt)}`
-      : coverageType === "Own Damage"
+      : isStandAloneOd
         ? `OD: ${toINR(odAmt)} + Add-ons: ${toINR(addOnsTotal)}`
         : `OD: ${toINR(odAmt)} + 3P: ${toINR(tpAmt)} + Add-ons: ${toINR(addOnsTotal)}`;
 
   return (
-    <div className="min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
+    <div className="insurance-step4 min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
       {/* Page Header */}
       <div className="mb-5 rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -504,53 +590,167 @@ const Step4InsuranceQuotes = ({
               <ThunderboltOutlined className="text-[#D8B8B4]" />
               Quote Details
             </p>
-            <div className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-              <FieldBlock label="Insurance Company" required>
-                <Input
+            <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FieldBlock
+                label="Insurance Company"
+                required
+                className="sm:col-span-2 lg:col-span-2"
+              >
+                <AutoComplete
                   value={quoteDraft.insuranceCompany}
-                  onChange={(e) =>
+                  style={{ width: "100%" }}
+                  options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
+                    value: name,
+                  }))}
+                  onChange={(value) =>
                     setQuoteDraft((p) => ({
                       ...p,
-                      insuranceCompany: e.target.value,
+                      insuranceCompany: String(value || ""),
                     }))
                   }
-                  placeholder="e.g. HDFC ERGO"
-                />
+                  filterOption={(inputValue, option) =>
+                    String(option?.value || "")
+                      .toLowerCase()
+                      .includes(String(inputValue || "").toLowerCase())
+                  }
+                >
+                  <Input
+                    size="large"
+                    className="quote-control"
+                    placeholder="e.g. HDFC ERGO"
+                  />
+                </AutoComplete>
               </FieldBlock>
 
               <FieldBlock label="Coverage Type" required>
                 <Select
+                  size="large"
                   value={quoteDraft.coverageType}
                   onChange={(v) =>
                     setQuoteDraft((p) => ({ ...p, coverageType: v }))
                   }
                   placeholder="Select type"
-                  className="w-full"
+                  className="w-full quote-control"
                   options={[
                     { label: "Comprehensive", value: "Comprehensive" },
                     { label: "Third Party", value: "Third Party" },
-                    { label: "Own Damage", value: "Own Damage" },
+                    { label: "Stand Alone OD", value: "Stand Alone OD" },
                   ]}
                 />
               </FieldBlock>
 
               <FieldBlock label="Policy Duration" required>
                 <Select
+                  size="large"
                   value={quoteDraft.policyDuration}
                   onChange={(v) =>
                     setQuoteDraft((p) => ({ ...p, policyDuration: v }))
                   }
                   placeholder="Duration"
-                  className="w-full"
-                  options={durationOptions.map((d) => ({
+                  className="w-full quote-control"
+                  options={durationSelectOptions.map((d) => ({
                     label: d,
                     value: d,
                   }))}
                 />
               </FieldBlock>
 
-              <FieldBlock label="Vehicle IDV (₹)">
+              <FieldBlock
+                label="NCB Discount (%)"
+                helper={
+                  <>
+                    Suggested NCB:{" "}
+                    <b className="text-slate-700">
+                      {Number(suggestedNcbDiscount || 0)}%
+                    </b>
+                    {Number(quoteDraft.ncbDiscount || 0) !==
+                    Number(suggestedNcbDiscount || 0) ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuoteDraft((p) => ({
+                            ...p,
+                            ncbDiscount: Number(suggestedNcbDiscount || 0),
+                          }))
+                        }
+                        className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
+                      >
+                        Use suggested
+                      </button>
+                    ) : null}
+                  </>
+                }
+              >
+                <Select
+                  size="large"
+                  value={Number(quoteDraft.ncbDiscount || 0)}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      ncbDiscount: Number(v || 0),
+                    }))
+                  }
+                  className="w-full quote-control"
+                  options={NCB_OPTIONS}
+                />
+              </FieldBlock>
+
+              <FieldBlock
+                label="Hypothecation"
+                helper={
+                  <span>
+                    Quote-level value. Defaults from previous policy and remains editable.
+                  </span>
+                }
+              >
+                <Select
+                  size="large"
+                  value={quoteDraft.hypothecation || "Not Applicable"}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      hypothecation: v,
+                    }))
+                  }
+                  className="w-full quote-control"
+                  options={HYPOTHECATION_OPTIONS}
+                  showSearch
+                  filterOption={(input, option) =>
+                    String(option?.label || "")
+                      .toLowerCase()
+                      .includes(String(input || "").toLowerCase())
+                  }
+                />
+              </FieldBlock>
+
+              <FieldBlock
+                label="Vehicle IDV (₹)"
+                className="sm:col-start-1 lg:col-start-1"
+                helper={
+                  <>
+                    Suggested IDV:{" "}
+                    <b className="text-slate-700">{toINR(Number(suggestedIdv || 0))}</b>
+                    {Number(suggestedIdv || 0) > 0 &&
+                    Number(quoteDraft.vehicleIdv || 0) !==
+                      Number(suggestedIdv || 0) ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuoteDraft((p) => ({
+                            ...p,
+                            vehicleIdv: Number(suggestedIdv || 0),
+                          }))
+                        }
+                        className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
+                      >
+                        Use suggested IDV
+                      </button>
+                    ) : null}
+                  </>
+                }
+              >
                 <InputNumber
+                  size="large"
                   min={0}
                   value={Number(quoteDraft.vehicleIdv || 0)}
                   onChange={(v) =>
@@ -559,7 +759,7 @@ const Step4InsuranceQuotes = ({
                       vehicleIdv: Number(v || 0),
                     }))
                   }
-                  className="w-full"
+                  className="w-full quote-control"
                   addonBefore="₹"
                   {...inrInputProps}
                 />
@@ -567,12 +767,13 @@ const Step4InsuranceQuotes = ({
 
               <FieldBlock label="CNG IDV (₹)">
                 <InputNumber
+                  size="large"
                   min={0}
                   value={Number(quoteDraft.cngIdv || 0)}
                   onChange={(v) =>
                     setQuoteDraft((p) => ({ ...p, cngIdv: Number(v || 0) }))
                   }
-                  className="w-full"
+                  className="w-full quote-control"
                   addonBefore="₹"
                   {...inrInputProps}
                 />
@@ -580,6 +781,7 @@ const Step4InsuranceQuotes = ({
 
               <FieldBlock label="Accessories IDV (₹)">
                 <InputNumber
+                  size="large"
                   min={0}
                   value={Number(quoteDraft.accessoriesIdv || 0)}
                   onChange={(v) =>
@@ -588,7 +790,7 @@ const Step4InsuranceQuotes = ({
                       accessoriesIdv: Number(v || 0),
                     }))
                   }
-                  className="w-full"
+                  className="w-full quote-control"
                   addonBefore="₹"
                   {...inrInputProps}
                 />
@@ -596,6 +798,7 @@ const Step4InsuranceQuotes = ({
 
               <FieldBlock label="OD Amount (₹)">
                 <InputNumber
+                  size="large"
                   min={0}
                   value={Number(quoteDraft.odAmount || 0)}
                   onChange={(v) =>
@@ -604,7 +807,7 @@ const Step4InsuranceQuotes = ({
                       odAmount: Number(v || 0),
                     }))
                   }
-                  className="w-full"
+                  className="w-full quote-control"
                   addonBefore="₹"
                   {...inrInputProps}
                 />
@@ -612,6 +815,7 @@ const Step4InsuranceQuotes = ({
 
               <FieldBlock label="3rd Party Amount (₹)">
                 <InputNumber
+                  size="large"
                   min={0}
                   value={Number(quoteDraft.thirdPartyAmount || 0)}
                   onChange={(v) =>
@@ -620,43 +824,15 @@ const Step4InsuranceQuotes = ({
                       thirdPartyAmount: Number(v || 0),
                     }))
                   }
-                  className="w-full"
+                  className="w-full quote-control"
                   addonBefore="₹"
                   {...inrInputProps}
                 />
               </FieldBlock>
 
-              <FieldBlock label="NCB Discount (%)">
-                <InputNumber
-                  min={0}
-                  max={100}
-                  value={Number(quoteDraft.ncbDiscount || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      ncbDiscount: Number(v || 0),
-                    }))
-                  }
-                  className="w-full"
-                  addonAfter="%"
-                />
-              </FieldBlock>
-
-              <FieldBlock label="Claim-Free Years (Auto NCB)">
-                <Select
-                  value={ncbYears}
-                  onChange={handleNcbYearsChange}
-                  placeholder="Select claim-free years"
-                  className="w-full"
-                  options={NCB_SLAB_OPTIONS.map((item) => ({
-                    label: item.label,
-                    value: item.value,
-                  }))}
-                />
-              </FieldBlock>
-
               <FieldBlock label="Add-ons Amount (₹)">
                 <InputNumber
+                  size="large"
                   min={0}
                   value={Number(quoteDraft.addOnsAmount || 0)}
                   onChange={(v) =>
@@ -665,11 +841,18 @@ const Step4InsuranceQuotes = ({
                       addOnsAmount: Number(v || 0),
                     }))
                   }
-                  className="w-full"
+                  className="w-full quote-control"
                   addonBefore="₹"
                   {...inrInputProps}
                 />
               </FieldBlock>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
+              {showStandaloneAgeWarning && coverageType === "Stand Alone OD" ? (
+                <span className="text-red-500">
+                  Stand Alone OD is generally for vehicles up to 3 years old.
+                </span>
+              ) : null}
             </div>
           </section>
 
@@ -834,7 +1017,7 @@ const Step4InsuranceQuotes = ({
 
           {/* Action Row */}
           <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-r from-white via-slate-50/50 to-white p-3 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
-            <Button
+              <Button
               type="primary"
               size="large"
               icon={<PlusOutlined />}
@@ -856,17 +1039,20 @@ const Step4InsuranceQuotes = ({
                   : "!bg-[#FAF8F1] !text-slate-500 !border !border-[#EEF3EF] !shadow-none"
               }`}
             >
-              Add Quote
+              {editingQuoteId ? "Update Quote" : "Add Quote"}
             </Button>
             <Button
               size="large"
               icon={<ReloadOutlined />}
               onClick={() =>
-                setQuoteDraft({
-                  ...initialQuoteDraft,
-                  addOns: { ...initialQuoteDraft.addOns },
-                  addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
-                })
+                onResetQuoteDraft
+                  ? onResetQuoteDraft()
+                  : setQuoteDraft({
+                      ...initialQuoteDraft,
+                      ncbDiscount: Number(suggestedNcbDiscount || 0),
+                      addOns: { ...initialQuoteDraft.addOns },
+                      addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
+                    })
               }
               className="h-10 !border-slate-200 !text-slate-500 hover:!text-slate-700"
             >
@@ -920,12 +1106,12 @@ const Step4InsuranceQuotes = ({
                   val: "text-slate-800",
                 },
                 {
-                  label: "NCB Discount",
-                  value: `-${toINR(ncbAmount)}`,
+                  label: "NCB %",
+                  value: `${ncbPct}%`,
                   sub:
                     ncbPct > 0
-                      ? `${ncbPct}% on OD (for reference)`
-                      : "NCB percentage shown for reference only",
+                      ? "Reference only (no premium reduction)"
+                      : "Reference only",
                   bg: "bg-[#D6E6DF]/60",
                   ring: "ring-[#D6E6DF]",
                   val: "text-slate-800",
@@ -995,7 +1181,7 @@ const Step4InsuranceQuotes = ({
                 label="Add-ons"
                 value={toINR(quoteComputed.addOnsTotal)}
               />
-              <TickerRow label="NCB Discount" value={`-${toINR(ncbAmount)}`} />
+              <TickerRow label="NCB %" value={`${ncbPct}%`} />
               <TickerRow
                 label="Taxable Total"
                 value={toINR(taxableAmount)}
@@ -1063,8 +1249,7 @@ const Step4InsuranceQuotes = ({
                 formatStoredOrComputedPremium={formatStoredOrComputedPremium}
                 toINR={toINR}
                 acceptQuote={acceptQuote}
-                setQuoteDraft={setQuoteDraft}
-                mapQuoteToDraft={mapQuoteToDraft}
+                onStartEditQuote={onStartEditQuote}
                 onDelete={deleteQuote}
               />
             ))}

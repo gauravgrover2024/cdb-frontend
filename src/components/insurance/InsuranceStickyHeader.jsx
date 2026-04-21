@@ -137,7 +137,11 @@ const InsuranceStickyHeader = ({
       String(data.policyCategory || "").trim() === "Extended Warranty";
     return Object.keys(STEP_NAMES)
       .map((s) => parseInt(s, 10))
-      .filter((s) => !((isNewCar || isExtendedWarranty) && s === 3));
+      .filter(
+        (s) =>
+          !((isNewCar || isExtendedWarranty) && s === 3) &&
+          !(isExtendedWarranty && s === 4),
+      );
   }, [data.policyCategory, data.vehicleType]);
 
   const currentStepIndex = Math.max(visibleSteps.indexOf(activeStep), 0);

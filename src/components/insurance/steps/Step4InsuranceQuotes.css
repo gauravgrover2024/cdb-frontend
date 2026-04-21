@@ -1,0 +1,38 @@
+.insurance-step4 .quote-control.ant-input {
+  height: 44px !important;
+  border-radius: 12px !important;
+}
+
+.insurance-step4 .quote-control.ant-select .ant-select-selector {
+  height: 44px !important;
+  min-height: 44px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.insurance-step4 .quote-control.ant-select .ant-select-selection-item,
+.insurance-step4 .quote-control.ant-select .ant-select-selection-placeholder {
+  line-height: 42px !important;
+}
+
+.insurance-step4 .quote-control.ant-input-number {
+  height: 44px !important;
+  border-radius: 12px !important;
+}
+
+.insurance-step4 .quote-control.ant-input-number .ant-input-number-input-wrap {
+  height: 100% !important;
+}
+
+.insurance-step4 .quote-control.ant-input-number .ant-input-number-input {
+  height: 42px !important;
+}
+
+.insurance-step4 .quote-control.ant-input-number-group-wrapper .ant-input-number-group-addon,
+.insurance-step4 .quote-control.ant-input-number .ant-input-number-group-addon {
+  display: flex !important;
+  align-items: center !important;
+}

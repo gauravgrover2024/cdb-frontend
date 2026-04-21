@@ -126,7 +126,7 @@ export const initialFormData = {
   // Extended Warranty
   ewCommencementDate: "",
   ewExpiryDate: "",
-  kmsCoverage: 0,
+  kmsCoverage: "",
 
   // Payout ledger
   insurance_receivables: [],
@@ -145,8 +145,8 @@ export const initialQuoteDraft = {
   vehicleIdv: 0,
   cngIdv: 0,
   accessoriesIdv: 0,
-  policyDuration: "1yr OD + 3yr TP",
-  ncbDiscount: 50,
+  policyDuration: "1yr OD + 1yr TP",
+  ncbDiscount: 0,
   odAmount: 0,
   thirdPartyAmount: 0,
   addOnsAmount: 0,
