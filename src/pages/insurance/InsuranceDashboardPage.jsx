@@ -93,9 +93,36 @@ const hasDisplayValue = (value) => {
 
 const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
 
+const getAcceptedQuoteContext = (record) => {
+  const quotes = Array.isArray(record?.quotes) ? record.quotes : [];
+  const acceptedQuoteId =
+    record?.acceptedQuoteId || record?.accepted_quote_id || null;
+  const acceptedQuote =
+    record?.acceptedQuote ||
+    quotes.find(
+      (q, idx) =>
+        String(getInsuranceQuoteRowId(q, idx)) === String(acceptedQuoteId),
+    ) ||
+    null;
+  const acceptedBreakup = computeInsuranceQuoteBreakup(acceptedQuote);
+  return { acceptedQuote, acceptedBreakup };
+};
+
 const premiumNum = (c) => {
-  const n = Number(c?.newTotalPremium);
-  return Number.isFinite(n) ? n : 0;
+  const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(c);
+  const acceptedPremium = Number(
+    acceptedQuote?.totalPremium ??
+      acceptedQuote?.grossPremium ??
+      acceptedQuote?.finalPremium ??
+      acceptedBreakup?.totalPremium ??
+      0,
+  );
+  if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
+    return acceptedPremium;
+  const fallback = Number(
+    c?.newTotalPremium ?? c?.new_total_premium ?? c?.totalPremium ?? 0,
+  );
+  return Number.isFinite(fallback) ? fallback : 0;
 };
 
 const paymentReceivedNum = (c) => {
@@ -426,8 +453,21 @@ const computeInsuranceQuoteBreakup = (quote) => {
     return sum + Number(addOns[name] || 0);
   }, 0);
 
-  const rawAddOnsTotal = Number(quote.addOnsAmount || 0) + selectedAddOnsTotal;
-  const addOnsTotal = allowsAddOns ? rawAddOnsTotal : 0;
+  const hasAnySelectedAddOn = INSURANCE_ADDON_CATALOG.some(
+    (name) => Boolean(included[name]),
+  );
+  const flatAddOnsAmount = Number(quote.addOnsAmount || 0);
+  const hasFlatOverride =
+    flatAddOnsAmount > 0 &&
+    hasAnySelectedAddOn &&
+    Math.round(flatAddOnsAmount) !== Math.round(selectedAddOnsTotal);
+  const addOnsTotal = allowsAddOns
+    ? hasAnySelectedAddOn
+      ? hasFlatOverride
+        ? flatAddOnsAmount
+        : selectedAddOnsTotal
+      : flatAddOnsAmount
+    : 0;
 
   const odAmt = includesOd
     ? Number(
@@ -455,7 +495,18 @@ const computeInsuranceQuoteBreakup = (quote) => {
   const ncbAmount = Math.round((odAmt * ncbPct) / 100);
   const taxableAmount = Math.max(odAmt + tpAmt + addOnsTotal - ncbAmount, 0);
   const gstAmount = Math.round(taxableAmount * 0.18);
-  const totalPremium = taxableAmount + gstAmount;
+  const computedTotalPremium = taxableAmount + gstAmount;
+  const storedTotalPremium = Number(
+    quote.totalPremium ??
+      quote.newTotalPremium ??
+      quote.grossPremium ??
+      quote.finalPremium ??
+      0,
+  );
+  const totalPremium =
+    Number.isFinite(storedTotalPremium) && storedTotalPremium > 0
+      ? storedTotalPremium
+      : computedTotalPremium;
 
   const idvParts =
     Number(quote.vehicleIdv || 0) +
@@ -958,6 +1009,8 @@ const InsuranceDashboardPage = () => {
 
                   const insurer = record.newInsuranceCompany || "—";
                   const policyNo = record.newPolicyNumber || "—";
+                  const { acceptedQuote, acceptedBreakup } =
+                    getAcceptedQuoteContext(record);
                   const premium = premiumNum(record);
                   const idv = Number(record.newIdvAmount || 0);
                   const ncb = hasDisplayValue(record.newNcbDiscount)
@@ -1062,18 +1115,6 @@ const InsuranceDashboardPage = () => {
                   const overflowLedgerEntries = paymentLedgerRows.slice(1);
                   const isLedgerExpanded = expandedLedgerCaseId === id;
 
-                  const quotes = Array.isArray(record?.quotes) ? record.quotes : [];
-                  const acceptedQuoteId =
-                    record?.acceptedQuoteId || record?.accepted_quote_id || null;
-                  const acceptedQuote =
-                    record?.acceptedQuote ||
-                    quotes.find(
-                      (q, idx) =>
-                        String(getInsuranceQuoteRowId(q, idx)) ===
-                        String(acceptedQuoteId),
-                    ) ||
-                    null;
-                  const acceptedBreakup = computeInsuranceQuoteBreakup(acceptedQuote);
                   const hasAcceptedQuote = Boolean(acceptedQuote);
                   const ncbInline = hasAcceptedQuote
                     ? `${Number(acceptedQuote?.ncbDiscount || 0)}%`
@@ -1084,9 +1125,7 @@ const InsuranceDashboardPage = () => {
                       : idv
                         ? formatInr(idv)
                         : "—";
-                  const quotePremium = hasAcceptedQuote
-                    ? formatInr(acceptedBreakup.totalPremium || premium)
-                    : formatInr(premium);
+                  const quotePremium = formatInr(premium);
                   const st = normalizeStatus(record.status);
                   const statusLabel = STATUS_LABEL_MAP[st] || record.status || "Unknown";
                   const stepLabel = STEP_LABEL_MAP[record.currentStep] || "—";
@@ -1143,7 +1182,7 @@ const InsuranceDashboardPage = () => {
 
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3 px-4 py-3 xl:grid-cols-[1.15fr_1fr_1.55fr_0.9fr]">
+                      <div className="grid grid-cols-1 gap-3 px-4 py-3 xl:grid-cols-[1.1fr_0.9fr_1.9fr_0.75fr]">
                         <section className="rounded-xl border border-[#d6e6df]/70 bg-[#eef3ef]/45 p-3 dark:border-[#2b3b35] dark:bg-[#131d1a]">
                           <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#587f6f]">
                             Customer & Vehicle
@@ -1247,7 +1286,7 @@ const InsuranceDashboardPage = () => {
                           </div>
 
                           <div className="mt-2 rounded-lg border border-[#d6e6df]/80 bg-white/90 p-2 dark:border-[#30413b] dark:bg-[#101917]">
-                            <div className="grid grid-cols-[62px_minmax(0,1fr)_112px] gap-x-2 border-b border-[#e5eee4] px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:border-[#30413b]">
+                            <div className="grid grid-cols-[52px_minmax(0,1fr)_98px] gap-x-2 border-b border-[#e5eee4] px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:border-[#30413b]">
                               <span>Date</span>
                               <span>Ledger Entry</span>
                               <span className="text-right">Amount</span>
@@ -1257,14 +1296,14 @@ const InsuranceDashboardPage = () => {
                                 {leadLedgerEntry ? (
                                   <div
                                     key={leadLedgerEntry.key}
-                                    className="grid grid-cols-[62px_minmax(0,1fr)_112px] items-start gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] dark:border-[#24312c]"
+                                    className="grid grid-cols-[52px_minmax(0,1fr)_98px] items-start gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] dark:border-[#24312c]"
                                   >
                                     <span className="text-slate-600 dark:text-slate-300">
                                       {leadLedgerEntry.date}
                                     </span>
                                     <div className="min-w-0">
                                       <p
-                                        className="break-words text-[13px] font-semibold leading-tight text-slate-800 dark:text-slate-100"
+                                        className="truncate whitespace-nowrap text-[13px] font-semibold leading-tight text-slate-800 dark:text-slate-100"
                                         title={leadLedgerEntry.title}
                                       >
                                         <span className="mr-1.5 text-[#5f9770]">●</span>
@@ -1292,7 +1331,7 @@ const InsuranceDashboardPage = () => {
                                       className="rounded-full border border-[#d6e6df] bg-[#eef3ef]/60 px-2.5 py-0.5 text-[10px] font-semibold text-[#5f9770] hover:bg-[#e5eee4] dark:border-[#30413b] dark:bg-[#13221c] dark:text-[#9dc4ae]"
                                     >
                                       {isLedgerExpanded
-                                        ? "Hide entries"
+                                        ? "Show less"
                                         : `Show ${overflowLedgerEntries.length} more`}
                                     </button>
                                   </div>
@@ -1304,14 +1343,14 @@ const InsuranceDashboardPage = () => {
                                       {overflowLedgerEntries.map((entry) => (
                                         <div
                                           key={entry.key}
-                                          className="grid grid-cols-[62px_minmax(0,1fr)_112px] items-start gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] last:border-b-0 dark:border-[#24312c]"
+                                          className="grid grid-cols-[52px_minmax(0,1fr)_98px] items-start gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] last:border-b-0 dark:border-[#24312c]"
                                         >
                                           <span className="text-slate-600 dark:text-slate-300">
                                             {entry.date}
                                           </span>
                                           <div className="min-w-0">
                                             <p
-                                              className="break-words text-[13px] font-semibold leading-tight text-slate-800 dark:text-slate-100"
+                                              className="truncate whitespace-nowrap text-[13px] font-semibold leading-tight text-slate-800 dark:text-slate-100"
                                               title={entry.title}
                                             >
                                               <span className="mr-1.5 text-[#5f9770]">●</span>

@@ -545,26 +545,23 @@ const Step3PreviousPolicy = ({
     standaloneAgeYears > 3;
 
   const suggestedNcb = React.useMemo(() => {
-    if (String(formData.claimTakenLastYear || "").trim() === "Yes") return 0;
     const regDateRaw = String(formData.dateOfReg || "").trim();
     if (!regDateRaw) return 0;
     const regDate = dayjs(regDateRaw);
     if (!regDate.isValid()) return 0;
+
     const asOfRaw = String(formData.previousPolicyStartDate || "").trim();
     const asOfDate = asOfRaw ? dayjs(asOfRaw) : dayjs();
     if (!asOfDate.isValid()) return 0;
-    const elapsedYears = asOfDate.diff(regDate, "year");
-    if (elapsedYears <= 1) return 0;
-    if (elapsedYears === 2) return 20;
-    if (elapsedYears === 3) return 25;
-    if (elapsedYears === 4) return 35;
-    if (elapsedYears === 5) return 45;
+
+    const vehicleAgeYears = asOfDate.diff(regDate, "year", true);
+    if (vehicleAgeYears <= 1) return 0;
+    if (vehicleAgeYears <= 2) return 20;
+    if (vehicleAgeYears <= 3) return 25;
+    if (vehicleAgeYears <= 4) return 35;
+    if (vehicleAgeYears <= 5) return 45;
     return 50;
-  }, [
-    formData.claimTakenLastYear,
-    formData.dateOfReg,
-    formData.previousPolicyStartDate,
-  ]);
+  }, [formData.dateOfReg, formData.previousPolicyStartDate]);
 
   const toggleAddon = (addon) => {
     setQuoteDraft((prev) => {
@@ -794,23 +791,21 @@ const Step3PreviousPolicy = ({
                   />
                 </CleanField>
               </div>
-              {String(formData.claimTakenLastYear || "").trim() === "No" ? (
-                <div className="mt-1 text-[12px] text-slate-500">
-                  Suggested NCB:{" "}
-                  <span className="font-semibold text-slate-700">
-                    {suggestedNcb}%
-                  </span>
-                  {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
-                    <button
-                      type="button"
-                      className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
-                      onClick={() => setField("previousNcbDiscount", suggestedNcb)}
-                    >
-                      Use suggested
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
+              <div className="mt-1 text-[12px] text-slate-500">
+                Suggested NCB:{" "}
+                <span className="font-semibold text-slate-700">
+                  {suggestedNcb}%
+                </span>
+                {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
+                  <button
+                    type="button"
+                    className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
+                    onClick={() => setField("previousNcbDiscount", suggestedNcb)}
+                  >
+                    Use suggested
+                  </button>
+                ) : null}
+              </div>
             </Col>
 
             <Col xs={24} md={8}>

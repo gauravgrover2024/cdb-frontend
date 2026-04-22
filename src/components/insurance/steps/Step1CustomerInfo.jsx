@@ -121,6 +121,7 @@ const Step1CustomerInfo = ({
   handleChange,
   onPolicyDoneByChange,
   onSourceChange,
+  isExtendedWarranty = false,
   showErrors,
   step1Errors,
   isCompany,
@@ -487,6 +488,35 @@ const Step1CustomerInfo = ({
                   </Col>
                 ) : null}
               </>
+            ) : null}
+
+            {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
+              <Col xs={24} md={16}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Used Car Flow Type" required>
+                    <Radio.Group
+                      value={String(formData.usedCarFlowType || "Renewal")}
+                      onChange={(e) =>
+                        setField("usedCarFlowType", e?.target?.value || "Renewal")
+                      }
+                      optionType="button"
+                      buttonStyle="solid"
+                      options={[
+                        { label: "Renewal", value: "Renewal" },
+                        {
+                          label: "Policy Already Expired",
+                          value: "Policy Already Expired",
+                        },
+                        { label: "Sale/Purchase", value: "Sale/Purchase" },
+                      ]}
+                      style={{ marginTop: 8, width: "100%" }}
+                    />
+                  </CleanField>
+                </div>
+                {showErrors && step1Errors.usedCarFlowType ? (
+                  <Text type="danger">{step1Errors.usedCarFlowType}</Text>
+                ) : null}
+              </Col>
             ) : null}
           </Row>
         </div>
@@ -1103,6 +1133,19 @@ const Step1CustomerInfo = ({
               {formData.vehicleType || "Vehicle Type Pending"}
             </Tag>
 
+            {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
+              <Tag
+                className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+                style={{
+                  background: "#EEF3EF",
+                  borderColor: "#D6E6DF",
+                  color: "#334155",
+                }}
+              >
+                {formData.usedCarFlowType || "Used-car flow pending"}
+              </Tag>
+            ) : null}
+
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
@@ -1180,6 +1223,19 @@ const Step1CustomerInfo = ({
 
                 <SummaryRow label="Buyer Type" value={formData.buyerType} />
                 <SummaryRow label="Vehicle Type" value={formData.vehicleType} />
+                {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
+                  <SummaryRow
+                    label="Used-car Flow"
+                    value={formData.usedCarFlowType}
+                  />
+                ) : null}
+                {formData.vehicleType === "Used Car" &&
+                formData.policyJourneyClassification ? (
+                  <SummaryRow
+                    label="Journey Classification"
+                    value={formData.policyJourneyClassification}
+                  />
+                ) : null}
                 <SummaryRow
                   label="Policy Type"
                   value={formData.policyCategory || "Insurance Policy"}

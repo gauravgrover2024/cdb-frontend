@@ -118,6 +118,8 @@ const InsuranceStickyHeader = ({
   formData,
   activeStep,
   onStepClick,
+  skipPreviousPolicyStep = false,
+  skipQuotesStep = false,
   innerRef,
 }) => {
   const data = formData || {};
@@ -132,17 +134,12 @@ const InsuranceStickyHeader = ({
   }, [data.newInsuranceCompany, data.registrationNumber]);
 
   const visibleSteps = useMemo(() => {
-    const isNewCar = data.vehicleType === "New Car";
-    const isExtendedWarranty =
-      String(data.policyCategory || "").trim() === "Extended Warranty";
     return Object.keys(STEP_NAMES)
       .map((s) => parseInt(s, 10))
       .filter(
-        (s) =>
-          !((isNewCar || isExtendedWarranty) && s === 3) &&
-          !(isExtendedWarranty && s === 4),
+        (s) => !(skipPreviousPolicyStep && s === 3) && !(skipQuotesStep && s === 4),
       );
-  }, [data.policyCategory, data.vehicleType]);
+  }, [skipPreviousPolicyStep, skipQuotesStep]);
 
   const currentStepIndex = Math.max(visibleSteps.indexOf(activeStep), 0);
 

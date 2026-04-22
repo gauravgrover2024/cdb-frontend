@@ -1,18 +1,11 @@
 /**
  * useInsuranceStore.js
- * Zustand store for the Insurance Case Management Form.
- * Persists to localStorage key: 'insurance_case_draft'
- *
- * Pattern: The NewInsuranceCaseForm component syncs its local React state
- * into this store via a useEffect on every relevant state change. This gives
- * us localStorage draft persistence + computed selectors without refactoring
- * the complex orchestrator component.
+ * Shared insurance constants + optional in-memory Zustand helpers.
  *
  * Computed selectors are plain functions (call them like `store.getGrossPremium()`).
  */
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { addOnCatalog } from "../steps/allSteps";
 
 // ─── Catalog defaults ────────────────────────────────────────────────────────
@@ -29,6 +22,8 @@ export const initialFormData = {
   employeeUserId: "",
   source: "Direct",
   sourceName: "",
+  usedCarFlowType: "Renewal",
+  policyJourneyClassification: "",
   dealerChannelName: "",
   dealerChannelAddress: "",
   payoutApplicable: "No",
@@ -189,9 +184,7 @@ export function calcNcbDiscount(basicODPremium, ncbPercent) {
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
-export const useInsuranceStore = create(
-  persist(
-    (set, get) => ({
+export const useInsuranceStore = create((set, get) => ({
       // ── State slices for all 8 steps ────────────────────────────────────────
       formData: { ...initialFormData },
       quotes: [],
@@ -353,21 +346,6 @@ export const useInsuranceStore = create(
         );
         return totalReceivable - totalPayable;
       },
-    }),
-    {
-      name: "insurance_case_draft",
-      storage: createJSONStorage(() => localStorage),
-      // Only persist the data slices, not the action functions
-      partialize: (state) => ({
-        formData: state.formData,
-        quotes: state.quotes,
-        acceptedQuoteId: state.acceptedQuoteId,
-        documents: state.documents,
-        paymentHistory: state.paymentHistory,
-        step: state.step,
-      }),
-    },
-  ),
-);
+    }));
 
 export default useInsuranceStore;

@@ -7,6 +7,7 @@ import {
   Divider,
   Input,
   InputNumber,
+  Modal,
   Select,
   Space,
   Tooltip,
@@ -21,6 +22,7 @@ import {
   ThunderboltOutlined,
   EditOutlined,
   DeleteOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import { addOnCatalog } from "./allSteps";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
@@ -90,6 +92,148 @@ const getInsurerLogoCandidates = (companyName) => {
     `https://logo.clearbit.com/${domain}`,
     `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
   ];
+};
+
+const normalizeInsurerName = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const getIncludedAddonNames = (quote = {}) =>
+  addOnCatalog.filter((name) => Boolean(quote?.addOnsIncluded?.[name]));
+
+const buildPremiumChangeInsight = ({
+  quote = {},
+  previousPolicyContext = {},
+  computeQuoteBreakupFromRow,
+  toINR,
+}) => {
+  const currentBreakup = computeQuoteBreakupFromRow(quote);
+  const currentPremium = Number(currentBreakup?.totalPremium || 0);
+  const currentOd = Number(currentBreakup?.odAmt || 0);
+  const currentTp = Number(currentBreakup?.tpAmt || 0);
+  const currentAddOns = Number(currentBreakup?.addOnsTotal || 0);
+  const currentNcb = Number(quote?.ncbDiscount || 0);
+  const currentIdv = Number(
+    quote?.totalIdv ||
+      Number(quote?.vehicleIdv || 0) +
+        Number(quote?.cngIdv || 0) +
+        Number(quote?.accessoriesIdv || 0),
+  );
+  const currentCoverageType = String(quote?.coverageType || "").trim();
+  const currentInsurer = String(quote?.insuranceCompany || "").trim();
+
+  const previousPremium = Number(previousPolicyContext?.previousTotalPremium || 0);
+  const previousOd = Number(previousPolicyContext?.previousOwnDamageAmount || 0);
+  const previousTp = Number(previousPolicyContext?.previousThirdPartyAmount || 0);
+  const previousAddOns = Number(previousPolicyContext?.previousAddOnsTotal || 0);
+  const previousNcb = Number(previousPolicyContext?.previousNcbDiscount || 0);
+  const previousIdv = Number(previousPolicyContext?.previousIdvAmount || 0);
+  const previousCoverageType = String(
+    previousPolicyContext?.previousPolicyType || "",
+  ).trim();
+  const previousInsurer = String(
+    previousPolicyContext?.previousInsuranceCompany || "",
+  ).trim();
+  const claimTaken = String(
+    previousPolicyContext?.claimTakenLastYear || "",
+  ).trim();
+  const previousAddOnNames = Array.isArray(
+    previousPolicyContext?.previousSelectedAddOns,
+  )
+    ? previousPolicyContext.previousSelectedAddOns
+        .map((name) => String(name || "").trim())
+        .filter(Boolean)
+    : [];
+  const currentAddOnNames = getIncludedAddonNames(quote);
+
+  const hasPreviousBaseline =
+    previousPremium > 0 ||
+    previousOd > 0 ||
+    previousTp > 0 ||
+    previousAddOns > 0 ||
+    previousNcb > 0 ||
+    previousIdv > 0 ||
+    Boolean(previousCoverageType) ||
+    Boolean(previousInsurer) ||
+    previousAddOnNames.length > 0;
+
+  if (!hasPreviousBaseline) return null;
+
+  const reasons = [];
+  if (previousOd > 0 && Math.round(previousOd) !== Math.round(currentOd)) {
+    reasons.push(`OD moved ${toINR(previousOd)} → ${toINR(currentOd)}`);
+  }
+  if (previousTp > 0 && Math.round(previousTp) !== Math.round(currentTp)) {
+    reasons.push(`Third-party moved ${toINR(previousTp)} → ${toINR(currentTp)}`);
+  }
+  if (
+    previousAddOns > 0 ||
+    currentAddOns > 0 ||
+    previousAddOnNames.length > 0 ||
+    currentAddOnNames.length > 0
+  ) {
+    const prevSet = new Set(previousAddOnNames.map((name) => name.toLowerCase()));
+    const currSet = new Set(currentAddOnNames.map((name) => name.toLowerCase()));
+    const added = currentAddOnNames.filter((name) => !prevSet.has(name.toLowerCase()));
+    const removed = previousAddOnNames.filter((name) => !currSet.has(name.toLowerCase()));
+    if (
+      Math.round(previousAddOns) !== Math.round(currentAddOns) ||
+      added.length ||
+      removed.length
+    ) {
+      reasons.push(
+        `Add-ons moved ${toINR(previousAddOns)} → ${toINR(currentAddOns)}${
+          added.length || removed.length
+            ? ` (${added.length ? `+${added.join(", ")}` : ""}${
+                added.length && removed.length ? " | " : ""
+              }${removed.length ? `-${removed.join(", ")}` : ""})`
+            : ""
+        }`,
+      );
+    }
+  }
+  if (Math.round(previousNcb) !== Math.round(currentNcb)) {
+    reasons.push(`NCB changed ${previousNcb}% → ${currentNcb}%`);
+  }
+  if (previousIdv > 0 && currentIdv > 0 && Math.round(previousIdv) !== Math.round(currentIdv)) {
+    reasons.push(`IDV changed ${toINR(previousIdv)} → ${toINR(currentIdv)}`);
+  }
+  if (previousCoverageType && currentCoverageType && previousCoverageType !== currentCoverageType) {
+    reasons.push(`Policy type changed (${previousCoverageType} → ${currentCoverageType})`);
+  }
+  if (
+    previousInsurer &&
+    currentInsurer &&
+    normalizeInsurerName(previousInsurer) !== normalizeInsurerName(currentInsurer)
+  ) {
+    reasons.push(`Insurer changed (${previousInsurer} → ${currentInsurer})`);
+  }
+  if (claimTaken.toLowerCase() === "yes" && currentNcb === 0) {
+    reasons.push("Claim was taken last year, so NCB likely reset.");
+  }
+
+  const diff =
+    previousPremium > 0
+      ? currentPremium - previousPremium
+      : currentOd - previousOd || currentPremium;
+  const baseValue = previousPremium > 0 ? previousPremium : previousOd || 0;
+  const changePct =
+    baseValue > 0 ? Math.round((Math.abs(diff) / baseValue) * 100) : null;
+  const summary =
+    diff === 0
+      ? `Premium is unchanged vs previous baseline (${toINR(currentPremium)}).`
+      : `Premium ${diff > 0 ? "increased" : "decreased"} by ${toINR(
+          Math.abs(diff),
+        )}${changePct != null ? ` (${changePct}%)` : ""} vs previous baseline.`;
+
+  return {
+    summary,
+    reasons: reasons.length
+      ? reasons
+      : ["No specific factor delta captured from previous policy fields."],
+  };
 };
 
 // ── FieldBlock ──
@@ -204,8 +348,10 @@ const QuoteCard = ({
   acceptQuote,
   onStartEditQuote,
   onDelete,
+  previousPolicyContext,
 }) => {
   const [showAllAddons, setShowAllAddons] = React.useState(false);
+  const [showInsightModal, setShowInsightModal] = React.useState(false);
 
   const rid = getQuoteRowId(row);
   const isAccepted = String(acceptedQuoteId) === String(rid);
@@ -239,6 +385,16 @@ const QuoteCard = ({
   const [logoIdx, setLogoIdx] = React.useState(0);
   React.useEffect(() => setLogoIdx(0), [row.insuranceCompany]);
   const logoUrl = logoCandidates[logoIdx] || "";
+  const premiumChangeInsight = React.useMemo(
+    () =>
+      buildPremiumChangeInsight({
+        quote: row,
+        previousPolicyContext,
+        computeQuoteBreakupFromRow,
+        toINR,
+      }),
+    [computeQuoteBreakupFromRow, previousPolicyContext, row, toINR],
+  );
 
   return (
     <div
@@ -452,6 +608,16 @@ const QuoteCard = ({
             <EditOutlined className="text-xs" />
           </button>
 
+          {premiumChangeInsight ? (
+            <button
+              onClick={() => setShowInsightModal(true)}
+              title="Why premium changed"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#EEF3EF]/45 text-slate-700 ring-1 ring-[#D6E6DF] hover:bg-[#D6E6DF]/70 transition-colors cursor-pointer"
+            >
+              <EyeOutlined className="text-xs" />
+            </button>
+          ) : null}
+
           <Popconfirm
             title="Delete this quote?"
             description="This action cannot be undone."
@@ -472,6 +638,35 @@ const QuoteCard = ({
           </Popconfirm>
         </div>
       </div>
+
+      <Modal
+        title={`${row.insuranceCompany || "Quote"} · Premium Insight`}
+        open={showInsightModal}
+        onCancel={() => setShowInsightModal(false)}
+        footer={null}
+        centered
+        destroyOnHidden
+      >
+        <div className="space-y-3">
+          <div className="rounded-xl bg-[#EEF3EF]/45 px-3 py-3 ring-1 ring-[#D6E6DF]">
+            <p className="m-0 text-[13px] font-semibold text-slate-800">
+              {premiumChangeInsight?.summary}
+            </p>
+          </div>
+          <div className="rounded-xl bg-white px-3 py-3 ring-1 ring-slate-200">
+            <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              Reason Factors
+            </p>
+            <div className="mt-2 space-y-1.5">
+              {(premiumChangeInsight?.reasons || []).map((reason, idx) => (
+                <div key={`${reason}-${idx}`} className="text-[12px] text-slate-700">
+                  {idx + 1}. {reason}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -504,6 +699,7 @@ const Step4InsuranceQuotes = ({
   onSaveDraft,
   onResetQuoteDraft,
   isSaving = false,
+  previousPolicyContext = {},
 }) => {
   const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
   const odAmt = Number(quoteComputed?.odAmt || 0);
@@ -515,7 +711,37 @@ const Step4InsuranceQuotes = ({
   const totalPremium = taxableAmount + gstAmount;
   const ncbPct = Number(quoteDraft?.ncbDiscount || 0);
   const coverageType = String(quoteDraft?.coverageType || "Comprehensive");
-
+  const previousSelectedAddOns = React.useMemo(() => {
+    const fromPayload = Array.isArray(previousPolicyContext?.previousSelectedAddOns)
+      ? previousPolicyContext.previousSelectedAddOns
+      : [];
+    const normalized = fromPayload
+      .map((name) => String(name || "").trim())
+      .filter(Boolean);
+    return addOnCatalog.filter((name) =>
+      normalized.some(
+        (n) => n.toLowerCase() === name.toLowerCase() || n.includes(name),
+      ),
+    );
+  }, [previousPolicyContext?.previousSelectedAddOns]);
+  const applyPreviousYearAddOns = React.useCallback(() => {
+    if (!previousSelectedAddOns.length) return;
+    setQuoteDraft((p) => {
+      const nextIncluded = { ...(p.addOnsIncluded || {}) };
+      const nextAddOns = { ...(p.addOns || {}) };
+      previousSelectedAddOns.forEach((name) => {
+        nextIncluded[name] = true;
+        if (nextAddOns[name] === undefined || nextAddOns[name] === null) {
+          nextAddOns[name] = 0;
+        }
+      });
+      return {
+        ...p,
+        addOnsIncluded: nextIncluded,
+        addOns: nextAddOns,
+      };
+    });
+  }, [previousSelectedAddOns, setQuoteDraft]);
   const durationSelectOptions = React.useMemo(() => {
     if (coverageType === "Comprehensive") {
       return isNewCar
@@ -914,6 +1140,35 @@ const Step4InsuranceQuotes = ({
               </Space>
             </div>
 
+            {previousSelectedAddOns.length ? (
+              <div className="mb-4 rounded-2xl border border-[#D6E6DF] bg-gradient-to-r from-[#EEF3EF]/60 via-white to-[#EEF3EF]/35 px-4 py-3 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    Previous-year add-on preset
+                  </p>
+                  <button
+                    onClick={applyPreviousYearAddOns}
+                    className="rounded-lg bg-[#EEF3EF] px-3 py-1.5 text-[11px] font-semibold text-slate-700 ring-1 ring-[#D6E6DF] hover:bg-[#D6E6DF]/70 transition-colors cursor-pointer border-0"
+                  >
+                    One-click apply
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {previousSelectedAddOns.map((name) => (
+                    <span
+                      key={`prev-${name}`}
+                      className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+                <p className="m-0 mt-2 text-[11px] text-slate-500">
+                  Applies last-year add-ons only. Amounts remain editable below.
+                </p>
+              </div>
+            ) : null}
+
             {/* Pill strip */}
             <div className="flex flex-wrap gap-2 mb-5">
               {addOnCatalog.map((name, i) => {
@@ -1251,6 +1506,7 @@ const Step4InsuranceQuotes = ({
                 acceptQuote={acceptQuote}
                 onStartEditQuote={onStartEditQuote}
                 onDelete={deleteQuote}
+                previousPolicyContext={previousPolicyContext}
               />
             ))}
           </div>

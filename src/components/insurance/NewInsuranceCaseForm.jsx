@@ -46,7 +46,6 @@ import {
 } from "./steps/payoutRates";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
-import { useInsuranceStore } from "./store/useInsuranceStore";
 import {
   lookupCityByPincode,
   normalizePincode,
@@ -75,6 +74,8 @@ const initialFormState = {
   employeeUserId: "",
   source: "Direct",
   sourceName: "",
+  usedCarFlowType: "Renewal",
+  policyJourneyClassification: "",
   dealerChannelName: "",
   dealerChannelAddress: "",
   payoutApplicable: "No",
@@ -244,6 +245,17 @@ const getStep4DurationOptions = ({ coverageType = "Comprehensive", isNewCar }) =
 
 const getDefaultStep4PolicyDuration = ({ coverageType = "Comprehensive", isNewCar }) =>
   getStep4DurationOptions({ coverageType, isNewCar })[0] || "";
+
+const isValidMongoObjectId = (value) =>
+  /^[a-f\d]{24}$/i.test(String(value || "").trim());
+
+const normalizePaymentHistoryForPersist = (rows = []) =>
+  (Array.isArray(rows) ? rows : []).map((row = {}) => {
+    const normalized = { ...row };
+    const rowId = String(row?._id || "").trim();
+    if (!isValidMongoObjectId(rowId)) delete normalized._id;
+    return normalized;
+  });
 
 const buildQuoteSignature = (quote = {}) => {
   const normalizedCompany = String(quote.insuranceCompany || "")
@@ -571,6 +583,12 @@ const validateStep1 = (data) => {
   if (!(policyDoneBy || "").trim())
     errors.policyDoneBy = "Policy done by is required";
   if (!(sourceMode || "").trim()) errors.source = "Source is required";
+  if (String(data.vehicleType || "").trim() === "Used Car") {
+    const usedCarFlowType = String(data.usedCarFlowType || "").trim();
+    if (!usedCarFlowType) {
+      errors.usedCarFlowType = "Used-car flow type is required";
+    }
+  }
   if (sourceMode === "Direct") {
     if (!(data.sourceName || "").trim())
       errors.sourceName = "Source name is required for direct cases";
@@ -712,8 +730,6 @@ const NewInsuranceCaseForm = ({
   /** Auto-generated case reference shown on the success screen */
   const [caseReference, setCaseReference] = useState("");
 
-  // ── Zustand store (sync-target for localStorage draft persistence) ────────
-  const syncToStore = useInsuranceStore((s) => s.syncData);
   const persistTimerRef = React.useRef(null);
   const persistInFlightRef = React.useRef(false);
   const persistQueuedRef = React.useRef(false);
@@ -778,6 +794,12 @@ const NewInsuranceCaseForm = ({
   const isExtendedWarranty =
     policyCategoryKey === "extended warranty" ||
     policyCategoryKey === "ew policy";
+  const usedCarFlowType = String(formData.usedCarFlowType || "Renewal").trim();
+  const shouldSkipPreviousPolicyForUsedCar =
+    formData.vehicleType === "Used Car" &&
+    !isExtendedWarranty &&
+    (usedCarFlowType === "Policy Already Expired" ||
+      usedCarFlowType === "Sale/Purchase");
   const step4SuggestedNcb = useMemo(
     () =>
       getSuggestedStep4Ncb({
@@ -2191,12 +2213,19 @@ const NewInsuranceCaseForm = ({
 
   const shouldSkipStep = useCallback(
     (stepNumber) => {
-      if ((isNewCar || isExtendedWarranty) && stepNumber === 3) return true;
+      if (
+        (isNewCar ||
+          isExtendedWarranty ||
+          shouldSkipPreviousPolicyForUsedCar) &&
+        stepNumber === 3
+      ) {
+        return true;
+      }
       if (isExtendedWarranty && stepNumber === 4) return true;
       if (stepNumber === 5) return true; // Premium Breakup removed from flow
       return false;
     },
-    [isExtendedWarranty, isNewCar],
+    [isExtendedWarranty, isNewCar, shouldSkipPreviousPolicyForUsedCar],
   );
   const step1Errors = useMemo(() => validateStep1(formData), [formData]);
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
@@ -2214,10 +2243,10 @@ const NewInsuranceCaseForm = ({
     documents.length > 0 && docsTaggedCount === documents.length;
 
   useEffect(() => {
-    if ((isNewCar || isExtendedWarranty) && step === 3) {
+    if (shouldSkipStep(3) && step === 3) {
       setStep(4);
     }
-  }, [isExtendedWarranty, isNewCar, step]);
+  }, [shouldSkipStep, step]);
 
   useEffect(() => {
     if (isExtendedWarranty && step === 4) {
@@ -2379,9 +2408,9 @@ const NewInsuranceCaseForm = ({
       const normalizedSource = String(
         formData.source || formData.sourceOrigin || "Direct",
       ).trim() || "Direct";
-      const normalizedPaymentHistory = Array.isArray(paymentHistory)
-        ? paymentHistory
-        : [];
+      const normalizedPaymentHistory = normalizePaymentHistoryForPersist(
+        paymentHistory,
+      );
       const customerPaymentExpected = Number(formData.customerPaymentExpected || 0);
       const customerPaymentReceived = Number(formData.customerPaymentReceived || 0);
       const inhousePaymentExpected = Number(formData.inhousePaymentExpected || 0);
@@ -2545,19 +2574,6 @@ const NewInsuranceCaseForm = ({
     },
     [insuranceDbId, persistNow, schedulePersist],
   );
-
-  // ── Sync React state → Zustand store (localStorage draft persistence) ─────
-  useEffect(() => {
-    syncToStore({
-      formData,
-      quotes,
-      acceptedQuoteId,
-      documents,
-      paymentHistory,
-      step,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, quotes, acceptedQuoteId, documents, paymentHistory, step]);
 
   useEffect(() => {
     return () => {
@@ -2808,6 +2824,32 @@ const NewInsuranceCaseForm = ({
           const existingReceivables = Array.isArray(prev.insurance_receivables)
             ? prev.insurance_receivables.filter((row) => !row?._autoGenerated)
             : [];
+          const usedCarType = String(prev.usedCarFlowType || "Renewal").trim();
+          const normalizeInsurer = (v) =>
+            String(v || "")
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, " ");
+          const previousInsurer = normalizeInsurer(prev.previousInsuranceCompany);
+          const acceptedInsurer = normalizeInsurer(q.insuranceCompany);
+          let policyJourneyClassification = String(
+            prev.policyJourneyClassification || "",
+          ).trim();
+          if (String(prev.vehicleType || "").trim() === "Used Car") {
+            if (usedCarType === "Renewal") {
+              if (previousInsurer && acceptedInsurer) {
+                policyJourneyClassification =
+                  previousInsurer === acceptedInsurer ? "Renewal" : "Rollover";
+              } else {
+                policyJourneyClassification = "Renewal";
+              }
+            } else if (
+              usedCarType === "Policy Already Expired" ||
+              usedCarType === "Sale/Purchase"
+            ) {
+              policyJourneyClassification = usedCarType;
+            }
+          }
 
           return {
             ...prev,
@@ -2834,6 +2876,7 @@ const NewInsuranceCaseForm = ({
               String(prev.previousHypothecation || "").trim() ||
               "Not Applicable",
             payoutPercentage: Number(selectedPayoutPercentage || 0),
+            policyJourneyClassification,
             insurance_receivables: [...existingReceivables, nextReceivable],
           };
         });
@@ -2955,23 +2998,23 @@ const NewInsuranceCaseForm = ({
   }, [visibleSteps, step]);
 
   const currentStepTitle = useMemo(() => {
-    if (isNewCar && step === 4) return "Step 3: Insurance Quotes";
+    if (shouldSkipStep(3) && step === 4) return "Step 3: Insurance Quotes";
     return STEP_TITLES[step - 1];
-  }, [isNewCar, step]);
+  }, [shouldSkipStep, step]);
 
   const CurrentStepIcon = STEP_ICON_MAP[step] || null;
 
   const stepHelpText = useMemo(() => {
     if (step === 1) return "Fill personal, contact and nominee details.";
     if (step === 2) return "Provide accurate vehicle information.";
-    if (step === 3 && !isNewCar && !isExtendedWarranty)
+    if (step === 3 && !shouldSkipStep(3))
       return "For renewal cases & policy already expired cases.";
     if (step === 4)
       return "Add and manage quote options (at least 1 quote required).";
     if (step === 6) return "Policy details (auto-filled from accepted quote).";
     if (step === 7) return "Upload and tag documents (recommended).";
     return "";
-  }, [step, isExtendedWarranty, isNewCar]);
+  }, [step, shouldSkipStep]);
 
   const stepErrorsAlert = useMemo(() => {
     if (!showErrors) return null;
@@ -3063,6 +3106,7 @@ const NewInsuranceCaseForm = ({
             getCustomerId={getCustomerId}
             onPolicyDoneByChange={handlePolicyDoneByChange}
             onSourceChange={handleSourceChange}
+            isExtendedWarranty={isExtendedWarranty}
           />
         );
       case 2:
@@ -3097,7 +3141,7 @@ const NewInsuranceCaseForm = ({
           />
         );
       case 3:
-        if (isNewCar || isExtendedWarranty) return null;
+        if (shouldSkipStep(3)) return null;
         return (
           <Step3PreviousPolicy
             formData={formData}
@@ -3142,6 +3186,22 @@ const NewInsuranceCaseForm = ({
             isSaving={saving}
             planFeaturesModal={planFeaturesModal}
             setPlanFeaturesModal={setPlanFeaturesModal}
+            previousPolicyContext={{
+              previousInsuranceCompany: formData.previousInsuranceCompany,
+              previousPolicyType: formData.previousPolicyType,
+              previousOwnDamageAmount:
+                formData.previousOwnDamageAmount ||
+                formData.previousBasicOwnDamageAmount,
+              previousThirdPartyAmount:
+                formData.previousThirdPartyAmount ||
+                formData.previousBasicThirdPartyAmount,
+              previousAddOnsTotal: formData.previousAddOnsTotal,
+              previousTotalPremium: formData.previousTotalPremium,
+              previousIdvAmount: formData.previousIdvAmount,
+              previousNcbDiscount: formData.previousNcbDiscount,
+              previousSelectedAddOns: formData.previousSelectedAddOns || [],
+              claimTakenLastYear: formData.claimTakenLastYear,
+            }}
           />
         );
       case 6:
@@ -3345,6 +3405,8 @@ const NewInsuranceCaseForm = ({
           formData={formData}
           activeStep={step}
           onStepClick={setStep}
+          skipPreviousPolicyStep={shouldSkipStep(3)}
+          skipQuotesStep={shouldSkipStep(4)}
         />
       ) : null}
 
