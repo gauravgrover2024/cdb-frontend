@@ -1,6 +1,7 @@
 import React from "react";
 import dayjs from "dayjs";
 import {
+  AutoComplete,
   Col,
   Collapse,
   DatePicker,
@@ -17,6 +18,7 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
+import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 
 const shellStyle =
   "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
@@ -159,6 +161,44 @@ const HYPOTHECATION_OPTIONS = [
     value: option.value,
   })),
 ];
+const NCB_OPTIONS = [0, 20, 25, 35, 45, 50].map((value) => ({
+  label: `${value}%`,
+  value,
+}));
+
+const INSURER_LOGO_DOMAIN_MAP = {
+  "Acko General Insurance Limited": "acko.com",
+  "Bajaj General Insurance Limited": "bajajallianz.com",
+  "Cholamandalam MS General Insurance Company Limited": "cholainsurance.com",
+  "Go Digit General Insurance Limited": "godigit.com",
+  "HDFC ERGO General Insurance Company Limited": "hdfcergo.com",
+  "ICICI Lombard General Insurance Company Limited": "icicilombard.com",
+  "IFFCO TOKIO General Insurance Company Limited": "iffcotokio.co.in",
+  "Zurich Kotak General Insurance Company (India) Limited": "kotakgeneral.com",
+  "Liberty General Insurance Limited": "libertyinsurance.in",
+  "Magma General Insurance Limited": "magmahdi.com",
+  "Navi General Insurance Limited": "navi.com",
+  "Royal Sundaram General Insurance Company Limited": "royalsundaram.in",
+  "SBI General Insurance Company Limited": "sbigeneral.in",
+  "Shriram General Insurance Company Limited": "shriramgi.com",
+  "Tata AIG General Insurance Company Limited": "tataaig.com",
+  "The New India Assurance Company Limited": "newindia.co.in",
+  "The Oriental Insurance Company Limited": "orientalinsurance.org.in",
+  "United India Insurance Company Limited": "uiic.co.in",
+  "Universal Sompo General Insurance Company Limited": "universalsompo.com",
+  "Zuno General Insurance Ltd.": "hizuno.com",
+};
+
+const getInsurerLogoCandidates = (companyName) => {
+  const company = String(companyName || "").trim();
+  if (!company) return [];
+  const domain = INSURER_LOGO_DOMAIN_MAP[company];
+  if (!domain) return [];
+  return [
+    `https://logo.clearbit.com/${domain}`,
+    `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+  ];
+};
 
 const computeMinusOneDayExpiry = (startDate, years) => {
   if (!startDate || !years) return "";
@@ -209,6 +249,11 @@ const Step5NewPolicyDetails = ({
 }) => {
   const [showAllAcceptedAddons, setShowAllAcceptedAddons] =
     React.useState(false);
+  const [isPolicyStartDateManual, setIsPolicyStartDateManual] =
+    React.useState(false);
+  const hasManualPolicyStartDate =
+    isPolicyStartDateManual &&
+    Boolean(String(formData.newPolicyStartDate || "").trim());
   const isExtendedWarranty =
     String(formData.policyCategory || "").trim() === "Extended Warranty";
   const isNewCar = String(formData.vehicleType || "").trim() === "New Car";
@@ -256,6 +301,13 @@ const Step5NewPolicyDetails = ({
   const acceptedNcbAmount = Number(acceptedQuoteBreakup?.ncbReferenceAmount || 0);
 
   const companyInitial = getInitial(acceptedCompany);
+  const acceptedLogoCandidates = React.useMemo(
+    () => getInsurerLogoCandidates(acceptedCompany),
+    [acceptedCompany],
+  );
+  const [acceptedLogoIdx, setAcceptedLogoIdx] = React.useState(0);
+  React.useEffect(() => setAcceptedLogoIdx(0), [acceptedCompany]);
+  const acceptedLogoUrl = acceptedLogoCandidates[acceptedLogoIdx] || "";
 
   const includedAddons = Object.entries(acceptedQuote?.addOnsIncluded || {})
     .filter(([, v]) => Boolean(v))
@@ -343,6 +395,12 @@ const Step5NewPolicyDetails = ({
 
   React.useEffect(() => {
     if (isExtendedWarranty) return;
+    const shouldAutoCompute = hasManualPolicyStartDate;
+    if (!shouldAutoCompute) {
+      if (formData.newOdExpiryDate !== "") setField("newOdExpiryDate", "");
+      if (formData.newTpExpiryDate !== "") setField("newTpExpiryDate", "");
+      return;
+    }
     const policyType = formData.newPolicyType;
 
     if (policyType === "Comprehensive") {
@@ -386,7 +444,32 @@ const Step5NewPolicyDetails = ({
     computedTpExpiry,
     formData.newOdExpiryDate,
     formData.newPolicyType,
+    formData.newPolicyStartDate,
     formData.newTpExpiryDate,
+    hasManualPolicyStartDate,
+    isExtendedWarranty,
+    setField,
+  ]);
+
+  React.useEffect(() => {
+    if (isExtendedWarranty) return;
+    const vehicleIdv = Number(formData.newVehicleIdv || 0);
+    const cngIdv = Number(formData.newCngIdv || 0);
+    const accessoriesIdv = Number(formData.newAccessoriesIdv || 0);
+    const partsTotal = vehicleIdv + cngIdv + accessoriesIdv;
+    const currentTotal = Number(formData.newIdvAmount || 0);
+    if (partsTotal === 0 && currentTotal > 0) {
+      setField("newVehicleIdv", currentTotal);
+      return;
+    }
+    if (partsTotal > 0 && partsTotal !== currentTotal) {
+      setField("newIdvAmount", partsTotal);
+    }
+  }, [
+    formData.newAccessoriesIdv,
+    formData.newCngIdv,
+    formData.newIdvAmount,
+    formData.newVehicleIdv,
     isExtendedWarranty,
     setField,
   ]);
@@ -418,6 +501,13 @@ const Step5NewPolicyDetails = ({
     isExtendedWarranty,
     setField,
   ]);
+
+  React.useEffect(() => {
+    if (isExtendedWarranty) return;
+    if (!String(formData.newPolicyStartDate || "").trim()) {
+      setIsPolicyStartDateManual(false);
+    }
+  }, [formData.newPolicyStartDate, isExtendedWarranty]);
 
   const amountInputProps = {
     formatter: formatAmountInput,
@@ -629,19 +719,34 @@ const Step5NewPolicyDetails = ({
       children: (
         <div className="pt-3">
           <Row gutter={[22, 20]}>
-            <Col xs={24} md={16}>
+            <Col xs={24} md={16} lg={16}>
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Company" required>
-                  <Input
+                  <AutoComplete
+                    style={{ width: "100%" }}
                     value={formData.newInsuranceCompany}
-                    onChange={handleChange("newInsuranceCompany")}
-                    style={inputControlStyle}
-                  />
+                    options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
+                      value: name,
+                    }))}
+                    onChange={(value) =>
+                      setField("newInsuranceCompany", String(value || ""))
+                    }
+                    filterOption={(inputValue, option) =>
+                      String(option?.value || "")
+                        .toLowerCase()
+                        .includes(String(inputValue || "").toLowerCase())
+                    }
+                  >
+                    <Input
+                      style={inputControlStyle}
+                      placeholder="e.g. HDFC ERGO General Insurance Company Limited"
+                    />
+                  </AutoComplete>
                 </CleanField>
               </div>
             </Col>
 
-            <Col xs={24} md={8}>
+            <Col xs={24} md={8} lg={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Type" required>
                   <Select
@@ -651,6 +756,7 @@ const Step5NewPolicyDetails = ({
                       setField("newInsuranceDuration", "");
                       setField("newOdExpiryDate", "");
                       setField("newTpExpiryDate", "");
+                      setIsPolicyStartDateManual(false);
                     }}
                     style={controlStyle}
                     options={[
@@ -708,9 +814,17 @@ const Step5NewPolicyDetails = ({
                         : null
                     }
                     onChange={(d) =>
-                      handleNewPolicyStartOrDuration({
-                        newPolicyStartDate: d ? d.format("YYYY-MM-DD") : "",
-                      })
+                      {
+                        const next = d ? d.format("YYYY-MM-DD") : "";
+                        setIsPolicyStartDateManual(Boolean(next));
+                        if (!next) {
+                          setField("newOdExpiryDate", "");
+                          setField("newTpExpiryDate", "");
+                        }
+                        handleNewPolicyStartOrDuration({
+                          newPolicyStartDate: next,
+                        });
+                      }
                     }
                     format="DD/MM/YYYY"
                     allowClear
@@ -742,8 +856,13 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="OD Expiry Date">
                   <Input
-                    type="date"
-                    value={formData.newOdExpiryDate}
+                    type="text"
+                    value={
+                      hasManualPolicyStartDate
+                        ? formatDisplayDate(formData.newOdExpiryDate)
+                        : ""
+                    }
+                    placeholder="Select policy start date"
                     style={computedDateStyle}
                     readOnly
                     tabIndex={-1}
@@ -756,8 +875,13 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="TP Expiry Date">
                   <Input
-                    type="date"
-                    value={formData.newTpExpiryDate}
+                    type="text"
+                    value={
+                      hasManualPolicyStartDate
+                        ? formatDisplayDate(formData.newTpExpiryDate)
+                        : ""
+                    }
+                    placeholder="Select policy start date"
                     style={computedDateStyle}
                     readOnly
                     tabIndex={-1}
@@ -769,12 +893,38 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="NCB Discount (%)">
-                  <InputNumber
-                    min={0}
-                    max={100}
+                  <Select
                     value={Number(formData.newNcbDiscount || 0)}
                     onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
                     style={controlStyle}
+                    options={NCB_OPTIONS}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24}>
+              <div className={labelClass}>IDV Amount (₹)</div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Vehicle IDV (₹)" required>
+                  <InputNumber
+                    min={0}
+                    value={Number(formData.newVehicleIdv || 0)}
+                    onChange={(v) => {
+                      const nextVehicleIdv = Number(v || 0);
+                      const nextTotal =
+                        nextVehicleIdv +
+                        Number(formData.newCngIdv || 0) +
+                        Number(formData.newAccessoriesIdv || 0);
+                      setField("newVehicleIdv", nextVehicleIdv);
+                      setField("newIdvAmount", nextTotal);
+                    }}
+                    style={controlStyle}
+                    placeholder="₹ 0"
+                    {...amountInputProps}
                   />
                 </CleanField>
               </div>
@@ -782,11 +932,42 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="IDV Amount (₹)" required>
+                <CleanField label="CNG IDV (₹)">
                   <InputNumber
                     min={0}
-                    value={Number(formData.newIdvAmount || 0)}
-                    onChange={(v) => setField("newIdvAmount", Number(v || 0))}
+                    value={Number(formData.newCngIdv || 0)}
+                    onChange={(v) => {
+                      const nextCngIdv = Number(v || 0);
+                      const nextTotal =
+                        Number(formData.newVehicleIdv || 0) +
+                        nextCngIdv +
+                        Number(formData.newAccessoriesIdv || 0);
+                      setField("newCngIdv", nextCngIdv);
+                      setField("newIdvAmount", nextTotal);
+                    }}
+                    style={controlStyle}
+                    placeholder="₹ 0"
+                    {...amountInputProps}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Accessories IDV (₹)">
+                  <InputNumber
+                    min={0}
+                    value={Number(formData.newAccessoriesIdv || 0)}
+                    onChange={(v) => {
+                      const nextAccessoriesIdv = Number(v || 0);
+                      const nextTotal =
+                        Number(formData.newVehicleIdv || 0) +
+                        Number(formData.newCngIdv || 0) +
+                        nextAccessoriesIdv;
+                      setField("newAccessoriesIdv", nextAccessoriesIdv);
+                      setField("newIdvAmount", nextTotal);
+                    }}
                     style={controlStyle}
                     placeholder="₹ 0"
                     {...amountInputProps}
@@ -901,7 +1082,22 @@ const Step5NewPolicyDetails = ({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
                     <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6E6DF]/70 text-xs font-black text-slate-800 ring-1 ring-[#D6E6DF]">
-                      {companyInitial}
+                      {acceptedLogoUrl ? (
+                        <img
+                          src={acceptedLogoUrl}
+                          alt={acceptedCompany || "Insurer"}
+                          className="h-8 w-8 rounded-md object-contain bg-white"
+                          onError={() => {
+                            setAcceptedLogoIdx((prev) =>
+                              prev + 1 < acceptedLogoCandidates.length
+                                ? prev + 1
+                                : acceptedLogoCandidates.length,
+                            );
+                          }}
+                        />
+                      ) : (
+                        companyInitial
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="m-0 truncate text-sm font-bold leading-tight text-slate-800">
@@ -1057,13 +1253,21 @@ const Step5NewPolicyDetails = ({
                 <MiniDateCard
                   icon={<InfoCircleOutlined />}
                   label="OD Expiry"
-                  value={formatDisplayDate(formData.newOdExpiryDate)}
+                  value={
+                    hasManualPolicyStartDate
+                      ? formatDisplayDate(formData.newOdExpiryDate)
+                      : "—"
+                  }
                   tone="slate"
                 />
                 <MiniDateCard
                   icon={<BankOutlined />}
                   label="TP Expiry"
-                  value={formatDisplayDate(formData.newTpExpiryDate)}
+                  value={
+                    hasManualPolicyStartDate
+                      ? formatDisplayDate(formData.newTpExpiryDate)
+                      : "—"
+                  }
                   tone="slate"
                 />
               </div>

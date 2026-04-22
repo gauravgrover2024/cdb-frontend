@@ -151,6 +151,9 @@ const initialFormState = {
   newTpExpiryDate: "",
   newNcbDiscount: 0,
   newIdvAmount: 0,
+  newVehicleIdv: 0,
+  newCngIdv: 0,
+  newAccessoriesIdv: 0,
   newTotalPremium: 0,
   payoutPercentage: 10,
   subventionAmount: 0,
@@ -698,6 +701,8 @@ const NewInsuranceCaseForm = ({
     initialValues?._id || initialValues?.id || null,
   );
   const [saving, setSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [saveError, setSaveError] = useState("");
 
   // ── New UI state ─────────────────────────────────────────────────────────
   /** Controls the floating Case Summary side-drawer */
@@ -2063,6 +2068,22 @@ const NewInsuranceCaseForm = ({
         initialValues?.nomineeAge ||
         getAgeFromDob(initialValues?.nomineeDob) ||
         prev.nomineeAge,
+      customerPaymentExpected:
+        initialValues?.customerPaymentExpected ??
+        initialValues?.customer_payment_expected ??
+        prev.customerPaymentExpected,
+      customerPaymentReceived:
+        initialValues?.customerPaymentReceived ??
+        initialValues?.customer_payment_received ??
+        prev.customerPaymentReceived,
+      inhousePaymentExpected:
+        initialValues?.inhousePaymentExpected ??
+        initialValues?.inhouse_payment_expected ??
+        prev.inhousePaymentExpected,
+      inhousePaymentReceived:
+        initialValues?.inhousePaymentReceived ??
+        initialValues?.inhouse_payment_received ??
+        prev.inhousePaymentReceived,
     }));
     const normalizedQuotes = normalizeQuotesFromApi(initialValues?.quotes);
     if (normalizedQuotes.length) {
@@ -2087,8 +2108,13 @@ const NewInsuranceCaseForm = ({
     }
     if (Array.isArray(initialValues?.documents))
       setDocuments(initialValues.documents);
+    else if (Array.isArray(initialValues?.document_library))
+      setDocuments(initialValues.document_library);
+
     if (Array.isArray(initialValues?.paymentHistory))
       setPaymentHistory(initialValues.paymentHistory);
+    else if (Array.isArray(initialValues?.payment_history))
+      setPaymentHistory(initialValues.payment_history);
     if (initialValues?.acceptedQuoteId !== undefined)
       setAcceptedQuoteId(initialValues.acceptedQuoteId);
     if (initialValues?.currentStep)
@@ -2353,6 +2379,14 @@ const NewInsuranceCaseForm = ({
       const normalizedSource = String(
         formData.source || formData.sourceOrigin || "Direct",
       ).trim() || "Direct";
+      const normalizedPaymentHistory = Array.isArray(paymentHistory)
+        ? paymentHistory
+        : [];
+      const customerPaymentExpected = Number(formData.customerPaymentExpected || 0);
+      const customerPaymentReceived = Number(formData.customerPaymentReceived || 0);
+      const inhousePaymentExpected = Number(formData.inhousePaymentExpected || 0);
+      const inhousePaymentReceived = Number(formData.inhousePaymentReceived || 0);
+
       return {
         ...formData,
         source: normalizedSource,
@@ -2362,7 +2396,16 @@ const NewInsuranceCaseForm = ({
         quotes,
         acceptedQuoteId,
         documents,
-        paymentHistory,
+        paymentHistory: normalizedPaymentHistory,
+        payment_history: normalizedPaymentHistory,
+        customerPaymentExpected,
+        customer_payment_expected: customerPaymentExpected,
+        customerPaymentReceived,
+        customer_payment_received: customerPaymentReceived,
+        inhousePaymentExpected,
+        inhouse_payment_expected: inhousePaymentExpected,
+        inhousePaymentReceived,
+        inhouse_payment_received: inhousePaymentReceived,
         status: patch.status || "draft",
         currentStep: step,
         ...patch,
@@ -2381,6 +2424,7 @@ const NewInsuranceCaseForm = ({
       persistInFlightRef.current = true;
       persistQueuedRef.current = false;
       setSaving(true);
+      setSaveError("");
 
       try {
         const payload = buildPersistPayload(patch);
@@ -2389,15 +2433,18 @@ const NewInsuranceCaseForm = ({
           const created = res?.data || res;
           const id = created?._id || created?.id || created?.data?._id;
           if (id) setInsuranceDbId(id);
+          setLastSavedAt(new Date().toISOString());
           if (!silent) message.success("Draft saved ✓");
           return created;
         } else {
           const res = await insuranceApi.update(insuranceDbId, payload);
+          setLastSavedAt(new Date().toISOString());
           if (!silent) message.success("Draft saved ✓");
           return res?.data || res;
         }
       } catch (err) {
         console.error("[Insurance] Persist failed:", err);
+        setSaveError(err?.message || "Save failed");
         if (!silent) {
           message.error(err?.message || "Failed to autosave insurance case");
         }
@@ -2423,6 +2470,80 @@ const NewInsuranceCaseForm = ({
       }, ms);
     },
     [persistNow],
+  );
+
+  const savePaymentEntry = useCallback(
+    async (entry = {}) => {
+      const idempotencyKey =
+        String(entry?.idempotencyKey || "").trim() ||
+        `ins-pay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const payload = { ...entry, idempotencyKey };
+
+      let caseId = insuranceDbId;
+      if (!caseId) {
+        const created = await persistNow({ silent: true });
+        caseId = created?._id || created?.id || created?.data?._id || insuranceDbId;
+      }
+
+      if (!caseId) {
+        schedulePersist(220);
+        return { persisted: false, fallback: true };
+      }
+
+      try {
+        const res = await insuranceApi.appendPayment(caseId, payload, {
+          idempotencyKey,
+        });
+        const responseData = res?.data || res || {};
+        const maybeHistory =
+          (Array.isArray(responseData?.paymentHistory) && responseData.paymentHistory) ||
+          (Array.isArray(responseData?.payment_history) && responseData.payment_history) ||
+          (Array.isArray(responseData?.data?.paymentHistory) &&
+            responseData.data.paymentHistory) ||
+          (Array.isArray(responseData?.data?.payment_history) &&
+            responseData.data.payment_history) ||
+          null;
+
+        const maybeEntry =
+          responseData?.payment ||
+          responseData?.entry ||
+          responseData?.data?.payment ||
+          responseData?.data?.entry ||
+          null;
+
+        if (maybeHistory) {
+          setPaymentHistory(maybeHistory);
+        } else if (maybeEntry) {
+          setPaymentHistory((prev) => {
+            const rows = Array.isArray(prev) ? prev : [];
+            const matchIndex = rows.findIndex((row) => {
+              const rowKey = String(
+                row?.idempotencyKey || row?._id || row?.id || "",
+              ).trim();
+              const incomingKey = String(
+                maybeEntry?.idempotencyKey || maybeEntry?._id || maybeEntry?.id || "",
+              ).trim();
+              return rowKey && incomingKey && rowKey === incomingKey;
+            });
+            if (matchIndex === -1) return [...rows, maybeEntry];
+            return rows.map((row, idx) => (idx === matchIndex ? maybeEntry : row));
+          });
+        }
+
+        setLastSavedAt(new Date().toISOString());
+        setSaveError("");
+        return { persisted: true };
+      } catch (err) {
+        if (Number(err?.status) === 404 || Number(err?.status) === 405) {
+          // Backend endpoint may not be deployed yet; fallback to full draft persist.
+          schedulePersist(220);
+          return { persisted: false, fallback: true };
+        }
+        setSaveError(err?.message || "Payment save failed");
+        throw err;
+      }
+    },
+    [insuranceDbId, persistNow, schedulePersist],
   );
 
   // ── Sync React state → Zustand store (localStorage draft persistence) ─────
@@ -2698,7 +2819,15 @@ const NewInsuranceCaseForm = ({
             newOdExpiryDate: "",
             newTpExpiryDate: "",
             newNcbDiscount: q.ncbDiscount,
-            newIdvAmount: q.totalIdv,
+            newVehicleIdv: Number(q.vehicleIdv || 0),
+            newCngIdv: Number(q.cngIdv || 0),
+            newAccessoriesIdv: Number(q.accessoriesIdv || 0),
+            newIdvAmount: Number(
+              q.totalIdv ||
+                Number(q.vehicleIdv || 0) +
+                  Number(q.cngIdv || 0) +
+                  Number(q.accessoriesIdv || 0),
+            ),
             newTotalPremium: Math.round(Number(breakup?.totalPremium || 0)),
             newHypothecation:
               String(q.hypothecation || "").trim() ||
@@ -3066,6 +3195,13 @@ const NewInsuranceCaseForm = ({
             setPaymentHistory={setPaymentHistory}
             schedulePersist={schedulePersist}
             acceptedQuote={acceptedQuote}
+            onAppendPaymentEntry={savePaymentEntry}
+            saveMeta={{
+              saving,
+              lastSavedAt,
+              saveError,
+            }}
+            onRetrySave={() => persistNow({ silent: false })}
           />
         );
       case 9:
@@ -3255,6 +3391,9 @@ const NewInsuranceCaseForm = ({
           }
           const newPayment = {
             _id: `payment-${Date.now()}`,
+            idempotencyKey: `payment-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
             ...paymentForm,
             amount: Number(paymentForm.amount),
             recordedAt: new Date().toISOString(),
@@ -3286,7 +3425,7 @@ const NewInsuranceCaseForm = ({
             transactionRef: "",
             remarks: "",
           });
-          // schedulePersist(250);
+          schedulePersist(250);
           message.success("Payment recorded successfully");
         }}
         okText="Record Payment"

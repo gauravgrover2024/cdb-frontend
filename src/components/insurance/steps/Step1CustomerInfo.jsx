@@ -213,6 +213,29 @@ const Step1CustomerInfo = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
+                <CleanField label="Policy Type" required>
+                  <Radio.Group
+                    value={formData.policyCategory || "Insurance Policy"}
+                    onChange={(e) =>
+                      setField(
+                        "policyCategory",
+                        e?.target?.value || "Insurance Policy",
+                      )
+                    }
+                    optionType="button"
+                    buttonStyle="solid"
+                    options={[
+                      { label: "Insurance", value: "Insurance Policy" },
+                      { label: "EW Policy", value: "Extended Warranty" },
+                    ]}
+                    style={{ marginTop: 8, width: "100%" }}
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
                 <CleanField label="Employee (staff)" required>
                   <AutoComplete
                     value={formData.employeeName}
@@ -250,26 +273,6 @@ const Step1CustomerInfo = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Policy Type" required>
-                  <Radio.Group
-                    value={formData.policyCategory || "Insurance Policy"}
-                    onChange={(e) =>
-                      setField("policyCategory", e?.target?.value || "Insurance Policy")
-                    }
-                    optionType="button"
-                    buttonStyle="solid"
-                    options={[
-                      { label: "Insurance", value: "Insurance Policy" },
-                      { label: "EW Policy", value: "Extended Warranty" },
-                    ]}
-                    style={{ marginTop: 8, width: "100%" }}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
                 <CleanField label="Policy Done By" required>
                   <Select
                     value={policyDoneBy || "Autocredits India LLP"}
@@ -282,7 +285,9 @@ const Step1CustomerInfo = ({
                       label: value,
                       value,
                     }))}
-                    status={showErrors && step1Errors.policyDoneBy ? "error" : ""}
+                    status={
+                      showErrors && step1Errors.policyDoneBy ? "error" : ""
+                    }
                   />
                 </CleanField>
               </div>
@@ -300,7 +305,9 @@ const Step1CustomerInfo = ({
                       onChange={handleChange("brokerName")}
                       placeholder="Enter broker name"
                       style={inputControlStyle}
-                      status={showErrors && step1Errors.brokerName ? "error" : ""}
+                      status={
+                        showErrors && step1Errors.brokerName ? "error" : ""
+                      }
                     />
                   </CleanField>
                 </div>
@@ -319,7 +326,9 @@ const Step1CustomerInfo = ({
                       onChange={handleChange("showroomName")}
                       placeholder="Enter showroom name"
                       style={inputControlStyle}
-                      status={showErrors && step1Errors.showroomName ? "error" : ""}
+                      status={
+                        showErrors && step1Errors.showroomName ? "error" : ""
+                      }
                     />
                   </CleanField>
                 </div>
@@ -361,7 +370,9 @@ const Step1CustomerInfo = ({
                       onChange={handleChange("sourceName")}
                       placeholder="Enter source name"
                       style={inputControlStyle}
-                      status={showErrors && step1Errors.sourceName ? "error" : ""}
+                      status={
+                        showErrors && step1Errors.sourceName ? "error" : ""
+                      }
                     />
                   </CleanField>
                 </div>
@@ -410,7 +421,9 @@ const Step1CustomerInfo = ({
                     </CleanField>
                   </div>
                   {showErrors && step1Errors.dealerChannelAddress ? (
-                    <Text type="danger">{step1Errors.dealerChannelAddress}</Text>
+                    <Text type="danger">
+                      {step1Errors.dealerChannelAddress}
+                    </Text>
                   ) : null}
                 </Col>
                 <Col xs={24} md={8}>
@@ -418,14 +431,18 @@ const Step1CustomerInfo = ({
                     <CleanField label="Payout Applicable" required>
                       <Select
                         value={formData.payoutApplicable || "No"}
-                        onChange={(value) => setField("payoutApplicable", value)}
+                        onChange={(value) =>
+                          setField("payoutApplicable", value)
+                        }
                         style={controlStyle}
                         options={[
                           { label: "No", value: "No" },
                           { label: "Yes", value: "Yes" },
                         ]}
                         status={
-                          showErrors && step1Errors.payoutApplicable ? "error" : ""
+                          showErrors && step1Errors.payoutApplicable
+                            ? "error"
+                            : ""
                         }
                       />
                     </CleanField>
@@ -457,7 +474,9 @@ const Step1CustomerInfo = ({
                           style={controlStyle}
                           placeholder="Payout %"
                           status={
-                            showErrors && step1Errors.payoutPercent ? "error" : ""
+                            showErrors && step1Errors.payoutPercent
+                              ? "error"
+                              : ""
                           }
                         />
                       </CleanField>
@@ -907,7 +926,11 @@ const Step1CustomerInfo = ({
                   <div className={fieldWrapClass}>
                     <CleanField label="Date Of Birth">
                       <DatePicker
-                        value={formData.nomineeDob ? dayjs(formData.nomineeDob) : null}
+                        value={
+                          formData.nomineeDob
+                            ? dayjs(formData.nomineeDob)
+                            : null
+                        }
                         onChange={(value) =>
                           setField(
                             "nomineeDob",

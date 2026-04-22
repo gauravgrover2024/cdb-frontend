@@ -18,6 +18,10 @@ const buildUrl = (endpoint, params = {}) => {
 
 const getHeaders = (options) => {
   const base = { "Content-Type": "application/json" };
+  const customHeaders =
+    options && options.headers && typeof options.headers === "object"
+      ? options.headers
+      : {};
   
   // Try to get token (localStorage-first for new-tab persistence)
   let token = null;
@@ -36,7 +40,7 @@ const getHeaders = (options) => {
     base["Authorization"] = options.Authorization;
   }
   
-  return base;
+  return { ...base, ...customHeaders };
 };
 
 const tryParseJson = (text) => {

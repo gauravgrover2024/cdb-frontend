@@ -251,8 +251,14 @@ const computeTotals = (rows = [], premium = 0) => {
     0,
     subventionRefundExpected - subventionRefundPaid,
   );
+  // Exposure adjusts subvention as well:
+  // - NR subvention reduces collection exposure
+  // - Refund subvention increases AC outflow exposure
   const acNetExposure =
-    insurerPaidByAutocredits + subventionRefundPaid - customerRecovered;
+    insurerPaidByAutocredits +
+    subventionRefundPaid -
+    customerRecovered -
+    subventionNotRecoverable;
 
   return {
     insurerPaidByAutocredits,
@@ -368,12 +374,16 @@ const Step7Payment = ({
   paymentHistory,
   setPaymentHistory,
   schedulePersist,
+  onAppendPaymentEntry,
+  saveMeta,
+  onRetrySave,
 }) => {
   const didNormalizeInitialModeRef = useRef(false);
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false);
+  const [entryPersisting, setEntryPersisting] = useState(false);
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1280,
   );
@@ -504,6 +514,10 @@ const Step7Payment = ({
   const customerSettled =
     totals.customerOutstandingToAc <= 0 && totals.customerRecovered > 0;
   const fullySettled = insurerSettled && customerSettled;
+  const lastSavedLabel = saveMeta?.lastSavedAt
+    ? dayjs(saveMeta.lastSavedAt).format("DD MMM, hh:mm A")
+    : "";
+  const hasSaveError = Boolean(String(saveMeta?.saveError || "").trim());
 
   useEffect(() => {
     if (fullySettled) setIsLocked(true);
@@ -679,11 +693,12 @@ const Step7Payment = ({
     });
   };
 
-  const addLedgerEntry = () => {
+  const addLedgerEntry = async () => {
     if (isLocked) {
       message.warning("Ledger is locked. Unlock it to add or change entries.");
       return;
     }
+    if (entryPersisting) return;
 
     const amount = toAmount(paymentForm?.amount);
     if (!amount) {
@@ -703,6 +718,9 @@ const Step7Payment = ({
     const entry = normalizeLedgerRow(
       {
         _id: `ins-pay-${Date.now()}`,
+        idempotencyKey: `ins-pay-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
         entryType,
         paidBy,
         amount,
@@ -727,8 +745,19 @@ const Step7Payment = ({
     setPaymentHistory((prev) => [...(Array.isArray(prev) ? prev : []), entry]);
     resetComposer();
     setMobileComposerOpen(false);
-    if (typeof schedulePersist === "function") schedulePersist(220);
-    message.success("Ledger entry recorded");
+    setEntryPersisting(true);
+    try {
+      if (typeof onAppendPaymentEntry === "function") {
+        await onAppendPaymentEntry(entry);
+      } else if (typeof schedulePersist === "function") {
+        schedulePersist(220);
+      }
+      message.success("Ledger entry recorded");
+    } catch (err) {
+      message.error(err?.message || "Failed to save ledger entry");
+    } finally {
+      setEntryPersisting(false);
+    }
   };
 
   const deleteLedgerEntry = (id) => {
@@ -816,12 +845,12 @@ const Step7Payment = ({
           amountPrefix = "";
         } else if (row.entryType === ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE) {
           amountColor = UI.warm.color;
-          amountDirection = "down";
+          amountDirection = "neutral";
           amountPrefix = "";
         } else if (row.entryType === ENTRY_TYPES.SUBVENTION_REFUND) {
           amountColor = UI.rose.color;
-          amountDirection = "up";
-          amountPrefix = "-";
+          amountDirection = "neutral";
+          amountPrefix = "";
         }
 
         return {
@@ -1129,7 +1158,8 @@ const Step7Payment = ({
         type="primary"
         icon={<PlusOutlined />}
         onClick={addLedgerEntry}
-        disabled={isLocked}
+        loading={entryPersisting}
+        disabled={isLocked || entryPersisting}
         className="!mt-auto !h-10 !w-full !rounded-xl !border-0 !font-bold !text-white disabled:!bg-slate-300"
         style={{ backgroundColor: UI.sage.solid }}
       >
@@ -1159,6 +1189,29 @@ const Step7Payment = ({
             <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF3EF] !border-[#D6E6DF] !text-slate-800">
               Entries: {tableRows.length}
             </Tag>
+            {saveMeta?.saving ? (
+              <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-sky-50 !border-sky-200 !text-sky-700">
+                Saving...
+              </Tag>
+            ) : null}
+            {!saveMeta?.saving && !hasSaveError && lastSavedLabel ? (
+              <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-emerald-50 !border-emerald-200 !text-emerald-700">
+                Last saved: {lastSavedLabel}
+              </Tag>
+            ) : null}
+            {hasSaveError ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-bold text-rose-700">
+                Save failed
+                <Button
+                  type="link"
+                  size="small"
+                  className="!h-auto !p-0 !text-[11px] !font-bold !text-rose-700"
+                  onClick={() => onRetrySave?.()}
+                >
+                  Retry
+                </Button>
+              </span>
+            ) : null}
           {settlementStatus ? (
             <FlowIndicator label={settlementStatus} settled={false} />
           ) : null}

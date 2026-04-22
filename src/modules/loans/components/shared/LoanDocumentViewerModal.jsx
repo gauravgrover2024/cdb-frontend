@@ -15,6 +15,11 @@ const isImageUrl = (url = "") =>
 
 const isPdfUrl = (url = "") =>
   /\.pdf(\?|#|$)/i.test(url) || String(url).startsWith("data:application/pdf");
+const extensionFromValue = (value = "") => {
+  const clean = String(value || "").split("?")[0].split("#")[0];
+  const last = clean.split(".").pop();
+  return last && last !== clean ? last.toLowerCase() : "";
+};
 const API_BASE = String(API_BASE_URL || "").replace(/\/+$/, "");
 
 const looksLikeR2Host = (value = "") => {
@@ -69,18 +74,40 @@ const withPdfZoomHash = (url, zoom, fitMode) => {
 const normalizeDocs = (documents = []) =>
   (Array.isArray(documents) ? documents : [])
     .filter((doc) => hasValue(doc?.url) || hasValue(doc?.previewUrl))
-    .map((doc, index) => ({
-      id: doc?.id || `${doc?.url}-${index}`,
-      name: doc?.name || doc?.tag || `Document ${index + 1}`,
-      tag: doc?.tag || "",
-      documentStage: doc?.documentStage || doc?.scope || (doc?.isPreFile ? "Pre-File" : "Post-File"),
-      rawUrl: doc?.rawUrl || doc?.url,
-      url: buildAccessibleDocumentUrl(doc?.url || doc?.previewUrl),
-      size: doc?.size || "",
-      uploadedBy: doc?.uploadedBy || "",
-      isImage: doc?.isImage ?? isImageUrl(doc?.url),
-      isPdf: doc?.isPdf ?? isPdfUrl(doc?.url),
-    }));
+    .map((doc, index) => {
+      const rawUrl = String(doc?.rawUrl || doc?.url || doc?.previewUrl || "").trim();
+      const proxiedUrl = buildAccessibleDocumentUrl(doc?.url || doc?.previewUrl || rawUrl);
+      const mimeType = String(doc?.type || "").toLowerCase();
+      const declaredFormat = String(doc?.format || extensionFromValue(doc?.name || rawUrl)).toLowerCase();
+      const detectionText = `${rawUrl} ${proxiedUrl} ${String(doc?.name || "").toLowerCase()} ${declaredFormat} ${mimeType}`;
+      const inferredIsImage =
+        mimeType.startsWith("image/") ||
+        mimeType.includes("image") ||
+        isImageUrl(rawUrl) ||
+        isImageUrl(proxiedUrl) ||
+        /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(detectionText);
+      const inferredIsPdf =
+        mimeType === "application/pdf" ||
+        mimeType.includes("pdf") ||
+        declaredFormat === "pdf" ||
+        declaredFormat.includes("pdf") ||
+        isPdfUrl(rawUrl) ||
+        isPdfUrl(proxiedUrl) ||
+        /\.pdf(\?|#|$)/i.test(detectionText);
+
+      return {
+        id: doc?.id || `${doc?.url}-${index}`,
+        name: doc?.name || doc?.tag || `Document ${index + 1}`,
+        tag: doc?.tag || "",
+        documentStage: doc?.documentStage || doc?.scope || (doc?.isPreFile ? "Pre-File" : "Post-File"),
+        rawUrl,
+        url: proxiedUrl || rawUrl,
+        size: doc?.size || "",
+        uploadedBy: doc?.uploadedBy || "",
+        isImage: doc?.isImage ?? inferredIsImage,
+        isPdf: doc?.isPdf ?? inferredIsPdf,
+      };
+    });
 
 const normalizeDocumentStage = (value, fallback = "Post-File") => {
   const raw = String(value || "").trim().toLowerCase();
@@ -568,7 +595,7 @@ const LoanDocumentViewerModal = ({
             ) : activeDoc.isPdf ? (
               <iframe
                 title={getDocDisplayLabel(activeDoc, activeIndex)}
-                src={withPdfZoomHash(activeDoc.url, pdfZoom, fitMode)}
+                src={withPdfZoomHash(activeDoc.rawUrl || activeDoc.url, pdfZoom, fitMode)}
                 className="h-full w-full"
                 loading="lazy"
               />

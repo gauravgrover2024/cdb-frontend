@@ -760,7 +760,7 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  addonBefore="₹"
+                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -774,7 +774,7 @@ const Step4InsuranceQuotes = ({
                     setQuoteDraft((p) => ({ ...p, cngIdv: Number(v || 0) }))
                   }
                   className="w-full quote-control"
-                  addonBefore="₹"
+                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -791,7 +791,7 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  addonBefore="₹"
+                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -808,7 +808,7 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  addonBefore="₹"
+                
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -825,7 +825,7 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  addonBefore="₹"
+                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -842,7 +842,7 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  addonBefore="₹"
+                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -986,7 +986,7 @@ const Step4InsuranceQuotes = ({
                           min={0}
                           size="small"
                           value={amt}
-                          addonBefore="₹"
+                         addonBefore="₹"
                           controls={false}
                           placeholder="0"
                           {...inrInputProps}

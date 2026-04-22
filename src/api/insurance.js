@@ -62,4 +62,21 @@ export const insuranceApi = {
   mergeVehicleMatch: async (payload = {}) => {
     return await apiClient.post("/api/insurance/vehicle-match/merge", payload);
   },
+
+  appendPayment: async (id, payload = {}, options = {}) => {
+    const idempotencyKey =
+      String(options?.idempotencyKey || payload?.idempotencyKey || "").trim() || undefined;
+
+    return await apiClient.post(
+      `/api/insurance/${encodeURIComponent(String(id || "").trim())}/payments`,
+      payload,
+      {
+        ...(options || {}),
+        headers: {
+          ...(options?.headers || {}),
+          ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+        },
+      },
+    );
+  },
 };
