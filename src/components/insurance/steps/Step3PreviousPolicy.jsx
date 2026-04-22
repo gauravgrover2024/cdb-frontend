@@ -66,7 +66,7 @@ const labelClass =
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
 const fieldWrapClass =
-  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-picker]:!h-[44px] [&_.ant-picker]:!w-full [&_.ant-picker]:!rounded-[14px] [&_.ant-picker]:!px-[11px] [&_.ant-picker-input_>input]:!h-[42px] [&_.ant-picker-input_>input]:!leading-[42px] [&_.ant-picker-input_>input]:!text-[14px] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!bg-[#6aa27c] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!border-[#6aa27c] [&_.ant-checkbox:hover_.ant-checkbox-inner]:!border-[#6aa27c]";
+  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-picker]:!h-[44px] [&_.ant-picker]:!w-full [&_.ant-picker]:!rounded-[14px] [&_.ant-picker]:!px-[11px] [&_.ant-picker-input_>input]:!h-[42px] [&_.ant-picker-input_>input]:!leading-[42px] [&_.ant-picker-input_>input]:!text-[14px] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!bg-[#22A06B] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!border-[#22A06B] [&_.ant-checkbox:hover_.ant-checkbox-inner]:!border-[#22A06B]";
 
 const ALL_ADDONS = [
   "Zero Depreciation",
@@ -93,9 +93,9 @@ const HYPOTHECATION_OPTIONS = [
 ];
 
 const CleanField = ({ label, required, hint, children, extra }) => (
-  <div className="pb-1">
+  <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
-      {label} {required ? <span className="text-[#D8B8B4]">*</span> : null}
+      {label} {required ? <span className="text-[#F3A6B7]">*</span> : null}
     </div>
     {children}
     {hint ? <div className={microHintClass}>{hint}</div> : null}
@@ -137,8 +137,8 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
 const MiniDateCard = ({ icon, label, value, tone = "slate" }) => {
   const toneMap = {
     slate: "bg-slate-50 ring-slate-200",
-    sage: "bg-[#EEF3EF] ring-[#D6E6DF]",
-    warm: "bg-[#FAF8F1] ring-[#FAF8F1]",
+    sage: "bg-[#EEF7FF] ring-[#C9D9FF]",
+    warm: "bg-[#FFF4EC] ring-[#FFF4EC]",
   };
 
   return (
@@ -580,7 +580,7 @@ const Step3PreviousPolicy = ({
       key: "1",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF3EF] text-slate-700 ring-1 ring-[#D6E6DF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
             <SafetyCertificateOutlined />
           </div>
           <div>
@@ -682,8 +682,9 @@ const Step3PreviousPolicy = ({
                       })
                     }
                     style={controlStyle}
-                    format="DD/MM/YYYY"
+                    format={["DD/MM/YYYY", "D/M/YYYY"]}
                     placeholder="Select start date"
+                    popupClassName="insurance-themed-calendar"
                   />
                 </CleanField>
               </div>
@@ -799,7 +800,7 @@ const Step3PreviousPolicy = ({
                 {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
                   <button
                     type="button"
-                    className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
+                    className="ml-2 rounded-full border border-[#C9D9FF] bg-[#EEF7FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
                     onClick={() => setField("previousNcbDiscount", suggestedNcb)}
                   >
                     Use suggested
@@ -873,7 +874,7 @@ const Step3PreviousPolicy = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Policy information</div>
@@ -895,8 +896,8 @@ const Step3PreviousPolicy = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#EEF3EF",
-                borderColor: "#D6E6DF",
+                background: "#EEF7FF",
+                borderColor: "#C9D9FF",
                 color: "#1f2937",
               }}
             >
@@ -905,8 +906,8 @@ const Step3PreviousPolicy = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#FAF8F1",
-                borderColor: "#FAF8F1",
+                background: "#FFF4EC",
+                borderColor: "#FFF4EC",
                 color: "#1f2937",
               }}
             >
@@ -919,11 +920,11 @@ const Step3PreviousPolicy = ({
       <Row gutter={[20, 20]} align="top">
         <Col xs={24} xl={8}>
           <div className="flex flex-col gap-4 md:sticky md:top-4">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#D6E6DF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#C9D9FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6E6DF]/70 text-xs font-black text-slate-800 ring-1 ring-[#D6E6DF]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C9D9FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#C9D9FF]">
                       {companyInitial}
                     </div>
                     <div className="min-w-0">
@@ -962,7 +963,7 @@ const Step3PreviousPolicy = ({
                       <button
                         type="button"
                         onClick={startQuoteEdit}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#D6E6DF] bg-[#EEF3EF] text-slate-700 transition hover:bg-[#e4eee7]"
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#C9D9FF] bg-[#EEF7FF] text-slate-700 transition hover:bg-[#e4eee7]"
                       >
                         <EditOutlined />
                       </button>
@@ -971,14 +972,14 @@ const Step3PreviousPolicy = ({
                         <button
                           type="button"
                           onClick={saveQuoteEdit}
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#D6E6DF] bg-[#EEF3EF] text-slate-700 transition hover:bg-[#e4eee7]"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#C9D9FF] bg-[#EEF7FF] text-slate-700 transition hover:bg-[#e4eee7]"
                         >
                           <SaveOutlined />
                         </button>
                         <button
                           type="button"
                           onClick={cancelQuoteEdit}
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#E7D9D2] bg-[#FAF8F1] text-slate-700 transition hover:bg-[#f4eee6]"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#E7D9D2] bg-[#FFF4EC] text-slate-700 transition hover:bg-[#f4eee6]"
                         >
                           <CloseOutlined />
                         </button>
@@ -996,7 +997,7 @@ const Step3PreviousPolicy = ({
                     Premium Breakup
                   </p>
                   {isQuoteEditMode && (
-                    <span className="rounded-full bg-[#EEF3EF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 ring-1 ring-[#D6E6DF]">
+                    <span className="rounded-full bg-[#EEF7FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 ring-1 ring-[#C9D9FF]">
                       Edit mode
                     </span>
                   )}
@@ -1130,7 +1131,7 @@ const Step3PreviousPolicy = ({
                               </div>
 
                               {checked ? (
-                                <CheckCircleFilled className="text-[#6aa27c]" />
+                                <CheckCircleFilled className="text-[#22A06B]" />
                               ) : null}
                             </button>
                           );

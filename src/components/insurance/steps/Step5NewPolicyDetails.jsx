@@ -64,9 +64,9 @@ const fieldWrapClass =
   "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-picker]:!h-[44px] [&_.ant-picker]:!w-full [&_.ant-picker]:!rounded-[14px] [&_.ant-picker-input>input]:!h-[42px] [&_.ant-picker-input>input]:!leading-[42px]";
 
 const CleanField = ({ label, required, hint, children, extra }) => (
-  <div className="pb-1">
+  <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
-      {label} {required ? <span className="text-[#D8B8B4]">*</span> : null}
+      {label} {required ? <span className="text-[#F3A6B7]">*</span> : null}
     </div>
     {children}
     {hint ? <div className={microHintClass}>{hint}</div> : null}
@@ -108,8 +108,8 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
 const MiniDateCard = ({ icon, label, value, tone = "slate" }) => {
   const toneMap = {
     slate: "bg-slate-50 ring-slate-200",
-    sage: "bg-[#EEF3EF] ring-[#D6E6DF]",
-    warm: "bg-[#FAF8F1] ring-[#FAF8F1]",
+    sage: "bg-[#EEF7FF] ring-[#C9D9FF]",
+    warm: "bg-[#FFF4EC] ring-[#FFF4EC]",
   };
 
   return (
@@ -517,7 +517,7 @@ const Step5NewPolicyDetails = ({
   if (isExtendedWarranty) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+        <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
           <div className={sectionHeaderLabel}>Policy information</div>
           <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
             Extended warranty details
@@ -703,7 +703,7 @@ const Step5NewPolicyDetails = ({
       key: "1",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FAF8F1] text-slate-700 ring-1 ring-[#FAF8F1]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFF4EC] text-slate-700 ring-1 ring-[#FFF4EC]">
             <SafetyCertificateOutlined />
           </div>
           <div>
@@ -797,8 +797,9 @@ const Step5NewPolicyDetails = ({
                     onChange={(d) =>
                       setField("newIssueDate", d ? d.format("YYYY-MM-DD") : "")
                     }
-                    format="DD/MM/YYYY"
+                    format={["DD/MM/YYYY", "D/M/YYYY"]}
                     allowClear
+                    popupClassName="insurance-themed-calendar"
                   />
                 </CleanField>
               </div>
@@ -826,8 +827,9 @@ const Step5NewPolicyDetails = ({
                         });
                       }
                     }
-                    format="DD/MM/YYYY"
+                    format={["DD/MM/YYYY", "D/M/YYYY"]}
                     allowClear
+                    popupClassName="insurance-themed-calendar"
                   />
                 </CleanField>
               </div>
@@ -1031,7 +1033,7 @@ const Step5NewPolicyDetails = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Policy information</div>
@@ -1053,8 +1055,8 @@ const Step5NewPolicyDetails = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#EEF3EF",
-                borderColor: "#D6E6DF",
+                background: "#EEF7FF",
+                borderColor: "#C9D9FF",
                 color: "#1f2937",
               }}
             >
@@ -1063,8 +1065,8 @@ const Step5NewPolicyDetails = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#FAF8F1",
-                borderColor: "#FAF8F1",
+                background: "#FFF4EC",
+                borderColor: "#FFF4EC",
                 color: "#1f2937",
               }}
             >
@@ -1077,11 +1079,11 @@ const Step5NewPolicyDetails = ({
       <Row gutter={[20, 20]} align="top">
         <Col xs={24} xl={8}>
           <div className="flex flex-col gap-4 xl:sticky xl:top-24">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#D6E6DF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#C9D9FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6E6DF]/70 text-xs font-black text-slate-800 ring-1 ring-[#D6E6DF]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C9D9FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#C9D9FF]">
                       {acceptedLogoUrl ? (
                         <img
                           src={acceptedLogoUrl}

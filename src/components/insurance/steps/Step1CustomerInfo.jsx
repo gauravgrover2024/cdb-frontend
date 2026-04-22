@@ -48,12 +48,12 @@ const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
 const fieldWrapClass =
-  "[&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!h-[46px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[46px] [&_.ant-input-affix-wrapper]:!h-[46px] [&_.ant-input-affix-wrapper]:!rounded-[14px] [&_.ant-input-affix-wrapper]:!px-3 [&_.ant-input-affix-wrapper]:!py-0 [&_.ant-input-affix-wrapper]:!flex [&_.ant-input-affix-wrapper]:!items-center [&_.ant-input-affix-wrapper_.ant-input]:!h-[42px] [&_.ant-input-affix-wrapper_.ant-input]:!py-0 [&_.ant-input-affix-wrapper_.ant-input]:!leading-[42px] [&_.ant-input-number]:!h-[46px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[44px] [&_.ant-input-number-input]:!h-[44px] [&_.ant-input-number-input]:!leading-[44px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[46px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[44px] [&_.ant-select-selection-placeholder]:!leading-[44px] [&_.ant-radio-group]:!flex [&_.ant-radio-group]:!w-full [&_.ant-radio-group]:!gap-2 [&_.ant-radio-group]:!flex-wrap [&_.ant-radio-button-wrapper]:!h-[42px] [&_.ant-radio-button-wrapper]:!min-w-[124px] [&_.ant-radio-button-wrapper]:!rounded-[999px] [&_.ant-radio-button-wrapper]:!border [&_.ant-radio-button-wrapper]:!border-slate-300 [&_.ant-radio-button-wrapper]:!bg-white [&_.ant-radio-button-wrapper]:!px-5 [&_.ant-radio-button-wrapper]:!text-center [&_.ant-radio-button-wrapper]:!font-semibold [&_.ant-radio-button-wrapper]:!text-slate-600 [&_.ant-radio-button-wrapper]:!leading-[40px] [&_.ant-radio-button-wrapper]:!shadow-none [&_.ant-radio-button-wrapper]:!transition-all [&_.ant-radio-button-wrapper:hover]:!border-[#7cad89] [&_.ant-radio-button-wrapper:hover]:!text-slate-800 [&_.ant-radio-button-wrapper-checked]:!border-[#5f9770] [&_.ant-radio-button-wrapper-checked]:!bg-[#5f9770] [&_.ant-radio-button-wrapper-checked]:!text-white [&_.ant-radio-button-wrapper-checked]:!shadow-[0_8px_20px_rgba(95,151,112,0.28)] [&_.ant-radio-button-wrapper-checked:hover]:!border-[#5f9770] [&_.ant-radio-button-wrapper-checked:hover]:!color-white [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!background-[#5f9770] [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!color-white [&_.ant-radio-button-wrapper-checked::before]:!hidden [&_.ant-radio-button-wrapper:not(:first-child)::before]:!hidden";
+  "[&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!h-[46px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[46px] [&_.ant-input-affix-wrapper]:!h-[46px] [&_.ant-input-affix-wrapper]:!rounded-[14px] [&_.ant-input-affix-wrapper]:!px-3 [&_.ant-input-affix-wrapper]:!py-0 [&_.ant-input-affix-wrapper]:!flex [&_.ant-input-affix-wrapper]:!items-center [&_.ant-input-affix-wrapper_.ant-input]:!h-[42px] [&_.ant-input-affix-wrapper_.ant-input]:!py-0 [&_.ant-input-affix-wrapper_.ant-input]:!leading-[42px] [&_.ant-input-number]:!h-[46px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[44px] [&_.ant-input-number-input]:!h-[44px] [&_.ant-input-number-input]:!leading-[44px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[46px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[44px] [&_.ant-select-selection-placeholder]:!leading-[44px] [&_.ant-radio-group]:!flex [&_.ant-radio-group]:!w-full [&_.ant-radio-group]:!gap-2 [&_.ant-radio-group]:!flex-wrap [&_.ant-radio-button-wrapper]:!h-[42px] [&_.ant-radio-button-wrapper]:!min-w-[124px] [&_.ant-radio-button-wrapper]:!rounded-[999px] [&_.ant-radio-button-wrapper]:!border [&_.ant-radio-button-wrapper]:!border-slate-300 [&_.ant-radio-button-wrapper]:!bg-white [&_.ant-radio-button-wrapper]:!px-5 [&_.ant-radio-button-wrapper]:!text-center [&_.ant-radio-button-wrapper]:!font-semibold [&_.ant-radio-button-wrapper]:!text-slate-600 [&_.ant-radio-button-wrapper]:!leading-[40px] [&_.ant-radio-button-wrapper]:!shadow-none [&_.ant-radio-button-wrapper]:!transition-all [&_.ant-radio-button-wrapper:hover]:!border-[#7A7CFF] [&_.ant-radio-button-wrapper:hover]:!text-slate-800 [&_.ant-radio-button-wrapper-checked]:!border-[#5B4CF0] [&_.ant-radio-button-wrapper-checked]:!bg-[#5B4CF0] [&_.ant-radio-button-wrapper-checked]:!text-white [&_.ant-radio-button-wrapper-checked]:!shadow-[0_8px_20px_rgba(37,99,235,0.28)] [&_.ant-radio-button-wrapper-checked:hover]:!border-[#5B4CF0] [&_.ant-radio-button-wrapper-checked:hover]:!color-white [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!background-[#5B4CF0] [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!color-white [&_.ant-radio-button-wrapper-checked::before]:!hidden [&_.ant-radio-button-wrapper:not(:first-child)::before]:!hidden";
 
 const CleanField = ({ label, required, children, extra }) => (
-  <div className="pb-1">
+  <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
-      {label} {required ? <span className="text-[#D8B8B4]">*</span> : null}
+      {label} {required ? <span className="text-[#F3A6B7]">*</span> : null}
     </div>
     {children}
     {extra ? <div className="mt-1">{extra}</div> : null}
@@ -97,7 +97,7 @@ const buildCustomerOption = (c, getCustomerId) => {
     value: id,
     label: (
       <div className="flex items-start gap-3 rounded-[14px] border border-slate-100 bg-white px-3 py-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF3EF] text-xs font-bold text-slate-700 ring-1 ring-[#D6E6DF]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF7FF] text-xs font-bold text-slate-700 ring-1 ring-[#C9D9FF]">
           {initial}
         </div>
         <div className="min-w-0 flex-1">
@@ -154,7 +154,7 @@ const Step1CustomerInfo = ({
   const nomineeDobLabel = (() => {
     if (!formData.nomineeDob) return "DOB";
     const parsed = dayjs(formData.nomineeDob);
-    return parsed.isValid() ? parsed.format("DD-MM-YYYY") : "DOB";
+    return parsed.isValid() ? parsed.format("DD/MM/YYYY") : "DOB";
   })();
 
   const collapseItems = [
@@ -162,7 +162,7 @@ const Step1CustomerInfo = ({
       key: "1",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF3EF] text-slate-700 ring-1 ring-[#D6E6DF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
             <TeamOutlined />
           </div>
           <div>
@@ -526,7 +526,7 @@ const Step1CustomerInfo = ({
       key: "2",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FAF8F1] text-slate-700 ring-1 ring-[#FAF8F1]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFF4EC] text-slate-700 ring-1 ring-[#FFF4EC]">
             <UserOutlined />
           </div>
           <div>
@@ -899,7 +899,7 @@ const Step1CustomerInfo = ({
       key: "3",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF3EF] text-slate-700 ring-1 ring-[#D6E6DF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
             <IdcardOutlined />
           </div>
           <div>
@@ -967,9 +967,10 @@ const Step1CustomerInfo = ({
                             value ? value.startOf("day").toISOString() : "",
                           )
                         }
-                        format="DD-MM-YYYY"
+                        format={["DD/MM/YYYY", "D/M/YYYY"]}
                         style={controlStyle}
-                        placeholder="DD-MM-YYYY"
+                        placeholder="DD/MM/YYYY"
+                        popupClassName="insurance-themed-calendar"
                       />
                     </CleanField>
                   </div>
@@ -1049,8 +1050,8 @@ const Step1CustomerInfo = ({
           .step1-customer-info .ant-radio-button-wrapper-checked,
           .step1-customer-info .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled),
           .step1-customer-info .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled):hover {
-            background: #5f9770 !important;
-            border-color: #5f9770 !important;
+            background: var(--ins-primary) !important;
+            border-color: var(--ins-primary) !important;
             color: #ffffff !important;
           }
 
@@ -1064,16 +1065,16 @@ const Step1CustomerInfo = ({
           }
 
           .step1-customer-info .customer-autocomplete-dropdown .ant-select-item-option-active {
-            background: #f6faf7 !important;
+            background: var(--ins-surface-muted) !important;
           }
 
           .step1-customer-info .customer-autocomplete-dropdown .ant-select-item-option-selected {
-            background: #eef7f1 !important;
+            background: var(--ins-surface-soft) !important;
           }
         `}
       </style>
 
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Customer information</div>
@@ -1088,82 +1089,43 @@ const Step1CustomerInfo = ({
 
           <div className="flex flex-wrap gap-2">
             <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background:
-                  formData.buyerType === "Individual" ||
-                  formData.buyerType === "Company"
-                    ? "#5f9770"
-                    : "#ffffff",
-                borderColor:
-                  formData.buyerType === "Individual" ||
-                  formData.buyerType === "Company"
-                    ? "#5f9770"
-                    : "#d1d5db",
-                color:
-                  formData.buyerType === "Individual" ||
-                  formData.buyerType === "Company"
-                    ? "#ffffff"
-                    : "#475569",
-              }}
+              className={`ins-lively-pill !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
+                formData.buyerType === "Individual" ||
+                formData.buyerType === "Company"
+                  ? "active"
+                  : ""
+              }`}
             >
               {formData.buyerType || "Buyer Type Pending"}
             </Tag>
 
             <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background:
-                  formData.vehicleType === "New Car" ||
-                  formData.vehicleType === "Used Car"
-                    ? "#5f9770"
-                    : "#ffffff",
-                borderColor:
-                  formData.vehicleType === "New Car" ||
-                  formData.vehicleType === "Used Car"
-                    ? "#5f9770"
-                    : "#d1d5db",
-                color:
-                  formData.vehicleType === "New Car" ||
-                  formData.vehicleType === "Used Car"
-                    ? "#ffffff"
-                    : "#475569",
-              }}
+              className={`ins-lively-pill !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
+                formData.vehicleType === "New Car" ||
+                formData.vehicleType === "Used Car"
+                  ? "active"
+                  : ""
+              }`}
             >
               {formData.vehicleType || "Vehicle Type Pending"}
             </Tag>
 
             {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
               <Tag
-                className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-                style={{
-                  background: "#EEF3EF",
-                  borderColor: "#D6E6DF",
-                  color: "#334155",
-                }}
+                className="ins-lively-pill soft !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               >
                 {formData.usedCarFlowType || "Used-car flow pending"}
               </Tag>
             ) : null}
 
             <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#5f9770",
-                borderColor: "#5f9770",
-                color: "#ffffff",
-              }}
+              className="ins-lively-pill active !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
             >
               {getPolicyTypePillLabel(formData.policyCategory)}
             </Tag>
 
             <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#FAF8F1",
-                borderColor: "#FAF8F1",
-                color: "#1f2937",
-              }}
+              className="ins-lively-pill warn !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
             >
               {isCompany ? "Company Case" : "Individual Case"}
             </Tag>
@@ -1174,11 +1136,11 @@ const Step1CustomerInfo = ({
       <Row gutter={[20, 20]}>
         <Col xs={24} xl={8} className="xl:self-stretch">
           <div className="xl:sticky xl:top-[150px] self-start">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#D6E6DF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#C9D9FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6E6DF]/70 text-xs font-black text-slate-800 ring-1 ring-[#D6E6DF]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C9D9FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#C9D9FF]">
                       {customerInitial}
                     </div>
                     <div className="min-w-0">

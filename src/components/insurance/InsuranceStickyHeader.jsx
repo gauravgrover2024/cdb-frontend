@@ -77,7 +77,7 @@ const SummarySegment = ({
 }) => {
   return (
     <div
-      className={`min-w-[190px] flex-1 px-3 py-2 ${tint} ${
+      className={`insurance-summary-segment min-w-[190px] flex-1 px-3 py-2 ${tint} ${
         divider ? "border-r border-slate-200/70 dark:border-slate-800/80" : ""
       }`}
     >
@@ -147,11 +147,11 @@ const InsuranceStickyHeader = ({
     <>
       <div
         ref={innerRef}
-        className="fixed left-0 right-0 z-[100] w-full border-b border-slate-200/70 bg-background/95 shadow-sm backdrop-blur-sm dark:border-slate-800"
+        className="insurance-sticky-shell fixed left-0 right-0 z-[100] w-full border-b border-slate-200/70 bg-background/95 shadow-sm backdrop-blur-sm dark:border-slate-800"
         style={{ top: 60 }}
       >
         <div className="w-full px-2 py-2 sm:px-3 md:px-4">
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/92 shadow-[0_6px_18px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-950/88">
+          <div className="insurance-sticky-summary overflow-hidden rounded-2xl border border-slate-200/80 bg-white/92 shadow-[0_6px_18px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-950/88">
             <div className="flex items-stretch overflow-x-auto no-scrollbar">
               <SummarySegment
                 icon="User"
@@ -161,7 +161,7 @@ const InsuranceStickyHeader = ({
                 line2={`PAN: ${data.panNumber || "—"}${
                   data.employeeName ? ` • Staff: ${data.employeeName}` : ""
                 }`}
-                tint="bg-sky-50/45 dark:bg-sky-950/10"
+                tint="bg-gradient-to-br from-indigo-100/90 via-indigo-50/70 to-cyan-50/80 dark:bg-sky-950/10"
               />
 
               <SummarySegment
@@ -174,7 +174,7 @@ const InsuranceStickyHeader = ({
                 line2={`${data.newPolicyNumber || "No Policy #"} • Starts: ${
                   data.newPolicyStartDate || "—"
                 }`}
-                tint="bg-emerald-50/45 dark:bg-emerald-950/10"
+                tint="bg-gradient-to-br from-cyan-100/90 via-cyan-50/70 to-teal-50/80 dark:bg-emerald-950/10"
               />
 
               <SummarySegment
@@ -185,7 +185,7 @@ const InsuranceStickyHeader = ({
                   data.newNcbDiscount || 0
                 }%`}
                 line2={`Subvention: ${formatMoney(data.subventionAmount)}`}
-                tint="bg-teal-50/45 dark:bg-teal-950/10"
+                tint="bg-gradient-to-br from-emerald-100/80 via-emerald-50/70 to-teal-50/80 dark:bg-teal-950/10"
               />
 
               <SummarySegment
@@ -196,7 +196,7 @@ const InsuranceStickyHeader = ({
                   data.manufactureYear || "—"
                 }`}
                 line2={`Chassis: ${data.chassisNumber || "—"}`}
-                tint="bg-violet-50/45 dark:bg-violet-950/10"
+                tint="bg-gradient-to-br from-violet-100/85 via-violet-50/65 to-purple-50/80 dark:bg-violet-950/10"
               />
 
               <SummarySegment
@@ -205,11 +205,11 @@ const InsuranceStickyHeader = ({
                 title={`ID: ${String(data.id || data._id || "NEW").slice(-8)}`}
                 line1={STEP_NAMES[activeStep] || "—"}
                 line2={`${currentStepIndex + 1} of ${visibleSteps.length} steps`}
-                tint="bg-amber-50/45 dark:bg-amber-950/10"
+                tint="bg-gradient-to-br from-amber-100/90 via-orange-50/75 to-rose-50/75 dark:bg-amber-950/10"
                 divider={false}
                 rightSlot={
                   <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold ${stepPillClass(
+                    className={`insurance-stage-pill inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold ${stepPillClass(
                       activeStep,
                     )}`}
                   >
@@ -223,7 +223,7 @@ const InsuranceStickyHeader = ({
       </div>
 
       <div className="fixed bottom-[72px] left-1/2 z-[120] -translate-x-1/2 px-3">
-        <div className="flex max-w-[calc(100vw-40px)] items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200/70 bg-white/78 px-2 py-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.10)] backdrop-blur-xl no-scrollbar dark:border-slate-800/80 dark:bg-slate-950/60">
+        <div className="insurance-step-rail flex max-w-[calc(100vw-40px)] items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200/70 bg-white/78 px-2 py-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.10)] backdrop-blur-xl no-scrollbar dark:border-slate-800/80 dark:bg-slate-950/60">
           {visibleSteps.map((stepNum) => {
             const isActive = activeStep === stepNum;
 
@@ -233,9 +233,9 @@ const InsuranceStickyHeader = ({
                 type="button"
                 onClick={() => onStepClick?.(stepNum)}
                 title={STEP_NAMES[stepNum]}
-                className={`group inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3 text-[10px] font-medium tracking-tight transition-all duration-200 ${
+                className={`insurance-nav-step group inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3 text-[10px] font-medium tracking-tight transition-all duration-200 ${
                   isActive
-                    ? "bg-slate-900 text-white shadow-[0_6px_18px_rgba(1,105,111,0.22)] dark:bg-primary dark:text-white"
+                    ? "is-active bg-gradient-to-r from-indigo-600 to-cyan-500 text-white shadow-[0_8px_22px_rgba(79,70,229,0.34)] dark:bg-primary dark:text-white"
                     : "bg-transparent text-slate-500 hover:bg-white/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
                 }`}
               >

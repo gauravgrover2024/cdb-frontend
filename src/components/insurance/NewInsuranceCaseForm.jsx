@@ -46,6 +46,7 @@ import {
 } from "./steps/payoutRates";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
+import "./insurance-lively.css";
 import {
   lookupCityByPincode,
   normalizePincode,
@@ -733,6 +734,11 @@ const NewInsuranceCaseForm = ({
   const persistTimerRef = React.useRef(null);
   const persistInFlightRef = React.useRef(false);
   const persistQueuedRef = React.useRef(false);
+  const keyboardActionsRef = React.useRef({
+    goNext: null,
+    goBack: null,
+    persistNow: null,
+  });
 
   // Customer search (for Employee Name / Step-1 auto-fill)
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
@@ -2670,6 +2676,47 @@ const NewInsuranceCaseForm = ({
     // persistNow({ silent: true });
   };
 
+  keyboardActionsRef.current = {
+    goNext,
+    goBack,
+    persistNow,
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const target = event.target;
+      const tag = String(target?.tagName || "").toLowerCase();
+      const isTypingContext =
+        tag === "input" ||
+        tag === "textarea" ||
+        target?.isContentEditable ||
+        target?.closest?.(".ant-select-dropdown") ||
+        target?.closest?.(".ant-picker-dropdown");
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        keyboardActionsRef.current.persistNow?.({ silent: false });
+        return;
+      }
+
+      if (isTypingContext) return;
+
+      if (event.altKey && (event.key === "ArrowRight" || event.key.toLowerCase() === "n")) {
+        event.preventDefault();
+        keyboardActionsRef.current.goNext?.();
+      } else if (
+        event.altKey &&
+        (event.key === "ArrowLeft" || event.key.toLowerCase() === "b")
+      ) {
+        event.preventDefault();
+        keyboardActionsRef.current.goBack?.();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const resetQuoteDraft = useCallback(() => {
     setQuoteDraft({
       ...initialQuoteDraft,
@@ -3384,6 +3431,8 @@ const NewInsuranceCaseForm = ({
   return (
     <div
       className="
+        insurance-case-skin
+        insurance-dashboard-shell
         min-h-screen bg-slate-50/50 dark:bg-slate-950/20
         [&_.ant-card]:!rounded-xl
         [&_.ant-card-body]:!p-5

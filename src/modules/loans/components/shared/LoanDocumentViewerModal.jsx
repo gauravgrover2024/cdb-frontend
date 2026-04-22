@@ -15,6 +15,33 @@ const isImageUrl = (url = "") =>
 
 const isPdfUrl = (url = "") =>
   /\.pdf(\?|#|$)/i.test(url) || String(url).startsWith("data:application/pdf");
+const decodeLoose = (value = "") => {
+  const input = String(value || "");
+  if (!input) return "";
+  try {
+    return decodeURIComponent(input);
+  } catch {
+    return input;
+  }
+};
+const buildDetectionText = (doc = {}, rawUrl = "", proxiedUrl = "", declaredFormat = "") =>
+  [
+    rawUrl,
+    proxiedUrl,
+    decodeLoose(rawUrl),
+    decodeLoose(proxiedUrl),
+    doc?.name,
+    doc?.originalName,
+    doc?.original_name,
+    doc?.tag,
+    doc?.type,
+    doc?.resource_type,
+    doc?.format,
+    declaredFormat,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 const extensionFromValue = (value = "") => {
   const clean = String(value || "").split("?")[0].split("#")[0];
   const last = clean.split(".").pop();
@@ -34,7 +61,7 @@ const looksLikeR2Host = (value = "") => {
 
 const buildAccessibleDocumentUrl = (value = "") => {
   const url = String(value || "").trim();
-  if (!url || url.startsWith("data:")) return url;
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
   const isR2Path =
     looksLikeR2Host(url) ||
     url.startsWith("/uploads/") ||
@@ -79,7 +106,7 @@ const normalizeDocs = (documents = []) =>
       const proxiedUrl = buildAccessibleDocumentUrl(doc?.url || doc?.previewUrl || rawUrl);
       const mimeType = String(doc?.type || "").toLowerCase();
       const declaredFormat = String(doc?.format || extensionFromValue(doc?.name || rawUrl)).toLowerCase();
-      const detectionText = `${rawUrl} ${proxiedUrl} ${String(doc?.name || "").toLowerCase()} ${declaredFormat} ${mimeType}`;
+      const detectionText = buildDetectionText(doc, rawUrl, proxiedUrl, declaredFormat);
       const inferredIsImage =
         mimeType.startsWith("image/") ||
         mimeType.includes("image") ||
@@ -145,6 +172,7 @@ const LoanDocumentViewerModal = ({
   const [fitMode, setFitMode] = useState("fit"); // fit = height, width = width
   const [zoom, setZoom] = useState(1);
   const [pdfZoom, setPdfZoom] = useState(1);
+  const [pdfRenderUrl, setPdfRenderUrl] = useState("");
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [imageNaturalSize, setImageNaturalSize] = useState({ width: 0, height: 0 });
 
@@ -194,6 +222,7 @@ const LoanDocumentViewerModal = ({
       setFitMode("fit");
       setZoom(1);
       setPdfZoom(1);
+      setPdfRenderUrl("");
       setViewportSize({ width: 0, height: 0 });
       setImageNaturalSize({ width: 0, height: 0 });
       resetViewport();
@@ -202,6 +231,7 @@ const LoanDocumentViewerModal = ({
     setFitMode("fit");
     setZoom(1);
     setPdfZoom(1);
+    setPdfRenderUrl("");
     setImageNaturalSize({ width: 0, height: 0 });
     resetViewport();
     if (!isControlled) setInternalIndex(Number(currentIndex) || 0);
@@ -211,9 +241,58 @@ const LoanDocumentViewerModal = ({
     if (!open || !activeDocId) return;
     setZoom(1);
     setPdfZoom(1);
+    setPdfRenderUrl("");
     setImageNaturalSize({ width: 0, height: 0 });
     resetViewport();
   }, [open, activeDocId, resetViewport]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    let objectUrl = "";
+    if (!open || !activeDoc?.isPdf) {
+      setPdfRenderUrl("");
+      return undefined;
+    }
+    const srcCandidates = Array.from(
+      new Set(
+        [
+          String(activeDoc.url || "").trim(),
+          String(activeDoc.rawUrl || "").trim(),
+          buildAccessibleDocumentUrl(activeDoc.url || ""),
+          buildAccessibleDocumentUrl(activeDoc.rawUrl || ""),
+        ].filter(Boolean),
+      ),
+    );
+    if (!srcCandidates.length) {
+      setPdfRenderUrl("");
+      return undefined;
+    }
+    const load = async () => {
+      for (let i = 0; i < srcCandidates.length; i += 1) {
+        try {
+          const response = await fetch(srcCandidates[i], { credentials: "include" });
+          if (!response.ok) throw new Error("Unable to load PDF");
+          const blob = await response.blob();
+          if (!blob || !blob.size) throw new Error("Empty PDF");
+          objectUrl = URL.createObjectURL(
+            blob.type === "application/pdf"
+              ? blob
+              : new Blob([blob], { type: "application/pdf" }),
+          );
+          if (!isCancelled) setPdfRenderUrl(objectUrl);
+          return;
+        } catch {
+          // try next source
+        }
+      }
+      if (!isCancelled) setPdfRenderUrl(srcCandidates[0]);
+    };
+    load();
+    return () => {
+      isCancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [open, activeDoc?.id, activeDoc?.isPdf, activeDoc?.url, activeDoc?.rawUrl]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -595,7 +674,7 @@ const LoanDocumentViewerModal = ({
             ) : activeDoc.isPdf ? (
               <iframe
                 title={getDocDisplayLabel(activeDoc, activeIndex)}
-                src={withPdfZoomHash(activeDoc.rawUrl || activeDoc.url, pdfZoom, fitMode)}
+                src={withPdfZoomHash(pdfRenderUrl || activeDoc.url || activeDoc.rawUrl, pdfZoom, fitMode)}
                 className="h-full w-full"
                 loading="lazy"
               />

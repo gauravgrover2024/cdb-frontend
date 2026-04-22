@@ -26,6 +26,8 @@ import { SearchOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { insuranceApi } from "../../api/insurance";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
+import "../../components/insurance/insurance-lively.css";
+import "./InsuranceDashboardPage.css";
 
 const STATUS_LABEL_MAP = {
   draft: "Draft",
@@ -45,29 +47,24 @@ const STEP_LABEL_MAP = {
 
 const INSURANCE_STAT_THEMES = {
   total: {
-    card: "from-[#6d9484] to-[#5f9770]",
-    iconBg: "bg-white/20",
-    accent: "text-[#eef3ef]",
+    start: "var(--ins-primary)",
+    end: "var(--ins-primary-2)",
   },
   draft: {
-    card: "from-[#c48d96] to-[#b97f88]",
-    iconBg: "bg-white/20",
-    accent: "text-[#fbf1f3]",
+    start: "var(--ins-danger)",
+    end: "#ff8aa6",
   },
   completed: {
-    card: "from-[#7c9c90] to-[#6f8f84]",
-    iconBg: "bg-white/20",
-    accent: "text-[#eef3ef]",
+    start: "var(--ins-accent)",
+    end: "#39d79f",
   },
   paymentDue: {
-    card: "from-[#b39672] to-[#9f8465]",
-    iconBg: "bg-white/20",
-    accent: "text-[#faf8f1]",
+    start: "var(--ins-warn)",
+    end: "#ffbe5c",
   },
   renewal: {
-    card: "from-[#8ea0b6] to-[#74879f]",
-    iconBg: "bg-white/20",
-    accent: "text-[#f4f7fa]",
+    start: "#4d87ff",
+    end: "#72abff",
   },
 };
 
@@ -541,12 +538,17 @@ const MetricCard = ({
     <button
       type="button"
       onClick={onClick}
-      className={`group relative text-left w-full overflow-hidden rounded-2xl border border-white/20 bg-gradient-to-br ${theme.card} p-4 shadow-lg shadow-slate-900/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl`}
+      className={`insdash-metric-card group relative text-left w-full overflow-hidden rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-1 ${
+        isActive ? "is-active" : ""
+      }`}
+      style={{
+        backgroundImage: `linear-gradient(130deg, ${theme.start}, ${theme.end})`,
+      }}
     >
       <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
       <div className="relative flex items-start justify-between gap-3">
         <div>
-          <p className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${theme.accent}`}>
+          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/90">
             {title}
           </p>
           <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums">
@@ -556,14 +558,16 @@ const MetricCard = ({
         </div>
 
         <div
-          className={`mt-1 h-10 w-10 rounded-xl ${theme.iconBg} text-white flex items-center justify-center backdrop-blur-sm`}
+          className="mt-1 h-10 w-10 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm"
         >
           {icon}
         </div>
       </div>
 
       {isActive && (
-        <div className="absolute right-2 top-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white" />
+        <div className="absolute right-2 top-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
+          Active
+        </div>
       )}
     </button>
   );
@@ -795,9 +799,9 @@ const InsuranceDashboardPage = () => {
   );
 
   return (
-    <div className="h-full min-h-0 overflow-hidden rounded-3xl border border-[#d6e6df]/70 bg-gradient-to-b from-[#eef3ef]/55 via-white to-white p-4 md:p-6 dark:border-[#2c3833] dark:from-[#101514] dark:via-slate-950 dark:to-slate-950">
+    <div className="insurance-case-skin insurance-dashboard-shell insurance-dashboard-page h-full min-h-0 overflow-hidden rounded-3xl border p-4 md:p-6">
       <div className="flex h-full min-h-0 flex-col gap-5">
-        <section className="rounded-2xl border border-[#d6e6df]/70 bg-white/80 backdrop-blur px-5 py-4 shadow-sm dark:border-[#2a3531] dark:bg-slate-900/80">
+        <section className="insdash-hero rounded-2xl border backdrop-blur px-5 py-4 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#5f9770] dark:text-[#9dc4ae]">
@@ -809,19 +813,19 @@ const InsuranceDashboardPage = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-              <div className="rounded-xl border border-[#d6e6df] bg-[#eef3ef] px-3 py-2 dark:border-[#3c4d46] dark:bg-[#1a2421]">
-                <p className="text-slate-500 dark:text-slate-400">Cases in view</p>
-                <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">{totalCount}</p>
+              <div className="insdash-kpi-box kpi-total rounded-xl border px-3 py-2">
+                <p className="text-slate-500">Cases in view</p>
+                <p className="font-bold text-slate-900 tabular-nums">{totalCount}</p>
               </div>
-              <div className="rounded-xl border border-[#d8b8b4] bg-[#fbf1f3] px-3 py-2 dark:border-[#584349] dark:bg-[#2a1f24]">
-                <p className="text-slate-500 dark:text-slate-400">Premium collected</p>
-                <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
+              <div className="insdash-kpi-box kpi-collected rounded-xl border px-3 py-2">
+                <p className="text-slate-500">Premium collected</p>
+                <p className="font-bold text-slate-900 tabular-nums">
                   {formatInr(filteredCases.reduce((sum, c) => sum + paymentReceivedNum(c), 0))}
                 </p>
               </div>
-              <div className="rounded-xl border border-[#eadfcc] bg-[#faf8f1] px-3 py-2 dark:border-[#5a4c39] dark:bg-[#2a241c]">
-                <p className="text-slate-500 dark:text-slate-400">Outstanding</p>
-                <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
+              <div className="insdash-kpi-box kpi-outstanding rounded-xl border px-3 py-2">
+                <p className="text-slate-500">Outstanding</p>
+                <p className="font-bold text-slate-900 tabular-nums">
                   {formatInr(
                     filteredCases.reduce((sum, c) => sum + dueNum(c), 0),
                   )}
@@ -884,8 +888,8 @@ const InsuranceDashboardPage = () => {
           />
         </section>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#d6e6df]/70 bg-white shadow-sm dark:border-[#2a3531] dark:bg-slate-950">
-          <div className="flex-shrink-0 border-b border-[#d6e6df]/70 bg-[#eef3ef]/35 p-3 dark:border-[#2a3531] dark:bg-[#151f1b]">
+        <div className="insdash-grid-shell flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-white shadow-sm">
+          <div className="insdash-filter-bar flex-shrink-0 border-b p-3">
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                 <div className="relative flex-1">
@@ -895,7 +899,7 @@ const InsuranceDashboardPage = () => {
                     placeholder="Search by case, customer, mobile, vehicle, policy number..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-[#d6e6df] bg-white pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-[#5f9770] focus:outline-none focus:ring-1 focus:ring-[#5f9770] dark:border-[#364742] dark:bg-slate-900 dark:text-slate-100 dark:placeholder-slate-500"
+                    className="insdash-search h-10 w-full rounded-xl border bg-white pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:outline-none focus:ring-1"
                   />
                 </div>
 
@@ -904,14 +908,14 @@ const InsuranceDashboardPage = () => {
                     type="primary"
                     icon={<Plus size={16} />}
                     onClick={() => navigate("/insurance/new")}
-                    className="!h-10 !rounded-xl !border-[#5f9770] !bg-[#5f9770] hover:!border-[#4f835f] hover:!bg-[#4f835f]"
+                    className="insdash-primary-btn !h-10 !rounded-xl"
                   >
                     New Case
                   </Button>
                   <Button
                     icon={<RefreshCw size={16} />}
                     onClick={loadCases}
-                    className="!h-10 !w-10 !rounded-xl !p-0"
+                    className="insdash-refresh-btn !h-10 !w-10 !rounded-xl !p-0"
                   />
                 </div>
               </div>
@@ -925,10 +929,8 @@ const InsuranceDashboardPage = () => {
                       key={key}
                       type="button"
                       onClick={() => setPolicyFilter(key)}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                        active
-                          ? "border-[#5f9770] bg-[#5f9770] text-white"
-                          : "border-[#d6e6df] bg-white text-slate-700 hover:border-[#b6cfc4] hover:bg-[#eef3ef]/60 dark:border-[#364742] dark:bg-slate-900 dark:text-slate-300"
+                      className={`insdash-chip rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                        active ? "is-active" : ""
                       }`}
                     >
                       {label} <span className="opacity-80">{count}</span>
@@ -943,7 +945,7 @@ const InsuranceDashboardPage = () => {
                       setPolicyFilter("all");
                       setSearch("");
                     }}
-                    className="rounded-full border border-[#d8b8b4] bg-[#fbf1f3] px-3 py-1.5 text-xs font-semibold text-[#8b5965] hover:bg-[#f6e6e9] dark:border-[#5b4349] dark:bg-[#2a1f24] dark:text-[#d9b0b8]"
+                    className="insdash-clear-chip rounded-full border px-3 py-1.5 text-xs font-semibold"
                   >
                     Clear Filters
                   </button>
@@ -1149,9 +1151,9 @@ const InsuranceDashboardPage = () => {
                   return (
                     <article
                       key={id}
-                      className="group mb-4 overflow-visible rounded-3xl border border-[#d6e6df]/75 bg-gradient-to-b from-white to-[#faf8f1]/35 shadow-sm transition-all duration-300 hover:-translate-y-[1px] hover:border-[#b6cfc4] hover:shadow-md dark:border-[#26342f] dark:from-[#0f1614] dark:to-[#111a17] dark:hover:border-[#3b4d45]"
+                      className="insdash-case-card group mb-4 overflow-visible rounded-3xl border shadow-sm transition-all duration-300 hover:-translate-y-[1px] hover:shadow-md"
                     >
-                      <div className="border-b border-[#e5eee4]/90 px-4 py-3 dark:border-[#26342f]">
+                      <div className="insdash-case-head border-b px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-full border border-[#d6e6df] bg-[#eef3ef]/70 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#5f9770] dark:border-[#30413b] dark:bg-[#13221c] dark:text-[#9dc4ae]">
@@ -1183,7 +1185,7 @@ const InsuranceDashboardPage = () => {
                       </div>
 
                       <div className="grid grid-cols-1 gap-3 px-4 py-3 xl:grid-cols-[1.1fr_0.9fr_1.9fr_0.75fr]">
-                        <section className="rounded-xl border border-[#d6e6df]/70 bg-[#eef3ef]/45 p-3 dark:border-[#2b3b35] dark:bg-[#131d1a]">
+                        <section className="insdash-panel tone-customer rounded-xl border p-3">
                           <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#587f6f]">
                             Customer & Vehicle
                           </p>
@@ -1204,7 +1206,7 @@ const InsuranceDashboardPage = () => {
                           <p className="mt-1 text-[11px] text-slate-500">Reg: {reg}</p>
                         </section>
 
-                        <section className="rounded-xl border border-[#e6dcc8]/70 bg-[#faf8f1]/75 p-3 dark:border-[#453a2b] dark:bg-[#1a1712]">
+                        <section className="insdash-panel tone-policy rounded-xl border p-3">
                           <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#8d7559]">
                             Policy Details
                           </p>
@@ -1236,7 +1238,7 @@ const InsuranceDashboardPage = () => {
                           </div>
                         </section>
 
-                        <section className="rounded-xl border border-[#d5e3ef]/70 bg-[#f4f8fc]/55 p-3 dark:border-[#2e3f4c] dark:bg-[#111a20]">
+                        <section className="insdash-panel tone-finance rounded-xl border p-3">
                         <div className="rounded-xl border border-[#d6e6df]/80 bg-gradient-to-br from-[#eef3ef]/55 via-white to-[#faf8f1]/60 p-2.5 dark:border-[#30413b] dark:from-[#111a17] dark:via-[#101917] dark:to-[#1b1913]">
                           <div className="grid grid-cols-4 gap-1.5">
                             <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
@@ -1378,7 +1380,7 @@ const InsuranceDashboardPage = () => {
                         </div>
                         </section>
 
-                        <section className="rounded-xl border border-[#e8d8dd]/70 bg-[#fbf1f3]/45 p-3 dark:border-[#47333a] dark:bg-[#1c1518]">
+                        <section className="insdash-panel tone-workflow rounded-xl border p-3">
                           <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#8f5f6b]">
                             Workflow
                           </p>
@@ -1418,7 +1420,7 @@ const InsuranceDashboardPage = () => {
                         </section>
                       </div>
 
-                      <div className="flex flex-col gap-2 border-t border-[#e5eee4] px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-[#2b3934]">
+                      <div className="insdash-case-footer flex flex-col gap-2 border-t px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                         <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
                           {record.caseId || id} · {displayName}
                         </p>
@@ -1426,7 +1428,7 @@ const InsuranceDashboardPage = () => {
                           <Tooltip title="View">
                             <button
                               type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#b6cfc4] bg-[#eef3ef] text-[#5f9770] hover:bg-[#e0ebe5]"
+                              className="insdash-action-btn tone-view flex h-8 w-8 items-center justify-center rounded-full border"
                               onClick={() => {
                                 setSelectedCase(record);
                                 setPreviewStageKey(null);
@@ -1440,7 +1442,7 @@ const InsuranceDashboardPage = () => {
                           <Tooltip title="Documents">
                             <button
                               type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#eadfcc] bg-[#faf8f1] text-[#9f8465] hover:bg-[#f3eddc] dark:border-[#5a4c39] dark:bg-[#2a241c] dark:text-[#dfc8a7]"
+                              className="insdash-action-btn tone-docs flex h-8 w-8 items-center justify-center rounded-full border"
                               onClick={() => {
                                 setSelectedCase(record);
                                 setPreviewStageKey("documents");
@@ -1465,7 +1467,7 @@ const InsuranceDashboardPage = () => {
                               }
                               className={`flex h-8 w-8 items-center justify-center rounded-full border ${
                                 vehicleTrend
-                                  ? "border-[#cfdbe8] bg-[#f3f7fb] text-[#60788f] hover:bg-[#e6eef7] dark:border-[#2e3f4c] dark:bg-[#121c24] dark:text-[#a6bdd1]"
+                                  ? "insdash-action-btn tone-trend"
                                   : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-[#2f3a36] dark:bg-[#1a211f] dark:text-slate-500"
                               }`}
                             >
@@ -1476,7 +1478,7 @@ const InsuranceDashboardPage = () => {
                           <Tooltip title={isDraftPolicy(record) ? "Continue" : "Edit"}>
                             <button
                               type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300"
+                              className="insdash-action-btn tone-edit flex h-8 w-8 items-center justify-center rounded-full border"
                               onClick={() => navigate(`/insurance/edit/${id}`)}
                             >
                               <PencilLine size={14} />
@@ -1486,7 +1488,7 @@ const InsuranceDashboardPage = () => {
                           <Tooltip title="Renew">
                             <button
                               type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+                              className="insdash-action-btn tone-renew flex h-8 w-8 items-center justify-center rounded-full border"
                               onClick={() => handleRenewCase(record)}
                             >
                               <RefreshCw size={14} />
@@ -1496,7 +1498,7 @@ const InsuranceDashboardPage = () => {
                           <Tooltip title="Extend">
                             <button
                               type="button"
-                              className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300"
+                              className="insdash-action-btn tone-extend flex h-8 w-8 items-center justify-center rounded-full border"
                               onClick={() => handleExtendCase(record)}
                             >
                               <Zap size={14} />
@@ -1514,7 +1516,7 @@ const InsuranceDashboardPage = () => {
                             <Tooltip title="Delete">
                               <button
                                 type="button"
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                                className="insdash-action-btn tone-delete flex h-8 w-8 items-center justify-center rounded-full border"
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -1530,7 +1532,7 @@ const InsuranceDashboardPage = () => {
           </div>
 
           {filteredCases.length > 0 && (
-            <div className="flex-shrink-0 border-t border-[#d6e6df]/70 bg-white px-4 py-3 dark:border-[#2a3531] dark:bg-slate-950">
+            <div className="insdash-pagination flex-shrink-0 border-t bg-white px-4 py-3">
               <div className="flex justify-end">
                 <Pagination
                   size="small"

@@ -175,7 +175,7 @@ const Step8Payout = ({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className={sectionHeaderLabel}>Payout information</div>
@@ -190,7 +190,7 @@ const Step8Payout = ({
             <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !border-slate-200 !text-slate-700">
               Premium: {formatMoney(netPremium)}
             </Tag>
-            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF3EF] !border-[#D6E6DF] !text-slate-800">
+            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF7FF] !border-[#C9D9FF] !text-slate-800">
               Margin: {formatMoney(totals.margin, 2)}
             </Tag>
           </div>
@@ -386,7 +386,7 @@ const Step8Payout = ({
       {/* Section 2: Ledger Items */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Receivables Column */}
-        <div className="rounded-xl border border-[#D6E6DF] bg-[#EEF3EF]/45 p-6 dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-xl border border-[#C9D9FF] bg-[#EEF7FF]/45 p-6 dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp size={18} className="text-slate-700" />
@@ -399,7 +399,7 @@ const Step8Payout = ({
               size="small"
               icon={<Plus size={14} />}
               onClick={addReceivable}
-              className="!border-[#D6E6DF] !bg-[#D6E6DF] !text-slate-800 hover:!opacity-90 shadow-none"
+              className="!border-[#C9D9FF] !bg-[#C9D9FF] !text-slate-800 hover:!opacity-90 shadow-none"
             >
               Add Receivable
             </Button>
@@ -434,7 +434,7 @@ const Step8Payout = ({
         </div>
 
         {/* Payables Column */}
-        <div className="rounded-xl border border-[#D8B8B4] bg-[#D8B8B4]/12 p-6 dark:border-slate-700 dark:bg-slate-900">
+        <div className="rounded-xl border border-[#F3A6B7] bg-[#F3A6B7]/12 p-6 dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingDown size={18} className="text-slate-700" />
@@ -447,7 +447,7 @@ const Step8Payout = ({
               size="small"
               icon={<Plus size={14} />}
               onClick={addPayable}
-              className="!border-[#D8B8B4] !bg-[#D8B8B4] !text-slate-800 hover:!opacity-90 shadow-none"
+              className="!border-[#F3A6B7] !bg-[#F3A6B7] !text-slate-800 hover:!opacity-90 shadow-none"
             >
               Add Payable
             </Button>
@@ -482,8 +482,8 @@ const Step8Payout = ({
 const PayoutItemCard = ({ item, onUpdate, onDelete, type, bankOptions = [] }) => {
   const isReceivable = type === "Receivable";
   const cardClasses = isReceivable
-    ? "border-[#D6E6DF] bg-white"
-    : "border-[#D8B8B4]/70 bg-[#FAF8F1]/55";
+    ? "border-[#C9D9FF] bg-white"
+    : "border-[#F3A6B7]/70 bg-[#FFF4EC]/55";
   const tagColor = isReceivable ? "cyan" : "gold";
 
   return (

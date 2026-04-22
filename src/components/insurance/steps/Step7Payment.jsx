@@ -1170,7 +1170,7 @@ const Step7Payment = ({
 
   return (
     <div className="flex flex-col gap-5 font-sans">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className={sectionHeaderLabel}>Payment information</div>
@@ -1186,7 +1186,7 @@ const Step7Payment = ({
             <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !border-slate-200 !text-slate-700">
               Premium: {INR(totalPremium)}
             </Tag>
-            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF3EF] !border-[#D6E6DF] !text-slate-800">
+            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF7FF] !border-[#C9D9FF] !text-slate-800">
               Entries: {tableRows.length}
             </Tag>
             {saveMeta?.saving ? (

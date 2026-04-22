@@ -244,10 +244,13 @@ const FieldBlock = ({
   className = "",
   helper = null,
 }) => (
-  <div className={`flex flex-col gap-1.5 ${className}`}>
+  <div
+    className={`flex flex-col gap-1.5 insurance-field-block ${className}`}
+    data-ins-field="true"
+  >
     <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
       {label}
-      {required && <span className="ml-0.5 text-[#D8B8B4]">*</span>}
+      {required && <span className="ml-0.5 text-[#F3A6B7]">*</span>}
     </label>
     {children}
     <div className="min-h-[16px] pt-0.5 text-[11px] text-slate-500 leading-4">
@@ -309,28 +312,28 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
 
 const addonPalette = [
   {
-    bg: "bg-[#D6E6DF]/35",
-    ring: "ring-[#D6E6DF]",
+    bg: "bg-[#C9D9FF]/35",
+    ring: "ring-[#C9D9FF]",
     dot: "bg-slate-600",
     text: "text-slate-700",
-    activeBg: "bg-[#D6E6DF]/70",
-    activeRing: "ring-[#D6E6DF]",
+    activeBg: "bg-[#C9D9FF]/70",
+    activeRing: "ring-[#C9D9FF]",
   },
   {
-    bg: "bg-[#EEF3EF]/40",
-    ring: "ring-[#EEF3EF]",
+    bg: "bg-[#EEF7FF]/40",
+    ring: "ring-[#EEF7FF]",
     dot: "bg-slate-600",
     text: "text-slate-700",
-    activeBg: "bg-[#EEF3EF]/75",
-    activeRing: "ring-[#EEF3EF]",
+    activeBg: "bg-[#EEF7FF]/75",
+    activeRing: "ring-[#EEF7FF]",
   },
   {
-    bg: "bg-[#FAF8F1]/55",
-    ring: "ring-[#FAF8F1]",
+    bg: "bg-[#FFF4EC]/55",
+    ring: "ring-[#FFF4EC]",
     dot: "bg-slate-600",
     text: "text-slate-700",
-    activeBg: "bg-[#FAF8F1]",
-    activeRing: "ring-[#FAF8F1]",
+    activeBg: "bg-[#FFF4EC]",
+    activeRing: "ring-[#FFF4EC]",
   },
 ];
 
@@ -402,7 +405,7 @@ const QuoteCard = ({
         relative flex flex-col rounded-2xl bg-white transition-all duration-200
         ${
           isAccepted
-            ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#D6E6DF]"
+            ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#C9D9FF]"
             : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)]"
         }
       `}
@@ -410,14 +413,14 @@ const QuoteCard = ({
       {/* Accepted badge */}
       {isAccepted && (
         <div className="absolute -top-2.5 left-4 flex items-center gap-1">
-          <span className="flex items-center gap-1 rounded-full bg-[#D6E6DF] px-2.5 py-0.5 text-[10px] font-black text-slate-800 shadow-sm">
+          <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-800 shadow-sm ring-1 ring-emerald-300">
             <CheckCircleFilled className="text-[9px]" /> Accepted
           </span>
         </div>
       )}
       {!isAccepted && isCheapest && (
         <div className="absolute -top-2.5 left-4 flex items-center gap-1">
-          <span className="rounded-full bg-[#FAF8F1] px-2.5 py-0.5 text-[10px] font-black text-slate-700 shadow-sm ring-1 ring-[#FAF8F1]">
+          <span className="rounded-full bg-[#FFF4EC] px-2.5 py-0.5 text-[10px] font-black text-slate-700 shadow-sm ring-1 ring-[#FFF4EC]">
             Lowest Premium
           </span>
         </div>
@@ -431,7 +434,7 @@ const QuoteCard = ({
               className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1
                   ${
                     isAccepted
-                      ? "bg-[#D6E6DF]/70 text-slate-800 ring-[#D6E6DF]"
+                      ? "bg-[#C9D9FF]/70 text-slate-800 ring-[#C9D9FF]"
                       : `${palette.activeBg} ${palette.text} ${palette.activeRing}`
                   }
                 `}
@@ -592,8 +595,8 @@ const QuoteCard = ({
                 transition-all cursor-pointer border-0 shadow-sm
                 ${
                   isAccepted
-                    ? "bg-[#D6E6DF] text-slate-800 hover:opacity-90"
-                    : "bg-[#D8B8B4] text-slate-800 hover:opacity-90"
+                    ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
                 }
               `}
           >
@@ -611,11 +614,11 @@ const QuoteCard = ({
           {premiumChangeInsight ? (
             <button
               onClick={() => setShowInsightModal(true)}
-              title="Why premium changed"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#EEF3EF]/45 text-slate-700 ring-1 ring-[#D6E6DF] hover:bg-[#D6E6DF]/70 transition-colors cursor-pointer"
-            >
-              <EyeOutlined className="text-xs" />
-            </button>
+            title="Why premium changed"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-blue-50 text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+          >
+            <EyeOutlined className="text-xs" />
+          </button>
           ) : null}
 
           <Popconfirm
@@ -626,12 +629,12 @@ const QuoteCard = ({
             cancelText="Cancel"
             okButtonProps={{
               danger: true,
-              className: "!bg-[#D8B8B4] !border-[#D8B8B4] !text-slate-800",
+              className: "!bg-rose-500 !border-rose-500 !text-white",
             }}
           >
             <button
               title="Delete quote"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#D8B8B4]/30 text-slate-700 ring-1 ring-[#D8B8B4] hover:bg-[#D8B8B4]/45 transition-colors cursor-pointer"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
             >
               <DeleteOutlined className="text-xs" />
             </button>
@@ -648,7 +651,7 @@ const QuoteCard = ({
         destroyOnHidden
       >
         <div className="space-y-3">
-          <div className="rounded-xl bg-[#EEF3EF]/45 px-3 py-3 ring-1 ring-[#D6E6DF]">
+          <div className="rounded-xl bg-[#EEF7FF]/45 px-3 py-3 ring-1 ring-[#C9D9FF]">
             <p className="m-0 text-[13px] font-semibold text-slate-800">
               {premiumChangeInsight?.summary}
             </p>
@@ -771,7 +774,7 @@ const Step4InsuranceQuotes = ({
   return (
     <div className="insurance-step4 min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
       {/* Page Header */}
-      <div className="mb-5 rounded-[30px] bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="mb-5 rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className={sectionHeaderLabel}>Policy information</div>
@@ -787,17 +790,17 @@ const Step4InsuranceQuotes = ({
               size="middle"
               onClick={onSaveDraft}
               loading={isSaving}
-              className="!h-9 !rounded-lg !border-emerald-300 !bg-emerald-50 !px-3 !text-[12px] !font-semibold !text-emerald-700 hover:!bg-emerald-100 dark:!border-emerald-800 dark:!bg-emerald-950/30 dark:!text-emerald-300 dark:hover:!bg-emerald-950/50"
+              className="!h-9 !rounded-lg !border-blue-500 !bg-blue-600 !px-3 !text-[12px] !font-semibold !text-white hover:!bg-blue-700"
             >
               Save to DB
             </Button>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700 ring-1 ring-blue-200">
               Quotes: {quotes.length}
             </span>
             {acceptedQuote && (
-              <div className="flex items-center gap-1.5 rounded-full bg-[#D6E6DF]/65 px-3 py-1.5 ring-1 ring-[#D6E6DF]">
-                <CheckCircleFilled className="text-slate-700 text-xs" />
-                <span className="text-[11px] font-bold text-slate-800">
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 ring-1 ring-emerald-200">
+                <CheckCircleFilled className="text-emerald-700 text-xs" />
+                <span className="text-[11px] font-bold text-emerald-800">
                   {acceptedQuote.insuranceCompany} · Accepted
                 </span>
               </div>
@@ -813,7 +816,7 @@ const Step4InsuranceQuotes = ({
           {/* Quote Details */}
           <section className="rounded-2xl bg-white px-5 pb-5 pt-4 md:px-6 md:pb-6 md:pt-5 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
             <p className="mb-5 m-0 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              <ThunderboltOutlined className="text-[#D8B8B4]" />
+              <ThunderboltOutlined className="text-[#F3A6B7]" />
               Quote Details
             </p>
             <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -899,7 +902,7 @@ const Step4InsuranceQuotes = ({
                             ncbDiscount: Number(suggestedNcbDiscount || 0),
                           }))
                         }
-                        className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
+                        className="ml-2 rounded-full border border-[#C9D9FF] bg-[#EEF7FF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
                       >
                         Use suggested
                       </button>
@@ -967,7 +970,7 @@ const Step4InsuranceQuotes = ({
                             vehicleIdv: Number(suggestedIdv || 0),
                           }))
                         }
-                        className="ml-2 rounded-full border border-[#D6E6DF] bg-[#EEF3EF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
+                        className="ml-2 rounded-full border border-[#C9D9FF] bg-[#EEF7FF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
                       >
                         Use suggested IDV
                       </button>
@@ -1092,7 +1095,7 @@ const Step4InsuranceQuotes = ({
                 <Tooltip title="Select ₹0 to include without extra charges, or enter a custom amount.">
                   <InfoCircleOutlined className="cursor-help text-slate-300 text-[11px]" />
                 </Tooltip>
-                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#EEF3EF] px-1 text-[9px] font-bold text-slate-700">
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#EEF7FF] px-1 text-[9px] font-bold text-slate-700">
                   {
                     addOnCatalog.filter((n) => quoteDraft.addOnsIncluded?.[n])
                       .length
@@ -1141,14 +1144,14 @@ const Step4InsuranceQuotes = ({
             </div>
 
             {previousSelectedAddOns.length ? (
-              <div className="mb-4 rounded-2xl border border-[#D6E6DF] bg-gradient-to-r from-[#EEF3EF]/60 via-white to-[#EEF3EF]/35 px-4 py-3 shadow-sm">
+              <div className="mb-4 rounded-2xl border border-[#C9D9FF] bg-gradient-to-r from-[#EEF7FF]/60 via-white to-[#EEF7FF]/35 px-4 py-3 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-500">
                     Previous-year add-on preset
                   </p>
                   <button
                     onClick={applyPreviousYearAddOns}
-                    className="rounded-lg bg-[#EEF3EF] px-3 py-1.5 text-[11px] font-semibold text-slate-700 ring-1 ring-[#D6E6DF] hover:bg-[#D6E6DF]/70 transition-colors cursor-pointer border-0"
+                    className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer border-0"
                   >
                     One-click apply
                   </button>
@@ -1282,16 +1285,16 @@ const Step4InsuranceQuotes = ({
                 canAddQuote
                   ? undefined
                   : {
-                      background: "#FAF8F1",
+                      background: "#FFF4EC",
                       color: "#6b7280",
-                      borderColor: "#EEF3EF",
+                      borderColor: "#EEF7FF",
                       opacity: 1,
                     }
               }
               className={`h-10 px-6 font-bold !border-0 ${
                 canAddQuote
-                  ? "!bg-[#D8B8B4] hover:!opacity-90 !text-slate-800 shadow-sm"
-                  : "!bg-[#FAF8F1] !text-slate-500 !border !border-[#EEF3EF] !shadow-none"
+                  ? "!bg-blue-600 hover:!bg-blue-700 !text-white shadow-sm"
+                  : "!bg-slate-100 !text-slate-500 !border !border-slate-200 !shadow-none"
               }`}
             >
               {editingQuoteId ? "Update Quote" : "Add Quote"}
@@ -1329,7 +1332,7 @@ const Step4InsuranceQuotes = ({
             </p>
 
             {/* Hero total */}
-            <div className="rounded-xl bg-gradient-to-r from-[#EEF3EF] to-[#D6E6DF] px-4 py-4 ring-1 ring-[#D6E6DF]">
+            <div className="rounded-xl bg-gradient-to-r from-[#EEF7FF] to-[#C9D9FF] px-4 py-4 ring-1 ring-[#C9D9FF]">
               <div className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold">
                 Total Premium
               </div>
@@ -1356,8 +1359,8 @@ const Step4InsuranceQuotes = ({
                   label: "Add-ons Total",
                   value: toINR(addOnsTotal),
                   sub: "Individual + Add-ons field",
-                  bg: "bg-[#EEF3EF]/70",
-                  ring: "ring-[#EEF3EF]",
+                  bg: "bg-[#EEF7FF]/70",
+                  ring: "ring-[#EEF7FF]",
                   val: "text-slate-800",
                 },
                 {
@@ -1367,16 +1370,16 @@ const Step4InsuranceQuotes = ({
                     ncbPct > 0
                       ? "Reference only (no premium reduction)"
                       : "Reference only",
-                  bg: "bg-[#D6E6DF]/60",
-                  ring: "ring-[#D6E6DF]",
+                  bg: "bg-[#C9D9FF]/60",
+                  ring: "ring-[#C9D9FF]",
                   val: "text-slate-800",
                 },
                 {
                   label: "GST 18%",
                   value: toINR(gstAmount),
                   sub: `On ${toINR(taxableAmount)}`,
-                  bg: "bg-[#FAF8F1]",
-                  ring: "ring-[#FAF8F1]",
+                  bg: "bg-[#FFF4EC]",
+                  ring: "ring-[#FFF4EC]",
                   val: "text-slate-800",
                 },
               ].map(({ label, value, sub, bg, ring, val }) => (
@@ -1457,12 +1460,12 @@ const Step4InsuranceQuotes = ({
             <span className="text-sm font-bold text-slate-700">
               Quotes List
             </span>
-            <span className="rounded-full bg-[#D8B8B4]/35 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-[#D8B8B4]">
+            <span className="rounded-full bg-[#F3A6B7]/35 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-[#F3A6B7]">
               {quotes.length}
             </span>
           </div>
           {acceptedQuote && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#D6E6DF]/60 px-2.5 py-1 text-[11px] font-semibold text-slate-800 ring-1 ring-[#D6E6DF]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C9D9FF]/60 px-2.5 py-1 text-[11px] font-semibold text-slate-800 ring-1 ring-[#C9D9FF]">
               <CheckCircleFilled className="text-[10px]" />
               {acceptedQuote.insuranceCompany} · Accepted
             </span>
@@ -1484,7 +1487,7 @@ const Step4InsuranceQuotes = ({
               </p>
             </div>
             {showErrors && (
-              <span className="rounded-xl bg-[#D8B8B4]/28 px-4 py-2 text-xs font-semibold text-slate-700 ring-1 ring-[#D8B8B4]">
+              <span className="rounded-xl bg-[#F3A6B7]/28 px-4 py-2 text-xs font-semibold text-slate-700 ring-1 ring-[#F3A6B7]">
                 ⚠ At least 1 quote is required to proceed.
               </span>
             )}

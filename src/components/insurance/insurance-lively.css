@@ -1,0 +1,357 @@
+.insurance-case-skin {
+  --ins-primary: #5b4cf0;
+  --ins-primary-2: #00b8d4;
+  --ins-accent: #16b67a;
+  --ins-warn: #f59e0b;
+  --ins-danger: #ef476f;
+  --ins-surface: #f6f9ff;
+  --ins-surface-soft: #eef7ff;
+  --ins-surface-muted: #f3fbff;
+  --ins-card: #ffffff;
+  --ins-border: #cedaf9;
+  --ins-border-strong: #98aff7;
+  --ins-text: #1f2b45;
+  --ins-text-muted: #60708d;
+  --ins-shadow: 0 10px 28px rgba(61, 94, 206, 0.14);
+}
+
+.insurance-case-skin {
+  color: var(--ins-text);
+}
+
+.insurance-case-skin .ant-btn,
+.insurance-case-skin button {
+  transition: all 140ms ease;
+}
+
+.insurance-case-skin .ant-btn-primary {
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 10px 24px rgba(91, 76, 240, 0.28);
+}
+
+.insurance-case-skin .ant-btn-primary:hover,
+.insurance-case-skin .ant-btn-primary:focus {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.insurance-case-skin .ant-btn-default,
+.insurance-case-skin .ant-btn:not(.ant-btn-primary) {
+  border-color: var(--ins-border) !important;
+  color: #2f3f78 !important;
+  background: var(--ins-surface-soft) !important;
+}
+
+.insurance-case-skin .ant-tag {
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+}
+
+.insurance-case-skin .ant-radio-button-wrapper {
+  border-color: var(--ins-border) !important;
+  color: #394b7d !important;
+  background: #fff !important;
+}
+
+.insurance-case-skin .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(91, 76, 240, 0.24);
+}
+
+.insurance-case-skin .ant-input,
+.insurance-case-skin .ant-select-selector,
+.insurance-case-skin .ant-picker,
+.insurance-case-skin .ant-input-number,
+.insurance-case-skin .ant-input-affix-wrapper,
+.insurance-case-skin textarea.ant-input {
+  border-color: var(--ins-border) !important;
+  background: #fff !important;
+  color: var(--ins-text) !important;
+}
+
+.insurance-case-skin .ant-input::placeholder,
+.insurance-case-skin .ant-input-affix-wrapper input::placeholder,
+.insurance-case-skin .ant-picker input::placeholder {
+  color: #8a9bb8 !important;
+}
+
+.insurance-case-skin .ant-input:focus,
+.insurance-case-skin .ant-input-focused,
+.insurance-case-skin .ant-input-affix-wrapper-focused,
+.insurance-case-skin .ant-select-focused .ant-select-selector,
+.insurance-case-skin .ant-picker-focused,
+.insurance-case-skin .ant-input-number-focused,
+.insurance-case-skin .ant-input-number:focus {
+  border-color: var(--ins-border-strong) !important;
+  box-shadow: none !important;
+}
+
+.insurance-case-skin .insurance-field-block {
+  border: 0;
+  border-radius: 14px;
+  padding: 0;
+  transition: none;
+}
+
+.insurance-case-skin .insurance-field-block:focus-within {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.insurance-case-skin .insurance-field-block:focus-within > label,
+.insurance-case-skin .insurance-field-block:focus-within > div:first-child {
+  color: inherit !important;
+}
+
+.insurance-case-skin
+  :is(
+    button,
+    [role="button"],
+    .ant-input,
+    .ant-select-selector,
+    .ant-picker,
+    .ant-input-number,
+    .ant-radio-button-wrapper
+  ):focus-visible {
+  outline: 2px solid rgba(91, 76, 240, 0.45);
+  outline-offset: 2px;
+}
+
+.insurance-case-skin .insurance-step4 .quote-control.ant-input,
+.insurance-case-skin .insurance-step4 .quote-control.ant-input-number,
+.insurance-case-skin .insurance-step4 .quote-control.ant-select .ant-select-selector {
+  background: var(--ins-surface-muted) !important;
+  border-color: var(--ins-border) !important;
+}
+
+.insurance-case-skin .insurance-step4 .quote-control.ant-input:hover,
+.insurance-case-skin .insurance-step4 .quote-control.ant-input-number:hover,
+.insurance-case-skin .insurance-step4 .quote-control.ant-select:hover .ant-select-selector {
+  border-color: var(--ins-border-strong) !important;
+}
+
+.insurance-case-skin .ins-lively-pill {
+  border-radius: 999px;
+  border: 1px solid var(--ins-border);
+  background: var(--ins-surface-soft);
+  color: #324577;
+  font-weight: 700;
+}
+
+.insurance-case-skin .ins-lively-pill.active {
+  border-color: transparent;
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2));
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(91, 76, 240, 0.24);
+}
+
+.insurance-case-skin .ins-lively-pill.soft {
+  border-color: #8fe3bf;
+  background: #e7fbf2;
+  color: #057a55;
+}
+
+.insurance-case-skin .ins-lively-pill.warn {
+  border-color: #f7d08b;
+  background: #fff7ea;
+  color: #b66a03;
+}
+
+/* Sticky header + step rail */
+.insurance-case-skin .insurance-sticky-shell {
+  background: linear-gradient(180deg, #f8fbff 0%, #f4f8ff 100%) !important;
+  border-color: #d9e4ff !important;
+  box-shadow: 0 4px 16px rgba(58, 86, 192, 0.09) !important;
+}
+
+.insurance-case-skin .insurance-sticky-summary {
+  border-color: #d4e0ff !important;
+  background: #ffffffea !important;
+  box-shadow: var(--ins-shadow) !important;
+}
+
+.insurance-case-skin .insurance-summary-segment {
+  background: transparent !important;
+}
+
+.insurance-case-skin .insurance-summary-segment:nth-child(1) {
+  background: linear-gradient(180deg, rgba(91, 76, 240, 0.08), rgba(91, 76, 240, 0.02)) !important;
+}
+
+.insurance-case-skin .insurance-summary-segment:nth-child(2) {
+  background: linear-gradient(180deg, rgba(0, 184, 212, 0.12), rgba(0, 184, 212, 0.03)) !important;
+}
+
+.insurance-case-skin .insurance-summary-segment:nth-child(3) {
+  background: linear-gradient(180deg, rgba(22, 182, 122, 0.12), rgba(22, 182, 122, 0.03)) !important;
+}
+
+.insurance-case-skin .insurance-summary-segment:nth-child(4) {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.03)) !important;
+}
+
+.insurance-case-skin .insurance-summary-segment:nth-child(5) {
+  background: linear-gradient(180deg, rgba(239, 71, 111, 0.12), rgba(239, 71, 111, 0.03)) !important;
+}
+
+.insurance-case-skin .insurance-stage-pill {
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 14px rgba(91, 76, 240, 0.2) !important;
+}
+
+.insurance-case-skin .insurance-step-rail {
+  border-color: #d6e1ff !important;
+  background: #ffffffde !important;
+  box-shadow: 0 14px 30px rgba(58, 86, 192, 0.16) !important;
+}
+
+.insurance-case-skin .insurance-nav-step {
+  border: 1px solid transparent;
+}
+
+.insurance-case-skin .insurance-nav-step:hover {
+  border-color: #d4defc;
+  background: var(--ins-surface-muted) !important;
+  color: #2f3f78 !important;
+}
+
+.insurance-case-skin .insurance-nav-step.is-active {
+  border-color: transparent !important;
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(91, 76, 240, 0.24) !important;
+}
+
+/* Footer */
+.insurance-case-skin .insurance-footer-shell {
+  border-top-color: #d6e1ff !important;
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f8ff 100%) !important;
+}
+
+.insurance-case-skin .insurance-footer-progress-track {
+  background: #e4ecff !important;
+}
+
+.insurance-case-skin .insurance-footer-progress-fill {
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+}
+
+.insurance-case-skin .insurance-footer-step-chip {
+  background: #ebf2ff !important;
+  color: #3b4f87 !important;
+  border: 1px solid #d4e0ff;
+}
+
+.insurance-case-skin .insurance-footer-btn {
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-exit {
+  border-color: #ced8f3 !important;
+  background: #fff !important;
+  color: #42537f !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-save {
+  border-color: #89dfbc !important;
+  background: #e8fbf2 !important;
+  color: #086645 !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-back {
+  border-color: #ced8f3 !important;
+  background: #edf2ff !important;
+  color: #42537f !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-next {
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  color: #fff !important;
+  box-shadow: 0 12px 24px rgba(91, 76, 240, 0.24) !important;
+}
+
+/* Dropdown and calendar */
+.insurance-themed-calendar .ant-picker-panel-container {
+  border-radius: 16px !important;
+  border: 1px solid #d6e1ff !important;
+  box-shadow: 0 18px 36px rgba(58, 86, 192, 0.2) !important;
+  background: #fff !important;
+}
+
+.insurance-themed-calendar .ant-picker-header {
+  border-bottom-color: #e8edff !important;
+}
+
+.insurance-themed-calendar .ant-picker-header button {
+  color: #4a5d94 !important;
+}
+
+.insurance-themed-calendar .ant-picker-content th {
+  color: #8d9ab7 !important;
+  font-weight: 700 !important;
+}
+
+.insurance-themed-calendar .ant-picker-cell-in-view .ant-picker-cell-inner {
+  border-radius: 10px !important;
+}
+
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell-selected
+  .ant-picker-cell-inner,
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell-range-start
+  .ant-picker-cell-inner,
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell-range-end
+  .ant-picker-cell-inner {
+  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  color: #fff !important;
+}
+
+.insurance-themed-calendar .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
+  border-color: var(--ins-primary-2) !important;
+}
+
+.insurance-themed-calendar .ant-picker-cell-in-view.ant-picker-cell:hover .ant-picker-cell-inner {
+  background: #eef4ff !important;
+}
+
+/* Global card polish */
+.insurance-case-skin .ant-card,
+.insurance-case-skin .rounded-\[30px\],
+.insurance-case-skin .rounded-\[28px\] {
+  border-color: #d6e1ff !important;
+  box-shadow: 0 10px 24px rgba(58, 86, 192, 0.09) !important;
+}
+
+.insurance-case-skin [class*="bg-gradient-to-r"] {
+  background-image: linear-gradient(
+    120deg,
+    rgba(91, 76, 240, 0.1),
+    rgba(0, 184, 212, 0.06) 45%,
+    rgba(22, 182, 122, 0.07)
+  ) !important;
+}
+
+.insurance-case-skin.insurance-dashboard-shell {
+  background:
+    radial-gradient(circle at 6% 0%, rgba(91, 76, 240, 0.11) 0, rgba(91, 76, 240, 0) 38%),
+    radial-gradient(circle at 95% 4%, rgba(0, 184, 212, 0.1) 0, rgba(0, 184, 212, 0) 34%),
+    radial-gradient(circle at 52% 100%, rgba(22, 182, 122, 0.08) 0, rgba(22, 182, 122, 0) 40%),
+    #f7faff !important;
+}
+
+.insurance-case-skin .ant-btn {
+  font-weight: 700 !important;
+}
+
+.insurance-case-skin .ant-btn-primary:not(:disabled) {
+  filter: saturate(1.08) !important;
+}

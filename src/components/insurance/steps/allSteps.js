@@ -67,7 +67,7 @@ export const requiredDocumentTags = [
   "Form 30 page 1",
   "Form 30 page 2",
   "Pan Number",
-  "GST/Adhaar Card",
+  "Aadhaar Front / Back / GST Pages",
   "Previous Year Policy",
   "New Year Policy",
 ];

@@ -16,9 +16,9 @@ const InsurancePage = () => {
 
   return (
     <div className="space-y-4 pb-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-black sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-200/70 bg-gradient-to-r from-indigo-50 via-cyan-50 to-emerald-50 p-4 shadow-[0_12px_30px_rgba(79,70,229,0.12)] dark:border-slate-800 dark:bg-black sm:p-5">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-slate-400">
             Insurance Dashboard
           </p>
           <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
@@ -28,7 +28,7 @@ const InsurancePage = () => {
         <button
           type="button"
           onClick={() => setIsFormOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-sky-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-500 px-4 py-2 text-sm font-bold text-white shadow-[0_8px_18px_rgba(79,70,229,0.28)] transition hover:brightness-105"
         >
           <Plus size={16} />
           New Insurance Case

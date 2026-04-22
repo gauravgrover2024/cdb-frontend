@@ -41,13 +41,27 @@ const EW_SUGGESTED_TAGS = [
   "RC Copy",
   "Invoice",
   "Pan",
-  "Aadhar / GST",
+  "Aadhaar Front",
+  "Aadhaar Back",
+  "GST Page 1",
+  "GST Page 2",
+  "GST Page 3",
 ];
 
 const DOCUMENT_MATRIX = {
   "new-car-insurance": {
     label: "New Car Insurance",
-    suggested: ["Policy Copy", "Invoice", "Pan", "Aadhar / GST", "RC Copy"],
+    suggested: [
+      "Policy Copy",
+      "Invoice",
+      "Pan",
+      "Aadhaar Front",
+      "Aadhaar Back",
+      "GST Page 1",
+      "GST Page 2",
+      "GST Page 3",
+      "RC Copy",
+    ],
   },
   "used-car-insurance": {
     label: "Used Car Insurance",
@@ -55,7 +69,11 @@ const DOCUMENT_MATRIX = {
       "Policy Copy",
       "RC Copy",
       "Pan",
-      "Aadhar / GST",
+      "Aadhaar Front",
+      "Aadhaar Back",
+      "GST Page 1",
+      "GST Page 2",
+      "GST Page 3",
       "Form 29",
       "Form 30 page 1",
       "Form 30 page 2",
@@ -64,7 +82,17 @@ const DOCUMENT_MATRIX = {
   },
   "used-car-renewal": {
     label: "Used Car Renewal",
-    suggested: ["Policy Copy", "Previous Year Policy", "RC Copy", "Pan", "Aadhar / GST"],
+    suggested: [
+      "Policy Copy",
+      "Previous Year Policy",
+      "RC Copy",
+      "Pan",
+      "Aadhaar Front",
+      "Aadhaar Back",
+      "GST Page 1",
+      "GST Page 2",
+      "GST Page 3",
+    ],
   },
   "policy-already-expired": {
     label: "Policy Already Expired",
@@ -73,7 +101,11 @@ const DOCUMENT_MATRIX = {
       "Previous Year Policy",
       "RC Copy",
       "Pan",
-      "Aadhar / GST",
+      "Aadhaar Front",
+      "Aadhaar Back",
+      "GST Page 1",
+      "GST Page 2",
+      "GST Page 3",
       "Inspection Report",
     ],
   },
@@ -185,10 +217,44 @@ const extensionFromName = (value = "") => {
   return last && last !== clean ? last.toLowerCase() : "";
 };
 
+const decodeLoose = (value = "") => {
+  const input = String(value || "");
+  if (!input) return "";
+  try {
+    return decodeURIComponent(input);
+  } catch {
+    return input;
+  }
+};
+
+const buildDetectionText = (doc = {}) =>
+  [
+    doc?.type,
+    doc?.resource_type,
+    doc?.format,
+    doc?.name,
+    doc?.originalName,
+    doc?.original_name,
+    doc?.storageKey,
+    doc?.public_id,
+    doc?.url,
+    doc?.previewUrl,
+    doc?.rawUrl,
+    decodeLoose(doc?.url),
+    decodeLoose(doc?.previewUrl),
+    decodeLoose(doc?.rawUrl),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
 const isImageLike = (doc = {}) => {
   const type = String(doc?.type || "").toLowerCase();
-  const format = String(doc?.format || extensionFromName(doc?.name || doc?.url)).toLowerCase();
-  const url = String(doc?.previewUrl || doc?.url || "").toLowerCase();
+  const format = String(
+    doc?.format ||
+      extensionFromName(doc?.name || doc?.originalName || doc?.url || doc?.rawUrl),
+  ).toLowerCase();
+  const url = buildDetectionText(doc);
   return (
     type.startsWith("image/") ||
     type.includes("image") ||
@@ -199,8 +265,11 @@ const isImageLike = (doc = {}) => {
 
 const isPdfLike = (doc = {}) => {
   const type = String(doc?.type || "").toLowerCase();
-  const format = String(doc?.format || extensionFromName(doc?.name || doc?.url)).toLowerCase();
-  const url = String(doc?.previewUrl || doc?.url || "").toLowerCase();
+  const format = String(
+    doc?.format ||
+      extensionFromName(doc?.name || doc?.originalName || doc?.url || doc?.rawUrl),
+  ).toLowerCase();
+  const url = buildDetectionText(doc);
   return (
     type === "application/pdf" ||
     type.includes("pdf") ||
@@ -344,63 +413,69 @@ const UploadDropzone = ({ isDragging, uploading, onBrowse, onDragStateChange, on
   </div>
 );
 
-const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload }) => {
+const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) => {
   const imageLike = isImageLike(doc || {});
   const pdfLike = isPdfLike(doc || {});
   const status = getDocStatus(doc || {});
-  const pdfPrimarySrc = doc?.previewUrl || doc?.url || doc?.rawUrl || "";
-  const [pdfBlobSrc, setPdfBlobSrc] = useState("");
-  const [pdfLoadFailed, setPdfLoadFailed] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState("");
+
+  const rawPreviewSrc = useMemo(
+    () => String(doc?.previewUrl || doc?.url || doc?.rawUrl || "").split("#")[0],
+    [doc],
+  );
+  const pdfSourceCandidates = useMemo(
+    () =>
+      uniqueList([
+        rawPreviewSrc,
+        buildAccessibleDocumentUrl(rawPreviewSrc),
+        doc?.previewUrl,
+        doc?.url,
+        doc?.rawUrl,
+        buildAccessibleDocumentUrl(doc?.rawUrl),
+        buildAccessibleDocumentUrl(doc?.url),
+      ]).filter(Boolean),
+    [doc, rawPreviewSrc],
+  );
+
+  const pdfPreviewSrc = useMemo(() => {
+    const base = String(pdfBlobUrl || rawPreviewSrc || "");
+    if (!base) return "";
+    return `${base}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`;
+  }, [pdfBlobUrl, rawPreviewSrc]);
 
   useEffect(() => {
-    let revokedUrl = "";
-    let cancelled = false;
-
-    const cleanupBlob = () => {
-      if (revokedUrl) {
-        URL.revokeObjectURL(revokedUrl);
-        revokedUrl = "";
-      }
-    };
-
-    if (!doc || !pdfLike || !pdfPrimarySrc) {
-      setPdfBlobSrc("");
-      setPdfLoadFailed(false);
-      return cleanupBlob;
+    let isCanceled = false;
+    let objectUrl = "";
+    if (!pdfLike || !rawPreviewSrc) {
+      setPdfBlobUrl("");
+      return undefined;
     }
-
-    setPdfBlobSrc("");
-    setPdfLoadFailed(false);
-
-    const loadPdfAsBlob = async () => {
-      try {
-        const response = await fetch(pdfPrimarySrc, { credentials: "include" });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const buffer = await response.arrayBuffer();
-        const blob = new Blob([buffer], { type: "application/pdf" });
-        const objectUrl = URL.createObjectURL(blob);
-        revokedUrl = objectUrl;
-        if (!cancelled) {
-          setPdfBlobSrc(objectUrl);
-        } else {
-          URL.revokeObjectURL(objectUrl);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setPdfLoadFailed(true);
+    const loadPdf = async () => {
+      for (let i = 0; i < pdfSourceCandidates.length; i += 1) {
+        try {
+          const response = await fetch(pdfSourceCandidates[i], { credentials: "include" });
+          if (!response.ok) throw new Error("PDF fetch failed");
+          const blob = await response.blob();
+          if (!blob || !blob.size) throw new Error("Empty PDF blob");
+          objectUrl = URL.createObjectURL(
+            blob.type === "application/pdf"
+              ? blob
+              : new Blob([blob], { type: "application/pdf" }),
+          );
+          if (!isCanceled) setPdfBlobUrl(objectUrl);
+          return;
+        } catch {
+          // try next candidate
         }
       }
+      if (!isCanceled) setPdfBlobUrl(pdfSourceCandidates[0] || rawPreviewSrc);
     };
-
-    loadPdfAsBlob();
-
+    loadPdf();
     return () => {
-      cancelled = true;
-      cleanupBlob();
+      isCanceled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [doc, pdfLike, pdfPrimarySrc]);
-
-  const pdfPreviewSrc = pdfBlobSrc || pdfPrimarySrc;
+  }, [pdfLike, pdfSourceCandidates, rawPreviewSrc]);
 
   if (!doc) {
     return (
@@ -434,38 +509,32 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload }) => {
 
       <div className="overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50">
         {imageLike ? (
-          <img src={doc.previewUrl || doc.url} alt={getDocDisplayLabel(doc, index)} className="h-[320px] w-full object-contain bg-white" />
+          <img
+            src={doc.previewUrl || doc.url}
+            alt={getDocDisplayLabel(doc, index)}
+            loading="lazy"
+            className="h-[420px] w-full object-contain bg-white"
+          />
         ) : pdfLike ? (
           pdfPreviewSrc ? (
-            <object
-              data={pdfPreviewSrc}
-              type="application/pdf"
-              className="h-[320px] w-full bg-white"
-              aria-label={getDocDisplayLabel(doc, index)}
-            >
-              <iframe
-                title={getDocDisplayLabel(doc, index)}
-                src={pdfPreviewSrc}
-                className="h-[320px] w-full bg-white"
-              />
-            </object>
+            <iframe
+              title={getDocDisplayLabel(doc, index)}
+              src={pdfPreviewSrc}
+              className="h-[420px] w-full bg-white"
+            />
           ) : (
-            <div className="flex h-[320px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+            <div className="flex h-[420px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-100 text-slate-500">
                 <Icon name="FileText" size={28} />
               </div>
-              <div className="text-sm font-bold text-slate-800">
-                {pdfLoadFailed ? "Unable to load PDF preview" : "Loading PDF preview..."}
-              </div>
+              <div className="text-sm font-bold text-slate-800">Unable to load PDF preview</div>
               <div className="max-w-xs text-sm text-slate-500">
-                {pdfLoadFailed
-                  ? "Use Open Viewer or Download while we retry this document."
-                  : "Fetching document from Cloudflare storage."}
+                Use Open Viewer or Download to inspect this file.
               </div>
             </div>
           )
         ) : (
-          <div className="flex h-[320px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+          <div className="flex h-[420px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-100 text-slate-500">
               <Icon name="File" size={28} />
             </div>
@@ -506,6 +575,16 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload }) => {
           </Button>
           <Button
             variant="outline"
+            iconName="Printer"
+            iconPosition="left"
+            size="sm"
+            onClick={() => onPrint(doc, index)}
+            className="h-10 rounded-xl border-violet-200 bg-violet-50 px-4 text-violet-700 hover:bg-violet-100"
+          >
+            Print
+          </Button>
+          <Button
+            variant="outline"
             iconName="Download"
             iconPosition="left"
             size="sm"
@@ -532,6 +611,7 @@ const Step6Documents = ({
   const [uploading, setUploading] = useState(false);
   const [manualTagInput, setManualTagInput] = useState("");
   const [manualTags, setManualTags] = useState([]);
+  const [visibleCount, setVisibleCount] = useState(24);
 
   useEffect(() => {
     dispatch({ type: "SET_SCENARIO", payload: getScenarioFromForm(formData) });
@@ -650,6 +730,15 @@ const Step6Documents = ({
     const selected = filteredDocuments.find((doc) => getStableDocId(doc) === ui.selectedDocId);
     return selected || filteredDocuments[0];
   }, [filteredDocuments, ui.selectedDocId]);
+
+  const visibleDocuments = useMemo(
+    () => filteredDocuments.slice(0, visibleCount),
+    [filteredDocuments, visibleCount],
+  );
+
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [ui.searchText, ui.sortBy, ui.scenario]);
 
   useEffect(() => {
     if (!filteredDocuments.length) {
@@ -829,6 +918,68 @@ const Step6Documents = ({
     document.body.removeChild(link);
   }, []);
 
+  const handlePrint = useCallback((doc) => {
+    const href = String(doc?.previewUrl || doc?.url || doc?.rawUrl || "").trim();
+    if (!href) {
+      message.warning("No document available for print.");
+      return;
+    }
+    const printFromBlob = async () => {
+      let objectUrl = "";
+      let iframe = null;
+      try {
+        const response = await fetch(href, { credentials: "include" });
+        if (!response.ok) throw new Error("Unable to load document for print.");
+        const blob = await response.blob();
+        if (!blob || !blob.size) throw new Error("Empty document.");
+        objectUrl = URL.createObjectURL(blob);
+
+        iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "0";
+        iframe.src = objectUrl;
+        document.body.appendChild(iframe);
+
+        iframe.onload = () => {
+          setTimeout(() => {
+            try {
+              iframe?.contentWindow?.focus();
+              iframe?.contentWindow?.print();
+            } catch {
+              message.warning("Unable to trigger print on this file.");
+            }
+          }, 300);
+        };
+      } catch (error) {
+        message.warning(error?.message || "Unable to print this document.");
+      } finally {
+        setTimeout(() => {
+          if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+        }, 4000);
+      }
+    };
+    printFromBlob();
+  }, []);
+
+  const handleDownloadAll = useCallback(async () => {
+    if (!normalizedDocuments.length) {
+      message.info("No documents available to download.");
+      return;
+    }
+    for (let index = 0; index < normalizedDocuments.length; index += 1) {
+      handleDownload(normalizedDocuments[index], index);
+      // avoid browser dropping multiple instant downloads
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 140));
+    }
+    message.success(`Download started for ${normalizedDocuments.length} documents.`);
+  }, [handleDownload, normalizedDocuments]);
+
   const handleViewerIndexChange = useCallback(
     (idx) => {
       const nextDocument = viewerDocuments[idx];
@@ -875,7 +1026,7 @@ const Step6Documents = ({
       />
 
       <div className="-mt-2 flex flex-col gap-3">
-        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-r from-[#EEF3EF] via-white to-[#FAF8F1] shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
           <div className="px-5 py-3.5 md:px-6 md:py-4">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
@@ -1009,6 +1160,16 @@ const Step6Documents = ({
                     ]}
                     onChange={(value) => dispatch({ type: "SET_SORT", payload: value })}
                   />
+                  <Button
+                    variant="outline"
+                    iconName="Download"
+                    iconPosition="left"
+                    size="sm"
+                    onClick={handleDownloadAll}
+                    className="h-11 shrink-0 rounded-xl border-violet-200 bg-violet-50 px-4 text-violet-700 hover:bg-violet-100"
+                  >
+                    Download all
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1046,7 +1207,7 @@ const Step6Documents = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredDocuments.map((doc, index) => {
+                  {visibleDocuments.map((doc, index) => {
                     const docId = getStableDocId(doc, `row-${index}`);
                     const status = getDocStatus(doc);
                     const isSelected = selectedDoc && getStableDocId(selectedDoc) === docId;
@@ -1084,16 +1245,12 @@ const Step6Documents = ({
                             {imageLike ? (
                               <img src={doc.previewUrl || doc.url} alt={getDocDisplayLabel(doc, index)} className="h-full w-full object-cover" />
                             ) : pdfLike ? (
-                              <object
-                                data={doc.rawUrl || doc.previewUrl || doc.url}
-                                type="application/pdf"
-                                className="h-full w-full pointer-events-none bg-white"
-                                aria-label={`pdf-thumb-${docId}`}
-                              >
-                                <div className="flex h-full w-full items-center justify-center bg-slate-50">
-                                  <Icon name="FileText" size={30} className="text-rose-500" />
-                                </div>
-                              </object>
+                              <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-white">
+                                <Icon name="FileText" size={30} className="text-rose-500" />
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  PDF
+                                </span>
+                              </div>
                             ) : (
                               <div className="flex h-full w-full items-center justify-center bg-slate-50">
                                 <Icon name="File" size={30} className="text-slate-400" />
@@ -1200,6 +1357,24 @@ const Step6Documents = ({
                       </div>
                     );
                   })}
+                  {filteredDocuments.length > visibleDocuments.length ? (
+                    <div className="flex justify-center pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        iconName="ChevronDown"
+                        iconPosition="left"
+                        onClick={() =>
+                          setVisibleCount((prev) =>
+                            Math.min(prev + 24, filteredDocuments.length),
+                          )
+                        }
+                        className="h-10 rounded-xl border-blue-200 bg-blue-50 px-4 text-blue-700 hover:bg-blue-100"
+                      >
+                        Load more ({filteredDocuments.length - visibleDocuments.length} left)
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -1211,6 +1386,7 @@ const Step6Documents = ({
             total={filteredDocuments.length}
             onOpenViewer={(doc) => dispatch({ type: "OPEN_VIEWER", payload: getStableDocId(doc) })}
             onDownload={handleDownload}
+            onPrint={handlePrint}
           />
         </section>
       </div>
