@@ -108,19 +108,19 @@ const getInitials = (value = "") =>
 
 const toneStyles = {
   mint: {
-    card: "border-[#C9D9FF]/80 bg-[#C9D9FF]/28 dark:border-[#C9D9FF]/35 dark:bg-[#C9D9FF]/8",
+    card: "border-[#9FC0FF]/80 bg-[#9FC0FF]/28 dark:border-[#9FC0FF]/35 dark:bg-[#9FC0FF]/8",
     head: "text-slate-700 dark:text-slate-200",
   },
   sage: {
-    card: "border-[#EEF7FF]/90 bg-[#EEF7FF]/35 dark:border-[#EEF7FF]/35 dark:bg-[#EEF7FF]/10",
+    card: "border-[#DAF3FF]/90 bg-[#DAF3FF]/35 dark:border-[#DAF3FF]/35 dark:bg-[#DAF3FF]/10",
     head: "text-slate-700 dark:text-slate-200",
   },
   cream: {
-    card: "border-[#FFF4EC] bg-[#FFF4EC]/75 dark:border-[#FFF4EC]/30 dark:bg-[#FFF4EC]/10",
+    card: "border-[#FFE6C6] bg-[#FFE6C6]/75 dark:border-[#FFE6C6]/30 dark:bg-[#FFE6C6]/10",
     head: "text-slate-700 dark:text-slate-200",
   },
   rose: {
-    card: "border-[#F3A6B7]/80 bg-[#F3A6B7]/25 dark:border-[#F3A6B7]/35 dark:bg-[#F3A6B7]/10",
+    card: "border-[#FF8EAD]/80 bg-[#FF8EAD]/25 dark:border-[#FF8EAD]/35 dark:bg-[#FF8EAD]/10",
     head: "text-slate-700 dark:text-slate-200",
   },
 };
@@ -132,22 +132,22 @@ const stagePillClass = (tone, active) => {
     return `${base} border-border bg-background text-muted-foreground hover:border-slate-300 hover:bg-muted/35 hover:text-foreground dark:hover:border-slate-700`;
   }
   const map = {
-    mint: "border-[#C9D9FF] bg-[#C9D9FF]/72 text-slate-900 dark:border-[#C9D9FF]/50 dark:bg-[#C9D9FF]/20 dark:text-slate-100",
-    sage: "border-[#EEF7FF] bg-[#EEF7FF]/80 text-slate-900 dark:border-[#EEF7FF]/50 dark:bg-[#EEF7FF]/20 dark:text-slate-100",
+    mint: "border-[#9FC0FF] bg-[#9FC0FF]/72 text-slate-900 dark:border-[#9FC0FF]/50 dark:bg-[#9FC0FF]/20 dark:text-slate-100",
+    sage: "border-[#DAF3FF] bg-[#DAF3FF]/80 text-slate-900 dark:border-[#DAF3FF]/50 dark:bg-[#DAF3FF]/20 dark:text-slate-100",
     cream:
-      "border-[#FFF4EC] bg-[#FFF4EC] text-slate-900 dark:border-[#FFF4EC]/45 dark:bg-[#FFF4EC]/16 dark:text-slate-100",
-    rose: "border-[#F3A6B7] bg-[#F3A6B7]/72 text-slate-900 dark:border-[#F3A6B7]/50 dark:bg-[#F3A6B7]/20 dark:text-slate-100",
+      "border-[#FFE6C6] bg-[#FFE6C6] text-slate-900 dark:border-[#FFE6C6]/45 dark:bg-[#FFE6C6]/16 dark:text-slate-100",
+    rose: "border-[#FF8EAD] bg-[#FF8EAD]/72 text-slate-900 dark:border-[#FF8EAD]/50 dark:bg-[#FF8EAD]/20 dark:text-slate-100",
   };
   return `${base} ${map[tone] || map.mint}`;
 };
 
 const stageToneChipClass = (tone) => {
   const map = {
-    mint: "bg-[#C9D9FF]/85 text-slate-800 dark:bg-[#C9D9FF]/30 dark:text-slate-100",
-    sage: "bg-[#EEF7FF] text-slate-800 dark:bg-[#EEF7FF]/30 dark:text-slate-100",
+    mint: "bg-[#9FC0FF]/85 text-slate-800 dark:bg-[#9FC0FF]/30 dark:text-slate-100",
+    sage: "bg-[#DAF3FF] text-slate-800 dark:bg-[#DAF3FF]/30 dark:text-slate-100",
     cream:
-      "bg-[#FFF4EC] text-slate-800 dark:bg-[#FFF4EC]/30 dark:text-slate-100",
-    rose: "bg-[#F3A6B7]/80 text-slate-800 dark:bg-[#F3A6B7]/30 dark:text-slate-100",
+      "bg-[#FFE6C6] text-slate-800 dark:bg-[#FFE6C6]/30 dark:text-slate-100",
+    rose: "bg-[#FF8EAD]/80 text-slate-800 dark:bg-[#FF8EAD]/30 dark:text-slate-100",
   };
   return map[tone] || map.mint;
 };
@@ -230,7 +230,7 @@ const ContinuousPageSection = React.forwardRef(
       className={cx(
         "scroll-mt-6 rounded-[26px] border px-4 py-4 md:px-5 md:py-5",
         active
-          ? "border-[#C9D9FF] bg-[#EEF7FF]/45 dark:border-[#C9D9FF]/40 dark:bg-[#EEF7FF]/10"
+          ? "border-[#9FC0FF] bg-[#DAF3FF]/45 dark:border-[#9FC0FF]/40 dark:bg-[#DAF3FF]/10"
           : "border-border70 bg-card",
       )}
     >
@@ -392,25 +392,25 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
 
 const addonPalette = [
   {
-    bg: "bg-[#C9D9FF]/35",
-    ring: "ring-[#C9D9FF]",
+    bg: "bg-[#9FC0FF]/35",
+    ring: "ring-[#9FC0FF]",
     text: "text-slate-700",
-    activeBg: "bg-[#C9D9FF]/70",
-    activeRing: "ring-[#C9D9FF]",
+    activeBg: "bg-[#9FC0FF]/70",
+    activeRing: "ring-[#9FC0FF]",
   },
   {
-    bg: "bg-[#EEF7FF]/40",
-    ring: "ring-[#EEF7FF]",
+    bg: "bg-[#DAF3FF]/40",
+    ring: "ring-[#DAF3FF]",
     text: "text-slate-700",
-    activeBg: "bg-[#EEF7FF]/75",
-    activeRing: "ring-[#EEF7FF]",
+    activeBg: "bg-[#DAF3FF]/75",
+    activeRing: "ring-[#DAF3FF]",
   },
   {
-    bg: "bg-[#FFF4EC]/55",
-    ring: "ring-[#FFF4EC]",
+    bg: "bg-[#FFE6C6]/55",
+    ring: "ring-[#FFE6C6]",
     text: "text-slate-700",
-    activeBg: "bg-[#FFF4EC]",
-    activeRing: "ring-[#FFF4EC]",
+    activeBg: "bg-[#FFE6C6]",
+    activeRing: "ring-[#FFE6C6]",
   },
 ];
 
@@ -446,13 +446,13 @@ const QuotePreviewCard = ({
       className={cx(
         "relative flex flex-col rounded-2xl bg-white dark:bg-[#151515] transition-all duration-200",
         isAccepted
-          ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#C9D9FF]"
+          ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#9FC0FF]"
           : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)] dark:ring-slate-800",
       )}
     >
       {isAccepted && (
         <div className="absolute -top-2.5 left-4 flex items-center gap-1">
-          <span className="flex items-center gap-1 rounded-full bg-[#C9D9FF] px-2.5 py-0.5 text-[10px] font-black text-slate-800 shadow-sm">
+          <span className="flex items-center gap-1 rounded-full bg-[#9FC0FF] px-2.5 py-0.5 text-[10px] font-black text-slate-800 shadow-sm">
             <CheckCircleFilled className="text-[9px]" /> Accepted
           </span>
         </div>
@@ -460,7 +460,7 @@ const QuotePreviewCard = ({
 
       {!isAccepted && isCheapest && (
         <div className="absolute -top-2.5 left-4 flex items-center gap-1">
-          <span className="rounded-full bg-[#FFF4EC] px-2.5 py-0.5 text-[10px] font-black text-slate-700 shadow-sm ring-1 ring-[#FFF4EC]">
+          <span className="rounded-full bg-[#FFE6C6] px-2.5 py-0.5 text-[10px] font-black text-slate-700 shadow-sm ring-1 ring-[#FFE6C6]">
             Lowest Premium
           </span>
         </div>
@@ -473,7 +473,7 @@ const QuotePreviewCard = ({
               className={cx(
                 "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1",
                 isAccepted
-                  ? "bg-[#C9D9FF]/70 text-slate-800 ring-[#C9D9FF]"
+                  ? "bg-[#9FC0FF]/70 text-slate-800 ring-[#9FC0FF]"
                   : `${palette.activeBg} ${palette.text} ${palette.activeRing}`,
               )}
             >
@@ -617,8 +617,8 @@ const QuotePreviewCard = ({
             className={cx(
               "flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide border-0 shadow-sm",
               isAccepted
-                ? "bg-[#C9D9FF] text-slate-800"
-                : "bg-[#F3A6B7] text-slate-800",
+                ? "bg-[#9FC0FF] text-slate-800"
+                : "bg-[#FF8EAD] text-slate-800",
             )}
           >
             {isAccepted ? "✓ Accepted" : "Accept"}
@@ -636,7 +636,7 @@ const QuotePreviewCard = ({
           <button
             type="button"
             disabled
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#F3A6B7]/30 text-slate-500 ring-1 ring-[#F3A6B7] cursor-not-allowed"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#FF8EAD]/30 text-slate-500 ring-1 ring-[#FF8EAD] cursor-not-allowed"
             title="Delete"
           >
             <DeleteOutlined className="text-xs" />
@@ -1239,11 +1239,11 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
         }}
       >
         <div className="flex-shrink-0 border-b border-border bg-card">
-          <div className="bg-gradient-to-r from-[#EEF7FF]/75 via-[#FFF4EC]/75 to-[#C9D9FF]/55 px-3 py-3 md:px-5 md:py-4 dark:from-[#EEF7FF]/10 dark:via-[#FFF4EC]/10 dark:to-[#C9D9FF]/10">
+          <div className="bg-gradient-to-r from-[#DAF3FF]/75 via-[#FFE6C6]/75 to-[#9FC0FF]/55 px-3 py-3 md:px-5 md:py-4 dark:from-[#DAF3FF]/10 dark:via-[#FFE6C6]/10 dark:to-[#9FC0FF]/10">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-[#F3A6B7] text-sm font-bold text-slate-900 dark:bg-[#F3A6B7]/60 dark:text-slate-100">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-[#FF8EAD] text-sm font-bold text-slate-900 dark:bg-[#FF8EAD]/60 dark:text-slate-100">
                     {initials}
                   </div>
 
@@ -1252,12 +1252,12 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                       <span className="truncate text-[15px] font-bold tracking-[-0.01em] text-foreground md:text-base">
                         {asText(customerName)}
                       </span>
-                      <span className="inline-flex items-center rounded-full bg-[#C9D9FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-800 dark:bg-[#C9D9FF]/35 dark:text-slate-100">
+                      <span className="inline-flex items-center rounded-full bg-[#9FC0FF] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-800 dark:bg-[#9FC0FF]/35 dark:text-slate-100">
                         {caseStatus}
                       </span>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                      <span className="rounded-full border border-[#C9D9FF] bg-[#EEF7FF] px-2.5 py-1 font-mono font-semibold text-slate-700 dark:border-[#C9D9FF]/40 dark:bg-[#EEF7FF]/15 dark:text-slate-200">
+                      <span className="rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2.5 py-1 font-mono font-semibold text-slate-700 dark:border-[#9FC0FF]/40 dark:bg-[#DAF3FF]/15 dark:text-slate-200">
                         {caseId}
                       </span>
                       {hasValue(data.registrationNumber) ? (
@@ -1300,7 +1300,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search any field or value"
-                className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-10 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-[#F3A6B7]"
+                className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-10 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-[#FF8EAD]"
               />
               {searchQuery ? (
                 <button
@@ -1555,7 +1555,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                         Quote List
                       </p>
                       {acceptedQuote ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C9D9FF] px-3 py-1 text-[11px] font-black text-slate-800">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#9FC0FF] px-3 py-1 text-[11px] font-black text-slate-800">
                           <CheckCircleFilled className="text-[10px]" />
                           {asText(acceptedQuote.insuranceCompany)} · Accepted
                         </span>
@@ -1752,7 +1752,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
               >
                 {galleryItems.length ? (
                   <div className="overflow-hidden rounded-2xl border border-border70 bg-card">
-                    <div className="border-b border-border60 bg-[#C9D9FF]/60 px-4 py-3 dark:bg-[#C9D9FF]/10">
+                    <div className="border-b border-border60 bg-[#9FC0FF]/60 px-4 py-3 dark:bg-[#9FC0FF]/10">
                       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                         Gallery
                       </p>
@@ -1770,7 +1770,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                             key={item.key}
                             className="overflow-hidden rounded-xl border border-border70 bg-background"
                           >
-                            <div className="flex h-40 items-center justify-center bg-[#FFF4EC]/50 p-2 dark:bg-[#FFF4EC]/8">
+                            <div className="flex h-40 items-center justify-center bg-[#FFE6C6]/50 p-2 dark:bg-[#FFE6C6]/8">
                               {item.kind === "image" ? (
                                 <img
                                   src={item.url}
@@ -1895,16 +1895,16 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
 
                 {paymentHistory.length ? (
                   <div className="overflow-hidden rounded-2xl border border-border70 bg-card">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border60 bg-[#FFF4EC]/70 px-4 py-3 dark:bg-[#FFF4EC]/10">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border60 bg-[#FFE6C6]/70 px-4 py-3 dark:bg-[#FFE6C6]/10">
                       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                         Payment Ledger
                       </p>
                       <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[#C9D9FF] bg-[#EEF7FF] px-2.5 py-1 text-[10px] font-bold text-slate-700">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2.5 py-1 text-[10px] font-bold text-slate-700">
                           <CheckCircleOutlined />
                           Insurer paid {asMoney(paymentTotals.insurerPaidTotal)}
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[#FFF4EC] bg-[#FFF4EC] px-2.5 py-1 text-[10px] font-bold text-slate-700">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[#FFE6C6] bg-[#FFE6C6] px-2.5 py-1 text-[10px] font-bold text-slate-700">
                           <FieldTimeOutlined />
                           Recovered {asMoney(paymentTotals.customerRecovered)}
                         </span>
@@ -1969,7 +1969,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
             <Button
               type="primary"
               icon={<Download size={14} />}
-              className="!border-[#F3A6B7] !bg-[#F3A6B7] !text-slate-900 hover:!opacity-90"
+              className="!border-[#FF8EAD] !bg-[#FF8EAD] !text-slate-900 hover:!opacity-90"
             >
               Download PDF
             </Button>

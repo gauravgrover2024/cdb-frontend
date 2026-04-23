@@ -230,13 +230,17 @@ const decodeLoose = (value = "") => {
 const buildDetectionText = (doc = {}) =>
   [
     doc?.type,
+    doc?.mimeType,
+    doc?.contentType,
     doc?.resource_type,
     doc?.format,
     doc?.name,
     doc?.originalName,
     doc?.original_name,
     doc?.storageKey,
+    doc?.storage_key,
     doc?.public_id,
+    doc?.publicId,
     doc?.url,
     doc?.previewUrl,
     doc?.rawUrl,
@@ -249,10 +253,17 @@ const buildDetectionText = (doc = {}) =>
     .toLowerCase();
 
 const isImageLike = (doc = {}) => {
-  const type = String(doc?.type || "").toLowerCase();
+  const type = String(doc?.type || doc?.mimeType || doc?.contentType || "").toLowerCase();
   const format = String(
     doc?.format ||
-      extensionFromName(doc?.name || doc?.originalName || doc?.url || doc?.rawUrl),
+      extensionFromName(
+        doc?.name ||
+          doc?.originalName ||
+          doc?.storageKey ||
+          doc?.storage_key ||
+          doc?.url ||
+          doc?.rawUrl,
+      ),
   ).toLowerCase();
   const url = buildDetectionText(doc);
   return (
@@ -264,10 +275,17 @@ const isImageLike = (doc = {}) => {
 };
 
 const isPdfLike = (doc = {}) => {
-  const type = String(doc?.type || "").toLowerCase();
+  const type = String(doc?.type || doc?.mimeType || doc?.contentType || "").toLowerCase();
   const format = String(
     doc?.format ||
-      extensionFromName(doc?.name || doc?.originalName || doc?.url || doc?.rawUrl),
+      extensionFromName(
+        doc?.name ||
+          doc?.originalName ||
+          doc?.storageKey ||
+          doc?.storage_key ||
+          doc?.url ||
+          doc?.rawUrl,
+      ),
   ).toLowerCase();
   const url = buildDetectionText(doc);
   return (
@@ -420,33 +438,32 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
   const [pdfBlobUrl, setPdfBlobUrl] = useState("");
 
   const rawPreviewSrc = useMemo(
-    () => String(doc?.previewUrl || doc?.url || doc?.rawUrl || "").split("#")[0],
+    () => String(doc?.rawUrl || doc?.url || doc?.previewUrl || "").split("#")[0],
     [doc],
   );
   const pdfSourceCandidates = useMemo(
     () =>
       uniqueList([
         rawPreviewSrc,
-        buildAccessibleDocumentUrl(rawPreviewSrc),
-        doc?.previewUrl,
-        doc?.url,
         doc?.rawUrl,
+        doc?.url,
+        doc?.previewUrl,
+        buildAccessibleDocumentUrl(rawPreviewSrc),
         buildAccessibleDocumentUrl(doc?.rawUrl),
         buildAccessibleDocumentUrl(doc?.url),
+        buildAccessibleDocumentUrl(doc?.previewUrl),
       ]).filter(Boolean),
     [doc, rawPreviewSrc],
   );
 
   const pdfPreviewSrc = useMemo(() => {
-    const base = String(pdfBlobUrl || rawPreviewSrc || "");
-    if (!base) return "";
-    return `${base}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`;
-  }, [pdfBlobUrl, rawPreviewSrc]);
+    return String(pdfBlobUrl || pdfSourceCandidates[0] || rawPreviewSrc || "");
+  }, [pdfBlobUrl, pdfSourceCandidates, rawPreviewSrc]);
 
   useEffect(() => {
     let isCanceled = false;
     let objectUrl = "";
-    if (!pdfLike || !rawPreviewSrc) {
+    if (!pdfLike || !pdfSourceCandidates.length) {
       setPdfBlobUrl("");
       return undefined;
     }
@@ -468,14 +485,14 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
           // try next candidate
         }
       }
-      if (!isCanceled) setPdfBlobUrl(pdfSourceCandidates[0] || rawPreviewSrc);
+      if (!isCanceled) setPdfBlobUrl(pdfSourceCandidates[0] || "");
     };
     loadPdf();
     return () => {
       isCanceled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [pdfLike, pdfSourceCandidates, rawPreviewSrc]);
+  }, [pdfLike, pdfSourceCandidates]);
 
   if (!doc) {
     return (
@@ -517,11 +534,17 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
           />
         ) : pdfLike ? (
           pdfPreviewSrc ? (
-            <iframe
-              title={getDocDisplayLabel(doc, index)}
-              src={pdfPreviewSrc}
+            <object
+              data={pdfPreviewSrc}
+              type="application/pdf"
               className="h-[420px] w-full bg-white"
-            />
+            >
+              <iframe
+                title={getDocDisplayLabel(doc, index)}
+                src={pdfPreviewSrc}
+                className="h-[420px] w-full bg-white"
+              />
+            </object>
           ) : (
             <div className="flex h-[420px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-100 text-slate-500">
@@ -759,15 +782,44 @@ const Step6Documents = ({
     () =>
       filteredDocuments.map((doc, index) => ({
         ...doc,
+        original_name: doc.original_name || doc.originalName || doc.name || "",
+        storageKey: doc.storageKey || doc.storage_key || "",
+        public_id: doc.public_id || doc.publicId || "",
+        resource_type: doc.resource_type || "",
+        mimeType: doc.mimeType || doc.type || "",
         id: getStableDocId(doc, `viewer-${index}`),
         name: getDocDisplayLabel(doc, index),
-        tag: "",
-        documentStage: "",
-        url: doc.previewUrl || doc.url,
-        previewUrl: doc.previewUrl || doc.url,
-        rawUrl: doc.rawUrl,
-        isPdf: isPdfLike(doc),
-        isImage: isImageLike(doc),
+        originalName: doc.originalName || doc.name || "",
+        tag: doc.tag || "",
+        documentStage: doc.documentStage || "",
+        rawUrl: doc.rawUrl || doc.url || doc.previewUrl || "",
+        url:
+          doc.rawUrl ||
+          doc.url ||
+          doc.previewUrl ||
+          buildAccessibleDocumentUrl(doc.rawUrl || doc.url || doc.previewUrl || ""),
+        previewUrl:
+          doc.rawUrl ||
+          doc.url ||
+          doc.previewUrl ||
+          buildAccessibleDocumentUrl(doc.rawUrl || doc.url || doc.previewUrl || ""),
+        proxyUrl: buildAccessibleDocumentUrl(doc.rawUrl || doc.url || doc.previewUrl || ""),
+        isPdf:
+          Boolean(doc.isPdf) ||
+          isPdfLike({
+            ...doc,
+            name: doc.originalName || doc.name,
+            format:
+              doc.format ||
+              extensionFromName(
+                doc.originalName ||
+                  doc.original_name ||
+                  doc.storageKey ||
+                  doc.name ||
+                  doc.url,
+              ),
+          }),
+        isImage: Boolean(doc.isImage) || isImageLike(doc),
         type:
           doc.type ||
           (isImageLike(doc)
@@ -777,7 +829,9 @@ const Step6Documents = ({
               : ""),
         format:
           doc.format ||
-          extensionFromName(doc.originalName || doc.name || doc.url) ||
+          extensionFromName(
+            doc.originalName || doc.original_name || doc.storageKey || doc.name || doc.url,
+          ) ||
           (isPdfLike(doc) ? "pdf" : isImageLike(doc) ? "jpg" : "file"),
       })),
     [filteredDocuments],
@@ -1026,7 +1080,7 @@ const Step6Documents = ({
       />
 
       <div className="-mt-2 flex flex-col gap-3">
-        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
+        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
           <div className="px-5 py-3.5 md:px-6 md:py-4">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">

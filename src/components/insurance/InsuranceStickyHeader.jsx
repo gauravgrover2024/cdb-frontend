@@ -156,7 +156,17 @@ const InsuranceStickyHeader = ({
               <SummarySegment
                 icon="User"
                 label="Customer"
-                title={data.customerName || data.companyName || "New Case"}
+                title={
+                  String(data.buyerType || "").toLowerCase() === "company"
+                    ? data.companyName ||
+                      data.contactPersonName ||
+                      data.customerName ||
+                      "New Case"
+                    : data.customerName ||
+                      data.contactPersonName ||
+                      data.companyName ||
+                      "New Case"
+                }
                 line1={`${data.mobile || "—"} • ${data.email || "—"}`}
                 line2={`PAN: ${data.panNumber || "—"}${
                   data.employeeName ? ` • Staff: ${data.employeeName}` : ""

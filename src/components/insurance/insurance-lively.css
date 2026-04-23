@@ -1,18 +1,18 @@
 .insurance-case-skin {
-  --ins-primary: #5b4cf0;
-  --ins-primary-2: #00b8d4;
-  --ins-accent: #16b67a;
+  --ins-primary: #3d63ff;
+  --ins-primary-2: #1fb6ff;
+  --ins-accent: #12b886;
   --ins-warn: #f59e0b;
-  --ins-danger: #ef476f;
-  --ins-surface: #f6f9ff;
-  --ins-surface-soft: #eef7ff;
-  --ins-surface-muted: #f3fbff;
+  --ins-danger: #f04374;
+  --ins-surface: #f5f9ff;
+  --ins-surface-soft: #eef5ff;
+  --ins-surface-muted: #f1f8ff;
   --ins-card: #ffffff;
-  --ins-border: #cedaf9;
-  --ins-border-strong: #98aff7;
-  --ins-text: #1f2b45;
-  --ins-text-muted: #60708d;
-  --ins-shadow: 0 10px 28px rgba(61, 94, 206, 0.14);
+  --ins-border: #c7d8ff;
+  --ins-border-strong: #89a8ff;
+  --ins-text: #1f2d4a;
+  --ins-text-muted: #5e7092;
+  --ins-shadow: 0 12px 30px rgba(43, 88, 225, 0.16);
 }
 
 .insurance-case-skin {
@@ -25,7 +25,7 @@
 }
 
 .insurance-case-skin .ant-btn-primary {
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  background: #2563eb !important;
   border-color: transparent !important;
   color: #fff !important;
   box-shadow: 0 10px 24px rgba(91, 76, 240, 0.28);
@@ -40,8 +40,9 @@
 .insurance-case-skin .ant-btn-default,
 .insurance-case-skin .ant-btn:not(.ant-btn-primary) {
   border-color: var(--ins-border) !important;
-  color: #2f3f78 !important;
-  background: var(--ins-surface-soft) !important;
+  color: color-mix(in srgb, var(--ins-primary) 64%, #24395f) !important;
+  background: color-mix(in srgb) !important;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--ins-primary) 8%, transparent);
 }
 
 .insurance-case-skin .ant-tag {
@@ -55,8 +56,13 @@
   background: #fff !important;
 }
 
-.insurance-case-skin .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+.insurance-case-skin
+  .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+  background: linear-gradient(
+    100deg,
+    var(--ins-primary),
+    var(--ins-primary-2)
+  ) !important;
   border-color: transparent !important;
   color: #fff !important;
   box-shadow: 0 8px 20px rgba(91, 76, 240, 0.24);
@@ -86,7 +92,11 @@
 .insurance-case-skin .ant-picker-focused,
 .insurance-case-skin .ant-input-number-focused,
 .insurance-case-skin .ant-input-number:focus {
-  border-color: var(--ins-border-strong) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--ins-primary) 24%,
+    var(--ins-border)
+  ) !important;
   box-shadow: none !important;
 }
 
@@ -118,20 +128,66 @@
     .ant-input-number,
     .ant-radio-button-wrapper
   ):focus-visible {
-  outline: 2px solid rgba(91, 76, 240, 0.45);
+  outline: 2px solid color-mix(in srgb, var(--ins-primary) 72%, #8aa8ff);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px
+    color-mix(in srgb, var(--ins-primary-2) 24%, transparent);
+}
+
+/* Input clear icon clutter: keep explicit select clear controls, hide global input clear */
+.insurance-case-skin .ant-input-clear-icon,
+.insurance-case-skin .ant-picker-clear,
+.insurance-case-skin .ant-select-clear {
+  display: none !important;
+}
+
+/* Prevent browser autofill yellow/brown highlights */
+.insurance-case-skin input:-webkit-autofill,
+.insurance-case-skin input:-webkit-autofill:hover,
+.insurance-case-skin input:-webkit-autofill:focus,
+.insurance-case-skin .ant-input-affix-wrapper input:-webkit-autofill,
+.insurance-case-skin .ant-input-affix-wrapper input:-webkit-autofill:hover,
+.insurance-case-skin .ant-input-affix-wrapper input:-webkit-autofill:focus,
+.insurance-case-skin .ant-select-selection-search-input:-webkit-autofill,
+.insurance-case-skin .ant-select-selection-search-input:-webkit-autofill:hover,
+.insurance-case-skin .ant-select-selection-search-input:-webkit-autofill:focus,
+.insurance-case-skin textarea:-webkit-autofill,
+.insurance-case-skin select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: var(--ins-text) !important;
+  caret-color: var(--ins-text) !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.insurance-case-skin
+  .ant-select-dropdown
+  .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background: color-mix(in srgb, var(--ins-primary-2) 12%, #fff) !important;
+}
+
+.insurance-case-skin
+  .ant-select-dropdown
+  .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: color-mix(in srgb, var(--ins-primary) 14%, #fff) !important;
+  color: color-mix(in srgb, var(--ins-primary) 76%, #1f3155) !important;
 }
 
 .insurance-case-skin .insurance-step4 .quote-control.ant-input,
 .insurance-case-skin .insurance-step4 .quote-control.ant-input-number,
-.insurance-case-skin .insurance-step4 .quote-control.ant-select .ant-select-selector {
+.insurance-case-skin
+  .insurance-step4
+  .quote-control.ant-select
+  .ant-select-selector {
   background: var(--ins-surface-muted) !important;
   border-color: var(--ins-border) !important;
 }
 
 .insurance-case-skin .insurance-step4 .quote-control.ant-input:hover,
 .insurance-case-skin .insurance-step4 .quote-control.ant-input-number:hover,
-.insurance-case-skin .insurance-step4 .quote-control.ant-select:hover .ant-select-selector {
+.insurance-case-skin
+  .insurance-step4
+  .quote-control.ant-select:hover
+  .ant-select-selector {
   border-color: var(--ins-border-strong) !important;
 }
 
@@ -180,27 +236,51 @@
 }
 
 .insurance-case-skin .insurance-summary-segment:nth-child(1) {
-  background: linear-gradient(180deg, rgba(91, 76, 240, 0.08), rgba(91, 76, 240, 0.02)) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(91, 76, 240, 0.08),
+    rgba(91, 76, 240, 0.02)
+  ) !important;
 }
 
 .insurance-case-skin .insurance-summary-segment:nth-child(2) {
-  background: linear-gradient(180deg, rgba(0, 184, 212, 0.12), rgba(0, 184, 212, 0.03)) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 184, 212, 0.12),
+    rgba(0, 184, 212, 0.03)
+  ) !important;
 }
 
 .insurance-case-skin .insurance-summary-segment:nth-child(3) {
-  background: linear-gradient(180deg, rgba(22, 182, 122, 0.12), rgba(22, 182, 122, 0.03)) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 182, 122, 0.12),
+    rgba(22, 182, 122, 0.03)
+  ) !important;
 }
 
 .insurance-case-skin .insurance-summary-segment:nth-child(4) {
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.03)) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(245, 158, 11, 0.12),
+    rgba(245, 158, 11, 0.03)
+  ) !important;
 }
 
 .insurance-case-skin .insurance-summary-segment:nth-child(5) {
-  background: linear-gradient(180deg, rgba(239, 71, 111, 0.12), rgba(239, 71, 111, 0.03)) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(239, 71, 111, 0.12),
+    rgba(239, 71, 111, 0.03)
+  ) !important;
 }
 
 .insurance-case-skin .insurance-stage-pill {
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  background: linear-gradient(
+    100deg,
+    var(--ins-primary),
+    var(--ins-primary-2)
+  ) !important;
   color: #fff !important;
   box-shadow: 0 6px 14px rgba(91, 76, 240, 0.2) !important;
 }
@@ -223,7 +303,11 @@
 
 .insurance-case-skin .insurance-nav-step.is-active {
   border-color: transparent !important;
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  background: linear-gradient(
+    100deg,
+    var(--ins-primary),
+    var(--ins-primary-2)
+  ) !important;
   color: #fff !important;
   box-shadow: 0 8px 20px rgba(91, 76, 240, 0.24) !important;
 }
@@ -239,7 +323,11 @@
 }
 
 .insurance-case-skin .insurance-footer-progress-fill {
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  background: linear-gradient(
+    100deg,
+    var(--ins-primary),
+    var(--ins-primary-2)
+  ) !important;
 }
 
 .insurance-case-skin .insurance-footer-step-chip {
@@ -272,7 +360,11 @@
 }
 
 .insurance-case-skin .insurance-footer-btn-next {
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  background: linear-gradient(
+    100deg,
+    var(--ins-primary),
+    var(--ins-primary-2)
+  ) !important;
   color: #fff !important;
   box-shadow: 0 12px 24px rgba(91, 76, 240, 0.24) !important;
 }
@@ -311,15 +403,23 @@
 .insurance-themed-calendar
   .ant-picker-cell-in-view.ant-picker-cell-range-end
   .ant-picker-cell-inner {
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2)) !important;
+  background: linear-gradient(
+    100deg,
+    var(--ins-primary),
+    var(--ins-primary-2)
+  ) !important;
   color: #fff !important;
 }
 
-.insurance-themed-calendar .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell-today
+  .ant-picker-cell-inner::before {
   border-color: var(--ins-primary-2) !important;
 }
 
-.insurance-themed-calendar .ant-picker-cell-in-view.ant-picker-cell:hover .ant-picker-cell-inner {
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell:hover
+  .ant-picker-cell-inner {
   background: #eef4ff !important;
 }
 
@@ -341,11 +441,7 @@
 }
 
 .insurance-case-skin.insurance-dashboard-shell {
-  background:
-    radial-gradient(circle at 6% 0%, rgba(91, 76, 240, 0.11) 0, rgba(91, 76, 240, 0) 38%),
-    radial-gradient(circle at 95% 4%, rgba(0, 184, 212, 0.1) 0, rgba(0, 184, 212, 0) 34%),
-    radial-gradient(circle at 52% 100%, rgba(22, 182, 122, 0.08) 0, rgba(22, 182, 122, 0) 40%),
-    #f7faff !important;
+  background: #f7faff !important;
 }
 
 .insurance-case-skin .ant-btn {

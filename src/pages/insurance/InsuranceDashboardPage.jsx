@@ -47,24 +47,19 @@ const STEP_LABEL_MAP = {
 
 const INSURANCE_STAT_THEMES = {
   total: {
-    start: "var(--ins-primary)",
-    end: "var(--ins-primary-2)",
+    tone: "tone-total",
   },
   draft: {
-    start: "var(--ins-danger)",
-    end: "#ff8aa6",
+    tone: "tone-draft",
   },
   completed: {
-    start: "var(--ins-accent)",
-    end: "#39d79f",
+    tone: "tone-completed",
   },
   paymentDue: {
-    start: "var(--ins-warn)",
-    end: "#ffbe5c",
+    tone: "tone-payment",
   },
   renewal: {
-    start: "#4d87ff",
-    end: "#72abff",
+    tone: "tone-renewal",
   },
 };
 
@@ -88,7 +83,10 @@ const hasDisplayValue = (value) => {
   return text.length > 0 && text.toLowerCase() !== "n/a";
 };
 
-const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
+const normalizeStatus = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const getAcceptedQuoteContext = (record) => {
   const quotes = Array.isArray(record?.quotes) ? record.quotes : [];
@@ -123,8 +121,12 @@ const premiumNum = (c) => {
 };
 
 const paymentReceivedNum = (c) => {
-  const customer = Number(c?.customerPaymentReceived || c?.customer_payment_received || 0);
-  const inhouse = Number(c?.inhousePaymentReceived || c?.inhouse_payment_received || 0);
+  const customer = Number(
+    c?.customerPaymentReceived || c?.customer_payment_received || 0,
+  );
+  const inhouse = Number(
+    c?.inhousePaymentReceived || c?.inhouse_payment_received || 0,
+  );
   const total = customer + inhouse;
   return Number.isFinite(total) ? total : 0;
 };
@@ -146,7 +148,10 @@ const hasIncompletePaymentChase = (c) => {
   return active.some(([exp, rec]) => Number(rec || 0) < Number(exp));
 };
 
-const vehicleTypeLower = (c) => String(c?.typesOfVehicle || "").trim().toLowerCase();
+const vehicleTypeLower = (c) =>
+  String(c?.typesOfVehicle || "")
+    .trim()
+    .toLowerCase();
 
 const isTwoWheeler = (c) => {
   const v = vehicleTypeLower(c);
@@ -178,7 +183,8 @@ const isFourWheeler = (c) => {
 };
 
 const daysUntilExpiry = (c) => {
-  const expiryDate = c?.newOdExpiryDate || c?.newTpExpiryDate || c?.policyExpiry;
+  const expiryDate =
+    c?.newOdExpiryDate || c?.newTpExpiryDate || c?.policyExpiry;
   if (!expiryDate) return null;
   const expiry = dayjs(expiryDate);
   if (!expiry.isValid()) return null;
@@ -195,7 +201,8 @@ const isDraftPolicy = (c) => normalizeStatus(c?.status) === "draft";
 const isPaymentDuePolicy = (c) => {
   if (hasIncompletePaymentChase(c)) return true;
   const st = normalizeStatus(c?.status);
-  if (st === "submitted" && (!hasPolicyNumber(c) || premiumNum(c) <= 0)) return true;
+  if (st === "submitted" && (!hasPolicyNumber(c) || premiumNum(c) <= 0))
+    return true;
   return dueNum(c) > 0;
 };
 
@@ -303,8 +310,10 @@ const toAmount = (value) => {
 
 const inferInsuranceEntryType = (row = {}) => {
   if (row.entryType) return row.entryType;
-  if (row.paymentType === "inhouse") return INSURANCE_ENTRY_TYPES.INSURER_PAYMENT;
-  if (row.paymentType === "customer") return INSURANCE_ENTRY_TYPES.CUSTOMER_RECEIPT;
+  if (row.paymentType === "inhouse")
+    return INSURANCE_ENTRY_TYPES.INSURER_PAYMENT;
+  if (row.paymentType === "customer")
+    return INSURANCE_ENTRY_TYPES.CUSTOMER_RECEIPT;
   if (row.paymentType === "subvention_nr")
     return INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE;
   if (row.paymentType === "adjustment")
@@ -370,7 +379,9 @@ const computeInsurancePaymentTotals = (rows = [], premium = 0) => {
     .reduce((sum, r) => sum + toAmount(r.amount), 0);
 
   const subventionNotRecoverable = rows
-    .filter((r) => r.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE)
+    .filter(
+      (r) => r.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE,
+    )
     .reduce((sum, r) => sum + toAmount(r.amount), 0);
 
   const subventionRefundPaid = rows
@@ -431,7 +442,8 @@ const computeInsuranceQuoteBreakup = (quote) => {
     };
   }
 
-  const addOns = quote.addOns && typeof quote.addOns === "object" ? quote.addOns : {};
+  const addOns =
+    quote.addOns && typeof quote.addOns === "object" ? quote.addOns : {};
   const included =
     quote.addOnsIncluded && typeof quote.addOnsIncluded === "object"
       ? quote.addOnsIncluded
@@ -450,8 +462,8 @@ const computeInsuranceQuoteBreakup = (quote) => {
     return sum + Number(addOns[name] || 0);
   }, 0);
 
-  const hasAnySelectedAddOn = INSURANCE_ADDON_CATALOG.some(
-    (name) => Boolean(included[name]),
+  const hasAnySelectedAddOn = INSURANCE_ADDON_CATALOG.some((name) =>
+    Boolean(included[name]),
   );
   const flatAddOnsAmount = Number(quote.addOnsAmount || 0);
   const hasFlatOverride =
@@ -510,7 +522,8 @@ const computeInsuranceQuoteBreakup = (quote) => {
     Number(quote.cngIdv || 0) +
     Number(quote.accessoriesIdv || 0);
   const storedIdv = Number(quote.totalIdv);
-  const totalIdv = Number.isFinite(storedIdv) && storedIdv > 0 ? storedIdv : idvParts;
+  const totalIdv =
+    Number.isFinite(storedIdv) && storedIdv > 0 ? storedIdv : idvParts;
 
   return {
     addOnsTotal,
@@ -538,37 +551,19 @@ const MetricCard = ({
     <button
       type="button"
       onClick={onClick}
-      className={`insdash-metric-card group relative text-left w-full overflow-hidden rounded-2xl border p-4 transition-all duration-300 hover:-translate-y-1 ${
-        isActive ? "is-active" : ""
-      }`}
-      style={{
-        backgroundImage: `linear-gradient(130deg, ${theme.start}, ${theme.end})`,
-      }}
+      className={`insdash-metric-card ${theme.tone} ${isActive ? "active" : ""}`}
     >
-      <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="flex justify-between items-start">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] font-semibold text-white/90">
-            {title}
-          </p>
-          <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums">
-            {loading ? "—" : value}
-          </p>
-          {subtitle && <p className="mt-1 text-xs text-white/80">{subtitle}</p>}
+          <p className="metric-title">{title}</p>
+          <p className="metric-value">{loading ? "—" : value}</p>
+          {subtitle && (
+            <p className="metric-subtitle">{subtitle}</p>
+          )}
         </div>
 
-        <div
-          className="mt-1 h-10 w-10 rounded-xl bg-white/20 text-white flex items-center justify-center backdrop-blur-sm"
-        >
-          {icon}
-        </div>
+        <div className="metric-icon">{icon}</div>
       </div>
-
-      {isActive && (
-        <div className="absolute right-2 top-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
-          Active
-        </div>
-      )}
     </button>
   );
 };
@@ -586,7 +581,6 @@ const InsuranceDashboardPage = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [previewStageKey, setPreviewStageKey] = useState(null);
-  const [expandedLedgerCaseId, setExpandedLedgerCaseId] = useState(null);
   const [trendModal, setTrendModal] = useState({
     open: false,
     regKey: "",
@@ -671,7 +665,10 @@ const InsuranceDashboardPage = () => {
     }).length;
 
     const totalPremium = cases.reduce((sum, c) => sum + premiumNum(c), 0);
-    const totalCollected = cases.reduce((sum, c) => sum + paymentReceivedNum(c), 0);
+    const totalCollected = cases.reduce(
+      (sum, c) => sum + paymentReceivedNum(c),
+      0,
+    );
 
     return {
       total,
@@ -691,7 +688,8 @@ const InsuranceDashboardPage = () => {
       all: rows.length,
       completed: rows.filter((c) => matchesPolicyFilter(c, "completed")).length,
       draft: rows.filter((c) => matchesPolicyFilter(c, "draft")).length,
-      paymentDue: rows.filter((c) => matchesPolicyFilter(c, "paymentDue")).length,
+      paymentDue: rows.filter((c) => matchesPolicyFilter(c, "paymentDue"))
+        .length,
       renewal30: rows.filter((c) => matchesPolicyFilter(c, "renewal30")).length,
       expired: rows.filter((c) => matchesPolicyFilter(c, "expired")).length,
       "2w": rows.filter((c) => matchesPolicyFilter(c, "2w")).length,
@@ -738,7 +736,6 @@ const InsuranceDashboardPage = () => {
 
   useEffect(() => {
     setPage(1);
-    setExpandedLedgerCaseId(null);
   }, [search, policyFilter, cases.length]);
 
   const paginatedCases = useMemo(() => {
@@ -801,41 +798,41 @@ const InsuranceDashboardPage = () => {
   return (
     <div className="insurance-case-skin insurance-dashboard-shell insurance-dashboard-page h-full min-h-0 overflow-hidden rounded-3xl border p-4 md:p-6">
       <div className="flex h-full min-h-0 flex-col gap-5">
-        <section className="insdash-hero rounded-2xl border backdrop-blur px-5 py-4 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#5f9770] dark:text-[#9dc4ae]">
-                Insurance Module
-              </p>
-              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 md:text-3xl dark:text-slate-100">
-                Dashboard Command Center
-              </h1>
-            </div>
+        <section className="insdash-dashboard-top">
+          <h1 className="insdash-dashboard-title">
+            Insurance Dashboard
+          </h1>
+          <p className="insdash-dashboard-subtitle">
+            Real-time insurance operations & revenue tracking
+          </p>
 
-            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-              <div className="insdash-kpi-box kpi-total rounded-xl border px-3 py-2">
-                <p className="text-slate-500">Cases in view</p>
-                <p className="font-bold text-slate-900 tabular-nums">{totalCount}</p>
-              </div>
-              <div className="insdash-kpi-box kpi-collected rounded-xl border px-3 py-2">
-                <p className="text-slate-500">Premium collected</p>
-                <p className="font-bold text-slate-900 tabular-nums">
-                  {formatInr(filteredCases.reduce((sum, c) => sum + paymentReceivedNum(c), 0))}
-                </p>
-              </div>
-              <div className="insdash-kpi-box kpi-outstanding rounded-xl border px-3 py-2">
-                <p className="text-slate-500">Outstanding</p>
-                <p className="font-bold text-slate-900 tabular-nums">
-                  {formatInr(
-                    filteredCases.reduce((sum, c) => sum + dueNum(c), 0),
-                  )}
-                </p>
-              </div>
-            </div>
+          <div className="insdash-headline-stats">
+            <span className="insdash-headline-pill">
+              Cases: <strong>{totalCount}</strong>
+            </span>
+            <span className="insdash-headline-pill">
+              Collected:{" "}
+              <strong>
+                {formatInr(
+                  filteredCases.reduce(
+                    (sum, c) => sum + paymentReceivedNum(c),
+                    0,
+                  ),
+                )}
+              </strong>
+            </span>
+            <span className="insdash-headline-pill">
+              Outstanding:{" "}
+              <strong>
+                {formatInr(
+                  filteredCases.reduce((sum, c) => sum + dueNum(c), 0),
+                )}
+              </strong>
+            </span>
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="insdash-metric-strip grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard
             id="total"
             title="Total Policies"
@@ -888,8 +885,8 @@ const InsuranceDashboardPage = () => {
           />
         </section>
 
-        <div className="insdash-grid-shell flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-white shadow-sm">
-          <div className="insdash-filter-bar flex-shrink-0 border-b p-3">
+        <div className="insdash-grid-shell flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="insdash-filter-bar flex-shrink-0 p-3">
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                 <div className="relative flex-1">
@@ -899,7 +896,7 @@ const InsuranceDashboardPage = () => {
                     placeholder="Search by case, customer, mobile, vehicle, policy number..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="insdash-search h-10 w-full rounded-xl border bg-white pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:outline-none focus:ring-1"
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400"
                   />
                 </div>
 
@@ -929,11 +926,9 @@ const InsuranceDashboardPage = () => {
                       key={key}
                       type="button"
                       onClick={() => setPolicyFilter(key)}
-                      className={`insdash-chip rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                        active ? "is-active" : ""
-                      }`}
+                      className={`insdash-filter-chip ${active ? "is-active" : ""}`}
                     >
-                      {label} <span className="opacity-80">{count}</span>
+                      {label} <span className="chip-count">{count}</span>
                     </button>
                   );
                 })}
@@ -987,9 +982,37 @@ const InsuranceDashboardPage = () => {
                     snap.customerName || record.customerName || "—";
                   const companyName =
                     snap.companyName || record.companyName || "";
+                  const buyerType = String(
+                    snap.buyerType || record.buyerType || "Individual",
+                  )
+                    .trim()
+                    .toLowerCase();
                   const contactPerson =
                     snap.contactPersonName || record.contactPersonName || "";
-                  const displayName = companyName || customerName || "—";
+                  const sourceIdentity = String(
+                    record.sourceName ||
+                      record.dealerChannelName ||
+                      record.referenceName ||
+                      "",
+                  )
+                    .trim()
+                    .toLowerCase();
+                  const customerIdentity = String(customerName || "")
+                    .trim()
+                    .toLowerCase();
+                  const customerLooksLikeSource =
+                    Boolean(sourceIdentity) &&
+                    sourceIdentity === customerIdentity;
+                  const customerLooksLikeChannelAlias =
+                    /(broker|broking|dealer|agency|channel|dsa|pos|crm)/i.test(
+                      String(customerName || ""),
+                    );
+                  const displayName =
+                    buyerType === "company"
+                      ? companyName || contactPerson || customerName || "—"
+                      : customerLooksLikeSource || customerLooksLikeChannelAlias
+                        ? contactPerson || customerName || companyName || "—"
+                        : customerName || contactPerson || companyName || "—";
 
                   const mobile = snap.primaryMobile || record.mobile || "—";
                   const source =
@@ -997,12 +1020,17 @@ const InsuranceDashboardPage = () => {
                     record.sourceOrigin ||
                     (record.sourceName ? "Direct" : "—");
 
-                  const vehicle = [record.vehicleMake, record.vehicleModel, record.vehicleVariant]
+                  const vehicle = [
+                    record.vehicleMake,
+                    record.vehicleModel,
+                    record.vehicleVariant,
+                  ]
                     .filter(Boolean)
                     .join(" ")
                     .trim();
                   const vehicleLabel = vehicle || "—";
-                  const reg = record.registrationNumber || record.vehicleNumber || "—";
+                  const reg =
+                    record.registrationNumber || record.vehicleNumber || "—";
                   const regKey = normalizeVehicleRegKey(reg);
                   const vehicleHistory = regKey
                     ? historyByRegistration.get(regKey) || []
@@ -1050,9 +1078,6 @@ const InsuranceDashboardPage = () => {
                   const snapshotInsurerDue = hasLedgerSnapshot
                     ? ledgerTotals.insurerOutstanding
                     : due;
-                  const snapshotRecoveryDue = hasLedgerSnapshot
-                    ? ledgerTotals.customerOutstandingToAc
-                    : Math.max(0, premium - paidByCustomer);
                   const fallbackAcPaidToInsurer = Number(
                     record.inhousePaymentReceived ||
                       record.inhouse_payment_received ||
@@ -1070,354 +1095,312 @@ const InsuranceDashboardPage = () => {
                       : 0
                     : fallbackOpenDues;
                   const shouldShowOpenDues = openDuesFromAcRecovery > 0;
-                  const paymentLedgerRows = normalizedLedger
-                    .slice(-5)
-                    .reverse()
-                    .map((entry) => {
-                      const title =
-                        entry.entryType === INSURANCE_ENTRY_TYPES.INSURER_PAYMENT
-                          ? "Paid to Insurer"
-                          : entry.entryType ===
-                              INSURANCE_ENTRY_TYPES.CUSTOMER_RECEIPT
-                            ? "Recovered from Customer"
-                            : entry.entryType ===
-                                INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE
-                              ? "Subvention (Not Recoverable)"
-                              : "Subvention Refund to Customer";
-                      const subtitle = `by ${entry.paidBy || "System"}`;
-                      const isInflow =
-                        entry.entryType ===
-                        INSURANCE_ENTRY_TYPES.CUSTOMER_RECEIPT;
-                      const isSubventionNR =
-                        entry.entryType ===
-                        INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE;
-                      const amountClass = isInflow
-                        ? "text-[#5f9770]"
-                        : isSubventionNR
-                          ? "text-[#9f8465]"
-                          : "text-[#c48d96]";
-                      const amountPrefix = isInflow ? "+" : "-";
-                      const amountArrow = isInflow ? "↓" : "↑";
-
-                      return {
-                        key: entry._id,
-                        date: entry.date
-                          ? dayjs(entry.date).isValid()
-                            ? dayjs(entry.date).format("DD MMM")
-                            : "—"
-                          : "—",
-                        title,
-                        subtitle,
-                        amount: `${amountPrefix}${formatInr(entry.amount)}`,
-                        amountClass,
-                        amountArrow,
-                      };
-                    });
-                  const leadLedgerEntry = paymentLedgerRows[0] || null;
-                  const overflowLedgerEntries = paymentLedgerRows.slice(1);
-                  const isLedgerExpanded = expandedLedgerCaseId === id;
 
                   const hasAcceptedQuote = Boolean(acceptedQuote);
                   const ncbInline = hasAcceptedQuote
                     ? `${Number(acceptedQuote?.ncbDiscount || 0)}%`
                     : ncb;
                   const idvInline =
-                    hasAcceptedQuote && Number(acceptedBreakup.totalIdv || 0) > 0
+                    hasAcceptedQuote &&
+                    Number(acceptedBreakup.totalIdv || 0) > 0
                       ? formatInr(acceptedBreakup.totalIdv)
                       : idv
                         ? formatInr(idv)
                         : "—";
                   const quotePremium = formatInr(premium);
                   const st = normalizeStatus(record.status);
-                  const statusLabel = STATUS_LABEL_MAP[st] || record.status || "Unknown";
+                  const statusLabel =
+                    STATUS_LABEL_MAP[st] || record.status || "Unknown";
                   const stepLabel = STEP_LABEL_MAP[record.currentStep] || "—";
                   const createdLabel = record.createdAt
                     ? dayjs(record.createdAt).format("DD MMM YYYY")
                     : "—";
-                  const expiryDate = record.newOdExpiryDate || record.newTpExpiryDate || record.policyExpiry;
-                  const expiryLabel = expiryDate ? dayjs(expiryDate).format("DD MMM YYYY") : "—";
-                  const docCount = Array.isArray(record.documents) ? record.documents.length : 0;
-
+                  const expiryDate =
+                    record.newOdExpiryDate ||
+                    record.newTpExpiryDate ||
+                    record.policyExpiry;
+                  const expiryLabel = expiryDate
+                    ? dayjs(expiryDate).format("DD MMM YYYY")
+                    : "—";
                   const daysLeft = daysUntilExpiry(record);
-                  const showRenewalBadge = !isDraftPolicy(record) && daysLeft !== null && daysLeft >= -30 && daysLeft <= 30;
-                  const statusTone = isDraftPolicy(record)
-                    ? "border-[#c7cfd8] bg-[#f4f7fa] text-[#5f6b79] dark:border-[#39434f] dark:bg-[#17202a] dark:text-[#b5c1cf]"
-                    : "border-[#b7d7c8] bg-[#eef7f1] text-[#4c7a63] dark:border-[#2f4e41] dark:bg-[#13211a] dark:text-[#9cc9b3]";
-                  const dueTone =
-                    shouldShowOpenDues
-                      ? "text-[#b97f88]"
-                      : "text-[#5f9770]";
+                  const showRenewalBadge =
+                    !isDraftPolicy(record) &&
+                    daysLeft !== null &&
+                    daysLeft >= -30 &&
+                    daysLeft <= 30;
+                  const statusToneStyle = isDraftPolicy(record)
+                    ? {
+                        borderColor: "#d8c5e9",
+                        background: "#f7efff",
+                        color: "#6d4e8f",
+                      }
+                    : {
+                        borderColor: "#b9e3d0",
+                        background: "#eaf8f2",
+                        color: "#1f7856",
+                      };
+                  const dueToneColor = shouldShowOpenDues
+                    ? "#b8324b"
+                    : "var(--ins-accent)";
+                  const paymentMadeToInsurer = hasLedgerSnapshot
+                    ? ledgerTotals.insurerPaidTotal
+                    : Math.max(0, premium - snapshotInsurerDue);
+                  const customerReceiptAmount = hasLedgerSnapshot
+                    ? ledgerTotals.customerRecovered
+                    : paidByCustomer;
+                  const subventionTotal = hasLedgerSnapshot
+                    ? ledgerTotals.subventionRefundPaid +
+                      ledgerTotals.subventionNotRecoverable
+                    : snapshotSubventionRefund;
+                  const paymentPendingForInsurer = Math.max(
+                    0,
+                    premium - paymentMadeToInsurer,
+                  );
+                  const paymentFlowTimeline = [
+                    {
+                      key: "premium",
+                      label: "Total Premium",
+                      arrow: "↔",
+                      amount: premium,
+                      tone: "neutral",
+                      note: "Policy payable amount",
+                    },
+                    {
+                      key: "insurer",
+                      label: "Paid to Insurer",
+                      arrow: "↑",
+                      amount: paymentMadeToInsurer,
+                      tone: paymentPendingForInsurer > 0 ? "warning" : "good",
+                      note:
+                        paymentPendingForInsurer > 0
+                          ? `Payment pending ${formatInr(paymentPendingForInsurer)}`
+                          : "Fully paid",
+                    },
+                    {
+                      key: "receipt",
+                      label: "Recovered from Customer",
+                      arrow: "↓",
+                      amount: customerReceiptAmount,
+                      tone: customerReceiptAmount > 0 ? "good" : "neutral",
+                      note:
+                        customerReceiptAmount > 0
+                          ? "Recovered amount"
+                          : "No receipt yet",
+                    },
+                    {
+                      key: "subvention",
+                      label: "Subvention",
+                      arrow: "↔",
+                      amount: subventionTotal,
+                      tone: subventionTotal > 0 ? "accent" : "neutral",
+                      note:
+                        subventionTotal > 0
+                          ? "Adjustment recorded"
+                          : "No subvention yet",
+                    },
+                  ];
 
                   return (
                     <article
                       key={id}
-                      className="insdash-case-card group mb-4 overflow-visible rounded-3xl border shadow-sm transition-all duration-300 hover:-translate-y-[1px] hover:shadow-md"
+                      className="insdash-case-card group mb-4 overflow-visible rounded-3xl shadow-sm transition-all duration-300 hover:-translate-y-[1px] hover:shadow-md"
                     >
-                      <div className="insdash-case-head border-b px-4 py-3">
+                      <div className="insdash-case-head px-4 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full border border-[#d6e6df] bg-[#eef3ef]/70 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#5f9770] dark:border-[#30413b] dark:bg-[#13221c] dark:text-[#9dc4ae]">
+                            <span className="insdash-case-id-chip rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]">
                               {caseRef}
                             </span>
                             <span className="text-xs text-slate-500 dark:text-slate-400">
                               {displayName}
                             </span>
-                            <span className="hidden text-xs text-slate-400 sm:inline">•</span>
+                            <span className="hidden text-xs text-slate-400 sm:inline">
+                              •
+                            </span>
                             <span className="text-xs text-slate-500 dark:text-slate-400">
                               {source}
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span
-                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone}`}
+                              className="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                              style={statusToneStyle}
                             >
                               {statusLabel}
                             </span>
-                            <Tag className="!m-0 !rounded-full !px-2 !py-0 !text-[10px]" color="blue">
+                            <Tag
+                              className="!m-0 !rounded-full !px-2 !py-0 !text-[10px]"
+                              color="default"
+                            >
                               {record.vehicleType || "NEW"}
                             </Tag>
-                            <Tag className="!m-0 !rounded-full !px-2 !py-0 !text-[10px]" color="default">
+                            <Tag
+                              className="!m-0 !rounded-full !px-2 !py-0 !text-[10px]"
+                              color="default"
+                            >
                               {record.typesOfVehicle || "4W"}
                             </Tag>
                           </div>
                         </div>
-
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3 px-4 py-3 xl:grid-cols-[1.1fr_0.9fr_1.9fr_0.75fr]">
-                        <section className="insdash-panel tone-customer rounded-xl border p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#587f6f]">
-                            Customer & Vehicle
-                          </p>
-                          <p className="mt-1 text-[15px] font-bold text-slate-900 dark:text-slate-100">
-                            {displayName}
-                          </p>
-                          {companyName && contactPerson ? (
-                            <p className="text-[12px] text-slate-600 dark:text-slate-300">
-                              {contactPerson}
+                      <div className="insdash-case-body px-4 py-3">
+                        <div className="insdash-flat-grid">
+                          <section className="insdash-compact-panel">
+                            <p className="insdash-field-label text-[10px] font-bold uppercase tracking-[0.12em]">
+                              Customer & Vehicle
                             </p>
-                          ) : null}
-                          <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-                            {mobile}
-                          </p>
-                          <p className="mt-2 text-[13px] font-semibold text-slate-800 dark:text-slate-200">
-                            {vehicleLabel}
-                          </p>
-                          <p className="mt-1 text-[11px] text-slate-500">Reg: {reg}</p>
-                        </section>
-
-                        <section className="insdash-panel tone-policy rounded-xl border p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#8d7559]">
-                            Policy Details
-                          </p>
-                          <p className="mt-1 text-[14px] font-bold text-slate-900 dark:text-slate-100">
-                            {insurer}
-                          </p>
-                          <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
-                            Policy No:{" "}
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                              {policyNo}
-                            </span>
-                          </p>
-                          <div className="mt-2 space-y-0.5 text-[12px]">
-                            <p className="text-slate-600 dark:text-slate-300">
-                              Premium: <span className="font-bold text-[#5f9770]">{quotePremium}</span>
+                            <p className="mt-1 truncate text-[15px] font-bold text-slate-900 dark:text-slate-100">
+                              {displayName}
                             </p>
-                            <p className="text-slate-600 dark:text-slate-300">
-                              IDV / NCB:{" "}
-                              <span className="font-bold text-[#6b7b8f]">{idvInline}</span>
-                              <span className="mx-1.5 text-slate-400">·</span>
-                              <span className="font-bold text-[#b39672]">{ncbInline}</span>
-                            </p>
-                            <p className="truncate text-slate-600 dark:text-slate-300" title={hypothecation}>
-                              Hypothecation: <span className="font-semibold">{hypothecation}</span>
-                            </p>
-                            <p className="truncate text-slate-600 dark:text-slate-300" title={policyIssuedBy}>
-                              Policy Issued By: <span className="font-semibold">{policyIssuedBy}</span>
-                            </p>
-                          </div>
-                        </section>
-
-                        <section className="insdash-panel tone-finance rounded-xl border p-3">
-                        <div className="rounded-xl border border-[#d6e6df]/80 bg-gradient-to-br from-[#eef3ef]/55 via-white to-[#faf8f1]/60 p-2.5 dark:border-[#30413b] dark:from-[#111a17] dark:via-[#101917] dark:to-[#1b1913]">
-                          <div className="grid grid-cols-4 gap-1.5">
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
-                              <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                                Total Premium
+                            {companyName && contactPerson ? (
+                              <p className="truncate text-[12px] text-slate-600 dark:text-slate-300">
+                                {contactPerson}
                               </p>
-                              <p className="mt-0.5 text-[11px] font-black text-slate-900 dark:text-slate-100">
-                                {formatInr(premium)}
+                            ) : null}
+                            <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
+                              {mobile}
+                            </p>
+                            <p className="mt-2 truncate text-[13px] font-semibold text-slate-800 dark:text-slate-200">
+                              {vehicleLabel}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">
+                              Reg: {reg}
+                            </p>
+                          </section>
+
+                          <section className="insdash-compact-panel">
+                            <p className="insdash-field-label text-[10px] font-bold uppercase tracking-[0.12em]">
+                              Policy Details
+                            </p>
+                            <p className="mt-1 truncate text-[15px] font-bold text-slate-900 dark:text-slate-100">
+                              {insurer}
+                            </p>
+                            <p className="mt-1 truncate text-[12px] text-slate-600 dark:text-slate-300">
+                              Policy No:{" "}
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                {policyNo}
+                              </span>
+                            </p>
+                            <p className="mt-1 text-[12px] text-slate-600 dark:text-slate-300">
+                              Premium:{" "}
+                              <span className="font-bold text-[color:var(--ins-accent)]">
+                                {quotePremium}
+                              </span>
+                            </p>
+                            <div className="flex gap-2 mt-2">
+                              <span className="px-2 py-1 text-[10px] rounded-md bg-slate-100 text-slate-700 font-semibold">
+                                IDV {idvInline}
+                              </span>
+                              <span className="px-2 py-1 text-[10px] rounded-md bg-amber-50 text-amber-700 font-semibold">
+                                NCB {ncbInline}
+                              </span>
+                            </div>
+                            <p
+                              className="mt-0.5 truncate text-[12px] text-slate-600 dark:text-slate-300"
+                              title={hypothecation}
+                            >
+                              Hypothecation:{" "}
+                              <span className="font-semibold">
+                                {hypothecation}
+                              </span>
+                            </p>
+                            <p
+                              className="mt-0.5 truncate text-[12px] text-slate-600 dark:text-slate-300"
+                              title={policyIssuedBy}
+                            >
+                              Policy Issued By:{" "}
+                              <span className="font-semibold">
+                                {policyIssuedBy}
+                              </span>
+                            </p>
+                          </section>
+
+                          <section className="insdash-payments-panel">
+                            <p className="insdash-field-label text-[10px] font-bold uppercase tracking-[0.11em]">
+                              Payment Timeline
+                            </p>
+                            <div className="insdash-payment-flow">
+                              {paymentFlowTimeline.map((item, idx) => (
+                                <div
+                                  key={item.key}
+                                  className={`insdash-payment-flow-row tone-${item.tone}`}
+                                >
+                                  <div className="insdash-payment-flow-track">
+                                    <span className="insdash-payment-flow-arrow">
+                                      {item.arrow}
+                                    </span>
+                                    {idx < paymentFlowTimeline.length - 1 ? (
+                                      <span className="insdash-payment-flow-line" />
+                                    ) : null}
+                                  </div>
+                                  <div className="insdash-payment-flow-copy">
+                                    <p className="insdash-payment-flow-label">
+                                      {item.label}
+                                    </p>
+                                    <p className="insdash-payment-flow-note">
+                                      {item.note}
+                                    </p>
+                                  </div>
+                                  <p className="insdash-payment-flow-amount">
+                                    {formatInr(item.amount)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+
+                          <aside className="insdash-workflow-rail">
+                            <p className="insdash-field-label text-[10px] font-bold uppercase tracking-[0.11em]">
+                              Workflow
+                            </p>
+                            <div className="mt-1.5 space-y-1.5 text-[12px] text-slate-700 dark:text-slate-300">
+                              <p>
+                                Step:{" "}
+                                <span className="font-semibold">
+                                  {stepLabel}
+                                </span>
+                              </p>
+                              <p>
+                                Created:{" "}
+                                <span className="font-semibold">
+                                  {createdLabel}
+                                </span>
+                              </p>
+                              <p>
+                                Expiry:{" "}
+                                <span className="font-semibold">
+                                  {expiryLabel}
+                                </span>
                               </p>
                             </div>
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
-                              <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                                Insurer Outstanding
-                              </p>
+
+                            {shouldShowOpenDues ? (
                               <p
-                                className={`mt-0.5 text-[11px] font-black ${
-                                  snapshotInsurerDue > 0
-                                    ? "text-[#b97f88]"
-                                    : "text-[#5f9770]"
+                                className="mt-3 text-[12px] font-bold"
+                                style={{ color: dueToneColor }}
+                              >
+                                Open Dues: {formatInr(openDuesFromAcRecovery)}
+                              </p>
+                            ) : null}
+
+                            {showRenewalBadge && (
+                              <div
+                                className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                                  daysLeft < 0
+                                    ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300"
+                                    : daysLeft <= 7
+                                      ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300"
+                                      : "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300"
                                 }`}
                               >
-                                {formatInr(snapshotInsurerDue)}
-                              </p>
-                            </div>
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
-                              <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                                Customer Outstanding
-                              </p>
-                              <p
-                                className={`mt-0.5 text-[11px] font-black ${
-                                  snapshotRecoveryDue > 0
-                                    ? "text-[#9f8465]"
-                                    : "text-[#5f9770]"
-                                }`}
-                              >
-                                {formatInr(snapshotRecoveryDue)}
-                              </p>
-                            </div>
-                            <div className="rounded-md border border-[#d6e6df]/80 bg-white/90 px-2 py-1 dark:border-[#30413b] dark:bg-[#101917]">
-                              <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                                Subvention (Refund)
-                              </p>
-                              <p className="mt-0.5 text-[11px] font-black text-[#8ea0b6]">
-                                {formatInr(snapshotSubventionRefund)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="mt-2 rounded-lg border border-[#d6e6df]/80 bg-white/90 p-2 dark:border-[#30413b] dark:bg-[#101917]">
-                            <div className="grid grid-cols-[52px_minmax(0,1fr)_98px] gap-x-2 border-b border-[#e5eee4] px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:border-[#30413b]">
-                              <span>Date</span>
-                              <span>Ledger Entry</span>
-                              <span className="text-right">Amount</span>
-                            </div>
-                            {paymentLedgerRows.length ? (
-                              <div className="relative mt-1.5">
-                                {leadLedgerEntry ? (
-                                  <div
-                                    key={leadLedgerEntry.key}
-                                    className="grid grid-cols-[52px_minmax(0,1fr)_98px] items-start gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] dark:border-[#24312c]"
-                                  >
-                                    <span className="text-slate-600 dark:text-slate-300">
-                                      {leadLedgerEntry.date}
-                                    </span>
-                                    <div className="min-w-0">
-                                      <p
-                                        className="truncate whitespace-nowrap text-[13px] font-semibold leading-tight text-slate-800 dark:text-slate-100"
-                                        title={leadLedgerEntry.title}
-                                      >
-                                        <span className="mr-1.5 text-[#5f9770]">●</span>
-                                        {leadLedgerEntry.title}
-                                      </p>
-                                      <p className="break-words text-[11px] leading-tight text-slate-500 dark:text-slate-400">
-                                        {leadLedgerEntry.subtitle}
-                                      </p>
-                                    </div>
-                                    <span className={`text-right text-[13px] font-black ${leadLedgerEntry.amountClass}`}>
-                                      {leadLedgerEntry.amountArrow} {leadLedgerEntry.amount}
-                                    </span>
-                                  </div>
-                                ) : null}
-
-                                {overflowLedgerEntries.length > 0 ? (
-                                  <div className="mt-1 px-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setExpandedLedgerCaseId((prev) =>
-                                          prev === id ? null : id,
-                                        )
-                                      }
-                                      className="rounded-full border border-[#d6e6df] bg-[#eef3ef]/60 px-2.5 py-0.5 text-[10px] font-semibold text-[#5f9770] hover:bg-[#e5eee4] dark:border-[#30413b] dark:bg-[#13221c] dark:text-[#9dc4ae]"
-                                    >
-                                      {isLedgerExpanded
-                                        ? "Show less"
-                                        : `Show ${overflowLedgerEntries.length} more`}
-                                    </button>
-                                  </div>
-                                ) : null}
-
-                                {isLedgerExpanded && overflowLedgerEntries.length > 0 ? (
-                                  <div className="mt-1 rounded-lg border border-[#d6e6df]/90 bg-white p-2 shadow-xl dark:border-[#30413b] dark:bg-[#101917] lg:absolute lg:left-0 lg:right-0 lg:z-30">
-                                    <div className="space-y-0">
-                                      {overflowLedgerEntries.map((entry) => (
-                                        <div
-                                          key={entry.key}
-                                          className="grid grid-cols-[52px_minmax(0,1fr)_98px] items-start gap-x-2 border-b border-[#edf3ef] px-2 py-2 text-[12px] last:border-b-0 dark:border-[#24312c]"
-                                        >
-                                          <span className="text-slate-600 dark:text-slate-300">
-                                            {entry.date}
-                                          </span>
-                                          <div className="min-w-0">
-                                            <p
-                                              className="truncate whitespace-nowrap text-[13px] font-semibold leading-tight text-slate-800 dark:text-slate-100"
-                                              title={entry.title}
-                                            >
-                                              <span className="mr-1.5 text-[#5f9770]">●</span>
-                                              {entry.title}
-                                            </p>
-                                            <p className="break-words text-[11px] leading-tight text-slate-500 dark:text-slate-400">
-                                              {entry.subtitle}
-                                            </p>
-                                          </div>
-                                          <span className={`text-right text-[13px] font-black ${entry.amountClass}`}>
-                                            {entry.amountArrow} {entry.amount}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : (
-                              <div className="flex h-[78px] items-center justify-center rounded-md border border-dashed border-[#d6e6df] text-[11px] text-slate-500 dark:border-[#30413b]">
-                                No payment ledger entries
+                                {daysLeft < 0
+                                  ? `Expired ${Math.abs(daysLeft)}d ago`
+                                  : `${daysLeft}d left`}
                               </div>
                             )}
-                          </div>
+                          </aside>
                         </div>
-                        </section>
-
-                        <section className="insdash-panel tone-workflow rounded-xl border p-3">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-[#8f5f6b]">
-                            Workflow
-                          </p>
-                          <p className="mt-1 text-[12px] text-slate-700 dark:text-slate-300">
-                            Step: <span className="font-semibold">{stepLabel}</span>
-                          </p>
-                          <p className="text-[12px] text-slate-700 dark:text-slate-300">
-                            Created: <span className="font-semibold">{createdLabel}</span>
-                          </p>
-                          <p className="text-[12px] text-slate-700 dark:text-slate-300">
-                            Expiry: <span className="font-semibold">{expiryLabel}</span>
-                          </p>
-                          <p className="text-[12px] text-slate-700 dark:text-slate-300">
-                            Documents: <span className="font-semibold">{docCount}</span>
-                          </p>
-                          {shouldShowOpenDues ? (
-                            <p className={`mt-2 text-[12px] font-bold ${dueTone}`}>
-                              Open Dues: {formatInr(openDuesFromAcRecovery)}
-                            </p>
-                          ) : null}
-
-                          {showRenewalBadge && (
-                            <div
-                              className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                                daysLeft < 0
-                                  ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300"
-                                  : daysLeft <= 7
-                                    ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300"
-                                    : "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300"
-                              }`}
-                            >
-                              {daysLeft < 0
-                                ? `Expired ${Math.abs(daysLeft)}d ago`
-                                : `${daysLeft}d left`}
-                            </div>
-                          )}
-                        </section>
                       </div>
 
                       <div className="insdash-case-footer flex flex-col gap-2 border-t px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -1475,7 +1458,9 @@ const InsuranceDashboardPage = () => {
                             </button>
                           </Tooltip>
 
-                          <Tooltip title={isDraftPolicy(record) ? "Continue" : "Edit"}>
+                          <Tooltip
+                            title={isDraftPolicy(record) ? "Continue" : "Edit"}
+                          >
                             <button
                               type="button"
                               className="insdash-action-btn tone-edit flex h-8 w-8 items-center justify-center rounded-full border"
@@ -1508,7 +1493,9 @@ const InsuranceDashboardPage = () => {
                           <Popconfirm
                             title="Delete case"
                             description={`Delete "${record.caseId || id}"? This cannot be undone.`}
-                            onConfirm={() => handleDeleteCase(id, record.caseId || id)}
+                            onConfirm={() =>
+                              handleDeleteCase(id, record.caseId || id)
+                            }
                             okText="Delete"
                             okType="danger"
                             cancelText="Cancel"
@@ -1567,14 +1554,15 @@ const InsuranceDashboardPage = () => {
               Vehicle Premium & IDV Trend
             </p>
             <p className="text-sm font-semibold text-slate-800">
-              {trendModal.vehicleLabel || "Vehicle"} · {trendModal.regLabel || "Reg not set"}
+              {trendModal.vehicleLabel || "Vehicle"} ·{" "}
+              {trendModal.regLabel || "Reg not set"}
             </p>
           </div>
         }
       >
         {trendModalSeries ? (
           <div className="space-y-3">
-            <div className="rounded-xl border border-[#d6e6df]/80 bg-[#faf8f1]/60 p-3">
+            <div className="insdash-trend-shell rounded-xl border p-3">
               <svg
                 viewBox="0 0 700 240"
                 className="h-56 w-full overflow-visible"
@@ -1587,7 +1575,7 @@ const InsuranceDashboardPage = () => {
                   x2="16"
                   y2={trendModalSeries.axisY}
                   stroke="currentColor"
-                  className="text-[#d6e6df]"
+                  className="text-[#cfdaeb]"
                   strokeWidth="1"
                 />
                 <line
@@ -1596,13 +1584,13 @@ const InsuranceDashboardPage = () => {
                   x2="684"
                   y2={trendModalSeries.axisY}
                   stroke="currentColor"
-                  className="text-[#d6e6df]"
+                  className="text-[#cfdaeb]"
                   strokeWidth="1"
                 />
                 <path
                   d={trendModalSeries.premiumPath}
                   fill="none"
-                  stroke="#5f9770"
+                  stroke="var(--ins-accent)"
                   strokeWidth="2.8"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -1615,7 +1603,7 @@ const InsuranceDashboardPage = () => {
                       x2="684"
                       y2={tick.y}
                       stroke="currentColor"
-                      className="text-[#edf3ef]"
+                      className="text-[#e2eef8]"
                       strokeWidth="1"
                     />
                     <text
@@ -1630,7 +1618,12 @@ const InsuranceDashboardPage = () => {
                 ))}
                 {trendModalSeries.points.map((p) => (
                   <g key={`trend-modal-${p.id || p.caseId}-${p.x}`}>
-                    <circle cx={p.x} cy={p.premiumY} r="4.8" fill="#5f9770">
+                    <circle
+                      cx={p.x}
+                      cy={p.premiumY}
+                      r="4.8"
+                      fill="var(--ins-accent)"
+                    >
                       <title>{`Year ${p.policyStartYear || "—"} | Premium ${formatInr(
                         p.premium,
                       )} | IDV ${formatInr(p.idv)} | ${p.insurer || "Insurer"} | ${p.policyNo || "No Policy No"}`}</title>
@@ -1650,18 +1643,21 @@ const InsuranceDashboardPage = () => {
               </svg>
               <div className="mt-2 flex items-center gap-4 text-xs text-slate-600">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#5f9770]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--ins-accent)]" />
                   Premium (Y-axis)
                 </span>
-                <span className="text-slate-500">Year on X-axis · Hover dots for Premium + IDV</span>
+                <span className="text-slate-500">
+                  Year on X-axis · Hover dots for Premium + IDV
+                </span>
               </div>
             </div>
-            <div className="rounded-xl border border-[#d6e6df]/80 bg-white px-3 py-2 text-xs text-slate-600">
-              {trendModalHistory.length} policies found for this registration number.
+            <div className="insdash-trend-meta rounded-xl border px-3 py-2 text-xs text-slate-600">
+              {trendModalHistory.length} policies found for this registration
+              number.
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-[#d6e6df] bg-white px-4 py-10 text-center text-sm text-slate-500">
+          <div className="insdash-trend-empty rounded-xl border border-dashed px-4 py-10 text-center text-sm text-slate-500">
             No trend data available for this registration number.
           </div>
         )}

@@ -52,7 +52,7 @@ const fieldWrapClass =
 const CleanField = ({ label, required, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
-      {label} {required ? <span className="text-[#F3A6B7]">*</span> : null}
+      {label} {required ? <span className="text-[#FF8EAD]">*</span> : null}
     </div>
     {children}
     {extra ? <div className="mt-1">{extra}</div> : null}
@@ -235,7 +235,7 @@ const Step2VehicleDetails = ({
       key: "1",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#DAF3FF] text-slate-700 ring-1 ring-[#9FC0FF]">
             <SearchOutlined />
           </div>
           <div>
@@ -404,7 +404,7 @@ const Step2VehicleDetails = ({
       key: "2",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFF4EC] text-slate-700 ring-1 ring-[#FFF4EC]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFE6C6] text-slate-700 ring-1 ring-[#FFE6C6]">
             <CarOutlined />
           </div>
           <div>
@@ -604,7 +604,7 @@ const Step2VehicleDetails = ({
       key: "3",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#DAF3FF] text-slate-700 ring-1 ring-[#9FC0FF]">
             <SafetyCertificateOutlined />
           </div>
           <div>
@@ -769,7 +769,7 @@ const Step2VehicleDetails = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Vehicle information</div>
@@ -792,8 +792,8 @@ const Step2VehicleDetails = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#EEF7FF",
-                borderColor: "#C9D9FF",
+                background: "#DAF3FF",
+                borderColor: "#9FC0FF",
                 color: "#1f2937",
               }}
             >
@@ -802,8 +802,8 @@ const Step2VehicleDetails = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#FFF4EC",
-                borderColor: "#FFF4EC",
+                background: "#FFE6C6",
+                borderColor: "#FFE6C6",
                 color: "#1f2937",
               }}
             >
@@ -816,11 +816,11 @@ const Step2VehicleDetails = ({
       <Row gutter={[20, 20]} align="stretch">
         <Col xs={24} xl={8} className="xl:self-stretch">
           <div className="flex flex-col gap-4 xl:sticky xl:top-[150px]">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#C9D9FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#9FC0FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C9D9FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#C9D9FF]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#9FC0FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#9FC0FF]">
                       {vehicleInitial}
                     </div>
                     <div className="min-w-0">
@@ -942,7 +942,7 @@ const Step2VehicleDetails = ({
                     {filteredCustomerVehicleRows.length > 4 ? (
                       <button
                         type="button"
-                        className="rounded-full border border-[#C9D9FF] bg-[#EEF7FF] px-2 py-0.5 font-semibold text-slate-700 transition hover:border-[#BFD8CD]"
+                        className="rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-0.5 font-semibold text-slate-700 transition hover:border-[#BFD8CD]"
                         onClick={() =>
                           setShowAllCustomerVehicles((prev) => !prev)
                         }

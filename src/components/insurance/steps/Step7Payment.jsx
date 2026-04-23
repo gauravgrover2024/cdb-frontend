@@ -56,42 +56,43 @@ const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
 const UI = {
-  ink: "#1f2937",
-  inkSoft: "#475569",
-  muted: "#94a3b8",
-  line: "#e2e8f0",
+  ink: "var(--ins-text)",
+  inkSoft: "var(--ins-text-muted)",
+  muted: "#8da0bd",
+  line: "var(--ins-border)",
   bg: "#ffffff",
-  bgSoft: "#f8fafc",
+  bgSoft: "var(--ins-surface-soft)",
 
   sage: {
-    color: "#607d75",
-    solid: "#7a978e",
-    bg: "#eef3ef",
-    border: "#d6e6df",
+    color: "#3e7f65",
+    solid: "var(--ins-accent)",
+    bg: "color-mix(in srgb, var(--ins-accent) 11%, #fff)",
+    border: "color-mix(in srgb, var(--ins-accent) 28%, #dbeee4)",
   },
   mint: {
-    color: "#5a836c",
-    solid: "#78a087",
-    bg: "#f2f7f3",
-    border: "#d9e8de",
+    color: "#2d7d6b",
+    solid: "color-mix(in srgb, var(--ins-primary-2) 78%, #205e7a)",
+    bg: "color-mix(in srgb, var(--ins-primary-2) 12%, #fff)",
+    border: "color-mix(in srgb, var(--ins-primary-2) 28%, #d4ebf2)",
   },
   warm: {
-    color: "#8b745a",
-    solid: "#b39672",
-    bg: "#faf8f1",
-    border: "#eadfcc",
+    color: "#8b6537",
+    solid: "var(--ins-warn)",
+    bg: "color-mix(in srgb, var(--ins-warn) 12%, #fff)",
+    border: "color-mix(in srgb, var(--ins-warn) 30%, #ecdcbf)",
   },
   rose: {
-    color: "#9d7378",
-    solid: "#c48d96",
-    bg: "#fbf1f3",
-    border: "#ead2d7",
+    color: "#9a3d58",
+    solid: "var(--ins-danger)",
+    bg: "color-mix(in srgb, var(--ins-danger) 11%, #fff)",
+    border: "color-mix(in srgb, var(--ins-danger) 28%, #f0ced8)",
   },
   slate: {
-    color: "#6b7b8f",
-    solid: "#8ea0b6",
-    bg: "#f4f7fa",
-    border: "#dde6ee",
+    color: "#536781",
+    solid:
+      "color-mix(in srgb, var(--ins-primary) 54%, color-mix(in srgb, var(--ins-primary-2) 32%, var(--ins-accent)))",
+    bg: "color-mix(in srgb, var(--ins-primary) 8%, #fff)",
+    border: "color-mix(in srgb, var(--ins-primary) 24%, #dce5f7)",
   },
 };
 
@@ -849,8 +850,8 @@ const Step7Payment = ({
           amountPrefix = "";
         } else if (row.entryType === ENTRY_TYPES.SUBVENTION_REFUND) {
           amountColor = UI.rose.color;
-          amountDirection = "neutral";
-          amountPrefix = "";
+          amountDirection = "up";
+          amountPrefix = "-";
         }
 
         return {
@@ -1170,7 +1171,13 @@ const Step7Payment = ({
 
   return (
     <div className="flex flex-col gap-5 font-sans">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div
+        className="rounded-[30px] p-5 ring-1 ring-[var(--ins-border)] shadow-[0_10px_32px_rgba(15,23,42,0.06)] md:p-6"
+        style={{
+          background:
+            "linear-gradient(110deg, color-mix(in srgb, var(--ins-primary) 11%, #fff), #ffffff 52%, color-mix(in srgb, var(--ins-primary-2) 13%, #fff))",
+        }}
+      >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className={sectionHeaderLabel}>Payment information</div>
@@ -1183,19 +1190,19 @@ const Step7Payment = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !border-slate-200 !text-slate-700">
+            <Tag className="ins-lively-pill !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               Premium: {INR(totalPremium)}
             </Tag>
-            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#EEF7FF] !border-[#C9D9FF] !text-slate-800">
+            <Tag className="ins-lively-pill soft !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               Entries: {tableRows.length}
             </Tag>
             {saveMeta?.saving ? (
-              <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-sky-50 !border-sky-200 !text-sky-700">
+              <Tag className="ins-lively-pill !rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[color-mix(in_srgb,var(--ins-primary-2)_14%,#fff)] !border-[color-mix(in_srgb,var(--ins-primary-2)_26%,#cfeaf2)] !text-[color-mix(in_srgb,var(--ins-primary)_78%,#1f2b45)]">
                 Saving...
               </Tag>
             ) : null}
             {!saveMeta?.saving && !hasSaveError && lastSavedLabel ? (
-              <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-emerald-50 !border-emerald-200 !text-emerald-700">
+              <Tag className="ins-lively-pill soft !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
                 Last saved: {lastSavedLabel}
               </Tag>
             ) : null}
@@ -1305,7 +1312,13 @@ const Step7Payment = ({
           title={subventionCardIsNR ? "Subvention (NR)" : "Subvention (Refund)"}
           value={INR(subventionCardValue)}
           sub={subventionCardSub}
-          icon={<SwapOutlined style={{ fontSize: 16 }} />}
+          icon={
+            subventionCardIsNR ? (
+              <SwapOutlined style={{ fontSize: 16 }} />
+            ) : (
+              <ArrowUpOutlined style={{ fontSize: 16 }} />
+            )
+          }
           accent={subventionCardIsNR ? UI.warm.solid : UI.slate.solid}
           accentBg={subventionCardIsNR ? UI.warm.bg : UI.slate.bg}
           progress={subventionCardProgress}

@@ -53,7 +53,7 @@ const fieldWrapClass =
 const CleanField = ({ label, required, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
-      {label} {required ? <span className="text-[#F3A6B7]">*</span> : null}
+      {label} {required ? <span className="text-[#FF8EAD]">*</span> : null}
     </div>
     {children}
     {extra ? <div className="mt-1">{extra}</div> : null}
@@ -97,7 +97,7 @@ const buildCustomerOption = (c, getCustomerId) => {
     value: id,
     label: (
       <div className="flex items-start gap-3 rounded-[14px] border border-slate-100 bg-white px-3 py-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF7FF] text-xs font-bold text-slate-700 ring-1 ring-[#C9D9FF]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#DAF3FF] text-xs font-bold text-slate-700 ring-1 ring-[#9FC0FF]">
           {initial}
         </div>
         <div className="min-w-0 flex-1">
@@ -162,7 +162,7 @@ const Step1CustomerInfo = ({
       key: "1",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#DAF3FF] text-slate-700 ring-1 ring-[#9FC0FF]">
             <TeamOutlined />
           </div>
           <div>
@@ -526,7 +526,7 @@ const Step1CustomerInfo = ({
       key: "2",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFF4EC] text-slate-700 ring-1 ring-[#FFF4EC]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#FFE6C6] text-slate-700 ring-1 ring-[#FFE6C6]">
             <UserOutlined />
           </div>
           <div>
@@ -899,7 +899,7 @@ const Step1CustomerInfo = ({
       key: "3",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#DAF3FF] text-slate-700 ring-1 ring-[#9FC0FF]">
             <IdcardOutlined />
           </div>
           <div>
@@ -1074,7 +1074,7 @@ const Step1CustomerInfo = ({
         `}
       </style>
 
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Customer information</div>
@@ -1136,11 +1136,11 @@ const Step1CustomerInfo = ({
       <Row gutter={[20, 20]}>
         <Col xs={24} xl={8} className="xl:self-stretch">
           <div className="xl:sticky xl:top-[150px] self-start">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#C9D9FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#9FC0FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C9D9FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#C9D9FF]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#9FC0FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#9FC0FF]">
                       {customerInitial}
                     </div>
                     <div className="min-w-0">

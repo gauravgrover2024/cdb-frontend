@@ -33,8 +33,13 @@ const buildDetectionText = (doc = {}, rawUrl = "", proxiedUrl = "", declaredForm
     doc?.name,
     doc?.originalName,
     doc?.original_name,
+    doc?.storageKey,
+    doc?.storage_key,
+    doc?.public_id,
+    doc?.publicId,
     doc?.tag,
     doc?.type,
+    doc?.mimeType,
     doc?.resource_type,
     doc?.format,
     declaredFormat,
@@ -82,30 +87,25 @@ const clampImageZoomValue = (value) => {
   return Math.max(1, Math.min(4, n));
 };
 
-const withPdfZoomHash = (url, zoom, fitMode) => {
-  const raw = String(url || "");
-  if (!raw) return raw;
-  const [base] = raw.split("#");
-  const isDefaultZoom = Math.abs(clampZoomValue(zoom) - 1) < 0.01;
-  if (fitMode === "width" && isDefaultZoom) {
-    return `${base}#view=FitH&toolbar=0&navpanes=0&scrollbar=1`;
-  }
-  if (fitMode === "fit" && isDefaultZoom) {
-    return `${base}#view=FitV&toolbar=0&navpanes=0&scrollbar=1`;
-  }
-  return `${base}#zoom=${Math.round(
-    Math.max(10, Math.min(500, clampZoomValue(zoom) * 100)),
-  )}&toolbar=0&navpanes=0&scrollbar=1`;
-};
-
 const normalizeDocs = (documents = []) =>
   (Array.isArray(documents) ? documents : [])
-    .filter((doc) => hasValue(doc?.url) || hasValue(doc?.previewUrl))
+    .filter((doc) => hasValue(doc?.url) || hasValue(doc?.previewUrl) || hasValue(doc?.rawUrl))
     .map((doc, index) => {
       const rawUrl = String(doc?.rawUrl || doc?.url || doc?.previewUrl || "").trim();
-      const proxiedUrl = buildAccessibleDocumentUrl(doc?.url || doc?.previewUrl || rawUrl);
+      const directUrl = String(doc?.url || doc?.previewUrl || rawUrl).trim();
+      const proxiedUrl = buildAccessibleDocumentUrl(directUrl || rawUrl);
       const mimeType = String(doc?.type || "").toLowerCase();
-      const declaredFormat = String(doc?.format || extensionFromValue(doc?.name || rawUrl)).toLowerCase();
+      const declaredFormat = String(
+        doc?.format ||
+          extensionFromValue(
+            doc?.originalName ||
+              doc?.original_name ||
+              doc?.storageKey ||
+              doc?.storage_key ||
+              doc?.name ||
+              rawUrl,
+          ),
+      ).toLowerCase();
       const detectionText = buildDetectionText(doc, rawUrl, proxiedUrl, declaredFormat);
       const inferredIsImage =
         mimeType.startsWith("image/") ||
@@ -127,8 +127,13 @@ const normalizeDocs = (documents = []) =>
         name: doc?.name || doc?.tag || `Document ${index + 1}`,
         tag: doc?.tag || "",
         documentStage: doc?.documentStage || doc?.scope || (doc?.isPreFile ? "Pre-File" : "Post-File"),
-        rawUrl,
-        url: proxiedUrl || rawUrl,
+        rawUrl: rawUrl || directUrl,
+        url: directUrl || rawUrl || proxiedUrl,
+        proxyUrl: proxiedUrl,
+        originalName: doc?.originalName || doc?.original_name || "",
+        storageKey: doc?.storageKey || doc?.storage_key || "",
+        public_id: doc?.public_id || doc?.publicId || "",
+        mimeType: doc?.mimeType || "",
         size: doc?.size || "",
         uploadedBy: doc?.uploadedBy || "",
         isImage: doc?.isImage ?? inferredIsImage,
@@ -258,6 +263,7 @@ const LoanDocumentViewerModal = ({
         [
           String(activeDoc.url || "").trim(),
           String(activeDoc.rawUrl || "").trim(),
+          String(activeDoc.proxyUrl || "").trim(),
           buildAccessibleDocumentUrl(activeDoc.url || ""),
           buildAccessibleDocumentUrl(activeDoc.rawUrl || ""),
         ].filter(Boolean),
@@ -292,7 +298,14 @@ const LoanDocumentViewerModal = ({
       isCancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [open, activeDoc?.id, activeDoc?.isPdf, activeDoc?.url, activeDoc?.rawUrl]);
+  }, [
+    open,
+    activeDoc?.id,
+    activeDoc?.isPdf,
+    activeDoc?.url,
+    activeDoc?.rawUrl,
+    activeDoc?.proxyUrl,
+  ]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -672,18 +685,24 @@ const LoanDocumentViewerModal = ({
                 />
               </div>
             ) : activeDoc.isPdf ? (
-              <iframe
-                title={getDocDisplayLabel(activeDoc, activeIndex)}
-                src={withPdfZoomHash(pdfRenderUrl || activeDoc.url || activeDoc.rawUrl, pdfZoom, fitMode)}
+              <object
+                data={pdfRenderUrl || activeDoc.url || activeDoc.rawUrl || activeDoc.proxyUrl}
+                type="application/pdf"
                 className="h-full w-full"
-                loading="lazy"
-              />
+              >
+                <iframe
+                  title={getDocDisplayLabel(activeDoc, activeIndex)}
+                  src={pdfRenderUrl || activeDoc.url || activeDoc.rawUrl || activeDoc.proxyUrl}
+                  className="h-full w-full"
+                  loading="lazy"
+                />
+              </object>
             ) : (
               <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
                 <Icon name="File" size={28} />
                 <p className="text-sm font-semibold text-foreground">Preview not available for this file type</p>
                 <a
-                  href={activeDoc.url}
+                  href={activeDoc.url || activeDoc.rawUrl || activeDoc.proxyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"

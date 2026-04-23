@@ -95,7 +95,7 @@ const HYPOTHECATION_OPTIONS = [
 const CleanField = ({ label, required, hint, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
-      {label} {required ? <span className="text-[#F3A6B7]">*</span> : null}
+      {label} {required ? <span className="text-[#FF8EAD]">*</span> : null}
     </div>
     {children}
     {hint ? <div className={microHintClass}>{hint}</div> : null}
@@ -137,8 +137,8 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
 const MiniDateCard = ({ icon, label, value, tone = "slate" }) => {
   const toneMap = {
     slate: "bg-slate-50 ring-slate-200",
-    sage: "bg-[#EEF7FF] ring-[#C9D9FF]",
-    warm: "bg-[#FFF4EC] ring-[#FFF4EC]",
+    sage: "bg-[#DAF3FF] ring-[#9FC0FF]",
+    warm: "bg-[#FFE6C6] ring-[#FFE6C6]",
   };
 
   return (
@@ -580,7 +580,7 @@ const Step3PreviousPolicy = ({
       key: "1",
       label: (
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF7FF] text-slate-700 ring-1 ring-[#C9D9FF]">
+          <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#DAF3FF] text-slate-700 ring-1 ring-[#9FC0FF]">
             <SafetyCertificateOutlined />
           </div>
           <div>
@@ -800,7 +800,7 @@ const Step3PreviousPolicy = ({
                 {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
                   <button
                     type="button"
-                    className="ml-2 rounded-full border border-[#C9D9FF] bg-[#EEF7FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
+                    className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
                     onClick={() => setField("previousNcbDiscount", suggestedNcb)}
                   >
                     Use suggested
@@ -874,7 +874,7 @@ const Step3PreviousPolicy = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#EEF7FF] via-white to-[#FFF4EC] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Policy information</div>
@@ -896,8 +896,8 @@ const Step3PreviousPolicy = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#EEF7FF",
-                borderColor: "#C9D9FF",
+                background: "#DAF3FF",
+                borderColor: "#9FC0FF",
                 color: "#1f2937",
               }}
             >
@@ -906,8 +906,8 @@ const Step3PreviousPolicy = ({
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               style={{
-                background: "#FFF4EC",
-                borderColor: "#FFF4EC",
+                background: "#FFE6C6",
+                borderColor: "#FFE6C6",
                 color: "#1f2937",
               }}
             >
@@ -920,11 +920,11 @@ const Step3PreviousPolicy = ({
       <Row gutter={[20, 20]} align="top">
         <Col xs={24} xl={8}>
           <div className="flex flex-col gap-4 md:sticky md:top-4">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#C9D9FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#9FC0FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C9D9FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#C9D9FF]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#9FC0FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#9FC0FF]">
                       {companyInitial}
                     </div>
                     <div className="min-w-0">
@@ -963,7 +963,7 @@ const Step3PreviousPolicy = ({
                       <button
                         type="button"
                         onClick={startQuoteEdit}
-                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#C9D9FF] bg-[#EEF7FF] text-slate-700 transition hover:bg-[#e4eee7]"
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#9FC0FF] bg-[#DAF3FF] text-slate-700 transition hover:bg-[#e4eee7]"
                       >
                         <EditOutlined />
                       </button>
@@ -972,14 +972,14 @@ const Step3PreviousPolicy = ({
                         <button
                           type="button"
                           onClick={saveQuoteEdit}
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#C9D9FF] bg-[#EEF7FF] text-slate-700 transition hover:bg-[#e4eee7]"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#9FC0FF] bg-[#DAF3FF] text-slate-700 transition hover:bg-[#e4eee7]"
                         >
                           <SaveOutlined />
                         </button>
                         <button
                           type="button"
                           onClick={cancelQuoteEdit}
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#E7D9D2] bg-[#FFF4EC] text-slate-700 transition hover:bg-[#f4eee6]"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#E7D9D2] bg-[#FFE6C6] text-slate-700 transition hover:bg-[#f4eee6]"
                         >
                           <CloseOutlined />
                         </button>
@@ -997,7 +997,7 @@ const Step3PreviousPolicy = ({
                     Premium Breakup
                   </p>
                   {isQuoteEditMode && (
-                    <span className="rounded-full bg-[#EEF7FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 ring-1 ring-[#C9D9FF]">
+                    <span className="rounded-full bg-[#DAF3FF] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-700 ring-1 ring-[#9FC0FF]">
                       Edit mode
                     </span>
                   )}
