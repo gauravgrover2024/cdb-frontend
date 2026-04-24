@@ -69,6 +69,13 @@ const FILTER_CHIPS = [
   { key: "comm", label: "Commercial" },
 ];
 
+const FONT_VARS = {
+  "--default-font-family":
+    '"Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+  "--default-mono-font-family":
+    '"SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+};
+
 // ============================================
 // UTILITY FUNCTIONS (PRESERVED FROM ORIGINAL)
 // ============================================
@@ -743,9 +750,9 @@ const PolicyCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="relative bg-white rounded-xl border-2 shadow-sm hover:shadow-md transition-shadow"
+      className="relative bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
       style={{
-        borderColor: "#e2e8f0",
+        borderColor: "#dbe3ee",
         fontFamily: "var(--default-font-family)",
       }}
     >
@@ -784,15 +791,37 @@ const PolicyCard = ({
               <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
                 {policy.typesOfVehicle || "4W"}
               </span>
+
+              {(isExpiringSoon ||
+                isExpired ||
+                hasPaymentDue ||
+                openDues > 0) && (
+                <div className="flex flex-wrap gap-2 mt-0">
+                  {isExpiringSoon && (
+                    <span className="px-2 py-1 rounded-md text-xs font-bold bg-orange-100 text-orange-700 flex items-center gap-1">
+                      <Clock size={11} />
+                      Expires in {policy.expiryDays}d
+                    </span>
+                  )}
+
+                  {isExpired && (
+                    <span className="px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 flex items-center gap-1">
+                      <AlertCircle size={11} />
+                      Expired {Math.abs(policy.expiryDays)}d ago
+                    </span>
+                  )}
+
+                  {openDues > 0 && (
+                    <span className="px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 flex items-center gap-1">
+                      <DollarSign size={11} />
+                      Open Dues {formatInr(openDues)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-
-            
-
-            
           </div>
         </div>
-
-        
       </div>
 
       {/* 4-Column Grid */}
@@ -806,8 +835,6 @@ const PolicyCard = ({
 
           <div className="space-y-3">
             <div>
-              
-
               <p className="text-sm font-bold text-slate-900 truncate">
                 {policy.displayName || "—"}
               </p>
@@ -830,8 +857,6 @@ const PolicyCard = ({
             </div>
 
             <div className="pt-2 border-t" style={{ borderColor: "#f1f5f9" }}>
-              
-
               <p
                 className="text-sm font-bold text-slate-900 mb-1 truncate"
                 title={policy.vehicle}
@@ -913,7 +938,7 @@ const PolicyCard = ({
               return (
                 <div
                   key={idx}
-                  className="flex items-center gap-1.5 p-1.5 rounded-md border text-xs"
+                  className="flex items-center gap-2 p-2 rounded-md border"
                   style={{
                     background: style.bg,
                     borderColor: style.border,
@@ -1043,19 +1068,6 @@ const PolicyCard = ({
             </motion.button>
           </Tooltip>
 
-          <Tooltip title="Extend">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onExtend}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: "#fffbeb", color: "#d97706" }}
-            >
-              <Zap size={13} />
-              Extend
-            </motion.button>
-          </Tooltip>
-
           <Popconfirm
             title="Delete case"
             description={`Delete policy ${policy.caseId}? This cannot be undone.`}
@@ -1104,6 +1116,18 @@ const InsuranceDashboardPage = () => {
   });
   const [page, setPage] = useState(1);
   const pageSize = 12;
+
+  useEffect(() => {
+    const existing = document.getElementById("insurance-dashboard-inter-font");
+    if (existing) return;
+
+    const link = document.createElement("link");
+    link.id = "insurance-dashboard-inter-font";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   // ============================================
   // API CALLBACKS (PRESERVED)
@@ -1541,7 +1565,13 @@ const InsuranceDashboardPage = () => {
   // ============================================
 
   return (
-    <div className="min-h-screen p-4 overflow-auto bg-slate-50">
+    <div
+      className="min-h-screen p-4 overflow-auto bg-slate-50"
+      style={{
+        ...FONT_VARS,
+        fontFamily: "var(--default-font-family)",
+      }}
+    >
       <div className="max-w-[1920px] mx-auto space-y-4">
         {/* Header - Sample Style */}
         <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
