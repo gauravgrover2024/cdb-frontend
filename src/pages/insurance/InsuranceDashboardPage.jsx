@@ -302,6 +302,13 @@ const INSURANCE_ENTRY_TYPES = {
   SUBVENTION_REFUND: "SUBVENTION_REFUND",
 };
 
+const INSURER_SETTLEMENT_MODE = {
+  NONE: "NONE",
+  AUTOCREDITS: "AUTOCREDITS",
+  CUSTOMER: "CUSTOMER",
+  MIXED: "MIXED",
+};
+
 const toAmount = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? Math.max(0, n) : 0;
@@ -460,14 +467,23 @@ const computeInsurancePaymentTotals = (rows = [], premium = 0) => {
     .reduce((sum, r) => sum + toAmount(r.amount), 0);
   const insurerPaidTotal = insurerPaidByAutocredits + insurerPaidByCustomer;
   const insurerOutstanding = Math.max(0, premium - insurerPaidTotal);
-  const customerNetReceivableWhenAcPays = Math.max(
-    0,
-    insurerPaidByAutocredits - subventionNotRecoverable,
-  );
-  const customerOutstandingToAc = Math.max(
-    0,
-    customerNetReceivableWhenAcPays - customerRecovered,
-  );
+  const insurerSettlementMode =
+    insurerPaidByCustomer > 0 && insurerPaidByAutocredits === 0
+      ? INSURER_SETTLEMENT_MODE.CUSTOMER
+      : insurerPaidByAutocredits > 0 && insurerPaidByCustomer === 0
+        ? INSURER_SETTLEMENT_MODE.AUTOCREDITS
+        : insurerPaidByAutocredits > 0 && insurerPaidByCustomer > 0
+          ? INSURER_SETTLEMENT_MODE.MIXED
+          : INSURER_SETTLEMENT_MODE.NONE;
+  const receiptEntryVisible =
+    insurerSettlementMode === INSURER_SETTLEMENT_MODE.NONE ||
+    insurerSettlementMode === INSURER_SETTLEMENT_MODE.AUTOCREDITS;
+  const customerNetReceivableWhenAcPays = receiptEntryVisible
+    ? Math.max(0, premium - subventionNotRecoverable)
+    : 0;
+  const customerOutstandingToAc = receiptEntryVisible
+    ? Math.max(0, customerNetReceivableWhenAcPays - customerRecovered)
+    : 0;
   return {
     insurerPaidByAutocredits,
     insurerPaidByCustomer,
@@ -477,6 +493,8 @@ const computeInsurancePaymentTotals = (rows = [], premium = 0) => {
     customerOutstandingToAc,
     subventionNotRecoverable,
     subventionRefundPaid,
+    insurerSettlementMode,
+    receiptEntryVisible,
   };
 };
 
@@ -745,6 +763,43 @@ const PolicyCard = ({
     accent: { bg: "#eff6ff", border: "#bfdbfe", color: "#1e40af" },
   };
 
+  const paymentRows = Array.isArray(policy.paymentTimeline)
+    ? policy.paymentTimeline
+    : [];
+
+  const primaryPaymentRow = paymentRows[0] || {
+    label: "Total Premium",
+    amount: 0,
+    type: "neutral",
+  };
+
+  const secondaryPaymentRows = paymentRows.slice(1);
+
+  const paymentBaseAmount = Math.max(1, Number(primaryPaymentRow.amount || 0));
+
+  const paymentSignalMeta = {
+    neutral: {
+      color: "#64748b",
+      soft: "rgba(148, 163, 184, 0.10)",
+      icon: DollarSign,
+    },
+    good: {
+      color: "#16a34a",
+      soft: "rgba(22, 163, 74, 0.10)",
+      icon: CheckCircle,
+    },
+    warning: {
+      color: "#d97706",
+      soft: "rgba(217, 119, 6, 0.10)",
+      icon: AlertCircle,
+    },
+    accent: {
+      color: "#2563eb",
+      soft: "rgba(37, 99, 235, 0.10)",
+      icon: RefreshCw,
+    },
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -821,273 +876,478 @@ const PolicyCard = ({
               )}
             </div>
           </div>
+
+          <div className="shrink-0 flex items-center gap-1.5">
+            <Tooltip title="View">
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={onView}
+                className="h-8 w-8 rounded-full inline-flex items-center justify-center"
+                style={{ background: "#eef2ff", color: "#4f46e5" }}
+              >
+                <Eye size={14} />
+              </motion.button>
+            </Tooltip>
+
+            <Tooltip title={isDraft ? "Continue" : "Edit"}>
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={onEdit}
+                className="h-8 w-8 rounded-full inline-flex items-center justify-center"
+                style={{ background: "#eef2ff", color: "#4f46e5" }}
+              >
+                <PencilLine size={14} />
+              </motion.button>
+            </Tooltip>
+
+            <Tooltip title="Documents">
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={onDocs}
+                className="h-8 w-8 rounded-full inline-flex items-center justify-center"
+                style={{ background: "#eff6ff", color: "#2563eb" }}
+              >
+                <GalleryVertical size={14} />
+              </motion.button>
+            </Tooltip>
+
+            <Tooltip title="Trend">
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={onTrend}
+                className="h-8 w-8 rounded-full inline-flex items-center justify-center"
+                style={{ background: "#f0f9ff", color: "#0284c7" }}
+              >
+                <TrendingUp size={14} />
+              </motion.button>
+            </Tooltip>
+
+            <Tooltip title="Renew">
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={onRenew}
+                className="h-8 w-8 rounded-full inline-flex items-center justify-center"
+                style={{ background: "#ecfdf5", color: "#059669" }}
+              >
+                <RefreshCw size={14} />
+              </motion.button>
+            </Tooltip>
+
+            <Popconfirm
+              title="Delete case"
+              description={`Delete policy ${policy.caseId}? This cannot be undone.`}
+              onConfirm={onDelete}
+              okText="Delete"
+              okType="danger"
+              cancelText="Cancel"
+            >
+              <Tooltip title="Delete">
+                <motion.button
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.96 }}
+                  className="h-8 w-8 rounded-full inline-flex items-center justify-center"
+                  style={{ background: "#fff1f2", color: "#e11d48" }}
+                >
+                  <Trash2 size={14} />
+                </motion.button>
+              </Tooltip>
+            </Popconfirm>
+          </div>
         </div>
       </div>
 
       {/* 4-Column Grid */}
       <div className="grid grid-cols-4 gap-0">
         {/* Column 1 Customer & Vehicle */}
-        <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <Car size={11} />
-            Customer & Vehicle
-          </p>
-
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-bold text-slate-900 truncate">
-                {policy.displayName || "—"}
-              </p>
-
-              {policy.contactPerson &&
-                policy.contactPerson !== policy.displayName && (
-                  <p className="text-xs text-slate-600 truncate">
-                    {policy.contactPerson}
+        <div className="p-3 border-r " style={{ borderColor: "#f1f5f9" }}>
+          <div
+            className="rounded-2xl"
+            style={{
+              borderColor: "#e2e8f0",
+              background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
+            }}
+          >
+            {/* Header */}
+            <div
+              className="px-3 py-3 border-b"
+              style={{ borderColor: "#e2e8f0" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
+                    <Car size={11} />
+                    Customer &amp; Vehicle
                   </p>
-                )}
+                  <p className="text-[13px] font-semibold text-slate-900 mt-1 truncate">
+                    {policy.displayName || "—"}
+                  </p>
+                  {policy.contactPerson &&
+                    policy.contactPerson !== policy.displayName && (
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {policy.contactPerson}
+                      </p>
+                    )}
+                </div>
 
-              <p className="text-xs text-slate-600 flex items-center gap-1.5 mt-1">
-                <Phone size={11} />
-                <span className="truncate">{policy.mobile || "—"}</span>
-              </p>
-
-              <p className="text-xs text-slate-500 mt-1 truncate">
-                Source: {policy.source || "—"}
-              </p>
+                {/* Small avatar chip with initials */}
+                <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
+                  <span className="text-[11px] font-bold text-slate-700">
+                    {(policy.displayName || "C")
+                      .split(" ")
+                      .map((p) => p[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="pt-2 border-t" style={{ borderColor: "#f1f5f9" }}>
-              <p
-                className="text-sm font-bold text-slate-900 mb-1 truncate"
-                title={policy.vehicle}
-              >
-                {policy.vehicle || "—"}
-              </p>
+            {/* Body */}
+            <div className="p-3 space-y-3">
+              {/* Customer block */}
+              <div>
+                <p className="text-[11px] font-semibold text-slate-600 mb-1">
+                  Customer
+                </p>
 
-              <p
-                className="text-xs text-slate-600 mb-1"
-                style={{ fontFamily: "var(--default-mono-font-family)" }}
-              >
-                {policy.registration || "—"}
-              </p>
+                <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                  <Phone size={11} className="shrink-0" />
+                  <span className="truncate">{policy.mobile || "—"}</span>
+                </div>
 
-              <p className="text-xs text-slate-500 truncate">
-                Reg: {policy.registration || "—"}
-              </p>
+                <p className="mt-1 text-[11px] text-slate-500 truncate">
+                  Source: {policy.source || "—"}
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-slate-100" />
+
+              {/* Vehicle block */}
+              <div>
+                <p className="text-[11px] font-semibold text-slate-600 mb-1">
+                  Vehicle
+                </p>
+
+                <p
+                  className="text-[13px] font-semibold text-slate-900 truncate"
+                  title={policy.vehicle}
+                >
+                  {policy.vehicle || "—"}
+                </p>
+
+                <p
+                  className="text-[11px] text-slate-600 mt-0.5"
+                  style={{ fontFamily: "var(--default-mono-font-family)" }}
+                >
+                  {policy.registration || "—"}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Column 2 Policy */}
         <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <Shield size={11} />
-            Policy
-          </p>
-
-          <p
-            className="text-sm font-bold text-slate-900 mb-1 truncate"
-            title={policy.insurer}
+          <div
+            className="rounded-2xl "
+            style={{
+              borderColor: "#e2e8f0",
+              background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
+            }}
           >
-            {policy.insurer || "—"}
-          </p>
+            {/* Header */}
+            <div
+              className="px-3 py-3 border-b"
+              style={{ borderColor: "#e2e8f0" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
+                    <Shield size={11} />
+                    Policy
+                  </p>
+                  <p
+                    className="text-[13px] font-semibold text-slate-900 mt-1 truncate"
+                    title={policy.insurer}
+                  >
+                    {policy.insurer || "—"}
+                  </p>
+                  <p
+                    className="text-[11px] text-slate-500 truncate"
+                    title={policy.policyNumber}
+                    style={{ fontFamily: "var(--default-mono-font-family)" }}
+                  >
+                    {policy.policyNumber || "Not issued"}
+                  </p>
+                </div>
 
-          <p
-            className="text-xs text-slate-600 mb-1 truncate"
-            title={policy.policyNumber}
-            style={{ fontFamily: "var(--default-mono-font-family)" }}
-          >
-            {policy.policyNumber || "Not issued"}
-          </p>
+                {/* Small badge for status / type */}
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  {policy.status && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200">
+                      {STATUS_LABEL_MAP?.[policy.status] || policy.status}
+                    </span>
+                  )}
+                  {policy.typesOfVehicle && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                      {policy.typesOfVehicle}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
 
-          <div className="flex gap-1.5 mt-2 flex-wrap">
-            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700">
-              IDV {policy.idvInline}
-            </span>
-            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-amber-50 text-amber-700">
-              NCB {policy.ncb}
-            </span>
+            {/* Body */}
+            <div className="p-3 space-y-3">
+              {/* IDV / NCB row */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                  IDV {policy.idvInline}
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
+                  NCB {policy.ncb}
+                </span>
+              </div>
+
+              {/* Hypothecation and expiry */}
+              <div className="space-y-1">
+                <p
+                  className="text-[11px] text-slate-500 truncate"
+                  title={policy.hypothecation}
+                >
+                  Hypothecation: {policy.hypothecation || "—"}
+                </p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  Expiry: {policy.expiryLabel || "—"}
+                </p>
+              </div>
+            </div>
           </div>
-
-          <p
-            className="text-xs text-slate-500 mt-1 truncate"
-            title={policy.hypothecation}
-          >
-            Hyp: {policy.hypothecation || "—"}
-          </p>
         </div>
 
         {/* Column 3 Payment Flow */}
         <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <Layers size={11} />
-            Payment Flow
-          </p>
-
-          <div className="space-y-1.5">
-            {policy.paymentTimeline?.map((item, idx) => {
-              const style =
-                paymentRowStyles[item.type] || paymentRowStyles.neutral;
-              const icons = {
-                neutral: "↔",
-                good: "↑",
-                warning: "!",
-                accent: "•",
-              };
-
-              return (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 p-2 rounded-md border"
-                  style={{
-                    background: style.bg,
-                    borderColor: style.border,
-                    color: style.color,
-                  }}
-                >
-                  <span className="font-bold text-xs">{icons[item.type]}</span>
-                  <span className="flex-1 font-semibold truncate text-xs">
-                    {item.label}
-                  </span>
-                  <span className="font-bold text-xs whitespace-nowrap">
-                    {formatInr(item.amount)}
-                  </span>
+          <div
+            className="rounded-2xl "
+            style={{
+              borderColor: "#e2e8f0",
+              background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
+            }}
+          >
+            {/* Header / Primary Payment */}
+            <div
+              className="px-3 py-3 border-b"
+              style={{ borderColor: "#e2e8f0" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Payment Engine
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1 truncate">
+                    {primaryPaymentRow.label}
+                  </p>
                 </div>
-              );
-            })}
+
+                <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                  <DollarSign size={14} />
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <p className="text-[22px] leading-6 font-black text-slate-900">
+                  {formatInr(primaryPaymentRow.amount)}
+                </p>
+              </div>
+
+              <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: "100%",
+                    background:
+                      "linear-gradient(90deg, #38bdf8 0%, #818cf8 55%, #22c55e 100%)",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Signals / Secondary Payments */}
+            <div className="p-3 space-y-3">
+              {secondaryPaymentRows.length > 0 ? (
+                secondaryPaymentRows.map((item, idx) => {
+                  const meta =
+                    paymentSignalMeta[item.type] || paymentSignalMeta.neutral;
+                  const Icon = meta.icon;
+                  const isSubventionRow = String(item.label || "")
+                    .toLowerCase()
+                    .includes("subvention");
+                  const rowBase = Number(item.progressBase || paymentBaseAmount || 0);
+                  const rawRatio =
+                    rowBase > 0
+                      ? (Number(item.amount || 0) / rowBase) * 100
+                      : 0;
+                  const ratio =
+                    isSubventionRow && Number(item.amount || 0) > 0
+                      ? 100
+                      : Math.max(0, Math.min(100, Math.round(rawRatio)));
+
+                  return (
+                    <motion.div
+                      key={`${item.label}-${idx}`}
+                      whileHover={{ x: 2, y: -1 }}
+                      transition={{ duration: 0.16 }}
+                      className="relative"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="relative pt-0.5">
+                          <div
+                            className="w-8 h-8 rounded-xl flex items-center justify-center border"
+                            style={{
+                              background: meta.soft,
+                              borderColor: `${meta.color}33`,
+                              color: meta.color,
+                            }}
+                          >
+                            <Icon size={13} />
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[12px] font-semibold text-slate-900 leading-4 truncate">
+                                {item.label}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0">
+                              <span
+                                className="text-[12px] font-black whitespace-nowrap"
+                                style={{ color: meta.color }}
+                              >
+                                {formatInr(item.amount)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${ratio}%` }}
+                                transition={{
+                                  duration: 0.45,
+                                  ease: "easeOut",
+                                }}
+                                className="h-full rounded-full"
+                                style={{
+                                  background: `linear-gradient(90deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
+                                }}
+                              />
+                            </div>
+
+                            {item.date ? (
+                              <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                {dayjs(item.date).isValid()
+                                  ? dayjs(item.date).format("DD MMM")
+                                  : ""}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-4 text-center">
+                  <p className="text-[12px] font-medium text-slate-500">
+                    No payment activity
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Column 4 Workflow */}
         <div className="p-3">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1">
-            <Activity size={11} />
-            Workflow
-          </p>
-
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between gap-2">
-              <span className="text-slate-600">Step</span>
-              <span className="font-bold text-slate-900 text-right">
-                {stepLabels[policy.currentStep]}
-              </span>
-            </div>
-
-            <div className="flex justify-between gap-2">
-              <span className="text-slate-600">Created</span>
-              <span className="font-semibold text-slate-900 text-right">
-                {policy.createdLabel}
-              </span>
-            </div>
-
-            <div className="flex justify-between gap-2">
-              <span className="text-slate-600">Expiry</span>
-              <span className="font-semibold text-slate-900 text-right">
-                {policy.expiryLabel}
-              </span>
-            </div>
-
+          <div
+            className="rounded-2xl"
+            style={{
+              borderColor: "#e2e8f0",
+              background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
+            }}
+          >
+            {/* Header */}
             <div
-              className="mt-3 p-2 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border"
+              className="px-3 py-3 border-b"
               style={{ borderColor: "#e2e8f0" }}
             >
-              <p className="text-xs text-slate-600 mb-0.5">Premium</p>
-              <p className="text-lg font-black text-slate-900">
-                {formatInr(policy.premium)}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Activity size={11} className="text-slate-500" />
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Workflow
+                  </p>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200">
+                  Step {policy.currentStep}
+                </span>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-3 space-y-3">
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-600">Stage</span>
+                  <span className="font-semibold text-slate-900 text-right truncate">
+                    {stepLabels[policy.currentStep]}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-600">Created</span>
+                  <span className="font-semibold text-slate-900 text-right truncate">
+                    {policy.createdLabel}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-600">Expiry</span>
+                  <span className="font-semibold text-slate-900 text-right truncate">
+                    {policy.expiryLabel}
+                  </span>
+                </div>
+              </div>
+
+              {/* Premium pill */}
+              <div
+                className="p-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border flex items-center justify-between gap-2"
+                style={{ borderColor: "#e2e8f0" }}
+              >
+                <div>
+                  <p className="text-[11px] text-slate-600">Premium</p>
+                  <p className="text-base font-black text-slate-900">
+                    {formatInr(policy.premium)}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Footer horizontal actions */}
-      <div className="p-3 border-t" style={{ borderColor: "#f1f5f9" }}>
-        <div className="flex flex-wrap items-center gap-2">
-          <Tooltip title="View">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onView}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: "#eef2ff", color: "#4f46e5" }}
-            >
-              <Eye size={13} />
-              View
-            </motion.button>
-          </Tooltip>
-
-          <Tooltip title={isDraft ? "Continue" : "Edit"}>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onEdit}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: "#eef2ff", color: "#4f46e5" }}
-            >
-              <PencilLine size={13} />
-              {isDraft ? "Continue" : "Edit"}
-            </motion.button>
-          </Tooltip>
-
-          <Tooltip title="Documents">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onDocs}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: "#eff6ff", color: "#2563eb" }}
-            >
-              <GalleryVertical size={13} />
-              Documents
-            </motion.button>
-          </Tooltip>
-
-          <Tooltip title="Trend">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onTrend}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: "#f0f9ff", color: "#0284c7" }}
-            >
-              <TrendingUp size={13} />
-              Trend
-            </motion.button>
-          </Tooltip>
-
-          <Tooltip title="Renew">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onRenew}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: "#ecfdf5", color: "#059669" }}
-            >
-              <RefreshCw size={13} />
-              Renew
-            </motion.button>
-          </Tooltip>
-
-          <Popconfirm
-            title="Delete case"
-            description={`Delete policy ${policy.caseId}? This cannot be undone.`}
-            onConfirm={onDelete}
-            okText="Delete"
-            okType="danger"
-            cancelText="Cancel"
-          >
-            <Tooltip title="Delete">
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                style={{ background: "#fff1f2", color: "#e11d48" }}
-              >
-                <Trash2 size={13} />
-                Delete
-              </motion.button>
-            </Tooltip>
-          </Popconfirm>
         </div>
       </div>
     </motion.div>
@@ -1414,7 +1674,6 @@ const InsuranceDashboardPage = () => {
 
       // Payment
       const paid = paymentReceivedNum(record);
-      const due = Math.max(0, premium - paid);
 
       // Ledger calculations
       const paymentLedger = Array.isArray(record?.paymentHistory)
@@ -1473,55 +1732,135 @@ const InsuranceDashboardPage = () => {
         : "—";
       const daysLeft = daysUntilExpiry(record);
 
-      // Payment timeline for UI - ORIGINAL STYLE
-      const sortedLedgerTimeline = sortLedgerByDate(normalizedLedger).map(
-        getLedgerTimelineMeta,
+      // Payment timeline for UI - business rule aligned.
+      const sortedLedgerRows = sortLedgerByDate(normalizedLedger);
+      const latestRowBy = (predicate) =>
+        [...sortedLedgerRows].reverse().find(predicate) || null;
+
+      const latestInsurerRow = latestRowBy(
+        (row) => row.entryType === INSURANCE_ENTRY_TYPES.INSURER_PAYMENT,
       );
-      const fallbackPaymentMadeToInsurer = Math.max(
+      const latestReceiptRow = latestRowBy(
+        (row) => row.entryType === INSURANCE_ENTRY_TYPES.CUSTOMER_RECEIPT,
+      );
+      const latestSubventionRefundRow = latestRowBy(
+        (row) => row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_REFUND,
+      );
+      const latestSubventionNrRow = latestRowBy(
+        (row) =>
+          row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE,
+      );
+
+      const fallbackInsurerPaidByCustomer = Number(
+        record.customerPaymentToInsurer ||
+          record.customer_payment_to_insurer ||
+          0,
+      );
+      const fallbackInsurerPaidByAc = Math.max(
         0,
-        premium - (hasLedgerSnapshot ? ledgerTotals.insurerOutstanding : due),
+        fallbackAcPaidToInsurer - fallbackInsurerPaidByCustomer,
       );
-      const fallbackCustomerReceipt = paidByCustomer;
-      const fallbackSubvention = snapshotSubventionRefund;
-      const fallbackTimeline = [
-        fallbackPaymentMadeToInsurer > 0
-          ? {
-              label: "Insurer payment recorded",
-              amount: fallbackPaymentMadeToInsurer,
-              type: "good",
-            }
+      const effectiveInsurerPaidByCustomer =
+        ledgerTotals.insurerPaidByCustomer || fallbackInsurerPaidByCustomer;
+      const effectiveInsurerPaidByAc =
+        ledgerTotals.insurerPaidByAutocredits || fallbackInsurerPaidByAc;
+      const effectiveInsurerPaidTotal =
+        effectiveInsurerPaidByCustomer + effectiveInsurerPaidByAc;
+      const effectiveInsurerMode =
+        effectiveInsurerPaidByCustomer > 0 && effectiveInsurerPaidByAc === 0
+          ? INSURER_SETTLEMENT_MODE.CUSTOMER
+          : effectiveInsurerPaidByAc > 0 && effectiveInsurerPaidByCustomer === 0
+            ? INSURER_SETTLEMENT_MODE.AUTOCREDITS
+            : effectiveInsurerPaidByAc > 0 && effectiveInsurerPaidByCustomer > 0
+              ? INSURER_SETTLEMENT_MODE.MIXED
+              : INSURER_SETTLEMENT_MODE.NONE;
+
+      const insurerFlowRow =
+        effectiveInsurerPaidTotal > 0
+          ? effectiveInsurerMode === INSURER_SETTLEMENT_MODE.CUSTOMER
+            ? {
+                label: "Customer paid insurer",
+                amount: effectiveInsurerPaidByCustomer,
+                type: "good",
+                date: latestInsurerRow?.date || null,
+              }
+            : {
+                label: "Autocredits paid insurer",
+                amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
+                type: "good",
+                date: latestInsurerRow?.date || null,
+              }
           : {
               label: "Insurer payment pending",
-              amount: premium,
+              amount: Math.max(0, premium - effectiveInsurerPaidTotal),
               type: premium > 0 ? "warning" : "neutral",
-            },
-        fallbackCustomerReceipt > 0
+              date: null,
+            };
+
+      const effectiveSubventionNr = ledgerTotals.subventionNotRecoverable;
+      const effectiveSubventionRefund = Math.max(
+        ledgerTotals.subventionRefundPaid,
+        snapshotSubventionRefund,
+      );
+      const receiptVisible =
+        effectiveInsurerMode === INSURER_SETTLEMENT_MODE.NONE ||
+        effectiveInsurerMode === INSURER_SETTLEMENT_MODE.AUTOCREDITS;
+      const receiptBase = receiptVisible
+        ? Math.max(0, premium - effectiveSubventionNr)
+        : 0;
+      const effectiveCustomerRecovered =
+        ledgerTotals.customerRecovered || paidByCustomer;
+      const customerOutstanding = receiptVisible
+        ? Math.max(0, receiptBase - effectiveCustomerRecovered)
+        : 0;
+
+      const receiptFlowRow = receiptVisible
+        ? effectiveCustomerRecovered > 0
           ? {
               label: "Receipt from customer",
-              amount: fallbackCustomerReceipt,
+              amount: effectiveCustomerRecovered,
               type: "good",
+              date: latestReceiptRow?.date || null,
+              progressBase: receiptBase,
             }
-          : null,
-        fallbackSubvention > 0
-          ? { label: "Subvention", amount: fallbackSubvention, type: "accent" }
-          : null,
-      ].filter(Boolean);
+          : {
+              label: "Customer outstanding",
+              amount: customerOutstanding,
+              type: customerOutstanding > 0 ? "warning" : "neutral",
+              date: null,
+              progressBase: receiptBase,
+            }
+        : null;
+
+      const subventionRows = [];
+      if (effectiveSubventionNr > 0) {
+        subventionRows.push({
+          label: "Subvention",
+          amount: effectiveSubventionNr,
+          type: "accent",
+          date: latestSubventionNrRow?.date || null,
+        });
+      }
+      if (effectiveSubventionRefund > 0) {
+        subventionRows.push({
+          label: "Subvention",
+          amount: effectiveSubventionRefund,
+          type: "accent",
+          date: latestSubventionRefundRow?.date || null,
+        });
+      }
 
       const paymentTimelineRows = [
-        { label: "Total Premium", amount: premium, type: "neutral" },
-        ...(sortedLedgerTimeline.length
-          ? sortedLedgerTimeline.map((t) => ({
-              label: t.label,
-              amount: t.amount,
-              type:
-                t.tone === "good"
-                  ? "good"
-                  : t.tone === "accent"
-                    ? "accent"
-                    : "warning",
-            }))
-          : fallbackTimeline),
-      ];
+        {
+          label: "Total Premium",
+          amount: premium,
+          type: "neutral",
+          date: null,
+        },
+        insurerFlowRow,
+        receiptFlowRow,
+        ...subventionRows,
+      ].filter(Boolean);
 
       const paymentPercent =
         premium > 0 ? Math.min(100, Math.round((paid / premium) * 100)) : 0;

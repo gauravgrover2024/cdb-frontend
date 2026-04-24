@@ -2411,23 +2411,46 @@ const NewInsuranceCaseForm = ({
 
   const buildPersistPayload = useCallback(
     (patch = {}) => {
+      const {
+        _id,
+        __v,
+        id,
+        createdAt,
+        updatedAt,
+        ...safeFormData
+      } = formData || {};
+      const safePatch = { ...(patch || {}) };
+      delete safePatch._id;
+      delete safePatch.__v;
+      delete safePatch.id;
+      delete safePatch.createdAt;
+      delete safePatch.updatedAt;
+
       const normalizedSource = String(
-        formData.source || formData.sourceOrigin || "Direct",
+        safeFormData.source || safeFormData.sourceOrigin || "Direct",
       ).trim() || "Direct";
       const normalizedPaymentHistory = normalizePaymentHistoryForPersist(
         paymentHistory,
       );
-      const customerPaymentExpected = Number(formData.customerPaymentExpected || 0);
-      const customerPaymentReceived = Number(formData.customerPaymentReceived || 0);
-      const inhousePaymentExpected = Number(formData.inhousePaymentExpected || 0);
-      const inhousePaymentReceived = Number(formData.inhousePaymentReceived || 0);
+      const customerPaymentExpected = Number(
+        safeFormData.customerPaymentExpected || 0,
+      );
+      const customerPaymentReceived = Number(
+        safeFormData.customerPaymentReceived || 0,
+      );
+      const inhousePaymentExpected = Number(
+        safeFormData.inhousePaymentExpected || 0,
+      );
+      const inhousePaymentReceived = Number(
+        safeFormData.inhousePaymentReceived || 0,
+      );
 
       return {
-        ...formData,
+        ...safeFormData,
         source: normalizedSource,
         sourceOrigin: normalizedSource,
-        policyCategory: formData.policyCategory || "Insurance Policy",
-        policyTypeSelector: formData.policyCategory || "Insurance Policy",
+        policyCategory: safeFormData.policyCategory || "Insurance Policy",
+        policyTypeSelector: safeFormData.policyCategory || "Insurance Policy",
         quotes,
         acceptedQuoteId,
         documents,
@@ -2441,9 +2464,9 @@ const NewInsuranceCaseForm = ({
         inhouse_payment_expected: inhousePaymentExpected,
         inhousePaymentReceived,
         inhouse_payment_received: inhousePaymentReceived,
-        status: patch.status || "draft",
+        status: safePatch.status || "draft",
         currentStep: step,
-        ...patch,
+        ...safePatch,
       };
     },
     [acceptedQuoteId, documents, formData, paymentHistory, quotes, step],

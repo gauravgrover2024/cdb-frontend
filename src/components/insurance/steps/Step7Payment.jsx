@@ -129,11 +129,12 @@ const ENTRY_CONFIG = {
   },
 };
 
-const ENTRY_FORM_OPTIONS = [
-  ENTRY_TYPES.INSURER_PAYMENT,
-  ENTRY_TYPES.CUSTOMER_RECEIPT,
-  ENTRY_TYPES.SUBVENTION,
-];
+const INSURER_SETTLEMENT_MODE = {
+  NONE: "NONE",
+  AUTOCREDITS: "AUTOCREDITS",
+  CUSTOMER: "CUSTOMER",
+  MIXED: "MIXED",
+};
 
 const INR = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
@@ -240,18 +241,36 @@ const computeTotals = (rows = [], premium = 0) => {
     .reduce((sum, r) => sum + toAmount(r.amount), 0);
 
   const insurerPaidTotal = insurerPaidByAutocredits + insurerPaidByCustomer;
-  const insurerOutstanding = premium - insurerPaidTotal;
-  const customerNetReceivableWhenAcPays = Math.max(
-    0,
-    insurerPaidByAutocredits - subventionNotRecoverable,
-  );
-  const customerOutstandingToAc =
-    customerNetReceivableWhenAcPays - customerRecovered;
-  const subventionRefundExpected = Math.max(0, premium - insurerPaidByCustomer);
-  const subventionRefundOutstanding = Math.max(
-    0,
-    subventionRefundExpected - subventionRefundPaid,
-  );
+  const insurerOutstanding = Math.max(0, premium - insurerPaidTotal);
+  const insurerSettlementMode =
+    insurerPaidByCustomer > 0 && insurerPaidByAutocredits === 0
+      ? INSURER_SETTLEMENT_MODE.CUSTOMER
+      : insurerPaidByAutocredits > 0 && insurerPaidByCustomer === 0
+        ? INSURER_SETTLEMENT_MODE.AUTOCREDITS
+        : insurerPaidByAutocredits > 0 && insurerPaidByCustomer > 0
+          ? INSURER_SETTLEMENT_MODE.MIXED
+          : INSURER_SETTLEMENT_MODE.NONE;
+
+  // Receipt line is visible only when:
+  // 1) insurer payment is still pending, or
+  // 2) insurer is paid by Autocredits only.
+  // If customer has paid insurer (customer-only or mixed), receipt is hidden.
+  const receiptEntryVisible =
+    insurerSettlementMode === INSURER_SETTLEMENT_MODE.NONE ||
+    insurerSettlementMode === INSURER_SETTLEMENT_MODE.AUTOCREDITS;
+
+  // Business rule: in AC-flow, customer receipt + NR-subvention must settle the full premium.
+  // In customer-paid-to-insurer flow, customer receipt is not applicable.
+  const customerNetReceivableWhenAcPays = receiptEntryVisible
+    ? Math.max(0, premium - subventionNotRecoverable)
+    : 0;
+  const customerOutstandingToAc = receiptEntryVisible
+    ? Math.max(0, customerNetReceivableWhenAcPays - customerRecovered)
+    : 0;
+
+  // Refund subvention is independent when customer paid insurer, so no "expected from premium" target.
+  const subventionRefundExpected = 0;
+  const subventionRefundOutstanding = 0;
   // Exposure adjusts subvention as well:
   // - NR subvention reduces collection exposure
   // - Refund subvention increases AC outflow exposure
@@ -274,6 +293,8 @@ const computeTotals = (rows = [], premium = 0) => {
     subventionRefundPaid,
     subventionRefundOutstanding,
     acNetExposure,
+    insurerSettlementMode,
+    receiptEntryVisible,
   };
 };
 
@@ -430,6 +451,7 @@ const Step7Payment = ({
     [normalizedLedger, totalPremium],
   );
 
+  const isReceiptEntryVisible = totals.receiptEntryVisible;
   const effectiveEntryTypeRaw =
     paymentForm?.entryType ||
     (paymentForm?.paymentType === "customer"
@@ -466,12 +488,6 @@ const Step7Payment = ({
   const isSubventionNonTransactional =
     isSubventionEntry && inferredSubventionFlow === "NON_RECOVERABLE";
 
-  const currentDraftInsurerCustomerAmount =
-    effectiveEntryType === ENTRY_TYPES.INSURER_PAYMENT &&
-    String(effectivePaidBy || "").toLowerCase() === "customer"
-      ? toAmount(paymentForm?.amount)
-      : 0;
-
   const currentDraftSubventionRefundAmount =
     isSubventionEntry && inferredSubventionFlow === "REFUND"
       ? toAmount(paymentForm?.amount)
@@ -482,24 +498,18 @@ const Step7Payment = ({
       ? toAmount(paymentForm?.amount)
       : 0;
 
-  const totalCustomerInsurerAssumed =
-    totals.insurerPaidByCustomer + currentDraftInsurerCustomerAmount;
-
   const totalSubventionRefundAssumed = Math.max(
     ledgerSubventionRefundAmount,
     currentDraftSubventionRefundAmount,
   );
 
-  const suggestedInsurerAmountForCustomer = Math.max(
-    0,
-    totalPremium - totalSubventionRefundAssumed,
-  );
+  const suggestedInsurerAmountForCustomer = totalPremium;
 
   const suggestedInsurerAmountForAutocredits = totalPremium;
 
   const suggestedSubventionRefundAmount = Math.max(
     0,
-    totalPremium - totalCustomerInsurerAssumed,
+    totalSubventionRefundAssumed,
   );
 
   const totalCustomerRecoveryAssumed =
@@ -507,13 +517,16 @@ const Step7Payment = ({
 
   const suggestedSubventionNonRecoverableAmount = Math.max(
     0,
-    totals.insurerPaidByAutocredits - totalCustomerRecoveryAssumed,
+    totalPremium -
+      ledgerSubventionNotRecoverableAmount -
+      totalCustomerRecoveryAssumed,
   );
 
   const insurerSettled =
     totals.insurerOutstanding <= 0 && totals.insurerPaidTotal > 0;
-  const customerSettled =
-    totals.customerOutstandingToAc <= 0 && totals.customerRecovered > 0;
+  const customerSettled = isReceiptEntryVisible
+    ? totals.customerOutstandingToAc <= 0
+    : true;
   const fullySettled = insurerSettled && customerSettled;
   const lastSavedLabel = saveMeta?.lastSavedAt
     ? dayjs(saveMeta.lastSavedAt).format("DD MMM, hh:mm A")
@@ -655,6 +668,36 @@ const Step7Payment = ({
           ? "Mixed Settlement"
           : null;
 
+  const availableEntryOptions = useMemo(() => {
+    const base = [
+      ENTRY_TYPES.INSURER_PAYMENT,
+      ENTRY_TYPES.CUSTOMER_RECEIPT,
+      ENTRY_TYPES.SUBVENTION,
+    ];
+    if (!isReceiptEntryVisible) {
+      return base.filter((entry) => entry !== ENTRY_TYPES.CUSTOMER_RECEIPT);
+    }
+    return base;
+  }, [isReceiptEntryVisible]);
+
+  useEffect(() => {
+    if (effectiveEntryType !== ENTRY_TYPES.CUSTOMER_RECEIPT) return;
+    if (isReceiptEntryVisible) return;
+    setPaymentForm((prev) => ({
+      ...prev,
+      entryType: ENTRY_TYPES.INSURER_PAYMENT,
+      paidBy: "Customer",
+      paymentType: "customer",
+      amount: preserveUserAmount(prev?.amount, suggestedInsurerAmountForCustomer),
+      paymentMode: DEFAULT_PAYMENT_MODE,
+    }));
+  }, [
+    effectiveEntryType,
+    isReceiptEntryVisible,
+    setPaymentForm,
+    suggestedInsurerAmountForCustomer,
+  ]);
+
   const currentEntryProjectedType = isSubventionEntry
     ? inferredSubventionFlow === "REFUND"
       ? ENTRY_TYPES.SUBVENTION_REFUND
@@ -669,7 +712,8 @@ const Step7Payment = ({
       return Math.max(0, totals.customerOutstandingToAc);
     }
     if (currentEntryProjectedType === ENTRY_TYPES.SUBVENTION_REFUND) {
-      return Math.max(0, totals.subventionRefundOutstanding);
+      // Refund subvention is independent when insurer is paid by customer.
+      return Infinity;
     }
     return Infinity;
   }, [currentEntryProjectedType, totals]);
@@ -891,7 +935,7 @@ const Step7Payment = ({
     <div className="flex flex-1 flex-col gap-4 p-5">
       <FormField label="Entry Type" required>
         <div className="grid grid-cols-1 gap-2">
-          {ENTRY_FORM_OPTIONS.map((v) => {
+          {availableEntryOptions.map((v) => {
             const cfg = ENTRY_CONFIG[v];
             const active = effectiveEntryType === v;
 
@@ -910,10 +954,7 @@ const Step7Payment = ({
                       paymentType: "customer",
                       amount: preserveUserAmount(
                         p?.amount,
-                        Math.max(
-                          0,
-                          totalPremium - totalSubventionRefundAssumed,
-                        ),
+                        Math.max(0, totals.customerOutstandingToAc),
                       ),
                       paymentMode: DEFAULT_PAYMENT_MODE,
                     }));
