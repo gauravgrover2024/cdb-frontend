@@ -685,12 +685,40 @@ const LoanDocumentViewerModal = ({
                 />
               </div>
             ) : activeDoc.isPdf ? (
-              <iframe
-                title={getDocDisplayLabel(activeDoc, activeIndex)}
-                src={pdfRenderUrl || activeDoc.proxyUrl || activeDoc.url}
-                className="h-full w-full border-0"
-                loading="lazy"
-              />
+              <div className="h-full w-full bg-slate-50 relative group/pdf">
+                <object
+                  data={pdfRenderUrl || activeDoc.proxyUrl || activeDoc.url}
+                  type="application/pdf"
+                  className="h-full w-full border-0"
+                >
+                  <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center bg-white">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                      <Icon name="FileText" size={28} />
+                    </div>
+                    <div>
+                      <p className="text-base font-bold text-slate-800">PDF Preview Blocked</p>
+                      <p className="mt-1 text-sm text-slate-500 max-w-xs mx-auto">
+                        Your browser blocked the inline PDF viewer. Click below to open or download.
+                      </p>
+                    </div>
+                    <a
+                      href={activeDoc.proxyUrl || activeDoc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-sm hover:bg-indigo-700 transition-colors"
+                    >
+                      <Icon name="ExternalLink" size={16} />
+                      Open in New Tab
+                    </a>
+                  </div>
+                </object>
+                {/* Floating zoom indicator for PDF if using native viewer */}
+                <div className="absolute top-4 right-4 opacity-0 group-hover/pdf:opacity-100 transition-opacity pointer-events-none">
+                  <div className="bg-slate-900/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs font-bold">
+                    Use Ctrl + Scroll to Zoom
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
                 <Icon name="File" size={28} />

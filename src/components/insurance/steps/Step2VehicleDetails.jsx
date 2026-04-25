@@ -16,6 +16,7 @@ import {
 } from "antd";
 import {
   CarOutlined,
+  RotateLeftOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
@@ -238,6 +239,28 @@ const Step2VehicleDetails = ({
       ),
       children: (
         <div className="pt-3">
+          <div className="flex justify-end mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setField("vehicleMake", "");
+                setField("vehicleModel", "");
+                setField("vehicleVariant", "");
+                setField("registrationNumber", "");
+                setField("fuelType", "");
+                setField("cubicCapacity", "");
+                setField("seatingCapacity", "");
+                setField("grossVehicleWeight", "");
+                setField("engineNumber", "");
+                setField("chassisNumber", "");
+                setField("registrationAllotted", "Yes");
+              }}
+              className="group flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg hover:bg-rose-100 hover:border-rose-200 transition-all shadow-sm"
+            >
+              <RotateLeftOutlined className="text-[12px] group-hover:rotate-[-45deg] transition-transform" />
+              Clear Selection
+            </button>
+          </div>
           <Row gutter={[22, 20]}>
             {isNewCar ? (
               <Col xs={24} md={8}>
@@ -350,7 +373,7 @@ const Step2VehicleDetails = ({
                       }
                     >
                       <Input allowClear
-                        style={inputControlStyle}
+                        style={controlStyle}
                         status={
                           showErrors && step2Errors.registrationNumber
                             ? "error"
@@ -422,10 +445,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Make" required>
-                  <Select
+                  <Select allowClear
                     value={formData.vehicleMake || undefined}
                     placeholder="Select Make"
-                    allowClear
                     onChange={(val) => {
                       setField("vehicleMake", val || "");
                       setField("vehicleModel", "");
@@ -460,10 +482,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Model" required>
-                  <Select
+                  <Select allowClear
                     value={formData.vehicleModel || undefined}
                     placeholder="Select Model"
-                    allowClear
                     onChange={(val) => {
                       setField("vehicleModel", val || "");
                       setField("vehicleVariant", "");
@@ -498,10 +519,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Variant" required>
-                  <Select
+                  <Select allowClear
                     value={formData.vehicleVariant || undefined}
                     placeholder="Select Variant"
-                    allowClear
                     onChange={(val) => {
                       setField("vehicleVariant", val || "");
                       setField("fuelType", "");

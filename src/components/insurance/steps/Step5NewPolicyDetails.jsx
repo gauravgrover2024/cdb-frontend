@@ -32,6 +32,7 @@ const labelClass =
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
 const fieldWrapClass = "insurance-field-wrap";
+const controlStyle = {};
 
 const CleanField = ({ label, required, hint, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
@@ -708,7 +709,7 @@ const Step5NewPolicyDetails = ({
                     }
                   >
                     <Input allowClear
-                      style={inputControlStyle}
+                      style={controlStyle}
                       placeholder="e.g. HDFC ERGO General Insurance Company Limited"
                     />
                   </AutoComplete>

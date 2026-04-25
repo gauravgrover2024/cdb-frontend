@@ -37,6 +37,7 @@ const labelClass =
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
 const fieldWrapClass = "insurance-field-wrap";
+const controlStyle = {};
 
 const textAreaStyle = { minHeight: 86 };
 
@@ -586,7 +587,7 @@ const Step3PreviousPolicy = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
-                    <Input allowClear style={inputControlStyle} placeholder="e.g., Bajaj" />
+                    <Input allowClear style={controlStyle} placeholder="e.g., Bajaj" />
                   </AutoComplete>
                 </CleanField>
               </div>

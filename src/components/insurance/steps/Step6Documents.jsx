@@ -332,25 +332,25 @@ const getTagTheme = (tag) => {
 
 const StatTile = ({ label, value, tone = "slate", helper }) => {
   const themes = {
-    sky: "bg-blue-50 border-blue-100 text-blue-700",
-    emerald: "bg-emerald-50 border-emerald-100 text-emerald-700",
-    slate: "bg-slate-50 border-slate-100 text-slate-700",
+    sky: "bg-blue-50/50 border-blue-100 text-blue-700",
+    emerald: "bg-emerald-50/50 border-emerald-100 text-emerald-700",
+    slate: "bg-slate-50/50 border-slate-100 text-slate-700",
   };
   const theme = themes[tone] || themes.slate;
 
   return (
-    <div className={`rounded-[24px] border px-5 py-4 shadow-sm transition-all hover:shadow-md ${theme}`}>
+    <div className={`rounded-xl border px-5 py-4 shadow-sm transition-all hover:shadow-md ${theme}`}>
       <div className="flex items-center justify-between">
         <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60">
           {label}
         </div>
-        <div className="h-2 w-2 rounded-full bg-current opacity-40" />
+        <div className="h-1.5 w-1.5 rounded-full bg-current opacity-30" />
       </div>
-      <div className="mt-2 text-2xl font-black tracking-tight">
+      <div className="mt-2 text-2xl font-black tracking-tight leading-none">
         {value}
       </div>
       {helper ? (
-        <div className="mt-1 text-[11px] font-medium opacity-70 leading-tight">
+        <div className="mt-2 text-[10px] font-bold uppercase tracking-wider opacity-60">
           {helper}
         </div>
       ) : null}
@@ -403,42 +403,45 @@ const UploadDropzone = ({ isDragging, uploading, onBrowse, onDragStateChange, on
       const files = Array.from(event.dataTransfer?.files || []);
       if (files.length) onDropFiles(files);
     }}
-    className={`rounded-[24px] border-2 border-dashed px-5 py-4 transition ${
+    className={`rounded-xl border-2 border-dashed px-6 py-8 transition-all ${
       isDragging
-        ? "border-sky-400 bg-sky-50 shadow-[0_14px_40px_rgba(14,165,233,0.12)]"
-        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70"
+        ? "border-indigo-400 bg-indigo-50/50 shadow-lg"
+        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
     }`}
   >
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
-          <Icon name="CloudUpload" size={22} />
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-start gap-4">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600 shadow-sm">
+          <Icon name="CloudUpload" size={26} />
         </div>
-        <div>
-          <div className="text-sm font-black text-slate-800 md:text-base">Upload insurance documents</div>
-          <div className="mt-1 text-sm text-slate-500">
-            Files are uploaded to Cloudflare R2 and linked to this insurance case instantly.
-          </div>
+        <div className="min-w-0">
+          <div className="text-lg font-black text-slate-900 tracking-tight">Upload insurance documents</div>
+          <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+            Drag and drop or click to browse. Files are securely stored in Cloudflare R2.
+          </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg">
           JPG, PNG, PDF, DOC, XLSX
         </span>
-        <Button
-          variant="default"
-          iconName={uploading ? "Loader2" : "Upload"}
-          iconPosition="left"
-          size="sm"
+        <button
+          type="button"
           onClick={(event) => {
             event.stopPropagation();
             if (!uploading) onBrowse();
           }}
-          className="h-10 rounded-xl bg-sky-600 px-4 text-white hover:bg-sky-700"
+          className="inline-flex items-center gap-2 h-12 rounded-xl bg-indigo-600 px-6 text-sm font-bold text-white hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50"
+          disabled={uploading}
         >
-          {uploading ? "Uploading..." : "Upload documents"}
-        </Button>
+          {uploading ? (
+            <Icon name="Loader2" size={18} className="animate-spin" />
+          ) : (
+            <Icon name="Upload" size={18} />
+          )}
+          {uploading ? "Uploading..." : "Browse Files"}
+        </button>
       </div>
     </div>
   </div>
@@ -524,111 +527,96 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
   }
 
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-4">
-      <div className="flex items-center justify-between gap-3 px-2 pb-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-4">
+      <div className="flex items-center justify-between gap-3 px-1 pb-3">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Preview</div>
           <div className="mt-1 text-sm font-black text-slate-800">
             {Math.min(index + 1, total)}/{total}
           </div>
         </div>
-        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>
+        <span className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${status.className}`}>
           {status.label}
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-[20px] border border-slate-200 bg-slate-50">
+      <div className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
         {imageLike ? (
           <img
             src={doc.previewUrl || doc.url}
             alt={getDocDisplayLabel(doc, index)}
             loading="lazy"
-            className="h-[420px] w-full object-contain bg-white"
+            className="h-[400px] w-full object-contain bg-white"
           />
         ) : pdfLike ? (
           pdfPreviewSrc ? (
             <object
               data={pdfPreviewSrc}
               type="application/pdf"
-              className="h-[420px] w-full bg-white"
+              className="h-[400px] w-full bg-white"
             >
-              <iframe
-                title={getDocDisplayLabel(doc, index)}
-                src={pdfPreviewSrc}
-                className="h-[420px] w-full bg-white"
-              />
+              <div className="flex h-[400px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                  <Icon name="FileText" size={28} />
+                </div>
+                <div className="text-sm font-bold text-slate-800">Preview Blocked</div>
+                <a href={pdfPreviewSrc} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 font-bold underline">Open manually</a>
+              </div>
             </object>
           ) : (
-            <div className="flex h-[420px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-100 text-slate-500">
+            <div className="flex h-[400px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                 <Icon name="FileText" size={28} />
               </div>
               <div className="text-sm font-bold text-slate-800">Unable to load PDF preview</div>
-              <div className="max-w-xs text-sm text-slate-500">
-                Use Open Viewer or Download to inspect this file.
-              </div>
             </div>
           )
         ) : (
-          <div className="flex h-[420px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-100 text-slate-500">
+          <div className="flex h-[400px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
               <Icon name="File" size={28} />
             </div>
             <div className="text-sm font-bold text-slate-800">Preview unavailable</div>
-            <div className="max-w-xs text-sm text-slate-500">
-              This file type can still be downloaded and reviewed externally.
-            </div>
           </div>
         )}
       </div>
 
-      <div className="mt-3 space-y-3 px-2">
+      <div className="mt-4 space-y-4 px-1">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Document</div>
-          <div className="mt-1 break-words text-sm font-bold text-slate-800">{getDocDisplayLabel(doc, index)}</div>
+          <div className="mt-1 break-words text-sm font-bold text-slate-800 leading-tight">{getDocDisplayLabel(doc, index)}</div>
         </div>
 
-        <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
-          <span className="rounded-full bg-slate-100 px-2.5 py-1">{doc.sizeLabel}</span>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1">{doc.format || "file"}</span>
-          {doc.uploadedAt ? (
-            <span className="rounded-full bg-slate-100 px-2.5 py-1">
-              {new Date(doc.uploadedAt).toLocaleDateString("en-IN")}
-            </span>
-          ) : null}
+        <div className="flex flex-wrap gap-1.5">
+          <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">{doc.sizeLabel}</span>
+          <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">{doc.format || "file"}</span>
         </div>
 
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button
-            variant="outline"
-            iconName="Expand"
-            iconPosition="left"
-            size="sm"
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            type="button"
             onClick={() => onOpenViewer(doc)}
-            className="h-10 rounded-xl border-slate-200 bg-white px-4 hover:bg-slate-50"
+            className="flex items-center justify-center gap-2 h-10 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
           >
-            Full viewer
-          </Button>
-          <Button
-            variant="outline"
-            iconName="Printer"
-            iconPosition="left"
-            size="sm"
+            <Icon name="Expand" size={14} />
+            Full Viewer
+          </button>
+          <button
+            type="button"
             onClick={() => onPrint(doc, index)}
-            className="h-10 rounded-xl border-violet-200 bg-violet-50 px-4 text-violet-700 hover:bg-violet-100"
+            className="flex items-center justify-center gap-2 h-10 rounded-xl border border-indigo-200 bg-indigo-50 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 transition-colors"
           >
+            <Icon name="Printer" size={14} />
             Print
-          </Button>
-          <Button
-            variant="outline"
-            iconName="Download"
-            iconPosition="left"
-            size="sm"
+          </button>
+          <button
+            type="button"
             onClick={() => onDownload(doc, index)}
-            className="h-10 rounded-xl border-sky-200 bg-sky-50 px-4 text-sky-700 hover:bg-sky-100"
+            className="col-span-2 flex items-center justify-center gap-2 h-10 rounded-xl bg-slate-900 text-[11px] font-bold text-white hover:bg-slate-800 transition-colors"
           >
+            <Icon name="Download" size={14} />
             Download
-          </Button>
+          </button>
         </div>
       </div>
     </div>
@@ -877,7 +865,7 @@ const Step6Documents = ({
 
       setUploading(true);
       try {
-        const uploaded = await uploadMultipleFiles(pickedFiles);
+        const uploaded = await uploadMultipleFiles(validFiles);
         const nowIso = new Date().toISOString();
         const incoming = uploaded.map((file, index) => {
           const rawUrl = String(file?.secure_url || file?.url || "").trim();
@@ -1002,6 +990,7 @@ const Step6Documents = ({
       return;
     }
     const href = buildAccessibleDocumentUrl(rawHref);
+
     const printFromBlob = async () => {
       let objectUrl = "";
       let iframe = null;
@@ -1010,8 +999,15 @@ const Step6Documents = ({
         if (!response.ok) throw new Error("Unable to load document for print.");
         const blob = await response.blob();
         if (!blob || !blob.size) throw new Error("Empty document.");
-        objectUrl = URL.createObjectURL(blob);
 
+        // For PDFs, sometimes native browser print is better
+        if (blob.type === "application/pdf" && !window.chrome) {
+           const win = window.open(URL.createObjectURL(blob), "_blank");
+           win?.print();
+           return;
+        }
+
+        objectUrl = URL.createObjectURL(blob);
         iframe = document.createElement("iframe");
         iframe.style.position = "fixed";
         iframe.style.right = "0";
@@ -1028,17 +1024,19 @@ const Step6Documents = ({
               iframe?.contentWindow?.focus();
               iframe?.contentWindow?.print();
             } catch {
-              message.warning("Unable to trigger print on this file.");
+              window.open(objectUrl, "_blank");
             }
-          }, 300);
+          }, 500);
         };
       } catch (error) {
         message.warning(error?.message || "Unable to print this document.");
+        // Fallback
+        window.open(href, "_blank");
       } finally {
         setTimeout(() => {
           if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-          if (objectUrl) URL.revokeObjectURL(objectUrl);
-        }, 4000);
+          // Don't revoke immediately if we opened a new tab
+        }, 10000);
       }
     };
     printFromBlob();
@@ -1206,8 +1204,8 @@ const Step6Documents = ({
           onDropFiles={appendFiles}
         />
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
-          <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_14px_42px_rgba(15,23,42,0.05)]">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 px-5 py-4 md:px-6">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
@@ -1305,10 +1303,10 @@ const Step6Documents = ({
                             dispatch({ type: "SELECT_DOC", payload: docId });
                           }
                         }}
-                        className={`rounded-[24px] border p-4 shadow-sm transition ${
+                        className={`rounded-xl border p-4 transition-all duration-200 ${
                           isSelected
-                            ? "border-sky-300 bg-sky-50/50 shadow-[0_12px_32px_rgba(56,189,248,0.12)]"
-                            : "border-slate-200 bg-white hover:shadow-md"
+                            ? "border-indigo-400 bg-indigo-50/30 ring-1 ring-indigo-400/20 shadow-md"
+                            : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm"
                         }`}
                       >
                         <div className="flex flex-col gap-4 lg:flex-row">
@@ -1318,7 +1316,7 @@ const Step6Documents = ({
                               event.stopPropagation();
                               dispatch({ type: "SELECT_DOC", payload: docId });
                             }}
-                            className="relative h-32 w-full shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left lg:h-28 lg:w-28"
+                            className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left"
                           >
                             {imageLike ? (
                               <img src={doc.previewUrl || doc.url} alt={getDocDisplayLabel(doc, index)} className="h-full w-full object-cover" />

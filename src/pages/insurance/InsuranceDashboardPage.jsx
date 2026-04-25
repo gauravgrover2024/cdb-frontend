@@ -806,6 +806,19 @@ const MetricCard = ({
 };
 
 
+
+const CHIP_COLORS = {
+  All: { active: "#6366f1", shadow: "#6366f140" },
+  Draft: { active: "#f43f5e", shadow: "#f43f5e40" },
+  Completed: { active: "#10b981", shadow: "#10b98140" },
+  "Payment Due": { active: "#f59e0b", shadow: "#f59e0b40" },
+  "Expiring Soon": { active: "#ef4444", shadow: "#ef444440" },
+  Expired: { active: "#6b7280", shadow: "#6b728040" },
+  "2W": { active: "#0ea5e9", shadow: "#0ea5e940" },
+  "4W": { active: "#8b5cf6", shadow: "#8b5cf640" },
+  Commercial: { active: "#f97316", shadow: "#f9731640" },
+};
+
 const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
   const c = CHIP_COLORS[label] || { active: "#475569", shadow: "#47556940" };
   return (
@@ -1099,13 +1112,20 @@ const PolicyCard = ({
                   <span className="truncate">{policy.mobile || "—"}</span>
                 </div>
 
-                <p className="mt-1 text-[11px] text-slate-500 truncate">
-                  Source: {policy.source || "—"}
-                  {policy.isIndirectSource &&
-                  (policy.sourceDetailsName || policy.sourceDetailsContact)
-                    ? ` · ${policy.sourceDetailsName || "—"}${policy.sourceDetailsContact ? ` · ${policy.sourceDetailsContact}` : ""}`
-                    : ""}
-                </p>
+                <div className="mt-2.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">Source:</span>
+                    <span className="text-slate-700 font-bold">{policy.source || "Direct"}</span>
+                  </div>
+                  {policy.isIndirectSource && policy.sourceDetailsName && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-fit max-w-full">
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                      <span className="text-[10px] font-bold text-indigo-700 truncate" title={policy.sourceDetailsName}>
+                        {policy.sourceDetailsName}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Divider */}
@@ -1138,19 +1158,6 @@ const PolicyCard = ({
                 </p>
               </div>
             </div>
-            <p className="text-[10px] text-slate-400 truncate mt-0.5">
-              Source: {policy.source || "—"}
-              {policy.isIndirectSource && policy.sourceDetailsName
-                ? ` · ${policy.sourceDetailsName}`
-                : ""}
-            </p>
-          </div>
-          <div className="border-t border-slate-100 pt-2">
-            <p className="text-[12px] font-semibold text-slate-700 leading-tight truncate" title={policy.vehicle}>
-              {policy.vehicle || "—"}
-              {policy.vehicleYear && <span className="font-normal text-slate-400"> · {policy.vehicleYear}</span>}
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-500 font-mono">{policy.registration || "—"}</p>
           </div>
         </div>
 
@@ -1414,11 +1421,6 @@ const PolicyCard = ({
                 </span>
               </div>
             </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-slate-500">Expiry</span>
-              <span className="font-semibold text-slate-800 truncate">{policy.expiryLabel || "—"}</span>
-            </div>
-          </div>
 
             {/* Body */}
             <div className="p-3 space-y-3">
@@ -1476,7 +1478,7 @@ const PolicyCard = ({
           </div>
         </div>
 
-
+      </div>
     </motion.div>
   );
 };
@@ -1831,12 +1833,25 @@ const InsuranceDashboardPage = () => {
         /(broker|broking|dealer|agency|channel|dsa|pos|crm)/i.test(
           String(customerName || ""),
         );
-      const displayName =
+      const baseName =
         buyerType === "company"
           ? companyName || contactPerson || customerName || "—"
           : customerLooksLikeSource || customerLooksLikeChannelAlias
             ? contactPerson || customerName || companyName || "—"
             : customerName || contactPerson || companyName || "—";
+
+      const vehicle = [
+        record.vehicleMake,
+        record.vehicleModel,
+        record.vehicleVariant,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      const vehicleLabel = vehicle || "—";
+      const reg = record.registrationNumber || record.vehicleNumber || "";
+      const regDisplay = reg && reg !== "—" ? reg : vehicleLabel;
+      const displayName = `${baseName}${regDisplay && regDisplay !== "—" ? ` · ${regDisplay}` : ""}`;
 
       const mobile = snap.primaryMobile || record.mobile || "—";
       const sourceRaw = String(
@@ -1864,18 +1879,7 @@ const InsuranceDashboardPage = () => {
         record.dealerChannelContact ||
         "";
 
-      // Vehicle
-      const vehicle = [
-        record.vehicleMake,
-        record.vehicleModel,
-        record.vehicleVariant,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-      const vehicleLabel = vehicle || "—";
-      const reg = record.registrationNumber || record.vehicleNumber || "—";
-      const regKey = normalizeVehicleRegKey(reg);
+      const regKey = normalizeVehicleRegKey(reg || "—");
       const vehicleYear = getVehicleDisplayYear(record);
 
       // Policy
@@ -2165,13 +2169,13 @@ const InsuranceDashboardPage = () => {
         <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 Insurance Workspace
               </p>
-              <h1 className="mt-0.5 text-2xl font-black text-white">
+              <h1 className="mt-0.5 text-2xl font-black text-slate-900">
                 Policy Dashboard
               </h1>
-              <p className="mt-1 text-[13px] text-white/70">
+              <p className="mt-1 text-[13px] text-slate-500">
                 Cases, revenue, renewals &amp; payments — one view.
               </p>
             </div>
