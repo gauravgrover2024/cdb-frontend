@@ -1,108 +1,201 @@
+/* ==========================================================
+   INSURANCE CRM — CLEAN FINTECH/SAAS DESIGN SYSTEM
+   Priority: Fix double-border → Spacing → Form headers → Polish
+   ========================================================== */
+
 .insurance-case-skin {
-  --ins-primary: #3d63ff;
-  --ins-primary-2: #1fb6ff;
-  --ins-accent: #12b886;
+  --ins-primary: #2563eb;
+  --ins-primary-2: #0ea5e9;
+  --ins-accent: #10b981;
   --ins-warn: #f59e0b;
-  --ins-danger: #f04374;
-  --ins-surface: #f5f9ff;
-  --ins-surface-soft: #eef5ff;
-  --ins-surface-muted: #f1f8ff;
+  --ins-danger: #ef4444;
+  --ins-surface: #f8fafc;
+  --ins-surface-soft: #f1f5f9;
+  --ins-surface-muted: #f8fafc;
   --ins-card: #ffffff;
-  --ins-border: #c7d8ff;
-  --ins-border-strong: #89a8ff;
-  --ins-text: #1f2d4a;
-  --ins-text-muted: #5e7092;
-  --ins-shadow: 0 12px 30px rgba(43, 88, 225, 0.16);
+  --ins-border: #e2e8f0;
+  --ins-border-strong: #94a3b8;
+  --ins-border-focus: #2563eb;
+  --ins-text: #0f172a;
+  --ins-text-muted: #64748b;
+  --ins-shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --ins-shadow: 0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+  --ins-radius: 8px;
+  --ins-radius-lg: 12px;
 }
 
 .insurance-case-skin {
   color: var(--ins-text);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
+/* ==========================================================
+   GLOBAL SHELL
+   ========================================================== */
+.insurance-case-skin.insurance-dashboard-shell {
+  background: #f8fafc !important;
+}
+
+/* ==========================================================
+   BUTTONS — Clean, Minimal
+   ========================================================== */
 .insurance-case-skin .ant-btn,
 .insurance-case-skin button {
-  transition: all 140ms ease;
+  transition: all 120ms ease;
+}
+
+.insurance-case-skin .ant-btn {
+  font-weight: 600 !important;
+  border-radius: var(--ins-radius) !important;
 }
 
 .insurance-case-skin .ant-btn-primary {
-  background: #2563eb !important;
-  border-color: transparent !important;
+  background: var(--ins-primary) !important;
+  border-color: var(--ins-primary) !important;
   color: #fff !important;
-  box-shadow: 0 10px 24px rgba(91, 76, 240, 0.28);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
 }
 
 .insurance-case-skin .ant-btn-primary:hover,
 .insurance-case-skin .ant-btn-primary:focus {
-  filter: brightness(1.04);
-  transform: translateY(-1px);
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
 }
 
 .insurance-case-skin .ant-btn-default,
 .insurance-case-skin .ant-btn:not(.ant-btn-primary) {
   border-color: var(--ins-border) !important;
-  color: color-mix(in srgb, var(--ins-primary) 64%, #24395f) !important;
-  background: color-mix(in srgb) !important;
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--ins-primary) 8%, transparent);
+  color: var(--ins-text-muted) !important;
+  background: #fff !important;
 }
 
+/* ==========================================================
+   TAGS
+   ========================================================== */
 .insurance-case-skin .ant-tag {
-  border-radius: 999px !important;
-  font-weight: 700 !important;
+  border-radius: 5px !important;
+  font-weight: 600 !important;
 }
 
+/* ==========================================================
+   RADIO BUTTONS — Clean pill style
+   ========================================================== */
 .insurance-case-skin .ant-radio-button-wrapper {
   border-color: var(--ins-border) !important;
-  color: #394b7d !important;
+  color: var(--ins-text-muted) !important;
   background: #fff !important;
 }
 
 .insurance-case-skin
   .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
-  background: linear-gradient(
-    100deg,
-    var(--ins-primary),
-    var(--ins-primary-2)
-  ) !important;
-  border-color: transparent !important;
+  background: var(--ins-primary) !important;
+  border-color: var(--ins-primary) !important;
   color: #fff !important;
-  box-shadow: 0 8px 20px rgba(91, 76, 240, 0.24);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
 }
 
+/* ==========================================================
+   INPUT FIELDS — PRIORITY FIX #1: SINGLE FOCUS STATE, NO DOUBLE BORDER
+   ========================================================== */
+
+/* Base style for all input-like controls */
 .insurance-case-skin .ant-input,
 .insurance-case-skin .ant-select-selector,
 .insurance-case-skin .ant-picker,
 .insurance-case-skin .ant-input-number,
 .insurance-case-skin .ant-input-affix-wrapper,
 .insurance-case-skin textarea.ant-input {
-  border-color: var(--ins-border) !important;
-  background: #fff !important;
+  border: 1.5px solid var(--ins-border) !important;
+  border-radius: var(--ins-radius) !important;
+  background: #ffffff !important;
   color: var(--ins-text) !important;
-}
-
-.insurance-case-skin .ant-input::placeholder,
-.insurance-case-skin .ant-input-affix-wrapper input::placeholder,
-.insurance-case-skin .ant-picker input::placeholder {
-  color: #8a9bb8 !important;
-}
-
-.insurance-case-skin .ant-input:focus,
-.insurance-case-skin .ant-input-focused,
-.insurance-case-skin .ant-input-affix-wrapper-focused,
-.insurance-case-skin .ant-select-focused .ant-select-selector,
-.insurance-case-skin .ant-picker-focused,
-.insurance-case-skin .ant-input-number-focused,
-.insurance-case-skin .ant-input-number:focus {
-  border-color: color-mix(
-    in srgb,
-    var(--ins-primary) 24%,
-    var(--ins-border)
-  ) !important;
+  height: 44px !important;
+  font-size: 14px !important;
   box-shadow: none !important;
+  transition: border-color 140ms ease !important;
 }
 
+/* TextArea override for height */
+.insurance-case-skin textarea.ant-input {
+  height: auto !important;
+  min-height: 86px;
+  padding: 10px 12px !important;
+}
+
+/* ── FIX #1: Affix-wrapper "box inside box" ──
+   The wrapper handles border/bg/radius; inner input is transparent */
+.insurance-case-skin .ant-input-affix-wrapper .ant-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  height: 100% !important;
+  padding: 0 !important;
+  outline: none !important;
+}
+
+.insurance-case-skin .ant-input-affix-wrapper {
+  padding: 0 11px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+/* ── FIX #1: InputNumber "box inside box" ── */
+.insurance-case-skin .ant-input-number .ant-input-number-input {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  height: 100% !important;
+  padding: 0 12px !important;
+  outline: none !important;
+}
+
+.insurance-case-skin .ant-input-number {
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* ==========================================================
+   UNIFIED FIELD WRAP — handles margin/width for all steps
+   ========================================================== */
+.insurance-field-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.insurance-field-wrap .ant-input,
+.insurance-field-wrap .ant-input-number,
+.insurance-field-wrap .ant-input-affix-wrapper,
+.insurance-field-wrap .ant-select,
+.insurance-field-wrap .ant-picker {
+  margin-top: 6px !important;
+  width: 100% !important;
+}
+
+.insurance-field-wrap .ant-select-selector {
+  margin-top: 0 !important;
+}
+
+.insurance-field-wrap .ant-select {
+  margin-top: 6px !important;
+}
+
+.insurance-field-wrap .ant-select-selection-item,
+.insurance-field-wrap .ant-select-selection-placeholder {
+  line-height: 41px !important;
+}
+
+.insurance-field-wrap .ant-picker-input > input {
+  height: 34px !important;
+}
+
+/* ==========================================================
+   FIELD LABELS
+   ========================================================== */
 .insurance-case-skin .insurance-field-block {
   border: 0;
-  border-radius: 14px;
+  border-radius: 0;
   padding: 0;
   transition: none;
 }
@@ -113,27 +206,27 @@
   background: transparent;
 }
 
-.insurance-case-skin .insurance-field-block:focus-within > label,
-.insurance-case-skin .insurance-field-block:focus-within > div:first-child {
-  color: inherit !important;
+/* ==========================================================
+   ERROR MESSAGES
+   ========================================================== */
+.insurance-case-skin .ant-form-item-explain-error {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--ins-danger) !important;
+  margin-top: 4px !important;
+  padding-left: 2px !important;
 }
 
-.insurance-case-skin
-  :is(
-    button,
-    [role="button"],
-    .ant-input,
-    .ant-select-selector,
-    .ant-picker,
-    .ant-input-number,
-    .ant-radio-button-wrapper
-  ):focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--ins-primary) 72%, #8aa8ff);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px
-    color-mix(in srgb, var(--ins-primary-2) 24%, transparent);
+/* ==========================================================
+   PLACEHOLDER STYLING
+   ========================================================== */
+.insurance-case-skin ::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+  font-weight: 400 !important;
 }
 
+<<<<<<< HEAD
 /* One-click clear controls: keep visible on all supported fields */
 .insurance-case-skin .ant-input-clear-icon,
 .insurance-case-skin .ant-picker-clear,
@@ -156,18 +249,23 @@
   top: 50% !important;
   margin-top: 0 !important;
   transform: translateY(-50%) !important;
+=======
+.insurance-case-skin .ant-select-selection-placeholder {
+  color: #94a3b8 !important;
+  font-weight: 400 !important;
+>>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
 }
 
-/* Prevent browser autofill yellow/brown highlights */
+.insurance-case-skin .ant-picker-input input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* ==========================================================
+   AUTOFILL — prevent yellow browser highlight
+   ========================================================== */
 .insurance-case-skin input:-webkit-autofill,
 .insurance-case-skin input:-webkit-autofill:hover,
 .insurance-case-skin input:-webkit-autofill:focus,
-.insurance-case-skin .ant-input-affix-wrapper input:-webkit-autofill,
-.insurance-case-skin .ant-input-affix-wrapper input:-webkit-autofill:hover,
-.insurance-case-skin .ant-input-affix-wrapper input:-webkit-autofill:focus,
-.insurance-case-skin .ant-select-selection-search-input:-webkit-autofill,
-.insurance-case-skin .ant-select-selection-search-input:-webkit-autofill:hover,
-.insurance-case-skin .ant-select-selection-search-input:-webkit-autofill:focus,
 .insurance-case-skin textarea:-webkit-autofill,
 .insurance-case-skin select:-webkit-autofill {
   -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
@@ -176,19 +274,381 @@
   transition: background-color 9999s ease-out 0s;
 }
 
+/* ==========================================================
+   CLEAR ICON
+   ========================================================== */
+.insurance-case-skin .ant-input-clear-icon,
+.insurance-case-skin .ant-picker-clear,
+.insurance-case-skin .ant-select-clear {
+  display: flex !important;
+  font-size: 13px;
+  color: var(--ins-text-muted);
+}
+
+/* ==========================================================
+   DROPDOWN MENUS
+   ========================================================== */
 .insurance-case-skin
   .ant-select-dropdown
   .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-  background: color-mix(in srgb, var(--ins-primary-2) 12%, #fff) !important;
+  background: #eff6ff !important;
 }
 
 .insurance-case-skin
   .ant-select-dropdown
   .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
-  background: color-mix(in srgb, var(--ins-primary) 14%, #fff) !important;
-  color: color-mix(in srgb, var(--ins-primary) 76%, #1f3155) !important;
+  background: #dbeafe !important;
+  color: #1e40af !important;
+  font-weight: 600 !important;
 }
 
+/* ==========================================================
+   SECTION CARDS — Sharper, cleaner (less rounded)
+   ========================================================== */
+.insurance-case-skin .ant-card {
+  border-radius: var(--ins-radius-lg) !important;
+  border-color: var(--ins-border) !important;
+  box-shadow: var(--ins-shadow-sm) !important;
+}
+
+/* Override the very-rounded cards (rounded-[30px], rounded-[28px]) */
+.insurance-case-skin .rounded-\[30px\],
+.insurance-case-skin .rounded-\[28px\] {
+  border-radius: var(--ins-radius-lg) !important;
+  border-color: var(--ins-border) !important;
+  box-shadow: var(--ins-shadow-sm) !important;
+}
+
+/* ==========================================================
+   FORM SECTION HEADERS — Redesigned: sharper, structured
+   ========================================================== */
+.insurance-case-skin .ins-section-header {
+  background: #ffffff;
+  border: 1px solid var(--ins-border);
+  border-radius: var(--ins-radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.insurance-case-skin .ins-section-header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ins-text);
+  letter-spacing: -0.3px;
+  line-height: 1.3;
+}
+
+.insurance-case-skin .ins-section-header-sub {
+  font-size: 13px;
+  color: var(--ins-text-muted);
+  margin-top: 2px;
+}
+
+/* Remove background gradients from form section hero cards */
+.insurance-case-skin [class*="bg-gradient-to-r"] {
+  background-image: none !important;
+  background: #ffffff !important;
+}
+
+/* ==========================================================
+   STICKY HEADER — PRIORITY FIX #2: Compact, minimal spacing
+   ========================================================== */
+.insurance-case-skin .insurance-sticky-shell {
+  background: #ffffff !important;
+  border-color: var(--ins-border) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07) !important;
+}
+
+.insurance-case-skin .insurance-sticky-summary {
+  border-color: var(--ins-border) !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  border-radius: var(--ins-radius-lg) !important;
+}
+
+/* Summary segment background — clean white, no gradients */
+.insurance-case-skin .insurance-summary-segment {
+  background: transparent !important;
+}
+
+.insurance-case-skin .insurance-summary-segment:nth-child(1),
+.insurance-case-skin .insurance-summary-segment:nth-child(2),
+.insurance-case-skin .insurance-summary-segment:nth-child(3),
+.insurance-case-skin .insurance-summary-segment:nth-child(4),
+.insurance-case-skin .insurance-summary-segment:nth-child(5) {
+  background: transparent !important;
+}
+
+/* ==========================================================
+   STEP HERO HEADERS — Override gradient/over-rounded versions
+   ========================================================== */
+
+/* The gradient hero header used in all steps */
+.insurance-case-skin [class*="rounded-\[30px\]"][class*="bg-gradient-to-r"],
+.insurance-case-skin [class*="rounded-\[30px\]"][class*="from-\[#DAF3FF\]"] {
+  background: #ffffff !important;
+  background-image: none !important;
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+}
+
+/* The ring-based card shells */
+.insurance-case-skin [class*="ring-1"][class*="ring-\[#9FC0FF\]"],
+.insurance-case-skin [class*="ring-1"][class*="ring-slate-200"] {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+}
+
+/* Override shellStyle variable used in all steps */
+.insurance-case-skin .rounded-\[28px\] {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+}
+
+.insurance-case-skin .rounded-\[30px\] {
+  border-radius: 12px !important;
+}
+
+/* Section header text inside the hero */
+.insurance-case-skin [class*="text-\[24px\]"][class*="font-black"],
+.insurance-case-skin [class*="text-\[22px\]"][class*="font-black"] {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.3px !important;
+  line-height: 1.3 !important;
+}
+
+/* Section subtitle */
+.insurance-case-skin [class*="text-sm"][class*="text-slate-500"]:not(button) {
+  font-size: 13px !important;
+}
+
+/* Collapse / Accordion used in Step3/Step5 */
+.insurance-case-skin .ant-collapse {
+  border-radius: 10px !important;
+  border-color: #e2e8f0 !important;
+}
+
+.insurance-case-skin .ant-collapse-header {
+  padding: 12px 16px !important;
+}
+
+.insurance-case-skin .ant-collapse-content {
+  border-top-color: #e2e8f0 !important;
+}
+
+/* ==========================================================
+   STEPPER / STEP RAIL — Compact, bottom-aligned, clean
+   ========================================================== */
+.insurance-case-skin .insurance-step-rail {
+  border-color: var(--ins-border) !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+  border-radius: var(--ins-radius) !important;
+}
+
+.insurance-case-skin .insurance-nav-step {
+  border: 1px solid transparent;
+  border-radius: 6px !important;
+}
+
+.insurance-case-skin .insurance-nav-step:hover {
+  border-color: var(--ins-border);
+  background: var(--ins-surface) !important;
+  color: var(--ins-text) !important;
+}
+
+.insurance-case-skin .insurance-nav-step.is-active {
+  border-color: var(--ins-primary) !important;
+  background: var(--ins-primary) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+/* Stage pill */
+.insurance-case-skin .insurance-stage-pill {
+  background: var(--ins-primary) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  border-radius: 4px !important;
+}
+
+/* ==========================================================
+   FOOTER — Clean, white, minimal
+   ========================================================== */
+.insurance-case-skin .insurance-footer-shell {
+  border-top-color: var(--ins-border) !important;
+  background: #ffffff !important;
+}
+
+.insurance-case-skin .insurance-footer-progress-track {
+  background: #e2e8f0 !important;
+}
+
+.insurance-case-skin .insurance-footer-progress-fill {
+  background: var(--ins-primary) !important;
+}
+
+.insurance-case-skin .insurance-footer-step-chip {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid var(--ins-border);
+  border-radius: 6px !important;
+}
+
+.insurance-case-skin .insurance-footer-btn {
+  border-radius: var(--ins-radius) !important;
+  font-weight: 600 !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-exit {
+  border-color: var(--ins-border) !important;
+  background: #fff !important;
+  color: var(--ins-text-muted) !important;
+}
+
+/* ==========================================================
+   FOCUS STATE — Single ring, zero double-border
+   ========================================================== */
+
+/* 1. Wrapper-level focus (Input with allowClear / prefix / suffix) */
+.insurance-case-skin .ant-input-affix-wrapper:focus-within,
+.insurance-case-skin .ant-input-affix-wrapper-focused {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+  outline: none !important;
+}
+
+/* 2. Plain input focus */
+.insurance-case-skin .ant-input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+  outline: none !important;
+}
+
+/* 3. Select focus */
+.insurance-case-skin .ant-select-focused .ant-select-selector {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+  outline: none !important;
+}
+
+/* 4. DatePicker focus */
+.insurance-case-skin .ant-picker-focused {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+  outline: none !important;
+}
+
+/* 5. InputNumber focus */
+.insurance-case-skin .ant-input-number-focused,
+.insurance-case-skin .ant-input-number:focus-within {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+  outline: none !important;
+}
+
+/* ── KILL all inner-element focus rings so only the wrapper shows ── */
+
+/* Inner .ant-input inside affix-wrapper — NEVER show own border/shadow */
+.insurance-case-skin .ant-input-affix-wrapper .ant-input,
+.insurance-case-skin .ant-input-affix-wrapper .ant-input:focus,
+.insurance-case-skin .ant-input-affix-wrapper .ant-input:focus-visible,
+.insurance-case-skin .ant-input-affix-wrapper-focused .ant-input {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+/* Inner input-number input — same */
+.insurance-case-skin .ant-input-number .ant-input-number-input,
+.insurance-case-skin .ant-input-number .ant-input-number-input:focus,
+.insurance-case-skin .ant-input-number .ant-input-number-input:focus-visible,
+.insurance-case-skin .ant-input-number-focused .ant-input-number-input {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Kill browser default focus-visible outline on every ant element */
+.insurance-case-skin .ant-input:focus-visible,
+.insurance-case-skin .ant-select-selector:focus-visible,
+.insurance-case-skin .ant-picker:focus-visible,
+.insurance-case-skin .ant-input-number:focus-visible {
+  outline: none !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-save {
+  border-color: #bbf7d0 !important;
+  background: #f0fdf4 !important;
+  color: #166534 !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-back {
+  border-color: var(--ins-border) !important;
+  background: #f8fafc !important;
+  color: var(--ins-text-muted) !important;
+}
+
+.insurance-case-skin .insurance-footer-btn-next {
+  background: var(--ins-primary) !important;
+  border-color: var(--ins-primary) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+/* ==========================================================
+   CALENDAR / DATE PICKER DROPDOWN
+   ========================================================== */
+.insurance-themed-calendar .ant-picker-panel-container {
+  border-radius: var(--ins-radius-lg) !important;
+  border: 1px solid var(--ins-border) !important;
+  box-shadow: var(--ins-shadow) !important;
+  background: #fff !important;
+}
+
+.insurance-themed-calendar .ant-picker-header {
+  border-bottom-color: var(--ins-border) !important;
+}
+
+.insurance-themed-calendar .ant-picker-header button {
+  color: var(--ins-text-muted) !important;
+}
+
+.insurance-themed-calendar .ant-picker-content th {
+  color: var(--ins-text-muted) !important;
+  font-weight: 700 !important;
+}
+
+.insurance-themed-calendar .ant-picker-cell-in-view .ant-picker-cell-inner {
+  border-radius: 6px !important;
+}
+
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell-selected
+  .ant-picker-cell-inner {
+  background: var(--ins-primary) !important;
+  color: #fff !important;
+}
+
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell-today
+  .ant-picker-cell-inner::before {
+  border-color: var(--ins-primary) !important;
+}
+
+.insurance-themed-calendar
+  .ant-picker-cell-in-view.ant-picker-cell:hover
+  .ant-picker-cell-inner {
+  background: #eff6ff !important;
+}
+
+/* ==========================================================
+   STEP 4 — Quote controls
+   ========================================================== */
 .insurance-case-skin .insurance-step4 .quote-control.ant-input,
 .insurance-case-skin .insurance-step4 .quote-control.ant-input-number,
 .insurance-case-skin
@@ -199,42 +659,37 @@
   border-color: var(--ins-border) !important;
 }
 
-.insurance-case-skin .insurance-step4 .quote-control.ant-input:hover,
-.insurance-case-skin .insurance-step4 .quote-control.ant-input-number:hover,
-.insurance-case-skin
-  .insurance-step4
-  .quote-control.ant-select:hover
-  .ant-select-selector {
-  border-color: var(--ins-border-strong) !important;
-}
-
+/* ==========================================================
+   MISC PILLS
+   ========================================================== */
 .insurance-case-skin .ins-lively-pill {
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid var(--ins-border);
   background: var(--ins-surface-soft);
-  color: #324577;
-  font-weight: 700;
+  color: #334155;
+  font-weight: 600;
 }
 
 .insurance-case-skin .ins-lively-pill.active {
-  border-color: transparent;
-  background: linear-gradient(100deg, var(--ins-primary), var(--ins-primary-2));
+  border-color: var(--ins-primary);
+  background: var(--ins-primary);
   color: #fff;
-  box-shadow: 0 8px 16px rgba(91, 76, 240, 0.24);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
 
 .insurance-case-skin .ins-lively-pill.soft {
-  border-color: #8fe3bf;
-  background: #e7fbf2;
-  color: #057a55;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #065f46;
 }
 
 .insurance-case-skin .ins-lively-pill.warn {
-  border-color: #f7d08b;
-  background: #fff7ea;
-  color: #b66a03;
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
 }
 
+<<<<<<< HEAD
 /* Sticky header + step rail */
 .insurance-case-skin .insurance-sticky-shell {
   background: linear-gradient(180deg, #f8fbff 0%, #f4f8ff 100%) !important;
@@ -497,3 +952,10 @@
   border-top: 0;
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
 }
+=======
+/* ==========================================================
+   SCROLLBAR UTILITY
+   ========================================================== */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+>>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)

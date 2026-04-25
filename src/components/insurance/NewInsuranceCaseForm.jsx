@@ -194,6 +194,7 @@ const initialQuoteDraft = {
   accessoriesIdv: 0,
   policyDuration: "1yr OD + 1yr TP",
   ncbDiscount: 0,
+  payoutPercentage: 10,
   odAmount: 0,
   thirdPartyAmount: 0,
   addOnsAmount: 0,
@@ -1907,7 +1908,9 @@ const NewInsuranceCaseForm = ({
     const engineNumber = String(formData.engineNumber || "").trim();
     const chassisNumber = String(formData.chassisNumber || "").trim();
 
-    if (!make || !model || !variant || (!engineNumber && !chassisNumber)) {
+    const registrationNumber = String(formData.registrationNumber || "").trim();
+
+    if (!registrationNumber && (!make || !model || !variant) && !engineNumber && !chassisNumber) {
       setVehiclePotentialMatch(null);
       setVehiclePotentialMatches([]);
       setVehicleMatchLoading(false);
@@ -2445,6 +2448,18 @@ const NewInsuranceCaseForm = ({
         safeFormData.inhousePaymentReceived || 0,
       );
 
+      // Naming Logic
+      const customerName = (safeFormData.customerName || safeFormData.companyName || "New Customer").trim();
+      const vehicleIdent = (safeFormData.registrationNumber || 
+        `${safeFormData.vehicleMake || ""} ${safeFormData.vehicleModel || ""} ${safeFormData.vehicleVariant || ""}`.trim()) || 
+        "Unknown Vehicle";
+      
+      const startYear = safeFormData.newPolicyStartDate ? dayjs(safeFormData.newPolicyStartDate).year() : (safeFormData.previousPolicyStartDate ? dayjs(safeFormData.previousPolicyStartDate).year() : "");
+      const endYear = safeFormData.newOdExpiryDate ? dayjs(safeFormData.newOdExpiryDate).year() : "";
+      const yearRange = (startYear && endYear) ? `${startYear} - ${endYear}` : (startYear ? `${startYear}` : "");
+      
+      const policyName = `${customerName} ${vehicleIdent} ${yearRange ? `* ${yearRange}` : ""}`.trim();
+
       return {
         ...safeFormData,
         source: normalizedSource,
@@ -2466,6 +2481,7 @@ const NewInsuranceCaseForm = ({
         inhouse_payment_received: inhousePaymentReceived,
         status: safePatch.status || "draft",
         currentStep: step,
+        policyName,
         ...safePatch,
       };
     },
@@ -2677,16 +2693,56 @@ const NewInsuranceCaseForm = ({
     }
   };
 
-  const goNext = () => {
+  const goNext = async () => {
     setShowErrors(true);
     if (!handleStepValidation()) return;
+    
+    // Save progress before moving forward
+    await persistNow({ silent: true });
+
     setStep((prev) => {
       let next = Math.min(prev + 1, 9);
       while (next < 9 && shouldSkipStep(next)) next += 1;
       return next;
     });
     setShowErrors(false);
-    // persistNow({ silent: true });
+  };
+
+  const handleClearForm = () => {
+    Modal.confirm({
+      title: "Clear Form",
+      content: "Are you sure you want to clear all fields? This action cannot be undone.",
+      okText: "Clear",
+      okType: "danger",
+      cancelText: "Cancel",
+      onOk: () => {
+        setFormData(initialFormState);
+        setQuotes([]);
+        setAcceptedQuoteId(null);
+        setDocuments([]);
+        message.success("Form cleared successfully.");
+      },
+    });
+  };
+
+  const handleDiscard = () => {
+    Modal.confirm({
+      title: "Discard Changes",
+      content: "Are you sure you want to discard all changes and exit without saving?",
+      okText: "Discard & Exit",
+      okType: "danger",
+      cancelText: "Cancel",
+      onOk: () => {
+        onCancel();
+      },
+    });
+  };
+
+  const handleSaveAndExit = async () => {
+    const success = await persistNow({ silent: false });
+    if (success) {
+      onCancel();
+    }
   };
 
   const goBack = () => {
@@ -2800,6 +2856,8 @@ const NewInsuranceCaseForm = ({
       taxableAmount: quoteComputed.taxableAmount,
       gstAmount: quoteComputed.gstAmount,
       totalPremium: quoteComputed.totalPremium,
+      payoutPercentage: Number(quoteDraft.payoutPercentage || 0),
+      payoutBaseAmount: Number(quoteComputed.odAmt || 0) + Number(quoteComputed.addOnsTotal || 0),
     };
 
     const nextSignature = buildQuoteSignature(normalizedQuotePayload);
@@ -2882,8 +2940,16 @@ const NewInsuranceCaseForm = ({
       onOk: () => {
         setFormData((prev) => {
           const breakup = computeQuoteBreakupFromRow(q);
-          const payoutBaseAmount =
-            Number(breakup?.odAmt || 0) + Number(breakup?.addOnsTotal || 0);
+          const odAmount = Number(breakup?.odAmt || 0);
+          const addOnsAmount = Number(breakup?.addOnsTotal || 0);
+
+          // TATA AIG RSA Exclusion: Exclude Rs 116 from payout base as per requirements
+          let adjustedAddOnsAmount = addOnsAmount;
+          if (String(q.insuranceCompany || "").toUpperCase().includes("TATA AIG")) {
+            adjustedAddOnsAmount = Math.max(0, addOnsAmount - 116);
+          }
+
+          const payoutBaseAmount = odAmount + adjustedAddOnsAmount;
           const payoutAmount =
             (payoutBaseAmount * Number(selectedPayoutPercentage || 0)) / 100;
           const nextReceivable = buildAutoReceivableRow(
@@ -3460,6 +3526,7 @@ const NewInsuranceCaseForm = ({
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
         [&_.ant-form-item-label_>label]:!text-sm [&_.ant-form-item-label_>label]:!font-medium
+<<<<<<< HEAD
         [&_.ant-input]:!h-10 [&_.ant-input]:!rounded-lg
         [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-lg
         [&_.ant-input-number-input-wrap]:!h-10 [&_.ant-input-number-input]:!h-10
@@ -3469,6 +3536,9 @@ const NewInsuranceCaseForm = ({
         [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-lg
         [&_.ant-picker-input_>input]:!h-8
         [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10`}
+=======
+      "
+>>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
     >
       {InsuranceStickyHeader ? (
         <InsuranceStickyHeader
@@ -3480,8 +3550,8 @@ const NewInsuranceCaseForm = ({
         />
       ) : null}
 
-      <div className="pt-[150px] pb-[96px]">
-        <div className="w-full px-3 py-4 md:px-5 lg:px-6">
+      <div className="pt-[60px] pb-[80px]">
+        <div className="w-full px-3 py-3 md:px-5 lg:px-6">
           {stepErrorsAlert && <div className="mb-6">{stepErrorsAlert}</div>}
           <div className="space-y-5">{renderStep()}</div>
         </div>
@@ -3496,7 +3566,9 @@ const NewInsuranceCaseForm = ({
           onNext={step === 9 ? handleSubmitFinal : goNext}
           onBack={goBack}
           onSave={() => persistNow({ silent: false })}
-          onExit={onCancel}
+          onExit={handleSaveAndExit}
+          onDiscard={handleDiscard}
+          onClear={handleClearForm}
           isSaving={saving}
           mode={mode}
         />
@@ -3664,16 +3736,6 @@ const NewInsuranceCaseForm = ({
           </Row>
         </Space>
       </Modal>
-
-      {/* ── Floating Case Summary Button (fixed bottom-right) ─────────────── */}
-      <button
-        onClick={() => setSummaryOpen(true)}
-        title="Case Summary"
-        className="fixed bottom-24 right-6 z-50 flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-95"
-      >
-        <UnorderedListOutlined style={{ fontSize: 15 }} />
-        Case Summary
-      </button>
 
       {/* ── Case Summary Drawer ───────────────────────────────────────────── */}
       <Drawer

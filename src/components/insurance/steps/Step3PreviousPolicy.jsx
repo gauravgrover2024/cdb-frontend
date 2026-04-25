@@ -31,42 +31,14 @@ const shellStyle =
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
-const controlStyle = {
-  width: "100%",
-  marginTop: 8,
-  height: 44,
-  borderRadius: 14,
-};
-
-const inputControlStyle = {
-  ...controlStyle,
-  paddingTop: 0,
-  paddingBottom: 0,
-  lineHeight: "44px",
-};
-
-const computedDateStyle = {
-  ...inputControlStyle,
-  pointerEvents: "none",
-  cursor: "default",
-  background: "#fff",
-  color: "rgba(0,0,0,0.88)",
-};
-
-const textAreaStyle = {
-  width: "100%",
-  marginTop: 8,
-  borderRadius: 14,
-  minHeight: 86,
-};
-
 const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
-const fieldWrapClass =
-  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-picker]:!h-[44px] [&_.ant-picker]:!w-full [&_.ant-picker]:!rounded-[14px] [&_.ant-picker]:!px-[11px] [&_.ant-picker-input_>input]:!h-[42px] [&_.ant-picker-input_>input]:!leading-[42px] [&_.ant-picker-input_>input]:!text-[14px] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!bg-[#22A06B] [&_.ant-checkbox-checked_.ant-checkbox-inner]:!border-[#22A06B] [&_.ant-checkbox:hover_.ant-checkbox-inner]:!border-[#22A06B]";
+const fieldWrapClass = "insurance-field-wrap";
+
+const textAreaStyle = { minHeight: 86 };
 
 const ALL_ADDONS = [
   "Zero Depreciation",
@@ -601,7 +573,7 @@ const Step3PreviousPolicy = ({
                 <CleanField label="Insurance Company">
                   <AutoComplete
                     value={formData.previousInsuranceCompany}
-                    style={controlStyle}
+                   
                     options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                       value: name,
                     }))}
@@ -614,7 +586,11 @@ const Step3PreviousPolicy = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
+<<<<<<< HEAD
                     <Input allowClear style={inputControlStyle} placeholder="e.g., Bajaj" />
+=======
+                    <Input placeholder="e.g., Bajaj" />
+>>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
                   </AutoComplete>
                 </CleanField>
               </div>
@@ -631,7 +607,7 @@ const Step3PreviousPolicy = ({
                       setField("previousOdExpiryDate", "");
                       setField("previousTpExpiryDate", "");
                     }}
-                    style={controlStyle}
+                   
                     options={[
                       { label: "Comprehensive", value: "Comprehensive" },
                       { label: "Stand Alone OD", value: "Stand Alone OD" },
@@ -657,7 +633,7 @@ const Step3PreviousPolicy = ({
                   <Input allowClear
                     value={formData.previousPolicyNumber}
                     onChange={handleChange("previousPolicyNumber")}
-                    style={inputControlStyle}
+                   
                     placeholder="e.g., OG-25-..."
                     title={formData.previousPolicyNumber || ""}
                   />
@@ -681,7 +657,7 @@ const Step3PreviousPolicy = ({
                           : "",
                       })
                     }
-                    style={controlStyle}
+                   
                     format={["DD/MM/YYYY", "D/M/YYYY"]}
                     placeholder="Select start date"
                     popupClassName="insurance-themed-calendar"
@@ -700,7 +676,7 @@ const Step3PreviousPolicy = ({
                         previousPolicyDuration: v,
                       })
                     }
-                    style={controlStyle}
+                   
                     options={durationSelectOptions}
                     placeholder="Duration"
                     disabled={!formData.previousPolicyType}
@@ -717,7 +693,7 @@ const Step3PreviousPolicy = ({
                       <Input allowClear
                         type="date"
                         value={formData.previousOdExpiryDate}
-                        style={computedDateStyle}
+                        style={{ pointerEvents: 'none', cursor: 'default' }}
                         readOnly
                         tabIndex={-1}
                       />
@@ -730,7 +706,7 @@ const Step3PreviousPolicy = ({
                       <Input allowClear
                         type="date"
                         value={formData.previousTpExpiryDate}
-                        style={computedDateStyle}
+                        style={{ pointerEvents: 'none', cursor: 'default' }}
                         readOnly
                         tabIndex={-1}
                       />
@@ -747,7 +723,7 @@ const Step3PreviousPolicy = ({
                     <Input allowClear
                       type="date"
                       value={formData.previousOdExpiryDate}
-                      style={computedDateStyle}
+                      style={{ pointerEvents: 'none', cursor: 'default' }}
                       readOnly
                       tabIndex={-1}
                     />
@@ -763,7 +739,7 @@ const Step3PreviousPolicy = ({
                     <Input allowClear
                       type="date"
                       value={formData.previousTpExpiryDate}
-                      style={computedDateStyle}
+                      style={{ pointerEvents: 'none', cursor: 'default' }}
                       readOnly
                       tabIndex={-1}
                     />
@@ -780,7 +756,7 @@ const Step3PreviousPolicy = ({
                     onChange={(v) =>
                       setField("previousNcbDiscount", Number(v ?? 0))
                     }
-                    style={controlStyle}
+                   
                     options={[
                       { label: "0%", value: 0 },
                       { label: "20%", value: 20 },
@@ -815,7 +791,7 @@ const Step3PreviousPolicy = ({
                   <Select allowClear
                     value={formData.claimTakenLastYear}
                     onChange={(v) => setField("claimTakenLastYear", v)}
-                    style={controlStyle}
+                   
                     options={[
                       { label: "Yes", value: "Yes" },
                       { label: "No", value: "No" },
@@ -842,7 +818,7 @@ const Step3PreviousPolicy = ({
                   <Select allowClear
                     value={formData.previousHypothecation}
                     onChange={(v) => setField("previousHypothecation", v)}
-                    style={controlStyle}
+                   
                     options={HYPOTHECATION_OPTIONS}
                     showSearch
                     filterOption={(input, option) =>
@@ -1016,7 +992,7 @@ const Step3PreviousPolicy = ({
                               idv: Number(v || 0),
                             }))
                           }
-                          style={controlStyle}
+                         
                           placeholder="₹ 0"
                           {...amountInputProps}
                         />
@@ -1036,7 +1012,7 @@ const Step3PreviousPolicy = ({
                                 basicOwnDamage: Number(v || 0),
                               }))
                             }
-                            style={controlStyle}
+                           
                             placeholder="₹ 0"
                             {...amountInputProps}
                           />
@@ -1055,7 +1031,7 @@ const Step3PreviousPolicy = ({
                                 basicThirdParty: Number(v || 0),
                               }))
                             }
-                            style={controlStyle}
+                           
                             placeholder="₹ 0"
                             {...amountInputProps}
                           />
@@ -1073,7 +1049,7 @@ const Step3PreviousPolicy = ({
                                 addOnsTotal: Number(v || 0),
                               }))
                             }
-                            style={controlStyle}
+                           
                             placeholder="₹ 0"
                             {...amountInputProps}
                           />
@@ -1089,7 +1065,7 @@ const Step3PreviousPolicy = ({
                         <InputNumber
                           min={0}
                           value={Number(computedEditModeTotalPremium || 0)}
-                          style={controlStyle}
+                         
                           placeholder="₹ 0"
                           disabled
                           {...amountInputProps}

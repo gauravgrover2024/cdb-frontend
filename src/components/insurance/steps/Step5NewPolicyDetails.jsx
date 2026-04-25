@@ -26,42 +26,12 @@ const shellStyle =
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
-const controlStyle = {
-  width: "100%",
-  marginTop: 8,
-  height: 44,
-  borderRadius: 14,
-};
-
-const inputControlStyle = {
-  ...controlStyle,
-  paddingTop: 0,
-  paddingBottom: 0,
-  lineHeight: "44px",
-};
-
-const computedDateStyle = {
-  ...inputControlStyle,
-  pointerEvents: "none",
-  cursor: "default",
-  background: "#fff",
-  color: "rgba(0,0,0,0.88)",
-};
-
-const textAreaStyle = {
-  width: "100%",
-  marginTop: 8,
-  borderRadius: 14,
-  minHeight: 86,
-};
-
 const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
-const fieldWrapClass =
-  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-input-number]:!h-[44px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[42px] [&_.ant-input-number-input]:!h-[42px] [&_.ant-input-number-input]:!leading-[42px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-picker]:!h-[44px] [&_.ant-picker]:!w-full [&_.ant-picker]:!rounded-[14px] [&_.ant-picker-input>input]:!h-[42px] [&_.ant-picker-input>input]:!leading-[42px]";
+const fieldWrapClass = "insurance-field-wrap";
 
 const CleanField = ({ label, required, hint, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
@@ -536,7 +506,7 @@ const Step5NewPolicyDetails = ({
                     min={0}
                     value={Number(formData.exShowroomPrice || 0)}
                     onChange={(v) => setField("exShowroomPrice", Number(v || 0))}
-                    style={controlStyle}
+                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -552,7 +522,7 @@ const Step5NewPolicyDetails = ({
                       type="date"
                       value={formData.dateOfSale}
                       onChange={handleChange("dateOfSale")}
-                      style={inputControlStyle}
+                     
                     />
                   </CleanField>
                 </div>
@@ -566,7 +536,7 @@ const Step5NewPolicyDetails = ({
                         type="date"
                         value={formData.dateOfPurchase}
                         onChange={handleChange("dateOfPurchase")}
-                        style={inputControlStyle}
+                       
                       />
                     </CleanField>
                   </div>
@@ -580,7 +550,7 @@ const Step5NewPolicyDetails = ({
                         onChange={(v) =>
                           setField("odometerReading", Number(v || 0))
                         }
-                        style={controlStyle}
+                       
                         placeholder="Kms"
                       />
                     </CleanField>
@@ -596,7 +566,7 @@ const Step5NewPolicyDetails = ({
                     type="date"
                     value={formData.policyPurchaseDate}
                     onChange={handleChange("policyPurchaseDate")}
-                    style={inputControlStyle}
+                   
                   />
                 </CleanField>
               </div>
@@ -608,7 +578,7 @@ const Step5NewPolicyDetails = ({
                   <Select allowClear
                     value={formData.newInsuranceDuration}
                     onChange={(v) => setField("newInsuranceDuration", v)}
-                    style={controlStyle}
+                   
                     options={ewDurationOptions}
                   />
                 </CleanField>
@@ -626,7 +596,7 @@ const Step5NewPolicyDetails = ({
                       setField("ewCommencementDate", value);
                       setField("newPolicyStartDate", value);
                     }}
-                    style={inputControlStyle}
+                   
                   />
                 </CleanField>
               </div>
@@ -638,7 +608,7 @@ const Step5NewPolicyDetails = ({
                   <Input allowClear
                     type="date"
                     value={formData.ewExpiryDate}
-                    style={computedDateStyle}
+                    style={{ pointerEvents: 'none', cursor: 'default' }}
                     readOnly
                     tabIndex={-1}
                   />
@@ -652,7 +622,7 @@ const Step5NewPolicyDetails = ({
                   <Input allowClear
                     value={String(formData.kmsCoverage ?? "")}
                     onChange={(e) => setField("kmsCoverage", e.target.value)}
-                    style={inputControlStyle}
+                   
                     placeholder="e.g. 100000 or Unlimited"
                   />
                 </CleanField>
@@ -666,7 +636,7 @@ const Step5NewPolicyDetails = ({
                     min={0}
                     value={Number(formData.newTotalPremium || 0)}
                     onChange={(v) => setField("newTotalPremium", Number(v || 0))}
-                    style={controlStyle}
+                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -680,7 +650,7 @@ const Step5NewPolicyDetails = ({
                   rows={2}
                   value={formData.newRemarks}
                   onChange={handleChange("newRemarks")}
-                  style={textAreaStyle}
+                 
                   placeholder="Notes..."
                 />
               </CleanField>
@@ -737,8 +707,13 @@ const Step5NewPolicyDetails = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
+<<<<<<< HEAD
                     <Input allowClear
                       style={inputControlStyle}
+=======
+                    <Input
+                     
+>>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
                       placeholder="e.g. HDFC ERGO General Insurance Company Limited"
                     />
                   </AutoComplete>
@@ -758,7 +733,7 @@ const Step5NewPolicyDetails = ({
                       setField("newTpExpiryDate", "");
                       setIsPolicyStartDateManual(false);
                     }}
-                    style={controlStyle}
+                   
                     options={[
                       { label: "Comprehensive", value: "Comprehensive" },
                       { label: "Stand Alone OD", value: "Stand Alone OD" },
@@ -778,7 +753,7 @@ const Step5NewPolicyDetails = ({
                   <Input allowClear
                     value={formData.newPolicyNumber}
                     onChange={handleChange("newPolicyNumber")}
-                    style={inputControlStyle}
+                   
                     title={formData.newPolicyNumber || ""}
                   />
                 </CleanField>
@@ -843,7 +818,7 @@ const Step5NewPolicyDetails = ({
                         newInsuranceDuration: v,
                       })
                     }
-                    style={controlStyle}
+                   
                     options={durationSelectOptions}
                     placeholder="Duration"
                     disabled={!formData.newPolicyType}
@@ -863,7 +838,7 @@ const Step5NewPolicyDetails = ({
                         : ""
                     }
                     placeholder="Select policy start date"
-                    style={computedDateStyle}
+                    style={{ pointerEvents: 'none', cursor: 'default' }}
                     readOnly
                     tabIndex={-1}
                   />
@@ -882,7 +857,7 @@ const Step5NewPolicyDetails = ({
                         : ""
                     }
                     placeholder="Select policy start date"
-                    style={computedDateStyle}
+                    style={{ pointerEvents: 'none', cursor: 'default' }}
                     readOnly
                     tabIndex={-1}
                   />
@@ -896,7 +871,7 @@ const Step5NewPolicyDetails = ({
                   <Select allowClear
                     value={Number(formData.newNcbDiscount || 0)}
                     onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
-                    style={controlStyle}
+                   
                     options={NCB_OPTIONS}
                   />
                 </CleanField>
@@ -922,7 +897,7 @@ const Step5NewPolicyDetails = ({
                       setField("newVehicleIdv", nextVehicleIdv);
                       setField("newIdvAmount", nextTotal);
                     }}
-                    style={controlStyle}
+                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -945,7 +920,7 @@ const Step5NewPolicyDetails = ({
                       setField("newCngIdv", nextCngIdv);
                       setField("newIdvAmount", nextTotal);
                     }}
-                    style={controlStyle}
+                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -968,7 +943,7 @@ const Step5NewPolicyDetails = ({
                       setField("newAccessoriesIdv", nextAccessoriesIdv);
                       setField("newIdvAmount", nextTotal);
                     }}
-                    style={controlStyle}
+                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -985,7 +960,7 @@ const Step5NewPolicyDetails = ({
                     onChange={(v) =>
                       setField("newTotalPremium", Number(v || 0))
                     }
-                    style={controlStyle}
+                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -999,7 +974,7 @@ const Step5NewPolicyDetails = ({
                   <Select allowClear
                     value={formData.newHypothecation}
                     onChange={(v) => setField("newHypothecation", v)}
-                    style={controlStyle}
+                   
                     options={HYPOTHECATION_OPTIONS}
                     showSearch
                     filterOption={(input, option) =>
@@ -1018,7 +993,7 @@ const Step5NewPolicyDetails = ({
                   rows={2}
                   value={formData.newRemarks}
                   onChange={handleChange("newRemarks")}
-                  style={textAreaStyle}
+                 
                   placeholder="Notes..."
                 />
               </CleanField>

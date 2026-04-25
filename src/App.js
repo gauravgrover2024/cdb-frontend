@@ -74,8 +74,8 @@ function HeaderWrapper() {
       >
         <Outlet />
       </div>
-      {/* Floating EMI Calculator FAB – rendered via portal, visible on all pages */}
-      <EMIFloatingButton />
+      {/* EMI Calculator hidden as per requirements */}
+      {/* <EMIFloatingButton /> */}
     </>
   );
 }

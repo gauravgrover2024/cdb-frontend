@@ -685,18 +685,12 @@ const LoanDocumentViewerModal = ({
                 />
               </div>
             ) : activeDoc.isPdf ? (
-              <object
-                data={pdfRenderUrl || activeDoc.url || activeDoc.rawUrl || activeDoc.proxyUrl}
-                type="application/pdf"
-                className="h-full w-full"
-              >
-                <iframe
-                  title={getDocDisplayLabel(activeDoc, activeIndex)}
-                  src={pdfRenderUrl || activeDoc.url || activeDoc.rawUrl || activeDoc.proxyUrl}
-                  className="h-full w-full"
-                  loading="lazy"
-                />
-              </object>
+              <iframe
+                title={getDocDisplayLabel(activeDoc, activeIndex)}
+                src={pdfRenderUrl || activeDoc.proxyUrl || activeDoc.url}
+                className="h-full w-full border-0"
+                loading="lazy"
+              />
             ) : (
               <div className="flex h-full min-h-[320px] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
                 <Icon name="File" size={28} />

@@ -23,32 +23,14 @@ const shellStyle =
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500";
 
-const controlStyle = {
-  width: "100%",
-  marginTop: 8,
-  height: 46,
-  borderRadius: 14,
-};
-
-const inputControlStyle = {
-  ...controlStyle,
-  paddingTop: 0,
-  paddingBottom: 0,
-  lineHeight: "46px",
-};
-
-const textAreaStyle = {
-  width: "100%",
-  marginTop: 8,
-  borderRadius: 14,
-  minHeight: 86,
-};
-
 const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600";
 
-const fieldWrapClass =
-  "[&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!h-[46px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[46px] [&_.ant-input-affix-wrapper]:!h-[46px] [&_.ant-input-affix-wrapper]:!rounded-[14px] [&_.ant-input-affix-wrapper]:!px-3 [&_.ant-input-affix-wrapper]:!py-0 [&_.ant-input-affix-wrapper]:!flex [&_.ant-input-affix-wrapper]:!items-center [&_.ant-input-affix-wrapper_.ant-input]:!h-[42px] [&_.ant-input-affix-wrapper_.ant-input]:!py-0 [&_.ant-input-affix-wrapper_.ant-input]:!leading-[42px] [&_.ant-input-number]:!h-[46px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[44px] [&_.ant-input-number-input]:!h-[44px] [&_.ant-input-number-input]:!leading-[44px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[46px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[44px] [&_.ant-select-selection-placeholder]:!leading-[44px] [&_.ant-radio-group]:!flex [&_.ant-radio-group]:!w-full [&_.ant-radio-group]:!gap-2 [&_.ant-radio-group]:!flex-wrap [&_.ant-radio-button-wrapper]:!h-[42px] [&_.ant-radio-button-wrapper]:!min-w-[124px] [&_.ant-radio-button-wrapper]:!rounded-[999px] [&_.ant-radio-button-wrapper]:!border [&_.ant-radio-button-wrapper]:!border-slate-300 [&_.ant-radio-button-wrapper]:!bg-white [&_.ant-radio-button-wrapper]:!px-5 [&_.ant-radio-button-wrapper]:!text-center [&_.ant-radio-button-wrapper]:!font-semibold [&_.ant-radio-button-wrapper]:!text-slate-600 [&_.ant-radio-button-wrapper]:!leading-[40px] [&_.ant-radio-button-wrapper]:!shadow-none [&_.ant-radio-button-wrapper]:!transition-all [&_.ant-radio-button-wrapper:hover]:!border-[#7A7CFF] [&_.ant-radio-button-wrapper:hover]:!text-slate-800 [&_.ant-radio-button-wrapper-checked]:!border-[#5B4CF0] [&_.ant-radio-button-wrapper-checked]:!bg-[#5B4CF0] [&_.ant-radio-button-wrapper-checked]:!text-white [&_.ant-radio-button-wrapper-checked]:!shadow-[0_8px_20px_rgba(37,99,235,0.28)] [&_.ant-radio-button-wrapper-checked:hover]:!border-[#5B4CF0] [&_.ant-radio-button-wrapper-checked:hover]:!color-white [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!background-[#5B4CF0] [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!color-white [&_.ant-radio-button-wrapper-checked::before]:!hidden [&_.ant-radio-button-wrapper:not(:first-child)::before]:!hidden";
+const fieldWrapClass = "insurance-field-wrap";
+
+const controlStyle = {};
+const inputControlStyle = {};
+const textAreaStyle = { minHeight: 86 };
 
 const CleanField = ({ label, required, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
@@ -237,6 +219,19 @@ const Step1CustomerInfo = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
+                <CleanField label="Channel / Dealer Number">
+                  <Input
+                    value={formData.channelDealerNo}
+                    onChange={(e) => setField("channelDealerNo", e.target.value)}
+                    placeholder="Dealer Number"
+                    allowClear
+                  />
+                </CleanField>
+              </div>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
                 <CleanField label="Employee (staff)" required>
                   <AutoComplete
                     value={formData.employeeName}
@@ -250,7 +245,8 @@ const Step1CustomerInfo = ({
                     }}
                     options={employeeOptions}
                     loading={employeesLoading}
-                    placeholder="Search staff"
+                    placeholder="Staff Name"
+                    allowClear
                     style={{ width: "100%", marginTop: 8 }}
                     onSelect={(id) => {
                       const emp = employeesList.find(
@@ -304,8 +300,9 @@ const Step1CustomerInfo = ({
                     <Input allowClear
                       value={formData.brokerName}
                       onChange={handleChange("brokerName")}
-                      placeholder="Enter broker name"
-                      style={inputControlStyle}
+                      placeholder="Broker Name"
+                      allowClear
+                     
                       status={
                         showErrors && step1Errors.brokerName ? "error" : ""
                       }
@@ -325,8 +322,9 @@ const Step1CustomerInfo = ({
                     <Input allowClear
                       value={formData.showroomName}
                       onChange={handleChange("showroomName")}
-                      placeholder="Enter showroom name"
-                      style={inputControlStyle}
+                      placeholder="Showroom Name"
+                      allowClear
+                     
                       status={
                         showErrors && step1Errors.showroomName ? "error" : ""
                       }
@@ -369,8 +367,9 @@ const Step1CustomerInfo = ({
                     <Input allowClear
                       value={formData.sourceName}
                       onChange={handleChange("sourceName")}
-                      placeholder="Enter source name"
-                      style={inputControlStyle}
+                      placeholder="Source Name"
+                      allowClear
+                     
                       status={
                         showErrors && step1Errors.sourceName ? "error" : ""
                       }
@@ -392,7 +391,7 @@ const Step1CustomerInfo = ({
                         value={formData.dealerChannelName}
                         onChange={handleChange("dealerChannelName")}
                         placeholder="Dealer / Channel"
-                        style={inputControlStyle}
+                       
                         status={
                           showErrors && step1Errors.dealerChannelName
                             ? "error"
@@ -412,7 +411,7 @@ const Step1CustomerInfo = ({
                         value={formData.dealerChannelAddress}
                         onChange={handleChange("dealerChannelAddress")}
                         placeholder="Dealer / Channel address"
-                        style={inputControlStyle}
+                       
                         status={
                           showErrors && step1Errors.dealerChannelAddress
                             ? "error"
@@ -581,7 +580,7 @@ const Step1CustomerInfo = ({
                         status={
                           showErrors && step1Errors.companyName ? "error" : ""
                         }
-                        placeholder="Search company..."
+                        placeholder="Company Name"
                       />
                     </CleanField>
                   </div>
@@ -596,13 +595,13 @@ const Step1CustomerInfo = ({
                       <Input allowClear
                         value={formData.contactPersonName}
                         onChange={handleChange("contactPersonName")}
-                        style={inputControlStyle}
+                       
                         status={
                           showErrors && step1Errors.contactPersonName
                             ? "error"
                             : ""
                         }
-                        placeholder="Enter contact person name"
+                        placeholder="Contact Person Name"
                       />
                     </CleanField>
                   </div>
@@ -654,7 +653,7 @@ const Step1CustomerInfo = ({
                           </span>
                         )
                       }
-                      placeholder="Search customer..."
+                      placeholder="Customer Name"
                       status={
                         showErrors && step1Errors.customerName ? "error" : ""
                       }
@@ -704,7 +703,7 @@ const Step1CustomerInfo = ({
                     notFoundContent={
                       customerSearchLoading ? "Searching…" : null
                     }
-                    placeholder="10-digit mobile"
+                    placeholder="Mobile"
                     status={showErrors && step1Errors.mobile ? "error" : ""}
                   />
                 </CleanField>
@@ -726,8 +725,8 @@ const Step1CustomerInfo = ({
                       setField("alternatePhone", digits);
                     }}
                     maxLength={10}
-                    placeholder="Optional"
-                    style={inputControlStyle}
+                    placeholder="Alternate Phone"
+                   
                   />
                 </CleanField>
               </div>
@@ -739,11 +738,9 @@ const Step1CustomerInfo = ({
                   <Input allowClear
                     value={formData.email}
                     onChange={handleChange("email")}
-                    style={inputControlStyle}
+                   
                     status={showErrors && step1Errors.email ? "error" : ""}
-                    placeholder={
-                      isCompany ? "Company email address" : "Email address"
-                    }
+                    placeholder="Email Address"
                   />
                 </CleanField>
               </div>
@@ -766,7 +763,7 @@ const Step1CustomerInfo = ({
                         { label: "Female", value: "Female" },
                         { label: "Other", value: "Other" },
                       ]}
-                      placeholder="Select gender"
+                      placeholder="Select Gender"
                     />
                   </CleanField>
                 </div>
@@ -782,9 +779,9 @@ const Step1CustomerInfo = ({
                   <Input allowClear
                     value={formData.panNumber}
                     onChange={handleChange("panNumber")}
-                    style={inputControlStyle}
+                   
                     status={showErrors && step1Errors.panNumber ? "error" : ""}
-                    placeholder="ABCDE1234F"
+                    placeholder="e.g. ABCDE1234F"
                   />
                 </CleanField>
               </div>
@@ -800,7 +797,7 @@ const Step1CustomerInfo = ({
                     <Input allowClear
                       value={formData.gstNumber}
                       onChange={handleChange("gstNumber")}
-                      style={inputControlStyle}
+                     
                       placeholder="Optional"
                     />
                   </CleanField>
@@ -813,7 +810,7 @@ const Step1CustomerInfo = ({
                     <Input allowClear
                       value={formData.aadhaarNumber}
                       onChange={handleChange("aadhaarNumber")}
-                      style={inputControlStyle}
+                     
                       placeholder="Optional"
                     />
                   </CleanField>
@@ -830,11 +827,11 @@ const Step1CustomerInfo = ({
                   rows={2}
                   value={formData.residenceAddress}
                   onChange={handleChange("residenceAddress")}
-                  style={textAreaStyle}
+                 
                   status={
                     showErrors && step1Errors.residenceAddress ? "error" : ""
                   }
-                  placeholder="Enter complete address"
+                  placeholder="Address"
                 />
               </CleanField>
               {showErrors && step1Errors.residenceAddress ? (
@@ -854,7 +851,7 @@ const Step1CustomerInfo = ({
                       setField("pincode", digits);
                     }}
                     maxLength={6}
-                    style={inputControlStyle}
+                   
                     status={showErrors && step1Errors.pincode ? "error" : ""}
                     placeholder="Pincode"
                   />
@@ -881,7 +878,7 @@ const Step1CustomerInfo = ({
                   <Input allowClear
                     value={formData.city}
                     onChange={handleChange("city")}
-                    style={inputControlStyle}
+                   
                     status={showErrors && step1Errors.city ? "error" : ""}
                     placeholder="City"
                   />
@@ -932,8 +929,9 @@ const Step1CustomerInfo = ({
                       <Input allowClear
                         value={formData.nomineeName}
                         onChange={handleChange("nomineeName")}
-                        placeholder="Nominee Name"
-                        style={inputControlStyle}
+                        placeholder="Name"
+                        allowClear
+                       
                       />
                     </CleanField>
                   </div>
@@ -946,7 +944,7 @@ const Step1CustomerInfo = ({
                         value={formData.nomineeRelationship}
                         onChange={handleChange("nomineeRelationship")}
                         placeholder="Relationship"
-                        style={inputControlStyle}
+                       
                       />
                     </CleanField>
                   </div>

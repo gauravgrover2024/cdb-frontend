@@ -74,10 +74,10 @@ const premiumNum = (c) => {
   const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(c);
   const acceptedPremium = Number(
     acceptedQuote?.totalPremium ??
-      acceptedQuote?.grossPremium ??
-      acceptedQuote?.finalPremium ??
-      acceptedBreakup?.totalPremium ??
-      0,
+    acceptedQuote?.grossPremium ??
+    acceptedQuote?.finalPremium ??
+    acceptedBreakup?.totalPremium ??
+    0,
   );
   if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
     return acceptedPremium;
@@ -261,9 +261,15 @@ const getPolicyOriginType = (record = {}) => {
   );
   const persistedClassification = normalizeUsedCarFlowLabel(
     record.policyJourneyClassification ||
+<<<<<<< HEAD
       record.policyOriginType ||
       record.journeyClassification ||
       record.journeyType,
+=======
+    record.policyOriginType ||
+    record.journeyClassification ||
+    record.journeyType,
+>>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
   );
 
   if (vehicleType === "used car") {
@@ -464,7 +470,7 @@ const buildTrendSeries = (history = [], width = 220, height = 56, pad = 6) => {
         idx === 0 ||
         idx === rows.length - 1 ||
         String(row?.policyStartYear || "") !==
-          String(rows[idx - 1]?.policyStartYear || ""),
+        String(rows[idx - 1]?.policyStartYear || ""),
     };
   });
   const premiumPath = points
@@ -687,21 +693,21 @@ const computeInsuranceQuoteBreakup = (quote) => {
     : 0;
   const odAmt = includesOd
     ? Number(
-        quote.odAmount ??
-          quote.ownDamage ??
-          quote.basicOwnDamage ??
-          quote.odPremium ??
-          0,
-      )
+      quote.odAmount ??
+      quote.ownDamage ??
+      quote.basicOwnDamage ??
+      quote.odPremium ??
+      0,
+    )
     : 0;
   const tpAmt = includesTp
     ? Number(
-        quote.thirdPartyAmount ??
-          quote.thirdParty ??
-          quote.basicThirdParty ??
-          quote.tpPremium ??
-          0,
-      )
+      quote.thirdPartyAmount ??
+      quote.thirdParty ??
+      quote.basicThirdParty ??
+      quote.tpPremium ??
+      0,
+    )
     : 0;
   const ncbPct = Number(
     quote.ncbDiscount ?? quote.newNcbDiscount ?? quote.ncb_percentage ?? 0,
@@ -712,10 +718,10 @@ const computeInsuranceQuoteBreakup = (quote) => {
   const computedTotalPremium = taxableAmount + gstAmount;
   const storedTotalPremium = Number(
     quote.totalPremium ??
-      quote.newTotalPremium ??
-      quote.grossPremium ??
-      quote.finalPremium ??
-      0,
+    quote.newTotalPremium ??
+    quote.grossPremium ??
+    quote.finalPremium ??
+    0,
   );
   const totalPremium =
     Number.isFinite(storedTotalPremium) && storedTotalPremium > 0
@@ -751,8 +757,8 @@ const MetricCard = ({
 
   return (
     <motion.div
-      whileHover={{ y: -2, scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ y: -3, scale: 1.02 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
       className="relative cursor-pointer overflow-hidden rounded-xl border transition-all"
       style={{
@@ -808,10 +814,11 @@ const MetricCard = ({
 
 
 const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
+  const c = CHIP_COLORS[label] || { active: "#475569", shadow: "#47556940" };
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
       className="rounded-lg border-2 transition-all"
       style={{
@@ -820,21 +827,16 @@ const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
         boxShadow: isActive ? "0 2px 8px rgba(15, 23, 42, 0.2)" : "none",
       }}
     >
-      <div className="px-3 py-1.5 flex items-center gap-2">
-        {Icon && (
-          <Icon size={13} style={{ color: isActive ? "#ffffff" : "#64748b" }} />
-        )}
-        <span
-          className="text-sm font-semibold"
-          style={{ color: isActive ? "#ffffff" : "#0f172a" }}
-        >
+      <div className="flex items-center gap-2 px-3 py-1.5">
+        {Icon && <Icon size={13} style={{ color: isActive ? "#fff" : c.active }} />}
+        <span className="text-[13px] font-semibold" style={{ color: isActive ? "#fff" : "#374151" }}>
           {label}
         </span>
         <span
-          className="px-1.5 py-0.5 rounded text-xs font-bold"
+          className="rounded px-1.5 py-0.5 text-[11px] font-bold"
           style={{
-            background: isActive ? "rgba(255, 255, 255, 0.2)" : "#f1f5f9",
-            color: isActive ? "#ffffff" : "#64748b",
+            background: isActive ? "rgba(255,255,255,0.22)" : `${c.active}15`,
+            color: isActive ? "#fff" : c.active,
           }}
         >
           {count}
@@ -918,7 +920,7 @@ const PolicyCard = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       className="relative bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
@@ -927,8 +929,9 @@ const PolicyCard = ({
         fontFamily: "var(--default-font-family)",
       }}
     >
+      {/* Accent left bar */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+        className="absolute left-0 top-0 bottom-0 w-[3px]"
         style={{ background: accentColor }}
       />
 
@@ -1142,6 +1145,19 @@ const PolicyCard = ({
                 </p>
               </div>
             </div>
+            <p className="text-[10px] text-slate-400 truncate mt-0.5">
+              Source: {policy.source || "—"}
+              {policy.isIndirectSource && policy.sourceDetailsName
+                ? ` · ${policy.sourceDetailsName}`
+                : ""}
+            </p>
+          </div>
+          <div className="border-t border-slate-100 pt-2">
+            <p className="text-[12px] font-semibold text-slate-700 leading-tight truncate" title={policy.vehicle}>
+              {policy.vehicle || "—"}
+              {policy.vehicleYear && <span className="font-normal text-slate-400"> · {policy.vehicleYear}</span>}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-500 font-mono">{policy.registration || "—"}</p>
           </div>
         </div>
 
@@ -1405,6 +1421,11 @@ const PolicyCard = ({
                 </span>
               </div>
             </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-slate-500">Expiry</span>
+              <span className="font-semibold text-slate-800 truncate">{policy.expiryLabel || "—"}</span>
+            </div>
+          </div>
 
             {/* Body */}
             <div className="p-3 space-y-3">
@@ -1461,10 +1482,12 @@ const PolicyCard = ({
             </div>
           </div>
         </div>
+
       </div>
     </motion.div>
   );
 };
+
 
 // ============================================
 // MAIN DASHBOARD COMPONENT
@@ -1800,9 +1823,9 @@ const InsuranceDashboardPage = () => {
         snap.contactPersonName || record.contactPersonName || "";
       const sourceIdentity = String(
         record.sourceName ||
-          record.dealerChannelName ||
-          record.referenceName ||
-          "",
+        record.dealerChannelName ||
+        record.referenceName ||
+        "",
       )
         .trim()
         .toLowerCase();
@@ -1965,8 +1988,8 @@ const InsuranceDashboardPage = () => {
 
       const fallbackInsurerPaidByCustomer = Number(
         record.customerPaymentToInsurer ||
-          record.customer_payment_to_insurer ||
-          0,
+        record.customer_payment_to_insurer ||
+        0,
       );
       const fallbackInsurerPaidByAc = Math.max(
         0,
@@ -1991,23 +2014,23 @@ const InsuranceDashboardPage = () => {
         effectiveInsurerPaidTotal > 0
           ? effectiveInsurerMode === INSURER_SETTLEMENT_MODE.CUSTOMER
             ? {
-                label: "Customer paid insurer",
-                amount: effectiveInsurerPaidByCustomer,
-                type: "good",
-                date: latestInsurerRow?.date || null,
-              }
+              label: "Customer paid insurer",
+              amount: effectiveInsurerPaidByCustomer,
+              type: "good",
+              date: latestInsurerRow?.date || null,
+            }
             : {
-                label: "Autocredits paid insurer",
-                amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
-                type: "good",
-                date: latestInsurerRow?.date || null,
-              }
+              label: "Autocredits paid insurer",
+              amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
+              type: "good",
+              date: latestInsurerRow?.date || null,
+            }
           : {
-              label: "Insurer payment pending",
-              amount: Math.max(0, premium - effectiveInsurerPaidTotal),
-              type: premium > 0 ? "warning" : "neutral",
-              date: null,
-            };
+            label: "Insurer payment pending",
+            amount: Math.max(0, premium - effectiveInsurerPaidTotal),
+            type: premium > 0 ? "warning" : "neutral",
+            date: null,
+          };
 
       const effectiveSubventionNr = ledgerTotals.subventionNotRecoverable;
       const effectiveSubventionRefund = Math.max(
@@ -2135,6 +2158,7 @@ const InsuranceDashboardPage = () => {
       style={{
         ...FONT_VARS,
         fontFamily: "var(--default-font-family)",
+        background: "linear-gradient(160deg, #f0f4ff 0%, #fafafa 60%)",
       }}
     >
       <div className="max-w-[1920px] mx-auto space-y-4">
@@ -2148,15 +2172,14 @@ const InsuranceDashboardPage = () => {
         <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-white/60">
                 Insurance Workspace
               </p>
-              <h1 className="text-2xl font-black text-slate-900">
+              <h1 className="mt-0.5 text-2xl font-black text-white">
                 Policy Dashboard
               </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Cases, revenue, renewals and payment movement in one operating
-                view.
+              <p className="mt-1 text-[13px] text-white/70">
+                Cases, revenue, renewals &amp; payments — one view.
               </p>
             </div>
 
@@ -2295,7 +2318,7 @@ const InsuranceDashboardPage = () => {
               />
               <input
                 type="text"
-                placeholder="Search by customer, policy, vehicle, registration..."
+                placeholder="Search by customer, policy, vehicle, registration…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
@@ -2303,20 +2326,20 @@ const InsuranceDashboardPage = () => {
             </div>
             <motion.button
               whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => navigate("/insurance/new")}
               className="px-5 py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
             >
-              <Plus size={18} />
+              <Plus size={16} />
               New Policy
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileTap={{ scale: 0.97 }}
               onClick={loadCases}
               className="px-4 py-2.5 rounded-lg font-semibold text-slate-700 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 transition-colors"
             >
-              <RefreshCw size={18} />
+              <RefreshCw size={16} />
             </motion.button>
           </div>
 
@@ -2410,25 +2433,24 @@ const InsuranceDashboardPage = () => {
           />
         )}
         {loading && cases.length === 0 && (
-          <div className="flex min-h-[220px] items-center justify-center text-slate-500 bg-white rounded-xl border-2 border-slate-200">
-            Loading insurance cases…
+          <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
+            <div className="flex items-center gap-2">
+              <RefreshCw size={16} className="animate-spin text-indigo-400" />
+              Loading insurance cases…
+            </div>
           </div>
         )}
         {!loading && filteredCases.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-16 bg-white rounded-xl border-2 border-slate-200"
+            className="rounded-xl border border-slate-200 bg-white py-16 text-center"
           >
-            <div className="inline-block p-6 rounded-2xl mb-4 bg-slate-50">
-              <Search size={48} className="text-slate-400" />
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl" style={{ background: "linear-gradient(135deg,#4f46e520,#0ea5e920)" }}>
+              <Search size={36} className="text-indigo-400" />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">
-              No policies found
-            </h3>
-            <p className="text-slate-600">
-              Try adjusting your filters or search query
-            </p>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">No policies found</h3>
+            <p className="text-sm text-slate-500">Try adjusting your filters or search query</p>
           </motion.div>
         )}
 

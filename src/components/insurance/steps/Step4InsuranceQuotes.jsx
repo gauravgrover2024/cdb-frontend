@@ -474,13 +474,25 @@ const QuoteCard = ({
             </div>
           </div>
 
-          <div className="text-right shrink-0">
-            <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              IDV
-            </p>
-            <p className="m-0 text-sm font-black tabular-nums text-slate-800">
-              {formatStoredOrComputedIdv(row)}
-            </p>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <div>
+              <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                IDV
+              </p>
+              <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+                {formatStoredOrComputedIdv(row)}
+              </p>
+            </div>
+            {row.payoutPercentage > 0 && (
+              <div className="mt-1 text-right">
+                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-500">
+                  Est. Payout
+                </p>
+                <p className="m-0 text-xs font-bold tabular-nums text-emerald-600">
+                  {toINR((row.payoutBaseAmount || 0) * (row.payoutPercentage / 100))}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -902,9 +914,9 @@ const Step4InsuranceQuotes = ({
                             ncbDiscount: Number(suggestedNcbDiscount || 0),
                           }))
                         }
-                        className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
+                        className="ml-2 rounded-lg bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 border-0"
                       >
-                        Use suggested
+                        Apply
                       </button>
                     ) : null}
                   </>
@@ -921,6 +933,21 @@ const Step4InsuranceQuotes = ({
                   }
                   className="w-full quote-control"
                   options={NCB_OPTIONS}
+                />
+              </FieldBlock>
+
+              <FieldBlock label="Payout Percentage (%)">
+                <InputNumber
+                  size="large"
+                  min={0}
+                  max={100}
+                  value={quoteDraft.payoutPercentage || 0}
+                  onChange={(v) =>
+                    setQuoteDraft((p) => ({ ...p, payoutPercentage: Number(v || 0) }))
+                  }
+                  addonAfter="%"
+                  className="w-full quote-control"
+                  placeholder="0"
                 />
               </FieldBlock>
 

@@ -20,16 +20,6 @@ const formatMoney = (v) => {
   }).format(n);
 };
 
-const stepPillClass = (step) => {
-  if (step >= 8) {
-    return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300";
-  }
-  if (step >= 4) {
-    return "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-300";
-  }
-  return "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300";
-};
-
 const STEP_NAMES = {
   1: "Customer Info",
   2: "Vehicle Details",
@@ -65,50 +55,46 @@ const STEP_ICONS = {
   9: "Banknote",
 };
 
-const SummarySegment = ({
-  icon,
-  label,
-  title,
-  line1,
-  line2,
-  tint = "",
-  divider = true,
-  rightSlot = null,
-}) => {
+// Colour palette for each segment
+const SEGMENT_STYLES = [
+  { dot: "#6366f1", bg: "rgba(99,102,241,0.08)", label: "#6366f1" },   // indigo – Customer
+  { dot: "#0ea5e9", bg: "rgba(14,165,233,0.08)", label: "#0ea5e9" },    // sky – Policy
+  { dot: "#10b981", bg: "rgba(16,185,129,0.08)", label: "#10b981" },    // emerald – Premium
+  { dot: "#f59e0b", bg: "rgba(245,158,11,0.08)",  label: "#f59e0b" },   // amber – Vehicle
+  { dot: "#8b5cf6", bg: "rgba(139,92,246,0.08)", label: "#8b5cf6" },    // violet – Progress
+];
+
+const SummarySegment = ({ icon, label, title, line1, line2, divider = true, rightSlot = null, colorIdx = 0 }) => {
+  const c = SEGMENT_STYLES[colorIdx] ?? SEGMENT_STYLES[0];
   return (
     <div
-      className={`insurance-summary-segment min-w-[190px] flex-1 px-3 py-2 ${tint} ${
-        divider ? "border-r border-slate-200/70 dark:border-slate-800/80" : ""
-      }`}
+      className={`min-w-[160px] flex-1 px-4 py-2.5 ${divider ? "border-r border-slate-100" : ""}`}
+      style={{ background: c.bg }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            <Icon name={icon} size={10} />
+          {/* Coloured label row */}
+          <p
+            className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest"
+            style={{ color: c.label }}
+          >
+            <Icon name={icon} size={9} />
             {label}
           </p>
 
-          <p className="mt-0.5 truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+          {/* Primary value */}
+          <p className="mt-0.5 truncate text-[13px] font-semibold text-slate-800">
             {title || "—"}
           </p>
 
-          <div className="mt-0.5 flex flex-col gap-0.5">
-            <p className="truncate text-[9px] font-medium leading-none text-slate-500 dark:text-slate-400">
-              {line1 || "—"}
-            </p>
-            <p className="truncate text-[9px] font-medium leading-none text-slate-500 dark:text-slate-400">
-              {line2 || "—"}
-            </p>
+          {/* Secondary lines */}
+          <div className="mt-0.5 space-y-0.5">
+            {line1 && <p className="truncate text-[10px] text-slate-500">{line1}</p>}
+            {line2 && <p className="truncate text-[10px] text-slate-400">{line2}</p>}
           </div>
         </div>
 
-        {rightSlot ? (
-          <div className="mt-0.5 shrink-0">{rightSlot}</div>
-        ) : (
-          <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/90 bg-white/80 text-slate-400 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-500">
-            <Icon name="ChevronRight" size={10} />
-          </div>
-        )}
+        {rightSlot && <div className="mt-0.5 shrink-0">{rightSlot}</div>}
       </div>
     </div>
   );
@@ -142,141 +128,133 @@ const InsuranceStickyHeader = ({
   }, [skipPreviousPolicyStep, skipQuotesStep]);
 
   const currentStepIndex = Math.max(visibleSteps.indexOf(activeStep), 0);
+  const progress = Math.round(((currentStepIndex + 1) / visibleSteps.length) * 100);
 
   return (
     <>
+      {/* ── Sticky Summary Bar ── */}
       <div
         ref={innerRef}
-        className="insurance-sticky-shell fixed left-0 right-0 z-[100] w-full border-b border-slate-200/70 bg-background/95 shadow-sm backdrop-blur-sm dark:border-slate-800"
-        style={{ top: 60 }}
+        className="fixed left-0 right-0 z-[100] w-full"
+        style={{
+          top: 60,
+          background: "#ffffff",
+          borderBottom: "1px solid #e2e8f0",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+        }}
       >
-        <div className="w-full px-2 py-2 sm:px-3 md:px-4">
-          <div className="insurance-sticky-summary overflow-hidden rounded-2xl border border-slate-200/80 bg-white/92 shadow-[0_6px_18px_rgba(15,23,42,0.05)] dark:border-slate-800 dark:bg-slate-950/88">
-            <div className="flex items-stretch overflow-x-auto no-scrollbar">
-              <SummarySegment
-                icon="User"
-                label="Customer"
-                title={
-                  String(data.buyerType || "").toLowerCase() === "company"
-                    ? data.companyName ||
-                      data.contactPersonName ||
-                      data.customerName ||
-                      "New Case"
-                    : data.customerName ||
-                      data.contactPersonName ||
-                      data.companyName ||
-                      "New Case"
-                }
-                line1={`${data.mobile || "—"} • ${data.email || "—"}`}
-                line2={`PAN: ${data.panNumber || "—"}${
-                  data.employeeName ? ` • Staff: ${data.employeeName}` : ""
-                }`}
-                tint="bg-gradient-to-br from-indigo-100/90 via-indigo-50/70 to-cyan-50/80 dark:bg-sky-950/10"
-              />
+        <div className="w-full">
+          {/* Progress bar — thin coloured strip at very top */}
+          <div className="h-[3px] w-full bg-slate-100">
+            <div
+              className="h-full transition-all duration-500"
+              style={{
+                width: `${progress}%`,
+                background: "linear-gradient(90deg, #6366f1, #0ea5e9)",
+              }}
+            />
+          </div>
 
-              <SummarySegment
-                icon="Shield"
-                label="Policy"
-                title={policyCoreLabel}
-                line1={`${data.newInsuranceDuration || "1yr OD + 1yr TP"} • ${
-                  data.newPolicyType || "—"
-                }`}
-                line2={`${data.newPolicyNumber || "No Policy #"} • Starts: ${
-                  data.newPolicyStartDate || "—"
-                }`}
-                tint="bg-gradient-to-br from-cyan-100/90 via-cyan-50/70 to-teal-50/80 dark:bg-emerald-950/10"
-              />
-
-              <SummarySegment
-                icon="IndianRupee"
-                label="Premium & IDV"
-                title={formatMoney(data.newTotalPremium)}
-                line1={`IDV: ${formatMoney(data.newIdvAmount)} • NCB: ${
-                  data.newNcbDiscount || 0
-                }%`}
-                line2={`Subvention: ${formatMoney(data.subventionAmount)}`}
-                tint="bg-gradient-to-br from-emerald-100/80 via-emerald-50/70 to-teal-50/80 dark:bg-teal-950/10"
-              />
-
-              <SummarySegment
-                icon="Car"
-                label="Vehicle"
-                title={vehicleLine || "—"}
-                line1={`Reg: ${data.registrationNumber || "Unregistered"} • Year: ${
-                  data.manufactureYear || "—"
-                }`}
-                line2={`Chassis: ${data.chassisNumber || "—"}`}
-                tint="bg-gradient-to-br from-violet-100/85 via-violet-50/65 to-purple-50/80 dark:bg-violet-950/10"
-              />
-
-              <SummarySegment
-                icon="BarChart2"
-                label="Workflow"
-                title={`ID: ${String(data.id || data._id || "NEW").slice(-8)}`}
-                line1={STEP_NAMES[activeStep] || "—"}
-                line2={`${currentStepIndex + 1} of ${visibleSteps.length} steps`}
-                tint="bg-gradient-to-br from-amber-100/90 via-orange-50/75 to-rose-50/75 dark:bg-amber-950/10"
-                divider={false}
-                rightSlot={
-                  <span
-                    className={`insurance-stage-pill inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold ${stepPillClass(
-                      activeStep,
-                    )}`}
-                  >
-                    {STEP_SHORT_NAMES[activeStep] || "Stage"}
-                  </span>
-                }
-              />
-            </div>
+          {/* Summary segments */}
+          <div className="flex items-stretch overflow-x-auto px-0" style={{ scrollbarWidth: "none" }}>
+            <SummarySegment
+              icon="User"
+              label="Customer"
+              colorIdx={0}
+              title={
+                String(data.buyerType || "").toLowerCase() === "company"
+                  ? data.companyName || data.contactPersonName || data.customerName || "New Case"
+                  : data.customerName || data.contactPersonName || data.companyName || "New Case"
+              }
+              line1={[data.mobile, data.email].filter(Boolean).join(" · ") || "—"}
+              line2={data.panNumber ? `PAN: ${data.panNumber}` : undefined}
+            />
+            <SummarySegment
+              icon="Shield"
+              label="Policy"
+              colorIdx={1}
+              title={policyCoreLabel}
+              line1={[data.newPolicyType, data.newInsuranceDuration].filter(Boolean).join(" · ") || "—"}
+              line2={data.newPolicyNumber || undefined}
+            />
+            <SummarySegment
+              icon="IndianRupee"
+              label="Premium"
+              colorIdx={2}
+              title={formatMoney(data.newTotalPremium)}
+              line1={`IDV: ${formatMoney(data.newIdvAmount)} · NCB: ${data.newNcbDiscount || 0}%`}
+              line2={
+                data.subventionAmount
+                  ? `Subvention: ${formatMoney(data.subventionAmount)}`
+                  : undefined
+              }
+            />
+            <SummarySegment
+              icon="Car"
+              label="Vehicle"
+              colorIdx={3}
+              title={vehicleLine || "—"}
+              line1={`Reg: ${data.registrationNumber || "Unregistered"}`}
+              line2={data.manufactureYear ? `Year: ${data.manufactureYear}` : undefined}
+            />
+            <SummarySegment
+              icon="BarChart2"
+              label="Progress"
+              colorIdx={4}
+              divider={false}
+              title={STEP_NAMES[activeStep] || "—"}
+              line1={`Step ${currentStepIndex + 1} of ${visibleSteps.length}`}
+              rightSlot={
+                <span
+                  className="inline-flex items-center rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
+                  style={{ background: SEGMENT_STYLES[4].dot }}
+                >
+                  {STEP_SHORT_NAMES[activeStep] || "Stage"}
+                </span>
+              }
+            />
           </div>
         </div>
       </div>
 
-      <div className="fixed bottom-[72px] left-1/2 z-[120] -translate-x-1/2 px-3">
-        <div className="insurance-step-rail flex max-w-[calc(100vw-40px)] items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200/70 bg-white/78 px-2 py-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.10)] backdrop-blur-xl no-scrollbar dark:border-slate-800/80 dark:bg-slate-950/60">
-          {visibleSteps.map((stepNum) => {
+      {/* ── Step Rail — floating above footer ── */}
+      <div className="fixed bottom-[60px] left-1/2 z-[120] -translate-x-1/2 px-3">
+        <div
+          className="flex max-w-[calc(100vw-32px)] items-center gap-0.5 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1"
+          style={{
+            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            scrollbarWidth: "none",
+          }}
+        >
+          {visibleSteps.map((stepNum, idx) => {
             const isActive = activeStep === stepNum;
-
+            const isDone = visibleSteps.indexOf(activeStep) > idx;
             return (
               <button
                 key={stepNum}
                 type="button"
                 onClick={() => onStepClick?.(stepNum)}
                 title={STEP_NAMES[stepNum]}
-                className={`insurance-nav-step group inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3 text-[10px] font-medium tracking-tight transition-all duration-200 ${
+                className="inline-flex h-7 shrink-0 items-center gap-1 rounded px-2.5 text-[10px] font-semibold tracking-tight transition-all duration-150"
+                style={
                   isActive
-                    ? "is-active bg-gradient-to-r from-indigo-600 to-cyan-500 text-white shadow-[0_8px_22px_rgba(79,70,229,0.34)] dark:bg-primary dark:text-white"
-                    : "bg-transparent text-slate-500 hover:bg-white/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
-                }`}
+                    ? {
+                        background: "linear-gradient(90deg, #6366f1, #0ea5e9)",
+                        color: "#fff",
+                        boxShadow: "0 2px 8px rgba(99,102,241,0.35)",
+                      }
+                    : isDone
+                    ? { background: "#f0fdf4", color: "#16a34a" }
+                    : { color: "#64748b" }
+                }
               >
-                <span className="flex items-center justify-center">
-                  <Icon
-                    name={STEP_ICONS[stepNum]}
-                    size={12}
-                    className={
-                      isActive ? "text-[hsl(var(--primary-foreground))]" : ""
-                    }
-                  />
-                </span>
-
-                <span className="whitespace-nowrap">
-                  {STEP_SHORT_NAMES[stepNum]}
-                </span>
+                <Icon name={STEP_ICONS[stepNum]} size={11} />
+                <span className="whitespace-nowrap">{STEP_SHORT_NAMES[stepNum]}</span>
               </button>
             );
           })}
         </div>
       </div>
-
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </>
   );
 };

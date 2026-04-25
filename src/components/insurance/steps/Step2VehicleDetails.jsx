@@ -29,25 +29,12 @@ const shellStyle =
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
-const controlStyle = {
-  width: "100%",
-  marginTop: 8,
-  height: 44,
-  borderRadius: 14,
-};
-
-const inputControlStyle = {
-  ...controlStyle,
-  paddingTop: 0,
-  paddingBottom: 0,
-  lineHeight: "44px",
-};
-
 const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
-const fieldWrapClass =
-  "[&_.ant-input]:!h-[44px] [&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[44px] [&_.ant-select-selector]:!h-[44px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[42px] [&_.ant-select-selection-placeholder]:!leading-[42px] [&_.ant-select-clear]:!inset-inline-end-[10px] [&_.ant-select-arrow]:!inset-inline-end-[11px] [&_.ant-radio-button-wrapper]:!h-[38px] [&_.ant-radio-button-wrapper]:!leading-[36px]";
+const fieldWrapClass = "insurance-field-wrap";
+
+const controlStyle = {};
 
 const CleanField = ({ label, required, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
@@ -292,7 +279,7 @@ const Step2VehicleDetails = ({
                     <Input allowClear
                       value={formData.registrationNumber}
                       readOnly
-                      style={inputControlStyle}
+                     
                       status={
                         showErrors && step2Errors.registrationNumber
                           ? "error"
@@ -362,8 +349,13 @@ const Step2VehicleDetails = ({
                           : "No matching registration"
                       }
                     >
+<<<<<<< HEAD
                       <Input allowClear
                         style={inputControlStyle}
+=======
+                      <Input
+                       
+>>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
                         status={
                           showErrors && step2Errors.registrationNumber
                             ? "error"
@@ -388,7 +380,7 @@ const Step2VehicleDetails = ({
                       <Input allowClear
                         value={formData.regAuthority}
                         onChange={handleChange("regAuthority")}
-                        style={inputControlStyle}
+                       
                         placeholder="e.g. DL-01"
                       />
                     </CleanField>
@@ -437,7 +429,7 @@ const Step2VehicleDetails = ({
                 <CleanField label="Vehicle Make" required>
                   <Select
                     value={formData.vehicleMake || undefined}
-                    placeholder="Select make"
+                    placeholder="Select Make"
                     allowClear
                     onChange={(val) => {
                       setField("vehicleMake", val || "");
@@ -475,7 +467,7 @@ const Step2VehicleDetails = ({
                 <CleanField label="Vehicle Model" required>
                   <Select
                     value={formData.vehicleModel || undefined}
-                    placeholder="Select model"
+                    placeholder="Select Model"
                     allowClear
                     onChange={(val) => {
                       setField("vehicleModel", val || "");
@@ -513,7 +505,7 @@ const Step2VehicleDetails = ({
                 <CleanField label="Vehicle Variant" required>
                   <Select
                     value={formData.vehicleVariant || undefined}
-                    placeholder="Select variant"
+                    placeholder="Select Variant"
                     allowClear
                     onChange={(val) => {
                       setField("vehicleVariant", val || "");
@@ -574,7 +566,7 @@ const Step2VehicleDetails = ({
                   <Input allowClear
                     value={formData.cubicCapacity}
                     onChange={handleChange("cubicCapacity")}
-                    style={inputControlStyle}
+                   
                     placeholder="Auto-filled"
                   />
                 </CleanField>
@@ -625,7 +617,7 @@ const Step2VehicleDetails = ({
                   <Input allowClear
                     value={formData.engineNumber}
                     onChange={handleChange("engineNumber")}
-                    style={inputControlStyle}
+                   
                     status={
                       showErrors && step2Errors.engineNumber ? "error" : ""
                     }
@@ -644,7 +636,7 @@ const Step2VehicleDetails = ({
                   <Input allowClear
                     value={formData.chassisNumber}
                     onChange={handleChange("chassisNumber")}
-                    style={inputControlStyle}
+                   
                     status={
                       showErrors && step2Errors.chassisNumber ? "error" : ""
                     }
@@ -663,7 +655,7 @@ const Step2VehicleDetails = ({
                   <Input allowClear
                     value={formData.manufactureMonth}
                     onChange={handleChange("manufactureMonth")}
-                    style={inputControlStyle}
+                   
                     status={
                       showErrors && step2Errors.manufactureMonth ? "error" : ""
                     }
@@ -682,7 +674,7 @@ const Step2VehicleDetails = ({
                   <Input allowClear
                     value={formData.manufactureYear}
                     onChange={handleChange("manufactureYear")}
-                    style={inputControlStyle}
+                   
                     status={
                       showErrors && step2Errors.manufactureYear ? "error" : ""
                     }
@@ -702,7 +694,7 @@ const Step2VehicleDetails = ({
                     type="date"
                     value={formData.dateOfReg}
                     onChange={handleChange("dateOfReg")}
-                    style={inputControlStyle}
+                   
                   />
                 </CleanField>
               </div>
@@ -739,7 +731,7 @@ const Step2VehicleDetails = ({
                       <Input allowClear
                         value={formData.batteryNumber}
                         onChange={handleChange("batteryNumber")}
-                        style={inputControlStyle}
+                       
                         placeholder="Battery number"
                       />
                     </CleanField>
@@ -752,7 +744,7 @@ const Step2VehicleDetails = ({
                       <Input allowClear
                         value={formData.chargerNumber}
                         onChange={handleChange("chargerNumber")}
-                        style={inputControlStyle}
+                       
                         placeholder="Charger number"
                       />
                     </CleanField>

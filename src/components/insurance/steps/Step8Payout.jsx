@@ -41,7 +41,14 @@ const Step8Payout = ({
   );
   const odAmount = Number(acceptedQuoteBreakup?.odAmt || 0);
   const addOnsAmount = Number(acceptedQuoteBreakup?.addOnsTotal || 0);
-  const payoutBaseAmount = odAmount + addOnsAmount;
+  
+  // TATA AIG RSA Exclusion: Exclude Rs 116 from payout base as per requirements
+  let adjustedAddOnsAmount = addOnsAmount;
+  if (String(formData.newInsuranceCompany || "").toUpperCase().includes("TATA AIG")) {
+    adjustedAddOnsAmount = Math.max(0, addOnsAmount - 116);
+  }
+  
+  const payoutBaseAmount = odAmount + adjustedAddOnsAmount;
   const payoutPercentage = Number(formData.payoutPercentage ?? 10);
   const subventionAmount = Number(formData.subventionAmount || 0);
   const calculatedPayoutAmount = (payoutBaseAmount * payoutPercentage) / 100;
@@ -198,188 +205,144 @@ const Step8Payout = ({
       </div>
 
       {/* Section 1: Real-time Quote Data */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
-        <Row gutter={16} align="middle">
-          <Col>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-400">
-              <Wallet size={24} />
+      <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 shadow-sm">
+              <Wallet size={20} />
             </div>
-          </Col>
-          <Col flex="auto">
-            <Title level={5} style={{ margin: 0 }}>
-              Real-time Quote Data
-            </Title>
-            <Text type="secondary">
-              Auto-updating from:{" "}
-              {acceptedQuote?.insuranceCompany || "accepted quote"}
-            </Text>
-          </Col>
-          <Col>
-            <div className="text-right">
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Net Premium
-              </Text>
-              <div className="text-xl font-bold text-slate-900 dark:text-white">
-                {formatMoney(netPremium)}
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Source Data</div>
+              <div className="text-sm font-bold text-slate-800">
+                {acceptedQuote?.insuranceCompany || "Accepted Quote"}
               </div>
             </div>
-          </Col>
-        </Row>
-
-        <Divider className="my-4 border-slate-100 dark:border-slate-800" />
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {[
-            {
-              label: "Accepted Quote",
-              value: acceptedQuote?.insuranceCompany || "—",
-            },
-            { label: "Total Premium", value: formatMoney(netPremium) },
-            { label: "OD Amount", value: formatMoney(odAmount) },
-            { label: "Add-ons", value: formatMoney(addOnsAmount) },
-            {
-              label: "Calculated OD + Add-on",
-              value: formatMoney(payoutBaseAmount),
-            },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className="rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800"
-            >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                {item.label}
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
-                {item.value}
-              </div>
+          </div>
+        </div>
+        
+        <div className="p-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Premium</div>
+              <div className="mt-1 text-lg font-black text-slate-900">{formatMoney(netPremium)}</div>
             </div>
-          ))}
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">OD Amount</div>
+              <div className="mt-1 text-lg font-black text-slate-900">{formatMoney(odAmount)}</div>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Add-ons Total</div>
+              <div className="mt-1 text-lg font-black text-slate-900">{formatMoney(addOnsAmount)}</div>
+            </div>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+              <div className="text-[10px] font-black uppercase tracking-wider text-blue-500">Payout Base (OD+Addons)</div>
+              <div className="mt-1 text-lg font-black text-blue-700">{formatMoney(payoutBaseAmount)}</div>
+              {String(formData.newInsuranceCompany || "").toUpperCase().includes("TATA AIG") && (
+                <div className="mt-1 text-[10px] font-bold text-orange-600">
+                  RSA (Rs 116) excluded as per rules
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Section 1b: Payout Calculation */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-              Payout Calculation
-            </h2>
-            <Text type="secondary">
-              Formula: (OD + Add-ons × Payout %) - Sub Vention = Net Amount
-            </Text>
-          </div>
-          <div
-            className={`rounded-full px-3 py-1 text-[11px] font-bold ${calculatedNetAmount >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400"}`}
-          >
-            {calculatedNetAmount >= 0
-              ? "✅ Positive net amount"
-              : "⚠ Negative net amount"}
+      {/* Section 2: Payout Calculation Logic */}
+      <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+        <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 shadow-sm">
+                <TrendingUp size={20} />
+              </div>
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Calculation</div>
+                <div className="text-sm font-bold text-slate-800">Commission & Subvention</div>
+              </div>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${calculatedNetAmount >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+              {calculatedNetAmount >= 0 ? "Profit" : "Loss"}
+            </div>
           </div>
         </div>
 
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={8}>
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Net Premium (₹) *
-            </Text>
-            <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-              {formatMoney(netPremium, 2)}
-            </div>
-            <div className="mt-1 text-[10px] text-slate-400">
-              From accepted quote: {formatMoney(netPremium, 0)}
-            </div>
-          </Col>
-          <Col xs={24} md={8}>
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              OD + Addon Amount (₹) *
-            </Text>
-            <div className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100">
-              {formatMoney(payoutBaseAmount, 2)}
-            </div>
-            <div className="mt-1 text-[10px] text-slate-400">
-              OD: {formatMoney(odAmount, 0)} + Add-ons:{" "}
-              {formatMoney(addOnsAmount, 0)}
-            </div>
-          </Col>
-          <Col xs={24} md={4}>
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Payout (%) (From Accepted Quote)
-            </Text>
-            <InputNumber
-              min={0}
-              max={100}
-              value={payoutPercentage}
-              className="mt-1 w-full"
-              addonAfter="%"
-              disabled
-            />
-            <div className="mt-1 text-[10px] text-slate-400">
-              Set at quote acceptance (editable in case if needed)
-            </div>
-          </Col>
-          <Col xs={24} md={4}>
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Sub Vention (₹) *
-            </Text>
-            <InputNumber
-              min={0}
-              value={subventionAmount}
-              onChange={(v) => setField("subventionAmount", Number(v || 0))}
-              className="mt-1 w-full"
-              addonBefore="₹"
-            />
-            <div className="mt-1 text-[10px] text-slate-400">
-              Amount deducted from payout
-            </div>
-          </Col>
-          <Col xs={24} md={4}>
-            <Text className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Calculated Net Amount (₹)
-            </Text>
-            <div
-              className={`mt-1 rounded-lg border px-3 py-2 text-sm font-bold ${calculatedNetAmount >= 0 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}
-            >
-              {formatMoney(calculatedNetAmount, 2)}
-            </div>
-            <div className="mt-1 text-[10px] text-slate-400">
-              {calculatedNetAmount >= 0
-                ? "✅ Positive net amount"
-                : "⚠ Negative net amount"}
-            </div>
-          </Col>
-        </Row>
+        <div className="p-6">
+          <Row gutter={[24, 24]}>
+            <Col xs={24} md={6}>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Payout Percentage</label>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  value={payoutPercentage}
+                  className="w-full !rounded-xl !h-11 !flex !items-center"
+                  addonAfter="%"
+                  disabled
+                />
+                <div className="text-[10px] text-slate-400 italic">Inherited from quote acceptance</div>
+              </div>
+            </Col>
+            
+            <Col xs={24} md={6}>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Gross Payout (₹)</label>
+                <div className="h-11 flex items-center px-4 rounded-xl border border-slate-100 bg-slate-50 font-black text-slate-800">
+                  {formatMoney(calculatedPayoutAmount, 2)}
+                </div>
+                <div className="text-[10px] text-slate-400 italic">{payoutPercentage}% of {formatMoney(payoutBaseAmount)}</div>
+              </div>
+            </Col>
 
-        <div className="mt-5 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100 dark:bg-slate-950 dark:ring-slate-800">
-          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Calculation Breakdown
+            <Col xs={24} md={6}>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Subvention (₹)</label>
+                <InputNumber
+                  min={0}
+                  value={subventionAmount}
+                  onChange={(v) => setField("subventionAmount", Number(v || 0))}
+                  className="w-full !rounded-xl !h-11 !flex !items-center"
+                  addonBefore="₹"
+                  placeholder="0"
+                />
+                <div className="text-[10px] text-slate-400 italic">Deductions / Discount given</div>
+              </div>
+            </Col>
+
+            <Col xs={24} md={6}>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Net Commission (₹)</label>
+                <div className={`h-11 flex items-center px-4 rounded-xl border font-black ${calculatedNetAmount >= 0 ? "border-emerald-100 bg-emerald-50 text-emerald-700" : "border-rose-100 bg-rose-50 text-rose-700"}`}>
+                  {formatMoney(calculatedNetAmount, 2)}
+                </div>
+                <div className="text-[10px] text-slate-400 italic">Gross - Subvention</div>
+              </div>
+            </Col>
+          </Row>
+
+          <div className="mt-8 p-4 rounded-2xl bg-slate-900 text-white shadow-lg overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+              <Wallet size={120} />
+            </div>
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Ledger Summary</div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-3xl font-black">{formatMoney(totals.margin, 2)}</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Net Margin</span>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="border-l border-slate-700 pl-4">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Receivables</div>
+                  <div className="text-lg font-black text-blue-400">{formatMoney(totals.netReceivable)}</div>
+                </div>
+                <div className="border-l border-slate-700 pl-4">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Payables</div>
+                  <div className="text-lg font-black text-rose-400">{formatMoney(totals.netPayable)}</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <span className="text-slate-400">OD + Add-on:</span>{" "}
-              <b>{formatMoney(payoutBaseAmount, 0)}</b>
-            </div>
-            <div>
-              <span className="text-slate-400">Payout (%):</span>{" "}
-              <b>{payoutPercentage}%</b>
-            </div>
-            <div>
-              <span className="text-slate-400">Payout Amount:</span>{" "}
-              <b>{formatMoney(calculatedPayoutAmount, 2)}</b>
-            </div>
-            <div>
-              <span className="text-slate-400">Sub Vention:</span>{" "}
-              <b>- {formatMoney(subventionAmount, 0)}</b>
-            </div>
-          </div>
-          <div className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
-            Formula: ({formatMoney(payoutBaseAmount, 0)} × {payoutPercentage}%)
-            - {formatMoney(subventionAmount, 0)} ={" "}
-            {formatMoney(calculatedNetAmount, 2)}
-          </div>
-        </div>
-        <div className="mt-3 text-[11px] text-slate-400">
-          Ledger Margin (Receivables - Payables):{" "}
-          <b>{formatMoney(totals.margin, 2)}</b>
         </div>
       </div>
 

@@ -54,12 +54,12 @@ const DOCUMENT_MATRIX = {
     suggested: [
       "Policy Copy",
       "Invoice",
-      "Pan",
+      "PAN Card",
       "Aadhaar Front",
       "Aadhaar Back",
-      "GST Page 1",
-      "GST Page 2",
-      "GST Page 3",
+      "GST Certificate (P1)",
+      "GST Certificate (P2)",
+      "GST Certificate (P3)",
       "RC Copy",
     ],
   },
@@ -68,12 +68,10 @@ const DOCUMENT_MATRIX = {
     suggested: [
       "Policy Copy",
       "RC Copy",
-      "Pan",
+      "PAN Card",
       "Aadhaar Front",
       "Aadhaar Back",
-      "GST Page 1",
-      "GST Page 2",
-      "GST Page 3",
+      "GST Certificate (P1)",
       "Form 29",
       "Form 30 page 1",
       "Form 30 page 2",
@@ -86,12 +84,10 @@ const DOCUMENT_MATRIX = {
       "Policy Copy",
       "Previous Year Policy",
       "RC Copy",
-      "Pan",
+      "PAN Card",
       "Aadhaar Front",
       "Aadhaar Back",
-      "GST Page 1",
-      "GST Page 2",
-      "GST Page 3",
+      "GST Certificate (P1)",
     ],
   },
   "policy-already-expired": {
@@ -100,18 +96,24 @@ const DOCUMENT_MATRIX = {
       "Policy Copy",
       "Previous Year Policy",
       "RC Copy",
-      "Pan",
+      "PAN Card",
       "Aadhaar Front",
       "Aadhaar Back",
-      "GST Page 1",
-      "GST Page 2",
-      "GST Page 3",
+      "GST Certificate (P1)",
       "Inspection Report",
     ],
   },
   "ew-policy": {
     label: "EW Policy",
-    suggested: EW_SUGGESTED_TAGS,
+    suggested: [
+      "Policy Copy",
+      "RC Copy",
+      "Invoice",
+      "PAN Card",
+      "Aadhaar Front",
+      "Aadhaar Back",
+      "GST Certificate (P1)",
+    ],
   },
 };
 
@@ -329,18 +331,29 @@ const getTagTheme = (tag) => {
 };
 
 const StatTile = ({ label, value, tone = "slate", helper }) => {
-  const toneClass =
-    tone === "sky"
-      ? "border-sky-200 bg-sky-50"
-      : tone === "emerald"
-        ? "border-emerald-200 bg-emerald-50"
-        : "border-slate-200 bg-slate-50";
+  const themes = {
+    sky: "bg-blue-50 border-blue-100 text-blue-700",
+    emerald: "bg-emerald-50 border-emerald-100 text-emerald-700",
+    slate: "bg-slate-50 border-slate-100 text-slate-700",
+  };
+  const theme = themes[tone] || themes.slate;
 
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${toneClass}`}>
-      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</div>
-      <div className="mt-2 text-2xl font-black tracking-tight text-slate-800">{value}</div>
-      {helper ? <div className="mt-1 text-xs text-slate-500">{helper}</div> : null}
+    <div className={`rounded-[24px] border px-5 py-4 shadow-sm transition-all hover:shadow-md ${theme}`}>
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60">
+          {label}
+        </div>
+        <div className="h-2 w-2 rounded-full bg-current opacity-40" />
+      </div>
+      <div className="mt-2 text-2xl font-black tracking-tight">
+        {value}
+      </div>
+      {helper ? (
+        <div className="mt-1 text-[11px] font-medium opacity-70 leading-tight">
+          {helper}
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -852,6 +865,16 @@ const Step6Documents = ({
       const pickedFiles = Array.from(files || []).filter(Boolean);
       if (!pickedFiles.length) return;
 
+      // Premium UI Fix: Client-side validation for better UX
+      const MAX_SIZE = 15 * 1024 * 1024; // 15MB
+      const validFiles = pickedFiles.filter((f) => f.size <= MAX_SIZE);
+      
+      if (validFiles.length < pickedFiles.length) {
+        message.warning(`${pickedFiles.length - validFiles.length} file(s) skipped (exceeds 15MB limit)`);
+      }
+      
+      if (!validFiles.length) return;
+
       setUploading(true);
       try {
         const uploaded = await uploadMultipleFiles(pickedFiles);
@@ -973,11 +996,12 @@ const Step6Documents = ({
   }, []);
 
   const handlePrint = useCallback((doc) => {
-    const href = String(doc?.previewUrl || doc?.url || doc?.rawUrl || "").trim();
-    if (!href) {
+    const rawHref = String(doc?.previewUrl || doc?.url || doc?.rawUrl || "").trim();
+    if (!rawHref) {
       message.warning("No document available for print.");
       return;
     }
+    const href = buildAccessibleDocumentUrl(rawHref);
     const printFromBlob = async () => {
       let objectUrl = "";
       let iframe = null;
