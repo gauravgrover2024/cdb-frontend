@@ -38,8 +38,11 @@ import {
   Tooltip,
 } from "antd";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import { insuranceApi } from "../../api/insurance";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
+
+dayjs.extend(customParseFormat);
 
 const STATUS_LABEL_MAP = {
   draft: "Draft",
@@ -62,7 +65,7 @@ const FILTER_CHIPS = [
   { key: "completed", label: "Completed" },
   { key: "draft", label: "Draft" },
   { key: "paymentDue", label: "Payment Due" },
-  { key: "renewal30", label: "Expiring in 30 days" },
+  { key: "renewal30", label: "Expiring soon" },
   { key: "expired", label: "Expired" },
   { key: "2w", label: "2W" },
   { key: "4w", label: "4W" },
@@ -187,13 +190,63 @@ const isFourWheeler = (c) => {
   );
 };
 
+const parseInsuranceDate = (value) => {
+  if (!hasDisplayValue(value)) return null;
+  const parsed = dayjs(
+    String(value).trim(),
+    [
+      "YYYY-MM-DD",
+      "DD/MM/YYYY",
+      "DD-MM-YYYY",
+      "D/M/YYYY",
+      "D-M-YYYY",
+      "DD MMM YYYY",
+      "D MMM YYYY",
+    ],
+    true,
+  );
+  if (parsed.isValid()) return parsed;
+  const fallback = dayjs(value);
+  return fallback.isValid() ? fallback : null;
+};
+
+const isThirdPartyOnlyPolicy = (policyType) => {
+  const value = String(policyType || "")
+    .trim()
+    .toLowerCase();
+  return value.includes("third") || value === "tp";
+};
+
+const getPolicyPulseExpiryDate = (c) => {
+  const { acceptedQuote } = getAcceptedQuoteContext(c);
+  const policyType =
+    c?.newPolicyType ||
+    c?.coverageType ||
+    acceptedQuote?.coverageType ||
+    c?.previousPolicyType ||
+    "";
+
+  if (isThirdPartyOnlyPolicy(policyType)) {
+    return (
+      c?.newTpExpiryDate || c?.previousTpExpiryDate || c?.policyExpiry || ""
+    );
+  }
+
+  return (
+    c?.newOdExpiryDate ||
+    c?.previousOdExpiryDate ||
+    c?.newTpExpiryDate ||
+    c?.policyExpiry ||
+    ""
+  );
+};
+
 const daysUntilExpiry = (c) => {
-  const expiryDate =
-    c?.newOdExpiryDate || c?.newTpExpiryDate || c?.policyExpiry;
+  const expiryDate = getPolicyPulseExpiryDate(c);
   if (!expiryDate) return null;
-  const expiry = dayjs(expiryDate);
-  if (!expiry.isValid()) return null;
-  return expiry.diff(dayjs(), "day");
+  const expiry = parseInsuranceDate(expiryDate);
+  if (!expiry) return null;
+  return expiry.startOf("day").diff(dayjs().startOf("day"), "day");
 };
 
 const isCompletedPolicy = (c) => {
@@ -223,7 +276,7 @@ const matchesPolicyFilter = (c, key) => {
     case "paymentDue":
       return isPaymentDuePolicy(c);
     case "renewal30":
-      return days !== null && days >= 0 && days <= 30;
+      return days !== null && days >= 0 && days < 45;
     case "expired":
       return days !== null && days < 0;
     case "2w":
@@ -624,18 +677,15 @@ const MetricCard = ({
       whileHover={{ y: -2, scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative overflow-hidden rounded-2xl cursor-pointer border transition-all"
+      className="relative overflow-hidden rounded-xl cursor-pointer border-2 transition-all"
       style={{
-        background: isActive
-          ? `linear-gradient(130deg, ${color} 0%, ${color}dd 100%)`
-          : "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
-        borderColor: isActive ? `${color}cc` : "#dbe6f3",
+        background: isActive ? color : "#ffffff",
+        borderColor: isActive ? color : "#e2e8f0",
         boxShadow: isActive
-          ? `0 10px 20px ${color}40`
-          : "0 8px 18px rgba(15, 23, 42, 0.06)",
+          ? `0 4px 12px ${color}30`
+          : "0 1px 3px rgba(0, 0, 0, 0.05)",
       }}
     >
-      <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/20" />
       <div className="p-3">
         <div className="flex items-center gap-3">
           <div
@@ -684,15 +734,11 @@ const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="rounded-xl border transition-all"
+      className="rounded-lg border-2 transition-all"
       style={{
-        background: isActive
-          ? "linear-gradient(130deg, #0f172a 0%, #1e293b 100%)"
-          : "#ffffff",
-        borderColor: isActive ? "#0f172a" : "#dbe6f3",
-        boxShadow: isActive
-          ? "0 6px 14px rgba(15, 23, 42, 0.28)"
-          : "0 1px 2px rgba(15, 23, 42, 0.06)",
+        background: isActive ? "#0f172a" : "#ffffff",
+        borderColor: isActive ? "#0f172a" : "#e2e8f0",
+        boxShadow: isActive ? "0 2px 8px rgba(15, 23, 42, 0.2)" : "none",
       }}
     >
       <div className="px-3 py-1.5 flex items-center gap-2">
@@ -719,112 +765,6 @@ const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
   );
 };
 
-const PAYMENT_ENGINE_STAGES = [
-  { key: "premium", label: "Premium booked", hint: "Base payable created" },
-  { key: "insurer", label: "Insurer payment", hint: "Insurer settlement" },
-  {
-    key: "recovery",
-    label: "Customer recovery",
-    hint: "Recovery against AC outflow",
-  },
-  {
-    key: "subvention",
-    label: "Subvention handling",
-    hint: "NR / refund adjustments",
-  },
-  { key: "close", label: "Settlement closure", hint: "Case settled" },
-];
-
-const toStageState = ({ done = false, active = false }) => {
-  if (done) return "done";
-  if (active) return "active";
-  return "pending";
-};
-
-const buildPaymentEngineStages = (paymentRows = []) => {
-  const totalPremium = Number(paymentRows?.[0]?.amount || 0);
-  const insurerPendingRow = paymentRows.find((r) =>
-    String(r?.label || "")
-      .toLowerCase()
-      .includes("insurer payment pending"),
-  );
-  const insurerPaidRow = paymentRows.find((r) =>
-    /paid insurer/i.test(String(r?.label || "")),
-  );
-  const receiptRow = paymentRows.find((r) =>
-    /receipt from customer/i.test(String(r?.label || "")),
-  );
-  const customerOutstandingRow = paymentRows.find((r) =>
-    /customer outstanding/i.test(String(r?.label || "")),
-  );
-  const subventionTotal = paymentRows
-    .filter((r) => /subvention/i.test(String(r?.label || "")))
-    .reduce((sum, r) => sum + Number(r?.amount || 0), 0);
-
-  const insurerPaid = Number(insurerPaidRow?.amount || 0);
-  const insurerOutstanding = insurerPendingRow
-    ? Number(insurerPendingRow?.amount || 0)
-    : Math.max(0, totalPremium - insurerPaid);
-  const customerRecovered = Number(receiptRow?.amount || 0);
-  const customerOutstanding = Number(customerOutstandingRow?.amount || 0);
-
-  const closed =
-    totalPremium > 0 && insurerOutstanding <= 0 && customerOutstanding <= 0;
-
-  return PAYMENT_ENGINE_STAGES.map((stage) => {
-    if (stage.key === "premium") {
-      return {
-        ...stage,
-        amount: totalPremium,
-        state: toStageState({
-          done: totalPremium > 0,
-          active: totalPremium > 0,
-        }),
-      };
-    }
-    if (stage.key === "insurer") {
-      const done = totalPremium > 0 && insurerOutstanding <= 0;
-      return {
-        ...stage,
-        amount: done ? insurerPaid : insurerOutstanding,
-        state: toStageState({
-          done,
-          active: insurerPaid > 0 || insurerOutstanding > 0,
-        }),
-      };
-    }
-    if (stage.key === "recovery") {
-      const done = customerOutstanding <= 0 && customerRecovered > 0;
-      return {
-        ...stage,
-        amount: done ? customerRecovered : customerOutstanding,
-        state: toStageState({
-          done,
-          active: customerRecovered > 0 || customerOutstanding > 0,
-        }),
-      };
-    }
-    if (stage.key === "subvention") {
-      return {
-        ...stage,
-        amount: subventionTotal,
-        state: toStageState({
-          done: subventionTotal > 0,
-          active: subventionTotal > 0,
-        }),
-      };
-    }
-    return {
-      ...stage,
-      amount: Math.max(0, insurerOutstanding + customerOutstanding),
-      state: toStageState({
-        done: closed,
-        active: !closed && totalPremium > 0,
-      }),
-    };
-  });
-};
-
 // ============================================
 // POLICY CARD (4-COLUMN LAYOUT LIKE ORIGINAL)
 // ============================================
@@ -840,10 +780,35 @@ const PolicyCard = ({
   onDocs,
 }) => {
   const isDraft = policy.status === "draft";
-  const isExpiringSoon = policy.expiryDays <= 30 && policy.expiryDays >= 0;
+  const isExpiringSoon = policy.expiryDays < 45 && policy.expiryDays >= 0;
   const isExpired = policy.expiryDays < 0;
   const hasPaymentDue = policy.paid < policy.premium;
   const openDues = policy.openDues || 0;
+  const pulseDays = Number.isFinite(Number(policy.expiryDays))
+    ? Number(policy.expiryDays)
+    : null;
+  const pulsePercent =
+    pulseDays === null
+      ? 0
+      : Math.max(0, Math.min(100, Math.round((pulseDays / 365) * 100)));
+  const policyPulseTone =
+    pulseDays === null
+      ? { label: "Pending", color: "#64748b", bg: "#f8fafc", bar: "#94a3b8" }
+      : pulseDays < 0
+        ? { label: "Expired", color: "#dc2626", bg: "#fef2f2", bar: "#ef4444" }
+        : pulseDays < 45
+          ? {
+              label: "Expiring Soon",
+              color: "#b45309",
+              bg: "#fffbeb",
+              bar: "#f59e0b",
+            }
+          : {
+              label: "Active",
+              color: "#047857",
+              bg: "#ecfdf5",
+              bar: "#10b981",
+            };
 
   const statusConfig = {
     draft: { color: "#f43f5e", bg: "#fff1f2", label: "Draft" },
@@ -869,6 +834,13 @@ const PolicyCard = ({
     7: "Payment",
   };
 
+  const paymentRowStyles = {
+    neutral: { bg: "#ffffff", border: "#e2e8f0", color: "#64748b" },
+    good: { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d" },
+    warning: { bg: "#fef3c7", border: "#fde047", color: "#a16207" },
+    accent: { bg: "#eff6ff", border: "#bfdbfe", color: "#1e40af" },
+  };
+
   const paymentRows = Array.isArray(policy.paymentTimeline)
     ? policy.paymentTimeline
     : [];
@@ -878,23 +850,42 @@ const PolicyCard = ({
     amount: 0,
     type: "neutral",
   };
-  const paymentStages = buildPaymentEngineStages(paymentRows);
 
-  const completedStageCount = paymentStages.filter(
-    (stage) => stage.state === "done",
-  ).length;
-  const stageProgressPercent = Math.round(
-    (completedStageCount / paymentStages.length) * 100,
-  );
+  const secondaryPaymentRows = paymentRows.slice(1);
+
+  const paymentBaseAmount = Math.max(1, Number(primaryPaymentRow.amount || 0));
+
+  const paymentSignalMeta = {
+    neutral: {
+      color: "#64748b",
+      soft: "rgba(148, 163, 184, 0.10)",
+      icon: DollarSign,
+    },
+    good: {
+      color: "#16a34a",
+      soft: "rgba(22, 163, 74, 0.10)",
+      icon: CheckCircle,
+    },
+    warning: {
+      color: "#d97706",
+      soft: "rgba(217, 119, 6, 0.10)",
+      icon: AlertCircle,
+    },
+    accent: {
+      color: "#2563eb",
+      soft: "rgba(37, 99, 235, 0.10)",
+      icon: RefreshCw,
+    },
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="relative bg-white rounded-3xl border shadow-sm hover:shadow-lg transition-shadow"
+      className="relative bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow"
       style={{
-        borderColor: "#d9e4f3",
+        borderColor: "#dbe3ee",
         fontFamily: "var(--default-font-family)",
       }}
     >
@@ -904,7 +895,7 @@ const PolicyCard = ({
       />
 
       {/* Header */}
-      <div className="p-3.5 border-b" style={{ borderColor: "#f1f5f9" }}>
+      <div className="p-4 border-b" style={{ borderColor: "#f1f5f9" }}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -938,7 +929,7 @@ const PolicyCard = ({
                 isExpired ||
                 hasPaymentDue ||
                 openDues > 0) && (
-                <div className="flex flex-wrap gap-1.5 mt-0.5">
+                <div className="flex flex-wrap gap-2 mt-0">
                   {isExpiringSoon && (
                     <span className="px-2 py-1 rounded-md text-xs font-bold bg-orange-100 text-orange-700 flex items-center gap-1">
                       <Clock size={11} />
@@ -1049,11 +1040,11 @@ const PolicyCard = ({
       </div>
 
       {/* 4-Column Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-0">
+      <div className="grid grid-cols-4 gap-0">
         {/* Column 1 Customer & Vehicle */}
-        <div className="p-2.5 xl:border-r" style={{ borderColor: "#f1f5f9" }}>
+        <div className="p-3 border-r " style={{ borderColor: "#f1f5f9" }}>
           <div
-            className="rounded-2xl border"
+            className="rounded-2xl"
             style={{
               borderColor: "#e2e8f0",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
@@ -1062,7 +1053,7 @@ const PolicyCard = ({
           >
             {/* Header */}
             <div
-              className="px-2.5 py-2.5 border-b"
+              className="px-3 py-3 border-b"
               style={{ borderColor: "#e2e8f0" }}
             >
               <div className="flex items-start justify-between gap-3">
@@ -1081,23 +1072,11 @@ const PolicyCard = ({
                       </p>
                     )}
                 </div>
-
-                {/* Small avatar chip with initials */}
-                <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0">
-                  <span className="text-[11px] font-bold text-slate-700">
-                    {(policy.displayName || "C")
-                      .split(" ")
-                      .map((p) => p[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </span>
-                </div>
               </div>
             </div>
 
             {/* Body */}
-            <div className="p-2.5 space-y-2.5">
+            <div className="p-3 space-y-3">
               {/* Customer block */}
               <div>
                 <p className="text-[11px] font-semibold text-slate-600 mb-1">
@@ -1142,9 +1121,9 @@ const PolicyCard = ({
         </div>
 
         {/* Column 2 Policy */}
-        <div className="p-2.5 xl:border-r" style={{ borderColor: "#f1f5f9" }}>
+        <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
           <div
-            className="rounded-2xl border"
+            className="rounded-2xl "
             style={{
               borderColor: "#e2e8f0",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
@@ -1153,7 +1132,7 @@ const PolicyCard = ({
           >
             {/* Header */}
             <div
-              className="px-2.5 py-2.5 border-b"
+              className="px-3 py-3 border-b"
               style={{ borderColor: "#e2e8f0" }}
             >
               <div className="flex items-start justify-between gap-3">
@@ -1176,25 +1155,11 @@ const PolicyCard = ({
                     {policy.policyNumber || "Not issued"}
                   </p>
                 </div>
-
-                {/* Small badge for status / type */}
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  {policy.status && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200">
-                      {STATUS_LABEL_MAP?.[policy.status] || policy.status}
-                    </span>
-                  )}
-                  {policy.typesOfVehicle && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                      {policy.typesOfVehicle}
-                    </span>
-                  )}
-                </div>
               </div>
             </div>
 
             {/* Body */}
-            <div className="p-2.5 space-y-2.5">
+            <div className="p-3 space-y-3">
               {/* IDV / NCB row */}
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
@@ -1222,15 +1187,16 @@ const PolicyCard = ({
         </div>
 
         {/* Column 3 Payment Flow */}
-        <div className="p-2.5 xl:border-r" style={{ borderColor: "#f1f5f9" }}>
+        <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
           <div
-            className="rounded-2xl border"
+            className="rounded-2xl "
             style={{
               borderColor: "#e2e8f0",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
               boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
             }}
           >
+            {/* Header / Primary Payment */}
             <div
               className="px-3 py-3 border-b"
               style={{ borderColor: "#e2e8f0" }}
@@ -1240,31 +1206,27 @@ const PolicyCard = ({
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
                     Payment Engine
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate flex items-center gap-1">
-                    <Layers size={12} />
-                    Stage driven settlement flow
+                  <p className="text-[11px] text-slate-500 mt-1 truncate">
+                    {primaryPaymentRow.label}
                   </p>
                 </div>
 
-                <div className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
-                  <Zap size={12} />
+                <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                  <DollarSign size={14} />
                 </div>
               </div>
 
-              <div className="mt-2 flex items-end justify-between gap-2">
-                <p className="text-[17px] leading-5 font-black text-slate-900">
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <p className="text-[22px] leading-6 font-black text-slate-900">
                   {formatInr(primaryPaymentRow.amount)}
                 </p>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  {stageProgressPercent}% done
-                </span>
               </div>
 
-              <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                 <div
                   className="h-full rounded-full"
                   style={{
-                    width: `${stageProgressPercent}%`,
+                    width: "100%",
                     background:
                       "linear-gradient(90deg, #38bdf8 0%, #818cf8 55%, #22c55e 100%)",
                   }}
@@ -1272,88 +1234,120 @@ const PolicyCard = ({
               </div>
             </div>
 
-            <div className="p-2.5 max-h-[210px] overflow-y-auto space-y-2 pr-1">
-              {paymentStages.map((stage, idx) => {
-                const isDone = stage.state === "done";
-                const isActive = stage.state === "active";
-                const stateTone = isDone
-                  ? {
-                      dot: "#10b981",
-                      border: "#bbf7d0",
-                      bg: "#f0fdf4",
-                      text: "#065f46",
-                    }
-                  : isActive
-                    ? {
-                        dot: "#6366f1",
-                        border: "#c7d2fe",
-                        bg: "#eef2ff",
-                        text: "#3730a3",
-                      }
-                    : {
-                        dot: "#94a3b8",
-                        border: "#e2e8f0",
-                        bg: "#f8fafc",
-                        text: "#64748b",
-                      };
+            {/* Signals / Secondary Payments */}
+            <div className="p-3 space-y-3">
+              {secondaryPaymentRows.length > 0 ? (
+                secondaryPaymentRows.map((item, idx) => {
+                  const meta =
+                    paymentSignalMeta[item.type] || paymentSignalMeta.neutral;
+                  const Icon = meta.icon;
+                  const isSubventionRow = String(item.label || "")
+                    .toLowerCase()
+                    .includes("subvention");
+                  const rowBase = Number(
+                    item.progressBase || paymentBaseAmount || 0,
+                  );
+                  const rawRatio =
+                    rowBase > 0
+                      ? (Number(item.amount || 0) / rowBase) * 100
+                      : 0;
+                  const ratio =
+                    isSubventionRow && Number(item.amount || 0) > 0
+                      ? 100
+                      : Math.max(0, Math.min(100, Math.round(rawRatio)));
 
-                return (
-                  <div key={stage.key} className="relative pl-5">
-                    {idx < paymentStages.length - 1 && (
-                      <span
-                        className="absolute left-[9px] top-4 h-[calc(100%-8px)] w-[2px]"
-                        style={{ background: "#e2e8f0" }}
-                      />
-                    )}
-                    <span
-                      className="absolute left-0 top-1 h-[9px] w-[9px] rounded-full ring-2 ring-white"
-                      style={{ background: stateTone.dot }}
-                    />
-
-                    <div
-                      className="rounded-lg border px-2 py-1.5"
-                      style={{
-                        borderColor: stateTone.border,
-                        background: stateTone.bg,
-                      }}
+                  return (
+                    <motion.div
+                      key={`${item.label}-${idx}`}
+                      whileHover={{ x: 2, y: -1 }}
+                      transition={{ duration: 0.16 }}
+                      className="relative"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <p
-                          className="text-[10px] font-bold"
-                          style={{ color: stateTone.text }}
-                        >
-                          {stage.label}
-                        </p>
-                        <span
-                          className="text-[9px] font-black"
-                          style={{ color: stateTone.text }}
-                        >
-                          {formatInr(stage.amount)}
-                        </span>
+                      <div className="flex items-start gap-2.5">
+                        <div className="relative pt-0.5">
+                          <div
+                            className="w-8 h-8 rounded-xl flex items-center justify-center border"
+                            style={{
+                              background: meta.soft,
+                              borderColor: `${meta.color}33`,
+                              color: meta.color,
+                            }}
+                          >
+                            <Icon size={13} />
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[12px] font-semibold text-slate-900 leading-4 truncate">
+                                {item.label}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0">
+                              <span
+                                className="text-[12px] font-black whitespace-nowrap"
+                                style={{ color: meta.color }}
+                              >
+                                {formatInr(item.amount)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${ratio}%` }}
+                                transition={{
+                                  duration: 0.45,
+                                  ease: "easeOut",
+                                }}
+                                className="h-full rounded-full"
+                                style={{
+                                  background: `linear-gradient(90deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
+                                }}
+                              />
+                            </div>
+
+                            {item.date ? (
+                              <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                                {dayjs(item.date).isValid()
+                                  ? dayjs(item.date).format("DD MMM")
+                                  : ""}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
-                      <p className="mt-0.5 text-[9px] text-slate-500">
-                        {stage.hint}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-4 text-center">
+                  <p className="text-[12px] font-medium text-slate-500">
+                    No payment activity
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Column 4 Workflow */}
-        <div className="p-2.5">
+        <div className="p-3">
           <div
-            className="rounded-2xl border"
+            className="rounded-2xl"
             style={{
               borderColor: "#e2e8f0",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
               boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
             }}
           >
+            {/* Header */}
             <div
-              className="px-2.5 py-2.5 border-b"
+              className="px-3 py-3 border-b"
               style={{ borderColor: "#e2e8f0" }}
             >
               <div className="flex items-center justify-between gap-2">
@@ -1363,13 +1357,21 @@ const PolicyCard = ({
                     Workflow
                   </p>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200">
-                  Step {policy.currentStep}
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                  style={{
+                    background: policyPulseTone.bg,
+                    color: policyPulseTone.color,
+                    border: `1px solid ${policyPulseTone.color}22`,
+                  }}
+                >
+                  {policyPulseTone.label}
                 </span>
               </div>
             </div>
 
-            <div className="p-2.5 space-y-2.5">
+            {/* Body */}
+            <div className="p-3 space-y-3">
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-600">Stage</span>
@@ -1393,6 +1395,34 @@ const PolicyCard = ({
                 </div>
               </div>
 
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Policy Pulse
+                  </span>
+                  <span
+                    className="text-[11px] font-black"
+                    style={{ color: policyPulseTone.color }}
+                  >
+                    {pulseDays === null
+                      ? "—"
+                      : pulseDays < 0
+                        ? `${Math.abs(pulseDays)}d expired`
+                        : `${pulseDays}d left`}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pulsePercent}%` }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                    className="h-full rounded-full"
+                    style={{ background: policyPulseTone.bar }}
+                  />
+                </div>
+              </div>
+
+              {/* Premium pill */}
               <div
                 className="p-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border flex items-center justify-between gap-2"
                 style={{ borderColor: "#e2e8f0" }}
@@ -1783,10 +1813,10 @@ const InsuranceDashboardPage = () => {
       const createdLabel = record.createdAt
         ? dayjs(record.createdAt).format("DD MMM YYYY")
         : "—";
-      const expiryDate =
-        record.newOdExpiryDate || record.newTpExpiryDate || record.policyExpiry;
-      const expiryLabel = expiryDate
-        ? dayjs(expiryDate).format("DD MMM YYYY")
+      const expiryDate = getPolicyPulseExpiryDate(record);
+      const parsedExpiryDate = parseInsuranceDate(expiryDate);
+      const expiryLabel = parsedExpiryDate
+        ? parsedExpiryDate.format("DD MMM YYYY")
         : "—";
       const daysLeft = daysUntilExpiry(record);
 
@@ -1963,7 +1993,7 @@ const InsuranceDashboardPage = () => {
 
   return (
     <div
-      className="min-h-screen p-4 overflow-auto bg-[radial-gradient(circle_at_top,_#e2e8f020,_#f8fafc_45%,_#f8fafc_100%)]"
+      className="min-h-screen p-4 overflow-auto bg-slate-50"
       style={{
         ...FONT_VARS,
         fontFamily: "var(--default-font-family)",
@@ -1971,13 +2001,13 @@ const InsuranceDashboardPage = () => {
     >
       <div className="max-w-[1920px] mx-auto space-y-4">
         {/* Header - Sample Style */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Insurance Workspace
               </p>
-              <h1 className="text-2xl font-black text-slate-900">
+              <h1 className="text-2xl font-black bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
                 Policy Dashboard
               </h1>
               <p className="text-xs text-slate-500 mt-1">
@@ -2048,7 +2078,7 @@ const InsuranceDashboardPage = () => {
           />
           <MetricCard
             icon={AlertCircle}
-            title="Expiring"
+            title="Expiring Soon"
             value={stats.expiringSoon}
             color="#ef4444"
             isActive={policyFilter === "renewal30"}
@@ -2057,12 +2087,7 @@ const InsuranceDashboardPage = () => {
         </div>
 
         {/* Search and Filters - Sample Style */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-          <div className="mb-3 rounded-xl border border-slate-100 bg-gradient-to-r from-indigo-50/70 via-sky-50/60 to-emerald-50/60 px-3 py-2 text-[11px] font-semibold text-slate-600">
-            Quick filters + instant search across policy, vehicle, customer and
-            registration
-          </div>
-
+        <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-3 mb-3">
             <div className="flex-1 relative">
               <Search
@@ -2074,14 +2099,14 @@ const InsuranceDashboardPage = () => {
                 placeholder="Search by customer, policy, vehicle, registration..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
               />
             </div>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/insurance/new")}
-              className="px-5 py-2.5 rounded-xl font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
+              className="px-5 py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
             >
               <Plus size={18} />
               New Policy
@@ -2090,14 +2115,14 @@ const InsuranceDashboardPage = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={loadCases}
-              className="px-4 py-2.5 rounded-xl font-semibold text-slate-700 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 transition-colors"
+              className="px-4 py-2.5 rounded-lg font-semibold text-slate-700 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 transition-colors"
             >
               <RefreshCw size={18} />
             </motion.button>
           </div>
 
           {/* Filter Chips */}
-          <div className="flex flex-wrap gap-2 max-h-[96px] overflow-y-auto pr-1">
+          <div className="flex flex-wrap gap-2">
             <FilterChip
               label="All"
               count={filterCounts.all}
@@ -2126,7 +2151,7 @@ const InsuranceDashboardPage = () => {
               icon={DollarSign}
             />
             <FilterChip
-              label="Expiring"
+              label="Expiring Soon"
               count={filterCounts.expiring}
               isActive={policyFilter === "renewal30"}
               onClick={() => setPolicyFilter("renewal30")}
