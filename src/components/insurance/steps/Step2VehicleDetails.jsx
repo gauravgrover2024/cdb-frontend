@@ -256,7 +256,7 @@ const Step2VehicleDetails = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Registration Allotted?" required>
-                    <Select
+                    <Select allowClear
                       value={formData.registrationAllotted || "Yes"}
                       onChange={(nextValue) => {
                         const resolved = nextValue || "Yes";
@@ -289,7 +289,7 @@ const Step2VehicleDetails = ({
                   required
                 >
                   {regDisabled ? (
-                    <Input
+                    <Input allowClear
                       value={formData.registrationNumber}
                       readOnly
                       style={inputControlStyle}
@@ -362,7 +362,7 @@ const Step2VehicleDetails = ({
                           : "No matching registration"
                       }
                     >
-                      <Input
+                      <Input allowClear
                         style={inputControlStyle}
                         status={
                           showErrors && step2Errors.registrationNumber
@@ -385,7 +385,7 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Reg Authority">
-                      <Input
+                      <Input allowClear
                         value={formData.regAuthority}
                         onChange={handleChange("regAuthority")}
                         style={inputControlStyle}
@@ -557,13 +557,12 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Fuel Type">
-                  <Select
+                  <Select allowClear
                     value={formData.fuelType || undefined}
                     onChange={(v) => setField("fuelType", v || "")}
                     style={controlStyle}
                     placeholder="Fuel type"
                     options={FUEL_OPTIONS}
-                    allowClear
                   />
                 </CleanField>
               </div>
@@ -572,7 +571,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Cubic Capacity (cc)">
-                  <Input
+                  <Input allowClear
                     value={formData.cubicCapacity}
                     onChange={handleChange("cubicCapacity")}
                     style={inputControlStyle}
@@ -585,7 +584,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Type of Vehicle">
-                  <Select
+                  <Select allowClear
                     value={formData.typesOfVehicle || "Four Wheeler"}
                     onChange={(v) =>
                       setField("typesOfVehicle", v || "Four Wheeler")
@@ -623,7 +622,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Engine Number" required>
-                  <Input
+                  <Input allowClear
                     value={formData.engineNumber}
                     onChange={handleChange("engineNumber")}
                     style={inputControlStyle}
@@ -642,7 +641,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Chassis Number" required>
-                  <Input
+                  <Input allowClear
                     value={formData.chassisNumber}
                     onChange={handleChange("chassisNumber")}
                     style={inputControlStyle}
@@ -661,7 +660,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Manufacture Month" required>
-                  <Input
+                  <Input allowClear
                     value={formData.manufactureMonth}
                     onChange={handleChange("manufactureMonth")}
                     style={inputControlStyle}
@@ -680,7 +679,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Manufacture Year" required>
-                  <Input
+                  <Input allowClear
                     value={formData.manufactureYear}
                     onChange={handleChange("manufactureYear")}
                     style={inputControlStyle}
@@ -699,7 +698,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Date of Reg">
-                  <Input
+                  <Input allowClear
                     type="date"
                     value={formData.dateOfReg}
                     onChange={handleChange("dateOfReg")}
@@ -713,7 +712,7 @@ const Step2VehicleDetails = ({
               <Col xs={24} md={16}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Hypothecation">
-                    <Select
+                    <Select allowClear
                       value={formData.hypothecation || "Not applicable"}
                       onChange={(v) =>
                         setField("hypothecation", v || "Not applicable")
@@ -737,7 +736,7 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Battery Number">
-                      <Input
+                      <Input allowClear
                         value={formData.batteryNumber}
                         onChange={handleChange("batteryNumber")}
                         style={inputControlStyle}
@@ -750,7 +749,7 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Charger Number">
-                      <Input
+                      <Input allowClear
                         value={formData.chargerNumber}
                         onChange={handleChange("chargerNumber")}
                         style={inputControlStyle}

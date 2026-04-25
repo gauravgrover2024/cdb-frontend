@@ -275,7 +275,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Done By" required>
-                  <Select
+                  <Select allowClear
                     value={policyDoneBy || "Autocredits India LLP"}
                     onChange={(value) => {
                       if (onPolicyDoneByChange) onPolicyDoneByChange(value);
@@ -301,7 +301,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Broker Name" required>
-                    <Input
+                    <Input allowClear
                       value={formData.brokerName}
                       onChange={handleChange("brokerName")}
                       placeholder="Enter broker name"
@@ -322,7 +322,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Showroom Name" required>
-                    <Input
+                    <Input allowClear
                       value={formData.showroomName}
                       onChange={handleChange("showroomName")}
                       placeholder="Enter showroom name"
@@ -342,7 +342,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Source" required>
-                  <Select
+                  <Select allowClear
                     value={sourceMode || "Direct"}
                     onChange={(value) => {
                       if (onSourceChange) onSourceChange(value);
@@ -366,7 +366,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Source Name" required>
-                    <Input
+                    <Input allowClear
                       value={formData.sourceName}
                       onChange={handleChange("sourceName")}
                       placeholder="Enter source name"
@@ -388,7 +388,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel" required>
-                      <Input
+                      <Input allowClear
                         value={formData.dealerChannelName}
                         onChange={handleChange("dealerChannelName")}
                         placeholder="Dealer / Channel"
@@ -408,7 +408,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel Address" required>
-                      <Input
+                      <Input allowClear
                         value={formData.dealerChannelAddress}
                         onChange={handleChange("dealerChannelAddress")}
                         placeholder="Dealer / Channel address"
@@ -430,7 +430,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Payout Applicable" required>
-                      <Select
+                      <Select allowClear
                         value={formData.payoutApplicable || "No"}
                         onChange={(value) =>
                           setField("payoutApplicable", value)
@@ -593,7 +593,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={12}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Contact Person Name" required>
-                      <Input
+                      <Input allowClear
                         value={formData.contactPersonName}
                         onChange={handleChange("contactPersonName")}
                         style={inputControlStyle}
@@ -717,7 +717,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label="Alternate Phone">
-                  <Input
+                  <Input allowClear
                     value={formData.alternatePhone}
                     onChange={(e) => {
                       const digits = String(e?.target?.value || "")
@@ -736,7 +736,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label="Email Address" required>
-                  <Input
+                  <Input allowClear
                     value={formData.email}
                     onChange={handleChange("email")}
                     style={inputControlStyle}
@@ -756,7 +756,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={12}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Gender" required>
-                    <Select
+                    <Select allowClear
                       value={formData.gender || undefined}
                       onChange={(v) => setField("gender", v)}
                       style={controlStyle}
@@ -779,7 +779,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label={`PAN Number ${isCompany ? "*" : ""}`}>
-                  <Input
+                  <Input allowClear
                     value={formData.panNumber}
                     onChange={handleChange("panNumber")}
                     style={inputControlStyle}
@@ -797,7 +797,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={12}>
                 <div className={fieldWrapClass}>
                   <CleanField label="GST Number">
-                    <Input
+                    <Input allowClear
                       value={formData.gstNumber}
                       onChange={handleChange("gstNumber")}
                       style={inputControlStyle}
@@ -810,7 +810,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={12}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Aadhaar Number">
-                    <Input
+                    <Input allowClear
                       value={formData.aadhaarNumber}
                       onChange={handleChange("aadhaarNumber")}
                       style={inputControlStyle}
@@ -826,7 +826,7 @@ const Step1CustomerInfo = ({
                 label={isCompany ? "Office Address" : "Residence Address"}
                 required
               >
-                <Input.TextArea
+                <Input.TextArea allowClear
                   rows={2}
                   value={formData.residenceAddress}
                   onChange={handleChange("residenceAddress")}
@@ -845,7 +845,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label="Pincode" required>
-                  <Input
+                  <Input allowClear
                     value={formData.pincode}
                     onChange={(e) => {
                       const digits = String(e?.target?.value || "")
@@ -878,7 +878,7 @@ const Step1CustomerInfo = ({
                     ) : null
                   }
                 >
-                  <Input
+                  <Input allowClear
                     value={formData.city}
                     onChange={handleChange("city")}
                     style={inputControlStyle}
@@ -929,7 +929,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Name">
-                      <Input
+                      <Input allowClear
                         value={formData.nomineeName}
                         onChange={handleChange("nomineeName")}
                         placeholder="Nominee Name"
@@ -942,7 +942,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Relationship">
-                      <Input
+                      <Input allowClear
                         value={formData.nomineeRelationship}
                         onChange={handleChange("nomineeRelationship")}
                         placeholder="Relationship"
@@ -955,7 +955,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Date Of Birth">
-                      <DatePicker
+                      <DatePicker allowClear
                         value={
                           formData.nomineeDob
                             ? dayjs(formData.nomineeDob)
@@ -1013,7 +1013,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Name">
-                      <Input
+                      <Input allowClear
                         value={formData.referenceName}
                         onChange={handleChange("referenceName")}
                         placeholder="Reference Name"
@@ -1026,7 +1026,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Phone">
-                      <Input
+                      <Input allowClear
                         value={formData.referencePhone}
                         onChange={handleChange("referencePhone")}
                         placeholder="Reference Phone"

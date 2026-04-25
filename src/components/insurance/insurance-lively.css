@@ -134,11 +134,28 @@
     color-mix(in srgb, var(--ins-primary-2) 24%, transparent);
 }
 
-/* Input clear icon clutter: keep explicit select clear controls, hide global input clear */
+/* One-click clear controls: keep visible on all supported fields */
 .insurance-case-skin .ant-input-clear-icon,
 .insurance-case-skin .ant-picker-clear,
 .insurance-case-skin .ant-select-clear {
-  display: none !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  top: 50% !important;
+  margin-top: 0 !important;
+  transform: translateY(-50%) !important;
+  line-height: 1 !important;
+  width: 16px;
+  height: 16px;
+}
+
+/* Keep clear icon vertically centered in autosuggest/autocomplete wrappers */
+.insurance-case-skin .ant-select-auto-complete .ant-select-clear,
+.insurance-case-skin .ant-select-single .ant-select-clear,
+.insurance-case-skin .ant-input-affix-wrapper .ant-input-clear-icon {
+  top: 50% !important;
+  margin-top: 0 !important;
+  transform: translateY(-50%) !important;
 }
 
 /* Prevent browser autofill yellow/brown highlights */

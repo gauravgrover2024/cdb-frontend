@@ -614,7 +614,7 @@ const Step3PreviousPolicy = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
-                    <Input style={inputControlStyle} placeholder="e.g., Bajaj" />
+                    <Input allowClear style={inputControlStyle} placeholder="e.g., Bajaj" />
                   </AutoComplete>
                 </CleanField>
               </div>
@@ -623,7 +623,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Type" required>
-                  <Select
+                  <Select allowClear
                     value={formData.previousPolicyType}
                     onChange={(v) => {
                       setField("previousPolicyType", v);
@@ -654,7 +654,7 @@ const Step3PreviousPolicy = ({
                   label="Policy Number"
                   extra={longPolicyNumberPreview}
                 >
-                  <Input
+                  <Input allowClear
                     value={formData.previousPolicyNumber}
                     onChange={handleChange("previousPolicyNumber")}
                     style={inputControlStyle}
@@ -668,7 +668,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date">
-                  <DatePicker
+                  <DatePicker allowClear
                     value={
                       formData.previousPolicyStartDate
                         ? dayjs(formData.previousPolicyStartDate)
@@ -693,7 +693,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Duration">
-                  <Select
+                  <Select allowClear
                     value={formData.previousPolicyDuration}
                     onChange={(v) =>
                       handlePreviousPolicyStartOrDuration({
@@ -714,7 +714,7 @@ const Step3PreviousPolicy = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="OD Expiry Date">
-                      <Input
+                      <Input allowClear
                         type="date"
                         value={formData.previousOdExpiryDate}
                         style={computedDateStyle}
@@ -727,7 +727,7 @@ const Step3PreviousPolicy = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="TP Expiry Date">
-                      <Input
+                      <Input allowClear
                         type="date"
                         value={formData.previousTpExpiryDate}
                         style={computedDateStyle}
@@ -744,7 +744,7 @@ const Step3PreviousPolicy = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="OD Expiry Date">
-                    <Input
+                    <Input allowClear
                       type="date"
                       value={formData.previousOdExpiryDate}
                       style={computedDateStyle}
@@ -760,7 +760,7 @@ const Step3PreviousPolicy = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="TP Expiry Date">
-                    <Input
+                    <Input allowClear
                       type="date"
                       value={formData.previousTpExpiryDate}
                       style={computedDateStyle}
@@ -775,7 +775,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="NCB Discount (%)">
-                  <Select
+                  <Select allowClear
                     value={Number(formData.previousNcbDiscount ?? 0)}
                     onChange={(v) =>
                       setField("previousNcbDiscount", Number(v ?? 0))
@@ -812,7 +812,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Claim Last Year" required>
-                  <Select
+                  <Select allowClear
                     value={formData.claimTakenLastYear}
                     onChange={(v) => setField("claimTakenLastYear", v)}
                     style={controlStyle}
@@ -839,7 +839,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Hypothecation">
-                  <Select
+                  <Select allowClear
                     value={formData.previousHypothecation}
                     onChange={(v) => setField("previousHypothecation", v)}
                     style={controlStyle}
@@ -857,7 +857,7 @@ const Step3PreviousPolicy = ({
 
             <Col xs={24}>
               <CleanField label="Remarks">
-                <Input.TextArea
+                <Input.TextArea allowClear
                   rows={2}
                   value={formData.previousRemarks}
                   onChange={handleChange("previousRemarks")}

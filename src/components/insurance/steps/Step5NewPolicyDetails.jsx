@@ -548,7 +548,7 @@ const Step5NewPolicyDetails = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Date of Sale of Vehicle" required>
-                    <Input
+                    <Input allowClear
                       type="date"
                       value={formData.dateOfSale}
                       onChange={handleChange("dateOfSale")}
@@ -562,7 +562,7 @@ const Step5NewPolicyDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Date of Purchase" required>
-                      <Input
+                      <Input allowClear
                         type="date"
                         value={formData.dateOfPurchase}
                         onChange={handleChange("dateOfPurchase")}
@@ -592,7 +592,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Purchase Date" required>
-                  <Input
+                  <Input allowClear
                     type="date"
                     value={formData.policyPurchaseDate}
                     onChange={handleChange("policyPurchaseDate")}
@@ -605,7 +605,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Duration" required>
-                  <Select
+                  <Select allowClear
                     value={formData.newInsuranceDuration}
                     onChange={(v) => setField("newInsuranceDuration", v)}
                     style={controlStyle}
@@ -618,7 +618,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date" required>
-                  <Input
+                  <Input allowClear
                     type="date"
                     value={formData.ewCommencementDate}
                     onChange={(e) => {
@@ -635,7 +635,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy End Date" required>
-                  <Input
+                  <Input allowClear
                     type="date"
                     value={formData.ewExpiryDate}
                     style={computedDateStyle}
@@ -649,7 +649,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Kms Coverage" required>
-                  <Input
+                  <Input allowClear
                     value={String(formData.kmsCoverage ?? "")}
                     onChange={(e) => setField("kmsCoverage", e.target.value)}
                     style={inputControlStyle}
@@ -676,7 +676,7 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24}>
               <CleanField label="Remarks">
-                <Input.TextArea
+                <Input.TextArea allowClear
                   rows={2}
                   value={formData.newRemarks}
                   onChange={handleChange("newRemarks")}
@@ -737,7 +737,7 @@ const Step5NewPolicyDetails = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
-                    <Input
+                    <Input allowClear
                       style={inputControlStyle}
                       placeholder="e.g. HDFC ERGO General Insurance Company Limited"
                     />
@@ -749,7 +749,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8} lg={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Type" required>
-                  <Select
+                  <Select allowClear
                     value={formData.newPolicyType}
                     onChange={(v) => {
                       setField("newPolicyType", v);
@@ -775,7 +775,7 @@ const Step5NewPolicyDetails = ({
                   label="Policy Number"
                   extra={longPolicyNumberPreview}
                 >
-                  <Input
+                  <Input allowClear
                     value={formData.newPolicyNumber}
                     onChange={handleChange("newPolicyNumber")}
                     style={inputControlStyle}
@@ -788,7 +788,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Issue Date" required>
-                  <DatePicker
+                  <DatePicker allowClear
                     value={
                       formData.newIssueDate
                         ? dayjs(formData.newIssueDate)
@@ -798,7 +798,6 @@ const Step5NewPolicyDetails = ({
                       setField("newIssueDate", d ? d.format("YYYY-MM-DD") : "")
                     }
                     format={["DD/MM/YYYY", "D/M/YYYY"]}
-                    allowClear
                     popupClassName="insurance-themed-calendar"
                   />
                 </CleanField>
@@ -808,7 +807,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date" required>
-                  <DatePicker
+                  <DatePicker allowClear
                     value={
                       formData.newPolicyStartDate
                         ? dayjs(formData.newPolicyStartDate)
@@ -828,7 +827,6 @@ const Step5NewPolicyDetails = ({
                       }
                     }
                     format={["DD/MM/YYYY", "D/M/YYYY"]}
-                    allowClear
                     popupClassName="insurance-themed-calendar"
                   />
                 </CleanField>
@@ -838,7 +836,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Duration" required>
-                  <Select
+                  <Select allowClear
                     value={formData.newInsuranceDuration}
                     onChange={(v) =>
                       handleNewPolicyStartOrDuration({
@@ -857,7 +855,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="OD Expiry Date">
-                  <Input
+                  <Input allowClear
                     type="text"
                     value={
                       hasManualPolicyStartDate
@@ -876,7 +874,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="TP Expiry Date">
-                  <Input
+                  <Input allowClear
                     type="text"
                     value={
                       hasManualPolicyStartDate
@@ -895,7 +893,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="NCB Discount (%)">
-                  <Select
+                  <Select allowClear
                     value={Number(formData.newNcbDiscount || 0)}
                     onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
                     style={controlStyle}
@@ -998,7 +996,7 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Hypothecation">
-                  <Select
+                  <Select allowClear
                     value={formData.newHypothecation}
                     onChange={(v) => setField("newHypothecation", v)}
                     style={controlStyle}
@@ -1016,7 +1014,7 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={16}>
               <CleanField label="Remarks">
-                <Input.TextArea
+                <Input.TextArea allowClear
                   rows={2}
                   value={formData.newRemarks}
                   onChange={handleChange("newRemarks")}

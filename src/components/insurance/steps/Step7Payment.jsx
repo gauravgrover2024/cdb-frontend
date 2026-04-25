@@ -1111,7 +1111,7 @@ const Step7Payment = ({
 
         {!isSubventionNonTransactional ? (
           <FormField label="Date">
-            <Input
+            <Input allowClear
               type="date"
               disabled={isLocked}
               value={paymentForm.date || dayjs().format("YYYY-MM-DD")}
@@ -1126,7 +1126,7 @@ const Step7Payment = ({
       {!isSubventionNonTransactional ? (
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Payment Mode">
-            <Select
+            <Select allowClear
               value={paymentForm.paymentMode || DEFAULT_PAYMENT_MODE}
               disabled={isLocked}
               onChange={(v) =>
@@ -1138,7 +1138,7 @@ const Step7Payment = ({
           </FormField>
 
           <FormField label="Ref / UTR">
-            <Input
+            <Input allowClear
               value={paymentForm.transactionRef || ""}
               disabled={isLocked}
               onChange={(e) =>
@@ -1166,7 +1166,7 @@ const Step7Payment = ({
       )}
 
       <FormField label="Remarks">
-        <Input.TextArea
+        <Input.TextArea allowClear
           rows={2}
           disabled={isLocked}
           value={paymentForm.remarks || ""}
@@ -1456,7 +1456,7 @@ const Step7Payment = ({
                     width: 120,
                     render: (d, row) =>
                       editingId === row._id ? (
-                        <Input
+                        <Input allowClear
                           type="date"
                           value={editDraft?.date || ""}
                           onChange={(e) =>
@@ -1538,7 +1538,7 @@ const Step7Payment = ({
                     width: 140,
                     render: (v, row) =>
                       editingId === row._id ? (
-                        <Select
+                        <Select allowClear
                           value={editDraft?.paymentMode || DEFAULT_PAYMENT_MODE}
                           onChange={(next) =>
                             setEditDraft((prev) => ({
@@ -1564,7 +1564,7 @@ const Step7Payment = ({
                     width: 150,
                     render: (v, row) =>
                       editingId === row._id ? (
-                        <Input
+                        <Input allowClear
                           value={editDraft?.transactionRef || ""}
                           onChange={(e) =>
                             setEditDraft((prev) => ({
@@ -1584,7 +1584,7 @@ const Step7Payment = ({
                     dataIndex: "remarks",
                     render: (v, row) =>
                       editingId === row._id ? (
-                        <Input
+                        <Input allowClear
                           value={editDraft?.remarks || ""}
                           onChange={(e) =>
                             setEditDraft((prev) => ({

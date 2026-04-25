@@ -1203,7 +1203,7 @@ const Step6Documents = ({
                     />
                   </div>
 
-                  <Select
+                  <Select allowClear
                     value={ui.sortBy}
                     style={{ width: "100%", maxWidth: 190 }}
                     options={[

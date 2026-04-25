@@ -843,7 +843,7 @@ const Step4InsuranceQuotes = ({
                       .includes(String(inputValue || "").toLowerCase())
                   }
                 >
-                  <Input
+                  <Input allowClear
                     size="large"
                     className="quote-control"
                     placeholder="e.g. HDFC ERGO"
@@ -852,7 +852,7 @@ const Step4InsuranceQuotes = ({
               </FieldBlock>
 
               <FieldBlock label="Coverage Type" required>
-                <Select
+                <Select allowClear
                   size="large"
                   value={quoteDraft.coverageType}
                   onChange={(v) =>
@@ -869,7 +869,7 @@ const Step4InsuranceQuotes = ({
               </FieldBlock>
 
               <FieldBlock label="Policy Duration" required>
-                <Select
+                <Select allowClear
                   size="large"
                   value={quoteDraft.policyDuration}
                   onChange={(v) =>
@@ -910,7 +910,7 @@ const Step4InsuranceQuotes = ({
                   </>
                 }
               >
-                <Select
+                <Select allowClear
                   size="large"
                   value={Number(quoteDraft.ncbDiscount || 0)}
                   onChange={(v) =>
@@ -932,7 +932,7 @@ const Step4InsuranceQuotes = ({
                   </span>
                 }
               >
-                <Select
+                <Select allowClear
                   size="large"
                   value={quoteDraft.hypothecation || "Not Applicable"}
                   onChange={(v) =>
