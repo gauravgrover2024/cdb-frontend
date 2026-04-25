@@ -349,13 +349,8 @@ const Step2VehicleDetails = ({
                           : "No matching registration"
                       }
                     >
-<<<<<<< HEAD
                       <Input allowClear
                         style={inputControlStyle}
-=======
-                      <Input
-                       
->>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
                         status={
                           showErrors && step2Errors.registrationNumber
                             ? "error"

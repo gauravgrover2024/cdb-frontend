@@ -707,13 +707,8 @@ const Step5NewPolicyDetails = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
-<<<<<<< HEAD
                     <Input allowClear
                       style={inputControlStyle}
-=======
-                    <Input
-                     
->>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
                       placeholder="e.g. HDFC ERGO General Insurance Company Limited"
                     />
                   </AutoComplete>

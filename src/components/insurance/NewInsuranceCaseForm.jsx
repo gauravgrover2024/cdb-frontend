@@ -3526,7 +3526,6 @@ const NewInsuranceCaseForm = ({
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
         [&_.ant-form-item-label_>label]:!text-sm [&_.ant-form-item-label_>label]:!font-medium
-<<<<<<< HEAD
         [&_.ant-input]:!h-10 [&_.ant-input]:!rounded-lg
         [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-lg
         [&_.ant-input-number-input-wrap]:!h-10 [&_.ant-input-number-input]:!h-10
@@ -3536,9 +3535,6 @@ const NewInsuranceCaseForm = ({
         [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-lg
         [&_.ant-picker-input_>input]:!h-8
         [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10`}
-=======
-      "
->>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
     >
       {InsuranceStickyHeader ? (
         <InsuranceStickyHeader

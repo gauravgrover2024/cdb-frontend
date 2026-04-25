@@ -260,16 +260,9 @@ const getPolicyOriginType = (record = {}) => {
     record.usedCarFlowType || record.usedCarFlow,
   );
   const persistedClassification = normalizeUsedCarFlowLabel(
-    record.policyJourneyClassification ||
-<<<<<<< HEAD
-      record.policyOriginType ||
-      record.journeyClassification ||
-      record.journeyType,
-=======
     record.policyOriginType ||
     record.journeyClassification ||
     record.journeyType,
->>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
   );
 
   if (vehicleType === "used car") {
@@ -1483,7 +1476,7 @@ const PolicyCard = ({
           </div>
         </div>
 
-      </div>
+
     </motion.div>
   );
 };

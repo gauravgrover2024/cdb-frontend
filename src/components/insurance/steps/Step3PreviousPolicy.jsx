@@ -586,11 +586,7 @@ const Step3PreviousPolicy = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
-<<<<<<< HEAD
                     <Input allowClear style={inputControlStyle} placeholder="e.g., Bajaj" />
-=======
-                    <Input placeholder="e.g., Bajaj" />
->>>>>>> 98bebc1 (feat: add Tata AIG RSA exclusion logic to payout calculation and refactor Step8Payout UI)
                   </AutoComplete>
                 </CleanField>
               </div>
