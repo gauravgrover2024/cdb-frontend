@@ -444,10 +444,39 @@
   background: #f7faff !important;
 }
 
+.insurance-case-skin.insurance-dashboard-shell.insurance-step1-neutral {
+  background: #ffffff !important;
+}
+
 .insurance-case-skin .ant-btn {
   font-weight: 700 !important;
 }
 
 .insurance-case-skin .ant-btn-primary:not(:disabled) {
   filter: saturate(1.08) !important;
+}
+
+.insurance-form {
+  background: transparent;
+  padding: 0;
+  min-height: auto;
+}
+
+.ins-header-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px 24px 0 0;
+  margin-bottom: 0;
+  box-shadow: none;
+}
+
+.ins-header-card::before {
+  display: none;
+}
+
+.ins-form-card {
+  border-radius: 0 0 24px 24px;
+  margin-top: 0;
+  border-top: 0;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
 }

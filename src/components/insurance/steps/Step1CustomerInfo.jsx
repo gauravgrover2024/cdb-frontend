@@ -18,10 +18,10 @@ import dayjs from "dayjs";
 const { Text } = Typography;
 
 const shellStyle =
-  "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
+  "rounded-[28px] border border-slate-200 bg-white shadow-[0_16px_42px_rgba(15,23,42,0.07)]";
 
 const sectionHeaderLabel =
-  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500";
 
 const controlStyle = {
   width: "100%",
@@ -45,7 +45,7 @@ const textAreaStyle = {
 };
 
 const labelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
+  "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600";
 
 const fieldWrapClass =
   "[&_.ant-input]:!rounded-[14px] [&_.ant-input]:!text-[14px] [&_.ant-input]:!h-[46px] [&_.ant-input]:!py-0 [&_.ant-input]:!leading-[46px] [&_.ant-input-affix-wrapper]:!h-[46px] [&_.ant-input-affix-wrapper]:!rounded-[14px] [&_.ant-input-affix-wrapper]:!px-3 [&_.ant-input-affix-wrapper]:!py-0 [&_.ant-input-affix-wrapper]:!flex [&_.ant-input-affix-wrapper]:!items-center [&_.ant-input-affix-wrapper_.ant-input]:!h-[42px] [&_.ant-input-affix-wrapper_.ant-input]:!py-0 [&_.ant-input-affix-wrapper_.ant-input]:!leading-[42px] [&_.ant-input-number]:!h-[46px] [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-[14px] [&_.ant-input-number-input-wrap]:!h-[44px] [&_.ant-input-number-input]:!h-[44px] [&_.ant-input-number-input]:!leading-[44px] [&_.ant-input-number-input]:!text-[14px] [&_.ant-select-selector]:!h-[46px] [&_.ant-select-selector]:!rounded-[14px] [&_.ant-select-selector]:!px-[11px] [&_.ant-select-selector]:!py-0 [&_.ant-select-selection-item]:!leading-[44px] [&_.ant-select-selection-placeholder]:!leading-[44px] [&_.ant-radio-group]:!flex [&_.ant-radio-group]:!w-full [&_.ant-radio-group]:!gap-2 [&_.ant-radio-group]:!flex-wrap [&_.ant-radio-button-wrapper]:!h-[42px] [&_.ant-radio-button-wrapper]:!min-w-[124px] [&_.ant-radio-button-wrapper]:!rounded-[999px] [&_.ant-radio-button-wrapper]:!border [&_.ant-radio-button-wrapper]:!border-slate-300 [&_.ant-radio-button-wrapper]:!bg-white [&_.ant-radio-button-wrapper]:!px-5 [&_.ant-radio-button-wrapper]:!text-center [&_.ant-radio-button-wrapper]:!font-semibold [&_.ant-radio-button-wrapper]:!text-slate-600 [&_.ant-radio-button-wrapper]:!leading-[40px] [&_.ant-radio-button-wrapper]:!shadow-none [&_.ant-radio-button-wrapper]:!transition-all [&_.ant-radio-button-wrapper:hover]:!border-[#7A7CFF] [&_.ant-radio-button-wrapper:hover]:!text-slate-800 [&_.ant-radio-button-wrapper-checked]:!border-[#5B4CF0] [&_.ant-radio-button-wrapper-checked]:!bg-[#5B4CF0] [&_.ant-radio-button-wrapper-checked]:!text-white [&_.ant-radio-button-wrapper-checked]:!shadow-[0_8px_20px_rgba(37,99,235,0.28)] [&_.ant-radio-button-wrapper-checked:hover]:!border-[#5B4CF0] [&_.ant-radio-button-wrapper-checked:hover]:!color-white [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!background-[#5B4CF0] [&_.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)]:!color-white [&_.ant-radio-button-wrapper-checked::before]:!hidden [&_.ant-radio-button-wrapper:not(:first-child)::before]:!hidden";
@@ -1044,37 +1044,134 @@ const Step1CustomerInfo = ({
   ];
 
   return (
-    <div className="step1-customer-info flex flex-col gap-6">
+    <div className="step1-customer-info step1-revamp flex flex-col gap-6">
       <style>
         {`
-          .step1-customer-info .ant-radio-button-wrapper-checked,
-          .step1-customer-info .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled),
-          .step1-customer-info .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled):hover {
-            background: var(--ins-primary) !important;
-            border-color: var(--ins-primary) !important;
+          .step1-revamp {
+            --step1-primary: #2563eb;
+            --step1-secondary: #7c3aed;
+            --step1-accent: #0ea5e9;
+            --step1-success: #10b981;
+            --step1-warning: #f59e0b;
+            --step1-surface: #ffffff;
+            --step1-border: #d9e4f7;
+          }
+
+          .step1-revamp .ant-radio-button-wrapper-checked,
+          .step1-revamp .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled),
+          .step1-revamp .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled):hover {
+            background: var(--step1-primary) !important;
+            border-color: var(--step1-primary) !important;
+            color: #ffffff !important;
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+          }
+
+          .step1-revamp .ant-radio-button-wrapper-checked span {
             color: #ffffff !important;
           }
 
-          .step1-customer-info .ant-radio-button-wrapper-checked span {
-            color: #ffffff !important;
+          .step1-revamp .ant-radio-button-wrapper {
+            border-color: #c4d5f6 !important;
+            color: #334155 !important;
+            background: #ffffff !important;
           }
 
-          .step1-customer-info .customer-autocomplete-dropdown .ant-select-item {
+          .step1-revamp .ant-radio-button-wrapper:hover {
+            border-color: var(--step1-accent) !important;
+            color: #0f172a !important;
+          }
+
+          .step1-revamp .ant-input,
+          .step1-revamp .ant-input-affix-wrapper,
+          .step1-revamp .ant-select-selector,
+          .step1-revamp .ant-picker,
+          .step1-revamp .ant-input-number,
+          .step1-revamp textarea.ant-input {
+            border-color: var(--step1-border) !important;
+            background: #ffffff !important;
+          }
+
+          .step1-revamp .ant-input:hover,
+          .step1-revamp .ant-input-affix-wrapper:hover,
+          .step1-revamp .ant-select:hover .ant-select-selector,
+          .step1-revamp .ant-picker:hover,
+          .step1-revamp .ant-input-number:hover {
+            border-color: #b8cdf5 !important;
+          }
+
+          .step1-revamp .ant-input:focus,
+          .step1-revamp .ant-input-focused,
+          .step1-revamp .ant-input-affix-wrapper-focused,
+          .step1-revamp .ant-select-focused .ant-select-selector,
+          .step1-revamp .ant-picker-focused,
+          .step1-revamp .ant-input-number-focused,
+          .step1-revamp .ant-input-number:focus {
+            border-color: var(--step1-primary) !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+          }
+
+          .step1-revamp .ant-collapse > .ant-collapse-item {
+            border-bottom: 1px solid #eef2f7 !important;
+          }
+
+          .step1-revamp .ant-collapse > .ant-collapse-item:last-child {
+            border-bottom: none !important;
+          }
+
+          .step1-revamp .ant-collapse > .ant-collapse-item > .ant-collapse-header {
+            padding-left: 4px !important;
+            padding-right: 4px !important;
+          }
+
+          .step1-revamp .customer-autocomplete-dropdown .ant-select-item {
             padding: 6px !important;
             border-radius: 14px !important;
           }
 
-          .step1-customer-info .customer-autocomplete-dropdown .ant-select-item-option-active {
-            background: var(--ins-surface-muted) !important;
+          .step1-revamp .customer-autocomplete-dropdown .ant-select-item-option-active {
+            background: #eff6ff !important;
           }
 
-          .step1-customer-info .customer-autocomplete-dropdown .ant-select-item-option-selected {
-            background: var(--ins-surface-soft) !important;
+          .step1-revamp .customer-autocomplete-dropdown .ant-select-item-option-selected {
+            background: #e0ecff !important;
+          }
+
+          .step1-revamp .step1-status-chip {
+            border-radius: 999px !important;
+            border: 1px solid #cfdcf3 !important;
+            background: #ffffff !important;
+            color: #334155 !important;
+            font-weight: 700 !important;
+            box-shadow: none !important;
+          }
+
+          .step1-revamp .step1-status-chip.is-filled {
+            border-color: #bcd3fb !important;
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
+          }
+
+          .step1-revamp .step1-status-chip.is-policy {
+            border-color: #cfc3fb !important;
+            background: #f3efff !important;
+            color: #6d28d9 !important;
+          }
+
+          .step1-revamp .step1-status-chip.is-flow {
+            border-color: #a7f3d0 !important;
+            background: #ecfdf5 !important;
+            color: #047857 !important;
+          }
+
+          .step1-revamp .step1-status-chip.is-case {
+            border-color: #fde68a !important;
+            background: #fffbeb !important;
+            color: #b45309 !important;
           }
         `}
       </style>
 
-      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Customer information</div>
@@ -1089,10 +1186,10 @@ const Step1CustomerInfo = ({
 
           <div className="flex flex-wrap gap-2">
             <Tag
-              className={`ins-lively-pill !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
+              className={`step1-status-chip !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
                 formData.buyerType === "Individual" ||
                 formData.buyerType === "Company"
-                  ? "active"
+                  ? "is-filled"
                   : ""
               }`}
             >
@@ -1100,10 +1197,10 @@ const Step1CustomerInfo = ({
             </Tag>
 
             <Tag
-              className={`ins-lively-pill !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
+              className={`step1-status-chip !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
                 formData.vehicleType === "New Car" ||
                 formData.vehicleType === "Used Car"
-                  ? "active"
+                  ? "is-filled"
                   : ""
               }`}
             >
@@ -1112,20 +1209,20 @@ const Step1CustomerInfo = ({
 
             {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
               <Tag
-                className="ins-lively-pill soft !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+                className="step1-status-chip is-flow !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               >
                 {formData.usedCarFlowType || "Used-car flow pending"}
               </Tag>
             ) : null}
 
             <Tag
-              className="ins-lively-pill active !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+              className="step1-status-chip is-policy !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
             >
               {getPolicyTypePillLabel(formData.policyCategory)}
             </Tag>
 
             <Tag
-              className="ins-lively-pill warn !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
+              className="step1-status-chip is-case !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
             >
               {isCompany ? "Company Case" : "Individual Case"}
             </Tag>
@@ -1136,11 +1233,11 @@ const Step1CustomerInfo = ({
       <Row gutter={[20, 20]}>
         <Col xs={24} xl={8} className="xl:self-stretch">
           <div className="xl:sticky xl:top-[150px] self-start">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#9FC0FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-slate-200 shadow-[0_10px_26px_rgba(15,23,42,0.06)]">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#9FC0FF]/70 text-xs font-black text-slate-800 ring-1 ring-[#9FC0FF]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#dbeafe] text-xs font-black text-slate-800 ring-1 ring-[#bfd4ff]">
                       {customerInitial}
                     </div>
                     <div className="min-w-0">

@@ -5,6 +5,7 @@ import {
   AlertCircle,
   BarChart3,
   CheckCircle,
+  Clock3,
   DollarSign,
   FileText,
   Plus,
@@ -12,65 +13,23 @@ import {
   Trash2,
   Eye,
   RefreshCw,
-  Zap,
   GalleryVertical,
   TrendingUp,
   Search,
-  Clock,
   X,
   Calendar,
   Car,
   Shield,
   Activity,
-  Layers,
   Phone,
 } from "lucide-react";
-import {
-  Alert,
-  Button,
-  Empty,
-  message,
-  Modal,
-  Pagination,
-  Popconfirm,
-  Space,
-  Tag,
-  Tooltip,
-} from "antd";
+import { Alert, message, Modal, Pagination, Popconfirm, Tooltip } from "antd";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { insuranceApi } from "../../api/insurance";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
 
 dayjs.extend(customParseFormat);
-
-const STATUS_LABEL_MAP = {
-  draft: "Draft",
-  submitted: "Completed",
-  issued: "Completed",
-};
-
-const STEP_LABEL_MAP = {
-  1: "Customer",
-  2: "Vehicle",
-  3: "Prev. Policy",
-  4: "Quotes",
-  5: "Policy",
-  6: "Documents",
-  7: "Payment",
-};
-
-const FILTER_CHIPS = [
-  { key: "all", label: "All Policies" },
-  { key: "completed", label: "Completed" },
-  { key: "draft", label: "Draft" },
-  { key: "paymentDue", label: "Payment Due" },
-  { key: "renewal30", label: "Expiring soon" },
-  { key: "expired", label: "Expired" },
-  { key: "2w", label: "2W" },
-  { key: "4w", label: "4W" },
-  { key: "comm", label: "Commercial" },
-];
 
 const FONT_VARS = {
   "--default-font-family":
@@ -139,22 +98,7 @@ const paymentReceivedNum = (c) => {
   return Number.isFinite(total) ? total : 0;
 };
 
-const dueNum = (c) => Math.max(0, premiumNum(c) - paymentReceivedNum(c));
-
 const hasPolicyNumber = (c) => hasDisplayValue(c?.newPolicyNumber);
-
-const hasIncompletePaymentChase = (c) => {
-  if (!c || typeof c !== "object") return false;
-  const pairs = [
-    [c.customerPaymentExpected, c.customerPaymentReceived],
-    [c.inhousePaymentExpected, c.inhousePaymentReceived],
-    [c.customer_payment_expected, c.customer_payment_received],
-    [c.inhouse_payment_expected, c.inhouse_payment_received],
-  ];
-  const active = pairs.filter(([exp]) => Number(exp) > 0);
-  if (active.length === 0) return false;
-  return active.some(([exp, rec]) => Number(rec || 0) < Number(exp));
-};
 
 const vehicleTypeLower = (c) =>
   String(c?.typesOfVehicle || "")
@@ -249,6 +193,205 @@ const daysUntilExpiry = (c) => {
   return expiry.startOf("day").diff(dayjs().startOf("day"), "day");
 };
 
+const isExpiringSoonCase = (record = {}, renewedCaseIds = new Set()) => {
+  const days = daysUntilExpiry(record);
+  const caseId = String(getCaseId(record) || "");
+  return days !== null && days >= 0 && days <= 45 && !renewedCaseIds.has(caseId);
+};
+
+const isExpiredCase = (record = {}, renewedCaseIds = new Set()) => {
+  const days = daysUntilExpiry(record);
+  const caseId = String(getCaseId(record) || "");
+  return days !== null && days < 0 && !renewedCaseIds.has(caseId);
+};
+
+const getPolicyIssueDate = (c) =>
+  c?.newIssueDate ||
+  c?.newPolicyIssueDate ||
+  c?.policyIssueDate ||
+  c?.issueDate ||
+  c?.newPolicyStartDate ||
+  c?.createdAt ||
+  "";
+
+const getVehicleDisplayYear = (record = {}) => {
+  const regDate =
+    record.dateOfReg ||
+    record.registrationDate ||
+    record.regDate ||
+    record.rc_redg_date ||
+    record.vehicleRegistrationDate ||
+    "";
+  const parsed = parseInsuranceDate(regDate);
+  if (parsed) return parsed.format("YYYY");
+  return (
+    record.mfgYear ||
+    record.manufactureYear ||
+    record.manufacturingYear ||
+    record.vehicleYear ||
+    record.registrationYear ||
+    ""
+  );
+};
+
+const normalizeInsurerToken = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const normalizeUsedCarFlowLabel = (value) => {
+  const raw = String(value || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return "";
+  if (lower.includes("sale") || lower.includes("purchase"))
+    return "Sale/Purchase";
+  if (lower.includes("expired")) return "Policy Already Expired";
+  if (lower.includes("rollover")) return "Rollover";
+  if (lower.includes("renew")) return "Renewal";
+  return raw;
+};
+
+const getPolicyOriginType = (record = {}) => {
+  const vehicleType = String(record.vehicleType || "")
+    .trim()
+    .toLowerCase();
+  const usedCarType = normalizeUsedCarFlowLabel(
+    record.usedCarFlowType || record.usedCarFlow,
+  );
+  const persistedClassification = normalizeUsedCarFlowLabel(
+    record.policyJourneyClassification ||
+      record.policyOriginType ||
+      record.journeyClassification ||
+      record.journeyType,
+  );
+
+  if (vehicleType === "used car") {
+    if (usedCarType === "Renewal") {
+      const previousInsurer = normalizeInsurerToken(
+        record.previousInsuranceCompany,
+      );
+      const acceptedInsurer = normalizeInsurerToken(record.newInsuranceCompany);
+      if (previousInsurer && acceptedInsurer) {
+        return previousInsurer === acceptedInsurer ? "Renewal" : "Rollover";
+      }
+      return "Renewal";
+    }
+    if (
+      usedCarType === "Policy Already Expired" ||
+      usedCarType === "Sale/Purchase"
+    ) {
+      return usedCarType;
+    }
+    return persistedClassification || usedCarType || "Renewal";
+  }
+
+  return persistedClassification || usedCarType || "";
+};
+
+const getRenewedFromId = (record = {}) =>
+  record.renewedFromCaseId ||
+  record.renewFromCaseId ||
+  record.renewedFrom ||
+  record.renewFrom ||
+  record.previousInsuranceCaseId ||
+  record.parentCaseId ||
+  record.sourceCaseId ||
+  "";
+
+const isPolicyRenewedElsewhere = (record = {}, allCases = []) => {
+  const currentId = String(getCaseId(record) || record.caseId || "");
+  if (!currentId) return false;
+  return (allCases || []).some((candidate) => {
+    if (String(getCaseId(candidate)) === currentId) return false;
+    return String(getRenewedFromId(candidate) || "") === currentId;
+  });
+};
+
+const getPolicyPulseMeta = (days, alreadyRenewed = false) => {
+  if (alreadyRenewed) {
+    return {
+      label: "Already Renewed",
+      detail: "Renewal case created",
+      color: "#2563eb",
+      bg: "#eff6ff",
+    };
+  }
+  if (days === null || !Number.isFinite(Number(days))) {
+    return {
+      label: "Pending",
+      detail: "Expiry not captured",
+      color: "#64748b",
+      bg: "#f8fafc",
+    };
+  }
+  if (days < 0) {
+    return {
+      label: "Expired",
+      detail: `${Math.abs(days)}d overdue`,
+      color: "#dc2626",
+      bg: "#fef2f2",
+    };
+  }
+  if (days <= 45) {
+    return {
+      label: "Expiring Soon",
+      detail: `${days} days remaining`,
+      color: "#b45309",
+      bg: "#fffbeb",
+    };
+  }
+  return {
+    label: "Active",
+    detail: `${days} days remaining`,
+    color: "#047857",
+    bg: "#ecfdf5",
+  };
+};
+
+const getInsurancePaymentDueSnapshot = (record = {}) => {
+  const premium = premiumNum(record);
+  const rows = (
+    Array.isArray(record?.paymentHistory)
+      ? record.paymentHistory
+      : Array.isArray(record?.payment_history)
+        ? record.payment_history
+        : []
+  ).map(normalizeInsuranceLedgerRow);
+  const ledgerTotals = computeInsurancePaymentTotals(rows, premium);
+  const fallbackAcPaid = Number(
+    record.inhousePaymentReceived || record.inhouse_payment_received || 0,
+  );
+  const fallbackCustomerPaidInsurer = Number(
+    record.customerPaymentToInsurer || record.customer_payment_to_insurer || 0,
+  );
+  const fallbackCustomerReceipt = Number(
+    record.customerPaymentReceived || record.customer_payment_received || 0,
+  );
+  const fallbackSubvention = Number(
+    record.subventionNotRecoverable || record.subventionAmount || 0,
+  );
+
+  const acPaid =
+    ledgerTotals.insurerPaidByAutocredits ||
+    Math.max(0, fallbackAcPaid - fallbackCustomerPaidInsurer);
+  const customerPaidInsurer =
+    ledgerTotals.insurerPaidByCustomer || fallbackCustomerPaidInsurer;
+  const customerReceipt =
+    ledgerTotals.customerRecovered || fallbackCustomerReceipt;
+  const subvention =
+    ledgerTotals.subventionNotRecoverable || fallbackSubvention;
+  const amount =
+    acPaid > 0 && customerPaidInsurer <= 0
+      ? Math.max(0, premium - subvention - customerReceipt)
+      : 0;
+
+  return {
+    isDue: acPaid > 0 && customerPaidInsurer <= 0 && amount > 0,
+    amount,
+  };
+};
+
 const isCompletedPolicy = (c) => {
   const st = normalizeStatus(c?.status);
   return st === "submitted" || st === "issued";
@@ -256,13 +399,7 @@ const isCompletedPolicy = (c) => {
 
 const isDraftPolicy = (c) => normalizeStatus(c?.status) === "draft";
 
-const isPaymentDuePolicy = (c) => {
-  if (hasIncompletePaymentChase(c)) return true;
-  const st = normalizeStatus(c?.status);
-  if (st === "submitted" && (!hasPolicyNumber(c) || premiumNum(c) <= 0))
-    return true;
-  return dueNum(c) > 0;
-};
+const isPaymentDuePolicy = (c) => getInsurancePaymentDueSnapshot(c).isDue;
 
 const matchesPolicyFilter = (c, key) => {
   const days = daysUntilExpiry(c);
@@ -276,7 +413,7 @@ const matchesPolicyFilter = (c, key) => {
     case "paymentDue":
       return isPaymentDuePolicy(c);
     case "renewal30":
-      return days !== null && days >= 0 && days < 45;
+      return days !== null && days >= 0 && days <= 45;
     case "expired":
       return days !== null && days < 0;
     case "2w":
@@ -426,71 +563,6 @@ const sortLedgerByDate = (rows = []) =>
     if (!bDate.isValid()) return -1;
     return aDate.valueOf() - bDate.valueOf();
   });
-
-const getLedgerTimelineMeta = (row = {}, index = 0) => {
-  const amount = toAmount(row.amount);
-  const paidBy = String(row.paidBy || "").toLowerCase();
-  const dateLabel = dayjs(row.date).isValid()
-    ? dayjs(row.date).format("DD MMM")
-    : "—";
-  const fullDateLabel = dayjs(row.date).isValid()
-    ? dayjs(row.date).format("DD MMM YYYY")
-    : "—";
-  const base = {
-    key: row._id || `ledger-${index}`,
-    amount,
-    dateLabel,
-    fullDateLabel,
-  };
-  if (row.entryType === INSURANCE_ENTRY_TYPES.CUSTOMER_RECEIPT) {
-    return {
-      ...base,
-      label: "Receipt from customer",
-      note: "Customer to Autocredits",
-      arrow: "↓",
-      tone: "good",
-    };
-  }
-  if (row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_REFUND) {
-    return {
-      ...base,
-      label: "Subvention paid back",
-      note: "Autocredits to customer",
-      arrow: "↑",
-      tone: "accent",
-    };
-  }
-  if (row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE) {
-    return {
-      ...base,
-      label: "Subvention not recoverable",
-      note: "Short receipt / adjustment",
-      arrow: "↔",
-      tone: "accent",
-    };
-  }
-  if (row.entryType === INSURANCE_ENTRY_TYPES.INSURER_PAYMENT) {
-    const paidDirectlyByCustomer = paidBy === "customer";
-    return {
-      ...base,
-      label: paidDirectlyByCustomer
-        ? "Customer paid insurer"
-        : "Autocredits paid insurer",
-      note: paidDirectlyByCustomer
-        ? "Customer to insurance company"
-        : "Autocredits to insurance company",
-      arrow: paidDirectlyByCustomer ? "↑" : "↔",
-      tone: amount > 0 ? "good" : "warning",
-    };
-  }
-  return {
-    ...base,
-    label: "Ledger entry",
-    note: "Recorded payment movement",
-    arrow: "↔",
-    tone: "warning",
-  };
-};
 
 const computeInsurancePaymentTotals = (rows = [], premium = 0) => {
   const insurerPaidByAutocredits = rows
@@ -672,61 +744,68 @@ const MetricCard = ({
   isActive,
   onClick,
 }) => {
+  const titleColor = isActive ? "rgba(255,255,255,0.88)" : "#64748b";
+  const valueColor = isActive ? "#ffffff" : color;
+  const iconColor = isActive ? "#ffffff" : color;
+  const iconBg = isActive ? "rgba(255,255,255,0.16)" : `${color}12`;
+
   return (
     <motion.div
       whileHover={{ y: -2, scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative overflow-hidden rounded-xl cursor-pointer border-2 transition-all"
+      className="relative cursor-pointer overflow-hidden rounded-xl border transition-all"
       style={{
         background: isActive ? color : "#ffffff",
         borderColor: isActive ? color : "#e2e8f0",
         boxShadow: isActive
           ? `0 4px 12px ${color}30`
           : "0 1px 3px rgba(0, 0, 0, 0.05)",
+        fontFamily: 'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+        WebkitFontSmoothing: "antialiased",
+        MozOsxFontSmoothing: "grayscale",
+        textRendering: "optimizeLegibility",
+        fontFeatureSettings: '"tnum" 1, "cv05" 1, "cv08" 1',
       }}
     >
       <div className="p-3">
         <div className="flex items-center gap-3">
-          <div
-            className="p-2 rounded-lg"
-            style={{
-              background: isActive ? "rgba(255, 255, 255, 0.2)" : `${color}15`,
-            }}
-          >
-            <Icon size={18} style={{ color: isActive ? "#ffffff" : color }} />
+          <div className="rounded-lg p-2" style={{ background: iconBg }}>
+            <Icon size={18} style={{ color: iconColor }} />
           </div>
-          <div className="flex-1 min-w-0">
+
+          <div className="min-w-0 flex-1">
             <p
-              className="text-xs font-semibold uppercase tracking-wide truncate"
-              style={{
-                color: isActive ? "rgba(255, 255, 255, 0.9)" : "#64748b",
-              }}
+              className="truncate text-[11px] font-semibold uppercase tracking-[0.05em]"
+              style={{ color: titleColor }}
             >
               {title}
             </p>
-            <p
-              className="text-2xl font-black"
-              style={{ color: isActive ? "#ffffff" : "#0f172a" }}
-            >
-              {value}
-            </p>
-            {subtitle && (
+
+            <div className="mt-1.5 flex items-baseline gap-1.5">
               <p
-                className="text-xs truncate"
-                style={{
-                  color: isActive ? "rgba(255,255,255,0.8)" : "#64748b",
-                }}
+                className="text-[17px] font-extrabold leading-none tracking-[-0.045em] tabular-nums"
+                style={{ color: valueColor }}
               >
                 {subtitle}
               </p>
-            )}
+
+              <span
+                className="text-[9px] font-semibold leading-none tabular-nums"
+                style={{
+                  color: isActive ? "rgba(255,255,255,0.88)" : valueColor,
+                }}
+              >
+                ({value})
+              </span>
+            </div>
           </div>
         </div>
       </div>
     </motion.div>
   );
 };
+
 
 const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
   return (
@@ -780,35 +859,11 @@ const PolicyCard = ({
   onDocs,
 }) => {
   const isDraft = policy.status === "draft";
-  const isExpiringSoon = policy.expiryDays < 45 && policy.expiryDays >= 0;
-  const isExpired = policy.expiryDays < 0;
-  const hasPaymentDue = policy.paid < policy.premium;
   const openDues = policy.openDues || 0;
   const pulseDays = Number.isFinite(Number(policy.expiryDays))
     ? Number(policy.expiryDays)
     : null;
-  const pulsePercent =
-    pulseDays === null
-      ? 0
-      : Math.max(0, Math.min(100, Math.round((pulseDays / 365) * 100)));
-  const policyPulseTone =
-    pulseDays === null
-      ? { label: "Pending", color: "#64748b", bg: "#f8fafc", bar: "#94a3b8" }
-      : pulseDays < 0
-        ? { label: "Expired", color: "#dc2626", bg: "#fef2f2", bar: "#ef4444" }
-        : pulseDays < 45
-          ? {
-              label: "Expiring Soon",
-              color: "#b45309",
-              bg: "#fffbeb",
-              bar: "#f59e0b",
-            }
-          : {
-              label: "Active",
-              color: "#047857",
-              bg: "#ecfdf5",
-              bar: "#10b981",
-            };
+  const policyPulseTone = getPolicyPulseMeta(pulseDays, policy.alreadyRenewed);
 
   const statusConfig = {
     draft: { color: "#f43f5e", bg: "#fff1f2", label: "Draft" },
@@ -823,23 +878,6 @@ const PolicyCard = ({
     : isCompletedPolicy({ status: policy.status })
       ? "#10b981"
       : "#3b82f6";
-
-  const stepLabels = {
-    1: "Customer",
-    2: "Vehicle",
-    3: "Prev. Policy",
-    4: "Quotes",
-    5: "Policy",
-    6: "Documents",
-    7: "Payment",
-  };
-
-  const paymentRowStyles = {
-    neutral: { bg: "#ffffff", border: "#e2e8f0", color: "#64748b" },
-    good: { bg: "#f0fdf4", border: "#bbf7d0", color: "#15803d" },
-    warning: { bg: "#fef3c7", border: "#fde047", color: "#a16207" },
-    accent: { bg: "#eff6ff", border: "#bfdbfe", color: "#1e40af" },
-  };
 
   const paymentRows = Array.isArray(policy.paymentTimeline)
     ? policy.paymentTimeline
@@ -925,31 +963,12 @@ const PolicyCard = ({
                 {policy.typesOfVehicle || "4W"}
               </span>
 
-              {(isExpiringSoon ||
-                isExpired ||
-                hasPaymentDue ||
-                openDues > 0) && (
+              {openDues > 0 && (
                 <div className="flex flex-wrap gap-2 mt-0">
-                  {isExpiringSoon && (
-                    <span className="px-2 py-1 rounded-md text-xs font-bold bg-orange-100 text-orange-700 flex items-center gap-1">
-                      <Clock size={11} />
-                      Expires in {policy.expiryDays}d
-                    </span>
-                  )}
-
-                  {isExpired && (
-                    <span className="px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 flex items-center gap-1">
-                      <AlertCircle size={11} />
-                      Expired {Math.abs(policy.expiryDays)}d ago
-                    </span>
-                  )}
-
-                  {openDues > 0 && (
-                    <span className="px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 flex items-center gap-1">
-                      <DollarSign size={11} />
-                      Open Dues {formatInr(openDues)}
-                    </span>
-                  )}
+                  <span className="px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 flex items-center gap-1">
+                    <DollarSign size={11} />
+                    Customer outstanding {formatInr(openDues)}
+                  </span>
                 </div>
               )}
             </div>
@@ -1079,10 +1098,6 @@ const PolicyCard = ({
             <div className="p-3 space-y-3">
               {/* Customer block */}
               <div>
-                <p className="text-[11px] font-semibold text-slate-600 mb-1">
-                  Customer
-                </p>
-
                 <div className="flex items-center gap-2 text-[11px] text-slate-600">
                   <Phone size={11} className="shrink-0" />
                   <span className="truncate">{policy.mobile || "—"}</span>
@@ -1090,6 +1105,10 @@ const PolicyCard = ({
 
                 <p className="mt-1 text-[11px] text-slate-500 truncate">
                   Source: {policy.source || "—"}
+                  {policy.isIndirectSource &&
+                  (policy.sourceDetailsName || policy.sourceDetailsContact)
+                    ? ` · ${policy.sourceDetailsName || "—"}${policy.sourceDetailsContact ? ` · ${policy.sourceDetailsContact}` : ""}`
+                    : ""}
                 </p>
               </div>
 
@@ -1107,6 +1126,12 @@ const PolicyCard = ({
                   title={policy.vehicle}
                 >
                   {policy.vehicle || "—"}
+                  {policy.vehicleYear ? (
+                    <span className="text-slate-500">
+                      {" "}
+                      · {policy.vehicleYear}
+                    </span>
+                  ) : null}
                 </p>
 
                 <p
@@ -1168,6 +1193,11 @@ const PolicyCard = ({
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
                   NCB {policy.ncb}
                 </span>
+                {policy.policyOriginType && !policy.isNewCarCase ? (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">
+                    {policy.policyOriginType}
+                  </span>
+                ) : null}
               </div>
 
               {/* Hypothecation and expiry */}
@@ -1180,6 +1210,12 @@ const PolicyCard = ({
                 </p>
                 <p className="text-[11px] text-slate-500 truncate">
                   Expiry: {policy.expiryLabel || "—"}
+                </p>
+                <p
+                  className="text-[11px] text-slate-500 truncate"
+                  title={policy.policyIssuedBy}
+                >
+                  Issued by: {policy.policyIssuedBy || "—"}
                 </p>
               </div>
             </div>
@@ -1358,11 +1394,11 @@ const PolicyCard = ({
                   </p>
                 </div>
                 <span
-                  className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                  className="px-3 py-1.5 rounded-full text-[11px] font-black uppercase shadow-sm"
                   style={{
                     background: policyPulseTone.bg,
                     color: policyPulseTone.color,
-                    border: `1px solid ${policyPulseTone.color}22`,
+                    border: `1px solid ${policyPulseTone.color}44`,
                   }}
                 >
                   {policyPulseTone.label}
@@ -1373,13 +1409,6 @@ const PolicyCard = ({
             {/* Body */}
             <div className="p-3 space-y-3">
               <div className="space-y-1.5 text-[11px]">
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-600">Stage</span>
-                  <span className="font-semibold text-slate-900 text-right truncate">
-                    {stepLabels[policy.currentStep]}
-                  </span>
-                </div>
-
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-600">Created</span>
                   <span className="font-semibold text-slate-900 text-right truncate">
@@ -1396,42 +1425,37 @@ const PolicyCard = ({
               </div>
 
               <div>
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                    Policy Pulse
-                  </span>
-                  <span
-                    className="text-[11px] font-black"
-                    style={{ color: policyPulseTone.color }}
-                  >
-                    {pulseDays === null
-                      ? "—"
-                      : pulseDays < 0
-                        ? `${Math.abs(pulseDays)}d expired`
-                        : `${pulseDays}d left`}
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pulsePercent}%` }}
-                    transition={{ duration: 0.45, ease: "easeOut" }}
-                    className="h-full rounded-full"
-                    style={{ background: policyPulseTone.bar }}
-                  />
-                </div>
-              </div>
-
-              {/* Premium pill */}
-              <div
-                className="p-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 border flex items-center justify-between gap-2"
-                style={{ borderColor: "#e2e8f0" }}
-              >
-                <div>
-                  <p className="text-[11px] text-slate-600">Premium</p>
-                  <p className="text-base font-black text-slate-900">
-                    {formatInr(policy.premium)}
-                  </p>
+                <div
+                  className="rounded-xl border px-2.5 py-2"
+                  style={{
+                    borderColor: `${policyPulseTone.color}33`,
+                    background: policyPulseTone.bg,
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-7 w-7 rounded-full inline-flex items-center justify-center"
+                        style={{
+                          background: "#ffffff",
+                          color: policyPulseTone.color,
+                        }}
+                      >
+                        <Clock3 size={13} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                          Policy Pulse
+                        </p>
+                        <p
+                          className="text-[11px] font-semibold truncate"
+                          style={{ color: policyPulseTone.color }}
+                        >
+                          {policyPulseTone.detail}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1552,27 +1576,88 @@ const InsuranceDashboardPage = () => {
     const total = cases.length;
     const draft = cases.filter(isDraftPolicy).length;
     const completed = cases.filter(isCompletedPolicy).length;
-    const paymentDue = cases.filter(isPaymentDuePolicy).length;
-    const renewal30 = cases.filter((c) => {
-      const days = daysUntilExpiry(c);
-      return days !== null && days >= 0 && days <= 30;
-    }).length;
-    const totalPremium = cases.reduce((sum, c) => sum + premiumNum(c), 0);
-    const totalCollected = cases.reduce(
-      (sum, c) => sum + paymentReceivedNum(c),
+    const renewedIds = new Set(
+      (cases || [])
+        .map((c) => String(getRenewedFromId(c) || ""))
+        .filter(Boolean),
+    );
+    const paymentDueRows = cases
+      .map((c) => ({ record: c, due: getInsurancePaymentDueSnapshot(c) }))
+      .filter((row) => row.due.isDue);
+    const paymentDue = paymentDueRows.length;
+    const paymentDueAmount = paymentDueRows.reduce(
+      (sum, row) => sum + row.due.amount,
       0,
     );
+    const renewal30 = cases.filter((c) => isExpiringSoonCase(c, renewedIds)).length;
+    const today = dayjs();
+    const currentMonth = today.format("YYYY-MM");
+    const policyIssuedTodayRows = cases.filter((c) => {
+      const issued = parseInsuranceDate(getPolicyIssueDate(c));
+      return (
+        issued &&
+        issued.isSame(today, "day") &&
+        (hasPolicyNumber(c) || isCompletedPolicy(c))
+      );
+    });
+    const renewalRows = cases.filter((c) =>
+      ["renewal", "rollover"].includes(getPolicyOriginType(c).toLowerCase()),
+    );
+    const renewalsConvertedThisMonthRows = renewalRows.filter((c) => {
+      const issued = parseInsuranceDate(getPolicyIssueDate(c));
+      return (
+        issued &&
+        issued.format("YYYY-MM") === currentMonth &&
+        (hasPolicyNumber(c) || isCompletedPolicy(c))
+      );
+    });
+    const renewalsPendingThisMonthRows = renewalRows.filter((c) => {
+      if (hasPolicyNumber(c) || isCompletedPolicy(c)) return false;
+      const expiry = parseInsuranceDate(getPolicyPulseExpiryDate(c));
+      return expiry && expiry.format("YYYY-MM") === currentMonth;
+    });
+    const sumPremium = (rows) =>
+      rows.reduce((sum, c) => sum + premiumNum(c), 0);
+    const conversionRate =
+      total > 0 ? Math.round((completed / total) * 100) : 0;
     return {
       total,
       draft,
       completed,
       paymentDue,
+      paymentDueAmount,
       expiringSoon: renewal30,
-      totalPremium,
-      totalCollected,
-      totalOutstanding: Math.max(0, totalPremium - totalCollected),
+      conversionRate,
+      policyIssuedToday: policyIssuedTodayRows.length,
+      policyIssuedTodayAmount: sumPremium(policyIssuedTodayRows),
+      renewalsConvertedThisMonth: renewalsConvertedThisMonthRows.length,
+      renewalsConvertedThisMonthAmount: sumPremium(
+        renewalsConvertedThisMonthRows,
+      ),
+      renewalsPendingThisMonth: renewalsPendingThisMonthRows.length,
+      renewalsPendingThisMonthAmount: sumPremium(renewalsPendingThisMonthRows),
     };
   }, [cases]);
+
+  const criticalAlerts = useMemo(
+    () =>
+      cases.filter((c) => {
+        if (isPolicyRenewedElsewhere(c, cases)) return false;
+        const days = daysUntilExpiry(c);
+        return days !== null && days >= 0 && days <= 7;
+      }),
+    [cases],
+  );
+
+  const renewedCaseIds = useMemo(
+    () =>
+      new Set(
+        (cases || [])
+          .map((c) => String(getRenewedFromId(c) || ""))
+          .filter(Boolean),
+      ),
+    [cases],
+  );
 
   const filterCounts = useMemo(() => {
     const rows = Array.isArray(cases) ? cases : [];
@@ -1582,17 +1667,23 @@ const InsuranceDashboardPage = () => {
       draft: rows.filter((c) => matchesPolicyFilter(c, "draft")).length,
       paymentDue: rows.filter((c) => matchesPolicyFilter(c, "paymentDue"))
         .length,
-      expiring: rows.filter((c) => matchesPolicyFilter(c, "renewal30")).length,
-      expired: rows.filter((c) => matchesPolicyFilter(c, "expired")).length,
+      expiring: rows.filter((c) => isExpiringSoonCase(c, renewedCaseIds)).length,
+      expired: rows.filter((c) => isExpiredCase(c, renewedCaseIds)).length,
       "2w": rows.filter((c) => matchesPolicyFilter(c, "2w")).length,
       "4w": rows.filter((c) => matchesPolicyFilter(c, "4w")).length,
       comm: rows.filter((c) => matchesPolicyFilter(c, "comm")).length,
     };
-  }, [cases]);
+  }, [cases, renewedCaseIds]);
 
   const filteredCases = useMemo(() => {
     return (cases || []).filter((c) => {
-      if (!matchesPolicyFilter(c, policyFilter)) return false;
+      if (policyFilter === "renewal30") {
+        if (!isExpiringSoonCase(c, renewedCaseIds)) return false;
+      } else if (policyFilter === "expired") {
+        if (!isExpiredCase(c, renewedCaseIds)) return false;
+      } else if (!matchesPolicyFilter(c, policyFilter)) {
+        return false;
+      }
       const q = search.trim().toLowerCase();
       if (!q) return true;
       const snap = c.customerSnapshot || {};
@@ -1621,7 +1712,7 @@ const InsuranceDashboardPage = () => {
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [cases, search, policyFilter]);
+  }, [cases, search, policyFilter, renewedCaseIds]);
 
   useEffect(() => {
     setPage(1);
@@ -1732,10 +1823,30 @@ const InsuranceDashboardPage = () => {
             : customerName || contactPerson || companyName || "—";
 
       const mobile = snap.primaryMobile || record.mobile || "—";
-      const source =
-        record.source ||
-        record.sourceOrigin ||
-        (record.sourceName ? "Direct" : "—");
+      const sourceRaw = String(
+        record.source || record.sourceOrigin || "",
+      ).trim();
+      const source = sourceRaw || (record.sourceName ? "Indirect" : "Direct");
+      const isIndirectSource =
+        /indirect|dealer|broker|agency|channel|dsa|pos|partner|reference|referral/i.test(
+          source,
+        );
+      const referenceName =
+        record.referenceName ||
+        record.sourceName ||
+        record.dealerChannelName ||
+        record.reference_name ||
+        "";
+      const referenceContact =
+        record.referenceContactNumber ||
+        record.referencePhone ||
+        record.referenceMobile ||
+        record.referenceContact ||
+        record.sourceContactNumber ||
+        record.sourceMobile ||
+        record.dealerChannelMobile ||
+        record.dealerChannelContact ||
+        "";
 
       // Vehicle
       const vehicle = [
@@ -1749,6 +1860,7 @@ const InsuranceDashboardPage = () => {
       const vehicleLabel = vehicle || "—";
       const reg = record.registrationNumber || record.vehicleNumber || "—";
       const regKey = normalizeVehicleRegKey(reg);
+      const vehicleYear = getVehicleDisplayYear(record);
 
       // Policy
       const insurer = record.newInsuranceCompany || "—";
@@ -1759,6 +1871,18 @@ const InsuranceDashboardPage = () => {
         ? `${record.newNcbDiscount}%`
         : "—";
       const hypothecation = record.newHypothecation || "—";
+      const policyOriginType = getPolicyOriginType(record);
+      const isNewCarCase =
+        String(record.vehicleType || "")
+          .trim()
+          .toLowerCase() === "new car";
+      const policyIssuedBy =
+        record.policyIssuedBy ||
+        record.policyDoneBy ||
+        record.policy_done_by ||
+        record.insuranceIssuedBy ||
+        record.sourceOrigin ||
+        "—";
 
       // Payment
       const paid = paymentReceivedNum(record);
@@ -1893,6 +2017,8 @@ const InsuranceDashboardPage = () => {
       const receiptVisible =
         effectiveInsurerMode === INSURER_SETTLEMENT_MODE.NONE ||
         effectiveInsurerMode === INSURER_SETTLEMENT_MODE.AUTOCREDITS;
+      const insurerPaymentPending =
+        effectiveInsurerPaidTotal <= 0 && premium > 0;
       const receiptBase = receiptVisible
         ? Math.max(0, premium - effectiveSubventionNr)
         : 0;
@@ -1911,13 +2037,15 @@ const InsuranceDashboardPage = () => {
               date: latestReceiptRow?.date || null,
               progressBase: receiptBase,
             }
-          : {
-              label: "Customer outstanding",
-              amount: customerOutstanding,
-              type: customerOutstanding > 0 ? "warning" : "neutral",
-              date: null,
-              progressBase: receiptBase,
-            }
+          : insurerPaymentPending
+            ? null
+            : {
+                label: "Customer outstanding",
+                amount: customerOutstanding,
+                type: customerOutstanding > 0 ? "warning" : "neutral",
+                date: null,
+                progressBase: receiptBase,
+              }
         : null;
 
       const subventionRows = [];
@@ -1961,11 +2089,20 @@ const InsuranceDashboardPage = () => {
         contactPerson,
         mobile,
         source,
+        isIndirectSource,
+        sourceDetailsName: isIndirectSource ? referenceName : "",
+        sourceDetailsContact: isIndirectSource ? referenceContact : "",
+        referenceName,
+        referenceContact,
         vehicle: vehicleLabel,
+        vehicleYear,
         registration: reg,
         regKey,
         insurer,
         policyNumber: policyNo,
+        policyIssuedBy,
+        policyOriginType,
+        isNewCarCase,
         premium,
         paid,
         idv,
@@ -1982,10 +2119,11 @@ const InsuranceDashboardPage = () => {
         paymentTimeline: paymentTimelineRows,
         paymentPercent,
         openDues: openDuesFromAcRecovery,
+        alreadyRenewed: renewedCaseIds.has(String(id)),
         record,
       };
     });
-  }, [paginatedCases]);
+  }, [paginatedCases, renewedCaseIds]);
 
   // ============================================
   // RENDER
@@ -2000,14 +2138,20 @@ const InsuranceDashboardPage = () => {
       }}
     >
       <div className="max-w-[1920px] mx-auto space-y-4">
-        {/* Header - Sample Style */}
+        {criticalAlerts.length > 0 && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-semibold">
+            {criticalAlerts.length} policies expiring in the next 7 days
+          </div>
+        )}
+
+        {/* Header */}
         <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Insurance Workspace
               </p>
-              <h1 className="text-2xl font-black bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-black text-slate-900">
                 Policy Dashboard
               </h1>
               <p className="text-xs text-slate-500 mt-1">
@@ -2016,29 +2160,83 @@ const InsuranceDashboardPage = () => {
               </p>
             </div>
 
-            {/* Inline stats */}
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                <p className="text-xs text-slate-500">Total Premium</p>
-                <p className="text-lg font-black text-slate-900">
-                  {formatInr(stats.totalPremium)}
-                </p>
+            <>
+              <style>{`
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url('https://fonts.gstatic.com/s/inter/v13/UcCo3FwrK3iLTcviYwY.woff2') format('woff2');
+    }
+  `}</style>
+
+              <div
+                className="flex justify-end"
+                style={{
+                  fontFamily:
+                    'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+                  WebkitFontSmoothing: "antialiased",
+                  MozOsxFontSmoothing: "grayscale",
+                  textRendering: "optimizeLegibility",
+                  fontFeatureSettings: '"tnum" 1, "cv05" 1, "cv08" 1',
+                  fontVariationSettings: '"opsz" 14',
+                }}
+              >
+                <div className="flex items-center rounded-[18px] bg-white px-3 py-2.5 shadow-[0_2px_10px_rgba(148,163,184,0.12)]">
+                  <div className="min-w-[150px] px-4 text-center">
+                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
+                      Policy Issued Today
+                    </p>
+                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-slate-900 tabular-nums">
+                      {formatInr(stats.policyIssuedTodayAmount)}
+                      <span className="ml-1 text-[9px] font-semibold tracking-normal text-slate-500">
+                        ({stats.policyIssuedToday})
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="h-9 w-px bg-slate-200" />
+
+                  <div className="min-w-[172px] px-4 text-center">
+                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
+                      Renewals Converted
+                    </p>
+                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-emerald-600 tabular-nums">
+                      {formatInr(stats.renewalsConvertedThisMonthAmount)}
+                      <span className="ml-1 text-[9px] font-semibold tracking-normal text-emerald-500">
+                        ({stats.renewalsConvertedThisMonth})
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="h-9 w-px bg-slate-200" />
+
+                  <div className="min-w-[172px] px-4 text-center">
+                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
+                      Renewals Pending
+                    </p>
+                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-amber-600 tabular-nums">
+                      {formatInr(stats.renewalsPendingThisMonthAmount)}
+                      <span className="ml-1 text-[9px] font-semibold tracking-normal text-amber-500">
+                        ({stats.renewalsPendingThisMonth})
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="h-9 w-px bg-slate-200" />
+
+                  <div className="min-w-[108px] px-4 text-center">
+                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
+                      Conversion
+                    </p>
+                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-blue-600 tabular-nums">
+                      {stats.conversionRate}%
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-right">
-                <p className="text-xs text-slate-500">Collected</p>
-                <p className="text-lg font-black text-emerald-600">
-                  {formatInr(stats.totalCollected)}
-                </p>
-              </div>
-              <div className="w-px h-10 bg-slate-200" />
-              <div className="text-right">
-                <p className="text-xs text-slate-500">Outstanding</p>
-                <p className="text-lg font-black text-amber-600">
-                  {formatInr(stats.totalOutstanding)}
-                </p>
-              </div>
-            </div>
+            </>
           </div>
         </div>
 
@@ -2072,6 +2270,7 @@ const InsuranceDashboardPage = () => {
             icon={DollarSign}
             title="Payment Due"
             value={stats.paymentDue}
+            subtitle={formatInr(stats.paymentDueAmount)}
             color="#f59e0b"
             isActive={policyFilter === "paymentDue"}
             onClick={() => setPolicyFilter("paymentDue")}

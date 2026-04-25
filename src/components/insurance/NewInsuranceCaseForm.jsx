@@ -3453,10 +3453,9 @@ const NewInsuranceCaseForm = ({
 
   return (
     <div
-      className="
-        insurance-case-skin
-        insurance-dashboard-shell
-        min-h-screen bg-slate-50/50 dark:bg-slate-950/20
+      className={`insurance-case-skin insurance-dashboard-shell ${
+        step === 1 ? "insurance-step1-neutral" : ""
+      } min-h-screen bg-slate-50/50 dark:bg-slate-950/20
         [&_.ant-card]:!rounded-xl
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
@@ -3469,8 +3468,7 @@ const NewInsuranceCaseForm = ({
         [&_.ant-btn]:!rounded-lg [&_.ant-btn]:!h-10 [&_.ant-btn-lg]:!h-11
         [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-lg
         [&_.ant-picker-input_>input]:!h-8
-        [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10
-      "
+        [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10`}
     >
       {InsuranceStickyHeader ? (
         <InsuranceStickyHeader
