@@ -20,6 +20,7 @@ export const mapUsedCarLeadFromApi = (doc = {}) => {
   const externalRefs = doc.externalRefs || {};
   const inspection = doc.inspection || {};
   const backgroundCheck = doc.backgroundCheck || {};
+  const negotiation = doc.negotiation || {};
   const importMeta = doc.importMeta || {};
 
   return normalizeLeadRecord({
@@ -148,6 +149,18 @@ export const mapUsedCarLeadFromApi = (doc = {}) => {
       updatedAt: backgroundCheck.updatedAt || null,
       auditTrail: safeArray(backgroundCheck.auditTrail),
     },
+    negotiation: {
+      status: negotiation.status || "Pending Quotations",
+      customer: negotiation.customer || {},
+      dealerQuotes: safeArray(negotiation.dealerQuotes),
+      summary: negotiation.summary || {},
+      comments: negotiation.comments || "",
+      approvedBy: negotiation.approvedBy || "",
+      approvedAt: negotiation.approvedAt || null,
+      closedAt: negotiation.closedAt || null,
+      updatedAt: negotiation.updatedAt || null,
+      auditTrail: safeArray(negotiation.auditTrail),
+    },
     importMeta: {
       recordSource: importMeta.recordSource || "",
       importedAt: importMeta.importedAt || null,
@@ -271,6 +284,7 @@ export const mapFlatLeadToApi = (lead = {}) => ({
   })),
   inspection: lead.inspection || {},
   backgroundCheck: lead.backgroundCheck || {},
+  negotiation: lead.negotiation || {},
   importMeta: lead.importMeta || {},
   stageData: lead.stageData || {},
 });
@@ -323,6 +337,21 @@ export const usedCarsApi = {
   async saveBackgroundCheck(id, payload = {}) {
     const response = await apiClient.put(
       `/api/used-cars/leads/${id}/background-check`,
+      payload,
+    );
+    return { ...response, data: mapUsedCarLeadFromApi(response?.data) };
+  },
+
+  async listNegotiationLeads(params = {}) {
+    const response = await apiClient.get('/api/used-cars/negotiation/leads', {
+      params,
+    });
+    return parseListResponse(response);
+  },
+
+  async saveNegotiation(id, payload = {}) {
+    const response = await apiClient.put(
+      `/api/used-cars/leads/${id}/negotiation`,
       payload,
     );
     return { ...response, data: mapUsedCarLeadFromApi(response?.data) };
