@@ -1,378 +1,702 @@
 import React from "react";
-import { Modal, Button, Tag, Divider, Table } from "antd";
-import { PrinterOutlined, DownloadOutlined, CloseOutlined } from "@ant-design/icons";
+import { Modal, Button, Divider, Tag } from "antd";
+import {
+  PrinterOutlined,
+  DownloadOutlined,
+  CloseOutlined,
+  CheckCircleFilled,
+  FileTextOutlined,
+} from "@ant-design/icons";
 import { dayjs } from "../UsedCarLeadManager/utils/formatters";
 
-// ── Document Styles ──────────────────────────────────────────────
-const styles = {
-  container: "max-w-[850px] mx-auto bg-white p-12 text-slate-900 leading-relaxed shadow-sm print:shadow-none print:p-0 font-serif",
-  h1: "text-center text-xl font-black uppercase tracking-widest mb-8 border-b-2 border-slate-900 pb-2",
-  h2: "text-center text-lg font-black uppercase tracking-tight mb-6 mt-10",
-  body: "text-[13px] text-justify space-y-4",
-  clause: "mb-3",
-  table: "w-full border-collapse border border-slate-950 my-6 text-[12px]",
-  th: "border border-slate-950 p-2 bg-slate-50 font-black text-left",
-  td: "border border-slate-950 p-2 px-4",
-  signatureLine: "w-48 border-t border-slate-900 mt-20 mb-2",
-  pageBreak: "print:page-break-after-always h-12 print:h-0",
-  receipt: "bg-slate-50 p-6 rounded-lg border border-slate-200 my-8 print:bg-white print:border-slate-950",
-};
+const terms = [
+  "The vehicle will be sold through Autocredits India LLP to its network or channel partner at the agreed commercial value captured in this form.",
+  "Any fees, deductions, or commercial adjustments recorded in this document may be reduced from the agreed vehicle price before final settlement.",
+  "A part of the payment may be released as token and the balance may remain subject to holdback conditions, document delivery, lien clearance, or other pending obligations.",
+  "All challans, dues, penalties, or liabilities generated before physical handover remain the responsibility of the user unless expressly recorded otherwise.",
+  "The user will cooperate for loan closure, OTP support, NOC procurement, Form 35 support, RC transfer workflow, and other transfer formalities when required.",
+  "If the transfer process cannot be completed because of user-side title, document, or compliance issues, any amount already paid may become recoverable as per the agreed process.",
+  "The user confirms lawful ownership, peaceful possession, correct vehicle details, and an accurate odometer disclosure to the best of their knowledge.",
+  "The user confirms there is no undisclosed encumbrance, charge, pledge, or finance exposure beyond what is recorded in this agreement.",
+  "The user agrees to indemnify Autocredits India LLP against claims, losses, penalties, or disputes arising from misrepresentation, hidden defects, or incorrect ownership disclosures.",
+  "After physical delivery, custody and operational responsibility shift as per the delivery acknowledgement and the transfer process captured in the agreement set.",
+  "Insurance claim proceeds, where legally applicable and contractually relevant, may be directed in accordance with the operational process for the delivered vehicle.",
+  "Deal cancellation, RC release, or document reversal may attract applicable process charges, penalties, or recoveries as per the commercial arrangement.",
+];
 
-export default function AgreementPreview({ visible, onCancel, data = {} }) {
-  const handlePrint = () => {
-    window.print();
+const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
+const val = (value, fallback = "—") => value || fallback;
+
+function Page({ title, subtitle, children }) {
+  return (
+    <div className="mx-auto mb-6 max-w-[900px] rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm print:mb-0 print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none">
+      <div className="mb-6">
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-indigo-500">
+          Autocredits documentation
+        </p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900">
+          {title}
+        </h2>
+        {subtitle ? (
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        ) : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function DataCard({ label, value, tone = "slate" }) {
+  const toneMap = {
+    slate: "border-slate-200 bg-slate-50 text-slate-800",
+    indigo: "border-indigo-200 bg-indigo-50 text-indigo-800",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    rose: "border-rose-200 bg-rose-50 text-rose-800",
   };
 
-  const formattedDate = data.agreementDate ? dayjs(data.agreementDate).format("DD MMM YYYY") : dayjs().format("DD MMM YYYY");
-  const formattedPrice = Number(data.vehiclePrice || 0).toLocaleString("en-IN");
-  const formattedHoldback = Number(data.holdbackAmount || 0).toLocaleString("en-IN");
-  const formattedFees = Number(data.feesByUser || 0).toLocaleString("en-IN");
-  const netPayable = (data.vehiclePrice || 0) - (data.feesByUser || 0) - (data.holdbackAmount || 0);
+  return (
+    <div
+      className={`rounded-[22px] border p-4 ${toneMap[tone] || toneMap.slate}`}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">
+        {label}
+      </p>
+      <p className="mt-2 text-base font-black">{value}</p>
+    </div>
+  );
+}
+
+function KV({ label, value }) {
+  return (
+    <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-3 border-b border-slate-100 py-3 text-sm last:border-b-0">
+      <p className="font-medium text-slate-500">{label}</p>
+      <p className="font-semibold text-slate-900">{value || "—"}</p>
+    </div>
+  );
+}
+
+function SignatureBlock({
+  leftName = "Signature of User",
+  rightName = "For Autocredits India LLP",
+}) {
+  return (
+    <div className="mt-14 grid gap-8 md:grid-cols-2">
+      <div>
+        <div className="h-14" />
+        <div className="border-t border-slate-400 pt-2 text-sm font-bold text-slate-900">
+          {leftName}
+        </div>
+      </div>
+      <div>
+        <div className="h-14" />
+        <div className="border-t border-slate-400 pt-2 text-sm font-bold text-slate-900">
+          {rightName}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AgreementPreview({ visible, onCancel, data = {} }) {
+  const handlePrint = () => window.print();
+  const handleDownload = () => window.print();
+
+  const formattedDate = data.agreementDate
+    ? dayjs(data.agreementDate).format("DD MMM YYYY")
+    : dayjs().format("DD MMM YYYY");
+
+  const formattedTime = data.deliveryTime
+    ? dayjs(data.deliveryTime).format("HH:mm")
+    : "—";
+
+  const netPayable =
+    Number(data.vehiclePrice || 0) -
+    Number(data.feesByUser || 0) -
+    Number(data.holdbackAmount || 0);
+
+  const challanTotal =
+    Number(data.challanAmount || 0) + Number(data.vahanChallanAmount || 0);
+
+  const estimatedAfterLiabilities =
+    netPayable - challanTotal - Number(data.foreclosureAmount || 0);
+
+  const balanceTransfer = netPayable - Number(data.tokenAmount || 0);
 
   return (
     <Modal
       open={visible}
       onCancel={onCancel}
       footer={null}
-      width={1000}
-      className="agreement-modal"
+      width={1200}
       centered
-      closeIcon={<div className="bg-white/10 p-2 rounded-full backdrop-blur-md border border-white/20"><CloseOutlined className="text-white" /></div>}
-    >
-      <div className="flex justify-between items-center mb-6 bg-slate-900 p-4 -mx-6 -mt-6 rounded-t-xl sticky top-0 z-50">
-        <div className="flex items-center gap-3 text-white">
-          <div className="h-10 w-10 bg-indigo-500 rounded-xl flex items-center justify-center">
-            <PrinterOutlined className="text-xl" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Agreement Builder</p>
-            <h2 className="text-lg font-black leading-none">Legal Contract Preview</h2>
-          </div>
+      closeIcon={
+        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white">
+          <CloseOutlined className="text-slate-500" />
         </div>
-        <div className="flex gap-2">
-          <Button icon={<DownloadOutlined />} className="!rounded-xl !bg-white/10 !border-white/20 !text-white font-bold">Download PDF</Button>
-          <Button type="primary" icon={<PrinterOutlined />} onClick={handlePrint} className="!rounded-xl !bg-white !text-slate-900 !border-white font-black">
-            Print Agreement
-          </Button>
+      }
+      className="agreement-light-modal"
+    >
+      <style>{`
+        @media print {
+          body {
+            background: #ffffff !important;
+          }
+          .agreement-light-modal .ant-modal-header,
+          .agreement-light-modal .ant-modal-footer,
+          .agreement-light-modal .ant-modal-close,
+          .agreement-toolbar {
+            display: none !important;
+          }
+          .agreement-light-modal .ant-modal-content {
+            box-shadow: none !important;
+            padding: 0 !important;
+          }
+        }
+      `}</style>
+
+      <div className="agreement-toolbar sticky top-0 z-20 -mx-6 -mt-6 mb-6 rounded-t-2xl border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <FileTextOutlined className="text-lg" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-indigo-500">
+                Agreement builder
+              </p>
+              <h2 className="text-lg font-black text-slate-900">
+                Legal Contract Preview
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={handleDownload}
+              className="!h-11 !rounded-2xl !border-slate-200 !bg-white px-4 font-semibold !text-slate-700"
+            >
+              Save as PDF
+            </Button>
+            <Button
+              type="primary"
+              icon={<PrinterOutlined />}
+              onClick={handlePrint}
+              className="!h-11 !rounded-2xl !border-indigo-600 !bg-indigo-600 px-4 font-semibold shadow-sm"
+            >
+              Print Agreement
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className={styles.container}>
-        {/* ── Page 1: Purchase Agreement Header ── */}
-        <div className="flex justify-end mb-10">
-          <img src="/logo-placeholder.png" alt="Autocredits Logo" className="h-12 grayscale opacity-80" />
-        </div>
-
-        <h1 className={styles.h1}>User Acceptance Form</h1>
-
-        <div className={styles.body}>
-          <p>
-            This User Acceptance Form (“User Acceptance Form”) is being signed by{" "}
-            <strong>{data.customerName || "«Name»"}</strong> (“User”) S/o/ D/o/ W/o/{" "}
-            <strong>{data.fathersName || "«Father’s Name»"}</strong>, resident of{" "}
-            <strong>{data.address || "«Address»"}</strong>, or the company / partnership / proprietorship / LLP known as{" "}
-            <strong>{data.ownershipType === "Company" ? (data.customerName || "«Company Name»") : "N/A"}</strong>, having its place of business at{" "}
-            <strong>{data.address || "«Business Address»"}</strong> (“User”).
-          </p>
-
-          <p className="font-bold underline mt-6 mb-2">The User represents, warrants and confirms the following:</p>
-          <div className={styles.clause}>
-            1. The user is the rightful owner of the vehicle bearing registration number{" "}
-            <strong>{data.regNo || "«Registration No.»"}</strong> of make <strong>{data.make || "«Make»"}</strong> model{" "}
-            <strong>{data.model || "«Model»"}</strong> bearing chassis number:{" "}
-            <strong>{data.chassisNo || "«Chassis No»"}</strong>, engine number:{" "}
-            <strong>{data.engineNo || "«Engine No»"}</strong>, year of manufacture{" "}
-            <strong>{data.mfgYear || "«Manufacturing Year»"}</strong> (“Vehicle”).
+      <div className="max-h-[78vh] overflow-y-auto px-1 print:max-h-none print:overflow-visible">
+        <Page
+          title="User Acceptance Form"
+          subtitle="A clean light-styled agreement page with the same data bindings used by your current module."
+        >
+          <div className="grid gap-4 md:grid-cols-4">
+            <DataCard
+              label="Seller"
+              value={val(data.customerName)}
+              tone="indigo"
+            />
+            <DataCard
+              label="Registration"
+              value={val(data.regNo)}
+              tone="slate"
+            />
+            <DataCard
+              label="Vehicle"
+              value={
+                `${val(data.make, "")} ${val(data.model, "")}`.trim() || "—"
+              }
+              tone="slate"
+            />
+            <DataCard
+              label="Agreement date"
+              value={formattedDate}
+              tone="emerald"
+            />
           </div>
-          <div className={styles.clause}>
-            2. The user is handing over the vehicle to Autocredits India LLP for sale of the Vehicle based on the details set out below.
+
+          <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
+            This User Acceptance Form is being signed by{" "}
+            <span className="font-bold text-slate-900">
+              {val(data.customerName, "«Name»")}
+            </span>
+            , child / spouse of{" "}
+            <span className="font-bold text-slate-900">
+              {val(data.fathersName, "«Father’s Name»")}
+            </span>
+            , residing at{" "}
+            <span className="font-bold text-slate-900">
+              {val(data.address, "«Address»")}
+            </span>
+            . The user confirms that the vehicle details, commercial details,
+            bank details, and compliance declarations below are being submitted
+            for vehicle sale and transfer processing.
           </div>
 
-          <h3 className="font-black text-sm mt-8 border-l-4 border-slate-900 pl-3">Details of the transactions are as follows:</h3>
-
-          <table className={styles.table}>
-            <tbody>
-              <tr>
-                <td className={styles.th}>Vehicle Price (INR)</td>
-                <td className={styles.td}>₹{formattedPrice}</td>
-                <td className={styles.th} rowSpan={2}>Additional services to be availed (Forfeiture letter, NOC, Loan payment)</td>
-                <td className={styles.td} rowSpan={2}>{(data.additionalServices || []).join(", ") || "None"}</td>
-              </tr>
-              <tr>
-                <td className={styles.th}>Holdback Amount (INR)</td>
-                <td className={styles.td}>₹{formattedHoldback}</td>
-              </tr>
-              <tr>
-                <td className={styles.th}>Holdback Condition on Delivery</td>
-                <td className={styles.td}>{(data.holdbackCondition || []).join(", ") || "N/A"}</td>
-                <td className={styles.th}>Ownership Serial</td>
-                <td className={styles.td}>{data.ownershipSerial || "«Ownership Serial»"}</td>
-              </tr>
-              <tr>
-                <td className={styles.th}>Fees by User (INR)</td>
-                <td className={styles.td}>₹{formattedFees}</td>
-                <td className={styles.th}>Odometer Reading (in KMS)</td>
-                <td className={styles.td}>{data.odometer || "«Odometer»"} KM</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p className="mt-8">
-            The User represents and warrants to Autocredits India LLP that his bank account details, and his outstanding dues to banker with respect to the Vehicle (direct loan, linked loan and other dues) are as follows:
-          </p>
-
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th className={styles.th} colSpan={2}>Bank Details</th>
-                <th className={styles.th} colSpan={2}>Loan Account Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className={styles.th}>User Name</td>
-                <td className={styles.td}>{data.accHolderName || "«Accountholder Name»"}</td>
-                <td className={styles.th}>Loan Account No.</td>
-                <td className={styles.td}>{data.loanAccountNo || "«Loan Account Number»"}</td>
-              </tr>
-              <tr>
-                <td className={styles.th}>Account No.</td>
-                <td className={styles.td}>{data.accountNo || "«Account Number»"}</td>
-                <td className={styles.th}>Finance Co.</td>
-                <td className={styles.td}>{data.financerName || "«Financer Name»"}</td>
-              </tr>
-              <tr>
-                <td className={styles.th}>Bank Name</td>
-                <td className={styles.td}>{data.bankName || "«Bank Name»"}</td>
-                <td className={styles.th}>Foreclosure Amount</td>
-                <td className={styles.td}>₹{Number(data.foreclosureAmount || 0).toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td className={styles.th}>IFSC</td>
-                <td className={styles.td}>{data.ifsc || "«IFSC»"}</td>
-                <td className={styles.th}>Linked Loan (Yes/No)</td>
-                <td className={styles.td}>{data.linkedLoan || "No"}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p className="italic mt-4 text-[11px]">
-            I confirm that there are no other charges, loans, or encumbrances of any form on the vehicle other than as set out above.
-          </p>
-
-          <div className="flex justify-between mt-12 mb-20">
-            <div>
-              <div className={styles.signatureLine}></div>
-              <p className="font-black text-[12px]">Signature of User</p>
-              <div className="mt-4 text-[10px] space-y-1">
-                <p>Name: {data.customerName}</p>
-                <p>Aadhar No: {data.aadhaarNo}</p>
-                <p>PAN: {data.panNo}</p>
-                <p>Date: {formattedDate}</p>
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="rounded-[24px] border border-slate-200 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Vehicle details
+              </p>
+              <div className="mt-3">
+                <KV label="Registration No." value={val(data.regNo)} />
+                <KV
+                  label="Make / Model"
+                  value={`${val(data.make, "—")} / ${val(data.model, "—")}`}
+                />
+                <KV label="Chassis No." value={val(data.chassisNo)} />
+                <KV label="Engine No." value={val(data.engineNo)} />
+                <KV label="Manufacturing Year" value={val(data.mfgYear)} />
+                <KV
+                  label="Odometer"
+                  value={data.odometer ? `${data.odometer} KM` : "—"}
+                />
+                <KV
+                  label="Ownership Serial"
+                  value={val(data.ownershipSerial)}
+                />
+                <KV label="Insurance Type" value={val(data.insuranceType)} />
+                <KV label="RC Type" value={val(data.rcType)} />
+                <KV
+                  label="Procurement Category"
+                  value={val(data.procurementCategory)}
+                />
               </div>
             </div>
-            <div className="text-right">
-              <div className={styles.signatureLine}></div>
-              <p className="font-black text-[12px]">For Autocredits India LLP</p>
+
+            <div className="rounded-[24px] border border-slate-200 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Seller details
+              </p>
+              <div className="mt-3">
+                <KV label="Owner Name" value={val(data.customerName)} />
+                <KV
+                  label="Father / Spouse Name"
+                  value={val(data.fathersName)}
+                />
+                <KV label="Contact No." value={val(data.contactNo)} />
+                <KV label="Email ID" value={val(data.emailId)} />
+                <KV label="PAN" value={val(data.panNo)} />
+                <KV label="Aadhaar" value={val(data.aadhaarNo)} />
+                <KV label="GST Number" value={val(data.gstNumber)} />
+                <KV label="Ownership Type" value={val(data.ownershipType)} />
+                <KV label="Death Case" value={val(data.isDeathCase, "No")} />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className={styles.pageBreak} />
+          <Divider />
 
-        {/* ── Page 2: Terms & Conditions ── */}
-        <h2 className={styles.h2}>Standard Terms & Conditions</h2>
-        <div className={`${styles.body} text-[11px] leading-relaxed`}>
-          <p>The User now agrees and acknowledges as follows:</p>
-          {[
-            "The user agrees to carry out sale of the vehicle through Autocredits India LLP to its Channel Partners for the price set out herein (“Vehicle Price”). The user agrees that the fees, as specified above, shall be deducted from the vehicle price. Such fees is a one-time payment and does not entitle the user for any further services.",
-            "The user will either receive the vehicle price in lumpsum or initially a part as token amount. Autocredits India LLP reserves the right to holdback a portion contingent upon performance of obligations (Document Delivery, Bank NOC, Form 35, RC clearance, etc.).",
-            "User will be liable for payment of all challans generated prior to Autocredits India LLP taking possession of the Vehicle.",
-            "After the sale, Autocredits India LLP will provide chassis plate as scrap proof in case the Vehicle is bought for scrappage.",
-            "The user shall cooperate with Autocredits India LLP for RTO record transfer, providing OTP for initiation, and obtaining NOCs from financing authorities.",
-            "In case transfer in RTO records cannot be affected, the user shall return all amounts paid in return for possession.",
-            "The user represents and warrants rightful ownership and peaceful title. The vehicle is defect-free and odometer reading is accurate and non-tampered. The vehicle has not been involved in illegal activity.",
-            "The user represents there is no undisclosed loan. If the bank refuses to provide NOC, the user will immediately return all amounts paid.",
-            "The user hereby agrees to indemnify Autocredits India LLP and its partners from any loss or claims resulting from breach or misrepresentation.",
-            "Autocredits India LLP will be responsible for damage or loss after physical delivery till transfer is affected, subject to terms.",
-            "The vehicle has valid insurance. User has no objection in insurance company making payments to Autocredits India LLP in event of claims.",
-            "Deal Cancellation would attract a penalty of Rs. 5,000 to be paid upfront to get the RC released."
-          ].map((text, i) => (
-            <div key={i} className="flex gap-3 mb-2">
-              <span className="font-black min-w-[20px]">{i + 1}.</span>
-              <span>{text}</span>
+          <div className="grid gap-4 md:grid-cols-4">
+            <DataCard
+              label="Vehicle price"
+              value={money(data.vehiclePrice)}
+              tone="indigo"
+            />
+            <DataCard
+              label="Fees"
+              value={money(data.feesByUser)}
+              tone="amber"
+            />
+            <DataCard
+              label="Holdback"
+              value={money(data.holdbackAmount)}
+              tone="amber"
+            />
+            <DataCard
+              label="Net payable"
+              value={money(netPayable)}
+              tone="emerald"
+            />
+          </div>
+
+          <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-200">
+            <table className="w-full text-sm">
+              <tbody>
+                <tr className="border-b border-slate-200">
+                  <td className="bg-slate-50 px-4 py-3 font-bold text-slate-700">
+                    Additional services
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">
+                    {(data.additionalServices || []).join(", ") || "None"}
+                  </td>
+                </tr>
+                <tr className="border-b border-slate-200">
+                  <td className="bg-slate-50 px-4 py-3 font-bold text-slate-700">
+                    Holdback conditions
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">
+                    {(data.holdbackCondition || []).join(", ") || "None"}
+                  </td>
+                </tr>
+                <tr className="border-b border-slate-200">
+                  <td className="bg-slate-50 px-4 py-3 font-bold text-slate-700">
+                    Permitted holdback days
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">
+                    {val(data.holdbackDays)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="bg-slate-50 px-4 py-3 font-bold text-slate-700">
+                    Balance status
+                  </td>
+                  <td className="px-4 py-3 text-slate-900">
+                    {val(data.balanceStatus)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="rounded-[24px] border border-slate-200 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Bank details
+              </p>
+              <div className="mt-3">
+                <KV label="Account Holder" value={val(data.accHolderName)} />
+                <KV label="Account No." value={val(data.accountNo)} />
+                <KV label="Bank Name" value={val(data.bankName)} />
+                <KV label="IFSC" value={val(data.ifsc)} />
+              </div>
             </div>
-          ))}
 
-          <div className="flex justify-between mt-20">
-            <div>
-              <div className={styles.signatureLine}></div>
-              <p className="font-black text-[12px]">Signature of User</p>
-            </div>
-            <div className="text-right">
-              <div className={styles.signatureLine}></div>
-              <p className="font-black text-[12px]">For Autocredits India LLP</p>
+            <div className="rounded-[24px] border border-slate-200 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Loan and finance details
+              </p>
+              <div className="mt-3">
+                <KV
+                  label="Hypothecation"
+                  value={val(data.hypothecation, "No")}
+                />
+                <KV label="Financer Name" value={val(data.financerName)} />
+                <KV label="Loan Status" value={val(data.loanStatus)} />
+                <KV label="Linked Loan" value={val(data.linkedLoan, "No")} />
+                <KV
+                  label="Linked Loan Status"
+                  value={val(data.linkedLoanStatus)}
+                />
+                <KV label="Loan Account No." value={val(data.loanAccountNo)} />
+                <KV
+                  label="Foreclosure Amount"
+                  value={money(data.foreclosureAmount)}
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className={styles.pageBreak} />
+          <SignatureBlock />
+        </Page>
 
-        {/* ── Page 3: Acknowledgement & Customer App ── */}
-        <h2 className={styles.h2}>Vehicle Delivery Acknowledgement Receipt</h2>
-        <div className={styles.body}>
-           <p className="mb-6">Dt. <strong>{formattedDate}</strong></p>
-           <p className="italic leading-loose">
-             It is hereby confirmed that Autocredits India LLP has taken the physical delivery of the vehicle bearing Registration No. 
-             <strong> {data.regNo}</strong> having Chassis No. <strong>{data.chassisNo}</strong> and Engine No. <strong>{data.engineNo}</strong> 
-             from <strong>{data.customerName}</strong> on date <strong>{formattedDate}</strong> at <strong>{data.deliveryTime ? dayjs(data.deliveryTime).format("HH:mm") : "«Time»"}</strong> 
-             with the odometer reading at <strong>{data.odometer} KM</strong>. Subsequent to the date and time mentioned, Autocredits India LLP shall be responsible for any issues/ liabilities arising out of the vehicle till the ownership is transferred.
-           </p>
+        <Page
+          title="Standard Terms & Conditions"
+          subtitle="Readable clauses for preview. Swap this array with your exact legal text if your legal team needs verbatim language."
+        >
+          <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+            <div className="space-y-4 text-sm leading-7 text-slate-700">
+              {terms.map((item, index) => (
+                <div key={index} className="flex gap-3">
+                  <span className="mt-0.5 min-w-[24px] text-sm font-black text-slate-900">
+                    {index + 1}.
+                  </span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
-           <div className="grid grid-cols-2 gap-20 mt-20">
-              <div className="text-center">
-                <div className="border-t border-slate-900 pt-2">Autocredits India LLP</div>
-                <p className="text-[10px] mt-1 text-slate-400">Acknowledged & Accepted</p>
+          <SignatureBlock />
+        </Page>
+
+        <Page
+          title="Vehicle Delivery Acknowledgement"
+          subtitle="Delivery handoff, KYC snapshot, and challan summary."
+        >
+          <div className="grid gap-4 md:grid-cols-4">
+            <DataCard
+              label="Delivery date"
+              value={formattedDate}
+              tone="indigo"
+            />
+            <DataCard
+              label="Delivery time"
+              value={formattedTime}
+              tone="slate"
+            />
+            <DataCard
+              label="Odometer"
+              value={data.odometer ? `${data.odometer} KM` : "—"}
+              tone="slate"
+            />
+            <DataCard
+              label="Insurance"
+              value={val(data.insuranceType)}
+              tone="emerald"
+            />
+          </div>
+
+          <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
+            It is recorded that Autocredits India LLP has taken or will take
+            physical delivery of vehicle{" "}
+            <span className="font-bold text-slate-900">{val(data.regNo)}</span>,
+            chassis{" "}
+            <span className="font-bold text-slate-900">
+              {val(data.chassisNo)}
+            </span>
+            , engine{" "}
+            <span className="font-bold text-slate-900">
+              {val(data.engineNo)}
+            </span>
+            , from{" "}
+            <span className="font-bold text-slate-900">
+              {val(data.customerName)}
+            </span>{" "}
+            on <span className="font-bold text-slate-900">{formattedDate}</span>{" "}
+            at <span className="font-bold text-slate-900">{formattedTime}</span>
+            .
+          </div>
+
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="rounded-[24px] border border-slate-200 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Customer application details
+              </p>
+              <div className="mt-3">
+                <KV label="Contact No." value={val(data.contactNo)} />
+                <KV label="Email ID" value={val(data.emailId)} />
+                <KV label="PAN Card No." value={val(data.panNo)} />
+                <KV label="Aadhaar No." value={val(data.aadhaarNo)} />
+                <KV label="GST Number" value={val(data.gstNumber)} />
+                <KV
+                  label="Uploads completed"
+                  value={
+                    [
+                      data.panAttested && "PAN",
+                      data.aadhaarAttested && "Aadhaar",
+                      data.photoUploaded && "Photo",
+                      data.gstUploaded && "GST",
+                      data.foreclosureStatement && "Foreclosure statement",
+                    ]
+                      .filter(Boolean)
+                      .join(", ") || "None"
+                  }
+                />
               </div>
-              <div className="text-center">
-                <div className="border-t border-slate-900 pt-2">Registered Owner</div>
-                <p className="text-[10px] mt-1 text-slate-400">Acknowledged & Accepted</p>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Challan details
+              </p>
+              <div className="mt-3">
+                <KV
+                  label="Delhi Traffic Challan Count"
+                  value={val(data.challanCount, 0)}
+                />
+                <KV
+                  label="Delhi Traffic Challan Amount"
+                  value={money(data.challanAmount)}
+                />
+                <KV
+                  label="Vahan Challan Count"
+                  value={val(data.vahanChallanCount, 0)}
+                />
+                <KV
+                  label="Vahan Challan Amount"
+                  value={money(data.vahanChallanAmount)}
+                />
+                <KV label="Combined challan dues" value={money(challanTotal)} />
+                <KV
+                  label="Handoff checklist"
+                  value={(data.handoffChecklist || []).join(", ") || "None"}
+                />
               </div>
-           </div>
-        </div>
+            </div>
+          </div>
 
-        <Divider className="!my-16" />
+          <div className="mt-10 grid gap-8 md:grid-cols-2">
+            <div className="text-center">
+              <div className="h-12" />
+              <div className="border-t border-slate-400 pt-2 text-sm font-bold text-slate-900">
+                Autocredits India LLP
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Acknowledged and accepted
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="h-12" />
+              <div className="border-t border-slate-400 pt-2 text-sm font-bold text-slate-900">
+                Registered Owner
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Acknowledged and accepted
+              </p>
+            </div>
+          </div>
+        </Page>
 
-        <h2 className={styles.h2}>Customer Application Form - Delivery</h2>
-        <div className={styles.body}>
-           <table className={styles.table}>
+        <Page
+          title="Payment Receipt"
+          subtitle="Commercial summary, deductions, and balance transfer snapshot."
+        >
+          <div className="grid gap-4 md:grid-cols-4">
+            <DataCard
+              label="Offer price"
+              value={money(data.vehiclePrice)}
+              tone="indigo"
+            />
+            <DataCard
+              label="Token amount"
+              value={money(data.tokenAmount)}
+              tone="amber"
+            />
+            <DataCard
+              label="Net payable"
+              value={money(netPayable)}
+              tone="emerald"
+            />
+            <DataCard
+              label="Est. after liabilities"
+              value={money(estimatedAfterLiabilities)}
+              tone="rose"
+            />
+          </div>
+
+          <div className="mt-6 overflow-hidden rounded-[24px] border border-slate-200">
+            <table className="w-full text-sm">
               <thead>
-                <tr><th className={styles.th} colSpan={2}>Vehicle Owner Details</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className={styles.td}><span className="text-slate-400 mr-2">Contact No:</span> {data.contactNo}</td>
-                  <td className={styles.td}><span className="text-slate-400 mr-2">Email ID:</span> {data.emailId}</td>
-                </tr>
-                <tr>
-                   <td className={styles.td}><span className="text-slate-400 mr-2">PAN Card No:</span> {data.panNo}</td>
-                   <td className={styles.td}><span className="text-slate-400 mr-2">Address Proof No:</span> {data.aadhaarNo}</td>
-                </tr>
-              </tbody>
-           </table>
-
-           <table className={styles.table}>
-              <thead>
-                 <tr><th className={styles.th} colSpan={2}>Vehicle Details</th></tr>
-              </thead>
-              <tbody>
-                 <tr>
-                    <td className={styles.td}><span className="text-slate-400 mr-2">Insurance:</span> {data.insuranceType}</td>
-                    <td className={styles.td}><span className="text-slate-400 mr-2">Hypothecation:</span> {data.hypothecation}</td>
-                 </tr>
-              </tbody>
-           </table>
-
-           <table className={styles.table}>
-              <thead>
-                 <tr><th className={styles.th} colSpan={4}>Challan Details</th></tr>
-              </thead>
-              <tbody>
-                 <tr>
-                    <td className={styles.th}>Delhi Traffic Challan</td>
-                    <td className={styles.td}>{data.challanCount || 0} Count</td>
-                    <td className={styles.th}>Amount</td>
-                    <td className={styles.td}>₹{Number(data.challanAmount || 0).toLocaleString()}</td>
-                 </tr>
-                 <tr>
-                    <td className={styles.th}>Vahan Challan</td>
-                    <td className={styles.td}>{data.vahanChallanCount || 0} Count</td>
-                    <td className={styles.th}>Amount</td>
-                    <td className={styles.td}>₹{Number(data.vahanChallanAmount || 0).toLocaleString()}</td>
-                 </tr>
-              </tbody>
-           </table>
-        </div>
-
-        <div className={styles.pageBreak} />
-
-        {/* ── Page 4: Payment Receipt ── */}
-        <h2 className={styles.h2}>Payment Receipt</h2>
-        <div className={styles.body}>
-           <table className={styles.table}>
-              <thead>
-                <tr className="bg-slate-900 text-white">
-                  <th className="p-3 text-left">PARTICULARS</th>
-                  <th className="p-3 text-right">AMOUNT (INR)</th>
-                  <th className="p-3 text-left">REMARKS</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-3 font-black">Offer Price (A)</td>
-                  <td className="p-3 text-right">₹{formattedPrice}</td>
-                  <td className="p-3 text-slate-400 italic">Agreed purchase price</td>
-                </tr>
-                <tr className="bg-slate-50 italic">
-                  <td className="p-3 font-black" colSpan={3}>Deductions / Holdback (B)</td>
-                </tr>
-                <tr>
-                   <td className="p-3 pl-8">Challan Dues</td>
-                   <td className="p-3 text-right">₹{Number(data.challanAmount || 0 + data.vahanChallanAmount || 0).toLocaleString()}</td>
-                   <td className="p-3 text-slate-400 italic">Outstanding traffic fines</td>
-                </tr>
-                <tr>
-                   <td className="p-3 pl-8">Loan Closure / Hold</td>
-                   <td className="p-3 text-right">₹{Number(data.foreclosureAmount || 0).toLocaleString()}</td>
-                   <td className="p-3 text-slate-400 italic">Foreclosure dues</td>
-                </tr>
-                <tr>
-                   <td className="p-3 pl-8">Service Fees / Other</td>
-                   <td className="p-3 text-right">₹{formattedFees}</td>
-                   <td className="p-3 text-slate-400 italic">Processing fees</td>
-                </tr>
-                <tr className="border-t-2 border-slate-900 bg-slate-100 font-bold">
-                   <td className="p-3 text-lg">Net Payable Amount (A-B)</td>
-                   <td className="p-3 text-right text-lg">₹{netPayable.toLocaleString()}</td>
-                   <td className="p-3"></td>
-                </tr>
-              </tbody>
-           </table>
-
-           <p className="mt-10 font-black text-sm uppercase underline">Net Payable Details</p>
-           <table className={styles.table}>
-              <thead>
-                <tr className="bg-slate-100 italic">
-                  <th className="p-2 border border-slate-950 text-left">PARTICULARS</th>
-                  <th className="p-2 border border-slate-950 text-right">AMOUNT (INR)</th>
-                  <th className="p-2 border border-slate-950 text-left">STATUS</th>
+                <tr className="bg-slate-50 text-left">
+                  <th className="px-4 py-3 font-bold text-slate-700">
+                    Particulars
+                  </th>
+                  <th className="px-4 py-3 text-right font-bold text-slate-700">
+                    Amount (INR)
+                  </th>
+                  <th className="px-4 py-3 font-bold text-slate-700">
+                    Remarks
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="p-2 border border-slate-950">Token Amount</td>
-                  <td className="p-2 border border-slate-950 text-right font-bold">₹{Number(data.tokenAmount || 0).toLocaleString()}</td>
-                  <td className="p-2 border border-slate-950 text-emerald-600 font-black">PAID - REF: #{data.regNo?.slice(-4)}</td>
+                <tr className="border-t border-slate-200">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    Offer Price (A)
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-900">
+                    {money(data.vehiclePrice)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    Agreed purchase value
+                  </td>
                 </tr>
-                <tr>
-                  <td className="p-2 border border-slate-950">Balance Transfer</td>
-                  <td className="p-2 border border-slate-950 text-right font-bold">₹{(netPayable - (data.tokenAmount || 0)).toLocaleString()}</td>
-                  <td className="p-2 border border-slate-950 text-amber-600 font-black">PENDING DELIVERY</td>
+                <tr className="border-t border-slate-200 bg-slate-50">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    Fees / deductions
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-900">
+                    {money(data.feesByUser)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    Processing and other deductions
+                  </td>
+                </tr>
+                <tr className="border-t border-slate-200">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    Holdback
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-900">
+                    {money(data.holdbackAmount)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    Held against listed conditions
+                  </td>
+                </tr>
+                <tr className="border-t border-slate-200 bg-slate-50">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    Challan dues
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-900">
+                    {money(challanTotal)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    Traffic and Vahan liabilities
+                  </td>
+                </tr>
+                <tr className="border-t border-slate-200">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    Foreclosure hold
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-900">
+                    {money(data.foreclosureAmount)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">
+                    Finance closure exposure
+                  </td>
+                </tr>
+                <tr className="border-t border-slate-200 bg-emerald-50">
+                  <td className="px-4 py-3 text-base font-black text-emerald-900">
+                    Net Payable (A less fees and holdback)
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-black text-emerald-900">
+                    {money(netPayable)}
+                  </td>
+                  <td className="px-4 py-3 text-emerald-700">
+                    Current module calculation
+                  </td>
                 </tr>
               </tbody>
-           </table>
+            </table>
+          </div>
 
-           <div className="mt-10 p-6 border border-slate-200 rounded-2xl bg-slate-50 italic text-[11px] space-y-2">
-              <p>Please Note: -</p>
-              <p>In case you have not opted for instant payment it will take 3-4 working days after delivery of the vehicle to transfer the complete payment to your account.</p>
-              <p className="font-bold">Our transaction process is completely online – We do not accept/provide any cash.</p>
-           </div>
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <div className="rounded-[24px] border border-slate-200 p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                Net payable details
+              </p>
+              <div className="mt-3">
+                <KV label="Token Amount" value={money(data.tokenAmount)} />
+                <KV label="Balance Transfer" value={money(balanceTransfer)} />
+                <KV label="Balance Status" value={val(data.balanceStatus)} />
+                <KV
+                  label="Payment Reference"
+                  value={
+                    data.regNo ? `REF-${String(data.regNo).slice(-4)}` : "—"
+                  }
+                />
+              </div>
+            </div>
 
-           <div className="mt-20 text-center mx-auto">
-              <div className="w-64 border-t border-slate-950 mx-auto"></div>
-              <p className="font-black mt-2">Registered Owner Acceptance</p>
-           </div>
-        </div>
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
+              <div className="flex items-start gap-3">
+                <CheckCircleFilled className="mt-1 text-emerald-500" />
+                <div>
+                  <p className="font-bold text-slate-900">Payment note</p>
+                  <p className="mt-2">
+                    If instant payment is not selected, balance transfer may
+                    take a few working days after delivery and document
+                    completion. The process should remain digital and traceable.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-14 text-center">
+            <div className="mx-auto h-12 max-w-[280px]" />
+            <div className="mx-auto max-w-[280px] border-t border-slate-400 pt-2 text-sm font-bold text-slate-900">
+              Registered Owner Acceptance
+            </div>
+          </div>
+        </Page>
       </div>
     </Modal>
   );

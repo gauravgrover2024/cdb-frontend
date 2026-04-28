@@ -45,6 +45,7 @@ import UsedCarsNegotiationPage from "./modules/used-cars/pages/UsedCarsNegotiati
 import UsedCarsDocumentationPage from "./modules/used-cars/pages/UsedCarsDocumentationPage";
 import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
+import ACIAssistPage from "./pages/ACIAssistPage";
 
 // NEW: booking pages
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
@@ -107,6 +108,10 @@ function App() {
             <Route
               path="analytics"
               element={R(FEATURE_ACCESS.ANALYTICS, <AnalyticsDashboard />)}
+            />
+            <Route
+              path="aci-assist"
+              element={R(FEATURE_ACCESS.ANALYTICS, <ACIAssistPage />)}
             />
 
             {/* Insurance */}

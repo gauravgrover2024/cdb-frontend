@@ -124,6 +124,12 @@ const Header = () => {
 
   const allNavigationGroups = [
     {
+      label: "ACI Assist",
+      path: "/aci-assist",
+      icon: <Icon name="Sparkles" size={18} />,
+      roles: FEATURE_ACCESS.ANALYTICS,
+    },
+    {
       label: "Analytics",
       path: "/analytics",
       icon: <Icon name="BarChart3" size={18} />,
@@ -343,6 +349,10 @@ const Header = () => {
       Analytics: {
         icon: "bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 dark:from-sky-500/20 dark:to-indigo-500/20 dark:text-sky-300",
         dot: "bg-sky-500 dark:bg-sky-400",
+      },
+      "ACI Assist": {
+        icon: "bg-gradient-to-br from-indigo-100 to-fuchsia-100 text-indigo-700 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-indigo-300",
+        dot: "bg-indigo-500 dark:bg-indigo-400",
       },
       Insurance: {
         icon: "bg-gradient-to-br from-cyan-100 to-teal-100 text-cyan-700 dark:from-cyan-500/20 dark:to-teal-500/20 dark:text-cyan-300",
