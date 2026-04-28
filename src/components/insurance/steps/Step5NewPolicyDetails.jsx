@@ -695,6 +695,7 @@ const Step5NewPolicyDetails = ({
                 <CleanField label="Insurance Company" required>
                   <AutoComplete
                     style={{ width: "100%" }}
+                    className="w-full"
                     value={formData.newInsuranceCompany}
                     options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                       value: name,

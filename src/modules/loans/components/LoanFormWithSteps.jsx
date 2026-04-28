@@ -820,7 +820,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedHasGuarantor = Form.useWatch("hasGuarantor", form);
   const watchedApplicantType = Form.useWatch("applicantType", form);
   const watchedAadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
-  const watchedAadhaarCardBackDocUrl = Form.useWatch("aadhaarCardBackDocUrl", form);
+  const watchedAadhaarCardBackDocUrl = Form.useWatch(
+    "aadhaarCardBackDocUrl",
+    form,
+  );
   const watchedPanCardDocUrl = Form.useWatch("panCardDocUrl", form);
   const watchedPassportDocUrl = Form.useWatch("passportDocUrl", form);
   const watchedDlDocUrl = Form.useWatch("dlDocUrl", form);

@@ -176,6 +176,78 @@ const getScenarioFromForm = (formData = {}) => {
   return "used-car-insurance";
 };
 
+const getPolicyYearLabel = (formData = {}) => {
+  const start = String(formData?.newPolicyStartDate || formData?.ewCommencementDate || "")
+    .trim()
+    .slice(0, 4);
+  const end = String(
+    formData?.newOdExpiryDate ||
+      formData?.newTpExpiryDate ||
+      formData?.ewExpiryDate ||
+      "",
+  )
+    .trim()
+    .slice(0, 4);
+  if (start && end) return `${start}-${end}`;
+  return start || end || "";
+};
+
+const getVehiclePolicyLabel = (formData = {}) =>
+  String(formData?.registrationNumber || "").trim() ||
+  [formData?.vehicleMake, formData?.vehicleModel, formData?.vehicleVariant]
+    .filter(Boolean)
+    .join(" ")
+    .trim() ||
+  "Vehicle";
+
+const getPolicyTagLabel = (formData = {}) =>
+  [
+    String(
+      formData?.customerName || formData?.contactPersonName || formData?.companyName || "Customer",
+    ).trim(),
+    getVehiclePolicyLabel(formData),
+    getPolicyYearLabel(formData),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+const inferDocumentTag = ({ docName = "", formData = {}, scenario = "" }) => {
+  const value = String(docName || "").trim().toLowerCase();
+  if (!value) return "";
+
+  if (value.includes("aadhaar") || value.includes("aadhar")) {
+    if (value.includes("back")) return "Aadhaar Back";
+    return "Aadhaar Front";
+  }
+  if (value.includes("pan")) return "PAN Card";
+  if (value.includes("gst")) {
+    if (value.includes("2")) return "GST Certificate (P2)";
+    if (value.includes("3")) return "GST Certificate (P3)";
+    return "GST Certificate (P1)";
+  }
+  if (value.includes("invoice")) return "Invoice";
+  if (value.includes("form 29") || value.includes("form29")) return "Form 29";
+  if (value.includes("form 30") || value.includes("form30")) {
+    return value.includes("2") ? "Form 30 page 2" : "Form 30 page 1";
+  }
+  if (value.includes("inspection")) return "Inspection Report";
+  if (value.includes("rc")) return "RC Copy";
+  if (value.includes("policy")) {
+    if (scenario === "used-car-renewal" || scenario === "policy-already-expired") {
+      return value.includes("prev") || value.includes("old")
+        ? "Previous Year Policy"
+        : "Policy Copy";
+    }
+    return "Policy Copy";
+  }
+  if (value.includes("engine")) return "Engine Number";
+  if (value.includes("chassis")) return "Chassis Number";
+
+  const reg = String(formData?.registrationNumber || "").trim().toLowerCase();
+  if (reg && value.includes(reg.replace(/[^a-z0-9]/g, ""))) return "RC Copy";
+  return "";
+};
+
 const API_BASE = String(API_BASE_URL || "").replace(/\/+$/, "");
 
 const looksLikeR2Host = (value = "") => {
@@ -646,6 +718,7 @@ const Step6Documents = ({
   }, [schedulePersist]);
 
   const activeRequirement = DOCUMENT_MATRIX[ui.scenario] || DOCUMENT_MATRIX["used-car-renewal"];
+  const policyTagLabel = useMemo(() => getPolicyTagLabel(formData), [formData]);
 
   const normalizedDocuments = useMemo(
     () =>
@@ -706,6 +779,32 @@ const Step6Documents = ({
     () => uniqueList([...baseSuggestedTags, ...persistedCustomTags, ...manualTags]),
     [baseSuggestedTags, manualTags, persistedCustomTags],
   );
+
+  useEffect(() => {
+    const sourceDocs = Array.isArray(documents) ? documents : [];
+    const nextDocs = sourceDocs.map((doc, index) => {
+      if (String(doc?.tag || "").trim()) return doc;
+      const inferredTag = inferDocumentTag({
+        docName:
+          doc?.originalName ||
+          doc?.original_name ||
+          doc?.name ||
+          doc?.url ||
+          `document-${index + 1}`,
+        formData,
+        scenario: ui.scenario,
+      });
+      return inferredTag ? { ...doc, tag: inferredTag } : doc;
+    });
+
+    const changed = nextDocs.some(
+      (doc, index) => String(doc?.tag || "").trim() !== String(sourceDocs[index]?.tag || "").trim(),
+    );
+    if (!changed) return;
+
+    setDocuments(nextDocs);
+    persistSoon();
+  }, [documents, formData, persistSoon, setDocuments, ui.scenario]);
 
   const safeTaggedCount =
     typeof docsTaggedCount === "number"
@@ -853,14 +952,19 @@ const Step6Documents = ({
       const pickedFiles = Array.from(files || []).filter(Boolean);
       if (!pickedFiles.length) return;
 
-      // Premium UI Fix: Client-side validation for better UX
-      const MAX_SIZE = 15 * 1024 * 1024; // 15MB
-      const validFiles = pickedFiles.filter((f) => f.size <= MAX_SIZE);
-      
-      if (validFiles.length < pickedFiles.length) {
-        message.warning(`${pickedFiles.length - validFiles.length} file(s) skipped (exceeds 15MB limit)`);
+      const MAX_FILES = 10;
+      const MAX_SIZE = 20 * 1024 * 1024;
+      const limitedFiles = pickedFiles.slice(0, MAX_FILES);
+      const validFiles = limitedFiles.filter((file) => Number(file?.size || 0) <= MAX_SIZE);
+
+      if (pickedFiles.length > MAX_FILES) {
+        message.warning(`Only 10 files can be uploaded at once. ${pickedFiles.length - MAX_FILES} skipped.`);
       }
-      
+
+      if (validFiles.length < limitedFiles.length) {
+        message.warning(`${limitedFiles.length - validFiles.length} file(s) skipped (exceeds 20MB limit)`);
+      }
+
       if (!validFiles.length) return;
 
       setUploading(true);
@@ -881,6 +985,11 @@ const Step6Documents = ({
           const mimeType = String(file?.format || file?.type || "").trim();
           const sizeBytes = Number(file?.size || 0);
           const storageKey = String(file?.public_id || file?.storageKey || "").trim();
+          const inferredTag = inferDocumentTag({
+            docName: originalName || rawUrl,
+            formData,
+            scenario: ui.scenario,
+          });
 
           return {
             id:
@@ -893,13 +1002,14 @@ const Step6Documents = ({
             sizeLabel: formatFileSize(sizeBytes),
             type: mimeType,
             format,
-            tag: "",
+            tag: inferredTag,
             uploadedAt: nowIso,
             uploadedBy: "Current User",
             storageKey,
             url: rawUrl,
             previewUrl: buildAccessibleDocumentUrl(rawUrl),
             source: "uploaded-r2",
+            policyTagLabel,
           };
         });
 
@@ -908,12 +1018,17 @@ const Step6Documents = ({
         message.success(`${incoming.length} document${incoming.length > 1 ? "s" : ""} uploaded`);
       } catch (err) {
         console.error("[Insurance][Documents] upload failed:", err);
-        message.error(err?.message || "Document upload failed");
+        const errorMessage = String(err?.message || "Document upload failed");
+        if (errorMessage.toLowerCase().includes("limit")) {
+          message.error("Upload failed: max 10 files and 20MB per file are allowed.");
+        } else {
+          message.error(errorMessage);
+        }
       } finally {
         setUploading(false);
       }
     },
-    [persistSoon, setDocuments],
+    [formData, persistSoon, policyTagLabel, setDocuments, ui.scenario],
   );
 
   const handlePickedFiles = useCallback(
@@ -1000,11 +1115,23 @@ const Step6Documents = ({
         const blob = await response.blob();
         if (!blob || !blob.size) throw new Error("Empty document.");
 
-        // For PDFs, sometimes native browser print is better
-        if (blob.type === "application/pdf" && !window.chrome) {
-           const win = window.open(URL.createObjectURL(blob), "_blank");
-           win?.print();
-           return;
+        if (blob.type === "application/pdf") {
+          objectUrl = URL.createObjectURL(blob);
+          const win = window.open(objectUrl, "_blank", "noopener,noreferrer");
+          if (!win) throw new Error("Popup blocked while opening PDF.");
+          win.addEventListener(
+            "load",
+            () => {
+              try {
+                win.focus();
+                win.print();
+              } catch {
+                // Let the opened tab handle preview if print is blocked.
+              }
+            },
+            { once: true },
+          );
+          return;
         }
 
         objectUrl = URL.createObjectURL(blob);
@@ -1118,6 +1245,11 @@ const Step6Documents = ({
                   <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Policy flow</div>
                   <div className="mt-1 text-sm font-bold text-slate-800">{activeRequirement.label}</div>
                   <div className="mt-1 text-xs text-slate-500">Documents are suggested, not mandatory.</div>
+                  {policyTagLabel ? (
+                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-slate-700">
+                      {policyTagLabel}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

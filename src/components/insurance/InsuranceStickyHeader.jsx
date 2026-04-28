@@ -20,6 +20,38 @@ const formatMoney = (v) => {
   }).format(n);
 };
 
+const getPolicyDisplayName = (data = {}) => {
+  const customerLabel =
+    String(
+      data.customerName ||
+        data.contactPersonName ||
+        data.companyName ||
+        "Customer",
+    ).trim() || "Customer";
+  const vehicleLabel =
+    String(data.registrationNumber || "").trim() ||
+    [data.vehicleMake, data.vehicleModel, data.vehicleVariant]
+      .filter((value) => hasValue(value))
+      .join(" ")
+      .trim() ||
+    "Vehicle";
+  const startYear = String(data.newPolicyStartDate || data.ewCommencementDate || "")
+    .trim()
+    .slice(0, 4);
+  const endSource = String(
+    data.newOdExpiryDate || data.newTpExpiryDate || data.ewExpiryDate || "",
+  )
+    .trim()
+    .slice(0, 4);
+  const yearLabel =
+    startYear && endSource
+      ? `${startYear}-${endSource}`
+      : startYear
+        ? `${startYear}`
+        : "";
+  return [customerLabel, vehicleLabel, yearLabel].filter(Boolean).join(" · ");
+};
+
 const STEP_NAMES = {
   1: "Customer Info",
   2: "Vehicle Details",
@@ -115,9 +147,8 @@ const InsuranceStickyHeader = ({
     .join(" ");
 
   const policyCoreLabel = useMemo(() => {
-    if (hasValue(data.newInsuranceCompany)) return data.newInsuranceCompany;
-    return data.registrationNumber || "New Policy";
-  }, [data.newInsuranceCompany, data.registrationNumber]);
+    return getPolicyDisplayName(data) || data.newInsuranceCompany || "New Policy";
+  }, [data]);
 
   const visibleSteps = useMemo(() => {
     return Object.keys(STEP_NAMES)
@@ -128,7 +159,6 @@ const InsuranceStickyHeader = ({
   }, [skipPreviousPolicyStep, skipQuotesStep]);
 
   const currentStepIndex = Math.max(visibleSteps.indexOf(activeStep), 0);
-  const progress = Math.round(((currentStepIndex + 1) / visibleSteps.length) * 100);
 
   return (
     <>
@@ -144,18 +174,6 @@ const InsuranceStickyHeader = ({
         }}
       >
         <div className="w-full">
-          {/* Progress bar — thin coloured strip at very top */}
-          <div className="h-[3px] w-full bg-slate-100">
-            <div
-              className="h-full transition-all duration-500"
-              style={{
-                width: `${progress}%`,
-                background: "linear-gradient(90deg, #6366f1, #0ea5e9)",
-              }}
-            />
-          </div>
-
-          {/* Summary segments */}
           <div className="flex items-stretch overflow-x-auto px-0" style={{ scrollbarWidth: "none" }}>
             <SummarySegment
               icon="User"
@@ -193,34 +211,19 @@ const InsuranceStickyHeader = ({
               icon="Car"
               label="Vehicle"
               colorIdx={3}
+              divider={false}
               title={vehicleLine || "—"}
               line1={`Reg: ${data.registrationNumber || "Unregistered"}`}
               line2={data.manufactureYear ? `Year: ${data.manufactureYear}` : undefined}
-            />
-            <SummarySegment
-              icon="BarChart2"
-              label="Progress"
-              colorIdx={4}
-              divider={false}
-              title={STEP_NAMES[activeStep] || "—"}
-              line1={`Step ${currentStepIndex + 1} of ${visibleSteps.length}`}
-              rightSlot={
-                <span
-                  className="inline-flex items-center rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                  style={{ background: SEGMENT_STYLES[4].dot }}
-                >
-                  {STEP_SHORT_NAMES[activeStep] || "Stage"}
-                </span>
-              }
             />
           </div>
         </div>
       </div>
 
       {/* ── Step Rail — floating above footer ── */}
-      <div className="fixed bottom-[60px] left-1/2 z-[120] -translate-x-1/2 px-3">
+      <div className="fixed bottom-[86px] left-1/2 z-[120] -translate-x-1/2 px-3 sm:bottom-[92px]">
         <div
-          className="flex max-w-[calc(100vw-32px)] items-center gap-0.5 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1"
+          className="flex max-w-[calc(100vw-24px)] items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white px-2 py-2 sm:max-w-[calc(100vw-40px)] sm:px-2.5"
           style={{
             boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
             scrollbarWidth: "none",
@@ -235,7 +238,7 @@ const InsuranceStickyHeader = ({
                 type="button"
                 onClick={() => onStepClick?.(stepNum)}
                 title={STEP_NAMES[stepNum]}
-                className="inline-flex h-7 shrink-0 items-center gap-1 rounded px-2.5 text-[10px] font-semibold tracking-tight transition-all duration-150"
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold tracking-tight transition-all duration-150 sm:h-11 sm:px-4 sm:text-sm"
                 style={
                   isActive
                     ? {

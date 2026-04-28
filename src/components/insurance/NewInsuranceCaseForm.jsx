@@ -6,7 +6,6 @@ import {
   Card,
   Col,
   Divider,
-  Drawer,
   Input,
   InputNumber,
   message,
@@ -37,7 +36,6 @@ import Step8Payment from "./steps/Step7Payment";
 import Step9Payout from "./steps/Step8Payout";
 import {
   STEP_TITLES,
-  STEP_ICON_MAP,
   durationOptions,
   addOnCatalog,
 } from "./steps/allSteps";
@@ -725,8 +723,6 @@ const NewInsuranceCaseForm = ({
   const [saveError, setSaveError] = useState("");
 
   // ── New UI state ─────────────────────────────────────────────────────────
-  /** Controls the floating Case Summary side-drawer */
-  const [summaryOpen, setSummaryOpen] = useState(false);
   /** True after Step 8 is submitted successfully */
   const [submitted, setSubmitted] = useState(false);
   /** Auto-generated case reference shown on the success screen */
@@ -735,11 +731,12 @@ const NewInsuranceCaseForm = ({
   const persistTimerRef = React.useRef(null);
   const persistInFlightRef = React.useRef(false);
   const persistQueuedRef = React.useRef(false);
+  const stickyHeaderRef = React.useRef(null);
   const keyboardActionsRef = React.useRef({
     goNext: null,
-    goBack: null,
     persistNow: null,
   });
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(132);
 
   // Customer search (for Employee Name / Step-1 auto-fill)
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
@@ -802,6 +799,9 @@ const NewInsuranceCaseForm = ({
     policyCategoryKey === "extended warranty" ||
     policyCategoryKey === "ew policy";
   const usedCarFlowType = String(formData.usedCarFlowType || "Renewal").trim();
+  const isRenewalJourney =
+    Boolean(formData.isRenewal) ||
+    ["Renewal", "Rollover"].includes(usedCarFlowType);
   const shouldSkipPreviousPolicyForUsedCar =
     formData.vehicleType === "Used Car" &&
     !isExtendedWarranty &&
@@ -885,15 +885,6 @@ const NewInsuranceCaseForm = ({
         nomineeDob: customer?.nomineeDob || prev.nomineeDob,
         nomineeAge: getAgeFromDob(customer?.nomineeDob) || prev.nomineeAge,
 
-        // === REFERENCE DETAILS (Auto-fill from first reference in customer) ===
-        referenceName:
-          customer?.reference1_name ||
-          customer?.reference2_name ||
-          prev.referenceName,
-        referencePhone:
-          customer?.reference1_mobile ||
-          customer?.reference2_mobile ||
-          prev.referencePhone,
       }));
 
       // === FETCH AND AUTO-POPULATE CUSTOMER'S DOCUMENTS ===
@@ -2231,10 +2222,16 @@ const NewInsuranceCaseForm = ({
         return true;
       }
       if (isExtendedWarranty && stepNumber === 4) return true;
+      if (isRenewalJourney && stepNumber === 6) return true;
       if (stepNumber === 5) return true; // Premium Breakup removed from flow
       return false;
     },
-    [isExtendedWarranty, isNewCar, shouldSkipPreviousPolicyForUsedCar],
+    [
+      isExtendedWarranty,
+      isNewCar,
+      isRenewalJourney,
+      shouldSkipPreviousPolicyForUsedCar,
+    ],
   );
   const step1Errors = useMemo(() => validateStep1(formData), [formData]);
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
@@ -2459,6 +2456,9 @@ const NewInsuranceCaseForm = ({
       const yearRange = (startYear && endYear) ? `${startYear} - ${endYear}` : (startYear ? `${startYear}` : "");
       
       const policyName = `${customerName} ${vehicleIdent} ${yearRange ? `* ${yearRange}` : ""}`.trim();
+      const payoutPercentValue = Number(
+        safeFormData.payoutPercent ?? safeFormData.payoutPercentage ?? 0,
+      );
 
       return {
         ...safeFormData,
@@ -2482,6 +2482,10 @@ const NewInsuranceCaseForm = ({
         status: safePatch.status || "draft",
         currentStep: step,
         policyName,
+        payoutPercent: Number.isFinite(payoutPercentValue) ? payoutPercentValue : 0,
+        payoutPercentage: Number.isFinite(payoutPercentValue)
+          ? payoutPercentValue
+          : 0,
         ...safePatch,
       };
     },
@@ -2693,20 +2697,39 @@ const NewInsuranceCaseForm = ({
     }
   };
 
-  const goNext = async () => {
-    setShowErrors(true);
-    if (!handleStepValidation()) return;
-    
-    // Save progress before moving forward
-    await persistNow({ silent: true });
-
-    setStep((prev) => {
-      let next = Math.min(prev + 1, 9);
+  const getNextVisibleStep = useCallback(
+    (fromStep) => {
+      let next = Math.min(fromStep + 1, 9);
       while (next < 9 && shouldSkipStep(next)) next += 1;
       return next;
-    });
-    setShowErrors(false);
-  };
+    },
+    [shouldSkipStep],
+  );
+
+  const navigateToStep = useCallback(
+    async (targetStep) => {
+      const nextStep = Number(targetStep || step);
+      if (!Number.isFinite(nextStep) || nextStep === step) return true;
+
+      const movingForward = nextStep > step;
+      if (movingForward) {
+        setShowErrors(true);
+        if (!handleStepValidation()) return false;
+      }
+
+      const saved = await persistNow({ silent: true });
+      if (movingForward && !saved) return false;
+
+      setStep(nextStep);
+      setShowErrors(false);
+      return true;
+    },
+    [handleStepValidation, persistNow, step],
+  );
+
+  const goNext = useCallback(async () => {
+    await navigateToStep(getNextVisibleStep(step));
+  }, [getNextVisibleStep, navigateToStep, step]);
 
   const handleClearForm = () => {
     Modal.confirm({
@@ -2745,19 +2768,8 @@ const NewInsuranceCaseForm = ({
     }
   };
 
-  const goBack = () => {
-    setStep((prev) => {
-      let next = Math.max(prev - 1, 1);
-      while (next > 1 && shouldSkipStep(next)) next -= 1;
-      return next;
-    });
-    setShowErrors(false);
-    // persistNow({ silent: true });
-  };
-
   keyboardActionsRef.current = {
     goNext,
-    goBack,
     persistNow,
   };
 
@@ -2780,15 +2792,19 @@ const NewInsuranceCaseForm = ({
 
       if (isTypingContext) return;
 
+      if (event.key === "Tab" && !event.shiftKey) {
+        const wrapper = target?.closest?.("[data-ins-field='true']");
+        const nextField = wrapper?.nextElementSibling?.querySelector?.(
+          "input, textarea, button, [role='combobox'], .ant-select-selector, .ant-picker-input input",
+        );
+        if (nextField && typeof nextField.focus === "function") {
+          requestAnimationFrame(() => nextField.focus());
+        }
+      }
+
       if (event.altKey && (event.key === "ArrowRight" || event.key.toLowerCase() === "n")) {
         event.preventDefault();
         keyboardActionsRef.current.goNext?.();
-      } else if (
-        event.altKey &&
-        (event.key === "ArrowLeft" || event.key.toLowerCase() === "b")
-      ) {
-        event.preventDefault();
-        keyboardActionsRef.current.goBack?.();
       }
     };
 
@@ -3133,65 +3149,31 @@ const NewInsuranceCaseForm = ({
     );
   }, [visibleSteps, step]);
 
-  const currentStepTitle = useMemo(() => {
-    if (shouldSkipStep(3) && step === 4) return "Step 3: Insurance Quotes";
-    return STEP_TITLES[step - 1];
-  }, [shouldSkipStep, step]);
-
-  const CurrentStepIcon = STEP_ICON_MAP[step] || null;
-
-  const stepHelpText = useMemo(() => {
-    if (step === 1) return "Fill personal, contact and nominee details.";
-    if (step === 2) return "Provide accurate vehicle information.";
-    if (step === 3 && !shouldSkipStep(3))
-      return "For renewal cases & policy already expired cases.";
-    if (step === 4)
-      return "Add and manage quote options (at least 1 quote required).";
-    if (step === 6) return "Policy details (auto-filled from accepted quote).";
-    if (step === 7) return "Upload and tag documents (recommended).";
-    return "";
-  }, [step, shouldSkipStep]);
-
-  const stepErrorsAlert = useMemo(() => {
+  const stepErrorToast = useMemo(() => {
     if (!showErrors) return null;
     if (step === 1 && Object.keys(step1Errors).length) {
-      return (
-        <Alert
-          type="error"
-          showIcon
-          message="Please fix required fields in Customer Information."
-          description="Some mandatory fields are missing or invalid."
-        />
-      );
+      return {
+        key: "insurance-step-validation",
+        content: "Fix the required customer information fields before moving ahead.",
+      };
     }
     if (step === 2 && Object.keys(step2Errors).length) {
-      return (
-        <Alert
-          type="error"
-          showIcon
-          message="Please fix required fields in Vehicle Details."
-          description="Some mandatory fields are missing or invalid."
-        />
-      );
+      return {
+        key: "insurance-step-validation",
+        content: "Fix the required vehicle information fields before moving ahead.",
+      };
     }
     if (step === 3 && Object.keys(step3Errors).length) {
-      return (
-        <Alert
-          type="error"
-          showIcon
-          message="Please fix required fields in Previous Policy Details."
-          description="Claim last year is mandatory."
-        />
-      );
+      return {
+        key: "insurance-step-validation",
+        content: "Review previous policy details before moving ahead. Claim last year is mandatory for this flow.",
+      };
     }
     if (step === 4 && !shouldSkipStep(4) && quotes.length === 0) {
-      return (
-        <Alert
-          type="error"
-          showIcon
-          message="At least 1 quote is required to continue."
-        />
-      );
+      return {
+        key: "insurance-step-validation",
+        content: "Add at least one quote before moving to the next step.",
+      };
     }
     return null;
   }, [
@@ -3203,6 +3185,43 @@ const NewInsuranceCaseForm = ({
     quotes.length,
     shouldSkipStep,
   ]);
+
+  useEffect(() => {
+    if (!stepErrorToast) return;
+    message.error({
+      key: stepErrorToast.key,
+      content: stepErrorToast.content,
+      duration: 3,
+    });
+  }, [stepErrorToast]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const node = stickyHeaderRef.current;
+    if (!node) return undefined;
+
+    const syncStickyHeaderHeight = () => {
+      const nextHeight = Math.ceil(node.getBoundingClientRect().height || 0);
+      setStickyHeaderHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    syncStickyHeaderHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", syncStickyHeaderHeight);
+      return () => window.removeEventListener("resize", syncStickyHeaderHeight);
+    }
+
+    const observer = new ResizeObserver(syncStickyHeaderHeight);
+    observer.observe(node);
+    window.addEventListener("resize", syncStickyHeaderHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncStickyHeaderHeight);
+    };
+  }, [step, formData, shouldSkipStep]);
 
   const docRows = useMemo(() => {
     return (documents || []).map((d) => ({
@@ -3540,15 +3559,18 @@ const NewInsuranceCaseForm = ({
         <InsuranceStickyHeader
           formData={formData}
           activeStep={step}
-          onStepClick={setStep}
+          onStepClick={navigateToStep}
           skipPreviousPolicyStep={shouldSkipStep(3)}
           skipQuotesStep={shouldSkipStep(4)}
+          innerRef={stickyHeaderRef}
         />
       ) : null}
 
-      <div className="pt-[60px] pb-[80px]">
+      <div
+        className="pb-[80px]"
+        style={{ paddingTop: `${Math.max(stickyHeaderHeight + 12, 128)}px` }}
+      >
         <div className="w-full px-3 py-3 md:px-5 lg:px-6">
-          {stepErrorsAlert && <div className="mb-6">{stepErrorsAlert}</div>}
           <div className="space-y-5">{renderStep()}</div>
         </div>
       </div>
@@ -3560,8 +3582,6 @@ const NewInsuranceCaseForm = ({
           totalSteps={visibleSteps.length}
           isLastStep={stepIndex === visibleSteps.length - 1}
           onNext={step === 9 ? handleSubmitFinal : goNext}
-          onBack={goBack}
-          onSave={() => persistNow({ silent: false })}
           onExit={handleSaveAndExit}
           onDiscard={handleDiscard}
           onClear={handleClearForm}
@@ -3733,230 +3753,8 @@ const NewInsuranceCaseForm = ({
         </Space>
       </Modal>
 
-      {/* ── Case Summary Drawer ───────────────────────────────────────────── */}
-      <Drawer
-        open={summaryOpen}
-        onClose={() => setSummaryOpen(false)}
-        title={
-          <span className="font-semibold text-slate-800 dark:text-slate-100">
-            📋 Case Summary
-          </span>
-        }
-        width={360}
-        placement="right"
-        styles={{ body: { padding: 0 } }}
-        zIndex={1200}
-      >
-        <div className="flex flex-col gap-0 divide-y divide-slate-100 dark:divide-slate-800">
-          {/* Customer */}
-          <SummarySection title="Customer">
-            <SummaryField
-              label="Name"
-              value={formData.customerName || formData.companyName || "—"}
-            />
-            <SummaryField
-              label="Mobile"
-              value={formData.mobile ? `+91 ${formData.mobile}` : "—"}
-            />
-            <SummaryField label="Email" value={formData.email || "—"} />
-            <SummaryField
-              label="Buyer Type"
-              value={formData.buyerType || "—"}
-            />
-          </SummarySection>
-
-          {/* Vehicle */}
-          <SummarySection title="Vehicle">
-            <SummaryField
-              label="Reg No."
-              value={formData.registrationNumber || "—"}
-            />
-            <SummaryField
-              label="Make / Model"
-              value={
-                [formData.vehicleMake, formData.vehicleModel]
-                  .filter(Boolean)
-                  .join(" ") || "—"
-              }
-            />
-            <SummaryField
-              label="Variant"
-              value={formData.vehicleVariant || "—"}
-            />
-            <SummaryField label="Fuel" value={formData.fuelType || "—"} />
-          </SummarySection>
-
-          {/* Previous Policy */}
-          {!isExtendedWarranty && formData.vehicleType !== "New Car" && (
-            <SummarySection title="Previous Policy">
-              <SummaryField
-                label="Insurer"
-                value={formData.previousInsuranceCompany || "—"}
-              />
-              <SummaryField
-                label="Policy No."
-                value={formData.previousPolicyNumber || "—"}
-              />
-              <SummaryField
-                label="NCB"
-                value={`${formData.previousNcbDiscount ?? 0}%`}
-                badge={
-                  formData.claimTakenLastYear === "Yes"
-                    ? "Claim Taken"
-                    : undefined
-                }
-                badgeColor="red"
-              />
-            </SummarySection>
-          )}
-
-          {/* Selected Quote */}
-          <SummarySection title="Accepted Quote">
-            <SummaryField
-              label="Insurer"
-              value={acceptedQuote?.insuranceCompany || "—"}
-            />
-            <SummaryField
-              label="Coverage"
-              value={acceptedQuote?.coverageType || "—"}
-            />
-            <SummaryField
-              label="IDV"
-              value={
-                acceptedQuote
-                  ? toINR(acceptedQuote.totalIdv || acceptedQuote.vehicleIdv)
-                  : "—"
-              }
-            />
-            <SummaryField
-              label="Gross Premium"
-              value={summaryGrossPremium > 0 ? toINR(summaryGrossPremium) : "—"}
-              highlight
-            />
-          </SummarySection>
-
-          {/* New Policy */}
-          <SummarySection title="New Policy">
-            <SummaryField
-              label="Policy No."
-              value={formData.newPolicyNumber || "—"}
-            />
-            <SummaryField
-              label="Insurer"
-              value={formData.newInsuranceCompany || "—"}
-            />
-            <SummaryField
-              label="Start Date"
-              value={formData.newPolicyStartDate || "—"}
-            />
-            <SummaryField
-              label="OD Expiry"
-              value={formData.newOdExpiryDate || "—"}
-            />
-          </SummarySection>
-
-          {/* Payment */}
-          <SummarySection title="Payment">
-            <SummaryField
-              label="Total Premium"
-              value={toINR(summaryGrossPremium)}
-            />
-            <SummaryField
-              label="Collected"
-              value={toINR(summaryTotalCollected)}
-            />
-            <SummaryField
-              label="Balance Due"
-              value={toINR(summaryBalanceDue)}
-              badge={
-                summaryBalanceDue <= 0 && summaryGrossPremium > 0
-                  ? "Fully Paid"
-                  : undefined
-              }
-              badgeColor="green"
-              highlight={summaryBalanceDue > 0}
-            />
-          </SummarySection>
-
-          {/* Payout */}
-          <SummarySection title="Payout / Margin">
-            <SummaryField
-              label="Receivables"
-              value={toINR(
-                summaryReceivables.reduce(
-                  (s, r) => s + Number(r.net_payout_amount || 0),
-                  0,
-                ),
-              )}
-            />
-            <SummaryField
-              label="Payables"
-              value={toINR(
-                summaryPayables.reduce(
-                  (s, p) => s + Number(p.net_payout_amount || 0),
-                  0,
-                ),
-              )}
-            />
-            <SummaryField
-              label="Net Margin"
-              value={toINR(summaryNetMargin)}
-              highlight
-            />
-          </SummarySection>
-        </div>
-      </Drawer>
     </div>
   );
 };
-
-// ─── Case Summary Drawer sub-components ──────────────────────────────────────
-
-/** A titled section inside the Case Summary drawer. */
-const SummarySection = ({ title, children }) => (
-  <div className="px-5 py-4">
-    <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-      {title}
-    </p>
-    <div className="space-y-2">{children}</div>
-  </div>
-);
-
-/**
- * A single label → value row inside a SummarySection.
- * @param {string}  label
- * @param {string}  value
- * @param {boolean} highlight   – bold emerald value
- * @param {string}  badge       – optional badge text
- * @param {string}  badgeColor  – 'green' | 'red' | 'orange'
- */
-const SummaryField = ({
-  label,
-  value,
-  highlight,
-  badge,
-  badgeColor = "green",
-}) => (
-  <div className="flex items-center justify-between gap-2">
-    <span className="shrink-0 text-xs text-slate-500">{label}</span>
-    <span
-      className={`truncate text-right text-xs font-medium ${
-        highlight
-          ? "font-semibold text-emerald-600 dark:text-emerald-400"
-          : "text-slate-800 dark:text-slate-200"
-      }`}
-    >
-      {value}
-      {badge && (
-        <Tag
-          color={badgeColor}
-          className="ml-1.5 !text-[9px] !px-1 !py-0 !leading-tight"
-        >
-          {badge}
-        </Tag>
-      )}
-    </span>
-  </div>
-);
 
 export default NewInsuranceCaseForm;

@@ -56,6 +56,31 @@ const toINR = (num) =>
     maximumFractionDigits: 0,
   }).format(Number(num) || 0);
 
+const openPreviewPrintWindow = ({ title, lines = [] }) => {
+  const popup = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
+  if (!popup) return false;
+  popup.document.write(`<!doctype html>
+<html>
+  <head>
+    <title>${title}</title>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      pre { white-space: pre-wrap; font: 14px/1.6 Arial, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <h1>${title}</h1>
+    <pre>${lines.filter(Boolean).join("\n")}</pre>
+  </body>
+</html>`);
+  popup.document.close();
+  popup.focus();
+  popup.print();
+  return true;
+};
+
 const asMoney = (value) => {
   if (!hasValue(value)) return "—";
   const n = Number(value);
@@ -1119,6 +1144,24 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
     .filter(Boolean)
     .join(" ");
   const initials = getInitials(customerName);
+  const handleDownloadPreview = () => {
+    const opened = openPreviewPrintWindow({
+      title: `${customerName} Insurance Summary`,
+      lines: [
+        caseId ? `Case ID: ${caseId}` : "",
+        `Customer: ${customerName}`,
+        vehicleLabel ? `Vehicle: ${vehicleLabel}` : "",
+        acceptedQuote?.insuranceCompany
+          ? `Accepted Quote: ${acceptedQuote.insuranceCompany}`
+          : "",
+        `Premium: ${toINR(premiumAmount)}`,
+        `Status: ${caseStatus}`,
+      ],
+    });
+    if (!opened) {
+      window.alert("Popup blocked. Allow popups to save the preview as PDF.");
+    }
+  };
 
   const galleryItems = useMemo(() => {
     return (documents || [])
@@ -1970,6 +2013,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
               type="primary"
               icon={<Download size={14} />}
               className="!border-[#FF8EAD] !bg-[#FF8EAD] !text-slate-900 hover:!opacity-90"
+              onClick={handleDownloadPreview}
             >
               Download PDF
             </Button>

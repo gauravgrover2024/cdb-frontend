@@ -217,6 +217,18 @@
   padding-left: 2px !important;
 }
 
+.insurance-case-skin .ant-typography.ant-typography-danger {
+  display: block !important;
+  margin-top: 8px !important;
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 10px;
+  background: rgba(254, 242, 242, 0.9);
+  padding: 8px 10px;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.45;
+}
+
 /* ==========================================================
    PLACEHOLDER STYLING
    ========================================================== */
@@ -252,6 +264,13 @@
 
 .insurance-case-skin .ant-picker-input input::placeholder {
   color: #94a3b8 !important;
+}
+
+.insurance-case-skin .ant-select-auto-complete,
+.insurance-case-skin .ant-select-auto-complete .ant-select-selector,
+.insurance-case-skin .ant-select-auto-complete .ant-select-selection-search,
+.insurance-case-skin .ant-select-auto-complete .ant-select-selection-search-input {
+  width: 100% !important;
 }
 
 /* ==========================================================
@@ -419,6 +438,25 @@
   font-size: 13px !important;
 }
 
+@media (max-width: 640px) {
+  .insurance-case-skin .ins-section-header {
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+
+  .insurance-case-skin .ins-section-header-title,
+  .insurance-case-skin [class*="text-\[24px\]"][class*="font-black"],
+  .insurance-case-skin [class*="text-\[22px\]"][class*="font-black"] {
+    font-size: 17px !important;
+    line-height: 1.25 !important;
+  }
+
+  .insurance-case-skin [class*="rounded-\[30px\]"][class*="bg-gradient-to-r"],
+  .insurance-case-skin [class*="rounded-\[30px\]"][class*="from-\[#DAF3FF\]"] {
+    padding: 16px !important;
+  }
+}
+
 /* Collapse / Accordion used in Step3/Step5 */
 .insurance-case-skin .ant-collapse {
   border-radius: 10px !important;
@@ -542,6 +580,23 @@
   border-color: #6366f1 !important;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
   outline: none !important;
+}
+
+.insurance-case-skin .ant-input-status-error,
+.insurance-case-skin .ant-input-affix-wrapper-status-error,
+.insurance-case-skin .ant-picker-status-error,
+.insurance-case-skin .ant-input-number-status-error,
+.insurance-case-skin .ant-select-status-error .ant-select-selector {
+  border-color: rgba(239, 68, 68, 0.72) !important;
+  background: rgba(254, 242, 242, 0.72) !important;
+}
+
+.insurance-case-skin .ant-input-status-error:focus,
+.insurance-case-skin .ant-input-affix-wrapper-status-error:focus-within,
+.insurance-case-skin .ant-picker-status-error.ant-picker-focused,
+.insurance-case-skin .ant-input-number-status-error:focus-within,
+.insurance-case-skin .ant-select-status-error.ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
 }
 
 /* ── KILL all inner-element focus rings so only the wrapper shows ── */

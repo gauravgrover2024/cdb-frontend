@@ -103,6 +103,46 @@ const normalizeInsurerName = (value) =>
 const getIncludedAddonNames = (quote = {}) =>
   addOnCatalog.filter((name) => Boolean(quote?.addOnsIncluded?.[name]));
 
+const buildQuoteSummaryText = ({ quote = {}, breakup = {}, customerName = "", vehicleLabel = "" }) => {
+  const addOns = getIncludedAddonNames(quote);
+  return [
+    customerName ? `Customer: ${customerName}` : "",
+    vehicleLabel ? `Vehicle: ${vehicleLabel}` : "",
+    `Insurer: ${quote?.insuranceCompany || "—"}`,
+    `Coverage: ${quote?.coverageType || "—"}`,
+    `Duration: ${quote?.policyDuration || "—"}`,
+    `Premium: ₹${Number(breakup?.totalPremium || quote?.totalPremium || 0).toLocaleString("en-IN")}`,
+    addOns.length ? `Add-ons: ${addOns.join(", ")}` : "Add-ons: None",
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+
+const openQuotePrintWindow = ({ title, content }) => {
+  const nextWindow = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
+  if (!nextWindow) return false;
+  nextWindow.document.write(`<!doctype html>
+<html>
+  <head>
+    <title>${title}</title>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      pre { white-space: pre-wrap; font: 14px/1.6 Arial, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <h1>${title}</h1>
+    <pre>${content}</pre>
+  </body>
+</html>`);
+  nextWindow.document.close();
+  nextWindow.focus();
+  nextWindow.print();
+  return true;
+};
+
 const buildPremiumChangeInsight = ({
   quote = {},
   previousPolicyContext = {},
@@ -711,11 +751,10 @@ const Step4InsuranceQuotes = ({
   computeQuoteBreakupFromRow,
   formatStoredOrComputedIdv,
   formatStoredOrComputedPremium,
-  onSaveDraft,
   onResetQuoteDraft,
-  isSaving = false,
   previousPolicyContext = {},
 }) => {
+  const [acceptedQuoteModalOpen, setAcceptedQuoteModalOpen] = React.useState(false);
   const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
   const odAmt = Number(quoteComputed?.odAmt || 0);
   const tpAmt = Number(quoteComputed?.tpAmt || 0);
@@ -782,6 +821,68 @@ const Step4InsuranceQuotes = ({
       : isStandAloneOd
         ? `OD: ${toINR(odAmt)} + Add-ons: ${toINR(addOnsTotal)}`
         : `OD: ${toINR(odAmt)} + 3P: ${toINR(tpAmt)} + Add-ons: ${toINR(addOnsTotal)}`;
+  const acceptedQuoteBreakup = React.useMemo(
+    () => (acceptedQuote ? computeQuoteBreakupFromRow(acceptedQuote) : null),
+    [acceptedQuote, computeQuoteBreakupFromRow],
+  );
+  const acceptedQuoteAddOns = React.useMemo(
+    () => getIncludedAddonNames(acceptedQuote || {}),
+    [acceptedQuote],
+  );
+  const acceptedQuoteSummary = React.useMemo(
+    () =>
+      buildQuoteSummaryText({
+        quote: acceptedQuote || {},
+        breakup: acceptedQuoteBreakup || {},
+        customerName: previousPolicyContext?.customerName || "",
+        vehicleLabel: [
+          previousPolicyContext?.registrationNumber,
+          previousPolicyContext?.vehicleMake,
+          previousPolicyContext?.vehicleModel,
+          previousPolicyContext?.vehicleVariant,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      }),
+    [acceptedQuote, acceptedQuoteBreakup, previousPolicyContext],
+  );
+
+  const handleShareAcceptedQuote = React.useCallback(async () => {
+    if (!acceptedQuote) return;
+    if (navigator.share) {
+      await navigator.share({
+        title: `${acceptedQuote.insuranceCompany || "Insurance"} quote`,
+        text: acceptedQuoteSummary,
+      });
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(acceptedQuoteSummary);
+      Modal.success({
+        title: "Quote copied",
+        content: "Accepted quote summary copied to clipboard.",
+      });
+      return;
+    }
+    Modal.info({
+      title: "Share quote",
+      content: acceptedQuoteSummary,
+    });
+  }, [acceptedQuote, acceptedQuoteSummary]);
+
+  const handleDownloadAcceptedQuote = React.useCallback(() => {
+    if (!acceptedQuote) return;
+    const opened = openQuotePrintWindow({
+      title: `${acceptedQuote.insuranceCompany || "Insurance"} Quote`,
+      content: acceptedQuoteSummary,
+    });
+    if (!opened) {
+      Modal.warning({
+        title: "Popup blocked",
+        content: "Allow popups to print or save this quote as PDF.",
+      });
+    }
+  }, [acceptedQuote, acceptedQuoteSummary]);
 
   return (
     <div className="insurance-step4 min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
@@ -798,24 +899,20 @@ const Step4InsuranceQuotes = ({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="middle"
-              onClick={onSaveDraft}
-              loading={isSaving}
-              className="!h-9 !rounded-lg !border-blue-500 !bg-blue-600 !px-3 !text-[12px] !font-semibold !text-white hover:!bg-blue-700"
-            >
-              Save to DB
-            </Button>
             <span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700 ring-1 ring-blue-200">
               Quotes: {quotes.length}
             </span>
             {acceptedQuote && (
-              <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 ring-1 ring-emerald-200">
+              <button
+                type="button"
+                onClick={() => setAcceptedQuoteModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+              >
                 <CheckCircleFilled className="text-emerald-700 text-xs" />
                 <span className="text-[11px] font-bold text-emerald-800">
                   {acceptedQuote.insuranceCompany} · Accepted
                 </span>
-              </div>
+              </button>
             )}
           </div>
         </div>
@@ -840,6 +937,7 @@ const Step4InsuranceQuotes = ({
                 <AutoComplete
                   value={quoteDraft.insuranceCompany}
                   style={{ width: "100%" }}
+                  className="w-full"
                   options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                     value: name,
                   }))}
@@ -1542,6 +1640,64 @@ const Step4InsuranceQuotes = ({
           </div>
         )}
       </section>
+
+      <Modal
+        open={acceptedQuoteModalOpen}
+        onCancel={() => setAcceptedQuoteModalOpen(false)}
+        footer={null}
+        title="Accepted Quote"
+        width={720}
+      >
+        {acceptedQuote ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+              <div className="text-lg font-black text-slate-900">
+                {acceptedQuote.insuranceCompany || "Accepted Quote"}
+              </div>
+              <div className="mt-1 text-sm text-slate-600">
+                {acceptedQuote.coverageType || "—"} · {acceptedQuote.policyDuration || "—"}
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Premium</div>
+                <div className="mt-1 text-lg font-black text-slate-900">
+                  {toINR(acceptedQuoteBreakup?.totalPremium || acceptedQuote?.totalPremium || 0)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">IDV</div>
+                <div className="mt-1 text-lg font-black text-slate-900">
+                  {toINR(acceptedQuoteBreakup?.totalIdv || acceptedQuote?.totalIdv || 0)}
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Accepted Add-ons</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {acceptedQuoteAddOns.length ? (
+                  acceptedQuoteAddOns.map((addon) => (
+                    <span
+                      key={addon}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                    >
+                      {addon}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-slate-500">No add-ons selected.</span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button onClick={handleShareAcceptedQuote}>Share Quote</Button>
+              <Button type="primary" onClick={handleDownloadAcceptedQuote}>
+                Download Quote PDF
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 };

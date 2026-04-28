@@ -573,6 +573,7 @@ const Step3PreviousPolicy = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Company">
                   <AutoComplete
+                    style={{ width: "100%" }}
                     value={formData.previousInsuranceCompany}
                    
                     options={IRDAI_INSURANCE_COMPANIES.map((name) => ({

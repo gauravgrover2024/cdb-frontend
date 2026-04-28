@@ -9,8 +9,6 @@ const InsuranceStageFooter = ({
   totalSteps = 9,
   isLastStep,
   onNext,
-  onBack,
-  onSave,
   onExit,
   onDiscard,
   onClear,
@@ -24,24 +22,24 @@ const InsuranceStageFooter = ({
       : currentStepDisplay === Number(totalSteps || 9);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[930] border-t border-slate-200 bg-white py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
-      <div className="mx-auto flex max-w-[1920px] items-center justify-between px-4 sm:px-6 md:px-8">
+    <div className="fixed bottom-0 left-0 right-0 z-[930] border-t border-slate-200 bg-white/98 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+      <div className="mx-auto flex max-w-[1920px] flex-col gap-2.5 px-4 sm:px-6 md:flex-row md:items-center md:justify-between md:px-8">
         {/* Left — step indicator */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-600">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-1.5 text-xs font-bold text-slate-700 sm:text-sm">
             Step {currentStepDisplay} / {totalSteps}
           </div>
-          <span className="hidden text-[11px] text-slate-400 sm:inline">
+          <span className="hidden text-xs text-slate-400 sm:inline">
             Ctrl+S to Quick Save
           </span>
         </div>
 
         {/* Right — action buttons */}
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           <Button
             variant="outline"
             onClick={onClear}
-            className="h-9 border-slate-200 px-4 text-[12px] text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+            className="h-10 rounded-xl border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-800"
           >
             Clear Form
           </Button>
@@ -49,27 +47,27 @@ const InsuranceStageFooter = ({
           <Button
             variant="outline"
             onClick={onDiscard}
-            className="h-9 border-red-100 px-4 text-[12px] text-red-500 hover:bg-red-50"
+            className="h-10 rounded-xl border-red-100 px-4 text-sm text-red-500 hover:bg-red-50"
           >
             Discard
           </Button>
 
-          <div className="mx-1 h-5 w-px bg-slate-200" />
+          <div className="hidden sm:mx-1 sm:block sm:h-6 sm:w-px sm:bg-slate-200" />
 
           <Button
             variant="outline"
             onClick={onExit}
             disabled={isSaving}
-            className="h-9 border-emerald-200 bg-emerald-50 px-4 text-[12px] text-emerald-700 hover:bg-emerald-100"
+            className="h-10 rounded-xl border-emerald-200 bg-emerald-50 px-4 text-sm text-emerald-700 hover:bg-emerald-100"
           >
-            {isSaving ? "Saving…" : "Save & Exit"}
+            {isSaving ? "Saving..." : "Save & Exit"}
           </Button>
 
           <Button
             variant="default"
             onClick={onNext}
             loading={isSaving && !computedIsLastStep}
-            className="h-9 min-w-[130px] bg-blue-600 px-5 text-[12px] font-semibold text-white hover:bg-blue-700"
+            className="h-10 min-w-[144px] rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700"
           >
             {computedIsLastStep ? (
               mode === "edit" ? "Update Case" : "Complete Case"

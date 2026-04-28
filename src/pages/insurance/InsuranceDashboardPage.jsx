@@ -876,6 +876,8 @@ const PolicyCard = ({
   const statusConfig = {
     draft: { color: "#f43f5e", bg: "#fff1f2", label: "Draft" },
     submitted: { color: "#f59e0b", bg: "#fffbeb", label: "Submitted" },
+    issued: { color: "#10b981", bg: "#ecfdf5", label: "Issued" },
+    cancelled: { color: "#dc2626", bg: "#fef2f2", label: "Cancelled" },
     completed: { color: "#10b981", bg: "#ecfdf5", label: "Completed" },
   };
 
@@ -1032,7 +1034,7 @@ const PolicyCard = ({
               </motion.button>
             </Tooltip>
 
-            <Tooltip title="Renew">
+            <Tooltip title={policy.canRenewNow ? "Renew now" : "Renew"}>
               <motion.button
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.96 }}
@@ -1125,6 +1127,14 @@ const PolicyCard = ({
                       </span>
                     </div>
                   )}
+                  {policy.referenceName ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                      <span className="font-bold uppercase tracking-wider text-slate-400">Reference:</span>
+                      <span className="truncate font-semibold text-slate-700">
+                        {policy.referenceName}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1156,6 +1166,11 @@ const PolicyCard = ({
                 >
                   {policy.registration || "—"}
                 </p>
+                {policy.channelDealerNo ? (
+                  <p className="text-[11px] text-slate-500 mt-1 truncate">
+                    Dealer No: {policy.channelDealerNo}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1226,13 +1241,26 @@ const PolicyCard = ({
                 </p>
                 <p className="text-[11px] text-slate-500 truncate">
                   Expiry: {policy.expiryLabel || "—"}
+                  {Number.isFinite(Number(policy.expiryDays))
+                    ? ` · ${policy.expiryDays}d`
+                    : ""}
                 </p>
                 <p
                   className="text-[11px] text-slate-500 truncate"
-                  title={policy.policyIssuedBy}
+                  title={policy.policyIssuedByDetail}
                 >
-                  Issued by: {policy.policyIssuedBy || "—"}
+                  Issued by: {policy.policyIssuedByDetail || "—"}
                 </p>
+                {policy.renewalFollowUpStatus ? (
+                  <p className="text-[11px] text-slate-500 truncate">
+                    Follow-up: {policy.renewalFollowUpStatus}
+                  </p>
+                ) : null}
+                {policy.referenceContact ? (
+                  <p className="text-[11px] text-slate-500 truncate">
+                    Ref Contact: {policy.referenceContact}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1471,6 +1499,16 @@ const PolicyCard = ({
                         </p>
                       </div>
                     </div>
+                    {policy.canRenewNow ? (
+                      <button
+                        type="button"
+                        onClick={onRenew}
+                        className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em]"
+                        style={{ color: policyPulseTone.color }}
+                      >
+                        Renew Now
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -1850,8 +1888,7 @@ const InsuranceDashboardPage = () => {
         .trim();
       const vehicleLabel = vehicle || "—";
       const reg = record.registrationNumber || record.vehicleNumber || "";
-      const regDisplay = reg && reg !== "—" ? reg : vehicleLabel;
-      const displayName = `${baseName}${regDisplay && regDisplay !== "—" ? ` · ${regDisplay}` : ""}`;
+      const displayName = baseName;
 
       const mobile = snap.primaryMobile || record.mobile || "—";
       const sourceRaw = String(
@@ -1903,6 +1940,21 @@ const InsuranceDashboardPage = () => {
         record.insuranceIssuedBy ||
         record.sourceOrigin ||
         "—";
+      const policyIssuedByDetail =
+        String(record.policyDoneBy || "")
+          .trim()
+          .toLowerCase() === "broker"
+          ? record.brokerName || "Broker"
+          : String(record.policyDoneBy || "")
+                .trim()
+                .toLowerCase() === "showroom"
+            ? record.showroomName || "Showroom"
+            : policyIssuedBy;
+      const channelDealerNo =
+        record.channelDealerNo ||
+        record.channelDealerNumber ||
+        record.dealerChannelNumber ||
+        "";
 
       // Payment
       const paid = paymentReceivedNum(record);
@@ -2114,6 +2166,7 @@ const InsuranceDashboardPage = () => {
         sourceDetailsContact: isIndirectSource ? referenceContact : "",
         referenceName,
         referenceContact,
+        channelDealerNo,
         vehicle: vehicleLabel,
         vehicleYear,
         registration: reg,
@@ -2121,6 +2174,7 @@ const InsuranceDashboardPage = () => {
         insurer,
         policyNumber: policyNo,
         policyIssuedBy,
+        policyIssuedByDetail,
         policyOriginType,
         isNewCarCase,
         premium,
@@ -2131,8 +2185,14 @@ const InsuranceDashboardPage = () => {
         hypothecation,
         status: st,
         currentStep: record.currentStep,
+        renewalFollowUpStatus: record.renewalFollowUpStatus || "",
         expiryDays: daysLeft,
         expiryLabel,
+        canRenewNow:
+          daysLeft !== null &&
+          daysLeft >= 0 &&
+          daysLeft <= 30 &&
+          !renewedCaseIds.has(String(id)),
         createdLabel,
         vehicleType: record.vehicleType || "4W",
         typesOfVehicle: record.typesOfVehicle || "4W",

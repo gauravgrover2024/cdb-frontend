@@ -775,14 +775,14 @@ const Step2VehicleDetails = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-4 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] sm:p-5 md:p-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Vehicle information</div>
-            <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
+            <div className="mt-1 text-[20px] font-black tracking-tight text-slate-800 sm:text-[24px]">
               Vehicle details
             </div>
-            <div className="mt-1 text-sm text-slate-500">
+            <div className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">
               Registration-first capture with make/model autofill and
               policy-safe identity fields
             </div>
@@ -1002,7 +1002,7 @@ const Step2VehicleDetails = ({
               vehiclePotentialMatch ||
               (Array.isArray(vehiclePotentialMatches) &&
                 vehiclePotentialMatches.length > 0)) && (
-              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-3">
+              <div className="rounded-2xl border border-amber-200/70 bg-amber-50/70 p-3 sm:p-4">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
                     Potential Vehicle Match
@@ -1020,8 +1020,8 @@ const Step2VehicleDetails = ({
                   </p>
                 ) : vehiclePotentialMatch ? (
                   <>
-                    <div className="rounded-xl border border-amber-200 bg-white px-3 py-2">
-                      <div className="flex items-start justify-between gap-2">
+                    <div className="rounded-xl border border-amber-200 bg-white px-3 py-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="m-0 text-sm font-bold text-slate-800">
                             {vehiclePotentialMatch.registrationNumber || "—"}
@@ -1045,7 +1045,7 @@ const Step2VehicleDetails = ({
                         </div>
                         <Button
                           type="primary"
-                          size="small"
+                          size="middle"
                           loading={vehicleMergeLoading}
                           onClick={() => onMergeVehicleMatch?.(vehiclePotentialMatch)}
                         >
