@@ -22,8 +22,8 @@ const InsuranceStageFooter = ({
       : currentStepDisplay === Number(totalSteps || 9);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[930] border-t border-slate-200 bg-white/98 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm">
-      <div className="mx-auto flex max-w-[1920px] flex-col gap-2.5 px-4 sm:px-6 md:flex-row md:items-center md:justify-between md:px-8">
+    <div className="sticky bottom-0 left-0 right-0 z-[930] mt-6 border-t border-slate-200 bg-white/98 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+      <div className="mx-auto flex max-w-[1920px] flex-col gap-3 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-1 sm:px-6 md:flex-row md:items-center md:justify-between md:px-8">
         {/* Left — step indicator */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-1.5 text-xs font-bold text-slate-700 sm:text-sm">
@@ -35,7 +35,7 @@ const InsuranceStageFooter = ({
         </div>
 
         {/* Right — action buttons */}
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           <Button
             variant="outline"
             onClick={onClear}

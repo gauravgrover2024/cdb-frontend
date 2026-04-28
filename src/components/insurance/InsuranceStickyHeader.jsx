@@ -35,7 +35,9 @@ const getPolicyDisplayName = (data = {}) => {
       .join(" ")
       .trim() ||
     "Vehicle";
-  const startYear = String(data.newPolicyStartDate || data.ewCommencementDate || "")
+  const startYear = String(
+    data.newPolicyStartDate || data.ewCommencementDate || "",
+  )
     .trim()
     .slice(0, 4);
   const endSource = String(
@@ -89,14 +91,23 @@ const STEP_ICONS = {
 
 // Colour palette for each segment
 const SEGMENT_STYLES = [
-  { dot: "#6366f1", bg: "rgba(99,102,241,0.08)", label: "#6366f1" },   // indigo – Customer
-  { dot: "#0ea5e9", bg: "rgba(14,165,233,0.08)", label: "#0ea5e9" },    // sky – Policy
-  { dot: "#10b981", bg: "rgba(16,185,129,0.08)", label: "#10b981" },    // emerald – Premium
-  { dot: "#f59e0b", bg: "rgba(245,158,11,0.08)",  label: "#f59e0b" },   // amber – Vehicle
-  { dot: "#8b5cf6", bg: "rgba(139,92,246,0.08)", label: "#8b5cf6" },    // violet – Progress
+  { dot: "#6366f1", bg: "rgba(99,102,241,0.08)", label: "#6366f1" }, // indigo – Customer
+  { dot: "#0ea5e9", bg: "rgba(14,165,233,0.08)", label: "#0ea5e9" }, // sky – Policy
+  { dot: "#10b981", bg: "rgba(16,185,129,0.08)", label: "#10b981" }, // emerald – Premium
+  { dot: "#f59e0b", bg: "rgba(245,158,11,0.08)", label: "#f59e0b" }, // amber – Vehicle
+  { dot: "#8b5cf6", bg: "rgba(139,92,246,0.08)", label: "#8b5cf6" }, // violet – Progress
 ];
 
-const SummarySegment = ({ icon, label, title, line1, line2, divider = true, rightSlot = null, colorIdx = 0 }) => {
+const SummarySegment = ({
+  icon,
+  label,
+  title,
+  line1,
+  line2,
+  divider = true,
+  rightSlot = null,
+  colorIdx = 0,
+}) => {
   const c = SEGMENT_STYLES[colorIdx] ?? SEGMENT_STYLES[0];
   return (
     <div
@@ -121,8 +132,12 @@ const SummarySegment = ({ icon, label, title, line1, line2, divider = true, righ
 
           {/* Secondary lines */}
           <div className="mt-0.5 space-y-0.5">
-            {line1 && <p className="truncate text-[10px] text-slate-500">{line1}</p>}
-            {line2 && <p className="truncate text-[10px] text-slate-400">{line2}</p>}
+            {line1 && (
+              <p className="truncate text-[10px] text-slate-500">{line1}</p>
+            )}
+            {line2 && (
+              <p className="truncate text-[10px] text-slate-400">{line2}</p>
+            )}
           </div>
         </div>
 
@@ -147,14 +162,17 @@ const InsuranceStickyHeader = ({
     .join(" ");
 
   const policyCoreLabel = useMemo(() => {
-    return getPolicyDisplayName(data) || data.newInsuranceCompany || "New Policy";
+    return (
+      getPolicyDisplayName(data) || data.newInsuranceCompany || "New Policy"
+    );
   }, [data]);
 
   const visibleSteps = useMemo(() => {
     return Object.keys(STEP_NAMES)
       .map((s) => parseInt(s, 10))
       .filter(
-        (s) => !(skipPreviousPolicyStep && s === 3) && !(skipQuotesStep && s === 4),
+        (s) =>
+          !(skipPreviousPolicyStep && s === 3) && !(skipQuotesStep && s === 4),
       );
   }, [skipPreviousPolicyStep, skipQuotesStep]);
 
@@ -174,17 +192,28 @@ const InsuranceStickyHeader = ({
         }}
       >
         <div className="w-full">
-          <div className="flex items-stretch overflow-x-auto px-0" style={{ scrollbarWidth: "none" }}>
+          <div
+            className="flex items-stretch overflow-x-auto px-0"
+            style={{ scrollbarWidth: "none" }}
+          >
             <SummarySegment
               icon="User"
               label="Customer"
               colorIdx={0}
               title={
                 String(data.buyerType || "").toLowerCase() === "company"
-                  ? data.companyName || data.contactPersonName || data.customerName || "New Case"
-                  : data.customerName || data.contactPersonName || data.companyName || "New Case"
+                  ? data.companyName ||
+                    data.contactPersonName ||
+                    data.customerName ||
+                    "New Case"
+                  : data.customerName ||
+                    data.contactPersonName ||
+                    data.companyName ||
+                    "New Case"
               }
-              line1={[data.mobile, data.email].filter(Boolean).join(" · ") || "—"}
+              line1={
+                [data.mobile, data.email].filter(Boolean).join(" · ") || "—"
+              }
               line2={data.panNumber ? `PAN: ${data.panNumber}` : undefined}
             />
             <SummarySegment
@@ -192,7 +221,11 @@ const InsuranceStickyHeader = ({
               label="Policy"
               colorIdx={1}
               title={policyCoreLabel}
-              line1={[data.newPolicyType, data.newInsuranceDuration].filter(Boolean).join(" · ") || "—"}
+              line1={
+                [data.newPolicyType, data.newInsuranceDuration]
+                  .filter(Boolean)
+                  .join(" · ") || "—"
+              }
               line2={data.newPolicyNumber || undefined}
             />
             <SummarySegment
@@ -214,16 +247,20 @@ const InsuranceStickyHeader = ({
               divider={false}
               title={vehicleLine || "—"}
               line1={`Reg: ${data.registrationNumber || "Unregistered"}`}
-              line2={data.manufactureYear ? `Year: ${data.manufactureYear}` : undefined}
+              line2={
+                data.manufactureYear
+                  ? `Year: ${data.manufactureYear}`
+                  : undefined
+              }
             />
           </div>
         </div>
       </div>
 
       {/* ── Step Rail — floating above footer ── */}
-      <div className="fixed bottom-[86px] left-1/2 z-[120] -translate-x-1/2 px-3 sm:bottom-[92px]">
+      <div className="fixed bottom-[100px] left-1/2 z-[120] -translate-x-1/2 px-3 sm:bottom-[108px]">
         <div
-          className="flex max-w-[calc(100vw-24px)] items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white px-2 py-2 sm:max-w-[calc(100vw-40px)] sm:px-2.5"
+          className="flex max-w-[calc(100vw-24px)] items-center gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1 sm:max-w-[calc(100vw-40px)] sm:px-2"
           style={{
             boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
             scrollbarWidth: "none",
@@ -238,7 +275,7 @@ const InsuranceStickyHeader = ({
                 type="button"
                 onClick={() => onStepClick?.(stepNum)}
                 title={STEP_NAMES[stepNum]}
-                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold tracking-tight transition-all duration-150 sm:h-11 sm:px-4 sm:text-sm"
+                className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded-md px-1.5 text-[11px] font-semibold tracking-tight transition-all duration-150 sm:h-8 sm:px-2 sm:text-xs"
                 style={
                   isActive
                     ? {
@@ -247,12 +284,14 @@ const InsuranceStickyHeader = ({
                         boxShadow: "0 2px 8px rgba(99,102,241,0.35)",
                       }
                     : isDone
-                    ? { background: "#f0fdf4", color: "#16a34a" }
-                    : { color: "#64748b" }
+                      ? { background: "#f0fdf4", color: "#16a34a" }
+                      : { color: "#64748b" }
                 }
               >
                 <Icon name={STEP_ICONS[stepNum]} size={11} />
-                <span className="whitespace-nowrap">{STEP_SHORT_NAMES[stepNum]}</span>
+                <span className="whitespace-nowrap">
+                  {STEP_SHORT_NAMES[stepNum]}
+                </span>
               </button>
             );
           })}
