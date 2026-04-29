@@ -8,7 +8,7 @@ export default function FollowUpSuggestions({ suggestions, onSelect, title = "Fo
 
   return (
     <div className="mt-4">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-slate-500">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-slate-600">
         <CornerDownRight size={13} />
         {title}
       </p>
@@ -18,7 +18,7 @@ export default function FollowUpSuggestions({ suggestions, onSelect, title = "Fo
             key={suggestion}
             type="button"
             onClick={() => onSelect?.(suggestion)}
-            className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:border-indigo-200 hover:bg-indigo-100"
+            className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-100"
           >
             {suggestion}
           </button>

@@ -1,6 +1,7 @@
 import React from "react";
 import ChartSummaryInline from "./ChartSummaryInline";
 import Customer360Inline from "./Customer360Inline";
+import FeatureAvailabilityInline from "./FeatureAvailabilityInline";
 import GenericEntityCard from "./GenericEntityCard";
 import InlineReportRenderer from "./InlineReportRenderer";
 import InsuranceCaseCardInline from "./InsuranceCaseCardInline";
@@ -15,6 +16,7 @@ import SimilarCarsInline from "./SimilarCarsInline";
 import Vehicle360Inline from "./Vehicle360Inline";
 import VehicleComparisonTable from "./VehicleComparisonTable";
 import VehiclePriceListInline from "./VehiclePriceListInline";
+import VariantSelectorInline from "./VariantSelectorInline";
 import WidgetFrame from "./WidgetFrame";
 import { asArray } from "./utils";
 
@@ -23,9 +25,18 @@ const Notice = ({ widget, tone = "slate", onAction }) => {
     tone === "amber"
       ? "border-amber-200 bg-amber-50 text-amber-800"
       : "border-slate-200 bg-slate-50 text-slate-700";
+  const message =
+    widget.text ||
+    widget.message ||
+    widget.content ||
+    widget.data?.message ||
+    widget.data?.reason ||
+    widget.summary?.message ||
+    asArray(widget.notices)[0] ||
+    "No additional detail was returned.";
   return (
-    <WidgetFrame title={widget.title} actions={widget.actions} onAction={onAction} className={toneClass}>
-      <p className="text-sm font-semibold leading-relaxed">{widget.text || widget.message || widget.content || "No additional detail was returned."}</p>
+    <WidgetFrame title={widget.title || (tone === "amber" ? "Unable to complete" : "Notice")} actions={widget.actions} onAction={onAction} className={toneClass}>
+      <p className="text-sm font-semibold leading-relaxed">{message}</p>
     </WidgetFrame>
   );
 };
@@ -47,6 +58,10 @@ export default function AgentAnswerRenderer({ widgets, onAction }) {
             return <LoanClosureCardInline key={key} widget={widget} onAction={onAction} />;
           case "vehicle_pricelist":
             return <VehiclePriceListInline key={key} widget={widget} onAction={onAction} />;
+          case "variant_selector":
+            return <VariantSelectorInline key={key} widget={widget} onAction={onAction} />;
+          case "variant_feature_availability":
+            return <FeatureAvailabilityInline key={key} widget={widget} onAction={onAction} />;
           case "vehicle_comparison":
             return <VehicleComparisonTable key={key} widget={widget} onAction={onAction} />;
           case "similar_cars":

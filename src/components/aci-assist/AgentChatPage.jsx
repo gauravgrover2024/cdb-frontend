@@ -58,6 +58,39 @@ const filtersToObject = (filters) => {
   );
 };
 
+const CUSTOMER_FILTER_KEYS = new Set(["customer", "customerName", "Customer", "CustomerName"]);
+const LAST4_FILTER_KEYS = new Set(["last4", "vehicleLast4", "Vehicle Last 4", "VehicleLast4"]);
+
+const removeKeysCaseInsensitive = (source = {}, keys = []) => {
+  const blocked = new Set(keys.map((key) => String(key).toLowerCase()));
+  return Object.fromEntries(
+    Object.entries(source || {}).filter(([key]) => !blocked.has(String(key).toLowerCase())),
+  );
+};
+
+const stripContextForRemovedChip = (sourceContext = {}, chip = {}) => {
+  const key = String(chip.key || chip.label || "").toLowerCase();
+  const shouldRemoveCustomer = key.includes("customer");
+  const shouldRemoveLast4 = key.includes("last4") || key.includes("vehicle last 4");
+  const shouldRemoveModel = key === "model";
+  const nextEntities = { ...(sourceContext.entities || {}) };
+  if (shouldRemoveCustomer) delete nextEntities.customerName;
+  if (shouldRemoveLast4) {
+    delete nextEntities.last4;
+    delete nextEntities.registrationNumber;
+  }
+  if (shouldRemoveModel) delete nextEntities.model;
+
+  const nextContext = { ...sourceContext, entities: nextEntities };
+  if (shouldRemoveCustomer) delete nextContext.customerName;
+  if (shouldRemoveLast4) {
+    delete nextContext.last4;
+    delete nextContext.registrationNumber;
+  }
+  if (shouldRemoveModel) delete nextContext.model;
+  return nextContext;
+};
+
 const makeMessage = (role, content, extra = {}) => ({
   id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   role,
@@ -144,9 +177,12 @@ export default function AgentChatPage() {
       setNotice("");
       setInput("");
 
-      const nextContext = compactObject({ ...context, ...(overrides.context || {}) });
-      const nextSelectedEntity = overrides.selectedEntity || selectedEntity || undefined;
-      const nextFilters = compactObject({ ...filtersToObject(activeFilters), ...filtersToObject(overrides.filters) });
+      const baseContext = overrides.replaceContext ? {} : context;
+      const nextContext = compactObject({ ...baseContext, ...(overrides.context || {}) });
+      const hasSelectedEntityOverride = Object.prototype.hasOwnProperty.call(overrides, "selectedEntity");
+      const nextSelectedEntity = hasSelectedEntityOverride ? overrides.selectedEntity || undefined : selectedEntity || undefined;
+      const baseFilters = overrides.keepFilters ? filtersToObject(activeFilters) : {};
+      const nextFilters = compactObject({ ...baseFilters, ...filtersToObject(overrides.filters) });
       const userMessage = makeMessage("user", overrides.displayText || text);
       setMessages((prev) => [...prev, userMessage]);
 
@@ -192,11 +228,22 @@ export default function AgentChatPage() {
   );
 
   const removeFilterAndRerun = (message, chip) => {
-    const nextFilters = { ...filtersToObject(activeFilters) };
+    let nextFilters = { ...filtersToObject(activeFilters) };
     delete nextFilters[chip.key];
+    if (String(chip.key || "").toLowerCase().includes("customer")) {
+      nextFilters = removeKeysCaseInsensitive(nextFilters, [...CUSTOMER_FILTER_KEYS]);
+      setSelectedEntity(null);
+    }
+    if (String(chip.key || "").toLowerCase().includes("last4") || String(chip.label || "").toLowerCase().includes("last 4")) {
+      nextFilters = removeKeysCaseInsensitive(nextFilters, [...LAST4_FILTER_KEYS]);
+    }
+    const nextContext = stripContextForRemovedChip(context, chip);
     setActiveFilters(nextFilters);
     sendMessage(message.userPrompt || message.content, {
       filters: nextFilters,
+      context: nextContext,
+      replaceContext: true,
+      selectedEntity: String(chip.key || "").toLowerCase().includes("customer") ? null : selectedEntity,
       displayText: `Re-run without ${chip.label}: ${chip.value}`,
     });
   };
@@ -239,11 +286,21 @@ export default function AgentChatPage() {
       return;
     }
     if (type === "compare" && action.message) {
-      sendMessage(action.message);
+      sendMessage(action.message, {
+        context: action.context,
+        filters: action.filters,
+        keepFilters: true,
+        displayText: action.label || action.message,
+      });
       return;
     }
     if (type === "show_more_inline" && action.message) {
-      sendMessage(action.message);
+      sendMessage(action.message, {
+        context: action.context,
+        filters: action.filters,
+        keepFilters: true,
+        displayText: action.label || action.message,
+      });
       return;
     }
     setNotice("Action not available yet.");
@@ -272,7 +329,7 @@ export default function AgentChatPage() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-6.5rem)] w-full max-w-[1380px] flex-col gap-4">
-      <header className="rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-[0_16px_55px_-42px_rgba(15,23,42,0.8)]">
+      <header className="rounded-3xl border border-slate-300 bg-white px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.9)] ring-1 ring-slate-100">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-indigo-600">
@@ -281,13 +338,18 @@ export default function AgentChatPage() {
             </p>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">ACI Assist</h1>
             <p className="mt-1 text-sm font-medium text-slate-500">Ask anything across CDrive</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-wide text-slate-600">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-700">Live data</span>
+              <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-indigo-700">Inline reports</span>
+              <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1">No chat stored</span>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {canShowQueryPlan ? (
               <button
                 type="button"
                 onClick={() => setShowQueryPlan((value) => !value)}
-                className={`rounded-2xl border px-3 py-2 text-xs font-black transition ${showQueryPlan ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+                className={`rounded-2xl border px-3 py-2 text-xs font-black transition ${showQueryPlan ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}
               >
                 Show Query Plan
               </button>
@@ -295,7 +357,7 @@ export default function AgentChatPage() {
             <button
               type="button"
               onClick={() => setExamplesOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
             >
               <HelpCircle size={16} />
               What can I ask?
@@ -303,7 +365,7 @@ export default function AgentChatPage() {
             <button
               type="button"
               onClick={clearChat}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700"
+              className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-700"
             >
               <MessageSquarePlus size={16} />
               New Chat
@@ -312,14 +374,14 @@ export default function AgentChatPage() {
         </div>
         {!empty ? (
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
-            <span className="rounded-full bg-slate-50 px-3 py-1">{messages.length} messages</span>
-            <span className="rounded-full bg-slate-50 px-3 py-1">{titleMeta.count} result references</span>
-            <span className="rounded-full bg-slate-50 px-3 py-1">{titleMeta.filters} active filters</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{messages.length} messages</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{titleMeta.count} result references</span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">{titleMeta.filters} active filters</span>
           </div>
         ) : null}
       </header>
 
-      <main className="flex-1 overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-3 md:p-5">
+      <main className="flex-1 overflow-hidden rounded-3xl border border-slate-300 bg-[linear-gradient(180deg,#f7f9fc_0%,#ffffff_55%,#f8fafc_100%)] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] md:p-5">
         {notice ? (
           <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             {notice}
@@ -334,7 +396,7 @@ export default function AgentChatPage() {
         {empty ? (
           <section className="flex min-h-[430px] flex-col items-center justify-center px-3 text-center">
             <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="max-w-3xl">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-indigo-50 text-indigo-700">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-950 text-white shadow-[0_18px_38px_-24px_rgba(15,23,42,0.95)] ring-8 ring-indigo-50">
                 <SearchCheck size={24} />
               </div>
               <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Your CDrive database agent</h2>
@@ -347,7 +409,7 @@ export default function AgentChatPage() {
                     key={suggestion}
                     type="button"
                     onClick={() => sendMessage(suggestion)}
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                    className="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-left text-sm font-bold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                   >
                     {suggestion}
                   </button>
@@ -373,10 +435,10 @@ export default function AgentChatPage() {
             </AnimatePresence>
             {loading ? (
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white ring-4 ring-indigo-50">
                   <Loader2 size={17} className="animate-spin" />
                 </div>
-                <div className="rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-500 shadow-sm">
+                <div className="rounded-3xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm">
                   Thinking across modules...
                 </div>
               </div>
@@ -386,7 +448,7 @@ export default function AgentChatPage() {
         )}
       </main>
 
-      <footer className="sticky bottom-0 z-20 bg-background/80 pb-3 backdrop-blur">
+      <footer className="sticky bottom-0 z-20 bg-background/90 pb-3 pt-1 backdrop-blur">
         <AgentInput
           value={input}
           onChange={setInput}
@@ -397,7 +459,7 @@ export default function AgentChatPage() {
       </footer>
 
       {empty ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-4">
+        <div className="rounded-3xl border border-slate-300 bg-white p-4 shadow-sm">
           <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">Quick suggestions</p>
           <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-5">
             {ASK_GROUPS.flatMap((group) => group.examples.slice(0, 1)).map((example) => (
@@ -405,7 +467,7 @@ export default function AgentChatPage() {
                 key={example}
                 type="button"
                 onClick={() => sendMessage(example)}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-bold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                className="rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-left text-xs font-bold text-slate-800 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
               >
                 {example}
               </button>
