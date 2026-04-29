@@ -97,6 +97,9 @@ const buildVariantDisplayLabel = (variant, make = "", model = "") => {
   return cleaned || raw;
 };
 
+const getVariantFilterKey = (variant, make = "", model = "") =>
+  normalizeText(buildVariantDisplayLabel(variant, make, model));
+
 const toArray = (payload) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
@@ -530,14 +533,20 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
     let list = allVehicles;
     if (makeFilter) list = list.filter((v) => v.make === makeFilter);
     if (modelFilter) list = list.filter((v) => v.model === modelFilter);
-    const rawVariants = [
-      ...new Set(list.map((v) => v.variant).filter((x) => !!x && x !== "N/A")),
-    ];
-    return rawVariants
-      .map((rawVariant) => ({
-        value: rawVariant,
-        label: buildVariantDisplayLabel(rawVariant, makeFilter, modelFilter),
-      }))
+    const byVariantKey = new Map();
+    list.forEach((v) => {
+      const rawVariant = collapseSpaces(v?.variant);
+      if (!rawVariant || rawVariant === "N/A") return;
+      const label = buildVariantDisplayLabel(
+        rawVariant,
+        v?.make || makeFilter,
+        v?.model || modelFilter,
+      );
+      const value = getVariantFilterKey(rawVariant, v?.make || makeFilter, v?.model || modelFilter);
+      if (!value || byVariantKey.has(value)) return;
+      byVariantKey.set(value, { value, label });
+    });
+    return Array.from(byVariantKey.values())
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [allVehicles, makeFilter, modelFilter]);
 
@@ -689,7 +698,10 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
       }
     }
     if (variantFilter) {
-      filtered = filtered.filter((v) => v.variant === variantFilter);
+      filtered = filtered.filter(
+        (v) =>
+          getVariantFilterKey(v.variant, v.make, v.model) === variantFilter,
+      );
     }
 
     if (budgetFilter) {
@@ -2026,7 +2038,12 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                 }
               : null
           }
-          assumedOnRoadPrice={Number(emiVariant?.exShowroom) || 0}
+          assumedOnRoadPrice={
+            Number(emiVariant?.onRoadPrice) ||
+            Number(emiVariant?.on_road_price_cardekho) ||
+            Number(emiVariant?.total_on_road_with_accessories) ||
+            0
+          }
           onClose={() => {
             setEmiModalOpen(false);
             setEmiVariant(null);
@@ -2034,8 +2051,11 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
           onOpenFullCalculator={() => {
             const v = emiVariant;
             if (!v) return;
-            const exShowroomPrice =
-              Number(v?.exShowroom) || Number(v?.ex_showroom) || 0;
+            const onRoadPrice =
+              Number(v?.onRoadPrice) ||
+              Number(v?.on_road_price_cardekho) ||
+              Number(v?.total_on_road_with_accessories) ||
+              0;
             setEmiModalOpen(false);
             setEmiVariant(null);
             navigate("/loans/emi-calculator", {
@@ -2045,7 +2065,7 @@ const VehiclePriceList = ({ onSelectVehicle, selectionMode = false }) => {
                   make: v?.make,
                   model: v?.model,
                   variant: v?.variant,
-                  price: exShowroomPrice,
+                  price: onRoadPrice,
                 },
               },
             });

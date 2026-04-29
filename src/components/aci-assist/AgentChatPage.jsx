@@ -289,7 +289,8 @@ export default function AgentChatPage() {
       sendMessage(action.message, {
         context: action.context,
         filters: action.filters,
-        keepFilters: true,
+        replaceContext: Boolean(action.context),
+        keepFilters: Boolean(action.keepFilters),
         displayText: action.label || action.message,
       });
       return;
@@ -298,7 +299,8 @@ export default function AgentChatPage() {
       sendMessage(action.message, {
         context: action.context,
         filters: action.filters,
-        keepFilters: true,
+        replaceContext: Boolean(action.context),
+        keepFilters: Boolean(action.keepFilters),
         displayText: action.label || action.message,
       });
       return;

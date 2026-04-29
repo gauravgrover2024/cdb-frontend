@@ -23,6 +23,13 @@ export default function VariantSelectorInline({ widget = {}, onAction }) {
     () => Object.values(selected).filter(Boolean),
     [selected],
   );
+  const selectedRows = useMemo(
+    () =>
+      groups
+        .flatMap((group) => asArray(group.variants))
+        .filter((variant) => selectedIds.includes(variant.id)),
+    [groups, selectedIds],
+  );
 
   const canCompare = selectedIds.length >= 2 && selectedIds.length === groups.length;
 
@@ -67,7 +74,12 @@ export default function VariantSelectorInline({ widget = {}, onAction }) {
               type: "compare",
               label: "Compare selected variants",
               message: "Compare selected variants",
-              context: { selectedVariantIds: selectedIds, compareMode: "variants" },
+              context: {
+                selectedVariantIds: selectedIds,
+                selectedVariantRows: selectedRows,
+                selectedModels: groups.map((group) => group.displayModel || group.model).filter(Boolean),
+                compareMode: "variants",
+              },
             })
           }
           className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"

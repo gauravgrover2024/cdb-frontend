@@ -74,8 +74,6 @@ export const PRICING_ADDITION_FIELDS = [
     aliases: [
       "accessoriesAmount",
       "optional_accessoriesCharges",
-      "optional_totalAccessories",
-      "optional_totalAccessoriesInRs",
     ],
   },
   { key: "fastag", label: "Fastag", aliases: ["fastTag"] },
@@ -241,6 +239,8 @@ const collectStructuredListItems = (record, listKey, prefixLabel) => {
     .filter(Boolean);
 };
 
+const STRUCTURED_SOURCE_LIST_KEYS = new Set(["optional_list", "other_list"]);
+
 const extractDynamicLineItems = (vehicle, blockedKeys) => {
   const additions = [];
   const discounts = [];
@@ -273,12 +273,14 @@ const extractDynamicLineItems = (vehicle, blockedKeys) => {
     else pushUnique(additions, row);
   });
 
-  collectStructuredListItems(source, "optional_list", "Optional charge").forEach(
-    (row) => pushUnique(additions, row),
-  );
-  collectStructuredListItems(source, "other_list", "Other charge").forEach((row) =>
-    pushUnique(additions, row),
-  );
+  Object.keys(source).forEach((key) => {
+    if (STRUCTURED_SOURCE_LIST_KEYS.has(key)) return;
+    if (!key.endsWith("_list")) return;
+    const label = humanizeKey(key.replace(/_list$/, ""));
+    collectStructuredListItems(source, key, label).forEach((row) =>
+      pushUnique(isDiscountLikeKey(key) ? discounts : additions, row),
+    );
+  });
 
   return { additions, discounts };
 };

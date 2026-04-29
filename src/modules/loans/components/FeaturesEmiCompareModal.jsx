@@ -200,7 +200,14 @@ const solveOptions = [
 const DEFAULT_SCENARIO_BASE_PRICE = 1200000;
 
 const getVariantPrice = (variant) =>
-  Number(variant?.exShowroom || variant?.onRoadPrice || 0) || 0;
+  Number(
+    variant?.onRoadPrice ||
+      variant?.on_road_price_cardekho ||
+      variant?.total_on_road_with_accessories ||
+      variant?.netOnRoad ||
+      variant?.exShowroom ||
+      0,
+  ) || 0;
 
 const FeaturesEmiCompareModal = ({
   open,

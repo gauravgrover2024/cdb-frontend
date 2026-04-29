@@ -47,6 +47,8 @@ import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 import ACIAssistPage from "./pages/ACIAssistPage";
 
+import CDrivePremiumPortal from "./pages/CDrivePremiumPortal";
+
 // NEW: booking pages
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
 import BookingDetailPage from "./modules/payments/pages/BookingDetailPage";
@@ -61,7 +63,9 @@ const FULL_WIDTH_ROUTES = ["/used-cars"];
 // Wrapper to use custom Header and provide main content area
 function HeaderWrapper() {
   const location = useLocation();
-  const isFullWidth = FULL_WIDTH_ROUTES.some((r) => location.pathname.startsWith(r));
+  const isFullWidth = FULL_WIDTH_ROUTES.some((r) =>
+    location.pathname.startsWith(r),
+  );
 
   return (
     <>
@@ -95,6 +99,9 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<Signup />} />
 
+          {/* Customer-Facing Portal (public, no auth) */}
+          <Route path="/portal" element={<CDrivePremiumPortal />} />
+
           {/* ── ALL routes below require authentication ── */}
           <Route
             path="/"
@@ -127,7 +134,6 @@ function App() {
               path="insurance/edit/:caseId"
               element={R(FEATURE_ACCESS.INSURANCE, <InsuranceCasePage />)}
             />
-
             {/* Customers */}
             <Route
               path="customers"
@@ -141,7 +147,6 @@ function App() {
               path="customers/edit/:id"
               element={R(FEATURE_ACCESS.CUSTOMERS, <EditCustomer />)}
             />
-
             {/* Loans */}
             <Route
               path="loans"
@@ -159,7 +164,6 @@ function App() {
               path="loans/pendency"
               element={R(FEATURE_ACCESS.PENDENCY, <PendencyTracker />)}
             />
-
             {/* Used Cars */}
             <Route
               path="used-cars"
@@ -175,7 +179,10 @@ function App() {
             />
             <Route
               path="used-cars/background-check"
-              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsBackgroundCheckPage />)}
+              element={R(
+                FEATURE_ACCESS.USED_CARS,
+                <UsedCarsBackgroundCheckPage />,
+              )}
             />
             <Route
               path="used-cars/negotiation"
@@ -183,13 +190,15 @@ function App() {
             />
             <Route
               path="used-cars/documentation"
-              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsDocumentationPage />)}
+              element={R(
+                FEATURE_ACCESS.USED_CARS,
+                <UsedCarsDocumentationPage />,
+              )}
             />
             <Route
               path="used-cars/stock"
               element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsStockPage />)}
             />
-
             {/* Tools */}
             <Route
               path="loans/emi-calculator"
@@ -207,7 +216,6 @@ function App() {
               path="loans/field-mapping"
               element={R(FEATURE_ACCESS.FIELD_MAPPING, <FieldMappingPage />)}
             />
-
             {/* Payouts — admin/superadmin only */}
             <Route
               path="payouts/receivables"
@@ -220,7 +228,6 @@ function App() {
               path="payouts/payables"
               element={R(FEATURE_ACCESS.PAYOUTS, <PayoutPayablesDashboard />)}
             />
-
             {/* Delivery Orders — admin/superadmin only */}
             <Route
               path="delivery-orders"
@@ -237,7 +244,6 @@ function App() {
               path="delivery-orders/:loanId"
               element={R(FEATURE_ACCESS.DELIVERY_ORDERS, <DeliveryOrderForm />)}
             />
-
             {/* Payments */}
             <Route
               path="payments"
@@ -247,7 +253,6 @@ function App() {
               path="payments/:loanId"
               element={R(FEATURE_ACCESS.PAYMENTS, <PaymentForm />)}
             />
-
             {/* Bookings — separate module (Point 6) */}
             <Route
               path="bookings"
@@ -282,7 +287,6 @@ function App() {
               path="payments/bookings/edit/:bookingId"
               element={R(FEATURE_ACCESS.PAYMENTS, <NewBookingPage />)}
             />
-
             {/* Vehicles — admin/superadmin only */}
             <Route
               path="vehicles"
@@ -296,15 +300,12 @@ function App() {
               path="vehicles/price-list"
               element={R(FEATURE_ACCESS.TOOLS, <VehiclePriceList />)}
             />
-
             <Route
               path="vehicles/mapping"
               element={R(FEATURE_ACCESS.VEHICLES, <VehicleMappingPage />)}
             />
-
             {/* Profile — any authenticated user */}
             <Route path="profile" element={<ProfilePage />} />
-
             {/* Superadmin */}
             <Route
               path="superadmin/users"

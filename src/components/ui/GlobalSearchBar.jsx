@@ -98,8 +98,7 @@ const GlobalSearchBar = () => {
 
   const openResult = (item) => {
     if (!item) return;
-    if (!item.route) return;
-    navigate(item.route);
+    if (item.route) navigate(item.route);
     setOpen(false);
     setQuery("");
     setResponse({ total: 0, groups: [], results: [] });

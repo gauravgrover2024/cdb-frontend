@@ -3,7 +3,9 @@ import { CornerDownRight } from "lucide-react";
 import { asArray } from "./utils";
 
 export default function FollowUpSuggestions({ suggestions, onSelect, title = "Follow-ups" }) {
-  const items = asArray(suggestions).map((item) => (typeof item === "string" ? item : item.label || item.message || item.text)).filter(Boolean);
+  const items = asArray(suggestions)
+    .map((item) => (typeof item === "string" ? { label: item, message: item } : item))
+    .filter((item) => item?.label || item?.message || item?.text);
   if (!items.length) return null;
 
   return (
@@ -13,16 +15,27 @@ export default function FollowUpSuggestions({ suggestions, onSelect, title = "Fo
         {title}
       </p>
       <div className="flex flex-wrap gap-2">
-        {items.map((suggestion) => (
+        {items.map((suggestion) => {
+          const label = suggestion.label || suggestion.message || suggestion.text;
+          return (
           <button
-            key={suggestion}
+            key={label}
             type="button"
-            onClick={() => onSelect?.(suggestion)}
+            onClick={() =>
+              onSelect?.(suggestion.message || label, {
+                context: suggestion.context,
+                filters: suggestion.filters,
+                replaceContext: suggestion.replaceContext,
+                keepFilters: suggestion.keepFilters,
+                displayText: label,
+              })
+            }
             className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-100"
           >
-            {suggestion}
+            {label}
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

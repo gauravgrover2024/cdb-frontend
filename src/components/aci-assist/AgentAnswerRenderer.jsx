@@ -14,7 +14,9 @@ import PriceHistoryReportInline from "./PriceHistoryReportInline";
 import RecordsTableInline from "./RecordsTableInline";
 import SimilarCarsInline from "./SimilarCarsInline";
 import Vehicle360Inline from "./Vehicle360Inline";
+import VehicleColorsInline from "./VehicleColorsInline";
 import VehicleComparisonTable from "./VehicleComparisonTable";
+import VehicleFeaturesInline from "./VehicleFeaturesInline";
 import VehiclePriceListInline from "./VehiclePriceListInline";
 import VariantSelectorInline from "./VariantSelectorInline";
 import WidgetFrame from "./WidgetFrame";
@@ -58,6 +60,10 @@ export default function AgentAnswerRenderer({ widgets, onAction }) {
             return <LoanClosureCardInline key={key} widget={widget} onAction={onAction} />;
           case "vehicle_pricelist":
             return <VehiclePriceListInline key={key} widget={widget} onAction={onAction} />;
+          case "vehicle_colors":
+            return <VehicleColorsInline key={key} widget={widget} onAction={onAction} />;
+          case "vehicle_features":
+            return <VehicleFeaturesInline key={key} widget={widget} onAction={onAction} />;
           case "variant_selector":
             return <VariantSelectorInline key={key} widget={widget} onAction={onAction} />;
           case "variant_feature_availability":
