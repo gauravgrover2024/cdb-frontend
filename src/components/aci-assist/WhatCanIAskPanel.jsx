@@ -3,50 +3,31 @@ import { X } from "lucide-react";
 
 export const ASK_GROUPS = [
   {
-    title: "Vehicles / Pricelist",
+    title: "Vehicles",
     examples: [
       "Verna pricelist",
-      "Verna colors",
-      "Compare Verna City Slavia",
-      "Show similar cars to Verna",
+      "Show colors of Verna",
       "Does Verna SX have sunroof?",
-      "How many new variants were added this month?",
     ],
   },
   {
-    title: "Insurance",
+    title: "Loans",
     examples: [
-      "Latest insurance of Rahul Diwan 4577",
-      "Policies expiring this week",
-      "Insurance cases without registration number",
-      "Expired policies but status still active",
-    ],
-  },
-  {
-    title: "Loans / Finance",
-    examples: [
-      "Loan status of Verna 4577",
-      "Approx loan closure of Rahul Diwan Verna 4577",
       "Approved but not disbursed cases",
-      "Cases with payout missing",
-      "Payment pending Rahul 4577",
+      "Loan closure 7077",
     ],
   },
   {
-    title: "Reports",
+    title: "Business",
     examples: [
-      "How many cars are without registration number?",
-      "Cases with payout missing",
-      "Customers with active loan but expired insurance",
-      "Used car leads where RC check is pending",
+      "Total business this month",
+      "Cash car business this month",
     ],
   },
   {
-    title: "360 Views",
+    title: "Customers",
     examples: [
-      "Customer 360 Rahul Diwan",
-      "Vehicle 360 DL8CAX4577",
-      "Vehicle 360 4577",
+      "Customer 360 Vinod Kumar Jha",
     ],
   },
 ];

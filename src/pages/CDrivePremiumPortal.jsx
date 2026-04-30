@@ -1,34 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useScroll,
-  useSpring,
-  useTime,
-  useTransform,
-} from "framer-motion";
-import {
+  ArrowLeft,
   ArrowRight,
   Bot,
+  CalendarDays,
+  Car,
   Check,
   ChevronRight,
-  CircleDot,
+  CircleDollarSign,
+  Fuel,
   Gauge,
-  MessageSquareText,
+  GitCompare,
+  Heart,
   Phone,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
-  TrendingUp,
+  Star,
+  Tag,
   Users,
   Wallet,
-  Zap,
 } from "lucide-react";
 
 const EASE = [0.22, 1, 0.36, 1];
 
-const CARS = [
+const fallbackCars = [
   {
     id: "creta-sxo",
     make: "Hyundai",
@@ -37,19 +33,59 @@ const CARS = [
     bodyType: "SUV",
     fuel: "Petrol",
     transmission: "Automatic",
-    familyFit: 91,
-    budgetFit: 84,
-    resale: 86,
-    demand: 78,
-    availability: 64,
-    basePrice: 1939000,
-    dealerDiscount: 32000,
-    insuranceSavings: 18000,
-    financeBenefit: 15000,
+    price: 1939000,
+    marketPrice: 1989000,
+    savings: 50000,
+    emi: 33450,
     image:
-      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1800&q=80",
-    reason:
-      "Strong family practicality, premium feature mix, and high demand make this a balanced city-plus-highway choice.",
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+    gallery: [
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1600&q=80",
+    ],
+    tags: ["family", "automatic", "suv"],
+    valueProposition: "Balanced family SUV with strong feature-value ratio.",
+    mileage: "17.8 km/l",
+    engine: "1.5L Turbo Petrol",
+    power: "160 PS",
+    torque: "253 Nm",
+    seating: "5 Seater",
+    boot: "433 L",
+    rating: 4.7,
+    reviewCount: 284,
+    launchStatus: "Available Now",
+    colors: ["Abyss Black", "Atlas White", "Titan Grey", "Fiery Red"],
+    features: [
+      "Panoramic sunroof",
+      "ADAS features",
+      "Ventilated seats",
+      "10.25-inch infotainment",
+      "Digital cluster",
+      "Bose audio",
+    ],
+    safety: [
+      "6 airbags",
+      "ESC + hill assist",
+      "Rear camera",
+      "Tyre pressure monitoring",
+    ],
+    whyVariant:
+      "Best suited for family buyers who want premium features, strong road presence, and a smoother automatic ownership experience.",
+    reviews: [
+      {
+        author: "Rohan M.",
+        title: "Feels premium and easy to own",
+        text: "Best mix of features, comfort, and city drivability. The pricing support matters a lot.",
+        rating: 5,
+      },
+      {
+        author: "Aditi S.",
+        title: "Good family automatic",
+        text: "Rear seat comfort and feature set are strong. Worth shortlisting for urban families.",
+        rating: 4,
+      },
+    ],
   },
   {
     id: "seltos-gtx",
@@ -59,63 +95,54 @@ const CARS = [
     bodyType: "SUV",
     fuel: "Petrol",
     transmission: "Automatic",
-    familyFit: 88,
-    budgetFit: 79,
-    resale: 82,
-    demand: 74,
-    availability: 58,
-    basePrice: 2019000,
-    dealerDiscount: 28000,
-    insuranceSavings: 22000,
-    financeBenefit: 14000,
+    price: 2019000,
+    marketPrice: 2069000,
+    savings: 50000,
+    emi: 34880,
     image:
-      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1800&q=80",
-    reason:
-      "Best for buyers wanting a more assertive design language, a rich feature list, and a sporty premium feel.",
-  },
-  {
-    id: "xuv700-ax7",
-    make: "Mahindra",
-    model: "XUV700",
-    variant: "AX7 AT",
-    bodyType: "SUV",
-    fuel: "Petrol",
-    transmission: "Automatic",
-    familyFit: 93,
-    budgetFit: 70,
-    resale: 79,
-    demand: 83,
-    availability: 52,
-    basePrice: 2310000,
-    dealerDiscount: 35000,
-    insuranceSavings: 20000,
-    financeBenefit: 17000,
-    image:
-      "https://images.unsplash.com/photo-1494905998402-395d579af36f?auto=format&fit=crop&w=1800&q=80",
-    reason:
-      "Excellent for larger families who prioritize cabin presence, stronger road stance, and feature-heavy long-distance comfort.",
-  },
-  {
-    id: "grand-vitara-alpha",
-    make: "Maruti Suzuki",
-    model: "Grand Vitara",
-    variant: "Alpha AT",
-    bodyType: "SUV",
-    fuel: "Petrol",
-    transmission: "Automatic",
-    familyFit: 87,
-    budgetFit: 81,
-    resale: 90,
-    demand: 72,
-    availability: 71,
-    basePrice: 1975000,
-    dealerDiscount: 26000,
-    insuranceSavings: 17000,
-    financeBenefit: 11000,
-    image:
-      "https://images.unsplash.com/photo-1485291571150-772bcfc10da5?auto=format&fit=crop&w=1800&q=80",
-    reason:
-      "A safer long-term ownership pick for buyers who care about practicality, lower running anxiety, and resale confidence.",
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
+    gallery: [
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1600&q=80",
+    ],
+    tags: ["sporty", "automatic", "suv"],
+    valueProposition: "More design-forward and sporty for urban buyers.",
+    mileage: "17.7 km/l",
+    engine: "1.5L Turbo Petrol",
+    power: "160 PS",
+    torque: "253 Nm",
+    seating: "5 Seater",
+    boot: "433 L",
+    rating: 4.6,
+    reviewCount: 232,
+    launchStatus: "Available Now",
+    colors: ["Pewter Olive", "Glacier White", "Intense Red", "Aurora Black"],
+    features: [
+      "Dual-screen cockpit",
+      "Premium Bose sound",
+      "Ventilated seats",
+      "ADAS package",
+      "Air purifier",
+      "Connected tech",
+    ],
+    safety: ["6 airbags", "360 camera", "Blind view monitor", "ESC"],
+    whyVariant:
+      "A better fit for users who value sharper styling, a more expressive cabin, and stronger visual appeal in city driving.",
+    reviews: [
+      {
+        author: "Karan P.",
+        title: "Looks and feels sharp",
+        text: "The design stands out. It is a strong urban SUV if styling matters to you.",
+        rating: 5,
+      },
+      {
+        author: "Sonal D.",
+        title: "Feature loaded",
+        text: "One of the better equipped options. Price negotiation makes a real difference here.",
+        rating: 4,
+      },
+    ],
   },
   {
     id: "city-zx",
@@ -125,19 +152,59 @@ const CARS = [
     bodyType: "Sedan",
     fuel: "Petrol",
     transmission: "Automatic",
-    familyFit: 82,
-    budgetFit: 85,
-    resale: 83,
-    demand: 62,
-    availability: 73,
-    basePrice: 1688000,
-    dealerDiscount: 24000,
-    insuranceSavings: 16000,
-    financeBenefit: 12000,
+    price: 1688000,
+    marketPrice: 1730000,
+    savings: 42000,
+    emi: 29120,
     image:
-      "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1800&q=80",
-    reason:
-      "Perfect for buyers who want a refined, chauffeur-friendly sedan with clean ergonomics and strong daily usability.",
+      "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80",
+    gallery: [
+      "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
+    ],
+    tags: ["sedan", "automatic", "premium"],
+    valueProposition: "Refined sedan comfort with strong rear-seat experience.",
+    mileage: "18.4 km/l",
+    engine: "1.5L i-VTEC Petrol",
+    power: "121 PS",
+    torque: "145 Nm",
+    seating: "5 Seater",
+    boot: "506 L",
+    rating: 4.5,
+    reviewCount: 174,
+    launchStatus: "Available Now",
+    colors: ["Platinum White", "Golden Brown", "Meteoroid Grey", "Radiant Red"],
+    features: [
+      "Lane watch camera",
+      "Honda Sensing",
+      "Sunroof",
+      "Wireless Android Auto",
+      "Leather seats",
+      "Rear AC vents",
+    ],
+    safety: [
+      "6 airbags",
+      "Lane keep assist",
+      "Collision mitigation",
+      "ABS + EBD",
+    ],
+    whyVariant:
+      "Ideal for buyers who prioritize comfort, rear-seat space, and a more refined sedan driving experience over SUV stance.",
+    reviews: [
+      {
+        author: "Neha T.",
+        title: "Still the benchmark sedan",
+        text: "Quiet, spacious, and smooth. A very comfortable daily car with premium feel.",
+        rating: 5,
+      },
+      {
+        author: "Vivek R.",
+        title: "Practical and classy",
+        text: "If you want sedan comfort and less visual noise, this is a mature choice.",
+        rating: 4,
+      },
+    ],
   },
   {
     id: "nexon-fearless",
@@ -147,113 +214,473 @@ const CARS = [
     bodyType: "SUV",
     fuel: "Petrol",
     transmission: "Automatic",
-    familyFit: 84,
-    budgetFit: 92,
-    resale: 76,
-    demand: 80,
-    availability: 77,
-    basePrice: 1559000,
-    dealerDiscount: 29000,
-    insuranceSavings: 19000,
-    financeBenefit: 13000,
+    price: 1559000,
+    marketPrice: 1605000,
+    savings: 46000,
+    emi: 26950,
     image:
-      "https://images.unsplash.com/photo-1502161254066-6c74afbf07aa?auto=format&fit=crop&w=1800&q=80",
-    reason:
-      "A strong value-led automatic SUV for buyers who want a more aggressive deal envelope without losing feature appeal.",
+      "https://images.unsplash.com/photo-1502161254066-6c74afbf07aa?auto=format&fit=crop&w=1600&q=80",
+    gallery: [
+      "https://images.unsplash.com/photo-1502161254066-6c74afbf07aa?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+    ],
+    tags: ["budget", "automatic", "suv"],
+    valueProposition: "Strong value entry point for automatic SUV buyers.",
+    mileage: "17.0 km/l",
+    engine: "1.2L Turbo Petrol",
+    power: "120 PS",
+    torque: "170 Nm",
+    seating: "5 Seater",
+    boot: "382 L",
+    rating: 4.4,
+    reviewCount: 312,
+    launchStatus: "Available Now",
+    colors: ["Fearless Purple", "Daytona Grey", "White", "Flame Red"],
+    features: [
+      "Large touchscreen",
+      "Sunroof",
+      "360 camera",
+      "Digital cluster",
+      "Connected car tech",
+      "Air purifier",
+    ],
+    safety: ["6 airbags", "ESP", "ISOFIX", "Front parking sensors"],
+    whyVariant:
+      "A strong pick for value-conscious upgraders who want an automatic SUV with premium touches without overspending.",
+    reviews: [
+      {
+        author: "Arjun K.",
+        title: "Great value SUV",
+        text: "A lot of car for the money. The deal support makes it even more attractive.",
+        rating: 4,
+      },
+      {
+        author: "Priya L.",
+        title: "Good first automatic SUV",
+        text: "Easy to drive and practical for urban use. Works well as an upgrade car.",
+        rating: 4,
+      },
+    ],
+  },
+  {
+    id: "grand-vitara-alpha",
+    make: "Maruti Suzuki",
+    model: "Grand Vitara",
+    variant: "Alpha AT",
+    bodyType: "SUV",
+    fuel: "Petrol",
+    transmission: "Automatic",
+    price: 1865000,
+    marketPrice: 1919000,
+    savings: 54000,
+    emi: 32180,
+    image:
+      "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1600&q=80",
+    gallery: [
+      "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
+    ],
+    tags: ["family", "automatic", "suv"],
+    valueProposition:
+      "Efficient, family-friendly SUV with broad ownership appeal.",
+    mileage: "19.4 km/l",
+    engine: "1.5L Petrol",
+    power: "103 PS",
+    torque: "137 Nm",
+    seating: "5 Seater",
+    boot: "373 L",
+    rating: 4.5,
+    reviewCount: 146,
+    launchStatus: "Available Now",
+    colors: ["Nexa Blue", "Chestnut Brown", "Arctic White", "Splendid Silver"],
+    features: [
+      "Panoramic sunroof",
+      "360 camera",
+      "HUD",
+      "Wireless charging",
+      "Ventilated seats",
+      "Connected features",
+    ],
+    safety: ["6 airbags", "Hill hold", "Tyre monitoring", "ABS + EBD"],
+    whyVariant:
+      "Great for family buyers who want a calm ownership experience, efficient running, and sensible premium features.",
+    reviews: [
+      {
+        author: "Manish B.",
+        title: "Efficient and calm",
+        text: "Feels easy to live with. Good pick for family use where ownership costs matter.",
+        rating: 4,
+      },
+      {
+        author: "Ishita N.",
+        title: "A sensible premium SUV",
+        text: "Not flashy, but very balanced. The right buy if you want maturity over drama.",
+        rating: 4,
+      },
+    ],
+  },
+  {
+    id: "verna-sx",
+    make: "Hyundai",
+    model: "Verna",
+    variant: "SX IVT",
+    bodyType: "Sedan",
+    fuel: "Petrol",
+    transmission: "Automatic",
+    price: 1749000,
+    marketPrice: 1799000,
+    savings: 50000,
+    emi: 30120,
+    image:
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1600&q=80",
+    gallery: [
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1544636331-e26879cd4d9b?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80",
+    ],
+    tags: ["sedan", "automatic", "premium"],
+    valueProposition:
+      "Modern styling with premium cabin and smooth urban drive.",
+    mileage: "18.6 km/l",
+    engine: "1.5L Petrol",
+    power: "115 PS",
+    torque: "144 Nm",
+    seating: "5 Seater",
+    boot: "528 L",
+    rating: 4.5,
+    reviewCount: 128,
+    launchStatus: "Available Now",
+    colors: ["Fiery Red", "Titan Grey", "Abyss Black", "Atlas White"],
+    features: [
+      "Dual screens",
+      "Ventilated seats",
+      "Sunroof",
+      "ADAS features",
+      "Ambient lighting",
+      "Premium audio",
+    ],
+    safety: ["6 airbags", "ADAS", "Rear disc brakes", "Camera + sensors"],
+    whyVariant:
+      "A more design-led sedan choice for buyers who want modern styling, strong features, and premium cabin drama.",
+    reviews: [
+      {
+        author: "Siddharth V.",
+        title: "Sharp design, easy drive",
+        text: "Modern sedan with a nicer cabin than most buyers expect in this segment.",
+        rating: 5,
+      },
+      {
+        author: "Pooja A.",
+        title: "Strong highway sedan",
+        text: "Comfortable, feature-rich, and well suited to buyers who want a premium sedan.",
+        rating: 4,
+      },
+    ],
+  },
+];
+
+const latestLaunches = [
+  {
+    id: "xuv-3xo-ev",
+    name: "Mahindra XUV 3XO EV",
+    expectedPrice: "₹ 14.5L - ₹ 17.8L",
+    launch: "June 2026",
+    tag: "Latest Launch",
+    image:
+      "https://images.unsplash.com/photo-1494905998402-395d579af36f?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "curvv-ev",
+    name: "Tata Curvv EV",
+    expectedPrice: "₹ 18.0L - ₹ 22.0L",
+    launch: "July 2026",
+    tag: "Hot New EV",
+    image:
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "elevate-hybrid",
+    name: "Honda Elevate Hybrid",
+    expectedPrice: "₹ 17.0L - ₹ 21.0L",
+    launch: "August 2026",
+    tag: "Upcoming",
+    image:
+      "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1600&q=80",
+  },
+];
+
+const hotDeals = [
+  {
+    title: "Creta SX(O) Turbo DCT",
+    save: "Save ₹ 50,000",
+    urgency: "12 people viewing",
+  },
+  {
+    title: "Grand Vitara Alpha AT",
+    save: "Save ₹ 54,000",
+    urgency: "5 deals closed today",
+  },
+  {
+    title: "Verna SX IVT",
+    save: "Save ₹ 50,000",
+    urgency: "Dealer offer live now",
+  },
+  {
+    title: "Nexon Fearless+ S DCA",
+    save: "Save ₹ 46,000",
+    urgency: "Fast moving deal",
+  },
+];
+
+const trendingSearches = [
+  "SUV under 20L",
+  "Best family automatic under 20L",
+  "Compare Creta vs Seltos",
+  "Best sedan under 18L",
+  "Need EMI for Nexon",
+  "Insurance quote for Creta",
+];
+
+const trustReasons = [
+  {
+    title: "Smarter comparison",
+    text: "Compare cars, prices, features, and monthly costs without visual clutter.",
+  },
+  {
+    title: "Deal-first pricing",
+    text: "See market price, your price, and savings before the lead form appears.",
+  },
+  {
+    title: "Finance + insurance",
+    text: "Move from shortlist to EMI and protection without breaking the buying flow.",
   },
 ];
 
 const quickPrompts = [
   "SUV under 20L",
   "Compare Creta vs Seltos",
-  "Best family automatic",
-  "Highest resale under 18L",
+  "Need EMI for Nexon",
+  "Insurance quote for Creta",
+  "Best family automatic under 20L",
+  "Sell my old car",
 ];
 
-const formatLakh = (value) => {
-  if (!value) return "₹ 0";
-  if (value >= 10000000) return `₹ ${(value / 10000000).toFixed(2)} Cr`;
-  return `₹ ${(value / 100000).toFixed(2)} Lakh`;
-};
+const formatLakh = (value) => `₹ ${(value / 100000).toFixed(2)} Lakh`;
+const formatMoney = (value) =>
+  `₹ ${Number(value || 0).toLocaleString("en-IN")}`;
 
-const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
 
-const calcFinalPrice = (car, toggles) => {
-  const total =
-    (toggles.dealerDiscount ? car.dealerDiscount : 0) +
-    (toggles.insuranceSavings ? car.insuranceSavings : 0) +
-    (toggles.financeBenefit ? car.financeBenefit : 0);
+function inferView(query) {
+  const q = normalizeText(query);
+  if (q.includes("compare") || q.includes(" vs ")) return "compare";
+  if (q.includes("finance") || q.includes("emi") || q.includes("loan"))
+    return "finance";
+  if (q.includes("insurance") || q.includes("policy")) return "insurance";
+  if (q.includes("sell") || q.includes("valuation") || q.includes("exchange"))
+    return "sell";
+  return "results";
+}
 
-  return {
-    totalSavings: total,
-    finalPrice: car.basePrice - total,
-  };
-};
+function formatApiCars(items = []) {
+  return items
+    .map((item, index) => {
+      const make =
+        item.make ||
+        item.makeName ||
+        item.brand ||
+        item.oem ||
+        item.manufacturer ||
+        "Unknown";
+      const model =
+        item.model || item.modelName || item.carModel || item.name || "Model";
+      const variant =
+        item.variant ||
+        item.variantName ||
+        item.version ||
+        item.grade ||
+        "Variant";
+      const fuel = item.fuel || item.fuelType || "Petrol";
+      const transmission =
+        item.transmission || item.transmissionType || "Manual";
+      const price = Number(
+        item.price ||
+          item.exShowroomPrice ||
+          item.onRoadPrice ||
+          item.minPrice ||
+          0,
+      );
+      if (!price) return null;
 
-const getDealStrength = (car, savings) => {
-  const savingsPercent = (savings / car.basePrice) * 100;
-  const raw =
-    savingsPercent * 9 +
-    car.demand * 0.35 +
-    car.availability * 0.25 +
-    car.resale * 0.18;
-  return Math.round(clamp(raw, 18, 96));
-};
+      const marketPrice = Math.round(price * 1.03);
+      const savings = marketPrice - price;
+      const emi = Math.round(price / 58);
 
-const parsePrompt = (input, source) => {
-  const q = input.toLowerCase().trim();
-  let results = source;
+      return {
+        ...fallbackCars[index % fallbackCars.length],
+        id: item.id || item._id || `${make}-${model}-${variant}-${index}`,
+        make,
+        model,
+        variant,
+        bodyType: item.bodyType || item.segment || "Car",
+        fuel,
+        transmission,
+        price,
+        marketPrice,
+        savings,
+        emi,
+        image:
+          item.image ||
+          item.imageUrl ||
+          item.thumbnail ||
+          item.photo ||
+          fallbackCars[index % fallbackCars.length].image,
+        valueProposition:
+          item.valueProposition ||
+          "Dealer-linked pricing with a cleaner, faster buying journey.",
+      };
+    })
+    .filter(Boolean);
+}
 
-  if (q.includes("suv"))
-    results = results.filter((car) => car.bodyType === "SUV");
-  if (q.includes("sedan"))
-    results = results.filter((car) => car.bodyType === "Sedan");
-  if (q.includes("automatic"))
-    results = results.filter((car) => car.transmission === "Automatic");
-  if (q.includes("family"))
-    results = [...results].sort((a, b) => b.familyFit - a.familyFit);
-  if (q.includes("resale"))
-    results = [...results].sort((a, b) => b.resale - a.resale);
-
-  const underMatch = q.match(/under\s+(\d+)/);
-  if (underMatch) {
-    const lakh = Number(underMatch[1]);
-    results = results.filter((car) => car.basePrice <= lakh * 100000);
-  }
+function getFallbackResults(query) {
+  const q = normalizeText(query);
 
   if (q.includes("compare") && q.includes("vs")) {
-    const sides =
-      q
-        .split("compare")[1]
-        ?.split("vs")
-        .map((x) => x.trim()) || [];
-    const compared = source.filter((car) =>
-      sides.some((side) => car.model.toLowerCase().includes(side)),
+    const cleaned = q.replace("compare", "").trim();
+    const parts = cleaned
+      .split("vs")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    return fallbackCars
+      .filter((car) =>
+        parts.some((part) => normalizeText(car.model).includes(part)),
+      )
+      .slice(0, 3);
+  }
+
+  let result = [...fallbackCars];
+
+  if (q.includes("suv")) result = result.filter((c) => c.bodyType === "SUV");
+  if (q.includes("sedan"))
+    result = result.filter((c) => c.bodyType === "Sedan");
+  if (q.includes("family")) {
+    result = result.filter(
+      (c) =>
+        c.tags.includes("family") ||
+        ["Creta", "Grand Vitara"].includes(c.model),
     );
-    return {
-      type: "compare",
-      results: compared.length ? compared.slice(0, 3) : source.slice(0, 2),
-      reply:
-        "I prepared a focused comparison and highlighted what actually changes the deal. I can also unlock the best final number now.",
-    };
+  }
+  if (q.includes("automatic")) {
+    result = result.filter((c) =>
+      normalizeText(c.transmission).includes("automatic"),
+    );
+  }
+  if (q.includes("creta"))
+    result = result.filter((c) => normalizeText(c.model).includes("creta"));
+  if (q.includes("seltos"))
+    result = result.filter((c) => normalizeText(c.model).includes("seltos"));
+  if (q.includes("nexon"))
+    result = result.filter((c) => normalizeText(c.model).includes("nexon"));
+
+  const under = q.match(/under\s+(\d+)/);
+  if (under) {
+    const max = Number(under[1]) * 100000;
+    result = result.filter((c) => c.price <= max);
   }
 
-  if (!results.length) {
+  return result.slice(0, 4);
+}
+
+function wantsLead(view, results) {
+  if (["compare", "finance", "insurance", "sell", "details"].includes(view))
+    return true;
+  if (results.length && results.some((car) => car.savings >= 45000))
+    return true;
+  return false;
+}
+
+function getLeadTitle(view, car) {
+  if (view === "finance")
+    return `Unlock finance-backed pricing${car ? ` for ${car.model}` : ""}`;
+  if (view === "insurance")
+    return `Bundle quote and save more${car ? ` on ${car.model}` : ""}`;
+  if (view === "sell") return "Use your exchange to improve the offer";
+  if (view === "compare") return "You have enough clarity to unlock offers";
+  if (view === "details")
+    return `Get dealer offers${car ? ` for ${car.model}` : ""}`;
+  return "Unlock the best deal instantly";
+}
+
+function getIntentLabel(view) {
+  if (view === "compare") return "Intent detected: Compare";
+  if (view === "finance") return "Intent detected: Finance";
+  if (view === "insurance") return "Intent detected: Insurance";
+  if (view === "sell") return "Intent detected: Exchange";
+  if (view === "details") return "Intent detected: Detail page";
+  return "Intent detected: Search";
+}
+
+function getAssistantReply(view, results) {
+  const first = results[0];
+  if (view === "compare") {
     return {
-      type: "search",
-      results: source.slice(0, 3),
-      reply:
-        "I didn’t find an exact match, so I surfaced the closest premium-fit options. I can still optimize the final offer for you.",
+      title: "Comparison ready",
+      subtitle: "Best next action",
+      text: `I prepared a cleaner side-by-side view. ${first ? `${first.model} looks strong on savings.` : ""} Want me to unlock dealer offers on one of these?`,
     };
   }
-
+  if (view === "finance") {
+    return {
+      title: "Finance opened",
+      subtitle: "Best next action",
+      text: `I opened EMI options on the right. ${first ? `For ${first.model}, locking a better price first can improve the EMI immediately.` : ""}`,
+    };
+  }
+  if (view === "insurance") {
+    return {
+      title: "Insurance opened",
+      subtitle: "Best next action",
+      text: `I opened protection plans on the right. ${first ? `Bundling ${first.model} with the deal can reduce total ownership cost.` : ""}`,
+    };
+  }
+  if (view === "sell") {
+    return {
+      title: "Exchange flow opened",
+      subtitle: "Best next action",
+      text: "I opened the valuation flow. If you exchange your current car, I can move you toward a stronger final deal.",
+    };
+  }
+  if (view === "details") {
+    return {
+      title: "Detail page opened",
+      subtitle: "Best next action",
+      text: `I opened the full product view. ${first ? `This is the moment to anchor price, savings, EMI, and dealer offer visibility.` : ""}`,
+    };
+  }
   return {
-    type: "search",
-    results: results.slice(0, 4),
-    reply:
-      "I narrowed the shortlist around your intent and kept the strongest matches. Want me to push the best deal next?",
+    title: "Shortlist updated",
+    subtitle: "Best next action",
+    text: `I refined the shortlist on the right. ${first ? `Want the best deal on the ${first.model}?` : "I can get dealer offers for the right car."}`,
   };
-};
+}
+
+function SoftCard({ children, className = "" }) {
+  return (
+    <div
+      className={`rounded-[30px] border border-[rgba(15,23,42,0.08)] bg-white/88 shadow-[0_18px_48px_rgba(15,23,42,0.07)] backdrop-blur-xl ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
 
 function Logo() {
   return (
@@ -289,1429 +716,2112 @@ function Logo() {
   );
 }
 
-function CountNumber({ value, formatter = formatLakh, className = "" }) {
-  const spring = useSpring(value, { stiffness: 90, damping: 24, mass: 0.8 });
-  const [display, setDisplay] = useState(value);
-
-  useEffect(() => spring.set(value), [spring, value]);
-
-  useEffect(() => {
-    const unsub = spring.on("change", (latest) => setDisplay(latest));
-    return () => unsub();
-  }, [spring]);
-
-  return <span className={className}>{formatter(Math.round(display))}</span>;
-}
-
-function MagneticButton({ children, className = "", ...props }) {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const handleMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-    x.set(dx * 0.08);
-    y.set(dy * 0.08);
-  };
-
-  const reset = () => {
-    x.set(0);
-    y.set(0);
-  };
-
+function SectionLabel({ children }) {
   return (
-    <motion.button
-      style={{ x, y, willChange: "transform" }}
-      onMouseMove={handleMove}
-      onMouseLeave={reset}
-      whileHover={{ scale: 1.02, rotateX: 2.5, rotateY: -2.5 }}
-      whileTap={{ scale: 0.99 }}
-      transition={{ type: "spring", stiffness: 220, damping: 20 }}
-      className={className}
-      {...props}
-    >
+    <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,23,42,0.08)] bg-white/80 px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[#64748b] backdrop-blur-xl">
       {children}
-    </motion.button>
+    </div>
   );
 }
 
-function SoftCard({ children, className = "" }) {
+function MetricChip({ value, label, tone = "neutral" }) {
+  const toneMap = {
+    neutral: "bg-white/85 text-[#334155]",
+    blue: "bg-sky-50/95 text-sky-700",
+    emerald: "bg-emerald-50/95 text-emerald-700",
+  };
+
   return (
     <div
-      className={`rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)] ${className}`}
+      className={`rounded-[22px] border border-white/60 px-4 py-3 shadow-[0_12px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl ${toneMap[tone]}`}
     >
-      {children}
+      <div className="text-lg font-semibold tracking-[-0.05em]">{value}</div>
+      <div className="mt-1 text-[11px] uppercase tracking-[0.18em]">
+        {label}
+      </div>
     </div>
   );
 }
 
-function TogglePill({ active, onClick, label, value }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex min-h-12 items-center justify-between rounded-full border px-4 text-sm transition-all duration-300 ${
-        active
-          ? "border-sky-200 bg-sky-50 text-sky-700 shadow-[0_8px_20px_rgba(14,165,233,0.08)]"
-          : "border-[rgba(0,0,0,0.06)] bg-white text-[#111111] hover:-translate-y-0.5"
-      }`}
-    >
-      <span>{label}</span>
-      <span className={`text-xs ${active ? "text-sky-500" : "text-[#6b7280]"}`}>
-        {formatLakh(value)}
-      </span>
-    </button>
-  );
-}
-
-function DealConfidenceMeter({ score }) {
-  const width = useSpring(score, { stiffness: 90, damping: 24, mass: 0.8 });
-  const scaleX = useTransform(width, [0, 100], [0, 1]);
-
-  return (
-    <SoftCard className="p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
-            Deal Strength
-          </div>
-          <div className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
-            {score}%
-          </div>
-        </div>
-        <div className="rounded-full border border-[rgba(0,0,0,0.06)] bg-[#fafafa] px-3 py-2 text-xs text-[#6b7280]">
-          Confidence meter
-        </div>
-      </div>
-
-      <div className="mt-5 h-3 overflow-hidden rounded-full bg-[rgba(0,0,0,0.05)]">
-        <motion.div
-          style={{ scaleX, transformOrigin: "left", willChange: "transform" }}
-          className="h-full rounded-full bg-[linear-gradient(90deg,#fde68a,#bbf7d0)]"
-        />
-      </div>
-
-      <div className="mt-3 flex items-center justify-between text-xs text-[#6b7280]">
-        <span>Weak</span>
-        <span>Strong</span>
-      </div>
-    </SoftCard>
-  );
-}
-
-function WhyItFits({ car }) {
-  return (
-    <div className="mt-4 rounded-[24px] border border-[rgba(0,0,0,0.06)] bg-[#fafafa] p-4">
-      <div className="text-[11px] uppercase tracking-[0.2em] text-[#6b7280]">
-        Why this fits you
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        {[
-          ["Family", car.familyFit],
-          ["Budget", car.budgetFit],
-          ["Resale", car.resale],
-        ].map(([label, score]) => (
-          <div
-            key={label}
-            className="rounded-2xl bg-white p-3 text-center shadow-[0_6px_18px_rgba(15,23,42,0.03)]"
-          >
-            <div className="text-xs text-[#6b7280]">{label}</div>
-            <div className="mt-1 text-lg font-semibold tracking-[-0.04em] text-[#111111]">
-              {score}%
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="mt-3 text-sm leading-6 text-[#6b7280]">{car.reason}</p>
-    </div>
-  );
-}
-
-function CompareSplitView({ cars, showOnlyDiff }) {
-  if (cars.length < 2) {
+function AssistantBubble({ message }) {
+  if (message.role === "user") {
     return (
-      <SoftCard className="p-8 text-sm text-[#6b7280]">
-        Add at least 2 cars to activate the premium split comparison.
-      </SoftCard>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: EASE }}
+        className="ml-auto max-w-[92%] rounded-[22px] bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-700"
+      >
+        {message.text}
+      </motion.div>
     );
   }
 
-  const rows = [
-    {
-      key: "price",
-      label: "Your Price",
-      value: (car) => formatLakh(car.livePrice),
-    },
-    { key: "fuel", label: "Fuel", value: (car) => car.fuel },
-    {
-      key: "transmission",
-      label: "Transmission",
-      value: (car) => car.transmission,
-    },
-    {
-      key: "familyFit",
-      label: "Family Fit",
-      value: (car) => `${car.familyFit}%`,
-    },
-    {
-      key: "resale",
-      label: "Resale Strength",
-      value: (car) => `${car.resale}%`,
-    },
-  ];
-
-  const visibleRows = rows.filter((row) => {
-    if (!showOnlyDiff) return true;
-    const values = cars.map((car) => row.value(car));
-    return new Set(values).size > 1;
-  });
-
-  const bestPriceId = [...cars].sort((a, b) => a.livePrice - b.livePrice)[0]
-    ?.id;
-
   return (
-    <SoftCard className="overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE }}
+      className="max-w-[94%] rounded-[24px] border border-[rgba(15,23,42,0.05)] bg-[#f8fafc] p-4"
+    >
+      {message.title ? (
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold text-[#111111]">
+            {message.title}
+          </div>
+          {message.subtitle ? (
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+              {message.subtitle}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div
-        className={`grid ${cars.length === 2 ? "md:grid-cols-[220px_1fr_1fr]" : "md:grid-cols-[220px_1fr_1fr_1fr]"}`}
+        className={`text-sm leading-6 text-[#475569] ${message.title ? "mt-2" : ""}`}
       >
-        <div className="border-b border-[rgba(0,0,0,0.06)] bg-[#fafafa] p-5">
-          <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
-            Field
+        {message.text}
+      </div>
+    </motion.div>
+  );
+}
+
+function ResultCard({
+  car,
+  selected,
+  onToggleCompare,
+  onBestDeal,
+  onOpenDetails,
+}) {
+  return (
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 12 }}
+      transition={{ duration: 0.45, ease: EASE }}
+      whileHover={{ y: -6 }}
+      className={`group overflow-hidden rounded-[30px] border bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)] ${
+        selected
+          ? "border-sky-200 ring-1 ring-sky-100"
+          : "border-[rgba(15,23,42,0.07)]"
+      }`}
+    >
+      <div className="relative h-56 overflow-hidden">
+        <img
+          src={car.image}
+          alt={`${car.make} ${car.model}`}
+          className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.02),rgba(15,23,42,0.10),rgba(255,255,255,0.22)_100%)]" />
+        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+          <div className="rounded-full bg-white/85 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#111111] backdrop-blur-xl">
+            {car.bodyType}
+          </div>
+          <div className="rounded-full bg-white/85 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-sky-700 backdrop-blur-xl">
+            {car.transmission}
+          </div>
+        </div>
+        <div className="absolute right-4 top-4 rounded-full bg-emerald-50/95 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-emerald-700 backdrop-blur-xl">
+          Save {formatMoney(car.savings)}
+        </div>
+      </div>
+
+      <div className="p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">
+              {car.make}
+            </div>
+            <div className="mt-2 text-[1.8rem] font-semibold tracking-[-0.06em] text-[#111111]">
+              {car.model}
+            </div>
+            <div className="mt-1 text-sm leading-6 text-[#6b7280]">
+              {car.variant}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onToggleCompare(car)}
+            className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+              selected
+                ? "border-sky-200 bg-sky-50 text-sky-700"
+                : "border-[rgba(15,23,42,0.06)] bg-[#f8fafc] text-[#6b7280] hover:bg-white"
+            }`}
+            aria-label={`Compare ${car.make} ${car.model}`}
+          >
+            <GitCompare className="h-4 w-4" />
+            {selected ? "Added" : "Compare"}
+          </button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-3 gap-3 rounded-[24px] bg-[#f8fafc] p-3.5">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+              Market
+            </div>
+            <div className="mt-2 text-xs line-through text-[#9ca3af]">
+              {formatLakh(car.marketPrice)}
+            </div>
+          </div>
+          <div className="rounded-[16px] bg-white px-3 py-2 shadow-[0_6px_16px_rgba(15,23,42,0.04)]">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-sky-600">
+              Your Price
+            </div>
+            <div className="mt-2 text-sm font-semibold text-[#111111]">
+              {formatLakh(car.price)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">
+              Savings
+            </div>
+            <div className="mt-2 text-xs font-semibold text-emerald-600">
+              {formatMoney(car.savings)}
+            </div>
           </div>
         </div>
 
-        {cars.map((car) => {
-          const winner = car.id === bestPriceId;
-          return (
-            <motion.div
-              key={car.id}
-              layout
-              className={`border-b border-l border-[rgba(0,0,0,0.06)] p-5 ${
-                winner ? "bg-emerald-50/70" : "bg-white"
-              }`}
-              animate={winner ? { y: [0, -2, 0] } : {}}
-              transition={
-                winner
-                  ? { duration: 3.6, repeat: Infinity, ease: "easeInOut" }
-                  : {}
-              }
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs text-[#6b7280]">{car.make}</div>
-                  <div className="mt-1 text-xl font-semibold tracking-[-0.05em] text-[#111111]">
-                    {car.model}
-                  </div>
-                  <div className="mt-1 text-sm text-[#6b7280]">
-                    {car.variant}
-                  </div>
-                </div>
-                {winner ? (
-                  <div className="rounded-full bg-emerald-100 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-emerald-700">
-                    Price winner
-                  </div>
-                ) : null}
-              </div>
-            </motion.div>
-          );
-        })}
+        <div className="mt-5 flex items-center justify-between rounded-[20px] border border-[rgba(15,23,42,0.05)] bg-white px-4 py-3 text-sm text-[#6b7280]">
+          <span>{car.fuel}</span>
+          <span>{car.transmission}</span>
+          <span>{formatMoney(car.emi)}/mo</span>
+        </div>
 
-        {visibleRows.map((row) => (
-          <React.Fragment key={row.key}>
-            <div className="border-b border-[rgba(0,0,0,0.06)] bg-[#fafafa] p-5 text-sm font-medium text-[#6b7280]">
-              {row.label}
+        <p className="mt-4 text-sm leading-6 text-[#6b7280]">
+          {car.valueProposition}
+        </p>
+
+        <div className="mt-5 flex items-center gap-3">
+          <button
+            onClick={() => onBestDeal(car)}
+            className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5"
+          >
+            Get Best Deal
+          </button>
+          <button
+            onClick={() => onOpenDetails(car)}
+            className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-5 text-sm font-semibold text-[#111111] transition hover:-translate-y-0.5"
+          >
+            View Details
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#6b7280]">
+          <div className="rounded-full bg-[#f8fafc] px-3 py-2">
+            EMI options inside detail page
+          </div>
+          <div className="rounded-full bg-[#f8fafc] px-3 py-2">
+            Insurance quote after click
+          </div>
+        </div>
+      </div>
+    </motion.article>
+  );
+}
+
+function CompareBar({ selectedCars, onOpenCompare, onRemove, onClear }) {
+  if (!selectedCars.length) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 14 }}
+      transition={{ duration: 0.35, ease: EASE }}
+      className="sticky top-[88px] z-20 mb-5"
+    >
+      <SoftCard className="overflow-hidden">
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-full bg-sky-50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-sky-700">
+              Compare shortlist
             </div>
-            {cars.map((car) => {
-              const values = cars.map((item) => row.value(item));
-              const different = new Set(values).size > 1;
-              return (
-                <motion.div
-                  key={`${row.key}-${car.id}`}
-                  layout
-                  className={`border-b border-l border-[rgba(0,0,0,0.06)] p-5 text-sm ${
-                    different ? "text-[#111111]" : "text-[#6b7280]"
-                  }`}
+            {selectedCars.map((car) => (
+              <div
+                key={car.id}
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] px-3 py-2 text-sm text-[#111111]"
+              >
+                <span>
+                  {car.make} {car.model}
+                </span>
+                <button
+                  onClick={() => onRemove(car.id)}
+                  className="text-[#94a3b8] transition hover:text-[#111111]"
+                  aria-label={`Remove ${car.make} ${car.model}`}
                 >
-                  <motion.div
-                    key={row.value(car)}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: EASE }}
-                    className={different ? "font-medium" : ""}
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={onClear}
+              className="min-h-11 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-4 text-sm font-medium text-[#4b5563]"
+            >
+              Clear
+            </button>
+            <button
+              onClick={onOpenCompare}
+              className="min-h-11 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,23,42,0.14)]"
+            >
+              Compare {selectedCars.length} Cars
+            </button>
+          </div>
+        </div>
+      </SoftCard>
+    </motion.div>
+  );
+}
+
+function CompareCanvas({ results, onBestDeal, onOpenDetails }) {
+  const compareResults = results.slice(0, 3);
+
+  return (
+    <SoftCard className="overflow-hidden">
+      <div className="border-b border-[rgba(15,23,42,0.06)] p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+              Compare intelligently
+            </div>
+            <div className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
+              Premium side-by-side view
+            </div>
+          </div>
+          <div className="rounded-full bg-emerald-50 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-emerald-700">
+            Best-value differences highlighted
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3 xl:p-6">
+        {compareResults.map((car) => (
+          <div
+            key={car.id}
+            className="overflow-hidden rounded-[26px] border border-[rgba(15,23,42,0.06)] bg-white"
+          >
+            <div className="relative h-48 overflow-hidden">
+              <img
+                src={car.image}
+                alt={`${car.make} ${car.model}`}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(255,255,255,0.28))]" />
+            </div>
+            <div className="p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">
+                {car.make}
+              </div>
+              <div className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
+                {car.model}
+              </div>
+              <div className="mt-1 text-sm text-[#6b7280]">{car.variant}</div>
+
+              <div className="mt-5 space-y-3">
+                {[
+                  ["Your Price", formatLakh(car.price)],
+                  ["Fuel", car.fuel],
+                  ["Transmission", car.transmission],
+                  ["Savings", formatMoney(car.savings)],
+                  ["EMI", `${formatMoney(car.emi)}/mo`],
+                  ["Why choose it", car.valueProposition],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-[18px] bg-[#f8fafc] px-4 py-3"
                   >
-                    {row.value(car)}
-                  </motion.div>
-                </motion.div>
-              );
-            })}
-          </React.Fragment>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                      {label}
+                    </div>
+                    <div className="mt-1.5 text-sm font-medium leading-6 text-[#111111]">
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => onBestDeal(car)}
+                  className="min-h-12 flex-1 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,23,42,0.14)]"
+                >
+                  Get Best Deal
+                </button>
+                <button
+                  onClick={() => onOpenDetails(car)}
+                  className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-5 text-sm font-semibold text-[#111111]"
+                >
+                  Details
+                </button>
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </SoftCard>
   );
 }
 
-export default function CDriveDealOSLight() {
-  const pageRef = useRef(null);
-  const exploreRef = useRef(null);
-
-  const [selectedCarId, setSelectedCarId] = useState(CARS[0].id);
-  const [visibleCars, setVisibleCars] = useState(CARS);
-  const [compareIds, setCompareIds] = useState([CARS[0].id, CARS[1].id]);
-  const [showOnlyDiff, setShowOnlyDiff] = useState(true);
-  const [mobile, setMobile] = useState("");
-  const [showFitId, setShowFitId] = useState(null);
-  const [chatInput, setChatInput] = useState("SUV under 20L");
-  const [chatBusy, setChatBusy] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    {
-      role: "assistant",
-      text: "Tell me the kind of car you want, and I’ll rebuild the shortlist around your deal.",
-    },
-  ]);
-
-  const [dealToggles, setDealToggles] = useState({
-    dealerDiscount: true,
-    insuranceSavings: true,
-    financeBenefit: false,
-  });
-
-  const selectedCar = useMemo(
-    () => visibleCars.find((car) => car.id === selectedCarId) || CARS[0],
-    [visibleCars, selectedCarId],
-  );
-
-  const compareCars = useMemo(() => {
-    const source = visibleCars.length ? visibleCars : CARS;
-    return compareIds
-      .map(
-        (id) =>
-          source.find((car) => car.id === id) ||
-          CARS.find((car) => car.id === id),
-      )
-      .filter(Boolean)
-      .slice(0, 3)
-      .map((car) => ({
-        ...car,
-        ...calcFinalPrice(car, dealToggles),
-        livePrice: calcFinalPrice(car, dealToggles).finalPrice,
-      }));
-  }, [compareIds, visibleCars, dealToggles]);
-
-  const activeDeal = useMemo(
-    () => calcFinalPrice(selectedCar, dealToggles),
-    [selectedCar, dealToggles],
-  );
-  const confidence = useMemo(
-    () => getDealStrength(selectedCar, activeDeal.totalSavings),
-    [selectedCar, activeDeal.totalSavings],
-  );
-
-  const time = useTime();
-  const floatSlow = useTransform(time, [0, 5000], [0, 1], { clamp: false });
-  const floatY = useTransform(floatSlow, (v) => Math.sin(v * Math.PI * 2) * 8);
-  const floatYSmall = useTransform(
-    floatSlow,
-    (v) => Math.sin(v * Math.PI * 2 + 1.2) * 5,
-  );
-  const blobOpacity = useTransform(
-    floatSlow,
-    (v) => 0.3 + (Math.sin(v * Math.PI * 2) + 1) * 0.05,
-  );
-
-  const { scrollYProgress } = useScroll({
-    target: pageRef,
-    offset: ["start start", "end end"],
-  });
-
-  const heroRef = useRef(null);
-  const { scrollYProgress: heroProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"],
-  });
-
-  const bgY = useTransform(heroProgress, [0, 1], [0, 120]);
-  const carY = useTransform(heroProgress, [0, 1], [0, 70]);
-  const uiY = useTransform(heroProgress, [0, 1], [0, 36]);
-  const heroScale = useTransform(heroProgress, [0, 1], [1, 1.06]);
-  const heroOpacity = useTransform(heroProgress, [0, 0.85, 1], [1, 0.74, 0.42]);
-  const carRotate = useTransform(heroProgress, [0, 0.5, 1], [0, -2, 3]);
-  const carZoom = useTransform(heroProgress, [0, 1], [1, 1.08]);
-  const uiReveal = useTransform(heroProgress, [0, 0.5, 0.95], [0.96, 1, 1.02]);
-
-  const progressWidth = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
-
-  useEffect(() => {
-    if (!visibleCars.some((car) => car.id === selectedCarId)) {
-      setSelectedCarId(visibleCars[0]?.id || CARS[0].id);
-    }
-  }, [visibleCars, selectedCarId]);
-
-  const toggleCompare = (id) => {
-    setCompareIds((current) => {
-      if (current.includes(id)) return current.filter((item) => item !== id);
-      if (current.length >= 3) return [...current.slice(1), id];
-      return [...current, id];
-    });
-  };
-
-  const handlePrompt = (prompt) => {
-    const result = parsePrompt(prompt, CARS);
-    setChatMessages((prev) => [...prev, { role: "user", text: prompt }]);
-    setChatBusy(true);
-
-    setTimeout(() => {
-      setVisibleCars(result.results);
-      setSelectedCarId(result.results[0]?.id || CARS[0].id);
-      if (result.type === "compare") {
-        setCompareIds(result.results.slice(0, 3).map((car) => car.id));
-      }
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: result.reply },
-      ]);
-      setChatBusy(false);
-      exploreRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 900);
-  };
-
-  const submitChat = () => {
-    const prompt = chatInput.trim();
-    if (!prompt || chatBusy) return;
-    handlePrompt(prompt);
-    setChatInput("");
-  };
-
-  const urgencyLine = `${selectedCar.model} ${selectedCar.variant} • ${formatLakh(
-    activeDeal.finalPrice,
-  )} • 3 dealers competing`;
+function FinanceCanvas({ results, onBestDeal }) {
+  const car = results[0] || fallbackCars[0];
+  const discountedPrice = car.price;
+  const marketPrice = car.marketPrice;
+  const downPayment = Math.round(discountedPrice * 0.2);
+  const tenure = 60;
+  const interest = 8.75;
+  const emiEstimate = car.emi;
 
   return (
-    <div
-      ref={pageRef}
-      className="min-h-screen bg-[#f5f5f7] text-[#111111] antialiased selection:bg-sky-100 selection:text-[#111111]"
-      style={{ backgroundImage: "linear-gradient(180deg, #ffffff, #f5f5f7)" }}
-    >
-      <motion.div
-        style={{ width: progressWidth }}
-        className="fixed left-0 top-0 z-[80] h-1 bg-[linear-gradient(90deg,#7dd3fc,#86efac)]"
-      />
-
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <motion.div
-          style={{ opacity: blobOpacity }}
-          className="absolute left-[-8rem] top-[8rem] h-[22rem] w-[22rem] rounded-full bg-[radial-gradient(circle,rgba(125,211,252,0.14),transparent_65%)] blur-3xl"
-        />
-        <motion.div
-          style={{ opacity: blobOpacity }}
-          className="absolute right-[-8rem] top-[18rem] h-[24rem] w-[24rem] rounded-full bg-[radial-gradient(circle,rgba(167,243,208,0.14),transparent_65%)] blur-3xl"
-        />
-        <motion.div
-          style={{ opacity: blobOpacity }}
-          className="absolute left-1/2 top-[-8rem] h-[20rem] w-[20rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.85),transparent_68%)] blur-3xl"
-        />
-      </div>
-
-      <header className="fixed inset-x-0 top-0 z-[70] px-4 pt-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: -14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: EASE }}
-          className="mx-auto flex w-full max-w-[1380px] items-center justify-between rounded-full border border-[rgba(0,0,0,0.06)] bg-white/70 px-4 py-3 shadow-[0_12px_34px_rgba(15,23,42,0.05)] backdrop-blur-xl"
-        >
-          <div className="flex items-center gap-3">
-            <div className="text-[#111111]">
-              <Logo />
-            </div>
+    <SoftCard className="overflow-hidden">
+      <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="p-6 sm:p-7">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-[13px] font-semibold tracking-[0.3em]">
-                CDRIVE
+              <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+                Finance / EMI
               </div>
-              <div className="text-[10px] uppercase tracking-[0.24em] text-[#6b7280]">
-                Deal OS
+              <div className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
+                {car.make} {car.model}
               </div>
+              <div className="mt-2 text-sm leading-6 text-[#6b7280]">
+                Pricing clarity first, then the cleanest monthly ownership path.
+              </div>
+            </div>
+            <div className="rounded-full bg-sky-50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-sky-700">
+              Loan ready
             </div>
           </div>
 
-          <nav className="hidden items-center gap-1 rounded-full border border-[rgba(0,0,0,0.05)] bg-white/80 p-1 lg:flex">
-            {["Attraction", "Explore", "Decision", "Convert"].map((item) => (
-              <a
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="rounded-full px-4 py-2 text-sm text-[#6b7280] transition hover:bg-white hover:text-[#111111]"
-              >
-                {item}
-              </a>
-            ))}
-          </nav>
-
-          <MagneticButton className="min-h-11 rounded-full border border-[rgba(0,0,0,0.06)] bg-white px-5 text-sm font-medium text-[#111111] shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
-            Get Best Deal
-          </MagneticButton>
-        </motion.div>
-      </header>
-
-      <main>
-        <section
-          id="attraction"
-          ref={heroRef}
-          className="relative min-h-[180vh] overflow-hidden px-4 pt-24 sm:px-6 lg:px-8"
-        >
-          <div className="sticky top-20 mx-auto min-h-[calc(100vh-6rem)] max-w-[1400px] overflow-hidden rounded-[40px] border border-[rgba(0,0,0,0.05)] bg-white/50 shadow-[0_20px_60px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-            <motion.div
-              style={{ y: bgY, scale: heroScale, opacity: heroOpacity }}
-              className="absolute inset-0 will-change-transform"
-            >
-              <img
-                src={selectedCar.image}
-                alt={`${selectedCar.make} ${selectedCar.model}`}
-                className="h-full w-full object-cover object-center"
-              />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.62)_52%,#f5f5f7_100%)]" />
-            </motion.div>
-
-            <motion.div
-              style={{
-                y: carY,
-                rotateZ: carRotate,
-                scale: carZoom,
-                willChange: "transform",
-              }}
-              animate={{ y: [0, -6, 0] }}
-              transition={{
-                duration: 6.5,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className="pointer-events-none absolute right-[-4%] top-[14%] hidden h-[44vw] w-[54vw] max-w-[840px] rounded-[40px] lg:block"
-            >
-              <div className="absolute inset-0 rounded-[40px] bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.10),transparent_65%)] blur-3xl" />
-            </motion.div>
-
-            <div className="relative z-10 grid min-h-[calc(100vh-6rem)] items-end gap-8 pb-12 lg:grid-cols-[1.02fr_0.98fr] lg:pb-20">
-              <motion.div
-                style={{ y: floatYSmall }}
-                className="px-2 sm:px-4 lg:px-10 lg:pb-10"
-              >
-                <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(0,0,0,0.06)] bg-white/70 px-4 py-2 text-[11px] uppercase tracking-[0.28em] text-[#6b7280] backdrop-blur-xl">
-                  <Sparkles className="h-3.5 w-3.5 text-sky-500" />
-                  Premium car buying interface
-                </div>
-
-                <h1 className="mt-5 max-w-[10ch] text-5xl font-semibold tracking-[-0.08em] text-[#111111] sm:text-7xl lg:text-[7rem] lg:leading-[0.9]">
-                  Build the deal with clarity.
-                </h1>
-
-                <p className="mt-6 max-w-2xl text-lg leading-8 text-[#6b7280] sm:text-xl">
-                  CDrive feels like a luxury showroom tablet where search,
-                  pricing, comparison, and negotiation work together in one
-                  calm, guided product experience.
-                </p>
-
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                  <MagneticButton className="min-h-12 rounded-full border border-[rgba(0,0,0,0.06)] bg-white px-7 text-sm font-semibold text-[#111111] shadow-[0_10px_28px_rgba(15,23,42,0.05)]">
-                    Get Best Deal
-                  </MagneticButton>
-                  <MagneticButton className="min-h-12 rounded-full border border-[rgba(0,0,0,0.06)] bg-white/70 px-7 text-sm font-semibold text-[#111111] backdrop-blur-xl">
-                    Start with AI search
-                  </MagneticButton>
-                </div>
-
-                <div className="mt-7 flex flex-wrap gap-3">
-                  {[
-                    "12 people viewing now",
-                    "5 deals closed today",
-                    "Step 1 asks only for mobile",
-                  ].map((chip, i) => (
-                    <motion.div
-                      key={chip}
-                      animate={{ y: [0, -3, 0] }}
-                      transition={{
-                        duration: 4 + i * 0.4,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                      className="rounded-full border border-[rgba(0,0,0,0.06)] bg-white/70 px-4 py-2 text-sm text-[#6b7280] backdrop-blur-xl"
-                    >
-                      {chip}
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-
-              <motion.div
-                style={{ y: uiY, scale: uiReveal }}
-                className="px-2 sm:px-4 lg:px-6"
-              >
-                <motion.div
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{
-                    duration: 6.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  className="rounded-[34px] border border-[rgba(0,0,0,0.06)] bg-white/70 p-4 shadow-[0_18px_50px_rgba(15,23,42,0.05)] backdrop-blur-xl"
-                >
-                  <div className="rounded-[28px] bg-white p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
-                          Signature deal moment
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                          {selectedCar.make} {selectedCar.model}
-                        </div>
-                        <div className="mt-1 text-sm text-[#6b7280]">
-                          {selectedCar.variant}
-                        </div>
-                      </div>
-                      <motion.div
-                        animate={{ scale: [1, 1.04, 1] }}
-                        transition={{
-                          duration: 2.8,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
-                        className="rounded-full bg-emerald-50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-emerald-700 shadow-[0_8px_20px_rgba(16,185,129,0.06)]"
-                      >
-                        Live negotiating
-                      </motion.div>
-                    </div>
-
-                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-[22px] bg-[#fafafa] p-4">
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-[#6b7280]">
-                          Market
-                        </div>
-                        <div className="mt-2 text-base line-through text-[#9ca3af]">
-                          {formatLakh(selectedCar.basePrice)}
-                        </div>
-                      </div>
-                      <div className="rounded-[22px] bg-sky-50 p-4 shadow-[0_8px_24px_rgba(14,165,233,0.06)]">
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-sky-600">
-                          Your Price
-                        </div>
-                        <div className="mt-2 text-xl font-semibold tracking-[-0.04em] text-[#111111]">
-                          <CountNumber value={activeDeal.finalPrice} />
-                        </div>
-                      </div>
-                      <div className="rounded-[22px] bg-emerald-50 p-4 shadow-[0_8px_24px_rgba(16,185,129,0.06)]">
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-600">
-                          Unlocked
-                        </div>
-                        <div className="mt-2 text-xl font-semibold tracking-[-0.04em] text-[#111111]">
-                          <CountNumber value={activeDeal.totalSavings} />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 rounded-[24px] border border-[rgba(0,0,0,0.06)] bg-[#fafafa] p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-[10px] uppercase tracking-[0.18em] text-[#6b7280]">
-                            Deal momentum
-                          </div>
-                          <div className="mt-1 text-sm font-medium text-[#111111]">
-                            The pricing layer becomes clearer as the user moves
-                            deeper into the page.
-                          </div>
-                        </div>
-                        <ArrowRight className="h-5 w-5 text-[#9ca3af]" />
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        <section className="px-4 py-12 sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-[1380px] gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {[
               {
-                id: "scene-1",
-                tag: "Scene 01",
-                title: "Attraction",
-                body: "A calm, cinematic first impression that sells trust and control.",
+                icon: <Tag className="h-4 w-4" />,
+                label: "Market Price",
+                value: formatLakh(marketPrice),
               },
               {
-                id: "scene-2",
-                tag: "Scene 02",
-                title: "Exploration",
-                body: "Search naturally, build the deal live, and understand the price instantly.",
+                icon: <CircleDollarSign className="h-4 w-4" />,
+                label: "Your Price",
+                value: formatLakh(discountedPrice),
               },
               {
-                id: "scene-3",
-                tag: "Scene 03",
-                title: "Decision",
-                body: "Compare only the differences that matter to a real buyer.",
+                icon: <Wallet className="h-4 w-4" />,
+                label: "Savings",
+                value: formatMoney(car.savings),
               },
-              {
-                id: "scene-4",
-                tag: "Scene 04",
-                title: "Conversion",
-                body: "Move cleanly into a mobile-first lead step without friction or noise.",
-              },
-            ].map((item, index) => (
-              <motion.article
-                key={item.id}
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ delay: index * 0.08, duration: 0.8, ease: EASE }}
-                animate={{ y: [0, -4, 0] }}
-                className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-white/70 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur-xl"
-              >
-                <div className="text-[11px] uppercase tracking-[0.24em] text-[#6b7280]">
-                  {item.tag}
+            ].map((item) => (
+              <div key={item.label} className="rounded-[24px] bg-[#f8fafc] p-5">
+                <div className="flex items-center gap-2 text-[#6b7280]">
+                  {item.icon}
+                  <span className="text-[10px] uppercase tracking-[0.18em]">
+                    {item.label}
+                  </span>
                 </div>
-                <div className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                  {item.title}
+                <div
+                  className={`mt-3 tracking-[-0.05em] ${item.label === "Your Price" ? "text-2xl font-semibold text-[#111111]" : "text-xl font-semibold text-[#111111]"}`}
+                >
+                  {item.value}
                 </div>
-                <p className="mt-3 text-sm leading-6 text-[#6b7280]">
-                  {item.body}
-                </p>
-              </motion.article>
+              </div>
             ))}
           </div>
-        </section>
 
-        <section
-          id="explore"
-          ref={exploreRef}
-          className="px-4 py-20 sm:px-6 lg:px-8"
-        >
-          <div className="mx-auto max-w-[1380px]">
-            <div className="grid gap-10 xl:grid-cols-[0.86fr_1.14fr]">
-              <div className="xl:sticky xl:top-28 xl:h-fit">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(0,0,0,0.06)] bg-white/70 px-4 py-2 text-[11px] uppercase tracking-[0.28em] text-[#6b7280] backdrop-blur-xl">
-                  <SlidersHorizontal className="h-3.5 w-3.5 text-sky-500" />
-                  Live Deal Builder
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {[
+              ["Down Payment", formatMoney(downPayment)],
+              ["Tenure", `${tenure} Months`],
+              ["Interest", `${interest}%`],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="rounded-[24px] border border-[rgba(15,23,42,0.06)] bg-white p-5"
+              >
+                <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                  {label}
                 </div>
-
-                <h2 className="mt-5 max-w-[12ch] text-4xl font-semibold tracking-[-0.06em] text-[#111111] sm:text-6xl">
-                  Build the price softly, in real time.
-                </h2>
-
-                <p className="mt-5 max-w-xl text-base leading-7 text-[#6b7280]">
-                  The interface behaves like a premium negotiation layer. Every
-                  benefit is visible, every savings lever is understandable, and
-                  the final number updates without stress.
-                </p>
-
-                <SoftCard className="mt-8 p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
-                        Selected car
-                      </div>
-                      <div className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                        {selectedCar.model}
-                      </div>
-                    </div>
-                    <div className="rounded-full border border-[rgba(0,0,0,0.06)] bg-[#fafafa] px-3 py-2 text-xs text-[#6b7280]">
-                      {selectedCar.bodyType} • {selectedCar.transmission}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-3">
-                    <TogglePill
-                      active={dealToggles.dealerDiscount}
-                      onClick={() =>
-                        setDealToggles((s) => ({
-                          ...s,
-                          dealerDiscount: !s.dealerDiscount,
-                        }))
-                      }
-                      label="Dealer Discount"
-                      value={selectedCar.dealerDiscount}
-                    />
-                    <TogglePill
-                      active={dealToggles.insuranceSavings}
-                      onClick={() =>
-                        setDealToggles((s) => ({
-                          ...s,
-                          insuranceSavings: !s.insuranceSavings,
-                        }))
-                      }
-                      label="Insurance Savings"
-                      value={selectedCar.insuranceSavings}
-                    />
-                    <TogglePill
-                      active={dealToggles.financeBenefit}
-                      onClick={() =>
-                        setDealToggles((s) => ({
-                          ...s,
-                          financeBenefit: !s.financeBenefit,
-                        }))
-                      }
-                      label="Finance Benefit"
-                      value={selectedCar.financeBenefit}
-                    />
-                  </div>
-
-                  <div className="mt-6 rounded-[24px] bg-sky-50 p-5 shadow-[0_10px_30px_rgba(14,165,233,0.05)]">
-                    <div className="flex items-end justify-between gap-4">
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.2em] text-sky-600">
-                          Final Price
-                        </div>
-                        <div className="mt-2 text-4xl font-semibold tracking-[-0.06em] text-[#111111]">
-                          <CountNumber value={activeDeal.finalPrice} />
-                        </div>
-                      </div>
-                      <motion.div
-                        key={activeDeal.totalSavings}
-                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.5, ease: EASE }}
-                        className="rounded-full bg-emerald-100 px-4 py-3 text-sm font-medium text-emerald-700 shadow-[0_8px_20px_rgba(16,185,129,0.05)]"
-                      >
-                        You unlocked {formatLakh(activeDeal.totalSavings)}
-                      </motion.div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5">
-                    <DealConfidenceMeter score={confidence} />
-                  </div>
-                </SoftCard>
-
-                <SoftCard className="mt-6 p-5">
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
-                    Deal script
-                  </div>
-                  <div className="mt-4 space-y-3 text-sm leading-6 text-[#6b7280]">
-                    <div className="flex items-start gap-3">
-                      <Users className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                      3 dealers are actively competing on this configuration.
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      Insurance and finance layers can improve the effective
-                      number.
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
-                      Strong fit plus decent availability usually creates the
-                      best negotiation window.
-                    </div>
-                  </div>
-                </SoftCard>
-              </div>
-
-              <div>
-                <SoftCard className="overflow-hidden bg-white/70 p-4 backdrop-blur-xl">
-                  <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-                    <div className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-white p-5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-[11px] uppercase tracking-[0.2em] text-[#6b7280]">
-                            AI page controller
-                          </div>
-                          <div className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                            Search like you talk.
-                          </div>
-                        </div>
-                        <motion.div
-                          animate={{ y: [0, -4, 0] }}
-                          transition={{
-                            duration: 4,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                          }}
-                          className="rounded-full border border-[rgba(0,0,0,0.06)] bg-sky-50 p-3 shadow-[0_8px_18px_rgba(14,165,233,0.05)]"
-                        >
-                          <Bot className="h-5 w-5 text-sky-600" />
-                        </motion.div>
-                      </div>
-
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                        <input
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && submitChat()}
-                          className="min-h-14 flex-1 rounded-full border border-[rgba(0,0,0,0.05)] bg-[#fafafa] px-5 text-sm text-[#111111] outline-none placeholder:text-[#9ca3af] focus:border-sky-200"
-                          placeholder="Try: Compare Creta vs Seltos"
-                        />
-                        <MagneticButton
-                          onClick={submitChat}
-                          className="min-h-14 rounded-full border border-[rgba(0,0,0,0.06)] bg-white px-6 text-sm font-semibold text-[#111111] shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
-                        >
-                          Ask AI
-                        </MagneticButton>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {quickPrompts.map((prompt) => (
-                          <button
-                            key={prompt}
-                            onClick={() => handlePrompt(prompt)}
-                            className="rounded-full border border-[rgba(0,0,0,0.06)] bg-[#fafafa] px-4 py-2 text-sm text-[#6b7280] transition hover:-translate-y-0.5 hover:bg-white"
-                          >
-                            {prompt}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="mt-5 rounded-[24px] border border-[rgba(0,0,0,0.06)] bg-[#fafafa] p-4">
-                        <div className="space-y-3">
-                          {chatMessages.slice(-4).map((message, i) => (
-                            <motion.div
-                              key={`${message.role}-${i}`}
-                              initial={{ opacity: 0, y: 14 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.45, ease: EASE }}
-                              className={`max-w-[90%] rounded-[22px] px-4 py-3 text-sm leading-6 ${
-                                message.role === "assistant"
-                                  ? "bg-white text-[#111111] shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
-                                  : "ml-auto bg-sky-50 text-sky-700"
-                              }`}
-                            >
-                              {message.text}
-                            </motion.div>
-                          ))}
-
-                          <AnimatePresence>
-                            {chatBusy ? (
-                              <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm text-[#6b7280] shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
-                              >
-                                <motion.span
-                                  animate={{ opacity: [0.35, 1, 0.35] }}
-                                  transition={{
-                                    duration: 1.4,
-                                    repeat: Infinity,
-                                    ease: "easeInOut",
-                                  }}
-                                >
-                                  AI is refreshing your shortlist
-                                </motion.span>
-                              </motion.div>
-                            ) : null}
-                          </AnimatePresence>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-white p-5">
-                      <div className="text-[11px] uppercase tracking-[0.2em] text-[#6b7280]">
-                        Live shortlist
-                      </div>
-                      <div className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                        Filtered results
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-[#6b7280]">
-                        Cards fade and slide between states so the filtering
-                        feels natural and controlled.
-                      </p>
-
-                      <div className="mt-5 space-y-3">
-                        <AnimatePresence mode="popLayout">
-                          {visibleCars.slice(0, 4).map((car) => {
-                            const live = calcFinalPrice(car, dealToggles);
-                            const active = selectedCarId === car.id;
-
-                            return (
-                              <motion.button
-                                key={car.id}
-                                layout
-                                initial={{ opacity: 0, x: 24 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -24 }}
-                                whileHover={{
-                                  scale: 1.015,
-                                  rotateX: 2,
-                                  rotateY: -2,
-                                }}
-                                transition={{ duration: 0.45, ease: EASE }}
-                                onClick={() => setSelectedCarId(car.id)}
-                                className={`w-full rounded-[22px] border p-4 text-left ${
-                                  active
-                                    ? "border-sky-200 bg-sky-50 shadow-[0_10px_24px_rgba(14,165,233,0.05)]"
-                                    : "border-[rgba(0,0,0,0.06)] bg-[#fafafa]"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <div className="text-xs text-[#6b7280]">
-                                      {car.make}
-                                    </div>
-                                    <div className="mt-1 text-lg font-semibold tracking-[-0.04em] text-[#111111]">
-                                      {car.model}
-                                    </div>
-                                  </div>
-                                  <div className="text-sm font-medium text-[#6b7280]">
-                                    {formatLakh(live.finalPrice)}
-                                  </div>
-                                </div>
-                              </motion.button>
-                            );
-                          })}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </div>
-                </SoftCard>
-
-                <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  <AnimatePresence mode="popLayout">
-                    {visibleCars.map((car, idx) => {
-                      const live = calcFinalPrice(car, dealToggles);
-                      const selected = compareIds.includes(car.id);
-                      const active = selectedCarId === car.id;
-
-                      return (
-                        <motion.article
-                          key={car.id}
-                          layout
-                          initial={{ opacity: 0, y: 24 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 16 }}
-                          whileHover={{
-                            scale: 1.02,
-                            rotateX: 2.5,
-                            rotateY: -2.5,
-                          }}
-                          transition={{
-                            duration: 0.5,
-                            ease: EASE,
-                            delay: idx * 0.02,
-                          }}
-                          className={`group overflow-hidden rounded-[28px] border bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)] ${
-                            active
-                              ? "border-sky-200 ring-1 ring-sky-100"
-                              : "border-[rgba(0,0,0,0.06)]"
-                          }`}
-                        >
-                          <div className="relative h-56 overflow-hidden">
-                            <img
-                              src={car.image}
-                              alt={`${car.make} ${car.model}`}
-                              className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
-                            />
-                            <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(255,255,255,0.22))]" />
-                            <div className="absolute left-4 top-4 rounded-full bg-white/75 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#111111] backdrop-blur-xl">
-                              {car.bodyType}
-                            </div>
-                          </div>
-
-                          <div className="p-5">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="text-xs text-[#6b7280]">
-                                  {car.make}
-                                </div>
-                                <div className="mt-1 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                                  {car.model}
-                                </div>
-                                <div className="mt-1 text-sm text-[#6b7280]">
-                                  {car.variant}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => toggleCompare(car.id)}
-                                className={`rounded-full px-4 py-2 text-xs font-medium transition ${
-                                  selected
-                                    ? "bg-sky-50 text-sky-700 border border-sky-200"
-                                    : "border border-[rgba(0,0,0,0.06)] bg-white text-[#6b7280]"
-                                }`}
-                              >
-                                {selected ? "Added" : "Compare"}
-                              </button>
-                            </div>
-
-                            <div className="mt-5 grid grid-cols-2 gap-3 rounded-[22px] bg-[#fafafa] p-3">
-                              <div>
-                                <div className="text-[10px] uppercase tracking-[0.18em] text-[#6b7280]">
-                                  Live price
-                                </div>
-                                <div className="mt-2 text-lg font-semibold text-[#111111]">
-                                  {formatLakh(live.finalPrice)}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-[10px] uppercase tracking-[0.18em] text-[#6b7280]">
-                                  Savings
-                                </div>
-                                <div className="mt-2 text-lg font-semibold text-emerald-600">
-                                  {formatLakh(live.totalSavings)}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 flex items-center justify-between text-sm text-[#6b7280]">
-                              <span>{car.fuel}</span>
-                              <span>{car.transmission}</span>
-                            </div>
-
-                            <div className="mt-5 flex gap-2">
-                              <MagneticButton
-                                onClick={() => setSelectedCarId(car.id)}
-                                className="flex-1 min-h-11 rounded-full border border-[rgba(0,0,0,0.06)] bg-white text-sm font-semibold text-[#111111] shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
-                              >
-                                Make active
-                              </MagneticButton>
-                              <button
-                                onClick={() =>
-                                  setShowFitId(
-                                    showFitId === car.id ? null : car.id,
-                                  )
-                                }
-                                className="min-h-11 rounded-full border border-[rgba(0,0,0,0.06)] px-4 text-sm text-[#6b7280]"
-                              >
-                                Why this fits
-                              </button>
-                            </div>
-
-                            <AnimatePresence>
-                              {showFitId === car.id ? (
-                                <motion.div
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: "auto" }}
-                                  exit={{ opacity: 0, height: 0 }}
-                                  transition={{ duration: 0.45, ease: EASE }}
-                                >
-                                  <WhyItFits car={car} />
-                                </motion.div>
-                              ) : null}
-                            </AnimatePresence>
-                          </div>
-                        </motion.article>
-                      );
-                    })}
-                  </AnimatePresence>
+                <div className="mt-3 text-xl font-semibold tracking-[-0.05em] text-[#111111]">
+                  {value}
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[#f8fafc] p-6 sm:p-7">
+          <div className="rounded-[28px] border border-[rgba(15,23,42,0.06)] bg-white p-6 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[#6b7280]">
+              Estimated EMI
+            </div>
+            <div className="mt-3 text-[2.4rem] font-semibold tracking-[-0.08em] text-[#111111]">
+              {formatMoney(emiEstimate)}
+              <span className="text-lg font-medium text-[#6b7280]"> /mo</span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#6b7280]">
+              Locking a lower purchase price first usually improves the EMI more
+              than adjusting the tenure later.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              {[
+                "Dealer-linked offers",
+                "Low-friction eligibility",
+                "Mobile number only in step 1",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-3 text-sm text-[#4b5563]"
+                >
+                  <Check className="h-4 w-4 text-emerald-600" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => onBestDeal(car)}
+              className="mt-6 min-h-12 w-full rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,23,42,0.14)]"
+            >
+              Get Best Deal + Finance Offer
+            </button>
+          </div>
+        </div>
+      </div>
+    </SoftCard>
+  );
+}
+
+function InsuranceCanvas({ results, onBestDeal }) {
+  const car = results[0] || fallbackCars[0];
+  const plans = [
+    {
+      plan: "Essential",
+      idv: formatMoney(Math.round(car.price * 0.85)),
+      type: "Comprehensive",
+      premium: "₹ 32,400",
+      addOns: "Basic own damage + third party",
+      savings: "Bundle savings up to ₹ 8,000",
+    },
+    {
+      plan: "Preferred",
+      idv: formatMoney(Math.round(car.price * 0.88)),
+      type: "Zero Dep",
+      premium: "₹ 38,800",
+      addOns: "Zero dep + RSA + engine protect",
+      savings: "Bundle savings up to ₹ 12,000",
+    },
+    {
+      plan: "Signature",
+      idv: formatMoney(Math.round(car.price * 0.9)),
+      type: "Zero Dep Plus",
+      premium: "₹ 43,500",
+      addOns: "RTI + consumables + invoice cover",
+      savings: "Bundle savings up to ₹ 16,000",
+    },
+  ];
+
+  return (
+    <SoftCard className="p-6 sm:p-7">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+            Insurance quote
+          </div>
+          <div className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
+            Protection for {car.make} {car.model}
+          </div>
+          <div className="mt-2 text-sm leading-6 text-[#6b7280]">
+            Cleaner quote cards with bundling cues that guide users toward
+            conversion.
+          </div>
+        </div>
+        <div className="rounded-full bg-sky-50 px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-sky-700">
+          Better when bundled
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        {plans.map((item) => (
+          <div
+            key={item.plan}
+            className="rounded-[28px] border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] p-5"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                {item.plan}
+              </div>
+              <ShieldCheck className="h-4.5 w-4.5 text-sky-600" />
+            </div>
+            <div className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
+              {item.premium}
+            </div>
+            <div className="mt-5 space-y-3">
+              {[
+                ["IDV", item.idv],
+                ["Policy Type", item.type],
+                ["Add-ons", item.addOns],
+                ["Savings", item.savings],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-[18px] bg-white px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                    {label}
+                  </div>
+                  <div className="mt-1.5 text-sm font-medium leading-6 text-[#111111]">
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => onBestDeal(car)}
+              className="mt-5 min-h-12 w-full rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,23,42,0.14)]"
+            >
+              Get Best Deal + Insurance
+            </button>
+          </div>
+        ))}
+      </div>
+    </SoftCard>
+  );
+}
+
+function SellCanvas({ onBestDeal }) {
+  return (
+    <SoftCard className="overflow-hidden">
+      <div className="grid gap-0 lg:grid-cols-[1.02fr_0.98fr]">
+        <div className="p-6 sm:p-7">
+          <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+            Sell / valuation
+          </div>
+          <div className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
+            Smart exchange, cleaner upgrade path
+          </div>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#6b7280]">
+            A restrained valuation module that helps users move from their old
+            car into a better upgrade offer without turning the page into a
+            listing marketplace.
+          </p>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {[
+              ["Estimated Value", "₹ 6.8L - ₹ 7.4L"],
+              ["Exchange Bonus", "Up to ₹ 35,000"],
+              ["Inspection Slot", "Same-day availability"],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-[24px] bg-[#f8fafc] p-5">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                  {label}
+                </div>
+                <div className="mt-3 text-xl font-semibold tracking-[-0.05em] text-[#111111]">
+                  {value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[#f8fafc] p-6 sm:p-7">
+          <div className="rounded-[28px] border border-[rgba(15,23,42,0.06)] bg-white p-6 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[#6b7280]">
+              Upgrade message
+            </div>
+            <div className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
+              Exchange your old car and unlock a stronger final offer.
+            </div>
+            <div className="mt-5 space-y-3">
+              {[
+                "Get a guided inspection call",
+                "Apply exchange bonus on the final deal",
+                "Move into a better automatic SUV with less friction",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-start gap-3 text-sm leading-6 text-[#4b5563]"
+                >
+                  <Check className="mt-1 h-4 w-4 text-emerald-600" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button className="min-h-12 flex-1 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(15,23,42,0.14)]">
+                Book Inspection
+              </button>
+              <button
+                onClick={() => onBestDeal(fallbackCars[0])}
+                className="min-h-12 flex-1 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-5 text-sm font-semibold text-[#111111]"
+              >
+                Use Exchange for Best Deal
+              </button>
             </div>
           </div>
-        </section>
+        </div>
+      </div>
+    </SoftCard>
+  );
+}
 
-        <section
-          id="decision"
-          className="bg-[#fafafa] px-4 py-20 sm:px-6 lg:px-8"
-        >
-          <div className="mx-auto max-w-[1380px]">
-            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(0,0,0,0.06)] bg-white/70 px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[#6b7280] backdrop-blur-xl">
-                  <TrendingUp className="h-3.5 w-3.5 text-sky-500" />
-                  Premium split comparison
-                </div>
+function MiniSectionHeader({ label, title, action }) {
+  return (
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+          {label}
+        </div>
+        <div className="mt-1 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
+          {title}
+        </div>
+      </div>
+      {action ? <div>{action}</div> : null}
+    </div>
+  );
+}
 
-                <h2 className="mt-5 max-w-[12ch] text-4xl font-semibold tracking-[-0.06em] text-[#111111] sm:text-6xl">
-                  Compare like a decision engine.
-                </h2>
+function HotDealsCarousel({ deals }) {
+  const [index, setIndex] = useState(0);
+  const visible = [
+    deals[index],
+    deals[(index + 1) % deals.length],
+    deals[(index + 2) % deals.length],
+  ];
 
-                <p className="mt-5 max-w-xl text-base leading-7 text-[#6b7280]">
-                  The comparison layer reduces overload, surfaces real
-                  differences, and highlights the better deal gently instead of
-                  shouting for attention.
-                </p>
+  return (
+    <SoftCard className="overflow-hidden p-6 sm:p-7">
+      <MiniSectionHeader
+        label="Hot deals"
+        title="Live dealer-moving offers"
+        action={
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                setIndex((prev) => (prev - 1 + deals.length) % deals.length)
+              }
+              className="rounded-full border border-[rgba(15,23,42,0.06)] bg-white p-3 text-[#4b5563]"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setIndex((prev) => (prev + 1) % deals.length)}
+              className="rounded-full border border-[rgba(15,23,42,0.06)] bg-white p-3 text-[#4b5563]"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        }
+      />
 
-                <SoftCard className="mt-8 bg-white p-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
-                        Comparison mode
-                      </div>
-                      <div className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                        Show only differences
-                      </div>
-                    </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {visible.map((deal, i) => (
+          <motion.div
+            key={`${deal.title}-${i}`}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: EASE }}
+            className="rounded-[28px] border border-[rgba(15,23,42,0.06)] bg-[linear-gradient(180deg,#ffffff,#f7fafc)] p-5"
+          >
+            <div className="inline-flex rounded-full bg-emerald-50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-emerald-700">
+              {deal.urgency}
+            </div>
+            <div className="mt-4 text-xl font-semibold tracking-[-0.04em] text-[#111111]">
+              {deal.title}
+            </div>
+            <div className="mt-2 text-sm text-[#6b7280]">{deal.save}</div>
+            <button className="mt-5 min-h-11 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-4 text-sm font-semibold text-white">
+              Get Best Deal
+            </button>
+          </motion.div>
+        ))}
+      </div>
+    </SoftCard>
+  );
+}
 
-                    <button
-                      onClick={() => setShowOnlyDiff((v) => !v)}
-                      className={`relative h-11 w-20 rounded-full transition ${
-                        showOnlyDiff ? "bg-sky-100" : "bg-[#f3f4f6]"
-                      }`}
-                    >
-                      <motion.span
-                        layout
-                        className={`absolute top-1.5 h-8 w-8 rounded-full bg-white shadow-[0_6px_16px_rgba(15,23,42,0.08)] ${
-                          showOnlyDiff ? "left-10" : "left-1.5"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </SoftCard>
+function TrendingSearchesSection({ searches, onSearch }) {
+  return (
+    <SoftCard className="overflow-hidden p-6 sm:p-7">
+      <MiniSectionHeader
+        label="Trending searches"
+        title="What buyers are exploring right now"
+      />
+      <div className="flex flex-wrap gap-3">
+        {searches.map((item) => (
+          <button
+            key={item}
+            onClick={() => onSearch(item)}
+            className="rounded-full border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] px-4 py-3 text-sm font-medium text-[#334155] transition hover:bg-white"
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+    </SoftCard>
+  );
+}
+
+function LatestLaunchesSection({ items }) {
+  return (
+    <SoftCard className="overflow-hidden p-6 sm:p-7">
+      <MiniSectionHeader
+        label="Latest launches"
+        title="New arrivals worth watching"
+      />
+      <div className="grid gap-4 lg:grid-cols-3">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="overflow-hidden rounded-[28px] border border-[rgba(15,23,42,0.06)] bg-white"
+          >
+            <div className="relative h-48">
+              <img
+                src={item.image}
+                alt={item.name}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute left-4 top-4 rounded-full bg-white/85 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-sky-700 backdrop-blur-xl">
+                {item.tag}
               </div>
+            </div>
+            <div className="p-5">
+              <div className="text-xl font-semibold tracking-[-0.04em] text-[#111111]">
+                {item.name}
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-sm text-[#6b7280]">
+                <CalendarDays className="h-4 w-4" />
+                <span>{item.launch}</span>
+              </div>
+              <div className="mt-2 text-sm text-[#6b7280]">
+                {item.expectedPrice}
+              </div>
+              <button className="mt-5 min-h-11 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-4 text-sm font-semibold text-[#111111]">
+                Get Early Deal
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SoftCard>
+  );
+}
 
-              <CompareSplitView
-                cars={compareCars}
-                showOnlyDiff={showOnlyDiff}
+function CustomerReviewsSection({ cars }) {
+  const reviewCards = cars.slice(0, 4).flatMap((car) =>
+    car.reviews.slice(0, 1).map((review) => ({
+      ...review,
+      carLabel: `${car.make} ${car.model}`,
+    })),
+  );
+
+  return (
+    <SoftCard className="overflow-hidden p-6 sm:p-7">
+      <MiniSectionHeader
+        label="Customer reviews"
+        title="Short trust signals that improve conversion"
+      />
+      <div className="grid gap-4 lg:grid-cols-4">
+        {reviewCards.map((review, index) => (
+          <div
+            key={`${review.author}-${index}`}
+            className="rounded-[26px] border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] p-5"
+          >
+            <div className="flex items-center gap-1 text-amber-500">
+              {Array.from({ length: review.rating }).map((_, i) => (
+                <Star key={i} className="h-4 w-4 fill-current" />
+              ))}
+            </div>
+            <div className="mt-4 text-lg font-semibold tracking-[-0.04em] text-[#111111]">
+              {review.title}
+            </div>
+            <div className="mt-2 text-sm leading-6 text-[#6b7280]">
+              {review.text}
+            </div>
+            <div className="mt-5 text-sm font-medium text-[#111111]">
+              {review.author}
+            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">
+              {review.carLabel}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SoftCard>
+  );
+}
+
+function WhyCDriveSection() {
+  return (
+    <SoftCard className="overflow-hidden p-6 sm:p-7">
+      <MiniSectionHeader
+        label="Why CDrive"
+        title="What makes the workflow feel smarter"
+      />
+      <div className="grid gap-4 lg:grid-cols-3">
+        {trustReasons.map((item) => (
+          <div
+            key={item.title}
+            className="rounded-[26px] border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] p-5"
+          >
+            <div className="text-lg font-semibold tracking-[-0.04em] text-[#111111]">
+              {item.title}
+            </div>
+            <div className="mt-2 text-sm leading-6 text-[#6b7280]">
+              {item.text}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SoftCard>
+  );
+}
+
+function SimilarCarsSection({ currentCar, allCars, onOpenDetails }) {
+  const similarCars = allCars
+    .filter(
+      (car) => car.id !== currentCar.id && car.bodyType === currentCar.bodyType,
+    )
+    .slice(0, 3);
+
+  if (!similarCars.length) return null;
+
+  return (
+    <div className="mt-8">
+      <MiniSectionHeader
+        label="Similar cars"
+        title="Cars close to this shortlist"
+      />
+      <div className="grid gap-4 md:grid-cols-3">
+        {similarCars.map((car) => (
+          <div
+            key={car.id}
+            className="overflow-hidden rounded-[26px] border border-[rgba(15,23,42,0.06)] bg-white"
+          >
+            <div className="h-44 overflow-hidden">
+              <img
+                src={car.image}
+                alt={`${car.make} ${car.model}`}
+                className="h-full w-full object-cover"
               />
             </div>
+            <div className="p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">
+                {car.make}
+              </div>
+              <div className="mt-2 text-xl font-semibold tracking-[-0.04em] text-[#111111]">
+                {car.model}
+              </div>
+              <div className="mt-1 text-sm text-[#6b7280]">{car.variant}</div>
+              <div className="mt-4 text-sm font-medium text-[#111111]">
+                {formatLakh(car.price)}
+              </div>
+              <button
+                onClick={() => onOpenDetails(car)}
+                className="mt-4 min-h-11 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-4 text-sm font-semibold text-[#111111]"
+              >
+                View Details
+              </button>
+            </div>
           </div>
-        </section>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        <section id="convert" className="px-4 py-20 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[1380px]">
-            <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-              <SoftCard className="overflow-hidden">
-                <div className="grid gap-0 lg:grid-cols-[0.92fr_1.08fr]">
-                  <div className="p-6 sm:p-8">
-                    <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
-                      Final conversion layer
+function DetailStickyRail({ car, onBestDeal }) {
+  return (
+    <div className="lg:sticky lg:top-[102px]">
+      <SoftCard className="overflow-hidden">
+        <div className="p-5">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-[#6b7280]">
+            Deal summary
+          </div>
+          <div className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
+            {car.make} {car.model}
+          </div>
+          <div className="mt-1 text-sm text-[#6b7280]">{car.variant}</div>
+
+          <div className="mt-5 space-y-3">
+            {[
+              ["Market Price", formatLakh(car.marketPrice)],
+              ["Your Price", formatLakh(car.price)],
+              ["Savings", formatMoney(car.savings)],
+              ["EMI From", `${formatMoney(car.emi)}/mo`],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="rounded-[20px] bg-[#f8fafc] px-4 py-3"
+              >
+                <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                  {label}
+                </div>
+                <div
+                  className={`mt-1.5 ${label === "Your Price" ? "text-lg font-semibold text-[#111111]" : "text-sm font-semibold text-[#111111]"}`}
+                >
+                  {value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="rounded-[18px] bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              3 dealers can quote on this now
+            </div>
+            <div className="rounded-[18px] bg-sky-50 px-4 py-3 text-sm text-sky-700">
+              Mobile only in step 1
+            </div>
+          </div>
+
+          <button
+            onClick={() => onBestDeal(car)}
+            className="mt-5 min-h-12 w-full rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)]"
+          >
+            Get Best Deal
+          </button>
+
+          <div className="mt-4 text-xs leading-6 text-[#6b7280]">
+            Unlock city-level dealer offers, finance support, and exchange
+            assistance after step 1.
+          </div>
+        </div>
+      </SoftCard>
+    </div>
+  );
+}
+
+function CarDetailsPage({
+  car,
+  allCars,
+  onBack,
+  onBestDeal,
+  onOpenFinance,
+  onOpenInsurance,
+  onOpenDetails,
+}) {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [activeImage, setActiveImage] = useState(car.gallery?.[0] || car.image);
+
+  useEffect(() => {
+    setActiveTab("overview");
+    setActiveImage(car.gallery?.[0] || car.image);
+  }, [car]);
+
+  const tabs = ["overview", "features", "finance", "insurance", "reviews"];
+
+  const colorMap = {
+    "Abyss Black": "#111827",
+    "Atlas White": "#e5e7eb",
+    "Titan Grey": "#6b7280",
+    "Fiery Red": "#dc2626",
+    "Pewter Olive": "#556b52",
+    "Glacier White": "#f8fafc",
+    "Intense Red": "#b91c1c",
+    "Aurora Black": "#0f172a",
+    "Platinum White": "#f3f4f6",
+    "Golden Brown": "#8b5e3c",
+    "Meteoroid Grey": "#475569",
+    "Radiant Red": "#ef4444",
+    "Fearless Purple": "#7c3aed",
+    "Daytona Grey": "#64748b",
+    White: "#f8fafc",
+    "Flame Red": "#e11d48",
+    "Nexa Blue": "#1d4ed8",
+    "Chestnut Brown": "#7c4a24",
+    "Arctic White": "#f8fafc",
+    "Splendid Silver": "#94a3b8",
+  };
+
+  return (
+    <div className="space-y-6">
+      <SoftCard className="overflow-hidden">
+        <div className="grid gap-0 xl:grid-cols-[1.18fr_0.82fr]">
+          <div className="p-4 sm:p-5">
+            <div className="relative overflow-hidden rounded-[30px]">
+              <img
+                src={activeImage}
+                alt={`${car.make} ${car.model}`}
+                className="h-[420px] w-full object-cover sm:h-[540px]"
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.06),rgba(15,23,42,0.18),rgba(15,23,42,0.44)_100%)]" />
+              <div className="absolute left-5 top-5 rounded-full bg-white/85 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-sky-700 backdrop-blur-xl">
+                {car.launchStatus}
+              </div>
+
+              <div className="absolute inset-x-5 bottom-5 rounded-[28px] border border-white/10 bg-[rgba(15,23,42,0.48)] p-5 text-white shadow-[0_14px_34px_rgba(15,23,42,0.18)] backdrop-blur-2xl">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-white/70">
+                      Current highlight
                     </div>
-                    <h2 className="mt-4 text-4xl font-semibold tracking-[-0.06em] text-[#111111] sm:text-5xl">
-                      Move toward one confident next step.
-                    </h2>
-                    <p className="mt-5 max-w-xl text-base leading-7 text-[#6b7280]">
-                      The page closes with trust, not pressure: clear pricing,
-                      visible savings, low-friction lead capture, and a stable
-                      sense of control.
-                    </p>
-
-                    <div className="mt-8 space-y-4">
-                      {[
-                        "Price is already anchored against the market number",
-                        "Deal confidence meter reduces hesitation",
-                        "AI search handled discovery before asking for commitment",
-                      ].map((item) => (
-                        <div
-                          key={item}
-                          className="flex items-center gap-3 text-sm text-[#6b7280]"
-                        >
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                            <Check className="h-4 w-4" />
-                          </div>
-                          {item}
-                        </div>
-                      ))}
+                    <div className="mt-2 text-3xl font-semibold tracking-[-0.05em]">
+                      {car.make} {car.model}
+                    </div>
+                    <div className="mt-1 text-sm text-white/75">
+                      {car.variant}
                     </div>
                   </div>
+                  <div className="rounded-full bg-emerald-400/12 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-emerald-200">
+                    Save {formatMoney(car.savings)}
+                  </div>
+                </div>
 
-                  <div className="bg-[#fafafa] p-6 sm:p-8">
-                    <div className="rounded-[28px] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
-                      <div className="text-[11px] uppercase tracking-[0.2em] text-[#6b7280]">
-                        Unlock best price instantly
-                      </div>
-                      <div className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
-                        {formatLakh(activeDeal.finalPrice)}
-                      </div>
-                      <div className="mt-2 text-sm text-emerald-600">
-                        {formatLakh(activeDeal.totalSavings)} unlocked across
-                        active savings layers
-                      </div>
-
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                        <div className="relative flex-1">
-                          <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-                          <input
-                            value={mobile}
-                            onChange={(e) =>
-                              setMobile(
-                                e.target.value.replace(/\D/g, "").slice(0, 10),
-                              )
-                            }
-                            placeholder="Enter mobile number"
-                            className="min-h-12 w-full rounded-full border border-[rgba(0,0,0,0.05)] bg-[#fafafa] pl-11 pr-4 text-sm text-[#111111] outline-none focus:border-sky-200"
-                          />
-                        </div>
-                        <MagneticButton className="min-h-12 rounded-full border border-[rgba(0,0,0,0.06)] bg-white px-6 text-sm font-semibold text-[#111111] shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
-                          Get Best Deal
-                        </MagneticButton>
-                      </div>
-
-                      <div className="mt-4 text-xs text-[#6b7280]">
-                        Step 1 is mobile only. Advisor, city, finance, and
-                        exchange can come later.
-                      </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[20px] bg-white/10 p-4">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-white/60">
+                      Market Price
                     </div>
-
-                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                      {[
-                        ["Urgency", "12 viewing"],
-                        ["Competing dealers", "03"],
-                        ["Close rate today", "05"],
-                      ].map(([k, v]) => (
-                        <div
-                          key={k}
-                          className="rounded-[22px] bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.03)]"
-                        >
-                          <div className="text-[10px] uppercase tracking-[0.18em] text-[#6b7280]">
-                            {k}
-                          </div>
-                          <div className="mt-2 text-lg font-semibold tracking-[-0.04em] text-[#111111]">
-                            {v}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="mt-2 text-sm line-through text-white/60">
+                      {formatLakh(car.marketPrice)}
+                    </div>
+                  </div>
+                  <div className="rounded-[20px] bg-white/16 p-4 ring-1 ring-white/10">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-sky-200">
+                      Your Price
+                    </div>
+                    <div className="mt-2 text-base font-semibold">
+                      {formatLakh(car.price)}
+                    </div>
+                  </div>
+                  <div className="rounded-[20px] bg-white/10 p-4">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-white/60">
+                      EMI From
+                    </div>
+                    <div className="mt-2 text-sm font-semibold">
+                      {formatMoney(car.emi)}/mo
                     </div>
                   </div>
                 </div>
-              </SoftCard>
+              </div>
+            </div>
 
-              <div className="grid gap-5">
-                <motion.div
-                  animate={{ y: [0, -4, 0] }}
-                  transition={{
-                    duration: 4.8,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {(car.gallery || [car.image]).slice(0, 3).map((item, idx) => (
+                <button
+                  key={`${item}-${idx}`}
+                  onClick={() => setActiveImage(item)}
+                  className={`overflow-hidden rounded-[22px] border ${
+                    activeImage === item
+                      ? "border-sky-200 ring-2 ring-sky-100"
+                      : "border-[rgba(15,23,42,0.06)]"
+                  }`}
                 >
-                  <SoftCard className="p-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-[11px] uppercase tracking-[0.2em] text-[#6b7280]">
-                          Sticky deal narrative
-                        </div>
-                        <div className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[#111111]">
-                          The deal strip should feel alive, not loud.
-                        </div>
-                      </div>
-                      <div className="rounded-full bg-amber-50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-amber-700">
-                        Closing mode
-                      </div>
-                    </div>
-                    <p className="mt-4 text-sm leading-7 text-[#6b7280]">
-                      It carries the selected car, live recalculated price, and
-                      urgency signal with soft motion so conversion is always
-                      present without feeling aggressive.
-                    </p>
-                  </SoftCard>
-                </motion.div>
+                  <img
+                    src={item}
+                    alt={`${car.model}-${idx}`}
+                    className="h-24 w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
 
-                <SoftCard className="p-6">
-                  <div className="text-[11px] uppercase tracking-[0.2em] text-[#6b7280]">
-                    AI insight layer
+            <div className="mt-5 grid gap-3 sm:grid-cols-4">
+              {[
+                {
+                  icon: <Fuel className="h-4 w-4" />,
+                  label: "Fuel",
+                  value: car.fuel,
+                },
+                {
+                  icon: <Gauge className="h-4 w-4" />,
+                  label: "Transmission",
+                  value: car.transmission,
+                },
+                {
+                  icon: <Users className="h-4 w-4" />,
+                  label: "Seating",
+                  value: car.seating,
+                },
+                {
+                  icon: <Car className="h-4 w-4" />,
+                  label: "Body Type",
+                  value: car.bodyType,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-[22px] bg-[#f8fafc] px-4 py-3"
+                >
+                  <div className="flex items-center gap-2 text-[#64748b]">
+                    {item.icon}
+                    <span className="text-[10px] uppercase tracking-[0.18em]">
+                      {item.label}
+                    </span>
                   </div>
-                  <div className="mt-3 flex items-start gap-3">
-                    <MessageSquareText className="mt-1 h-5 w-5 text-sky-500" />
-                    <p className="text-sm leading-7 text-[#6b7280]">
-                      The “Why this fits you” layer helps each car feel
-                      evaluated instead of merely displayed, supporting a
-                      guided, premium product flow. [web:61][web:180]
-                    </p>
+                  <div className="mt-2 text-sm font-semibold text-[#111111]">
+                    {item.value}
                   </div>
-                </SoftCard>
+                </div>
+              ))}
+            </div>
+          </div>
 
-                <SoftCard className="p-6">
-                  <div className="text-[11px] uppercase tracking-[0.2em] text-[#6b7280]">
-                    Active savings stack
-                  </div>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="border-t border-[rgba(15,23,42,0.06)] p-6 xl:border-l xl:border-t-0 sm:p-7">
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-4 py-2 text-sm font-medium text-[#4b5563]"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to results
+            </button>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="rounded-full bg-sky-50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-sky-700">
+                Premium detail view
+              </div>
+              <div className="rounded-full bg-amber-50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-amber-700">
+                {car.rating} rating • {car.reviewCount} reviews
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-[#94a3b8]">
+                {car.make}
+              </div>
+              <div className="mt-2 text-[2.4rem] font-semibold tracking-[-0.07em] text-[#111111]">
+                {car.model}
+              </div>
+              <div className="mt-1 text-base text-[#6b7280]">{car.variant}</div>
+            </div>
+
+            <div className="mt-6 rounded-[28px] bg-[#f8fafc] p-5">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[#6b7280]">
+                Why this variant
+              </div>
+              <p className="mt-3 text-sm leading-6 text-[#475569]">
+                {car.whyVariant}
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-full px-4 py-2 text-sm font-medium capitalize ${
+                    activeTab === tab
+                      ? "bg-[#111111] text-white"
+                      : "border border-[rgba(15,23,42,0.06)] bg-white text-[#4b5563]"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                onClick={() => onBestDeal(car)}
+                className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)]"
+              >
+                Get Best Deal
+              </button>
+              <button
+                onClick={() => onOpenFinance(car)}
+                className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-5 text-sm font-semibold text-[#111111]"
+              >
+                View Finance
+              </button>
+              <button
+                onClick={() => onOpenInsurance(car)}
+                className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-5 text-sm font-semibold text-[#111111]"
+              >
+                Insurance Quote
+              </button>
+            </div>
+          </div>
+        </div>
+      </SoftCard>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-6">
+          <SoftCard className="overflow-hidden p-6 sm:p-7">
+            {activeTab === "overview" && (
+              <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+                <div>
+                  <MiniSectionHeader
+                    label="Overview"
+                    title="Editorial snapshot"
+                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {[
-                      [
-                        "Dealer",
-                        dealToggles.dealerDiscount
-                          ? selectedCar.dealerDiscount
-                          : 0,
-                      ],
-                      [
-                        "Insurance",
-                        dealToggles.insuranceSavings
-                          ? selectedCar.insuranceSavings
-                          : 0,
-                      ],
-                      [
-                        "Finance",
-                        dealToggles.financeBenefit
-                          ? selectedCar.financeBenefit
-                          : 0,
-                      ],
-                    ].map(([k, v]) => (
-                      <div key={k} className="rounded-[22px] bg-[#fafafa] p-4">
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-[#6b7280]">
-                          {k}
+                      ["Mileage", car.mileage],
+                      ["Engine", car.engine],
+                      ["Power", car.power],
+                      ["Torque", car.torque],
+                      ["Boot", car.boot],
+                      ["Seating", car.seating],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="rounded-[24px] bg-[#f8fafc] p-5"
+                      >
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[#94a3b8]">
+                          {label}
                         </div>
-                        <div className="mt-2 text-lg font-semibold text-[#111111]">
-                          {formatLakh(v)}
+                        <div className="mt-3 text-lg font-semibold tracking-[-0.04em] text-[#111111]">
+                          {value}
                         </div>
                       </div>
                     ))}
                   </div>
-                </SoftCard>
+                </div>
+
+                <div>
+                  <MiniSectionHeader label="Colors" title="Exterior choices" />
+                  <div className="space-y-3">
+                    {car.colors.map((color) => (
+                      <div
+                        key={color}
+                        className="flex items-center gap-3 rounded-[22px] border border-[rgba(15,23,42,0.06)] bg-white px-4 py-3"
+                      >
+                        <span
+                          className="h-5 w-5 rounded-full border border-black/5"
+                          style={{
+                            backgroundColor: colorMap[color] || "#cbd5e1",
+                          }}
+                        />
+                        <span className="text-sm font-medium text-[#334155]">
+                          {color}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "features" && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div>
+                  <MiniSectionHeader
+                    label="Features"
+                    title="Top cabin and convenience highlights"
+                  />
+                  <div className="space-y-3">
+                    {car.features.map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-start gap-3 rounded-[20px] bg-[#f8fafc] px-4 py-3 text-sm text-[#334155]"
+                      >
+                        <Check className="mt-0.5 h-4 w-4 text-emerald-600" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <MiniSectionHeader
+                    label="Safety"
+                    title="Confidence and protection"
+                  />
+                  <div className="space-y-3">
+                    {car.safety.map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-start gap-3 rounded-[20px] bg-[#f8fafc] px-4 py-3 text-sm text-[#334155]"
+                      >
+                        <ShieldCheck className="mt-0.5 h-4 w-4 text-sky-600" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "finance" && (
+              <div>
+                <MiniSectionHeader
+                  label="Finance"
+                  title="Monthly ownership made simpler"
+                />
+                <FinanceCanvas results={[car]} onBestDeal={onBestDeal} />
+              </div>
+            )}
+
+            {activeTab === "insurance" && (
+              <div>
+                <MiniSectionHeader
+                  label="Insurance"
+                  title="Protection options for this car"
+                />
+                <InsuranceCanvas results={[car]} onBestDeal={onBestDeal} />
+              </div>
+            )}
+
+            {activeTab === "reviews" && (
+              <div>
+                <MiniSectionHeader
+                  label="Reviews"
+                  title="What buyers are saying"
+                />
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {car.reviews.map((review, idx) => (
+                    <div
+                      key={`${review.author}-${idx}`}
+                      className="rounded-[26px] border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] p-5"
+                    >
+                      <div className="flex items-center gap-1 text-amber-500">
+                        {Array.from({ length: review.rating }).map((_, i) => (
+                          <Star key={i} className="h-4 w-4 fill-current" />
+                        ))}
+                      </div>
+                      <div className="mt-4 text-lg font-semibold tracking-[-0.04em] text-[#111111]">
+                        {review.title}
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-[#6b7280]">
+                        {review.text}
+                      </div>
+                      <div className="mt-5 text-sm font-medium text-[#111111]">
+                        {review.author}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </SoftCard>
+
+          <SoftCard className="overflow-hidden p-6 sm:p-7">
+            <SimilarCarsSection
+              currentCar={car}
+              allCars={allCars}
+              onOpenDetails={onOpenDetails}
+            />
+          </SoftCard>
+        </div>
+
+        <DetailStickyRail car={car} onBestDeal={onBestDeal} />
+      </div>
+    </div>
+  );
+}
+
+export default function CDrivePremiumPortal() {
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      title: "Welcome",
+      subtitle: "Buying copilot",
+      text: "Ask naturally. I’ll stay here on the left and update the right side with exactly what you need.",
+    },
+    {
+      role: "assistant",
+      title: "What I can do",
+      subtitle: "Best next action",
+      text: "I can shortlist cars, compare options, open finance and insurance views, and guide you toward the best deal.",
+    },
+  ]);
+  const [input, setInput] = useState("SUV under 20L");
+  const [activeView, setActiveView] = useState("results");
+  const [results, setResults] = useState(fallbackCars.slice(0, 4));
+  const [selectedCars, setSelectedCars] = useState([]);
+  const [showLead, setShowLead] = useState(true);
+  const [mobile, setMobile] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [lastQuery, setLastQuery] = useState("SUV under 20L");
+  const [apiStatus, setApiStatus] = useState("fallback");
+  const [detailCar, setDetailCar] = useState(fallbackCars[0]);
+  const workspaceRef = useRef(null);
+
+  const activeHeroCar =
+    activeView === "details" ? detailCar : results[0] || fallbackCars[0];
+
+  const canvasTitle = useMemo(() => {
+    if (activeView === "compare") return "Comparison";
+    if (activeView === "finance") return "Finance Offers";
+    if (activeView === "insurance") return "Insurance Quote";
+    if (activeView === "sell") return "Sell Car";
+    if (activeView === "details") return "Car Details";
+    return "Search Results";
+  }, [activeView]);
+
+  useEffect(() => {
+    runQuery("SUV under 20L", { silentUserMessage: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const syncSelectedCars = (incomingResults) => {
+    setSelectedCars((prev) =>
+      prev
+        .map((car) => {
+          const match = incomingResults.find((item) => item.id === car.id);
+          return match || car;
+        })
+        .slice(0, 3),
+    );
+  };
+
+  const fetchCarsFromApi = async (q) => {
+    try {
+      if (
+        typeof window !== "undefined" &&
+        window.featuresApi &&
+        typeof window.featuresApi.getVariantsWithPrice === "function"
+      ) {
+        const res = await window.featuresApi.getVariantsWithPrice({
+          slim: "1",
+          includeDiscontinued: "0",
+          q,
+        });
+
+        const payload = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res?.results)
+              ? res.results
+              : Array.isArray(res?.variants)
+                ? res.variants
+                : [];
+
+        const mapped = formatApiCars(payload);
+        if (mapped.length) {
+          setApiStatus("live");
+          return mapped;
+        }
+      }
+    } catch (error) {
+      setApiStatus("fallback");
+    }
+
+    setApiStatus("fallback");
+    return [];
+  };
+
+  const pushAssistantMessage = (payload) => {
+    setMessages((prev) => [...prev, { role: "assistant", ...payload }]);
+  };
+
+  const runQuery = async (query, options = {}) => {
+    const q = query.trim();
+    if (!q || loading) return;
+
+    const view = inferView(q);
+    const fallback = getFallbackResults(q);
+    const compareSeed =
+      view === "compare"
+        ? fallback.length
+          ? fallback
+          : fallbackCars.slice(0, 2)
+        : fallback.length
+          ? fallback
+          : fallbackCars.slice(0, 4);
+
+    if (!options.silentUserMessage) {
+      setMessages((prev) => [...prev, { role: "user", text: q }]);
+    }
+
+    setInput("");
+    setLoading(true);
+    setLastQuery(q);
+
+    let finalResults = compareSeed;
+
+    if (view === "results" || view === "finance" || view === "insurance") {
+      const live = await fetchCarsFromApi(q);
+      if (live.length) {
+        finalResults =
+          view === "results"
+            ? live.slice(0, 4)
+            : live.length
+              ? live
+              : compareSeed;
+      }
+    }
+
+    if (view === "compare" && selectedCars.length >= 2) {
+      finalResults = selectedCars.slice(0, 3);
+    }
+
+    window.clearTimeout(runQuery._timer);
+    runQuery._timer = window.setTimeout(() => {
+      setActiveView(view);
+      setResults(finalResults);
+      syncSelectedCars(finalResults);
+      if (finalResults[0]) setDetailCar(finalResults[0]);
+      setShowLead(wantsLead(view, finalResults));
+      pushAssistantMessage(getAssistantReply(view, finalResults));
+      setLoading(false);
+    }, 480);
+  };
+
+  const handleToggleCompare = (car) => {
+    setSelectedCars((prev) => {
+      const exists = prev.some((item) => item.id === car.id);
+      if (exists) return prev.filter((item) => item.id !== car.id);
+      if (prev.length >= 3) return [...prev.slice(1), car];
+      return [...prev, car];
+    });
+  };
+
+  const handleOpenCompare = () => {
+    const compareCars =
+      selectedCars.length >= 2 ? selectedCars.slice(0, 3) : results.slice(0, 2);
+    setActiveView("compare");
+    setResults(compareCars);
+    setShowLead(true);
+    pushAssistantMessage(getAssistantReply("compare", compareCars));
+  };
+
+  const handleBestDeal = (car) => {
+    setShowLead(true);
+    pushAssistantMessage({
+      title: "Deal capture ready",
+      subtitle: "Best next action",
+      text: `I can get dealer offers for ${car.make} ${car.model}. Enter your mobile number below to unlock the best deal.`,
+    });
+    workspaceRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const handleOpenFinance = (car) => {
+    setActiveView("finance");
+    setResults([car]);
+    setDetailCar(car);
+    setShowLead(true);
+    pushAssistantMessage(getAssistantReply("finance", [car]));
+  };
+
+  const handleOpenInsurance = (car) => {
+    setActiveView("insurance");
+    setResults([car]);
+    setDetailCar(car);
+    setShowLead(true);
+    pushAssistantMessage(getAssistantReply("insurance", [car]));
+  };
+
+  const handleOpenDetails = (car) => {
+    setDetailCar(car);
+    setActiveView("details");
+    setShowLead(true);
+    pushAssistantMessage(getAssistantReply("details", [car]));
+  };
+
+  const handleAskAi = () => {
+    workspaceRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const leadCar =
+    activeView === "details" ? detailCar : results[0] || fallbackCars[0];
+
+  return (
+    <div
+      className="min-h-screen bg-[#f5f7fb] text-[#111111] antialiased"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at top left, rgba(125,211,252,0.16), transparent 25%), radial-gradient(circle at top right, rgba(59,130,246,0.08), transparent 18%), linear-gradient(180deg, #edf5ff 0%, #ffffff 18%, #f6f8fb 54%, #f4f6f8 100%)",
+      }}
+    >
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[520px] bg-[radial-gradient(circle_at_15%_18%,rgba(56,189,248,0.14),transparent_24%),radial-gradient(circle_at_85%_10%,rgba(59,130,246,0.08),transparent_20%),radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.78),transparent_44%)]" />
+
+      <header className="sticky top-0 z-50 border-b border-[rgba(15,23,42,0.06)] bg-[linear-gradient(180deg,rgba(238,246,255,0.84),rgba(255,255,255,0.76))] backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <Logo />
+            <div>
+              <div className="text-[13px] font-semibold tracking-[0.3em]">
+                CDRIVE
+              </div>
+              <div className="text-[10px] uppercase tracking-[0.24em] text-[#64748b]">
+                AI Deal Workspace
               </div>
             </div>
+          </div>
+
+          <div className="hidden items-center gap-3 md:flex">
+            <div className="rounded-full border border-[rgba(15,23,42,0.06)] bg-white/80 px-4 py-2 text-sm text-[#64748b]">
+              {apiStatus === "live"
+                ? "Live pricing connected"
+                : "Fallback pricing ready"}
+            </div>
+            <button className="min-h-11 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)]">
+              Get Best Deal
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="relative z-10">
+        <section className="px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pb-16 lg:pt-10">
+          <div className="mx-auto grid max-w-[1600px] items-center gap-8 lg:grid-cols-[0.92fr_1.08fr]">
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: EASE }}
+            >
+              <SectionLabel>
+                <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+                Premium conversational buying
+              </SectionLabel>
+
+              <h1 className="mt-6 max-w-[10ch] text-5xl font-semibold tracking-[-0.08em] text-[#111111] sm:text-7xl lg:text-[6.6rem] lg:leading-[0.92]">
+                Buy smarter. Close better.
+              </h1>
+
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-[#6b7280]">
+                Find your dream car, compare intelligently, explore finance
+                instantly, and unlock the best deal in one premium, seamless
+                experience.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <button className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-7 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(15,23,42,0.15)]">
+                  Get Best Deal
+                </button>
+                <button
+                  onClick={handleAskAi}
+                  className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-white/80 px-7 text-sm font-semibold text-[#111111] backdrop-blur-xl"
+                >
+                  Ask AI
+                </button>
+              </div>
+
+              <div className="mt-7 flex flex-wrap gap-3">
+                {[
+                  "12 people viewing",
+                  "5 deals closed today",
+                  "Mobile only in step 1",
+                ].map((chip) => (
+                  <div
+                    key={chip}
+                    className="rounded-full border border-[rgba(15,23,42,0.06)] bg-white/75 px-4 py-2 text-sm text-[#6b7280] backdrop-blur-xl"
+                  >
+                    {chip}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.985, y: 22 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: EASE }}
+            >
+              <SoftCard className="overflow-hidden p-4">
+                <div className="relative h-[580px] overflow-hidden rounded-[30px] bg-[#eaf3fb]">
+                  <img
+                    src={activeHeroCar.image}
+                    alt={`${activeHeroCar.make} ${activeHeroCar.model}`}
+                    className="h-full w-full object-cover brightness-[0.9] saturate-[0.92]"
+                  />
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.04),rgba(15,23,42,0.16),rgba(15,23,42,0.50)_78%,rgba(7,12,20,0.72)_100%)]" />
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
+                    className="absolute left-6 top-6"
+                  >
+                    <MetricChip
+                      value="₹ 50,000"
+                      label="Typical savings"
+                      tone="emerald"
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, ease: EASE, delay: 0.25 }}
+                    className="absolute right-6 top-6"
+                  >
+                    <MetricChip
+                      value="2 min"
+                      label="Shortlist speed"
+                      tone="blue"
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.98, y: 16 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.8, ease: EASE, delay: 0.2 }}
+                    className="absolute inset-x-6 bottom-6 rounded-[30px] border border-white/10 bg-[rgba(15,23,42,0.52)] p-5 shadow-[0_20px_48px_rgba(15,23,42,0.18)] backdrop-blur-[22px] sm:p-6"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.22em] text-white/65">
+                          Current highlight
+                        </div>
+                        <div className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-white">
+                          {activeHeroCar.make} {activeHeroCar.model}
+                        </div>
+                        <div className="mt-1 text-sm text-white/75">
+                          {activeHeroCar.variant}
+                        </div>
+                      </div>
+                      <div className="rounded-full bg-emerald-400/12 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-emerald-200">
+                        Save {formatMoney(activeHeroCar.savings)}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-[20px] bg-white/10 p-4">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-white/55">
+                          Market Price
+                        </div>
+                        <div className="mt-2 text-sm line-through text-white/55">
+                          {formatLakh(activeHeroCar.marketPrice)}
+                        </div>
+                      </div>
+                      <div className="rounded-[20px] bg-white/18 p-4 ring-1 ring-white/10">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-sky-200">
+                          Your Price
+                        </div>
+                        <div className="mt-2 text-base font-semibold text-white">
+                          {formatLakh(activeHeroCar.price)}
+                        </div>
+                      </div>
+                      <div className="rounded-[20px] bg-white/10 p-4">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-white/55">
+                          EMI From
+                        </div>
+                        <div className="mt-2 text-sm font-semibold text-white">
+                          {formatMoney(activeHeroCar.emi)}/mo
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              </SoftCard>
+            </motion.div>
+          </div>
+        </section>
+
+        <section
+          ref={workspaceRef}
+          className="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-16"
+        >
+          <div className="mx-auto max-w-[1600px]">
+            <div className="mb-6 flex flex-wrap items-center gap-3">
+              <div className="rounded-full bg-white px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-[#6b7280] shadow-[0_8px_18px_rgba(15,23,42,0.03)]">
+                Workspace
+              </div>
+              <div className="text-sm text-[#6b7280]">
+                Left side holds the conversation. Right side responds to the
+                user’s intent.
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
+              <aside className="lg:sticky lg:top-[94px] lg:h-[calc(100vh-118px)]">
+                <SoftCard className="flex h-full flex-col overflow-hidden bg-white/82">
+                  <div className="border-b border-[rgba(15,23,42,0.06)] p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-full bg-sky-50 p-3 text-sky-600 shadow-[0_8px_18px_rgba(14,165,233,0.05)]">
+                        <Bot className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+                          AI Buying Copilot
+                        </div>
+                        <div className="mt-1 text-xl font-semibold tracking-[-0.05em] text-[#111111]">
+                          CDrive Assistant
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="rounded-full bg-[#f8fafc] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#64748b]">
+                        {getIntentLabel(activeView)}
+                      </div>
+                      <div className="rounded-full bg-[#f8fafc] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-[#64748b]">
+                        Goal: Get Best Deal
+                      </div>
+                    </div>
+
+                    <p className="mt-4 text-sm leading-6 text-[#6b7280]">
+                      Ask naturally. I’ll parse the intent, update the right
+                      canvas, and keep nudging toward the best possible deal.
+                    </p>
+                  </div>
+
+                  <div className="flex-1 space-y-3 overflow-y-auto p-5">
+                    {messages.map((message, i) => (
+                      <AssistantBubble
+                        key={`${message.role}-${i}`}
+                        message={message}
+                      />
+                    ))}
+
+                    <AnimatePresence>
+                      {loading ? (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="inline-flex rounded-full bg-[#f8fafc] px-4 py-3 text-sm text-[#6b7280]"
+                        >
+                          Updating the canvas...
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
+                  </div>
+
+                  <div className="border-t border-[rgba(15,23,42,0.06)] p-5">
+                    <div className="flex flex-wrap gap-2">
+                      {quickPrompts.map((prompt) => (
+                        <button
+                          key={prompt}
+                          onClick={() => runQuery(prompt)}
+                          className="rounded-full border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] px-3 py-2 text-xs text-[#6b7280] transition hover:bg-white"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex gap-3">
+                      <input
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && runQuery(input)}
+                        className="min-h-12 flex-1 rounded-full border border-[rgba(15,23,42,0.05)] bg-[#f8fafc] px-4 text-sm text-[#111111] outline-none focus:border-sky-200"
+                        placeholder="Compare Creta vs Seltos"
+                      />
+                      <button
+                        onClick={() => runQuery(input)}
+                        className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-5 text-sm font-semibold text-[#111111] shadow-[0_8px_20px_rgba(15,23,42,0.04)]"
+                      >
+                        Ask
+                      </button>
+                    </div>
+                  </div>
+                </SoftCard>
+              </aside>
+
+              <section className="min-w-0">
+                <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+                      Dynamic canvas
+                    </div>
+                    <div className="mt-1 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
+                      {canvasTitle}
+                    </div>
+                    <div className="mt-2 text-sm text-[#6b7280]">
+                      {lastQuery
+                        ? `Query: ${lastQuery}`
+                        : "Intent-driven results"}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {showLead ? (
+                      <div className="rounded-full bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+                        High intent detected
+                      </div>
+                    ) : null}
+                    <div className="rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-4 py-2 text-sm text-[#6b7280]">
+                      Unlock best price instantly
+                    </div>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  <CompareBar
+                    selectedCars={selectedCars}
+                    onOpenCompare={handleOpenCompare}
+                    onRemove={(id) =>
+                      setSelectedCars((prev) =>
+                        prev.filter((item) => item.id !== id),
+                      )
+                    }
+                    onClear={() => setSelectedCars([])}
+                  />
+                </AnimatePresence>
+
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeView}
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ duration: 0.45, ease: EASE }}
+                  >
+                    {activeView === "results" && (
+                      <div className="grid gap-5 md:grid-cols-2">
+                        {results.map((car) => (
+                          <ResultCard
+                            key={car.id}
+                            car={car}
+                            selected={selectedCars.some(
+                              (item) => item.id === car.id,
+                            )}
+                            onToggleCompare={handleToggleCompare}
+                            onBestDeal={handleBestDeal}
+                            onOpenDetails={handleOpenDetails}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {activeView === "compare" && (
+                      <CompareCanvas
+                        results={
+                          results.length ? results : fallbackCars.slice(0, 2)
+                        }
+                        onBestDeal={handleBestDeal}
+                        onOpenDetails={handleOpenDetails}
+                      />
+                    )}
+
+                    {activeView === "finance" && (
+                      <FinanceCanvas
+                        results={results}
+                        onBestDeal={handleBestDeal}
+                      />
+                    )}
+
+                    {activeView === "insurance" && (
+                      <InsuranceCanvas
+                        results={results}
+                        onBestDeal={handleBestDeal}
+                      />
+                    )}
+
+                    {activeView === "sell" && (
+                      <SellCanvas onBestDeal={handleBestDeal} />
+                    )}
+
+                    {activeView === "details" && (
+                      <CarDetailsPage
+                        car={detailCar}
+                        allCars={fallbackCars}
+                        onBack={() => setActiveView("results")}
+                        onBestDeal={handleBestDeal}
+                        onOpenFinance={handleOpenFinance}
+                        onOpenInsurance={handleOpenInsurance}
+                        onOpenDetails={handleOpenDetails}
+                      />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {showLead ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 24 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 16 }}
+                      transition={{ duration: 0.45, ease: EASE }}
+                      className="mt-6"
+                    >
+                      <SoftCard className="overflow-hidden">
+                        <div className="grid gap-0 md:grid-cols-[1.05fr_0.95fr]">
+                          <div className="p-6">
+                            <div className="text-[11px] uppercase tracking-[0.22em] text-[#6b7280]">
+                              Next step
+                            </div>
+                            <div className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-[#111111]">
+                              {getLeadTitle(activeView, leadCar)}
+                            </div>
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#6b7280]">
+                              Show value first, then ask for the number. This
+                              keeps friction low and makes the conversion ask
+                              feel natural instead of pushy.
+                            </p>
+
+                            <div className="mt-5 flex flex-wrap gap-3">
+                              {[
+                                leadCar
+                                  ? `3 dealers can quote on ${leadCar.model}`
+                                  : "Dealer offers unlocked",
+                                "Best deal in one step",
+                                "No long form upfront",
+                              ].map((item) => (
+                                <div
+                                  key={item}
+                                  className="rounded-full border border-[rgba(15,23,42,0.06)] bg-[#f8fafc] px-4 py-2 text-sm text-[#6b7280]"
+                                >
+                                  {item}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-[#f8fafc] p-6">
+                            <div className="rounded-[24px] bg-white p-5 shadow-[0_8px_20px_rgba(15,23,42,0.03)]">
+                              <div className="text-[11px] uppercase tracking-[0.18em] text-[#6b7280]">
+                                Step 1
+                              </div>
+                              <div className="mt-2 text-xl font-semibold tracking-[-0.04em] text-[#111111]">
+                                {leadCar
+                                  ? `Get dealer offers for ${leadCar.model}`
+                                  : "Unlock the best deal"}
+                              </div>
+
+                              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                                <div className="relative flex-1">
+                                  <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+                                  <input
+                                    value={mobile}
+                                    onChange={(e) =>
+                                      setMobile(
+                                        e.target.value
+                                          .replace(/\D/g, "")
+                                          .slice(0, 10),
+                                      )
+                                    }
+                                    placeholder="Enter mobile number"
+                                    className="min-h-12 w-full rounded-full border border-[rgba(15,23,42,0.05)] bg-[#f8fafc] pl-11 pr-4 text-sm text-[#111111] outline-none focus:border-sky-200"
+                                  />
+                                </div>
+                                <button className="min-h-12 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]">
+                                  Get Best Deal
+                                </button>
+                              </div>
+
+                              <div className="mt-4 flex items-start gap-2 text-xs text-[#6b7280]">
+                                <Check className="mt-0.5 h-4 w-4 text-emerald-600" />
+                                Mobile only for step 1. City, finance,
+                                insurance, and exchange can come later.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </SoftCard>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 pb-24 sm:px-6 lg:px-8 lg:pb-28">
+          <div className="mx-auto max-w-[1600px] space-y-6">
+            <HotDealsCarousel deals={hotDeals} />
+            <TrendingSearchesSection
+              searches={trendingSearches}
+              onSearch={runQuery}
+            />
+            <LatestLaunchesSection items={latestLaunches} />
+            <CustomerReviewsSection cars={fallbackCars} />
+            <WhyCDriveSection />
           </div>
         </section>
       </main>
 
-      <motion.div
-        animate={{
-          y: [0, -3, 0],
-        }}
-        transition={{ duration: 4.6, repeat: Infinity, ease: "easeInOut" }}
-        className="fixed inset-x-0 bottom-4 z-[75] px-4 sm:px-6 lg:px-8"
-      >
-        <div className="mx-auto flex max-w-[1320px] flex-col gap-3 rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-white/70 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-sky-50 text-sky-600 shadow-[0_8px_18px_rgba(14,165,233,0.05)]">
-              <Wallet className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-[#111111]">
-                {urgencyLine}
-              </div>
-              <div className="text-xs text-[#6b7280]">
-                A cleaner offer is ready to lock.
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <MagneticButton className="min-h-11 rounded-full border border-[rgba(0,0,0,0.06)] bg-white px-5 text-sm font-semibold text-[#111111]">
-              View savings
-            </MagneticButton>
-            <MagneticButton className="min-h-11 rounded-full border border-sky-100 bg-sky-50 px-6 text-sm font-semibold text-sky-700 shadow-[0_8px_20px_rgba(14,165,233,0.05)]">
-              Get Best Deal
-            </MagneticButton>
-          </div>
-        </div>
-      </motion.div>
-
-      <motion.div
-        animate={{ y: [0, -4, 0] }}
-        transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut" }}
-        className="fixed bottom-28 right-4 z-[76] w-[calc(100vw-2rem)] max-w-[380px] rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-white/70 p-4 shadow-[0_12px_34px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:right-6"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-[#111111]">
-              CDrive AI
-            </div>
-            <div className="text-xs text-[#6b7280]">Page controller</div>
-          </div>
-          <div className="rounded-full bg-sky-50 p-2 text-sky-600 shadow-[0_8px_18px_rgba(14,165,233,0.05)]">
-            <Bot className="h-4 w-4" />
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {quickPrompts.slice(0, 3).map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => handlePrompt(prompt)}
-              className="rounded-full border border-[rgba(0,0,0,0.06)] bg-[#fafafa] px-3 py-2 text-xs text-[#6b7280]"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <input
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submitChat()}
-            className="min-h-11 flex-1 rounded-full border border-[rgba(0,0,0,0.05)] bg-[#fafafa] px-4 text-sm text-[#111111] outline-none focus:border-sky-200"
-            placeholder="Ask for your next move"
-          />
-          <MagneticButton className="min-h-11 rounded-full border border-[rgba(0,0,0,0.06)] bg-white px-5 text-sm font-semibold text-[#111111]">
-            <Zap className="h-4 w-4" />
-          </MagneticButton>
-        </div>
-      </motion.div>
+      <div className="fixed bottom-4 left-4 right-4 z-50 lg:left-auto lg:right-8 lg:w-auto">
+        <motion.button
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.99 }}
+          className="flex min-h-14 w-full items-center justify-center gap-3 rounded-full border border-[rgba(15,23,42,0.06)] bg-[#111111] px-6 text-sm font-semibold text-white shadow-[0_20px_50px_rgba(15,23,42,0.24)] lg:w-auto"
+        >
+          <span>Get Best Deal</span>
+          <ArrowRight className="h-4.5 w-4.5" />
+        </motion.button>
+      </div>
     </div>
   );
 }

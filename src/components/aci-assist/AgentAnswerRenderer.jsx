@@ -66,6 +66,7 @@ export default function AgentAnswerRenderer({ widgets, onAction }) {
             return <VehicleFeaturesInline key={key} widget={widget} onAction={onAction} />;
           case "variant_selector":
             return <VariantSelectorInline key={key} widget={widget} onAction={onAction} />;
+          case "vehicle_feature_answer":
           case "variant_feature_availability":
             return <FeatureAvailabilityInline key={key} widget={widget} onAction={onAction} />;
           case "vehicle_comparison":

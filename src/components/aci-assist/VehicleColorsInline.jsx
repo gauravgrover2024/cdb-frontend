@@ -17,7 +17,7 @@ const colorToCss = (name = "") => {
 };
 
 export default function VehicleColorsInline({ widget = {}, onAction }) {
-  const rows = asArray(widget.rows || widget.records || widget.data?.rows);
+  const rows = asArray(widget.colors || widget.data?.colors || widget.rows || widget.records || widget.data?.rows);
 
   return (
     <WidgetFrame title={widget.title || "Vehicle colors"} subtitle={`${rows.length} color${rows.length === 1 ? "" : "s"}`} actions={widget.actions} onAction={onAction}>
@@ -28,11 +28,21 @@ export default function VehicleColorsInline({ widget = {}, onAction }) {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((row, index) => (
-            <div key={`${row.name}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-center gap-3">
-                <span className="h-9 w-9 rounded-2xl border border-slate-300 shadow-inner" style={{ background: colorToCss(row.name) }} />
+            <div key={`${row.colorName || row.name}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+              {row.imageUrl || row.image_url ? (
+                <img
+                  src={row.imageUrl || row.image_url}
+                  alt={row.colorName || row.name || "Vehicle color"}
+                  className="h-32 w-full bg-white object-contain"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="h-32 w-full" style={{ background: row.hex || colorToCss(row.colorName || row.name) }} />
+              )}
+              <div className="flex items-center gap-3 p-3">
+                <span className="h-9 w-9 rounded-2xl border border-slate-300 shadow-inner" style={{ background: row.hex || colorToCss(row.colorName || row.name) }} />
                 <div>
-                  <p className="text-sm font-black text-slate-900">{row.name}</p>
+                  <p className="text-sm font-black text-slate-900">{row.colorName || row.name}</p>
                   {row.variant ? <p className="text-xs font-semibold text-slate-500">{row.variant}</p> : null}
                 </div>
               </div>

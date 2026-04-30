@@ -15,7 +15,11 @@ const SummaryCard = ({ label, value, note }) => (
 
 export default function InlineReportRenderer({ widget = {}, onAction }) {
   const data = widget.data || widget;
-  const summaries = asArray(data.summaryCards || data.summaries || widget.summaryCards);
+  const summaryObject = widget.summary && typeof widget.summary === "object" ? widget.summary : {};
+  const derivedSummaries = Object.entries(summaryObject)
+    .filter(([key, value]) => !["modules", "cashCarLogic", "cashCarDateLogic"].includes(key) && ["number", "string"].includes(typeof value))
+    .map(([key, value]) => ({ label: key, value }));
+  const summaries = asArray(data.summaryCards || data.summaries || widget.summaryCards || derivedSummaries);
   const records = data.records || data.rows || widget.records;
   const moduleTables = data.moduleTables || data.tables || widget.tables;
 
