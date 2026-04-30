@@ -21,6 +21,8 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import { vehiclesApi } from "../api/vehicles";
+import { featuresApi } from "../api/features";
 
 const EASE = [0.22, 1, 0.36, 1];
 
@@ -506,35 +508,63 @@ function formatApiCars(items = []) {
         item.version ||
         item.grade ||
         "Variant";
-      const fuel = item.fuel || item.fuelType || "Petrol";
+      const fuel = item.fuel || item.fuelType || item.fuel_type || "Petrol";
       const transmission =
-        item.transmission || item.transmissionType || "Manual";
+        item.transmission || item.transmissionType || item.transmission_type || "Manual";
       const price = Number(
         item.price ||
+          item.exShowroom ||
           item.exShowroomPrice ||
-          item.onRoadPrice ||
-          item.minPrice ||
+          item.ex_showroom ||
           0,
       );
       if (!price) return null;
 
-      const marketPrice = Math.round(price * 1.03);
+      const marketPrice = Number(
+        item.onRoadPrice || 
+        item.on_road_price_cardekho || 
+        Math.round(price * 1.12)
+      );
       const savings = marketPrice - price;
-      const emi = Math.round(price / 58);
+      const emi = Math.round(price / 60);
+
+      // Extract features and colors from backend if available
+      const rawFeatures = Array.isArray(item.features) 
+        ? item.features.map(f => typeof f === 'object' ? f.name : f)
+        : typeof item.features === "string" 
+          ? item.features.split(",").map(f => f.trim()) 
+          : [];
+
+      const features = rawFeatures.length 
+        ? rawFeatures 
+        : fallbackCars[index % fallbackCars.length].features;
+
+      const rawColors = Array.isArray(item.colors_normalized)
+        ? item.colors_normalized
+        : Array.isArray(item.colors) 
+          ? item.colors 
+          : typeof item.colors === "string" 
+            ? item.colors.split(",").map(c => c.trim()) 
+            : [];
+
+      const colors = rawColors.length
+        ? rawColors
+        : fallbackCars[index % fallbackCars.length].colors;
 
       return {
-        ...fallbackCars[index % fallbackCars.length],
-        id: item.id || item._id || `${make}-${model}-${variant}-${index}`,
+        id: item.id || item._id || item.vehicleId || `${make}-${model}-${variant}-${index}`,
         make,
         model,
         variant,
-        bodyType: item.bodyType || item.segment || "Car",
+        bodyType: item.bodyType || item.segment || item.body_type || "Car",
         fuel,
         transmission,
         price,
         marketPrice,
         savings,
         emi,
+        features,
+        colors,
         image:
           item.image ||
           item.imageUrl ||
@@ -543,7 +573,17 @@ function formatApiCars(items = []) {
           fallbackCars[index % fallbackCars.length].image,
         valueProposition:
           item.valueProposition ||
-          "Dealer-linked pricing with a cleaner, faster buying journey.",
+          `Premium ${variant} variant with verified pricing and dealer-backed offers.`,
+        // Non-essential fallbacks
+        ...fallbackCars[index % fallbackCars.length],
+        // Overwrite essential fields again to be sure
+        id: item.id || item._id || item.vehicleId || `${make}-${model}-${variant}-${index}`,
+        make,
+        model,
+        variant,
+        price,
+        features,
+        colors,
       };
     })
     .filter(Boolean);
@@ -2115,9 +2155,9 @@ export default function CDrivePremiumPortal() {
       text: "I can shortlist cars, compare options, open finance and insurance views, and guide you toward the best deal.",
     },
   ]);
-  const [input, setInput] = useState("SUV under 20L");
+  const [input, setInput] = useState("SUV");
   const [activeView, setActiveView] = useState("results");
-  const [results, setResults] = useState(fallbackCars.slice(0, 4));
+  const [results, setResults] = useState([]);
   const [selectedCars, setSelectedCars] = useState([]);
   const [showLead, setShowLead] = useState(true);
   const [mobile, setMobile] = useState("");
@@ -2140,7 +2180,7 @@ export default function CDrivePremiumPortal() {
   }, [activeView]);
 
   useEffect(() => {
-    runQuery("SUV under 20L", { silentUserMessage: true });
+    runQuery("SUV", { silentUserMessage: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2156,38 +2196,82 @@ export default function CDrivePremiumPortal() {
   };
 
   const fetchCarsFromApi = async (q) => {
+    console.log("CDrive: Fetching cars for query:", q);
     try {
-      if (
-        typeof window !== "undefined" &&
-        window.featuresApi &&
-        typeof window.featuresApi.getVariantsWithPrice === "function"
-      ) {
-        const res = await window.featuresApi.getVariantsWithPrice({
-          slim: "1",
-          includeDiscontinued: "0",
-          q,
-        });
+      setLoading(true);
+      // Try featuresApi first
+      let res = await featuresApi.getVariantsWithPrice({
+        slim: "1",
+        includeDiscontinued: "0",
+        q,
+      });
 
-        const payload = Array.isArray(res)
-          ? res
-          : Array.isArray(res?.data)
-            ? res.data
-            : Array.isArray(res?.results)
-              ? res.results
-              : Array.isArray(res?.variants)
-                ? res.variants
-                : [];
+      let payload = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.results)
+            ? res.results
+            : Array.isArray(res?.variants)
+              ? res.variants
+              : [];
 
-        const mapped = formatApiCars(payload);
-        if (mapped.length) {
-          setApiStatus("live");
-          return mapped;
-        }
+      // If no results from featuresApi, try vehiclesApi.getAll with search
+      if (!payload.length && q) {
+        const vRes = await vehiclesApi.getAll({ q });
+        payload = Array.isArray(vRes?.data) ? vRes.data : [];
+      }
+      
+      // If still no results and q was "SUV under 20L", try a broader search
+      if (!payload.length && q === "SUV under 20L") {
+        const bRes = await vehiclesApi.getAll({ limit: 10 });
+        payload = Array.isArray(bRes?.data) ? bRes.data : [];
+      }
+
+      let mapped = formatApiCars(payload);
+      
+      if (mapped.length) {
+        // Try to fetch real images for these cars
+        const withImages = await Promise.all(
+          mapped.map(async (car) => {
+            try {
+              const mediaRes = await vehiclesApi.getMedia(car.make, car.model, car.variant);
+              const mediaData = mediaRes?.data || [];
+              
+              // Prioritize color-specific photos as requested
+              const colorPhotos = mediaData
+                .filter(m => m.image_url && m.color_name)
+                .map(m => m.image_url);
+              
+              const otherImages = mediaData
+                .filter(m => m.url && !m.color_name)
+                .map(m => m.url);
+
+              const finalImages = colorPhotos.length ? colorPhotos : otherImages;
+
+              if (finalImages.length) {
+                return { ...car, image: finalImages[0], gallery: finalImages };
+              }
+            } catch (e) {
+              console.warn("Failed to fetch image for", car.model);
+            }
+            return car;
+          })
+        );
+        
+        console.log("CDrive: Mapped", withImages.length, "cars from API");
+        setApiStatus("live");
+        setLoading(false);
+        return withImages;
       }
     } catch (error) {
+      console.error("CDrive: API fetch error:", error);
       setApiStatus("fallback");
+    } finally {
+      setLoading(false);
     }
 
+    console.log("CDrive: No results from API, falling back");
     setApiStatus("fallback");
     return [];
   };
@@ -2220,17 +2304,16 @@ export default function CDrivePremiumPortal() {
     setLastQuery(q);
 
     let finalResults = compareSeed;
-
-    if (view === "results" || view === "finance" || view === "insurance") {
-      const live = await fetchCarsFromApi(q);
-      if (live.length) {
-        finalResults =
-          view === "results"
-            ? live.slice(0, 4)
-            : live.length
-              ? live
-              : compareSeed;
+    const live = await fetchCarsFromApi(q);
+    
+    if (live && live.length) {
+      if (view === "compare") {
+        finalResults = live.slice(0, 3);
+      } else {
+        finalResults = live.slice(0, 4);
       }
+    } else {
+      finalResults = compareSeed;
     }
 
     if (view === "compare" && selectedCars.length >= 2) {
@@ -2277,6 +2360,34 @@ export default function CDrivePremiumPortal() {
     workspaceRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "start",
+    });
+  };
+
+  const handleShowAll = async () => {
+    setLoading(true);
+    const res = await vehiclesApi.getAll({ limit: 40 });
+    const payload = Array.isArray(res?.data) ? res.data : [];
+    const mapped = formatApiCars(payload);
+    
+    // Add images
+    const withImages = await Promise.all(
+      mapped.map(async (car) => {
+        try {
+          const mRes = await vehiclesApi.getMedia(car.make, car.model, car.variant);
+          const mData = mRes?.data || [];
+          const imgs = mData.filter(m => m.image_url || m.url).map(m => m.image_url || m.url);
+          if (imgs.length) return { ...car, image: imgs[0], gallery: imgs };
+        } catch(e) {}
+        return car;
+      })
+    );
+
+    setResults(withImages);
+    setActiveView("results");
+    setLoading(false);
+    pushAssistantMessage({
+      title: "Full Inventory",
+      text: `I've loaded ${withImages.length} vehicles from our current catalog.`,
     });
   };
 
@@ -2665,6 +2776,17 @@ export default function CDrivePremiumPortal() {
                       </div>
                     )}
 
+                    {activeView === "results" && results.length > 0 && results.length < 20 && (
+                      <div className="mt-8 flex justify-center">
+                        <button
+                          onClick={handleShowAll}
+                          className="min-h-14 rounded-full border border-[rgba(15,23,42,0.06)] bg-white px-8 text-sm font-semibold text-[#111111] shadow-[0_12px_28px_rgba(15,23,42,0.06)] transition hover:-translate-y-1"
+                        >
+                          Show All Cars
+                        </button>
+                      </div>
+                    )}
+
                     {activeView === "compare" && (
                       <CompareCanvas
                         results={
@@ -2696,7 +2818,7 @@ export default function CDrivePremiumPortal() {
                     {activeView === "details" && (
                       <CarDetailsPage
                         car={detailCar}
-                        allCars={fallbackCars}
+                        allCars={results.length ? results : fallbackCars}
                         onBack={() => setActiveView("results")}
                         onBestDeal={handleBestDeal}
                         onOpenFinance={handleOpenFinance}
