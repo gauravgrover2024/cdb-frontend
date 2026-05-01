@@ -21,9 +21,7 @@ export default function AgentInput({ value, onChange, onSubmit, disabled, placeh
   return (
     <div className="rounded-3xl border border-slate-300 bg-white p-2 shadow-[0_28px_80px_-48px_rgba(15,23,42,0.95)] ring-1 ring-slate-100 focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-100">
       <div className="flex items-end gap-2">
-        <div className="hidden rounded-2xl bg-slate-950 p-3 text-white shadow-sm sm:block">
-          <Sparkles size={18} />
-        </div>
+        
         <textarea
           ref={ref}
           value={value}
