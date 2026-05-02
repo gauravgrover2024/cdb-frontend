@@ -12,7 +12,6 @@ import {
   Clock3,
   DatabaseZap,
   FileQuestion,
-  Loader2,
   Info,
   Layers3,
   MapPin,
@@ -2807,37 +2806,6 @@ function LoadingWorkspace() {
   );
 }
 
-function CanvasBusyOverlay() {
-  return (
-    <div
-      className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center rounded-[inherit] bg-white/70 backdrop-blur-[2px] dark:bg-slate-950/60"
-      role="status"
-      aria-live="polite"
-      aria-label="Updating workspace"
-    >
-      <Loader2
-        className="h-8 w-8 animate-spin text-violet-600 dark:text-violet-400"
-        aria-hidden
-      />
-      <span className="mt-2 text-xs font-bold text-slate-600 dark:text-slate-300">
-        Updating…
-      </span>
-    </div>
-  );
-}
-
-function wrapBusyCanvas(loading, node) {
-  if (!loading) return node;
-  return (
-    <div className="relative isolate rounded-[inherit]">
-      <CanvasBusyOverlay />
-      <div className="pointer-events-none opacity-60 transition-opacity duration-150">
-        {node}
-      </div>
-    </div>
-  );
-}
-
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -2862,7 +2830,7 @@ export default function AgentWorkspaceCanvas({
 
   const widgets = useMemo(() => asArray(message?.widgets), [message?.widgets]);
 
-  if (!message && loading) {
+  if (loading) {
     return <LoadingWorkspace />;
   }
 
@@ -2870,15 +2838,13 @@ export default function AgentWorkspaceCanvas({
     return <EmptyWorkspace onAsk={onAsk} />;
   }
 
-  const wrapBusy = (node) => wrapBusyCanvas(loading, node);
-
   if (message.ambiguity || findWidget(message, "ambiguity")) {
     return (
       <AmbiguityCanvas
         message={message}
         onAmbiguitySelect={onAmbiguitySelect}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
@@ -2889,13 +2855,13 @@ export default function AgentWorkspaceCanvas({
 
   const pricelist = findWidget(message, "vehicle_pricelist");
   if (pricelist) {
-    return wrapBusy(
+    return (
       <VehiclePricelistCanvas
         message={message}
         widget={pricelist}
         onAction={onAction}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
@@ -2904,12 +2870,12 @@ export default function AgentWorkspaceCanvas({
     "vehicle_colors_gallery",
   ]);
   if (colors) {
-    return wrapBusy(
+    return (
       <VehicleColorsCanvas
         message={message}
         widget={colors}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
@@ -2918,24 +2884,24 @@ export default function AgentWorkspaceCanvas({
     "feature_answer",
   ]);
   if (featureAnswer) {
-    return wrapBusy(
+    return (
       <VehicleFeatureAnswerCanvas
         message={message}
         widget={featureAnswer}
         onAction={onAction}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
   const features = findWidget(message, "vehicle_features");
   if (features) {
-    return wrapBusy(
+    return (
       <VehicleFeaturesCanvas
         message={message}
         widget={features}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
@@ -2994,36 +2960,36 @@ export default function AgentWorkspaceCanvas({
 
   const disbursal = findWidget(message, "loan_disbursal_report");
   if (disbursal || message.intent === "loan_disbursal_report") {
-    return wrapBusy(
+    return (
       <LoanDisbursalReportCanvas
         message={message}
         reportWidget={disbursal}
         countWidget={findWidget(message, "count_summary")}
         onAction={onAction}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
   const business = findWidget(message, "loan_business_report");
   if (business) {
-    return wrapBusy(
+    return (
       <LoanBusinessReportCanvas
         message={message}
         widget={business}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
   const closure = findWidget(message, "loan_closure_card");
   if (closure) {
-    return wrapBusy(
+    return (
       <LoanClosureCanvas
         widget={closure}
         onAction={onAction}
         footer={<ModernCanvasFooter {...footerProps} />}
-      />,
+      />
     );
   }
 
@@ -3031,7 +2997,7 @@ export default function AgentWorkspaceCanvas({
   const generic = widgets.find((widget) => rowsFrom(widget).length) ||
     widgets[0] || { type: message.intent, title: message.intent, rows: [] };
 
-  return wrapBusy(
+  return (
     <AnimatePresence mode="wait">
       <ModernCanvasShell
         key={`${message.id}-${widgets.length}`}
@@ -3043,6 +3009,6 @@ export default function AgentWorkspaceCanvas({
           No specific renderer for this widget type.
         </p>
       </ModernCanvasShell>
-    </AnimatePresence>,
+    </AnimatePresence>
   );
 }

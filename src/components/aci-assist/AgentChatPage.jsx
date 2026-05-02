@@ -107,7 +107,7 @@ const deriveDashboardRoute = (action = {}) => {
 export default function AgentChatPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const aciChatScrollRef = useRef(null);
+  const scrollRef = useRef(null);
   const abortRef = useRef(null);
 
   const [sessionId, setSessionId] = useState(createSessionId);
@@ -129,9 +129,7 @@ export default function AgentChatPage() {
   );
 
   useEffect(() => {
-    const el = aciChatScrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
 
   const assistantMessages = useMemo(
@@ -434,7 +432,7 @@ export default function AgentChatPage() {
 
         <main className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
           <aside className="xl:sticky xl:top-5 xl:self-start">
-            <div className="flex max-h-[calc(100vh-9rem)] min-h-[min(640px,calc(100dvh-12rem))] flex-col rounded-[24px] border border-slate-200/60 bg-white p-5 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)] xl:min-h-[640px]">
+            <div className="flex max-h-[calc(100vh-9rem)] min-h-[640px] flex-col rounded-[24px] border border-slate-200/60 bg-white p-5 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)]">
               <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-indigo-600 text-white shadow-sm shadow-indigo-200">
@@ -469,10 +467,7 @@ export default function AgentChatPage() {
                 </div>
               ) : null}
 
-              <div
-                ref={aciChatScrollRef}
-                className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1"
-              >
+              <div className="min-h-0 flex-1 overflow-auto pr-1">
                 {empty ? (
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
@@ -540,6 +535,7 @@ export default function AgentChatPage() {
                       Updating workspace...
                     </div>
                   ) : null}
+                  <div ref={scrollRef} />
                 </div>
               </div>
 
