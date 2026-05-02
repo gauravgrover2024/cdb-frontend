@@ -13,6 +13,8 @@ import {
   BankOutlined,
   UserOutlined,
   InfoCircleOutlined,
+  LoadingOutlined,
+  FileOutlined,
 } from "@ant-design/icons";
 import {
   BadgeIndianRupee,
@@ -25,6 +27,12 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import {
+  escapeHtmlText,
+  scheduleWindowPrint,
+} from "../../utils/scheduleWindowPrint";
+import { insuranceApi } from "../../api/insurance";
+import API_BASE_URL from "../../config/apiBaseUrl";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 const EMPTY_LIST = Object.freeze([]);
@@ -59,10 +67,12 @@ const toINR = (num) =>
 const openPreviewPrintWindow = ({ title, lines = [] }) => {
   const popup = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
   if (!popup) return false;
+  const safeTitle = escapeHtmlText(title);
+  const safeBody = escapeHtmlText(lines.filter(Boolean).join("\n"));
   popup.document.write(`<!doctype html>
 <html>
   <head>
-    <title>${title}</title>
+    <title>${safeTitle}</title>
     <meta charset="utf-8" />
     <style>
       body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
@@ -71,13 +81,12 @@ const openPreviewPrintWindow = ({ title, lines = [] }) => {
     </style>
   </head>
   <body>
-    <h1>${title}</h1>
-    <pre>${lines.filter(Boolean).join("\n")}</pre>
+    <h1>${safeTitle}</h1>
+    <pre>${safeBody}</pre>
   </body>
 </html>`);
   popup.document.close();
-  popup.focus();
-  popup.print();
+  scheduleWindowPrint(popup);
   return true;
 };
 
@@ -301,6 +310,106 @@ const ADDON_CATALOG = [
   "Outstation Emergency Cover",
   "Battery Cover",
 ];
+
+const API_BASE_PREVIEW = String(API_BASE_URL || "").replace(/\/+$/, "");
+
+const looksLikeR2HostPreview = (value = "") => {
+  try {
+    const parsed = new URL(String(value || ""));
+    const host = String(parsed.hostname || "").toLowerCase();
+    return host.includes("r2.dev") || host.includes("cloudflarestorage.com");
+  } catch {
+    return false;
+  }
+};
+
+const buildAccessibleDocumentUrlPreview = (value = "") => {
+  const url = String(value || "").trim();
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  const isR2Path =
+    looksLikeR2HostPreview(url) ||
+    url.startsWith("/uploads/") ||
+    url.startsWith("uploads/");
+  if (!isR2Path || !API_BASE_PREVIEW) return url;
+  return `${API_BASE_PREVIEW}/api/upload/file?url=${encodeURIComponent(url)}`;
+};
+
+/** Merge list-row / partial API payloads into the shape the preview UI expects */
+const normalizeCaseForPreview = (raw = {}) => {
+  if (!raw || typeof raw !== "object") return {};
+  const snap =
+    raw.customerSnapshot && typeof raw.customerSnapshot === "object"
+      ? raw.customerSnapshot
+      : {};
+  const coalesce = (...vals) => vals.find((v) => hasValue(v));
+
+  const docs = Array.isArray(raw.documents)
+    ? raw.documents
+    : Array.isArray(raw.document_library)
+      ? raw.document_library
+      : [];
+
+  const ledger = Array.isArray(raw.paymentHistory)
+    ? raw.paymentHistory
+    : Array.isArray(raw.payment_history)
+      ? raw.payment_history
+      : [];
+
+  return {
+    ...raw,
+    customerName: coalesce(raw.customerName, snap.customerName),
+    mobile: coalesce(raw.mobile, snap.primaryMobile, raw.primaryMobile),
+    email: coalesce(raw.email, snap.email),
+    panNumber: coalesce(raw.panNumber, snap.panNumber),
+    residenceAddress: coalesce(raw.residenceAddress, snap.residenceAddress),
+    pincode: coalesce(raw.pincode, snap.pincode),
+    city: coalesce(raw.city, snap.city),
+    documents: docs,
+    quotes: Array.isArray(raw.quotes) ? raw.quotes : [],
+    paymentHistory: ledger,
+    payoutPercent:
+      raw.payoutPercent ?? raw.payoutPercentage ?? raw.payout_percent,
+    dealerChannelNumber: coalesce(
+      raw.dealerChannelNumber,
+      raw.dealer_channel_number,
+    ),
+    acceptedQuoteId: coalesce(raw.acceptedQuoteId, raw.accepted_quote_id),
+    nomineeAge: coalesce(raw.nomineeAge, raw.nominee_age),
+    nomineeRelationship: coalesce(
+      raw.nomineeRelationship,
+      raw.nominee_relation,
+    ),
+    fuelType: coalesce(raw.fuelType, raw.vehicleFuelType),
+  };
+};
+
+const daysUntilDate = (value) => {
+  if (!hasValue(value)) return null;
+  const end = new Date(value);
+  if (Number.isNaN(end.getTime())) return null;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  return Math.round((end.getTime() - start.getTime()) / 86400000);
+};
+
+const pickSoonestExpiry = (data = {}) => {
+  const od = data.newOdExpiryDate;
+  const tp = data.newTpExpiryDate;
+  const ew = data.ewExpiryDate;
+  const candidates = [od, tp, ew].filter(Boolean);
+  if (!candidates.length) return { raw: null, days: null };
+  let best = candidates[0];
+  let bestDays = daysUntilDate(best);
+  candidates.slice(1).forEach((d) => {
+    const dd = daysUntilDate(d);
+    if (bestDays === null || (dd !== null && dd < bestDays)) {
+      best = d;
+      bestDays = dd;
+    }
+  });
+  return { raw: best, days: bestDays };
+};
 
 const getQuoteRowId = (q, index = 0) =>
   q?.id ?? q?._id ?? q?.quoteId ?? `quote-${index}`;
@@ -930,7 +1039,7 @@ const STAGE_CATALOG = [
   {
     originalStep: 7,
     key: "documents",
-    title: "Gallery",
+    title: "Documents",
     icon: FileText,
     tone: "sage",
   },
@@ -943,16 +1052,64 @@ const STAGE_CATALOG = [
   },
 ];
 
-const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) => {
+const InsurancePreview = ({
+  visible,
+  onClose,
+  data: incomingData,
+  initialStageKey = null,
+}) => {
   const [activeStage, setActiveStage] = useState("customer");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1440 : window.innerWidth,
   );
+  const [detailPayload, setDetailPayload] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const sectionRefs = useRef({});
   const contentScrollRef = useRef(null);
   const suppressScrollSyncUntilRef = useRef(0);
+
+  useEffect(() => {
+    if (!visible || !incomingData) {
+      setDetailPayload(null);
+      setDetailLoading(false);
+      return undefined;
+    }
+    const mongoId = String(incomingData._id || "").trim();
+    setDetailPayload(null);
+    if (!mongoId) {
+      setDetailLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    insuranceApi
+      .getById(mongoId)
+      .then((res) => {
+        if (cancelled) return;
+        const body = res?.data?.data ?? res?.data ?? null;
+        if (body && typeof body === "object") setDetailPayload(body);
+      })
+      .catch((err) => {
+        console.error("[InsurancePreview] Failed to load full case:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, incomingData?._id]);
+
+  const data = useMemo(() => {
+    if (!incomingData) return {};
+    const merged =
+      detailPayload && typeof detailPayload === "object"
+        ? { ...incomingData, ...detailPayload }
+        : incomingData;
+    return normalizeCaseForPreview(merged);
+  }, [incomingData, detailPayload]);
 
   const isMobileViewport = viewportWidth < 768;
   const isNewCar = String(data?.vehicleType || "").trim() === "New Car";
@@ -1145,17 +1302,25 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
     .join(" ");
   const initials = getInitials(customerName);
   const handleDownloadPreview = () => {
+    const exp = pickSoonestExpiry(data || {});
     const opened = openPreviewPrintWindow({
       title: `${customerName} Insurance Summary`,
       lines: [
         caseId ? `Case ID: ${caseId}` : "",
         `Customer: ${customerName}`,
         vehicleLabel ? `Vehicle: ${vehicleLabel}` : "",
+        data?.registrationNumber
+          ? `Registration: ${data.registrationNumber}`
+          : "",
         acceptedQuote?.insuranceCompany
           ? `Accepted Quote: ${acceptedQuote.insuranceCompany}`
           : "",
         `Premium: ${toINR(premiumAmount)}`,
         `Status: ${caseStatus}`,
+        exp.raw ? `Next expiry: ${asDateInput(exp.raw)} (${exp.days ?? "—"} days)` : "",
+        data?.policyDoneBy ? `Policy issued via: ${data.policyDoneBy}` : "",
+        data?.brokerName ? `Broker: ${data.brokerName}` : "",
+        data?.showroomName ? `Showroom: ${data.showroomName}` : "",
       ],
     });
     if (!opened) {
@@ -1167,7 +1332,12 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
     return (documents || [])
       .map((doc, idx) => {
         const url = String(
-          firstFilled(doc?.previewUrl, doc?.url, doc?.fileUrl, ""),
+          firstFilled(
+            doc?.previewUrl,
+            doc?.url,
+            doc?.fileUrl,
+            doc?.secure_url,
+          ),
         ).trim();
         if (!url) return null;
         const kind = isImageUrl(url)
@@ -1197,6 +1367,41 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
   const lowestPremium = quotePremiums.length
     ? Math.min(...quotePremiums)
     : null;
+
+  const expiryInfo = useMemo(() => pickSoonestExpiry(data || {}), [data]);
+
+  const fileDocuments = useMemo(() => {
+    const docs = Array.isArray(data?.documents) ? data.documents : [];
+    return docs
+      .map((doc, idx) => {
+        const rawUrl = String(
+          firstFilled(
+            doc?.previewUrl,
+            doc?.url,
+            doc?.fileUrl,
+            doc?.secure_url,
+          ) || "",
+        ).trim();
+        if (!rawUrl) return null;
+        if (isImageUrl(rawUrl) || isVideoUrl(rawUrl)) return null;
+        const proxied = buildAccessibleDocumentUrlPreview(rawUrl);
+        return {
+          key: String(doc?.id || doc?.public_id || doc?.storageKey || idx),
+          name: asText(
+            firstFilled(
+              doc?.originalName,
+              doc?.original_name,
+              doc?.name,
+              doc?.tag,
+              `Document ${idx + 1}`,
+            ),
+          ),
+          tag: asText(doc?.tag || ""),
+          url: proxied,
+        };
+      })
+      .filter(Boolean);
+  }, [data?.documents]);
 
   const paymentColumns = [
     {
@@ -1256,7 +1461,7 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
   const renderStepLabel = (key) => stageByKey.get(key)?.displayLabel || "Step";
   const hasStage = (key) => stageByKey.has(key);
 
-  if (!visible || !data) return null;
+  if (!visible || !incomingData) return null;
 
   const subventionCardIsNR = paymentTotals.subventionNotRecoverable > 0;
   const subventionCardValue = subventionCardIsNR
@@ -1318,16 +1523,49 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                           ? asMoney(premiumAmount)
                           : "Premium Pending"}
                       </span>
+                      {expiryInfo.raw ? (
+                        <span
+                          className={`rounded-full border px-2.5 py-1 font-medium ${
+                            expiryInfo.days !== null &&
+                            expiryInfo.days <= 30 &&
+                            expiryInfo.days >= 0
+                              ? "border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500/60 dark:bg-amber-950/40 dark:text-amber-100"
+                              : expiryInfo.days !== null && expiryInfo.days < 0
+                                ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/50 dark:bg-rose-950/35 dark:text-rose-100"
+                                : "border-border70"
+                          }`}
+                        >
+                          Expiry {asDateInput(expiryInfo.raw)}
+                          {expiryInfo.days !== null
+                            ? ` · ${expiryInfo.days}d`
+                            : ""}
+                          {expiryInfo.days !== null &&
+                          expiryInfo.days <= 30 &&
+                          expiryInfo.days >= 0
+                            ? " · Renew soon"
+                            : ""}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 self-start lg:ml-4">
+                {detailLoading ? (
+                  <span
+                    className="inline-flex h-9 items-center gap-2 rounded-2xl border border-border bg-background/80 px-3 text-[11px] font-semibold text-muted-foreground"
+                    title="Loading latest case details"
+                  >
+                    <LoadingOutlined spin />
+                    Syncing…
+                  </span>
+                ) : null}
                 <button
                   className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-border bg-background/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   onClick={onClose}
                   title="Close"
+                  type="button"
                 >
                   <X size={15} />
                 </button>
@@ -1406,6 +1644,14 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                     { label: "Buyer Type", value: data.buyerType },
                     { label: "Vehicle Type", value: data.vehicleType },
                     {
+                      label: "Used-car flow",
+                      value: data.usedCarFlowType,
+                    },
+                    {
+                      label: "Policy journey",
+                      value: data.policyJourneyClassification,
+                    },
+                    {
                       label: "Policy Type",
                       value: data.policyCategory || data.policyTypeSelector,
                     },
@@ -1416,6 +1662,10 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                     { label: "Source", value: data.source || data.sourceOrigin },
                     { label: "Source Name", value: data.sourceName },
                     { label: "Dealer / Channel", value: data.dealerChannelName },
+                    {
+                      label: "Channel / Dealer No.",
+                      value: data.dealerChannelNumber,
+                    },
                     {
                       label: "Dealer / Channel Address",
                       value: data.dealerChannelAddress,
@@ -1575,6 +1825,16 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                       value: data.previousHypothecation,
                     },
                     { label: "Remarks", value: data.previousRemarks },
+                    {
+                      label: "Previous IDV",
+                      value: data.previousIdvAmount,
+                      formatter: asMoney,
+                    },
+                    {
+                      label: "Previous premium",
+                      value: data.previousTotalPremium,
+                      formatter: asMoney,
+                    },
                   ]}
                 />
               </ContinuousPageSection>
@@ -1788,11 +2048,66 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                   sectionRefs.current.documents = node;
                 }}
                 icon={FileText}
-                title="Gallery"
+                title="Documents & media"
                 page={renderStepLabel("documents")}
                 tone={stageByKey.get("documents")?.tone || "sage"}
                 active={activeStage === "documents"}
               >
+                {fileDocuments.length ? (
+                  <div className="mb-4 overflow-hidden rounded-2xl border border-border70 bg-card">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border60 bg-[#DAF3FF]/65 px-4 py-3 dark:bg-[#DAF3FF]/10">
+                      <p className="m-0 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                        PDF and files
+                      </p>
+                      <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                        {fileDocuments.length} file
+                        {fileDocuments.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto p-2 md:p-3">
+                      <Table
+                        columns={[
+                          {
+                            title: "Name",
+                            dataIndex: "name",
+                            key: "name",
+                            ellipsis: true,
+                          },
+                          {
+                            title: "Tag",
+                            dataIndex: "tag",
+                            key: "tag",
+                            width: 160,
+                            ellipsis: true,
+                          },
+                          {
+                            title: "Open",
+                            key: "open",
+                            width: 88,
+                            render: (_, row) => (
+                              <a
+                                href={row.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[12px] font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
+                              >
+                                <FileOutlined />
+                                View
+                              </a>
+                            ),
+                          },
+                        ]}
+                        dataSource={fileDocuments.map((row) => ({
+                          ...row,
+                          key: row.key,
+                        }))}
+                        pagination={{ pageSize: 8, hideOnSinglePage: true }}
+                        size="small"
+                        scroll={{ x: 520 }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 {galleryItems.length ? (
                   <div className="overflow-hidden rounded-2xl border border-border70 bg-card">
                     <div className="border-b border-border60 bg-[#9FC0FF]/60 px-4 py-3 dark:bg-[#9FC0FF]/10">
@@ -1842,9 +2157,10 @@ const InsurancePreview = ({ visible, onClose, data, initialStageKey = null }) =>
                         ))}
                     </div>
                   </div>
-                ) : (
-                  <InlineEmptyState text="No gallery media available." />
-                )}
+                ) : null}
+                {!fileDocuments.length && !galleryItems.length ? (
+                  <InlineEmptyState text="No documents uploaded yet." />
+                ) : null}
               </ContinuousPageSection>
             )}
 

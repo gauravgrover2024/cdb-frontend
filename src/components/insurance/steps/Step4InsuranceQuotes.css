@@ -1,3 +1,16 @@
+/* With allowClear/prefix/suffix, className sits on .ant-input-affix-wrapper — not inner .ant-input */
+.insurance-step4 .quote-control.ant-input-affix-wrapper {
+  min-height: 44px !important;
+  border-radius: 12px !important;
+}
+
+.insurance-step4 .quote-control.ant-input-affix-wrapper > input.ant-input {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Bare Input (no affix): className stays on the input itself */
 .insurance-step4 .quote-control.ant-input {
   height: 44px !important;
   border-radius: 12px !important;

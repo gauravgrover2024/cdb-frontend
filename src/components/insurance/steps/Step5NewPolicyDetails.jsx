@@ -697,6 +697,7 @@ const Step5NewPolicyDetails = ({
                     style={{ width: "100%" }}
                     className="w-full"
                     value={formData.newInsuranceCompany}
+                    allowClear
                     options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                       value: name,
                     }))}
@@ -709,7 +710,7 @@ const Step5NewPolicyDetails = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
-                    <Input allowClear
+                    <Input
                       style={controlStyle}
                       placeholder="e.g. HDFC ERGO General Insurance Company Limited"
                     />

@@ -553,9 +553,9 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       onSearch={searchRegistrationLookup}
                       onSelect={handleRegistrationSelect}
                       filterOption={false}
-                      allowClear
                     >
                       <Input
+                        allowClear
                         placeholder="e.g., DL01AB1234 (or last 4 digits)"
                         suffix={
                           registrationLookupLoading ? (

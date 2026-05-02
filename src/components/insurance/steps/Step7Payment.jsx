@@ -1210,6 +1210,17 @@ const Step7Payment = ({
     </div>
   );
 
+  const ledgerComposerHeadingInner = (
+    <>
+      <h3 className="m-0 text-[12px] font-black uppercase tracking-[0.16em] text-slate-600">
+        Add Ledger Entry
+      </h3>
+      <p className="m-0 mt-0.5 text-[11px] text-slate-400">
+        Record a transaction across any party
+      </p>
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-5 font-sans">
       <div
@@ -1376,12 +1387,7 @@ const Step7Payment = ({
         {!isMobile ? (
           <div className="flex flex-col rounded-2xl border border-slate-100 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-5 py-4">
-              <h3 className="m-0 text-[12px] font-black uppercase tracking-[0.16em] text-slate-600">
-                Add Ledger Entry
-              </h3>
-              <p className="m-0 mt-0.5 text-[11px] text-slate-400">
-                Record a transaction across any party
-              </p>
+              {ledgerComposerHeadingInner}
             </div>
             {renderComposer()}
           </div>
@@ -1428,6 +1434,12 @@ const Step7Payment = ({
               </span>
             </div>
           </div>
+
+          {isMobile ? (
+            <div className="border-b border-slate-100 px-5 py-4">
+              {ledgerComposerHeadingInner}
+            </div>
+          ) : null}
 
           <div className="flex-1 overflow-auto p-4">
             {tableRows.length === 0 ? (
@@ -1718,7 +1730,7 @@ const Step7Payment = ({
             style={{ backgroundColor: UI.sage.solid }}
           />
           <Drawer
-            title="Add Ledger Entry"
+            title={<div className="pr-8">{ledgerComposerHeadingInner}</div>}
             placement="bottom"
             height="82vh"
             open={mobileComposerOpen}

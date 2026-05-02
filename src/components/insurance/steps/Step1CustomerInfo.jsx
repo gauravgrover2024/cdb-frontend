@@ -65,12 +65,25 @@ const getPolicyTypePillLabel = (value) => {
   return "Insurance";
 };
 
+const digits10 = (v) =>
+  String(v ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 10);
+
 const buildCustomerOption = (c, getCustomerId) => {
   const id = getCustomerId(c);
   if (!id) return null;
 
-  const name = c?.customerName || c?.companyName || "Unnamed Customer";
-  const mobile = c?.primaryMobile || "No mobile";
+  const name =
+    c?.customerName ||
+    c?.companyName ||
+    c?.name ||
+    c?.fullName ||
+    "Unnamed Customer";
+  const mobileRaw =
+    c?.primaryMobile ?? c?.mobile ?? c?.phone ?? c?.contactNumber ?? "";
+  const mobile =
+    digits10(mobileRaw) || String(mobileRaw || "").trim() || "No mobile";
   const pan = c?.panNumber || c?.pan || "";
   const city = c?.city || "";
   const initial = name.slice(0, 2).toUpperCase();
@@ -95,6 +108,19 @@ const buildCustomerOption = (c, getCustomerId) => {
       </div>
     ),
   };
+};
+
+const resolveSelectedCustomer = (selectedValue, customerSearchResults, getCustomerId) => {
+  const id = String(selectedValue ?? "").trim();
+  if (!id) return null;
+  return (
+    customerSearchResults.find((c) => String(getCustomerId(c)) === id) ||
+    customerSearchResults.find(
+      (c) =>
+        String(c?._id ?? c?.id ?? c?.customerId ?? "") === id,
+    ) ||
+    null
+  );
 };
 
 const Step1CustomerInfo = ({
@@ -297,12 +323,11 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Broker Name" required>
-                    <Input allowClear
+                    <Input
+                      allowClear
                       value={formData.brokerName}
                       onChange={handleChange("brokerName")}
                       placeholder="Broker Name"
-                      allowClear
-                     
                       status={
                         showErrors && step1Errors.brokerName ? "error" : ""
                       }
@@ -319,12 +344,11 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Showroom Name" required>
-                    <Input allowClear
+                    <Input
+                      allowClear
                       value={formData.showroomName}
                       onChange={handleChange("showroomName")}
                       placeholder="Showroom Name"
-                      allowClear
-                     
                       status={
                         showErrors && step1Errors.showroomName ? "error" : ""
                       }
@@ -364,12 +388,11 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Source Name" required>
-                    <Input allowClear
+                    <Input
+                      allowClear
                       value={formData.sourceName}
                       onChange={handleChange("sourceName")}
                       placeholder="Source Name"
-                      allowClear
-                     
                       status={
                         showErrors && step1Errors.sourceName ? "error" : ""
                       }
@@ -559,9 +582,10 @@ const Step1CustomerInfo = ({
                         }}
                         options={customerOptions}
                         onSelect={(customerId) => {
-                          const selected = customerSearchResults.find(
-                            (c) =>
-                              String(getCustomerId(c)) === String(customerId),
+                          const selected = resolveSelectedCustomer(
+                            customerId,
+                            customerSearchResults,
+                            getCustomerId,
                           );
                           if (selected) applyCustomerToForm(selected);
                         }}
@@ -627,9 +651,10 @@ const Step1CustomerInfo = ({
                       }}
                       options={customerOptions}
                       onSelect={(customerId) => {
-                        const selected = customerSearchResults.find(
-                          (c) =>
-                            String(getCustomerId(c)) === String(customerId),
+                        const selected = resolveSelectedCustomer(
+                          customerId,
+                          customerSearchResults,
+                          getCustomerId,
                         );
                         if (selected) applyCustomerToForm(selected);
                       }}
@@ -685,8 +710,10 @@ const Step1CustomerInfo = ({
                       setField("mobile", digits);
                     }}
                     onSelect={(customerId) => {
-                      const selected = customerSearchResults.find(
-                        (c) => String(getCustomerId(c)) === String(customerId),
+                      const selected = resolveSelectedCustomer(
+                        customerId,
+                        customerSearchResults,
+                        getCustomerId,
                       );
                       if (selected) applyCustomerToForm(selected);
                     }}
@@ -930,7 +957,7 @@ const Step1CustomerInfo = ({
                         value={formData.nomineeName}
                         onChange={handleChange("nomineeName")}
                         placeholder="Name"
-                        allowClear
+                        
                        
                       />
                     </CleanField>
