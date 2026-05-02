@@ -49,6 +49,10 @@ import {
   lookupCityByPincode,
   normalizePincode,
 } from "../../modules/loans/components/loan-form/pre-file/pincodeCityLookup";
+import {
+  collectLinkedDocumentsForInsurance,
+  mergeLinkedIntoExistingDocuments,
+} from "../../utils/insuranceLinkedDocuments";
 
 const { Text, Title } = Typography;
 
@@ -60,6 +64,92 @@ const normalizeCustomerSearchPayload = (payload) => {
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload?.results)) return payload.results;
   return [];
+};
+
+const digits10 = (v) =>
+  String(v ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 10);
+
+/**
+ * Map search / getById customer payloads to fields the insurance form expects.
+ * APIs may use mobile vs primaryMobile, name vs customerName, etc.
+ */
+const normalizeCustomerForInsurance = (raw) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const primaryMobile = digits10(
+    raw.primaryMobile ??
+      raw.mobile ??
+      raw.phone ??
+      raw.primary_mobile ??
+      raw.contactNumber,
+  );
+  const customerName = String(
+    raw.customerName || raw.name || raw.fullName || "",
+  ).trim();
+  const companyName = String(
+    raw.companyName || raw.company || raw.businessName || "",
+  ).trim();
+  const contactPersonName = String(
+    raw.contactPersonName || raw.contactName || "",
+  ).trim();
+  const email = String(
+    raw.email || raw.emailAddress || raw.primaryEmail || "",
+  ).trim();
+  const panNumber = String(raw.panNumber || raw.pan || "").trim();
+  const aadhaarNumber = String(
+    raw.aadhaarNumber || raw.aadharNumber || raw.aadhaar || "",
+  ).trim();
+  const gstNumber = String(
+    raw.gstNumber || raw.gstin || raw.gst || "",
+  ).trim();
+  const residenceAddress = String(
+    raw.residenceAddress ||
+      raw.currentAddress ||
+      raw.address ||
+      raw.permanentAddress ||
+      raw.officeAddress ||
+      "",
+  ).trim();
+  const pincode = String(
+    raw.pincode || raw.permanentPincode || raw.zip || "",
+  )
+    .replace(/\D/g, "")
+    .slice(0, 6);
+  const city = String(
+    raw.city || raw.permanentCity || raw.district || "",
+  ).trim();
+  const gender = String(raw.gender || "").trim();
+  const nomineeName = String(raw.nomineeName || raw.nominee || "").trim();
+  const nomineeRelation = String(
+    raw.nomineeRelation || raw.nomineeRelationship || "",
+  ).trim();
+  const nomineeDob = raw.nomineeDob || raw.nomineeDateOfBirth || "";
+  const extraMobiles = Array.isArray(raw.extraMobiles)
+    ? raw.extraMobiles
+    : Array.isArray(raw.alternateMobiles)
+      ? raw.alternateMobiles
+      : [];
+
+  return {
+    ...raw,
+    customerName: customerName || raw.customerName,
+    companyName: companyName || raw.companyName,
+    contactPersonName: contactPersonName || raw.contactPersonName,
+    primaryMobile: primaryMobile || undefined,
+    email: email || raw.email,
+    panNumber: panNumber || raw.panNumber,
+    aadhaarNumber: aadhaarNumber || raw.aadhaarNumber,
+    gstNumber: gstNumber || raw.gstNumber,
+    residenceAddress: residenceAddress || raw.residenceAddress,
+    pincode: pincode || raw.pincode,
+    city: city || raw.city,
+    gender: gender || raw.gender,
+    nomineeName: nomineeName || raw.nomineeName,
+    nomineeRelation: nomineeRelation || raw.nomineeRelation,
+    nomineeDob: nomineeDob || raw.nomineeDob,
+    extraMobiles: extraMobiles.length ? extraMobiles : raw.extraMobiles,
+  };
 };
 
 const initialFormState = {
@@ -81,6 +171,7 @@ const initialFormState = {
   payoutPercent: "",
   sourceOrigin: "Direct",
 
+  customerId: "",
   customerName: "",
   companyName: "",
   contactPersonName: "",
@@ -773,7 +864,7 @@ const NewInsuranceCaseForm = ({
   const [customerVehicleRows, setCustomerVehicleRows] = useState([]);
   const [customerVehicleLoading, setCustomerVehicleLoading] = useState(false);
 
-  const getCustomerId = (c) => c?._id || c?.id || null;
+  const getCustomerId = (c) => c?._id || c?.id || c?.customerId || null;
 
   // Helper: Calculate age from DOB
   const getAgeFromDob = (dob) => {
@@ -835,118 +926,97 @@ const NewInsuranceCaseForm = ({
     return Math.round(previousIdv * 0.9);
   }, [formData.previousIdvAmount]);
 
-  const applyCustomerToForm = useCallback(
-    (customer) => {
-      if (!customer) return;
+  const applyCustomerToForm = useCallback((customer) => {
+    if (!customer) return;
 
-      const firstAltMobile =
-        Array.isArray(customer?.extraMobiles) && customer.extraMobiles.length
-          ? customer.extraMobiles[0]
+    const mergeCustomerRow = (prev, row) => {
+      if (!row || typeof row !== "object") return prev;
+      const id = getCustomerId(row);
+      const mob = digits10(row.primaryMobile);
+      const firstAlt =
+        Array.isArray(row.extraMobiles) && row.extraMobiles.length
+          ? digits10(row.extraMobiles[0])
           : "";
 
-      setFormData((prev) => ({
+      return {
         ...prev,
-        // Link for backend snapshots
-        customerId: getCustomerId(customer),
-
-        // === PERSONAL DETAILS ===
-        // Customer search must not overwrite employee (staff) — employee comes from users API
-        customerName: customer?.customerName || prev.customerName,
+        customerId: id || prev.customerId,
+        customerName: String(row.customerName || "").trim() || prev.customerName,
         companyName:
-          customer?.companyName ||
-          customer?.customerName ||
+          String(row.companyName || "").trim() ||
+          String(row.customerName || "").trim() ||
           prev.companyName,
-        contactPersonName:
-          customer?.contactPersonName || prev.contactPersonName,
-
-        // === CONTACT DETAILS ===
-        mobile: customer?.primaryMobile || prev.mobile,
-        alternatePhone: firstAltMobile || prev.alternatePhone,
-        email: customer?.email || customer?.emailAddress || prev.email,
-
-        // === ID PROOFS ===
-        panNumber: customer?.panNumber || prev.panNumber,
-        gstNumber: customer?.gstNumber || prev.gstNumber,
+        contactPersonName: row.contactPersonName || prev.contactPersonName,
+        mobile: mob || prev.mobile,
+        alternatePhone: firstAlt || prev.alternatePhone,
+        email: row.email || row.emailAddress || prev.email,
+        panNumber: row.panNumber || prev.panNumber,
+        gstNumber: row.gstNumber || prev.gstNumber,
         aadhaarNumber:
-          customer?.aadhaarNumber ||
-          customer?.aadharNumber ||
-          prev.aadhaarNumber,
-
-        // === DEMOGRAPHICS ===
-        gender: customer?.gender || prev.gender,
-        residenceAddress: customer?.residenceAddress || prev.residenceAddress,
-        pincode: customer?.pincode || prev.pincode,
-        city: customer?.city || prev.city,
-
-        // === NOMINEE DETAILS (Auto-fill from customer) ===
-        nomineeName: customer?.nomineeName || prev.nomineeName,
+          row.aadhaarNumber || row.aadharNumber || prev.aadhaarNumber,
+        gender: row.gender || prev.gender,
+        residenceAddress: row.residenceAddress || prev.residenceAddress,
+        pincode: row.pincode || prev.pincode,
+        city: row.city || prev.city,
+        nomineeName: row.nomineeName || prev.nomineeName,
         nomineeRelationship:
-          customer?.nomineeRelation || prev.nomineeRelationship,
-        nomineeDob: customer?.nomineeDob || prev.nomineeDob,
-        nomineeAge: getAgeFromDob(customer?.nomineeDob) || prev.nomineeAge,
+          row.nomineeRelation || row.nomineeRelationship || prev.nomineeRelationship,
+        nomineeDob: row.nomineeDob || prev.nomineeDob,
+        nomineeAge: getAgeFromDob(row.nomineeDob) || prev.nomineeAge,
+      };
+    };
 
-      }));
+    const normalized = normalizeCustomerForInsurance(customer);
+    setFormData((prev) => mergeCustomerRow(prev, normalized));
 
-      // === FETCH AND AUTO-POPULATE CUSTOMER'S DOCUMENTS ===
-      const customerId = getCustomerId(customer);
-      if (customerId) {
-        // Try to fetch customer's associated loans to get documents
-        loansApi
-          .getAll({ customerId, limit: 50 })
-          .then((res) => {
-            const loans = Array.isArray(res?.data) ? res.data : [];
-            const extractedDocs = [];
+    const customerId = getCustomerId(normalized);
+    if (customerId) {
+      customersApi
+        .getById(customerId)
+        .then((res) => {
+          const raw = res?.data?.data ?? res?.data ?? res;
+          if (!raw || typeof raw !== "object") return;
+          const full = normalizeCustomerForInsurance(raw);
+          setFormData((prev) => mergeCustomerRow(prev, full));
+        })
+        .catch((err) => {
+          console.error("[Insurance][CustomerById] fetch failed:", err);
+        });
+    }
+  }, []);
 
-            loans.forEach((loan) => {
-              // Extract documents from each loan
-              const docFields = [
-                loan.postfile_documents,
-                loan.kyc_documents,
-                loan.primary_documents,
-              ];
+  useEffect(() => {
+    const customerId = String(formData.customerId || "").trim();
+    if (!customerId) return undefined;
 
-              docFields.forEach((docArray) => {
-                if (Array.isArray(docArray)) {
-                  docArray.forEach((doc) => {
-                    if (doc && doc.url) {
-                      extractedDocs.push({
-                        id: doc.public_id || doc.id || Math.random().toString(),
-                        name: doc.original_filename || doc.name || "Document",
-                        size: doc.bytes || 0,
-                        type: doc.resource_type || "file",
-                        url: doc.secure_url || doc.url,
-                        tag: "", // User can tag if needed
-                      });
-                    }
-                  });
-                }
-              });
-            });
+    let cancelled = false;
 
-            // Add extracted documents to the form (avoid duplicates)
-            if (extractedDocs.length > 0) {
-              setDocuments((prev) => {
-                const existingUrls = new Set(prev.map((d) => d.url));
-                const newDocs = extractedDocs.filter(
-                  (d) => !existingUrls.has(d.url),
-                );
-                return [...prev, ...newDocs];
-              });
-            }
-          })
-          .catch((err) => {
-            console.error(
-              "[Insurance][CustomerDocs] Failed to fetch documents:",
-              err,
-            );
-          });
+    const run = async () => {
+      try {
+        const [custRes, loansRes] = await Promise.all([
+          customersApi.getById(customerId),
+          loansApi.getAll({ customerId, limit: 80 }),
+        ]);
+        if (cancelled) return;
+
+        const rawCustomer =
+          custRes?.data?.data ?? custRes?.data ?? custRes ?? null;
+        const loans = Array.isArray(loansRes?.data) ? loansRes.data : [];
+
+        const linked = collectLinkedDocumentsForInsurance(rawCustomer, loans);
+        if (!linked.length) return;
+
+        setDocuments((prev) => mergeLinkedIntoExistingDocuments(prev, linked));
+      } catch (err) {
+        console.error("[Insurance][CustomerDocs] Linked documents merge failed:", err);
       }
+    };
 
-      // schedulePersist(250);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.customerId]);
 
   const searchCustomers = useCallback(
     (q) => {
@@ -965,7 +1035,9 @@ const NewInsuranceCaseForm = ({
         setCustomerSearchLoading(true);
         try {
           const res = await customersApi.search(query);
-          const rows = normalizeCustomerSearchPayload(res);
+          const rows = normalizeCustomerSearchPayload(res).map(
+            (row) => normalizeCustomerForInsurance(row) || row,
+          );
           setCustomerSearchResults(rows);
         } catch (err) {
           console.error("[Insurance][CustomerSearch] error:", err);
@@ -3154,7 +3226,8 @@ const NewInsuranceCaseForm = ({
     if (step === 1 && Object.keys(step1Errors).length) {
       return {
         key: "insurance-step-validation",
-        content: "Fix the required customer information fields before moving ahead.",
+        content:
+          "Customer/company name, 10-digit mobile, email, address (city + pin) and other required fields must be filled — fix highlighted errors before continuing.",
       };
     }
     if (step === 2 && Object.keys(step2Errors).length) {
@@ -3545,9 +3618,7 @@ const NewInsuranceCaseForm = ({
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
         [&_.ant-form-item-label_>label]:!text-sm [&_.ant-form-item-label_>label]:!font-medium
-        [&_.ant-input]:!h-10 [&_.ant-input]:!rounded-lg
         [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-lg
-        [&_.ant-input-number-input-wrap]:!h-10 [&_.ant-input-number-input]:!h-10
         [&_.ant-select-selector]:!h-10 [&_.ant-select-selector]:!rounded-lg
         [&_.ant-select-selection-item]:!leading-10
         [&_.ant-btn]:!rounded-lg [&_.ant-btn]:!h-10 [&_.ant-btn-lg]:!h-11
@@ -3567,7 +3638,7 @@ const NewInsuranceCaseForm = ({
       ) : null}
 
       <div
-        className="pb-[80px]"
+        className="pb-44 md:pb-40"
         style={{ paddingTop: `${Math.max(stickyHeaderHeight + 12, 128)}px` }}
       >
         <div className="w-full px-3 py-3 md:px-5 lg:px-6">

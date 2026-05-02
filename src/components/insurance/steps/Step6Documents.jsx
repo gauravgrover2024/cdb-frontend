@@ -5,6 +5,7 @@ import Button from "../../ui/Button";
 import LoanDocumentViewerModal from "../../../modules/loans/components/shared/LoanDocumentViewerModal";
 import { uploadMultipleFiles } from "../../../api/uploads";
 import API_BASE_URL from "../../../config/apiBaseUrl";
+import { scheduleWindowPrint } from "../../../utils/scheduleWindowPrint";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -45,6 +46,7 @@ const EW_SUGGESTED_TAGS = [
   "Aadhaar Back",
   "GST Page 1",
   "GST Page 2",
+  "GST Certificate (P2)",
   "GST Page 3",
 ];
 
@@ -72,6 +74,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Front",
       "Aadhaar Back",
       "GST Certificate (P1)",
+      "GST Certificate (P2)",
       "Form 29",
       "Form 30 page 1",
       "Form 30 page 2",
@@ -88,6 +91,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Front",
       "Aadhaar Back",
       "GST Certificate (P1)",
+      "GST Certificate (P2)",
     ],
   },
   "policy-already-expired": {
@@ -100,6 +104,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Front",
       "Aadhaar Back",
       "GST Certificate (P1)",
+      "GST Certificate (P2)",
       "Inspection Report",
     ],
   },
@@ -113,6 +118,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Front",
       "Aadhaar Back",
       "GST Certificate (P1)",
+      "GST Certificate (P2)",
     ],
   },
 };
@@ -375,6 +381,26 @@ const safeDateValue = (value) => {
   if (!value) return 0;
   const parsed = new Date(value).getTime();
   return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+/** For linked customer/loan docs with explicit sort timestamps */
+const docMillis = (doc) => {
+  if (!doc) return 0;
+  const lt = Number(doc.linkedSortTime);
+  if (Number.isFinite(lt) && lt > 0) return lt;
+  return safeDateValue(doc.uploadedAt);
+};
+
+const LINKED_CATEGORY_SORT_RANK = {
+  "customer-kyc": 10,
+  "customer-profile": 15,
+  "loan-prefile": 25,
+  "loan-kyc": 30,
+  "loan-vehicle": 40,
+  "loan-insurance": 45,
+  "loan-postfile": 50,
+  "loan-ledger": 55,
+  "loan-delivery": 60,
 };
 
 const getDocDisplayLabel = (doc, index = -1) => {
@@ -816,12 +842,15 @@ const Step6Documents = ({
 
     const filtered = normalizedDocuments.filter((doc, index) => {
       if (!normalizedSearch) return true;
-      const haystack = [
+        const haystack = [
         getDocDisplayLabel(doc, index),
         doc.tag,
         doc.format,
         doc.uploadedBy,
         doc.uploadedAt,
+        doc.linkedOrigin,
+        doc.linkedOriginCategory,
+        doc.linkedLoanVehicleLabel,
       ]
         .filter(Boolean)
         .join(" ")
@@ -844,7 +873,16 @@ const Step6Documents = ({
       if (ui.sortBy === "name") {
         return String(getDocDisplayLabel(a, 0)).localeCompare(String(getDocDisplayLabel(b, 0)));
       }
-      return safeDateValue(b.uploadedAt) - safeDateValue(a.uploadedAt);
+      if (ui.sortBy === "timeline") {
+        const ra = LINKED_CATEGORY_SORT_RANK[String(a.linkedOriginCategory || "")] ?? 1000;
+        const rb = LINKED_CATEGORY_SORT_RANK[String(b.linkedOriginCategory || "")] ?? 1000;
+        if (ra !== rb) return ra - rb;
+        return docMillis(a) - docMillis(b);
+      }
+      if (ui.sortBy === "oldest") {
+        return docMillis(a) - docMillis(b);
+      }
+      return docMillis(b) - docMillis(a);
     });
   }, [normalizedDocuments, ui.searchText, ui.sortBy]);
 
@@ -1119,18 +1157,7 @@ const Step6Documents = ({
           objectUrl = URL.createObjectURL(blob);
           const win = window.open(objectUrl, "_blank", "noopener,noreferrer");
           if (!win) throw new Error("Popup blocked while opening PDF.");
-          win.addEventListener(
-            "load",
-            () => {
-              try {
-                win.focus();
-                win.print();
-              } catch {
-                // Let the opened tab handle preview if print is blocked.
-              }
-            },
-            { once: true },
-          );
+          scheduleWindowPrint(win, { loadDelayMs: 650, fallbackMs: 2000 });
           return;
         }
 
@@ -1153,7 +1180,7 @@ const Step6Documents = ({
             } catch {
               window.open(objectUrl, "_blank");
             }
-          }, 500);
+          }, 650);
         };
       } catch (error) {
         message.warning(error?.message || "Unable to print this document.");
@@ -1236,7 +1263,7 @@ const Step6Documents = ({
                 <div className={sectionHeaderLabel}>Documentation</div>
                 <div className="truncate text-[22px] font-black tracking-tight text-slate-800">Document workspace</div>
                 <div className="mt-1 text-sm text-slate-500">
-                  Suggested tags only, live preview rail, and direct Cloudflare R2 storage.
+                  Customer profile and loan files auto-appear when a customer is linked. New uploads go to Cloudflare R2.
                 </div>
               </div>
 
@@ -1259,7 +1286,7 @@ const Step6Documents = ({
                 label="Uploaded"
                 value={normalizedDocuments.length}
                 tone="sky"
-                helper="Documents linked to this case"
+                helper="Case uploads + customer / loan library"
               />
               <StatTile
                 label="Tagged"
@@ -1362,6 +1389,8 @@ const Step6Documents = ({
                     style={{ width: "100%", maxWidth: 190 }}
                     options={[
                       { value: "newest", label: "Newest first" },
+                      { value: "oldest", label: "Oldest first" },
+                      { value: "timeline", label: "Timeline (profile → loan)" },
                       { value: "name", label: "Name A-Z" },
                       { value: "tagged", label: "Tagged first" },
                       { value: "untagged", label: "Untagged first" },
@@ -1489,6 +1518,11 @@ const Step6Documents = ({
                                     {doc.format || "file"}
                                   </span>
                                   <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${status.className}`}>{status.label}</span>
+                                  {doc.linkedOrigin ? (
+                                    <span className="max-w-[min(100%,420px)] truncate rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-violet-800">
+                                      {doc.linkedOrigin}
+                                    </span>
+                                  ) : null}
                                 </div>
 
                                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">

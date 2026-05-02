@@ -575,7 +575,7 @@ const Step3PreviousPolicy = ({
                   <AutoComplete
                     style={{ width: "100%" }}
                     value={formData.previousInsuranceCompany}
-                   
+                    allowClear
                     options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                       value: name,
                     }))}
@@ -588,7 +588,7 @@ const Step3PreviousPolicy = ({
                         .includes(String(inputValue || "").toLowerCase())
                     }
                   >
-                    <Input allowClear style={controlStyle} placeholder="e.g., Bajaj" />
+                    <Input style={controlStyle} placeholder="e.g., Bajaj" />
                   </AutoComplete>
                 </CleanField>
               </div>

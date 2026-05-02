@@ -315,6 +315,7 @@ const Step2VehicleDetails = ({
                       value={formData.registrationNumber}
                       options={registrationLookupOptions}
                       onSearch={handleRegistrationSearch}
+                      allowClear
                       onChange={(value) =>
                         setField(
                           "registrationNumber",
@@ -372,7 +373,7 @@ const Step2VehicleDetails = ({
                           : "No matching registration"
                       }
                     >
-                      <Input allowClear
+                      <Input
                         style={controlStyle}
                         status={
                           showErrors && step2Errors.registrationNumber

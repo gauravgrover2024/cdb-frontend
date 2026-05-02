@@ -27,6 +27,10 @@ import {
 import { addOnCatalog } from "./allSteps";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
+import {
+  escapeHtmlText,
+  scheduleWindowPrint,
+} from "../../../utils/scheduleWindowPrint";
 import "./Step4InsuranceQuotes.css";
 
 const sectionHeaderLabel =
@@ -121,10 +125,12 @@ const buildQuoteSummaryText = ({ quote = {}, breakup = {}, customerName = "", ve
 const openQuotePrintWindow = ({ title, content }) => {
   const nextWindow = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
   if (!nextWindow) return false;
+  const safeTitle = escapeHtmlText(title);
+  const safeBody = escapeHtmlText(content);
   nextWindow.document.write(`<!doctype html>
 <html>
   <head>
-    <title>${title}</title>
+    <title>${safeTitle}</title>
     <meta charset="utf-8" />
     <style>
       body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
@@ -133,13 +139,12 @@ const openQuotePrintWindow = ({ title, content }) => {
     </style>
   </head>
   <body>
-    <h1>${title}</h1>
-    <pre>${content}</pre>
+    <h1>${safeTitle}</h1>
+    <pre>${safeBody}</pre>
   </body>
 </html>`);
   nextWindow.document.close();
-  nextWindow.focus();
-  nextWindow.print();
+  scheduleWindowPrint(nextWindow);
   return true;
 };
 
@@ -813,14 +818,24 @@ const Step4InsuranceQuotes = ({
     setQuoteDraft((p) => ({ ...p, policyDuration: fallback }));
   }, [durationSelectOptions, quoteDraft?.policyDuration, setQuoteDraft]);
 
-  const isStandAloneOd =
-    coverageType === "Stand Alone OD" || coverageType === "Own Damage";
-  const basePremiumFormulaText =
-    coverageType === "Third Party"
-      ? `3P: ${toINR(tpAmt)}`
-      : isStandAloneOd
-        ? `OD: ${toINR(odAmt)} + Add-ons: ${toINR(addOnsTotal)}`
-        : `OD: ${toINR(odAmt)} + 3P: ${toINR(tpAmt)} + Add-ons: ${toINR(addOnsTotal)}`;
+  const includesOd = coverageType !== "Third Party";
+  const includesTp =
+    coverageType !== "Stand Alone OD" && coverageType !== "Own Damage";
+  const allowsAddOns = includesOd;
+  const ncbReferenceAmount = Number(quoteComputed?.ncbReferenceAmount ?? 0);
+  const addOnsSource = quoteComputed?.addOnsSource ?? "flat";
+  const addOnsSourceHint = React.useMemo(() => {
+    switch (addOnsSource) {
+      case "selected":
+        return "Sum of amounts for selected add-on pills.";
+      case "flat_override":
+        return "Flat add-ons total overrides the pill sum.";
+      case "none":
+        return "Add-ons are not part of this coverage type.";
+      default:
+        return "Uses aggregate add-ons when pills are off or sum is zero.";
+    }
+  }, [addOnsSource]);
   const acceptedQuoteBreakup = React.useMemo(
     () => (acceptedQuote ? computeQuoteBreakupFromRow(acceptedQuote) : null),
     [acceptedQuote, computeQuoteBreakupFromRow],
@@ -938,6 +953,7 @@ const Step4InsuranceQuotes = ({
                   value={quoteDraft.insuranceCompany}
                   style={{ width: "100%" }}
                   className="w-full"
+                  allowClear
                   options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                     value: name,
                   }))}
@@ -953,7 +969,7 @@ const Step4InsuranceQuotes = ({
                       .includes(String(inputValue || "").toLowerCase())
                   }
                 >
-                  <Input allowClear
+                  <Input
                     size="large"
                     className="quote-control"
                     placeholder="e.g. HDFC ERGO"
@@ -1451,126 +1467,150 @@ const Step4InsuranceQuotes = ({
 
         {/* RIGHT column — sticky ticker */}
         <div className="flex flex-col gap-5">
-          <div className="sticky top-5 flex flex-col gap-4 rounded-2xl bg-white px-5 pb-5 pt-4 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
-            <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              Live Premium Estimate
-            </p>
-
-            {/* Hero total */}
-            <div className="rounded-xl bg-gradient-to-r from-[#DAF3FF] to-[#9FC0FF] px-4 py-4 ring-1 ring-[#9FC0FF]">
-              <div className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold">
-                Total Premium
+          <div className="sticky top-5 flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white px-4 pb-5 pt-4 shadow-sm shadow-slate-900/5 sm:px-5">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="min-w-0">
+                <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  Live Premium Estimate
+                </p>
+                <p className="m-0 mt-1.5 text-[11px] leading-relaxed text-slate-500">
+                  OD + TP + add-ons = taxable premium. GST 18% is on that
+                  taxable amount. NCB is{" "}
+                  <span className="font-semibold text-slate-600">
+                    not subtracted
+                  </span>{" "}
+                  in this calculator (reference only).
+                </p>
               </div>
-              <div className="mt-1 text-3xl font-black tabular-nums text-slate-800">
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-200/80"
+                title="Recalculates on every field change"
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                  aria-hidden
+                />
+                Live
+              </span>
+            </div>
+
+            {/* Total payable — matches quoteComputed: total = taxable + round(taxable×0.18) */}
+            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-b from-slate-50/90 to-white px-3.5 py-3.5 sm:px-4">
+              <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Total payable (incl. GST)
+              </p>
+              <p className="m-0 mt-1 text-3xl font-black tabular-nums tracking-tight text-slate-900">
                 {toINR(totalPremium)}
-              </div>
-              <div className="mt-0.5 text-[11px] text-slate-600">
-                ({toINR(taxableAmount)} + {toINR(gstAmount)})
-              </div>
-            </div>
-
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                {
-                  label: "Base Premium",
-                  value: toINR(basePremium),
-                  sub: basePremiumFormulaText,
-                  bg: "bg-slate-50",
-                  ring: "ring-slate-200",
-                  val: "text-slate-800",
-                },
-                {
-                  label: "Add-ons Total",
-                  value: toINR(addOnsTotal),
-                  sub: "Individual + Add-ons field",
-                  bg: "bg-[#DAF3FF]/70",
-                  ring: "ring-[#DAF3FF]",
-                  val: "text-slate-800",
-                },
-                {
-                  label: "NCB %",
-                  value: `${ncbPct}%`,
-                  sub:
-                    ncbPct > 0
-                      ? "Reference only (no premium reduction)"
-                      : "Reference only",
-                  bg: "bg-[#9FC0FF]/60",
-                  ring: "ring-[#9FC0FF]",
-                  val: "text-slate-800",
-                },
-                {
-                  label: "GST 18%",
-                  value: toINR(gstAmount),
-                  sub: `On ${toINR(taxableAmount)}`,
-                  bg: "bg-[#FFE6C6]",
-                  ring: "ring-[#FFE6C6]",
-                  val: "text-slate-800",
-                },
-              ].map(({ label, value, sub, bg, ring, val }) => (
-                <div
-                  key={label}
-                  className={`rounded-lg px-3 py-2.5 ring-1 ${bg} ${ring}`}
-                >
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
-                    {label}
-                  </div>
-                  <div
-                    className={`text-base font-black tabular-nums mt-0.5 ${val}`}
-                  >
-                    {value}
-                  </div>
-                  <div className="text-[10px] text-slate-500 leading-snug mt-0.5">
-                    {sub}
-                  </div>
+              </p>
+              <div className="mt-3 space-y-1.5 border-t border-slate-200/80 pt-3">
+                <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                  <span className="text-slate-500">Taxable premium</span>
+                  <span className="font-semibold tabular-nums text-slate-800">
+                    {toINR(taxableAmount)}
+                  </span>
                 </div>
-              ))}
+                <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                  <span className="text-slate-500">
+                    GST (18% of taxable)
+                  </span>
+                  <span className="font-semibold tabular-nums text-slate-800">
+                    {toINR(gstAmount)}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <Divider className="!border-slate-100 !my-0" />
-
-            {/* IDV Breakdown */}
+            {/* Premium components — same math as computeQuoteBreakupFromRow */}
             <div>
               <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                IDV Breakdown
+                Premium components
               </p>
-              <TickerRow
-                label="Vehicle"
-                value={toINR(quoteDraft.vehicleIdv || 0)}
-              />
-              <TickerRow label="CNG" value={toINR(quoteDraft.cngIdv || 0)} />
-              <TickerRow
-                label="Accessories"
-                value={toINR(quoteDraft.accessoriesIdv || 0)}
-              />
-              <TickerRow
-                label="Total IDV"
-                value={toINR(quoteComputed.totalIdv)}
-                bold
-                valueClass="text-slate-900"
-              />
+              <div className="rounded-xl border border-slate-100 bg-slate-50/90 px-3 py-2">
+                {includesOd ? (
+                  <BreakupRow
+                    label="Own damage (OD)"
+                    value={toINR(odAmt)}
+                    indent
+                  />
+                ) : null}
+                {includesTp ? (
+                  <BreakupRow
+                    label="Third party (TP)"
+                    value={toINR(tpAmt)}
+                    indent
+                  />
+                ) : null}
+                {allowsAddOns ? (
+                  <>
+                    <BreakupRow
+                      label="Add-ons"
+                      value={toINR(addOnsTotal)}
+                      indent
+                      muted={addOnsTotal <= 0}
+                    />
+                    <p className="m-0 px-1 pb-1 text-[10px] leading-snug text-slate-400">
+                      {addOnsSourceHint}
+                    </p>
+                  </>
+                ) : null}
+                <BreakupRow
+                  label="Subtotal (taxable)"
+                  value={toINR(taxableAmount)}
+                  bold
+                />
+              </div>
             </div>
 
-            <Divider className="!border-slate-100 !my-0" />
+            {/* NCB — reference amount only; matches ncbReferenceAmount in parent */}
+            <div
+              className={`rounded-xl border px-3 py-2.5 ${
+                ncbPct > 0
+                  ? "border-amber-200/90 bg-amber-50/60"
+                  : "border-slate-100 bg-slate-50/80"
+              }`}
+            >
+              <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                NCB (reference)
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-[12px] text-slate-600">
+                  {ncbPct}% on OD premium
+                </span>
+                <span className="text-sm font-bold tabular-nums text-slate-900">
+                  {toINR(ncbReferenceAmount)}
+                </span>
+              </div>
+              <p className="m-0 mt-1.5 text-[10px] leading-relaxed text-slate-500">
+                {ncbPct > 0
+                  ? "Not deducted from taxable or GST in this workspace — for comparison only."
+                  : "Set NCB on the left to see reference value on OD."}
+              </p>
+            </div>
 
-            {/* Taxable Breakdown */}
+            <Divider className="!my-0 !border-slate-100" />
+
+            {/* IDV — vehicle context; independent of GST base */}
             <div>
               <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Taxable Breakdown
+                IDV breakdown
               </p>
-              <TickerRow label="OD Amount" value={toINR(quoteComputed.odAmt)} />
-              <TickerRow label="3rd Party" value={toINR(quoteComputed.tpAmt)} />
-              <TickerRow
-                label="Add-ons"
-                value={toINR(quoteComputed.addOnsTotal)}
-              />
-              <TickerRow label="NCB %" value={`${ncbPct}%`} />
-              <TickerRow
-                label="Taxable Total"
-                value={toINR(taxableAmount)}
-                bold
-                valueClass="text-slate-900"
-              />
+              <div className="rounded-xl border border-slate-100 bg-white px-2.5 py-1">
+                <TickerRow
+                  label="Vehicle"
+                  value={toINR(quoteDraft.vehicleIdv || 0)}
+                />
+                <TickerRow label="CNG" value={toINR(quoteDraft.cngIdv || 0)} />
+                <TickerRow
+                  label="Accessories"
+                  value={toINR(quoteDraft.accessoriesIdv || 0)}
+                />
+                <TickerRow
+                  label="Total IDV"
+                  value={toINR(quoteComputed.totalIdv)}
+                  bold
+                  valueClass="text-slate-900"
+                />
+              </div>
             </div>
           </div>
         </div>
