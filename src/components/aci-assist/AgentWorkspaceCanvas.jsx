@@ -1572,6 +1572,761 @@ function highlightMatch(text, query) {
 }
 
 // ============================================================================
+// NEW-CAR EXPERT CANVASES — BATCH 1: PRICE BREAKUP, MODEL/VARIANT AMBIGUITY
+// ============================================================================
+
+function PriceBreakupCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || data.records || widget?.rows);
+  const row = rows[0] || {};
+  const components = asArray(data.components || row.components || []);
+  const totals = data.totals || row.totals || {};
+  const model = data.model || row.model || message?.entities?.model || "Vehicle";
+  const variant = data.variant || row.variant || "";
+  const city = data.city || row.city || "Delhi";
+  const brand = data.brand || row.brand || "";
+
+  const fmtVal = (v) => (v > 0 ? formatCurrency(v) : <span className="text-slate-400 text-xs">Not captured</span>);
+
+  return (
+    <ModernCanvasShell
+      title={`${[brand, model, variant].filter(Boolean).join(" ")} — Price Breakup`}
+      subtitle={`On-road cost breakdown · ${city}`}
+      icon={WalletCards}
+      footer={footer}
+    >
+      <div className="space-y-3">
+        {components.map((c, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="flex items-center justify-between rounded-2xl border border-slate-200/40 bg-white/60 px-5 py-4 backdrop-blur-sm"
+          >
+            <span className="font-semibold text-slate-700">{c.label}</span>
+            <span className="font-bold text-slate-900">{fmtVal(c.value)}</span>
+          </motion.div>
+        ))}
+        {(totals.onRoadWithoutAccessories > 0 || totals.onRoadWithAccessories > 0) && (
+          <div className="mt-4 rounded-2xl border-2 border-emerald-400/40 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-5">
+            {totals.onRoadWithoutAccessories > 0 && (
+              <div className="flex justify-between mb-2">
+                <span className="font-semibold text-slate-600">On-road (without accessories)</span>
+                <span className="font-bold text-slate-800">{formatCurrency(totals.onRoadWithoutAccessories)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="font-black text-lg text-emerald-800">Total On-road</span>
+              <span className="font-black text-xl bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                {formatCurrency(totals.onRoadWithAccessories || totals.onRoadWithoutAccessories)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+      {asArray(widget?.notices).map((n, i) => (
+        <p key={i} className="text-xs text-slate-500 mt-2">{n}</p>
+      ))}
+    </ModernCanvasShell>
+  );
+}
+
+function ModelAmbiguityCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const options = asArray(data.options || widget?.options);
+  const title = data.title || "Which model do you mean?";
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Multiple models matched — please select one" icon={SearchCheck} footer={footer}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {options.map((opt, i) => (
+          <motion.div
+            key={i}
+            whileHover={{ scale: 1.02 }}
+            className="rounded-2xl border border-slate-200/40 bg-white/70 p-5 backdrop-blur-sm cursor-pointer hover:border-violet-300 transition-all"
+            onClick={() => onAction?.({ type: "ask", message: opt.followUpQuery || `${opt.brand} ${opt.model} pricelist` })}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-violet-600 mb-1">{opt.brand}</p>
+                <h3 className="text-xl font-black text-slate-900">{opt.model}</h3>
+              </div>
+              <span className="px-2 py-1 rounded-lg bg-slate-100 text-xs font-bold text-slate-600">{opt.bodyType || "Car"}</span>
+            </div>
+            <div className="flex gap-4 text-sm mb-4">
+              <div>
+                <p className="text-xs text-slate-500">Starting</p>
+                <p className="font-bold text-emerald-700">{formatCurrency(opt.startingPrice)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Top</p>
+                <p className="font-bold text-slate-800">{formatCurrency(opt.topPrice)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Variants</p>
+                <p className="font-bold text-slate-800">{opt.variantCount || "—"}</p>
+              </div>
+            </div>
+            <button
+              className="w-full py-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-white text-sm font-bold hover:opacity-90 transition"
+              onClick={(e) => { e.stopPropagation(); onAction?.({ type: "ask", message: opt.followUpQuery || `${opt.brand} ${opt.model} pricelist` }); }}
+            >
+              Select →
+            </button>
+          </motion.div>
+        ))}
+      </div>
+      {data.allowShowAll && (
+        <button
+          className="mt-2 px-5 py-2 rounded-xl border border-violet-300 text-violet-700 text-sm font-bold hover:bg-violet-50 transition"
+          onClick={() => onAction?.({ type: "ask", message: `Show all ${message?.entities?.model || "models"}` })}
+        >
+          Show all models
+        </button>
+      )}
+    </ModernCanvasShell>
+  );
+}
+
+function VariantAmbiguityCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const options = asArray(data.options || widget?.options);
+  const title = data.title || "Which variant do you mean?";
+  const model = data.model || message?.entities?.model || "";
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Multiple variants matched — select one to continue" icon={Layers3} footer={footer}>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {options.map((opt, i) => (
+          <motion.div
+            key={i}
+            whileHover={{ scale: 1.02 }}
+            className="rounded-2xl border border-slate-200/40 bg-white/70 p-4 backdrop-blur-sm cursor-pointer hover:border-violet-300 transition-all"
+            onClick={() => onAction?.({ type: "ask", message: opt.followUpQuery || `${opt.model} ${opt.variant} pricelist` })}
+          >
+            <p className="font-black text-slate-900 mb-1 truncate">{opt.variant}</p>
+            <div className="flex gap-2 flex-wrap mb-3">
+              {opt.fuelType && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">{opt.fuelType}</span>}
+              {opt.transmission && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700">{opt.transmission}</span>}
+            </div>
+            <p className="text-sm font-bold text-emerald-700">{formatCurrency(opt.onRoad || opt.exShowroom)}</p>
+            <p className="text-xs text-slate-500">{opt.city || "Delhi"}</p>
+          </motion.div>
+        ))}
+      </div>
+      {data.compareAllOption && options.length > 1 && (
+        <button
+          className="mt-2 px-5 py-2 rounded-xl border border-violet-300 text-violet-700 text-sm font-bold hover:bg-violet-50 transition"
+          onClick={() => onAction?.({ type: "ask", message: `Compare ${model} variants` })}
+        >
+          Compare all {options.length} variants
+        </button>
+      )}
+    </ModernCanvasShell>
+  );
+}
+
+// ============================================================================
+// NEW-CAR EXPERT CANVASES — BATCH 2: FEATURE DISCOVERY, COLOR SEARCH, SIMILAR CARS
+// ============================================================================
+
+function FeatureDiscoveryCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || data.records || widget?.rows);
+  const grouped = data.grouped || {};
+  const filters = data.filters || {};
+  const title = data.title || widget?.title || "Feature Search Results";
+
+  const badge = (label, color) => (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>{label}</span>
+  );
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Based on stored catalogue and feature data" icon={SearchCheck} footer={footer}>
+      {/* Active filters */}
+      <div className="flex flex-wrap gap-2">
+        {filters.feature && badge(filters.feature, "bg-violet-100 text-violet-700")}
+        {filters.bodyType && badge(filters.bodyType, "bg-blue-100 text-blue-700")}
+        {filters.budgetMax && badge(`Under ${formatCurrency(filters.budgetMax)}`, "bg-emerald-100 text-emerald-700")}
+        {filters.fuelType && badge(filters.fuelType, "bg-amber-100 text-amber-700")}
+      </div>
+
+      {/* Grouped yes/no/notFound when model-specific */}
+      {(grouped.yes?.length > 0 || grouped.no?.length > 0) && (
+        <div className="space-y-4">
+          {grouped.yes?.length > 0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-600 mb-2">✓ Has feature ({grouped.yes.length})</p>
+              <div className="space-y-2">
+                {grouped.yes.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200/40 px-4 py-3">
+                    <div>
+                      <p className="font-bold text-slate-900">{r.variant || r.model}</p>
+                      <p className="text-xs text-slate-500">{r.featureKey}: <span className="font-semibold text-slate-700">{r.featureValue}</span></p>
+                    </div>
+                    <p className="font-bold text-emerald-700">{formatCurrency(r.onRoad || r.exShowroom)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {grouped.no?.length > 0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-2">✗ No feature ({grouped.no.length})</p>
+              <div className="space-y-2">
+                {grouped.no.slice(0, 4).map((r, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-red-50 border border-red-200/40 px-4 py-3">
+                    <p className="font-semibold text-slate-700">{r.variant || r.model}</p>
+                    <p className="text-sm text-slate-500">{formatCurrency(r.onRoad || r.exShowroom)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Flat rows for global search */}
+      {!grouped.yes && rows.length > 0 && (
+        <div className="space-y-3">
+          {rows.slice(0, 30).map((r, i) => (
+            <motion.div key={i} whileHover={{ scale: 1.01 }}
+              className="flex items-center justify-between rounded-2xl border border-slate-200/40 bg-white/70 px-4 py-4 backdrop-blur-sm cursor-pointer hover:border-violet-300 transition-all"
+              onClick={() => onAction?.({ type: "ask", message: `${r.model} ${r.variant || ""} pricelist`.trim() })}
+            >
+              <div>
+                <p className="font-bold text-slate-900">{r.brand} {r.model}</p>
+                <p className="text-sm text-slate-600">{r.variant}</p>
+                <p className="text-xs text-slate-500 mt-1">{r.featureKey}: <span className="font-semibold">{r.featureValue}</span></p>
+              </div>
+              <div className="text-right">
+                <p className="font-black text-emerald-700">{formatCurrency(r.onRoad || r.exShowroom)}</p>
+                {r.matchedReason && <p className="text-xs text-violet-600 mt-1">{r.matchedReason}</p>}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </ModernCanvasShell>
+  );
+}
+
+function VehicleColorSearchCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || data.records || widget?.rows);
+  const title = data.title || widget?.title || "Color Search Results";
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Results from stored vehicle color catalogue" icon={Palette} footer={footer}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.slice(0, 24).map((r, i) => (
+          <motion.div key={i} whileHover={{ scale: 1.02 }}
+            className="rounded-2xl border border-slate-200/40 bg-white/70 overflow-hidden cursor-pointer hover:border-violet-300 transition-all"
+            onClick={() => onAction?.({ type: "ask", message: `${r.brand} ${r.model} pricelist` })}
+          >
+            {r.imageUrl ? (
+              <img src={r.imageUrl} alt={r.colorName} className="w-full h-36 object-cover" onError={(e) => { e.target.style.display = "none"; }} />
+            ) : (
+              <div className="h-24 w-full flex items-center justify-center" style={{ background: r.hex || "#e2e8f0" }}>
+                <Palette size={32} className="text-white/70" />
+              </div>
+            )}
+            <div className="p-3">
+              <p className="font-bold text-slate-900 truncate">{r.brand} {r.model}</p>
+              <div className="flex items-center gap-2 mt-1">
+                {r.hex && <div className="h-4 w-4 rounded-full border border-slate-300" style={{ background: r.hex }} />}
+                <p className="text-sm text-slate-600">{r.colorName}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      {rows.length === 0 && (
+        <p className="text-slate-500 text-sm">No color records matched this search.</p>
+      )}
+    </ModernCanvasShell>
+  );
+}
+
+function SimilarCarsCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || data.records || widget?.rows);
+  const base = data.base || data.data?.base || {};
+  const title = widget?.title || `Similar cars to ${base.model || message?.entities?.model || "this car"}`;
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Same segment · similar price band · matched from catalogue" icon={Car} footer={footer}>
+      {base.model && (
+        <div className="rounded-2xl border border-violet-200/40 bg-gradient-to-r from-violet-50 to-blue-50 px-5 py-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-violet-600 mb-1">Reference Model</p>
+          <p className="font-black text-xl text-slate-900">{base.brand} {base.model}</p>
+          <p className="text-sm text-slate-600">{base.bodyType} · {formatCurrency(base.priceRange?.min)} – {formatCurrency(base.priceRange?.max)}</p>
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {rows.slice(0, 12).map((r, i) => (
+          <motion.div key={i} whileHover={{ scale: 1.02 }}
+            className="rounded-2xl border border-slate-200/40 bg-white/70 p-5 cursor-pointer hover:border-violet-300 transition-all"
+            onClick={() => onAction?.({ type: "ask", message: `${r.brand} ${r.model} pricelist` })}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-violet-600 mb-1">{r.brand}</p>
+                <h3 className="text-lg font-black text-slate-900">{r.model}</h3>
+              </div>
+              <span className="px-2 py-1 rounded-lg bg-slate-100 text-xs font-bold text-slate-600">{r.bodyType || "Car"}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-3">
+              <div>
+                <p className="text-xs text-slate-500">Price range</p>
+                <p className="font-bold text-emerald-700">{formatCurrency(r.startingPrice)} – {formatCurrency(r.topPrice)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500">Variants</p>
+                <p className="font-bold text-slate-800">{r.variantCount || "—"}</p>
+              </div>
+            </div>
+            {r.matchedReason && <p className="text-xs text-violet-600 font-semibold">↳ {r.matchedReason}</p>}
+            {r.reason && <p className="text-xs text-violet-600 font-semibold">↳ {r.reason}</p>}
+          </motion.div>
+        ))}
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+// ============================================================================
+// NEW-CAR EXPERT CANVASES — BATCH 3: COMPARISON, RECOMMENDATION, EMI CALCULATOR
+// ============================================================================
+
+function VehicleComparisonCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const isModelComparison = widget?.type === "vehicle_model_comparison";
+  const models = asArray(data.models);
+  const variants = asArray(data.variants);
+  const comparisonRows = asArray(data.comparisonRows);
+  const title = widget?.title || (isModelComparison ? "Model Comparison" : "Variant Comparison");
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Side-by-side comparison from stored catalogue" icon={Layers3} footer={footer}>
+      {isModelComparison ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {models.map((m, i) => (
+            <div key={i} className="rounded-2xl border border-slate-200/40 bg-white/70 p-5 backdrop-blur-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-violet-600 mb-1">{m.brand}</p>
+              <h3 className="text-xl font-black text-slate-900 mb-2">{m.model}</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Price Range</span>
+                  <span className="font-bold text-emerald-700">{formatCurrency(m.startingPrice)} – {formatCurrency(m.topPrice)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Variants</span>
+                  <span className="font-bold text-slate-800">{m.variantCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Body Type</span>
+                  <span className="font-bold text-slate-800">{m.bodyType}</span>
+                </div>
+              </div>
+              <button
+                className="mt-4 w-full py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition"
+                onClick={() => onAction?.({ type: "ask", message: `${m.brand} ${m.model} variants` })}
+              >
+                Select Variant
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-3xl border border-slate-200/40 bg-white/70 backdrop-blur-sm">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="p-4 text-xs font-black uppercase tracking-widest text-slate-400 min-w-[150px]">Feature</th>
+                {variants.map((v, i) => (
+                  <th key={i} className="p-4 min-w-[200px]">
+                    <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">{v.brand}</p>
+                    <p className="font-black text-slate-900">{v.model}</p>
+                    <p className="text-xs text-slate-500">{v.variant}</p>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {comparisonRows.map((row, i) => (
+                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="p-4 text-sm font-bold text-slate-600">{row.label}</td>
+                  {row.values.map((val, vi) => (
+                    <td key={vi} className="p-4 text-sm font-black text-slate-900">
+                      {typeof val === "number" ? formatCurrency(val) : val || "—"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </ModernCanvasShell>
+  );
+}
+
+function VehicleRecommendationCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || data.records || widget?.rows);
+  const filters = data.filters || {};
+  const title = widget?.title || "Recommended Vehicles";
+  const city = data.city || "Delhi";
+
+  return (
+    <ModernCanvasShell title={title} subtitle={`Top matches in ${city} based on your requirements`} icon={Sparkles} footer={footer}>
+      {/* Filter Chips Summary */}
+      <div className="flex flex-wrap gap-2 mb-2">
+        {filters.budgetMax && <span className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold">Under {formatCurrency(filters.budgetMax)}</span>}
+        {filters.bodyType && <span className="px-2 py-1 rounded-lg bg-blue-100 text-blue-700 text-xs font-bold uppercase">{filters.bodyType}</span>}
+        {filters.fuelType && <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-xs font-bold">{filters.fuelType}</span>}
+        {filters.transmission && <span className="px-2 py-1 rounded-lg bg-purple-100 text-purple-700 text-xs font-bold">{filters.transmission}</span>}
+      </div>
+
+      <div className="grid gap-6">
+        {rows.map((r, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className="group rounded-3xl border border-slate-200/40 bg-white/70 p-6 backdrop-blur-sm hover:border-violet-300 transition-all cursor-pointer"
+            onClick={() => onAction?.({ type: "ask", message: `${r.model} ${r.variant || ""} pricelist`.trim() })}
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-bold text-violet-600 uppercase tracking-widest">{r.brand}</span>
+                  <div className="h-1 w-1 rounded-full bg-slate-300" />
+                  <span className="text-xs font-bold text-slate-500 uppercase">{r.bodyType}</span>
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 mb-2 group-hover:text-violet-700 transition-colors">{r.model} <span className="text-base font-bold text-slate-500">{r.variant}</span></h3>
+                
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-600">
+                  <span className="flex items-center gap-1.5"><BadgeCheck size={14} className="text-emerald-500" /> {r.fuelType}</span>
+                  <span className="flex items-center gap-1.5"><BadgeCheck size={14} className="text-emerald-500" /> {r.transmission}</span>
+                </div>
+              </div>
+
+              <div className="md:text-right">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">On-road Price</p>
+                <p className="text-3xl font-black bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">{formatCurrency(r.onRoad || r.exShowroom)}</p>
+                <div className="mt-2 flex flex-wrap md:justify-end gap-1.5">
+                  {asArray(r.matchedReasons).map((reason, ri) => (
+                    <span key={ri} className="px-2 py-0.5 rounded-md bg-violet-50 text-violet-600 text-[10px] font-black uppercase">{reason}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+function VehicleEmiCalculatorCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const vehicle = data.vehicle || {};
+  const inputs = data.inputs || {};
+  const result = data.result || {};
+  const price = data.price || {};
+  const scenarios = asArray(data.scenarios);
+
+  return (
+    <ModernCanvasShell title="EMI Calculator" subtitle={`${vehicle.model || "Vehicle"} ${vehicle.variant || ""}`} icon={Banknote} footer={footer}>
+      {/* Price Header */}
+      <div className="rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-white">
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Monthly EMI</p>
+        <h2 className="text-5xl font-black mb-6">{formatCurrency(result.emi)}</h2>
+        <div className="grid grid-cols-2 gap-8 border-t border-white/10 pt-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">On-road Price</p>
+            <p className="text-xl font-bold">{formatCurrency(price.onRoad)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Loan Amount</p>
+            <p className="text-xl font-bold">{formatCurrency(result.financeAmount)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Input Summary */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Down Payment</p>
+          <p className="font-bold text-slate-900">{formatCurrency(inputs.downPayment)} ({inputs.downPaymentPercent}%)</p>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Tenure</p>
+          <p className="font-bold text-slate-900">{inputs.tenureMonths / 12} Years ({inputs.tenureMonths} Mo)</p>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Interest Rate</p>
+          <p className="font-bold text-slate-900">{inputs.annualRate}% p.a.</p>
+        </div>
+      </div>
+
+      {/* Scenarios */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Other Tenures</p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {scenarios.map((s, i) => (
+            <div key={i} className="rounded-2xl border border-slate-200/40 bg-white/70 p-4 backdrop-blur-sm">
+              <p className="text-xs font-bold text-slate-500 mb-1">{s.label}</p>
+              <p className="text-lg font-black text-slate-900">{formatCurrency(s.emi)}<span className="text-xs font-bold text-slate-400">/mo</span></p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Total Payment Info */}
+      <div className="rounded-2xl border border-slate-200/40 bg-white/70 p-5 backdrop-blur-sm">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-bold text-slate-600">Total Interest</span>
+          <span className="font-bold text-slate-900">{formatCurrency(result.totalInterest)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-slate-600">Total Payable</span>
+          <span className="font-black text-slate-900">{formatCurrency(result.totalPayable)}</span>
+        </div>
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+// ============================================================================
+// NEW-CAR EXPERT CANVASES — BATCH 4: HISTORY, SPECS, SAFETY, DIFFERENCE
+// ============================================================================
+
+function PriceHistoryCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || widget?.rows);
+  const summary = data.summary || {};
+  const title = widget?.title || "Price History";
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Historical price changes from stored data" icon={TrendingUp} footer={footer}>
+      {summary.changeAmount !== undefined && (
+        <div className="grid gap-4 sm:grid-cols-2 mb-6">
+          <div className="rounded-2xl border border-slate-200/40 bg-white/70 p-5 backdrop-blur-sm">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Latest Price</p>
+            <p className="text-2xl font-black text-slate-900">{formatCurrency(summary.latestPrice)}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200/40 bg-white/70 p-5 backdrop-blur-sm">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Last Change</p>
+            <div className="flex items-center gap-2">
+              <p className={`text-2xl font-black ${summary.changeAmount > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                {summary.changeAmount > 0 ? "+" : ""}{formatCurrency(summary.changeAmount)}
+              </p>
+              <span className={`px-2 py-0.5 rounded text-xs font-bold ${summary.changeAmount > 0 ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {summary.changePercent?.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white/50 px-4 py-3">
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{formatDate(r.date).split(" ")[0]}</p>
+              <p className="font-bold text-slate-900">{r.variant}</p>
+              <p className="text-xs text-slate-500">{r.city}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-black text-slate-900">{formatCurrency(r.price)}</p>
+              {r.changeAmount && (
+                <p className={`text-[10px] font-bold ${r.changeAmount > 0 ? "text-red-500" : "text-emerald-500"}`}>
+                  {r.changeAmount > 0 ? "▲" : "▼"} {formatCurrency(Math.abs(r.changeAmount))}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+function VehicleSpecRankingCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || data.records || widget?.rows);
+  const title = widget?.title || "Vehicle Rankings";
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Ranked by specific dimension or performance metrics" icon={Layers3} footer={footer}>
+      <div className="space-y-4">
+        {rows.map((r, i) => (
+          <motion.div key={i} whileHover={{ scale: 1.01 }} className="flex items-center gap-4 rounded-2xl border border-slate-200/40 bg-white/70 p-4 backdrop-blur-sm cursor-pointer" onClick={() => onAction?.({ type: "ask", message: `${r.model} ${r.variant || ""} features`.trim() })}>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white font-black">
+              #{i + 1}
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">{r.brand}</p>
+              <h4 className="font-black text-slate-900">{r.model} <span className="text-sm font-bold text-slate-500">{r.variant}</span></h4>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">{r.featureKey || "Value"}</p>
+              <p className="text-lg font-black text-violet-700">{r.featureValue}</p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+function VehicleSafetyCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const rows = asArray(data.rows || data.records || widget?.rows);
+  const title = widget?.title || "Safety Expert Recommendations";
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Ranked by safety features and captured safety equipment" icon={BadgeCheck} footer={footer}>
+      <div className="grid gap-4">
+        {rows.map((r, i) => (
+          <div key={i} className="rounded-2xl border border-emerald-200/50 bg-emerald-50/30 p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">{r.brand} {r.model}</p>
+                <h4 className="text-xl font-black text-slate-900">{r.variant}</h4>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 font-black text-xs">
+                <BadgeCheck size={14} /> SAFETY PICK
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 mb-4">
+              {asArray(r.keyFeatures || r.safetyFeatures).map((f, fi) => (
+                <span key={fi} className="flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-emerald-100 text-[10px] font-bold text-slate-600">
+                  <Check size={10} className="text-emerald-500" /> {f}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-emerald-100 pt-3">
+              <p className="text-sm font-bold text-slate-700">{formatCurrency(r.onRoad || r.exShowroom)}</p>
+              <button className="text-xs font-black text-emerald-700 uppercase tracking-widest" onClick={() => onAction?.({ type: "ask", message: `${r.model} ${r.variant} safety features` })}>
+                View Safety Kit →
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+function VehicleVariantRecommendationCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const top = data.topRecommendation || {};
+  const rows = asArray(data.rows);
+  const title = widget?.title || `Best ${data.model || "Vehicle"} Variant`;
+
+  return (
+    <ModernCanvasShell title={title} subtitle="Value-for-money recommendation based on feature spread" icon={Sparkles} footer={footer}>
+      {top.variant && (
+        <div className="rounded-3xl border-2 border-violet-400 bg-gradient-to-br from-violet-600 to-indigo-700 p-6 text-white mb-8 shadow-xl shadow-violet-200">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+              <Zap size={16} />
+            </div>
+            <span className="text-xs font-black uppercase tracking-widest">Expert Recommendation</span>
+          </div>
+          <h3 className="text-3xl font-black mb-1">{top.variant}</h3>
+          <p className="text-violet-100 font-bold mb-6">{top.brand} {top.model} · {formatCurrency(top.onRoad || top.exShowroom)}</p>
+          
+          <div className="space-y-2">
+            {asArray(top.matchedReasons).map((reason, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm font-medium">
+                <CheckCircle2 size={16} className="text-emerald-400" /> {reason}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Other Considerations</p>
+      <div className="space-y-3">
+        {rows.filter(r => r.variant !== top.variant).slice(0, 5).map((r, i) => (
+          <div key={i} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-5 py-4 cursor-pointer hover:border-violet-200 transition-all" onClick={() => onAction?.({ type: "ask", message: `${r.model} ${r.variant} pricelist` })}>
+            <div>
+              <p className="font-bold text-slate-900">{r.variant}</p>
+              <p className="text-xs text-slate-500">{r.fuelType} · {r.transmission}</p>
+            </div>
+            <p className="font-black text-slate-900">{formatCurrency(r.onRoad || r.exShowroom)}</p>
+          </div>
+        ))}
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+function VariantDifferenceCanvas({ message, widget, onAction, footer }) {
+  const data = widget?.data || widget || {};
+  const variants = asArray(data.variants);
+  const diffs = asArray(data.featureDifferences);
+  const comparisonRows = asArray(data.comparisonRows);
+
+  return (
+    <ModernCanvasShell title="Variant Difference" subtitle="Highlighting what you get for the extra price" icon={Layers3} footer={footer}>
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        {variants.map((v, i) => (
+          <div key={i} className={`rounded-2xl p-5 border ${i === 1 ? "border-violet-200 bg-violet-50/30" : "border-slate-200 bg-white"}`}>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{i === 0 ? "Base" : "Upgrade"}</p>
+            <h4 className="font-black text-slate-900 truncate">{v.variant}</h4>
+            <p className="text-xs text-slate-500 mb-3">{v.brand} {v.model}</p>
+            <p className="text-lg font-black text-slate-900">{formatCurrency(v.onRoad || v.exShowroom)}</p>
+          </div>
+        ))}
+      </div>
+
+      {data.priceDifference > 0 && (
+        <div className="rounded-2xl bg-slate-900 p-4 text-center text-white mb-8">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">Price Difference</p>
+          <p className="text-xl font-black text-emerald-400">{formatCurrency(data.priceDifference)}</p>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-violet-600 mb-4">Feature Differences</p>
+          <div className="rounded-2xl border border-slate-100 overflow-hidden">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="p-3 font-bold text-slate-500">Feature</th>
+                  <th className="p-3 font-bold text-slate-500">{variants[0]?.variant}</th>
+                  <th className="p-3 font-bold text-slate-500">{variants[1]?.variant}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {diffs.map((d, i) => (
+                  <tr key={i} className="hover:bg-slate-50/30">
+                    <td className="p-3 font-medium text-slate-600">{d.feature}</td>
+                    <td className="p-3 text-slate-400">{d.values[0]}</td>
+                    <td className="p-3 font-black text-emerald-600">{d.values[1]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </ModernCanvasShell>
+  );
+}
+
+// ============================================================================
 // REDESIGNED LOAN CANVASES
 // ============================================================================
 
@@ -2083,7 +2838,14 @@ export default function AgentWorkspaceCanvas({
     return <EmptyWorkspace onAsk={onAsk} />;
   }
 
-  if (message.ambiguity || findWidget(message, "ambiguity")) {
+  if (message.ambiguity || findAnyWidget(message, ["ambiguity", "model_ambiguity", "variant_ambiguity"])) {
+    const ambiguityWidget = findAnyWidget(message, ["ambiguity", "model_ambiguity", "variant_ambiguity"]);
+    const isModel = widgetMatches(ambiguityWidget, "model_ambiguity");
+    const isVariant = widgetMatches(ambiguityWidget, "variant_ambiguity");
+
+    if (isModel) return <ModelAmbiguityCanvas message={message} widget={ambiguityWidget} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+    if (isVariant) return <VariantAmbiguityCanvas message={message} widget={ambiguityWidget} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+
     return (
       <AmbiguityCanvas
         message={message}
@@ -2091,6 +2853,11 @@ export default function AgentWorkspaceCanvas({
         footer={<ModernCanvasFooter {...footerProps} />}
       />
     );
+  }
+
+  const priceBreakup = findWidget(message, "vehicle_price_breakup");
+  if (priceBreakup) {
+    return <PriceBreakupCanvas message={message} widget={priceBreakup} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
   }
 
   const pricelist = findWidget(message, "vehicle_pricelist");
@@ -2143,6 +2910,59 @@ export default function AgentWorkspaceCanvas({
         footer={<ModernCanvasFooter {...footerProps} />}
       />
     );
+  }
+
+  const discovery = findWidget(message, "vehicle_feature_discovery");
+  if (discovery) {
+    return <FeatureDiscoveryCanvas message={message} widget={discovery} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const colorSearch = findWidget(message, "vehicle_color_search");
+  if (colorSearch) {
+    return <VehicleColorSearchCanvas message={message} widget={colorSearch} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const similar = findWidget(message, "similar_cars");
+  if (similar) {
+    return <SimilarCarsCanvas message={message} widget={similar} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const comparison = findAnyWidget(message, ["vehicle_model_comparison", "vehicle_variant_comparison"]);
+  if (comparison) {
+    return <VehicleComparisonCanvas message={message} widget={comparison} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const recommendation = findAnyWidget(message, ["vehicle_recommendation_results", "vehicle_emi_recommendations", "vehicle_safety_results"]);
+  if (recommendation) {
+    if (widgetMatches(recommendation, "vehicle_safety_results")) {
+      return <VehicleSafetyCanvas message={message} widget={recommendation} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+    }
+    return <VehicleRecommendationCanvas message={message} widget={recommendation} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const emiCalc = findWidget(message, "vehicle_emi_calculator");
+  if (emiCalc) {
+    return <VehicleEmiCalculatorCanvas message={message} widget={emiCalc} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const priceHistory = findWidget(message, "vehicle_price_history");
+  if (priceHistory) {
+    return <PriceHistoryCanvas message={message} widget={priceHistory} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const specRanking = findWidget(message, "vehicle_spec_ranking");
+  if (specRanking) {
+    return <VehicleSpecRankingCanvas message={message} widget={specRanking} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const variantRec = findWidget(message, "vehicle_variant_recommendation");
+  if (variantRec) {
+    return <VehicleVariantRecommendationCanvas message={message} widget={variantRec} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const variantDiff = findWidget(message, "vehicle_variant_difference");
+  if (variantDiff) {
+    return <VariantDifferenceCanvas message={message} widget={variantDiff} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
   }
 
   const disbursal = findWidget(message, "loan_disbursal_report");
