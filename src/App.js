@@ -36,6 +36,7 @@ import SuperadminChannelsPage from "./pages/superadmin/SuperadminChannelsPage";
 import SuperadminBanksPage from "./pages/superadmin/SuperadminBanksPage";
 import DetailedBankViewPage from "./pages/superadmin/DetailedBankViewPage";
 import ProfilePage from "./pages/ProfilePage";
+import CustomerProfilePage from "./pages/customers/CustomerProfilePage";
 import InsuranceDashboardPage from "./pages/insurance/InsuranceDashboardPage";
 import InsuranceCasePage from "./pages/insurance/InsuranceCasePage";
 import UsedCarsProcurementPage from "./modules/used-cars/pages/UsedCarsProcurementPage";
@@ -146,6 +147,10 @@ function App() {
             <Route
               path="customers/edit/:id"
               element={R(FEATURE_ACCESS.CUSTOMERS, <EditCustomer />)}
+            />
+            <Route
+              path="customers/profile/:id"
+              element={R(FEATURE_ACCESS.CUSTOMERS, <CustomerProfilePage />)}
             />
             {/* Loans */}
             <Route

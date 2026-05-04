@@ -1,4 +1,10 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import {
   message,
   Modal,
@@ -37,7 +43,15 @@ const PRIMARY_STAT_THEMES = {
   },
 };
 
-const MetricCard = ({ id, title, subtitle, value, iconName, onClick, isActive }) => {
+const MetricCard = ({
+  id,
+  title,
+  subtitle,
+  value,
+  iconName,
+  onClick,
+  isActive,
+}) => {
   const theme = PRIMARY_STAT_THEMES[id] || PRIMARY_STAT_THEMES.all;
 
   return (
@@ -49,7 +63,9 @@ const MetricCard = ({ id, title, subtitle, value, iconName, onClick, isActive })
       <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
       <div className="relative flex items-start justify-between gap-3">
         <div>
-          <p className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${theme.accent}`}>
+          <p
+            className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${theme.accent}`}
+          >
             {title}
           </p>
           <p className="mt-1 text-2xl md:text-3xl font-black text-white tabular-nums">
@@ -58,7 +74,9 @@ const MetricCard = ({ id, title, subtitle, value, iconName, onClick, isActive })
           {subtitle && <p className="mt-1 text-xs text-white/80">{subtitle}</p>}
         </div>
 
-        <div className={`mt-1 h-10 w-10 rounded-xl ${theme.iconBg} text-white flex items-center justify-center backdrop-blur-sm`}>
+        <div
+          className={`mt-1 h-10 w-10 rounded-xl ${theme.iconBg} text-white flex items-center justify-center backdrop-blur-sm`}
+        >
           <Icon name={iconName} size={18} />
         </div>
       </div>
@@ -91,7 +109,10 @@ const getKycTheme = (status) => {
 
 const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
 
-const normalizeSearchText = (value) => String(value || "").trim().toLowerCase();
+const normalizeSearchText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const matchesCustomerSearch = (customer, query) => {
   const q = normalizeSearchText(query);
@@ -128,7 +149,7 @@ const CustomerDashboard = () => {
   // Pagination State
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20
+    pageSize: 20,
   });
   const currentPage = pagination.current;
   const pageSize = pagination.pageSize;
@@ -137,7 +158,8 @@ const CustomerDashboard = () => {
   const [activeStatFilter, setActiveStatFilter] = useState("all");
 
   // Reassign flow: when delete is blocked by linked loans
-  const [linkedLoansBlockedRecord, setLinkedLoansBlockedRecord] = useState(null);
+  const [linkedLoansBlockedRecord, setLinkedLoansBlockedRecord] =
+    useState(null);
   const [reassignModalOpen, setReassignModalOpen] = useState(false);
   const [reassignFrom, setReassignFrom] = useState(null);
   const [reassignSearch, setReassignSearch] = useState("");
@@ -148,7 +170,11 @@ const CustomerDashboard = () => {
   const loadAllCustomersForSearch = useCallback(async (force = false) => {
     const now = Date.now();
     const cache = globalSearchCacheRef.current;
-    if (!force && Array.isArray(cache.rows) && now - cache.ts < SEARCH_CACHE_TTL_MS) {
+    if (
+      !force &&
+      Array.isArray(cache.rows) &&
+      now - cache.ts < SEARCH_CACHE_TTL_MS
+    ) {
       return cache.rows;
     }
     if (cache.promise) return cache.promise;
@@ -165,7 +191,9 @@ const CustomerDashboard = () => {
         sortOrder: "desc",
       });
       const firstChunk = Array.isArray(first?.data) ? first.data : [];
-      const apiCount = Number(first?.count ?? first?.total ?? first?.pagination?.total);
+      const apiCount = Number(
+        first?.count ?? first?.total ?? first?.pagination?.total,
+      );
       all = firstChunk;
 
       if (Number.isFinite(apiCount) && apiCount > firstChunk.length) {
@@ -219,7 +247,11 @@ const CustomerDashboard = () => {
       });
       const deduped = [...byId.values()];
 
-      globalSearchCacheRef.current = { rows: deduped, ts: Date.now(), promise: null };
+      globalSearchCacheRef.current = {
+        rows: deduped,
+        ts: Date.now(),
+        promise: null,
+      };
       return deduped;
     })().catch((err) => {
       globalSearchCacheRef.current.promise = null;
@@ -230,86 +262,102 @@ const CustomerDashboard = () => {
     return promise;
   }, []);
 
-  const loadCustomers = useCallback(async (options = {}) => {
-    const page = Number(options.page || currentPage || 1);
-    const pageSizeToUse = Number(options.pageSize || pageSize || 20);
-    const skip = Math.max(0, (page - 1) * pageSizeToUse);
-    const query = String(
-      options.query !== undefined ? options.query : searchDebounced,
-    ).trim();
-    const requestId = ++requestRef.current;
+  const loadCustomers = useCallback(
+    async (options = {}) => {
+      const page = Number(options.page || currentPage || 1);
+      const pageSizeToUse = Number(options.pageSize || pageSize || 20);
+      const skip = Math.max(0, (page - 1) * pageSizeToUse);
+      const query = String(
+        options.query !== undefined ? options.query : searchDebounced,
+      ).trim();
+      const requestId = ++requestRef.current;
 
-    try {
-      setLoading(true);
+      try {
+        setLoading(true);
 
-      let data;
-      let rows = [];
-      let count = 0;
+        let data;
+        let rows = [];
+        let count = 0;
 
-      if (query.length >= 2) {
-        let serverSearchWorked = false;
-        try {
-          const searchData = await customersApi.search(query, {
+        if (query.length >= 2) {
+          let serverSearchWorked = false;
+          try {
+            const searchData = await customersApi.search(query, {
+              limit: pageSizeToUse,
+              skip,
+              sortBy: "updatedAt",
+              sortOrder: "desc",
+            });
+            const searchRows = Array.isArray(searchData?.data)
+              ? searchData.data
+              : [];
+            const searchCount = Number(
+              searchData?.count ??
+                searchData?.total ??
+                searchData?.pagination?.total,
+            );
+            if (
+              searchRows.length ||
+              (Number.isFinite(searchCount) && searchCount > 0)
+            ) {
+              rows = searchRows;
+              count = Number.isFinite(searchCount)
+                ? searchCount
+                : searchRows.length;
+              serverSearchWorked = true;
+            }
+          } catch (_) {
+            serverSearchWorked = false;
+          }
+
+          // Fallback for API search mismatch: global in-memory search over full dataset.
+          if (!serverSearchWorked) {
+            const allCustomers = await loadAllCustomersForSearch(
+              Boolean(options.forceReloadSearchCache),
+            );
+            const matched = allCustomers.filter((c) =>
+              matchesCustomerSearch(c, query),
+            );
+            rows = matched.slice(skip, skip + pageSizeToUse);
+            count = matched.length;
+          }
+        } else {
+          data = await customersApi.getAll({
             limit: pageSizeToUse,
             skip,
             sortBy: "updatedAt",
             sortOrder: "desc",
           });
-          const searchRows = Array.isArray(searchData?.data) ? searchData.data : [];
-          const searchCount = Number(
-            searchData?.count ?? searchData?.total ?? searchData?.pagination?.total,
+        }
+
+        if (query.length < 2) {
+          const apiRows = Array.isArray(data?.data) ? data.data : [];
+          const apiCount = Number(
+            data?.count ?? data?.total ?? data?.pagination?.total,
           );
-          if (searchRows.length || (Number.isFinite(searchCount) && searchCount > 0)) {
-            rows = searchRows;
-            count = Number.isFinite(searchCount) ? searchCount : searchRows.length;
-            serverSearchWorked = true;
+
+          if (Number.isFinite(apiCount) && apiCount >= 0) {
+            rows = apiRows;
+            count = apiCount;
+          } else {
+            // Fallback for endpoints that may ignore limit/skip and return all rows.
+            rows = apiRows.slice(skip, skip + pageSizeToUse);
+            count = apiRows.length;
           }
-        } catch (_) {
-          serverSearchWorked = false;
         }
 
-        // Fallback for API search mismatch: global in-memory search over full dataset.
-        if (!serverSearchWorked) {
-          const allCustomers = await loadAllCustomersForSearch(
-            Boolean(options.forceReloadSearchCache),
-          );
-          const matched = allCustomers.filter((c) => matchesCustomerSearch(c, query));
-          rows = matched.slice(skip, skip + pageSizeToUse);
-          count = matched.length;
-        }
-      } else {
-        data = await customersApi.getAll({
-          limit: pageSizeToUse,
-          skip,
-          sortBy: "updatedAt",
-          sortOrder: "desc",
-        });
+        if (requestId !== requestRef.current) return;
+        setCustomers(rows);
+        setTotalCustomers(count || rows.length);
+      } catch (err) {
+        console.error("Load Customers Error:", err);
+        message.error("Failed to load customers ❌");
+      } finally {
+        if (requestId === requestRef.current) setLoading(false);
       }
-
-      if (query.length < 2) {
-        const apiRows = Array.isArray(data?.data) ? data.data : [];
-        const apiCount = Number(data?.count ?? data?.total ?? data?.pagination?.total);
-
-        if (Number.isFinite(apiCount) && apiCount >= 0) {
-          rows = apiRows;
-          count = apiCount;
-        } else {
-          // Fallback for endpoints that may ignore limit/skip and return all rows.
-          rows = apiRows.slice(skip, skip + pageSizeToUse);
-          count = apiRows.length;
-        }
-      }
-
-      if (requestId !== requestRef.current) return;
-      setCustomers(rows);
-      setTotalCustomers(count || rows.length);
-    } catch (err) {
-      console.error("Load Customers Error:", err);
-      message.error("Failed to load customers ❌");
-    } finally {
-      if (requestId === requestRef.current) setLoading(false);
-    }
-  }, [currentPage, pageSize, searchDebounced, loadAllCustomersForSearch]);
+    },
+    [currentPage, pageSize, searchDebounced, loadAllCustomersForSearch],
+  );
 
   useEffect(() => {
     // Warm cache in background so global-search fallback feels instant.
@@ -327,7 +375,9 @@ const CustomerDashboard = () => {
   }, [searchText]);
 
   useEffect(() => {
-    setPagination((prev) => (prev.current === 1 ? prev : { ...prev, current: 1 }));
+    setPagination((prev) =>
+      prev.current === 1 ? prev : { ...prev, current: 1 },
+    );
   }, [searchDebounced]);
 
   useEffect(() => {
@@ -359,10 +409,21 @@ const CustomerDashboard = () => {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [reassignModalOpen, reassignFrom, reassignSearch, loadAllCustomersForSearch]);
+  }, [
+    reassignModalOpen,
+    reassignFrom,
+    reassignSearch,
+    loadAllCustomersForSearch,
+  ]);
 
   const handleNewCustomer = () => {
     navigate("/customers/new");
+  };
+
+  const handleOpenCustomerProfile = (record) => {
+    const id = record?._id || record?.id || record?.customerId;
+    if (!id) return;
+    navigate(`/customers/profile/${id}`);
   };
 
   const handleEditCustomer = (record) => {
@@ -417,14 +478,23 @@ const CustomerDashboard = () => {
       // Extract backend message (support both Error.message and JSON response)
       let errMsg = err?.message || String(err);
       try {
-        const parsed = typeof errMsg === "string" && errMsg.trim().startsWith("{") ? JSON.parse(errMsg) : null;
+        const parsed =
+          typeof errMsg === "string" && errMsg.trim().startsWith("{")
+            ? JSON.parse(errMsg)
+            : null;
         if (parsed?.message) errMsg = parsed.message;
       } catch (_) {}
 
-      const isLinkedLoans = /loan\(s\) are linked|reassign the loans|linked to this customer/i.test(errMsg);
+      const isLinkedLoans =
+        /loan\(s\) are linked|reassign the loans|linked to this customer/i.test(
+          errMsg,
+        );
 
       if (isLinkedLoans) {
-        setLinkedLoansBlockedRecord({ id, customerName: record?.customerName || "this customer" });
+        setLinkedLoansBlockedRecord({
+          id,
+          customerName: record?.customerName || "this customer",
+        });
       } else {
         message.error(`Delete failed ❌ ${errMsg}`);
       }
@@ -453,7 +523,9 @@ const CustomerDashboard = () => {
       setReassigning(true);
       await customersApi.reassignLoans(reassignFrom.id, reassignTarget._id);
       await customersApi.delete(reassignFrom.id);
-      message.success(`Loans reassigned to ${reassignTarget.customerName || "customer"} and "${reassignFrom.customerName}" deleted.`);
+      message.success(
+        `Loans reassigned to ${reassignTarget.customerName || "customer"} and "${reassignFrom.customerName}" deleted.`,
+      );
       setReassignModalOpen(false);
       setReassignFrom(null);
       setReassignTarget(null);
@@ -476,11 +548,11 @@ const CustomerDashboard = () => {
 
     // Stat/Status Filter
     if (activeStatFilter === "completed") {
-      list = list.filter(c => c.kycStatus === "Completed");
+      list = list.filter((c) => c.kycStatus === "Completed");
     } else if (activeStatFilter === "pending") {
-      list = list.filter(c => c.kycStatus === "Pending Docs");
+      list = list.filter((c) => c.kycStatus === "Pending Docs");
     } else if (activeStatFilter === "repeat") {
-      list = list.filter(c => c.customerType === "Repeat");
+      list = list.filter((c) => c.customerType === "Repeat");
     }
 
     return list;
@@ -527,18 +599,28 @@ const CustomerDashboard = () => {
 
             <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
               <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 dark:border-sky-900/40 dark:bg-sky-950/30">
-                <p className="text-slate-500 dark:text-slate-400">Customers in view</p>
-                <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">{filtered.length}</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  Customers in view
+                </p>
+                <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
+                  {filtered.length}
+                </p>
               </div>
               <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-                <p className="text-slate-500 dark:text-slate-400">KYC completed</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  KYC completed
+                </p>
                 <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
                   {completedKyc}/{total || 0}
                 </p>
               </div>
               <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/30">
-                <p className="text-slate-500 dark:text-slate-400">Pending docs</p>
-                <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">{pendingDocs}</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  Pending docs
+                </p>
+                <p className="font-bold text-slate-900 tabular-nums dark:text-slate-100">
+                  {pendingDocs}
+                </p>
               </div>
             </div>
           </div>
@@ -637,8 +719,14 @@ const CustomerDashboard = () => {
               </div>
             ) : filtered.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-8 text-center">
-                <Icon name="FileX" size={28} className="mx-auto text-muted-foreground/50 mb-2" />
-                <p className="text-sm font-medium text-muted-foreground">No customers found</p>
+                <Icon
+                  name="FileX"
+                  size={28}
+                  className="mx-auto text-muted-foreground/50 mb-2"
+                />
+                <p className="text-sm font-medium text-muted-foreground">
+                  No customers found
+                </p>
               </div>
             ) : (
               filtered.map((record, index) => {
@@ -647,14 +735,22 @@ const CustomerDashboard = () => {
                 const linkedLoanCount = Array.isArray(record?.linkedLoans)
                   ? record.linkedLoans.length
                   : 0;
-                const hasKycGaps = !(record?.panNumber || record?.aadhaarNumber || record?.aadharNumber);
-                const hasMissingBank = !(record?.bankName && record?.accountNumber);
+                const hasKycGaps = !(
+                  record?.panNumber ||
+                  record?.aadhaarNumber ||
+                  record?.aadharNumber
+                );
+                const hasMissingBank = !(
+                  record?.bankName && record?.accountNumber
+                );
 
                 return (
                   <article
                     key={id}
                     className={`group rounded-xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg ${
-                      isSelected ? "border-primary/40 ring-1 ring-primary/20" : "border-border"
+                      isSelected
+                        ? "border-primary/40 ring-1 ring-primary/20"
+                        : "border-border"
                     }`}
                     onClick={() => openViewModal(record)}
                   >
@@ -668,7 +764,9 @@ const CustomerDashboard = () => {
                             onChange={(e) => {
                               const checked = e.target.checked;
                               setSelectedRowKeys((prev) =>
-                                checked ? [...new Set([...prev, id])] : prev.filter((k) => k !== id),
+                                checked
+                                  ? [...new Set([...prev, id])]
+                                  : prev.filter((k) => k !== id),
                               );
                             }}
                             className="mt-1 h-4 w-4 rounded border-border accent-primary"
@@ -685,14 +783,19 @@ const CustomerDashboard = () => {
                                     : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
                                 }`}
                               >
-                                {record?.customerType === "Repeat" ? "Repeat" : "New"}
+                                {record?.customerType === "Repeat"
+                                  ? "Repeat"
+                                  : "New"}
                               </span>
-                              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${getKycTheme(record?.kycStatus)}`}>
+                              <span
+                                className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${getKycTheme(record?.kycStatus)}`}
+                              >
                                 {record?.kycStatus || "Unknown"}
                               </span>
                               {!!linkedLoanCount && (
                                 <span className="rounded-full border border-cyan-300 bg-cyan-50 px-2.5 py-1 text-[11px] font-semibold text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300">
-                                  {linkedLoanCount} linked loan{linkedLoanCount > 1 ? "s" : ""}
+                                  {linkedLoanCount} linked loan
+                                  {linkedLoanCount > 1 ? "s" : ""}
                                 </span>
                               )}
                             </div>
@@ -700,7 +803,10 @@ const CustomerDashboard = () => {
                         </div>
 
                         <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                          Created {formatDateCell(record?.createdOn || record?.createdAt)}
+                          Created{" "}
+                          {formatDateCell(
+                            record?.createdOn || record?.createdAt,
+                          )}
                         </span>
                       </div>
                     </div>
@@ -711,11 +817,23 @@ const CustomerDashboard = () => {
                           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                             Customer
                           </p>
-                          <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenCustomerProfile(record);
+                            }}
+                            className="mt-0.5 truncate text-left text-sm font-bold text-slate-900 transition hover:text-primary dark:text-slate-100 dark:hover:text-sky-300"
+                            title="Open customer profile"
+                          >
                             {record?.customerName || "Customer"}
+                          </button>
+                          <p className="text-[10px] text-slate-600 dark:text-slate-300">
+                            {record?.primaryMobile || "No mobile"}
                           </p>
-                          <p className="text-[10px] text-slate-600 dark:text-slate-300">{record?.primaryMobile || "No mobile"}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{record?.email || "No email"}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                            {record?.email || "No email"}
+                          </p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                             {record?.city || "City not set"}
                           </p>
@@ -735,12 +853,15 @@ const CustomerDashboard = () => {
                             {record?.designation || "Designation not set"}
                           </p>
                           <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                            Income: {(() => {
+                            Income:{" "}
+                            {(() => {
                               const income =
                                 record?.salaryMonthly ??
                                 record?.monthlySalary ??
                                 record?.monthlyIncome;
-                              return income ? `₹${Number(income).toLocaleString("en-IN")}` : "N/A";
+                              return income
+                                ? `₹${Number(income).toLocaleString("en-IN")}`
+                                : "N/A";
                             })()}
                           </p>
                         </div>
@@ -768,13 +889,24 @@ const CustomerDashboard = () => {
                             KYC & Identity
                           </p>
                           <p className="text-[11px] text-slate-700 dark:text-slate-200">
-                            PAN: <span className="font-semibold">{record?.panNumber || "—"}</span>
+                            PAN:{" "}
+                            <span className="font-semibold">
+                              {record?.panNumber || "—"}
+                            </span>
                           </p>
                           <p className="text-[11px] text-slate-700 dark:text-slate-200">
-                            Aadhaar: <span className="font-semibold">{record?.aadhaarNumber || record?.aadharNumber || "—"}</span>
+                            Aadhaar:{" "}
+                            <span className="font-semibold">
+                              {record?.aadhaarNumber ||
+                                record?.aadharNumber ||
+                                "—"}
+                            </span>
                           </p>
                           <p className="text-[11px] text-slate-700 dark:text-slate-200">
-                            DL: <span className="font-semibold">{record?.dlNumber || "—"}</span>
+                            DL:{" "}
+                            <span className="font-semibold">
+                              {record?.dlNumber || "—"}
+                            </span>
                           </p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">
                             Updated: {formatDateCell(record?.updatedAt)}
@@ -786,10 +918,20 @@ const CustomerDashboard = () => {
                             References
                           </p>
                           <p className="mt-0.5 text-[11px] text-slate-700 dark:text-slate-200 truncate">
-                            Ref 1: <span className="font-semibold">{record?.reference1?.name || record?.reference1_name || "—"}</span>
+                            Ref 1:{" "}
+                            <span className="font-semibold">
+                              {record?.reference1?.name ||
+                                record?.reference1_name ||
+                                "—"}
+                            </span>
                           </p>
                           <p className="text-[11px] text-slate-700 dark:text-slate-200 truncate">
-                            Ref 2: <span className="font-semibold">{record?.reference2?.name || record?.reference2_name || "—"}</span>
+                            Ref 2:{" "}
+                            <span className="font-semibold">
+                              {record?.reference2?.name ||
+                                record?.reference2_name ||
+                                "—"}
+                            </span>
                           </p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                             Type: {record?.applicantType || "Individual"}
@@ -851,7 +993,15 @@ const CustomerDashboard = () => {
                                 onClick={(e) => e.stopPropagation()}
                                 disabled={deletingId === id}
                               >
-                                <Icon name={deletingId === id ? "Loader2" : "Trash2"} size={12} className={deletingId === id ? "animate-spin" : ""} />
+                                <Icon
+                                  name={
+                                    deletingId === id ? "Loader2" : "Trash2"
+                                  }
+                                  size={12}
+                                  className={
+                                    deletingId === id ? "animate-spin" : ""
+                                  }
+                                />
                               </button>
                             </Tooltip>
                           </Popconfirm>
@@ -866,8 +1016,12 @@ const CustomerDashboard = () => {
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-200/70 bg-slate-50/70 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50">
             <div className="text-xs font-semibold text-muted-foreground">
-              Showing {(pagination.current - 1) * pagination.pageSize + (filtered.length ? 1 : 0)}-
-              {(pagination.current - 1) * pagination.pageSize + filtered.length} of {total}
+              Showing{" "}
+              {(pagination.current - 1) * pagination.pageSize +
+                (filtered.length ? 1 : 0)}
+              -
+              {(pagination.current - 1) * pagination.pageSize + filtered.length}{" "}
+              of {total}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -875,7 +1029,10 @@ const CustomerDashboard = () => {
                 className="rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground disabled:opacity-40"
                 disabled={pagination.current <= 1}
                 onClick={() =>
-                  setPagination((prev) => ({ ...prev, current: Math.max(1, prev.current - 1) }))
+                  setPagination((prev) => ({
+                    ...prev,
+                    current: Math.max(1, prev.current - 1),
+                  }))
                 }
               >
                 Prev
@@ -931,10 +1088,12 @@ const CustomerDashboard = () => {
         {linkedLoansBlockedRecord && (
           <>
             <p className="text-neutral-700 dark:text-neutral-300 mb-2">
-              1 loan (or more) is linked to this customer. Delete those loans or reassign them to another customer first.
+              1 loan (or more) is linked to this customer. Delete those loans or
+              reassign them to another customer first.
             </p>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Use <strong>Reassign loans & delete customer</strong> to move the loans to another customer, then remove this one.
+              Use <strong>Reassign loans & delete customer</strong> to move the
+              loans to another customer, then remove this one.
             </p>
           </>
         )}
@@ -945,7 +1104,11 @@ const CustomerDashboard = () => {
         open={reassignModalOpen}
         title="Reassign loans & delete customer"
         width={520}
-        onCancel={() => { setReassignModalOpen(false); setReassignFrom(null); setReassignTarget(null); }}
+        onCancel={() => {
+          setReassignModalOpen(false);
+          setReassignFrom(null);
+          setReassignTarget(null);
+        }}
         footer={[
           <AntButton
             key="cancel"
@@ -973,10 +1136,13 @@ const CustomerDashboard = () => {
         {reassignFrom && (
           <div className="space-y-4">
             <p className="text-neutral-600 dark:text-neutral-400 text-sm">
-              Move all loans from <strong>{reassignFrom.customerName}</strong> to another customer, then delete this customer.
+              Move all loans from <strong>{reassignFrom.customerName}</strong>{" "}
+              to another customer, then delete this customer.
             </p>
             <div>
-              <label className="block text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1">Search customer to reassign to</label>
+              <label className="block text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-1">
+                Search customer to reassign to
+              </label>
               <Input
                 placeholder="Type name, mobile, or city..."
                 value={reassignSearch}
@@ -988,7 +1154,9 @@ const CustomerDashboard = () => {
             <div className="max-h-48 overflow-y-auto border border-border rounded-lg divide-y divide-border">
               {reassignSearchResults.length === 0 && (
                 <div className="p-4 text-center text-neutral-500 text-sm">
-                  {reassignSearch.trim().length < 2 ? "Type at least 2 characters to search" : "No other customers found"}
+                  {reassignSearch.trim().length < 2
+                    ? "Type at least 2 characters to search"
+                    : "No other customers found"}
                 </div>
               )}
               {reassignSearchResults.map((c) => (
@@ -997,14 +1165,19 @@ const CustomerDashboard = () => {
                   onClick={() => setReassignTarget(c)}
                   className={`p-3 cursor-pointer transition-colors ${reassignTarget?._id === c._id ? "bg-primary/10 border-l-2 border-primary" : "hover:bg-muted/50"}`}
                 >
-                  <div className="font-medium text-foreground">{c.customerName || "—"}</div>
-                  <div className="text-xs text-muted-foreground">{c.primaryMobile || ""} {c.city ? ` • ${c.city}` : ""}</div>
+                  <div className="font-medium text-foreground">
+                    {c.customerName || "—"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {c.primaryMobile || ""} {c.city ? ` • ${c.city}` : ""}
+                  </div>
                 </div>
               ))}
             </div>
             {reassignTarget && (
               <p className="text-xs text-green-600 dark:text-green-400">
-                Loans will be reassigned to: <strong>{reassignTarget.customerName}</strong>
+                Loans will be reassigned to:{" "}
+                <strong>{reassignTarget.customerName}</strong>
               </p>
             )}
           </div>

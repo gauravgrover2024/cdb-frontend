@@ -4,15 +4,11 @@ import {
   Menu,
   X,
   ChevronDown,
-  Sun,
-  Moon,
   LogOut,
   Settings,
-  Bell,
   UserCircle2,
 } from "lucide-react";
 import Icon from "../AppIcon";
-import { Badge as AntBadge } from "antd";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { FEATURE_ACCESS } from "../../hooks/useRBAC";
@@ -91,7 +87,7 @@ const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode } = useTheme();
   const { user: userData, logout } = useAuth();
 
   const roleMeta = ROLE_META[userData?.role] || ROLE_META.staff;
@@ -266,7 +262,7 @@ const Header = () => {
         },
       ],
     },
-    
+
     {
       label: "Used Cars",
       icon: <Icon name="CarFront" size={18} />,
@@ -412,6 +408,21 @@ const Header = () => {
     navigate("/login");
   };
 
+  const navItemBaseClass =
+    "flex h-9 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold tracking-tight transition-all duration-200 outline-none xl:h-10 xl:px-3.5 xl:text-[13px]";
+
+  const navItemStateClass = (active) =>
+    active
+      ? "border-slate-200 bg-white text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/[0.12] dark:text-white"
+      : "border-transparent text-slate-600 hover:border-slate-200/80 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:border-white/10 dark:hover:bg-white/[0.08] dark:hover:text-white";
+
+  const navChildBaseClass =
+    "group/item mb-1 w-full rounded-xl border px-4 py-3 text-left transition-all duration-150 last:mb-0";
+
+  const navChildStateClass = (active) =>
+    active
+      ? "border-sky-100 bg-sky-50 text-sky-800 dark:border-slate-700 dark:bg-slate-900 dark:text-sky-300"
+      : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-200 dark:hover:border-slate-800 dark:hover:bg-slate-900/80";
 
   return (
     <>
@@ -445,11 +456,7 @@ const Header = () => {
                     return group.children ? (
                       <>
                         <button
-                          className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-colors duration-200 outline-none xl:h-10 xl:px-3.5 xl:text-[13px] ${
-                            isGroupActive(group.children)
-                              ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
-                              : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
-                          }`}
+                          className={`${navItemBaseClass} ${navItemStateClass(isGroupActive(group.children))}`}
                         >
                           <span
                             className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}
@@ -478,11 +485,7 @@ const Header = () => {
                               <button
                                 key={child.path}
                                 onClick={() => handleNavigation(child.path)}
-                                className={`group/item mb-1 w-full rounded-xl px-4 py-3 text-left transition-colors duration-150 last:mb-0 ${
-                                  isActive(child.path)
-                                    ? "bg-sky-50 text-sky-700 dark:bg-slate-900 dark:text-sky-300"
-                                    : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900/80"
-                                }`}
+                                className={`${navChildBaseClass} ${navChildStateClass(isActive(child.path))}`}
                               >
                                 <div className="flex items-center justify-between">
                                   <span className="text-[13px] font-bold tracking-tight">
@@ -503,11 +506,7 @@ const Header = () => {
                     ) : (
                       <button
                         onClick={() => handleNavigation(group.path)}
-                        className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-semibold transition-colors duration-200 xl:h-10 xl:px-3.5 xl:text-[13px] ${
-                          isActive(group.path)
-                            ? "bg-white text-slate-900 shadow-sm dark:bg-white/[0.14] dark:text-white"
-                            : "text-slate-600 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.08] dark:hover:text-white"
-                        }`}
+                        className={`${navItemBaseClass} ${navItemStateClass(isActive(group.path))}`}
                       >
                         <span
                           className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}
@@ -524,25 +523,6 @@ const Header = () => {
 
             {/* Right: Actions */}
             <div className="relative z-[1] ml-auto flex items-center gap-1.5 sm:gap-3">
-              {/* Notification bell */}
-              <div className="relative hidden sm:flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-emerald-100 text-slate-600 transition-colors hover:from-sky-200 hover:to-emerald-200 hover:text-slate-900 dark:from-sky-500/20 dark:to-emerald-500/20 dark:text-slate-200 dark:hover:from-sky-500/30 dark:hover:to-emerald-500/30 xl:h-10 xl:w-10">
-                <AntBadge dot color="#1d9bf0" offset={[-1, 2]}>
-                  <Bell size={18} />
-                </AntBadge>
-              </div>
-
-              {/* Theme toggle */}
-              <button
-                onClick={toggleTheme}
-                className={`hidden h-10 w-10 items-center justify-center rounded-lg transition-all duration-300 sm:flex ${
-                  isDarkMode
-                    ? "bg-white/[0.08] text-amber-300 hover:bg-white/[0.14]"
-                    : "bg-gradient-to-br from-violet-100 to-indigo-100 text-indigo-700 hover:from-violet-200 hover:to-indigo-200"
-                }`}
-              >
-                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
-
               {/* Profile Dropdown — custom */}
               <div className="relative hidden sm:block" data-profile-menu>
                 {/* Trigger button */}
@@ -699,10 +679,10 @@ const Header = () => {
                             <button
                               key={child.path}
                               onClick={() => handleNavigation(child.path)}
-                              className={`w-full text-left flex flex-col py-3 px-4 rounded-xl transition-all duration-200 ${
+                              className={`w-full text-left flex flex-col py-3 px-4 rounded-xl border transition-all duration-200 ${
                                 isActive(child.path)
-                                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                  : "text-foreground hover:bg-muted"
+                                  ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                  : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
                               }`}
                             >
                               <span className="text-sm font-bold tracking-tight">
@@ -720,10 +700,10 @@ const Header = () => {
                     ) : (
                       <button
                         onClick={() => handleNavigation(group.path)}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 font-bold ${
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all duration-200 font-bold ${
                           isActive(group.path)
-                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                            : "text-foreground hover:bg-muted"
+                            ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                            : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
                         }`}
                       >
                         <span
@@ -765,7 +745,7 @@ const Header = () => {
               </div>
 
               {/* Action buttons */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => handleNavigation("/profile")}
                   className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-muted text-foreground hover:bg-muted/80 transition-colors"
@@ -773,15 +753,6 @@ const Header = () => {
                   <UserCircle2 size={16} className="opacity-60" />
                   <span className="text-[10px] font-bold opacity-70">
                     Profile
-                  </span>
-                </button>
-                <button
-                  onClick={toggleTheme}
-                  className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-muted text-foreground hover:text-primary transition-colors"
-                >
-                  {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                  <span className="text-[10px] font-bold opacity-70">
-                    {isDarkMode ? "Light" : "Dark"}
                   </span>
                 </button>
                 <button

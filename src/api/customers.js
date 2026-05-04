@@ -15,11 +15,17 @@ export const customersApi = {
     if (typeof queryParams === "string") {
       return await apiClient.get(`/api/customers${queryParams}`);
     }
-    return await apiClient.get(`/api/customers${toQueryString(queryParams || {})}`);
+    return await apiClient.get(
+      `/api/customers${toQueryString(queryParams || {})}`,
+    );
   },
-  
+
   getById: async (id) => {
     return await apiClient.get(`/api/customers/${id}`);
+  },
+
+  getDashboard: async (id) => {
+    return await apiClient.get(`/api/customers/${id}/dashboard`);
   },
 
   create: async (data) => {
@@ -43,5 +49,5 @@ export const customersApi = {
   search: async (query, params = {}) => {
     const merged = { q: query, ...params };
     return await apiClient.get(`/api/customers/search${toQueryString(merged)}`);
-  }
+  },
 };
