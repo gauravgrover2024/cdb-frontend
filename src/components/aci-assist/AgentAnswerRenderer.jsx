@@ -21,6 +21,11 @@ import VehiclePriceListInline from "./VehiclePriceListInline";
 import VariantSelectorInline from "./VariantSelectorInline";
 import WidgetFrame from "./WidgetFrame";
 import { asArray } from "./utils";
+import GenericInlineAnswerCard from "./GenericInlineAnswerCard";
+import {
+  resolveInlineRegistryEntry,
+  widgetTypeToInlineType,
+} from "./canvasRegistry";
 
 const Notice = ({ widget, tone = "slate", onAction }) => {
   const toneClass =
@@ -43,7 +48,7 @@ const Notice = ({ widget, tone = "slate", onAction }) => {
   );
 };
 
-export default function AgentAnswerRenderer({ widgets, onAction }) {
+export default function AgentAnswerRenderer({ message, widgets, onAction }) {
   const list = asArray(widgets);
   if (!list.length) return null;
 
@@ -51,6 +56,24 @@ export default function AgentAnswerRenderer({ widgets, onAction }) {
     <div className="mt-4 space-y-3">
       {list.map((widget, index) => {
         const key = widget.id || `${widget.type || "widget"}-${index}`;
+        const explicitInlineType =
+          widget.inlineType ||
+          message?.inlineType ||
+          widgetTypeToInlineType[widget.type];
+
+        if (explicitInlineType) {
+          const inlineEntry = resolveInlineRegistryEntry(explicitInlineType);
+          const InlineComponent = inlineEntry?.component || GenericInlineAnswerCard;
+          return (
+            <InlineComponent
+              key={key}
+              message={message}
+              widget={widget}
+              onAction={onAction}
+            />
+          );
+        }
+
         switch (widget.type) {
           case "insurance_case_card":
             return <InsuranceCaseCardInline key={key} widget={widget} onAction={onAction} />;

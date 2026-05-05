@@ -1,6 +1,7 @@
 import React from "react";
 import { CornerDownRight } from "lucide-react";
 import { asArray } from "./utils";
+import { compactText } from "./canvas-utils";
 
 export default function FollowUpSuggestions({ suggestions, onSelect, title = "Follow-ups" }) {
   const items = asArray(suggestions)
@@ -17,9 +18,11 @@ export default function FollowUpSuggestions({ suggestions, onSelect, title = "Fo
       <div className="flex flex-wrap gap-2">
         {items.map((suggestion) => {
           const label = suggestion.label || suggestion.message || suggestion.text;
+          const safeLabel = compactText(label);
+          
           return (
           <button
-            key={label}
+            key={safeLabel}
             type="button"
             onClick={() =>
               onSelect?.(suggestion.message || label, {
@@ -27,12 +30,12 @@ export default function FollowUpSuggestions({ suggestions, onSelect, title = "Fo
                 filters: suggestion.filters,
                 replaceContext: suggestion.replaceContext,
                 keepFilters: suggestion.keepFilters,
-                displayText: label,
+                displayText: safeLabel,
               })
             }
             className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-100"
           >
-            {label}
+            {safeLabel}
           </button>
           );
         })}

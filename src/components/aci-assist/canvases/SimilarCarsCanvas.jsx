@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Car } from "lucide-react";
 import { formatCurrency, asArray } from "../utils";
 import { ModernCanvasShell } from "./BaseComponents";
+import { compactText } from "../canvas-utils";
 
 export function SimilarCarsCanvas({ message, widget, onAction, footer }) {
   const data = widget?.data || widget || {};

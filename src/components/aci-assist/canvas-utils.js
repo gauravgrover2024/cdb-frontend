@@ -40,13 +40,16 @@ export const numberFrom = (value) => {
 
 export const compactText = (value, fallback = "—") => {
   if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "object") {
+    if (Array.isArray(value)) return value.map(v => compactText(v)).join(", ");
+    return String(value.label || value.name || value.variant || value.title || value.displayText || "Object");
+  }
   return String(value);
 };
 
 export const getVariantName = (row = {}) =>
-  valueFrom(
-    row,
-    ["variant", "variant_short", "variantName", "name"],
+  compactText(
+    valueFrom(row, ["variant", "variant_short", "variantName", "name"]),
     "Variant",
   );
 

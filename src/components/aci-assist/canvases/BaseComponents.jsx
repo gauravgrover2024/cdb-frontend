@@ -69,7 +69,7 @@ export function ActionButton({
         className,
       )}
     >
-      <span>{children || action?.label || "Open"}</span>
+      <span>{compactText(children || action?.label || "Open")}</span>
       {primary ? <ArrowUpRight size={15} /> : null}
     </button>
   );
@@ -139,14 +139,14 @@ export function ModernStatCard({
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#64748b]">
-            {label}
+            {compactText(label)}
           </p>
           <p className="mt-1 truncate text-2xl font-black tracking-[-0.04em] text-[#0f172a]">
-            {value ?? "—"}
+            {compactText(value)}
           </p>
           {subtext ? (
             <p className="mt-1 text-xs font-semibold text-[#64748b]">
-              {subtext}
+              {compactText(subtext)}
             </p>
           ) : null}
         </div>
@@ -199,7 +199,7 @@ export function ModernTable({
                     column.className,
                   )}
                 >
-                  {column.label}
+                  {compactText(column.label)}
                 </th>
               ))}
             </tr>
@@ -310,11 +310,11 @@ export function ModernCanvasShell({
                 {eyebrow}
               </p>
               <h2 className="font-serif text-[28px] font-semibold leading-tight tracking-[-0.055em] text-[#0f172a] md:text-[36px]">
-                {title}
+                {compactText(title)}
               </h2>
               {subtitle ? (
                 <p className="mt-1 max-w-4xl text-sm font-semibold leading-6 text-[#64748b]">
-                  {subtitle}
+                  {compactText(subtitle)}
                 </p>
               ) : null}
             </div>

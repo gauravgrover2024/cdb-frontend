@@ -63,7 +63,11 @@ export default function AgentMessage({
           <p className={`whitespace-pre-wrap ${isUser ? "" : "font-medium text-slate-800"}`}>{message.content}</p>
           {!isUser ? (
             <>
-              <AgentAnswerRenderer widgets={message.widgets} onAction={onAction} />
+              <AgentAnswerRenderer
+                message={message}
+                widgets={message.widgets}
+                onAction={onAction}
+              />
               <AmbiguityResolver ambiguity={message.ambiguity} onSelect={(selection) => onAmbiguitySelect?.(selection, message)} />
               <SourceTransparencyBar sourceTransparency={message.sourceTransparency} />
               {showQueryPlan && message.queryPlan ? (

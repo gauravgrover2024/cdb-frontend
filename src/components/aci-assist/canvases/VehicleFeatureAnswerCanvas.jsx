@@ -1,14 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  BadgeCheck,
   Banknote,
   Car,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
   FileQuestion,
-  Info,
   ListChecks,
   Sparkles,
   XCircle,
@@ -167,6 +165,130 @@ const answerConfigFor = (answer) => {
 const rowAnswer = (row) =>
   compactText(valueFrom(row, ["answer", "found", "available", "status"], "—"));
 
+const emptyLike = new Set(["", "-", "—", "na", "n/a", "null", "undefined"]);
+
+const cleanTextValue = (value) => {
+  const text = compactText(value, "").trim();
+  return emptyLike.has(text.toLowerCase()) ? "" : text;
+};
+
+const moneyNumber = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  if (value && typeof value === "object") {
+    return moneyNumber(
+      value.amount ||
+        value.value ||
+        value.price ||
+        value.exShowroomPrice ||
+        value.onRoadPrice,
+    );
+  }
+
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!raw) return 0;
+
+  const parsed = Number(raw.replace(/[^\d.]/g, ""));
+
+  if (!Number.isFinite(parsed)) return 0;
+
+  if (raw.includes("crore") || raw.includes("cr")) {
+    return parsed * 10000000;
+  }
+
+  if (raw.includes("lakh") || raw.includes("lac")) {
+    return parsed * 100000;
+  }
+
+  return parsed;
+};
+
+const firstMoney = (...values) => {
+  for (const value of values) {
+    const amount = moneyNumber(value);
+    if (amount > 0) return amount;
+  }
+
+  return 0;
+};
+
+const moneyLabel = (value) => {
+  const amount = moneyNumber(value);
+  return amount > 0 ? formatAmount(amount) : "—";
+};
+
+const normalizeChargeLabel = (label) =>
+  compactText(label, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+const uniqueChargeItems = (items = []) => {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    const amount = moneyNumber(item.amount);
+    const label = compactText(item.label, "");
+
+    if (!label || amount <= 0) return false;
+
+    const key = `${normalizeChargeLabel(label)}:${amount}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const collectRawChargeItems = (source = {}) => {
+  return [
+    ...asArray(source.optionalItems),
+    ...asArray(source.otherItems),
+    ...asArray(source.optionalOtherItems),
+    ...asArray(source.charges),
+  ].map((item, index) => {
+    if (Array.isArray(item)) {
+      return {
+        label: compactText(item[0], `Charge ${index + 1}`),
+        amount: moneyNumber(item[1]),
+      };
+    }
+
+    if (item && typeof item === "object") {
+      return {
+        label: compactText(
+          item.label || item.name || item.key || item.title,
+          `Charge ${index + 1}`,
+        ),
+        amount: moneyNumber(
+          item.amount || item.value || item.price || item.charge || item.total,
+        ),
+      };
+    }
+
+    return {
+      label: `Charge ${index + 1}`,
+      amount: moneyNumber(item),
+    };
+  });
+};
+
+const collectChargeItems = (source = {}, parts = {}) => {
+  const fromParts = asArray(parts.listItems).map((item) => ({
+    label: item.label,
+    amount: moneyNumber(item.amount),
+  }));
+
+  const cleanFromParts = uniqueChargeItems(fromParts);
+
+  if (cleanFromParts.length) {
+    return cleanFromParts;
+  }
+
+  return uniqueChargeItems(collectRawChargeItems(source));
+};
+
 const rowVariant = (row, index) =>
   compactText(
     valueFrom(
@@ -193,10 +315,11 @@ const rowValue = (row) =>
   );
 
 const rowFuelTransmission = (row) => {
-  const fuel = compactText(
+  const fuel = cleanTextValue(
     valueFrom(row, ["fuel", "fuelType", "fuel_type", "FuelType"], ""),
   );
-  const transmission = compactText(
+
+  const transmission = cleanTextValue(
     valueFrom(
       row,
       [
@@ -209,89 +332,124 @@ const rowFuelTransmission = (row) => {
     ),
   );
 
-  const combined =
-    valueFrom(row, ["fuelTransmission", "fuel_transmission"], "") || "";
-
-  return compactText(
-    combined || [fuel, transmission].filter(Boolean).join(" / "),
+  const combined = cleanTextValue(
+    valueFrom(row, ["fuelTransmission", "fuel_transmission"], ""),
   );
+
+  if (combined && !combined.includes("- / -")) return combined;
+
+  return [fuel, transmission].filter(Boolean).join(" / ");
 };
 
-const isYesAnswer = (value) =>
-  /^yes\b|available|included|true/i.test(String(value || ""));
+const featureValueText = (value) => {
+  if (value === true) return "yes";
+  if (value === false) return "no";
 
-const isNoAnswer = (value) =>
-  /^no\b|false|not available|missing|unavailable/i.test(String(value || ""));
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? String(value) : "";
+  }
 
-const normalizeTokens = (value, brand, model) => {
-  const ignored = new Set(
+  if (Array.isArray(value)) {
+    return value.map(featureValueText).filter(Boolean).join(", ");
+  }
+
+  if (value && typeof value === "object") {
+    return featureValueText(
+      value.value ??
+        value.featureValue ??
+        value.feature_value ??
+        value.available ??
+        value.status ??
+        value.label ??
+        value.name ??
+        value.title ??
+        "",
+    );
+  }
+
+  return compactText(value, "").trim();
+};
+
+const featureValueMeansAvailable = (value) => {
+  const text = featureValueText(value).trim().toLowerCase();
+
+  if (!text) return false;
+
+  if (
     [
-      ...String(brand || "")
-        .toLowerCase()
-        .split(/\s+/),
-      ...String(model || "")
-        .toLowerCase()
-        .split(/\s+/),
-      "hyundai",
-      "tata",
-      "kia",
-      "maruti",
-      "honda",
-      "skoda",
-      "toyota",
-      "mahindra",
-      "petrol",
-      "diesel",
-      "cng",
-      "electric",
-      "manual",
-      "automatic",
-      "auto",
-      "mt",
-      "at",
-      "ivt",
-      "cvt",
-      "dct",
-      "mpi",
-      "turbo",
-      "variant",
-    ].filter(Boolean),
-  );
+      "-",
+      "—",
+      "no",
+      "false",
+      "0",
+      "na",
+      "n/a",
+      "not found",
+      "none",
+      "nil",
+    ].includes(text)
+  ) {
+    return false;
+  }
 
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .filter((token) => !ignored.has(token));
+  if (
+    text.includes("not available") ||
+    text.includes("not offered") ||
+    text.includes("unavailable") ||
+    text.includes("without ")
+  ) {
+    return false;
+  }
+
+  return true;
 };
 
-const variantScore = (needle, candidate, brand, model) => {
-  const needleText = String(needle || "").toLowerCase();
-  const candidateText = String(candidate || "").toLowerCase();
+const rowFeatureValue = (row) =>
+  row?.featureValue ??
+  row?.feature_value ??
+  row?.value ??
+  row?.details ??
+  row?.description ??
+  "";
 
-  if (!needleText || !candidateText) return 0;
-  if (needleText === candidateText) return 100;
-  if (candidateText.includes(needleText)) return 85;
-  if (needleText.includes(candidateText)) return 78;
+const isYesAnswer = (value, row) => {
+  const answer = compactText(value, "").trim().toLowerCase();
 
-  const needleTokens = normalizeTokens(needle, brand, model);
-  const candidateTokens = normalizeTokens(candidate, brand, model);
+  const availableFromFeatureValue = featureValueMeansAvailable(
+    rowFeatureValue(row),
+  );
 
-  if (!needleTokens.length || !candidateTokens.length) return 0;
+  if (availableFromFeatureValue) return true;
 
-  const candidateSet = new Set(candidateTokens);
-  const matched = needleTokens.filter((token) =>
-    candidateSet.has(token),
-  ).length;
-  const ratio = matched / needleTokens.length;
+  return (
+    answer === "yes" ||
+    answer === "true" ||
+    answer === "available" ||
+    answer === "included" ||
+    answer === "standard"
+  );
+};
 
-  if (ratio === 1) return 72;
-  if (ratio >= 0.75) return 58;
-  if (ratio >= 0.5) return 38;
+const isNoAnswer = (value, row) => {
+  const answer = compactText(value, "").trim().toLowerCase();
 
-  return 0;
+  const availableFromFeatureValue = featureValueMeansAvailable(
+    rowFeatureValue(row),
+  );
+
+  if (availableFromFeatureValue) return false;
+
+  if (
+    answer === "no" ||
+    answer === "false" ||
+    answer === "not found" ||
+    answer === "not available" ||
+    answer === "unavailable"
+  ) {
+    return true;
+  }
+
+  return !featureValueMeansAvailable(value);
 };
 
 const collectWidgetsDeep = (value, depth = 0) => {
@@ -304,6 +462,7 @@ const collectWidgetsDeep = (value, depth = 0) => {
   if (typeof value !== "object") return [];
 
   const type = widgetTypeOf(value);
+
   const looksLikeWidget =
     type ||
     value.rows ||
@@ -346,47 +505,6 @@ const isColorWidget = (item) => {
   ].includes(type);
 };
 
-const findVehicleImageFromSources = ({
-  message,
-  widget,
-  data,
-  selectedItem,
-  pricelistWidget,
-  priceRows,
-  brand,
-  model,
-}) => {
-  const allWidgets = [
-    ...collectWidgetsDeep(message),
-    ...collectWidgetsDeep(widget),
-    ...collectWidgetsDeep(data),
-  ];
-
-  const colorWidget = allWidgets.find(isColorWidget);
-
-  const modelImageMap = {
-    "hyundai verna": "/aci-cars/hyundai-verna.png",
-    "tata safari": "/aci-cars/tata-safari.png",
-    "kia seltos": "/aci-cars/kia-seltos.png",
-    "hyundai creta": "/aci-cars/hyundai-creta.png",
-  };
-
-  const modelKey = [brand, model].filter(Boolean).join(" ").toLowerCase();
-
-  return (
-    findImageIn(selectedItem?.priceRow) ||
-    findImageIn(selectedItem?.row) ||
-    findImageIn(colorWidget) ||
-    findImageIn(pricelistWidget) ||
-    findImageIn(priceRows) ||
-    findImageIn(message?.widgets) ||
-    findImageIn(widget) ||
-    findImageIn(data) ||
-    modelImageMap[modelKey] ||
-    ""
-  );
-};
-
 const getPricelistRowsFromSources = ({ message, widget, data }) => {
   const allWidgets = [
     ...collectWidgetsDeep(message),
@@ -396,17 +514,27 @@ const getPricelistRowsFromSources = ({ message, widget, data }) => {
 
   const pricelistWidget = allWidgets.find(isPricelistWidget);
 
+  const rowsFromPricelistWidget = pricelistWidget
+    ? rowsFrom(pricelistWidget)
+    : [];
+
   const directPriceRows = [
     ...asArray(widget?.priceRows),
+    ...asArray(widget?.pricelistRows),
     ...asArray(widget?.prices),
     ...asArray(widget?.pricelist),
+    ...asArray(widget?.data?.priceRows),
+    ...asArray(widget?.data?.pricelistRows),
+    ...asArray(widget?.data?.prices),
+    ...asArray(widget?.data?.pricelist),
     ...asArray(data?.priceRows),
+    ...asArray(data?.pricelistRows),
     ...asArray(data?.prices),
     ...asArray(data?.pricelist),
   ];
 
-  const priceRows = pricelistWidget
-    ? rowsFrom(pricelistWidget)
+  const priceRows = rowsFromPricelistWidget.length
+    ? rowsFromPricelistWidget
     : directPriceRows;
 
   return {
@@ -415,13 +543,86 @@ const getPricelistRowsFromSources = ({ message, widget, data }) => {
   };
 };
 
+const normalizeVariantForPriceMatch = (value, brand, model) => {
+  const removeTokens = new Set(
+    [
+      ...String(brand || "")
+        .toLowerCase()
+        .split(/\s+/),
+      ...String(model || "")
+        .toLowerCase()
+        .split(/\s+/),
+      "hyundai",
+      "tata",
+      "kia",
+      "maruti",
+      "honda",
+      "skoda",
+      "toyota",
+      "mahindra",
+      "india",
+      "llp",
+    ].filter(Boolean),
+  );
+
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .filter((token) => !removeTokens.has(token))
+    .join(" ");
+};
+
+const priceMatchScore = (target, candidate) => {
+  if (!target || !candidate) return 0;
+
+  if (target === candidate) return 100;
+
+  const targetTokens = target.split(/\s+/).filter(Boolean);
+  const candidateTokens = candidate.split(/\s+/).filter(Boolean);
+
+  if (!targetTokens.length || !candidateTokens.length) return 0;
+
+  const candidateSet = new Set(candidateTokens);
+  const common = targetTokens.filter((token) => candidateSet.has(token)).length;
+  const missing = targetTokens.length - common;
+  const extra = Math.max(0, candidateTokens.length - common);
+
+  return (common / targetTokens.length) * 100 - missing * 20 - extra * 12;
+};
+
 const matchPriceRow = ({ variant, priceRows, brand, model }) => {
+  const target = normalizeVariantForPriceMatch(variant, brand, model);
+
+  if (!target) return null;
+
+  const rows = asArray(priceRows);
+
+  const exact = rows.find((row, index) => {
+    const candidate = normalizeVariantForPriceMatch(
+      rowVariant(row, index),
+      brand,
+      model,
+    );
+
+    return candidate === target;
+  });
+
+  if (exact) return exact;
+
   let best = null;
   let bestScore = 0;
 
-  priceRows.forEach((row, index) => {
-    const candidate = rowVariant(row, index);
-    const score = variantScore(variant, candidate, brand, model);
+  rows.forEach((row, index) => {
+    const candidate = normalizeVariantForPriceMatch(
+      rowVariant(row, index),
+      brand,
+      model,
+    );
+
+    const score = priceMatchScore(target, candidate);
 
     if (score > bestScore) {
       best = row;
@@ -429,7 +630,7 @@ const matchPriceRow = ({ variant, priceRows, brand, model }) => {
     }
   });
 
-  return bestScore >= 38 ? best : null;
+  return bestScore >= 86 ? best : null;
 };
 
 function PremiumActionButton({ action, onAction, primary = false }) {
@@ -485,7 +686,7 @@ function VariantToken({ item, index, selected, onSelect }) {
       type="button"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.02, 0.2), duration: 0.18 }}
+      transition={{ delay: Math.min(index * 0.012, 0.12), duration: 0.16 }}
       onClick={() => onSelect?.(item)}
       className={cx(
         "inline-flex min-w-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black ring-1 transition",
@@ -500,27 +701,6 @@ function VariantToken({ item, index, selected, onSelect }) {
   );
 }
 
-function StatPill({ label, value, tone }) {
-  const styles = {
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-    red: "bg-red-50 text-red-700 ring-red-200",
-    amber: "bg-amber-50 text-amber-700 ring-amber-200",
-    blue: "bg-[#eff6ff] text-[#1e40af] ring-[#bfdbfe]",
-  };
-
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black ring-1",
-        styles[tone] || styles.blue,
-      )}
-    >
-      <span>{value}</span>
-      <span className="opacity-75">{label}</span>
-    </span>
-  );
-}
-
 function SelectedVariantCard({
   item,
   image,
@@ -532,18 +712,66 @@ function SelectedVariantCard({
 }) {
   if (!item) return null;
 
-  const priceSourceRow = item.priceRow || item.row;
+  const priceSourceRow = {
+    ...(item.row || {}),
+    ...(item.row?.priceRow || {}),
+    ...(item.row?.price_row || {}),
+    ...(item.row?.priceBreakup || {}),
+    ...(item.row?.price_breakup || {}),
+    ...(item.row?.pricing || {}),
+    ...(item.priceRow || {}),
+  };
+
   const parts = getPriceParts(priceSourceRow);
 
-  const priceRows = [
-    ["Ex-showroom", parts.exShowroom],
-    ["RTO charges", parts.rto],
-    ["Insurance", parts.insurance],
-    ...asArray(parts.listItems).map((entry) => [entry.label, entry.amount]),
-  ].filter(([, value]) => Number(value) > 0);
+  const exShowroom = firstMoney(
+    parts.exShowroom,
+    priceSourceRow.exShowroomPrice,
+    priceSourceRow.exShowroom,
+    priceSourceRow.ex_showroom,
+    priceSourceRow.ExShowRoomPrice,
+    priceSourceRow.price,
+  );
 
-  const totalPrice = parts.onRoad || parts.exShowroom || 0;
-  const hasPrice = priceRows.length > 0 || Number(totalPrice) > 0;
+  const rto = firstMoney(
+    parts.rto,
+    priceSourceRow.rto,
+    priceSourceRow.rtoCharges,
+    priceSourceRow.rto_charges,
+  );
+
+  const insurance = firstMoney(
+    parts.insurance,
+    priceSourceRow.insurance,
+    priceSourceRow.insurancePrice,
+    priceSourceRow.insurance_price,
+  );
+
+  const otherCharges = collectChargeItems(priceSourceRow, parts);
+
+  const computedOnRoad =
+    exShowroom +
+    rto +
+    insurance +
+    otherCharges.reduce((sum, charge) => sum + moneyNumber(charge.amount), 0);
+
+  const totalPrice = firstMoney(
+    parts.onRoad,
+    priceSourceRow.onRoadPrice,
+    priceSourceRow.onRoad,
+    priceSourceRow.calculatedOnRoadPrice,
+    priceSourceRow.storedOnRoadPrice,
+    computedOnRoad,
+  );
+
+  const priceRows = [
+    ["Ex-showroom", exShowroom],
+    ["RTO charges", rto],
+    ["Insurance", insurance],
+    ...otherCharges.map((charge) => [charge.label, charge.amount]),
+  ].filter(([, value]) => moneyNumber(value) > 0);
+
+  const hasPrice = priceRows.length > 0 || totalPrice > 0;
 
   const statusLabel = item.positive
     ? "Feature included"
@@ -602,7 +830,7 @@ function SelectedVariantCard({
                 alt={`${item.variant}`}
                 initial={{ opacity: 0, scale: 0.98, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 220, damping: 22 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
                 className="absolute inset-0 h-full w-full object-contain object-center p-3 mix-blend-multiply drop-shadow-[0_22px_26px_rgba(15,23,42,0.22)]"
               />
             ) : (
@@ -637,7 +865,7 @@ function SelectedVariantCard({
               Est. on-road price {city ? `(${humanize(city)})` : ""}
             </p>
             <p className="mt-1 text-3xl font-black tracking-[-0.04em] text-[#2563eb]">
-              {formatAmount(totalPrice)}
+              {moneyLabel(totalPrice)}
             </p>
           </div>
         ) : null}
@@ -663,12 +891,12 @@ function SelectedVariantCard({
           <div className="mt-4 space-y-3">
             {priceRows.map(([label, value]) => (
               <div
-                key={label}
+                key={`${label}-${value}`}
                 className="flex items-center justify-between gap-4 text-sm"
               >
                 <span className="font-semibold text-[#64748b]">{label}</span>
                 <span className="font-black text-[#0f172a]">
-                  {formatAmount(value)}
+                  {moneyLabel(value)}
                 </span>
               </div>
             ))}
@@ -677,7 +905,7 @@ function SelectedVariantCard({
               <div className="flex items-center justify-between gap-4">
                 <span className="font-black text-[#0f172a]">Total on-road</span>
                 <span className="text-lg font-black text-[#2563eb]">
-                  {formatAmount(totalPrice)}
+                  {moneyLabel(totalPrice)}
                 </span>
               </div>
             </div>
@@ -733,9 +961,7 @@ export function VehicleFeatureAnswerCanvas({
     data,
   });
 
-  const answer = compactText(widget.answer || data.answer, "Not found");
-  const config = answerConfigFor(answer);
-  const AnswerIcon = config.icon;
+  const backendAnswer = compactText(widget.answer || data.answer, "Not found");
 
   const actions = asArray(widget.actions || data.actions);
   const primary =
@@ -780,7 +1006,8 @@ export function VehicleFeatureAnswerCanvas({
     message?.entities?.variant ||
     valueFrom(
       rows.find(
-        (row) => isYesAnswer(rowAnswer(row)) || isYesAnswer(rowValue(row)),
+        (row) =>
+          isYesAnswer(rowAnswer(row), row) || isYesAnswer(rowValue(row), row),
       ),
       ["variant", "variantName"],
       "",
@@ -809,15 +1036,31 @@ export function VehicleFeatureAnswerCanvas({
       .map((row, index) => {
         const answerValue = rowAnswer(row);
         const value = rowValue(row);
-        const positive = isYesAnswer(answerValue) || isYesAnswer(value);
-        const negative = isNoAnswer(answerValue) || isNoAnswer(value);
+
+        const positive =
+          isYesAnswer(answerValue, row) || isYesAnswer(value, row);
+
+        const negative =
+          !positive && (isNoAnswer(answerValue, row) || isNoAnswer(value, row));
+
         const variantName = rowVariant(row, index);
-        const priceRow = matchPriceRow({
+
+        const attachedPriceRow =
+          row.priceRow ||
+          row.price_row ||
+          row.priceBreakup ||
+          row.price_breakup ||
+          row.pricing ||
+          null;
+
+        const matchedPriceRow = matchPriceRow({
           variant: variantName,
           priceRows,
           brand,
           model,
         });
+
+        const priceRow = attachedPriceRow || matchedPriceRow;
 
         return {
           key: valueFrom(
@@ -864,16 +1107,45 @@ export function VehicleFeatureAnswerCanvas({
     variantItems[0];
 
   const stableVehicleImage = useMemo(() => {
+    const allWidgets = [
+      ...collectWidgetsDeep(message),
+      ...collectWidgetsDeep(widget),
+      ...collectWidgetsDeep(data),
+    ];
+
+    const colorWidget = allWidgets.find(isColorWidget);
+
+    const modelImageMap = {
+      "hyundai verna": "/aci-cars/hyundai-verna.png",
+      "tata safari": "/aci-cars/tata-safari.png",
+      "kia seltos": "/aci-cars/kia-seltos.png",
+      "hyundai creta": "/aci-cars/hyundai-creta.png",
+    };
+
+    const modelKey = [brand, model].filter(Boolean).join(" ").toLowerCase();
+
     return (
       findImageIn(selectedItem?.priceRow) ||
       findImageIn(selectedItem?.row) ||
+      findImageIn(colorWidget) ||
       findImageIn(pricelistWidget) ||
+      findImageIn(priceRows) ||
       findImageIn(message?.widgets) ||
       findImageIn(widget) ||
       findImageIn(data) ||
+      modelImageMap[modelKey] ||
       ""
     );
-  }, [selectedItem, pricelistWidget, message?.widgets, widget, data]);
+  }, [
+    selectedItem,
+    pricelistWidget,
+    priceRows,
+    message,
+    widget,
+    data,
+    brand,
+    model,
+  ]);
 
   const positiveCount = variantItems.filter((item) => item.positive).length;
   const negativeCount = variantItems.filter((item) => item.negative).length;
@@ -881,6 +1153,18 @@ export function VehicleFeatureAnswerCanvas({
     0,
     variantItems.length - positiveCount - negativeCount,
   );
+
+  const answer =
+    positiveCount > 0 && negativeCount === 0 && unknownCount === 0
+      ? "Yes"
+      : positiveCount === 0 && negativeCount > 0 && unknownCount === 0
+        ? "No"
+        : positiveCount > 0 && (negativeCount > 0 || unknownCount > 0)
+          ? "Mixed"
+          : backendAnswer;
+
+  const config = answerConfigFor(answer);
+  const AnswerIcon = config.icon;
 
   const visibleVariantItems = showAllVariants
     ? variantItems
@@ -920,7 +1204,7 @@ export function VehicleFeatureAnswerCanvas({
     <motion.div
       initial={{ opacity: 0, y: 14, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 260, damping: 28 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
       className="w-full max-w-none"
     >
       <article className="relative overflow-visible rounded-[34px] bg-white/70 p-5 shadow-[0_32px_100px_-72px_rgba(15,23,42,0.72)] ring-1 ring-white/75 backdrop-blur-2xl sm:p-6 lg:p-7">
@@ -959,7 +1243,7 @@ export function VehicleFeatureAnswerCanvas({
                 <motion.div
                   initial={{ rotate: -8, scale: 0.94 }}
                   animate={{ rotate: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 22 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
                   className={cx(
                     "hidden h-16 w-16 shrink-0 items-center justify-center rounded-[24px] sm:flex",
                     config.iconBox,

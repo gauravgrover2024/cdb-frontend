@@ -702,11 +702,15 @@ function MobileHeroCard({
         </div>
 
         <h3 className="mt-2 font-serif text-3xl font-semibold leading-tight tracking-[-0.055em] text-[#0f172a]">
-          {model || "Vehicle"} pricelist
+          {compactText(model) || "Vehicle"} pricelist
         </h3>
 
         <p className="mt-1 text-sm font-semibold leading-6 text-[#64748b]">
-          Updated {formattedUpdatedDate}. Tap any variant card to update EMI,
+          Estimated on-road prices in {compactText(city || "Delhi")}.
+        </p>
+
+        <p className="mt-1 text-sm font-semibold leading-6 text-[#64748b]">
+          Updated {compactText(formattedUpdatedDate)}. Tap any variant card to update EMI,
           range and recommendation details.
         </p>
       </div>
@@ -763,7 +767,7 @@ function MobileVariantBreakupCard({
               isSelected ? "text-[#2563eb]" : "text-[#0f172a]"
             }`}
           >
-            {getVariantName(row)}
+            {compactText(getVariantName(row))}
           </p>
           <p className="mt-1 truncate text-xs font-semibold text-[#64748b]">
             {getFuelTransmission(row) || "Fuel / transmission"}

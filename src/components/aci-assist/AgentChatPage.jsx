@@ -165,6 +165,13 @@ const helpTopics = [
   { label: "Quotations", meta: "Get best quotations", icon: ShieldCheck },
 ];
 
+const asWidgetTypes = (widgets) =>
+  Array.isArray(widgets)
+    ? widgets
+        .map((widget) => widget?.type || widget?.widgetType)
+        .filter(Boolean)
+    : [];
+
 const normalizeAgentResponse = (payload) => {
   const data =
     payload?.data && typeof payload.data === "object" ? payload.data : payload;
@@ -182,7 +189,16 @@ const normalizeAgentResponse = (payload) => {
         ? data.filters
         : [],
     resultType: data?.resultType,
+    displayMode: data?.displayMode || "",
+    canvasType: data?.canvasType || null,
+    inlineType: data?.inlineType || null,
+    title: data?.title || "",
+    answer: data?.answer || "",
     widgets: Array.isArray(data?.widgets) ? data.widgets : [],
+    actions: Array.isArray(data?.actions) ? data.actions : [],
+    leadingQuestions: Array.isArray(data?.leadingQuestions)
+      ? data.leadingQuestions
+      : [],
     widgetTypes: Array.isArray(data?.widgetTypes)
       ? data.widgetTypes
       : asWidgetTypes(data?.widgets),
@@ -197,13 +213,6 @@ const normalizeAgentResponse = (payload) => {
     sessionId: data?.sessionId,
   };
 };
-
-const asWidgetTypes = (widgets) =>
-  Array.isArray(widgets)
-    ? widgets
-        .map((widget) => widget?.type || widget?.widgetType)
-        .filter(Boolean)
-    : [];
 
 const filtersToObject = (filters) => {
   if (!filters) return {};
@@ -229,6 +238,128 @@ const makeMessage = (role, content, extra = {}) => ({
   createdAt: new Date().toISOString(),
   ...extra,
 });
+
+const arrayFrom = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value ? [value] : [];
+};
+
+const rowHasVariant = (row = {}) =>
+  Boolean(
+    row.variant ||
+    row.variantName ||
+    row.variant_name ||
+    row.VariantName ||
+    row.variantDisplayName,
+  );
+
+const rowHasModel = (row = {}) =>
+  Boolean(row.model || row.name || row.title || row.modelName);
+
+const selectionLabel = (selection = {}) => {
+  const vehicle = [
+    selection.brand || selection.make,
+    selection.model,
+    selection.variant ||
+      selection.variantName ||
+      selection.variant_name ||
+      selection.name,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    selection.displayName ||
+    selection.customerName ||
+    selection.customer ||
+    selection.name ||
+    vehicle ||
+    "selected record"
+  );
+};
+
+const uniqueRows = (rows = []) => {
+  const seen = new Set();
+
+  return rows.filter((row, index) => {
+    if (!row || typeof row !== "object") return false;
+
+    const key =
+      [
+        row.id,
+        row._id,
+        row.variantId,
+        row.modelId,
+        row.brand || row.make,
+        row.model,
+        row.variant || row.variantName || row.variant_name || row.name,
+      ]
+        .filter(Boolean)
+        .join("|")
+        .toLowerCase() || `row-${index}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+};
+
+const cleanSelectionRows = (rows) =>
+  arrayFrom(rows)
+    .filter((row) => row && typeof row === "object")
+    .map((row) => compactObject(row));
+
+const selectionContextFromAction = (action = {}) => {
+  const selectedOptions = cleanSelectionRows(
+    action.selectedOptions || action.options,
+  );
+
+  const selectedVariantRows = uniqueRows([
+    ...cleanSelectionRows(action.selectedVariants),
+    ...cleanSelectionRows(action.variantRows),
+    ...cleanSelectionRows(action.selectedVariant),
+    ...selectedOptions.filter(rowHasVariant),
+  ]);
+
+  const selectedModelRows = uniqueRows([
+    ...cleanSelectionRows(action.selectedModels),
+    ...cleanSelectionRows(action.modelRows),
+    ...cleanSelectionRows(action.selectedModel),
+    ...selectedOptions.filter((row) => rowHasModel(row) && !rowHasVariant(row)),
+  ]);
+
+  const selectedModels = Array.from(
+    new Set(
+      [
+        ...selectedModelRows.map(
+          (row) => row.model || row.modelName || row.name || row.title,
+        ),
+        ...selectedVariantRows.map((row) => row.model),
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+
+  return compactObject({
+    ambiguityResolved: true,
+
+    selectedOptions: selectedOptions.length ? selectedOptions : undefined,
+
+    selectedVariantRows: selectedVariantRows.length
+      ? selectedVariantRows
+      : undefined,
+
+    selectedVariants: selectedVariantRows.length
+      ? selectedVariantRows
+      : undefined,
+
+    selectedModelRows: selectedModelRows.length ? selectedModelRows : undefined,
+
+    selectedModels: selectedModels.length ? selectedModels : undefined,
+  });
+};
 
 const deriveRoute = (action = {}) => {
   if (action.route) return action.route;
@@ -744,6 +875,52 @@ function PremiumInputDock({
   );
 }
 
+function getRichMessageIntro(message) {
+  const intent = String(message?.intent || "").toLowerCase();
+  const widgets = Array.isArray(message?.widgets) ? message.widgets : [];
+  const firstWidgetType = String(
+    widgets[0]?.type || widgets[0]?.widgetType || "",
+  ).toLowerCase();
+
+  if (
+    intent.includes("vehicle_feature_answer") ||
+    firstWidgetType.includes("vehicle_feature_answer")
+  ) {
+    return "Here’s what I found for this feature.";
+  }
+
+  if (
+    intent.includes("vehicle_pricelist") ||
+    firstWidgetType.includes("vehicle_pricelist")
+  ) {
+    return "Here’s the price list. You can select any variant to update the details.";
+  }
+
+  if (
+    intent.includes("vehicle_colors") ||
+    firstWidgetType.includes("vehicle_colors")
+  ) {
+    return "Here are the available colors. Tap any color to preview it.";
+  }
+
+  if (
+    intent.includes("vehicle_features") ||
+    firstWidgetType.includes("vehicle_features")
+  ) {
+    return "Here’s the full feature catalogue. Choose a variant to explore its features.";
+  }
+
+  if (intent.includes("comparison") || firstWidgetType.includes("comparison")) {
+    return "Here’s a side-by-side comparison based on your request.";
+  }
+
+  if (intent.includes("emi") || firstWidgetType.includes("emi")) {
+    return "Here’s the EMI estimate. You can adjust the assumptions to refine it.";
+  }
+
+  return "Here’s the information you asked for.";
+}
+
 function ChatThread({
   messages,
   loading,
@@ -754,6 +931,45 @@ function ChatThread({
   showQueryPlan,
   bottomRef,
 }) {
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+
+    if (loading) {
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+        });
+      });
+      return;
+    }
+
+    if (!lastMessage) return;
+
+    const isRichAssistantMessage =
+      lastMessage.role === "assistant" && hasCanvasPayload(lastMessage);
+
+    requestAnimationFrame(() => {
+      if (isRichAssistantMessage) {
+        const messageNode = document.getElementById(
+          `aci-message-${lastMessage.id}`,
+        );
+
+        messageNode?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+
+        return;
+      }
+
+      bottomRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    });
+  }, [messages, loading, bottomRef]);
+
   return (
     <div className="space-y-4 overflow-visible">
       <AnimatePresence initial={false}>
@@ -763,12 +979,13 @@ function ChatThread({
           return (
             <motion.div
               key={message.id}
+              id={`aci-message-${message.id}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18 }}
               className={cx(
-                "flex",
+                "flex scroll-mt-28",
                 message.role === "user" ? "justify-end" : "justify-start",
               )}
             >
@@ -814,18 +1031,46 @@ function ChatThread({
                   ) : null}
 
                   {rich ? (
-                    <div className="mt-2 overflow-visible">
-                      <AgentWorkspaceCanvas
-                        message={message}
-                        loading={false}
-                        onAsk={onAsk}
-                        onAction={onAction}
-                        onFollowUp={onFollowUp}
-                        onAmbiguitySelect={(selection) =>
-                          onAmbiguitySelect(selection, message)
-                        }
-                        showQueryPlan={showQueryPlan}
-                      />
+                    <div className="space-y-4 overflow-visible">
+                      <div className="flex items-start gap-3">
+                        <div className="hidden shrink-0 sm:block">
+                          <AciOrb size="small" />
+                        </div>
+
+                        <div className="max-w-[720px] rounded-[24px] border border-[#dbe3ef] bg-white/88 px-5 py-4 shadow-[0_18px_54px_-44px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="text-xs font-black uppercase tracking-[0.15em] text-[#2563eb]">
+                              ACI Assist
+                            </span>
+
+                            {message.confidence !== undefined &&
+                            message.confidence !== null ? (
+                              <span className="rounded-full bg-[#f8fafc] px-2 py-0.5 text-[10px] font-black text-[#64748b]">
+                                {Math.round(Number(message.confidence) * 100)}%
+                                confidence
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <p className="whitespace-pre-wrap text-sm font-semibold leading-7 text-[#475569] md:text-[15px]">
+                            {message.content || getRichMessageIntro(message)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-visible pl-0 sm:pl-[52px]">
+                        <AgentWorkspaceCanvas
+                          message={message}
+                          loading={false}
+                          onAsk={onAsk}
+                          onAction={onAction}
+                          onFollowUp={onFollowUp}
+                          onAmbiguitySelect={(selection) =>
+                            onAmbiguitySelect(selection, message)
+                          }
+                          showQueryPlan={showQueryPlan}
+                        />
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -867,15 +1112,15 @@ function ChatExperience({
   return (
     <section className="w-full space-y-5">
       <div className="flex justify-end">
-  <button
-    type="button"
-    onClick={onClear}
-    className="inline-flex items-center gap-2 rounded-full border border-[#cbd5e1] bg-white/72 px-4 py-2 text-xs font-black text-[#475569] shadow-sm backdrop-blur-xl transition hover:border-[#2563eb] hover:bg-[#eff6ff] hover:text-[#1e40af]"
-  >
-    <Sparkles size={14} />
-    New chat
-  </button>
-</div>
+        <button
+          type="button"
+          onClick={onClear}
+          className="inline-flex items-center gap-2 rounded-full border border-[#cbd5e1] bg-white/72 px-4 py-2 text-xs font-black text-[#475569] shadow-sm backdrop-blur-xl transition hover:border-[#2563eb] hover:bg-[#eff6ff] hover:text-[#1e40af]"
+        >
+          <Sparkles size={14} />
+          New chat
+        </button>
+      </div>
 
       <ChatThread
         messages={messages}
@@ -914,10 +1159,6 @@ export default function AgentChatPage() {
   const canShowQueryPlan = ["admin", "superadmin", "developer", "dev"].includes(
     String(user?.role || "").toLowerCase(),
   );
-
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, loading]);
 
   const empty = messages.length === 0;
 
@@ -960,6 +1201,7 @@ export default function AgentChatPage() {
         overrides,
         "selectedEntity",
       );
+
       const nextSelectedEntity = hasSelectedEntityOverride
         ? overrides.selectedEntity || undefined
         : selectedEntity || undefined;
@@ -967,6 +1209,7 @@ export default function AgentChatPage() {
       const baseFilters = overrides.keepFilters
         ? filtersToObject(activeFilters)
         : {};
+
       const nextFilters = compactObject({
         ...baseFilters,
         ...filtersToObject(overrides.filters),
@@ -1001,9 +1244,11 @@ export default function AgentChatPage() {
         );
 
         setSelectedEntity(null);
+
         setActiveFilters(
           filtersToObject(normalized.filters) || nextFilters || {},
         );
+
         setResultReferences(normalized.widgets || []);
 
         setMessages((prev) => [
@@ -1038,14 +1283,47 @@ export default function AgentChatPage() {
   );
 
   const handleAmbiguitySelect = (selection, message) => {
-    sendMessage(
-      message.userPrompt || message.content || "Use selected record",
-      {
-        selectedEntity: selection,
-        context: { ambiguityResolved: true },
-        displayText: `Use ${selection.customerName || selection.customer || selection.name || "selected record"}`,
-      },
-    );
+    const selectionType = String(
+      selection?.type || selection?.action || "",
+    ).toLowerCase();
+
+    const explicitMessage =
+      selection?.message || selection?.query || selection?.followUpQuery;
+
+    const isCompareSelection =
+      /compare_selected|compare_all|compare/.test(selectionType) ||
+      (Array.isArray(selection?.options) && explicitMessage);
+
+    if (isCompareSelection && explicitMessage) {
+      const actionLike = {
+        ...selection,
+        selectedOptions: selection.selectedOptions || selection.options,
+        message: explicitMessage,
+      };
+
+      sendMessage(explicitMessage, {
+        context: selectionContextFromAction(actionLike),
+        keepFilters: true,
+        displayText: explicitMessage,
+      });
+
+      return;
+    }
+
+    const nextMessage =
+      explicitMessage ||
+      message.userPrompt ||
+      message.content ||
+      "Use selected record";
+
+    sendMessage(nextMessage, {
+      selectedEntity: selection,
+      context: selectionContextFromAction({
+        selectedOptions: [selection],
+      }),
+      keepFilters: true,
+      displayText: `Use ${selectionLabel(selection)}`,
+    });
   };
 
   const runNavigationAction = (action = {}) => {
@@ -1078,6 +1356,101 @@ export default function AgentChatPage() {
     }
 
     const type = normalizeActionType(action);
+    const actionKind = String(
+      action.action || action.kind || action.intent || "",
+    ).toLowerCase();
+
+    const askMessage = action.message || action.query || action.followUpQuery;
+
+    if (
+      type === "ask" ||
+      (askMessage &&
+        /compare_selected|compare_all|select_variant|select_model|ask/.test(
+          actionKind,
+        ))
+    ) {
+      if (!askMessage) {
+        setNotice("Action not available yet.");
+        return;
+      }
+
+      const selectionContext = selectionContextFromAction(action);
+
+      const selectedEntityOverride =
+        action.selectedEntity ||
+        action.selectedVariant ||
+        action.selectedModel ||
+        action.selectedOption ||
+        selectionContext.selectedVariantRows?.[0] ||
+        selectionContext.selectedModelRows?.[0] ||
+        undefined;
+
+      sendMessage(askMessage, {
+        context: compactObject({
+          ...selectionContext,
+          ...(action.context || {}),
+        }),
+        filters: action.filters,
+        replaceContext: Boolean(action.replaceContext),
+        keepFilters: true,
+        selectedEntity: selectedEntityOverride,
+        displayText: action.displayText || action.label || askMessage,
+      });
+
+      return;
+    }
+
+    if (type === "open_canvas") {
+      const nextQuery =
+        action.query ||
+        action.message ||
+        action.followUpQuery ||
+        action.label ||
+        "";
+
+      if (!nextQuery) {
+        setNotice("Action not available yet.");
+        return;
+      }
+
+      sendMessage(nextQuery, {
+        context: compactObject({
+          ...(action.context || {}),
+          canvasType: action.canvasType,
+        }),
+        filters: action.filters,
+        replaceContext: Boolean(action.replaceContext),
+        keepFilters: true,
+        displayText: action.label || nextQuery,
+      });
+
+      return;
+    }
+
+    if (type === "lead") {
+      const nextQuery =
+        action.query ||
+        action.message ||
+        `Request ${action.leadType || "callback"}`;
+
+      sendMessage(nextQuery, {
+        context: compactObject({
+          ...(action.context || {}),
+          leadType: action.leadType,
+        }),
+        filters: action.filters,
+        replaceContext: Boolean(action.replaceContext),
+        keepFilters: true,
+        displayText: action.label || nextQuery,
+      });
+
+      return;
+    }
+
+    if (type === "navigate") {
+      runNavigationAction(action);
+      return;
+    }
 
     if (
       [
@@ -1094,23 +1467,31 @@ export default function AgentChatPage() {
 
     if (type === "compare" && action.message) {
       sendMessage(action.message, {
-        context: action.context,
+        context: compactObject({
+          ...selectionContextFromAction(action),
+          ...(action.context || {}),
+        }),
         filters: action.filters,
-        replaceContext: Boolean(action.context),
-        keepFilters: Boolean(action.keepFilters),
+        replaceContext: Boolean(action.replaceContext),
+        keepFilters: true,
         displayText: action.label || action.message,
       });
+
       return;
     }
 
     if (type === "show_more_inline" && action.message) {
       sendMessage(action.message, {
-        context: action.context,
+        context: compactObject({
+          ...selectionContextFromAction(action),
+          ...(action.context || {}),
+        }),
         filters: action.filters,
-        replaceContext: Boolean(action.context),
+        replaceContext: Boolean(action.replaceContext),
         keepFilters: Boolean(action.keepFilters),
         displayText: action.label || action.message,
       });
+
       return;
     }
 

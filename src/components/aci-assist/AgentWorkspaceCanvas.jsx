@@ -1,8 +1,13 @@
 import React, { useMemo } from "react";
-import { AnimatePresence } from "framer-motion";
 
 import { asArray } from "./utils";
 import { findWidget, findAnyWidget, widgetMatches } from "./canvas-utils";
+import GenericAciCanvas from "./GenericAciCanvas";
+import {
+  resolveCanvasTypeForIntent,
+  resolveCanvasRegistryEntry,
+  widgetTypeToCanvasType,
+} from "./canvasRegistry";
 
 import { ModernCanvasFooter } from "./canvases/BaseComponents";
 import { AmbiguityCanvas } from "./canvases/AmbiguityCanvas";
@@ -29,12 +34,24 @@ import { VehicleSafetyCanvas } from "./canvases/VehicleSafetyCanvas";
 import { VehicleVariantRecommendationCanvas } from "./canvases/VehicleVariantRecommendationCanvas";
 import { VariantDifferenceCanvas } from "./canvases/VariantDifferenceCanvas";
 
+import { RunningCostCanvas } from "./canvases/RunningCostCanvas";
+import { OffersCanvas } from "./canvases/OffersCanvas";
+import { QuotationCanvas } from "./canvases/QuotationCanvas";
+import { AvailabilityCanvas } from "./canvases/AvailabilityCanvas";
+import { ServiceCenterCanvas } from "./canvases/ServiceCenterCanvas";
+import { OwnershipCanvas } from "./canvases/OwnershipCanvas";
+import { FinanceFAQCanvas } from "./canvases/FinanceFAQCanvas";
+import { LifestyleCanvas } from "./canvases/LifestyleCanvas";
+import { SpacePracticalityCanvas } from "./canvases/SpacePracticalityCanvas";
+import { PerformanceCanvas } from "./canvases/PerformanceCanvas";
+import { ResaleValueCanvas } from "./canvases/ResaleValueCanvas";
+import { ComparisonAdvisorCanvas } from "./canvases/ComparisonAdvisorCanvas";
+
 import { LoanDisbursalReportCanvas } from "./canvases/LoanDisbursalReportCanvas";
 import { LoanBusinessReportCanvas } from "./canvases/LoanBusinessReportCanvas";
 import { LoanClosureCanvas } from "./canvases/LoanClosureCanvas";
 
 // Re-importing base shell for the fallback
-import { ModernCanvasShell } from "./canvases/BaseComponents";
 
 export default function AgentWorkspaceCanvas({
   message,
@@ -68,7 +85,53 @@ export default function AgentWorkspaceCanvas({
     return (
       <AmbiguityCanvas
         message={message}
+        onAction={onAction}
         onAmbiguitySelect={onAmbiguitySelect}
+        footer={<ModernCanvasFooter {...footerProps} />}
+      />
+    );
+  }
+
+  const rowsFromWidget = (w = {}) =>
+    asArray(
+      w.rows ||
+        w.records ||
+        w.colors ||
+        w.evidenceRows ||
+        w.data?.rows ||
+        w.data?.records ||
+        w.data?.variants ||
+        w.data?.colors ||
+        w.data?.evidenceRows,
+    );
+
+  const primaryWidget =
+    widgets.find((widget) => rowsFromWidget(widget).length) ||
+    widgets[0] ||
+    {};
+
+  const canvasTypeFromWidget =
+    primaryWidget.canvasType ||
+    widgetTypeToCanvasType[primaryWidget.type] ||
+    widgetTypeToCanvasType[primaryWidget.widgetType];
+
+  const canvasTypeFromIntent = resolveCanvasTypeForIntent(message.intent);
+
+  const explicitCanvasType =
+    message.canvasType ||
+    canvasTypeFromWidget ||
+    canvasTypeFromIntent ||
+    primaryWidget.canvasType;
+
+  if (explicitCanvasType) {
+    const entry = resolveCanvasRegistryEntry(explicitCanvasType);
+    const CanvasComponent = entry?.component || GenericAciCanvas;
+    return (
+      <CanvasComponent
+        message={message}
+        widget={primaryWidget}
+        onAction={onAction}
+        onAsk={onAsk}
         footer={<ModernCanvasFooter {...footerProps} />}
       />
     );
@@ -148,6 +211,9 @@ export default function AgentWorkspaceCanvas({
 
   const comparison = findAnyWidget(message, ["vehicle_model_comparison", "vehicle_variant_comparison"]);
   if (comparison) {
+    if (message.intent === "vehicle_model_comparison" && message.isExpertAdvice) {
+       return <ComparisonAdvisorCanvas message={message} widget={comparison} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
+    }
     return <VehicleComparisonCanvas message={message} widget={comparison} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
   }
 
@@ -184,6 +250,63 @@ export default function AgentWorkspaceCanvas({
     return <VariantDifferenceCanvas message={message} widget={variantDiff} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
   }
 
+  // New ACI Expert Canvases
+  const runningCost = findAnyWidget(message, ["vehicle_running_cost", "vehicle_fuel_decision_advisor", "vehicle_tco_analysis"]);
+  if (runningCost) {
+    return <RunningCostCanvas message={message} widget={runningCost} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const offers = findWidget(message, "vehicle_offers");
+  if (offers) {
+    return <OffersCanvas message={message} widget={offers} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const quotation = findWidget(message, "aci_new_car_quotation");
+  if (quotation) {
+    return <QuotationCanvas message={message} widget={quotation} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const availability = findAnyWidget(message, ["vehicle_availability", "vehicle_waiting_period"]);
+  if (availability) {
+    return <AvailabilityCanvas message={message} widget={availability} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const serviceCenter = findWidget(message, "new_car_service_center_search");
+  if (serviceCenter) {
+    return <ServiceCenterCanvas message={message} widget={serviceCenter} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const ownership = findAnyWidget(message, ["new_car_ownership_guide", "new_car_service_cost", "new_car_warranty"]);
+  if (ownership) {
+    return <OwnershipCanvas message={message} widget={ownership} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const financeFaq = findAnyWidget(message, ["new_car_finance_faq", "new_car_loan_enquiry"]);
+  if (financeFaq) {
+    return <FinanceFAQCanvas message={message} widget={financeFaq} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const lifestyle = findAnyWidget(message, ["vehicle_lifestyle_fit_score", "vehicle_senior_friendly_recommendation"]);
+  if (lifestyle) {
+    return <LifestyleCanvas message={message} widget={lifestyle} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const space = findWidget(message, "vehicle_space_practicality_advisor");
+  if (space) {
+    return <SpacePracticalityCanvas message={message} widget={space} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const performance = findWidget(message, "vehicle_performance_advisor");
+  if (performance) {
+    return <PerformanceCanvas message={message} widget={performance} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  const resale = findWidget(message, "vehicle_resale_value_analysis");
+  if (resale) {
+    return <ResaleValueCanvas message={message} widget={resale} footer={<ModernCanvasFooter {...footerProps} />} />;
+  }
+
+  // Legacy Reports
   const disbursal = findWidget(message, "loan_disbursal_report");
   if (disbursal || message.intent === "loan_disbursal_report") {
     return (
@@ -229,27 +352,13 @@ export default function AgentWorkspaceCanvas({
     return <VariantAmbiguityCanvas message={message} widget={variantAmbiguity} onAction={onAction} footer={<ModernCanvasFooter {...footerProps} />} />;
   }
 
-  // Fallback
-  const rowsFrom = (w = {}) =>
-    asArray(
-      w.rows || w.records || w.colors || w.evidenceRows || w.data?.rows || w.data?.records || w.data?.variants || w.data?.colors || w.data?.evidenceRows,
-    );
-
-  const generic = widgets.find((widget) => rowsFrom(widget).length) ||
-    widgets[0] || { type: message.intent, title: message.intent, rows: [] };
-
   return (
-    <AnimatePresence mode="wait">
-      <ModernCanvasShell
-        key={`${message.id}-${widgets.length}`}
-        title={generic.title || "Results"}
-        subtitle="Here are your results"
-        footer={<ModernCanvasFooter {...footerProps} />}
-      >
-        <p className="text-slate-600">
-          No specific renderer for this widget type.
-        </p>
-      </ModernCanvasShell>
-    </AnimatePresence>
+    <GenericAciCanvas
+      message={message}
+      widget={primaryWidget}
+      onAction={onAction}
+      onAsk={onAsk}
+      footer={<ModernCanvasFooter {...footerProps} />}
+    />
   );
 }
