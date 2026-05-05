@@ -196,6 +196,9 @@ const normalizeAgentResponse = (payload) => {
     answer: data?.answer || "",
     widgets: Array.isArray(data?.widgets) ? data.widgets : [],
     actions: Array.isArray(data?.actions) ? data.actions : [],
+    conversationSuggestions: Array.isArray(data?.conversationSuggestions)
+      ? data.conversationSuggestions
+      : [],
     leadingQuestions: Array.isArray(data?.leadingQuestions)
       ? data.leadingQuestions
       : [],
@@ -206,6 +209,10 @@ const normalizeAgentResponse = (payload) => {
     followUpSuggestions: Array.isArray(data?.followUpSuggestions)
       ? data.followUpSuggestions
       : [],
+    contextSnapshot:
+      data?.contextSnapshot && typeof data.contextSnapshot === "object"
+        ? data.contextSnapshot
+        : null,
     ambiguity: data?.ambiguity,
     queryPlan: data?.queryPlan,
     context: data?.context,
@@ -1178,7 +1185,13 @@ export default function AgentChatPage() {
 
   const sendMessage = useCallback(
     async (rawMessage, overrides = {}) => {
-      const text = String(rawMessage || "").trim();
+      const suggestion =
+        rawMessage && typeof rawMessage === "object" && !Array.isArray(rawMessage)
+          ? rawMessage
+          : null;
+      const text = String(
+        suggestion?.query || suggestion?.message || rawMessage || "",
+      ).trim();
       if (!text || loading) return;
 
       abortRef.current?.abort();
@@ -1192,9 +1205,24 @@ export default function AgentChatPage() {
       setInput("");
 
       const baseContext = overrides.replaceContext ? {} : context;
+      const suggestionEntities = compactObject({
+        ...(suggestion?.entities || {}),
+      });
+      const suggestionContextPatch = compactObject({
+        ...(suggestion?.contextPatch || {}),
+        actionContext: suggestion || undefined,
+        entities: Object.keys(suggestionEntities).length
+          ? {
+              ...(baseContext?.entities || {}),
+              ...(overrides.context?.entities || {}),
+              ...suggestionEntities,
+            }
+          : undefined,
+      });
       const nextContext = compactObject({
         ...baseContext,
         ...(overrides.context || {}),
+        ...suggestionContextPatch,
       });
 
       const hasSelectedEntityOverride = Object.prototype.hasOwnProperty.call(
@@ -1204,7 +1232,7 @@ export default function AgentChatPage() {
 
       const nextSelectedEntity = hasSelectedEntityOverride
         ? overrides.selectedEntity || undefined
-        : selectedEntity || undefined;
+        : suggestion?.selectedEntity || selectedEntity || undefined;
 
       const baseFilters = overrides.keepFilters
         ? filtersToObject(activeFilters)
@@ -1212,10 +1240,14 @@ export default function AgentChatPage() {
 
       const nextFilters = compactObject({
         ...baseFilters,
+        ...filtersToObject(suggestion?.filters),
         ...filtersToObject(overrides.filters),
       });
 
-      const userMessage = makeMessage("user", overrides.displayText || text);
+      const userMessage = makeMessage(
+        "user",
+        overrides.displayText || suggestion?.title || text,
+      );
       setMessages((prev) => [...prev, userMessage]);
 
       try {
@@ -1385,10 +1417,16 @@ export default function AgentChatPage() {
         selectionContext.selectedModelRows?.[0] ||
         undefined;
 
-      sendMessage(askMessage, {
+      sendMessage(action.query ? action : { ...action, query: askMessage }, {
         context: compactObject({
           ...selectionContext,
           ...(action.context || {}),
+          ...(action.contextPatch || {}),
+          entities: compactObject({
+            ...(action.context?.entities || {}),
+            ...(action.contextPatch?.entities || {}),
+            ...(action.entities || {}),
+          }),
         }),
         filters: action.filters,
         replaceContext: Boolean(action.replaceContext),
@@ -1413,9 +1451,15 @@ export default function AgentChatPage() {
         return;
       }
 
-      sendMessage(nextQuery, {
+      sendMessage(action.query ? action : { ...action, query: nextQuery }, {
         context: compactObject({
           ...(action.context || {}),
+          ...(action.contextPatch || {}),
+          entities: compactObject({
+            ...(action.context?.entities || {}),
+            ...(action.contextPatch?.entities || {}),
+            ...(action.entities || {}),
+          }),
           canvasType: action.canvasType,
         }),
         filters: action.filters,
@@ -1433,9 +1477,15 @@ export default function AgentChatPage() {
         action.message ||
         `Request ${action.leadType || "callback"}`;
 
-      sendMessage(nextQuery, {
+      sendMessage(action.query ? action : { ...action, query: nextQuery }, {
         context: compactObject({
           ...(action.context || {}),
+          ...(action.contextPatch || {}),
+          entities: compactObject({
+            ...(action.context?.entities || {}),
+            ...(action.contextPatch?.entities || {}),
+            ...(action.entities || {}),
+          }),
           leadType: action.leadType,
         }),
         filters: action.filters,
@@ -1466,10 +1516,16 @@ export default function AgentChatPage() {
     }
 
     if (type === "compare" && action.message) {
-      sendMessage(action.message, {
+      sendMessage(action.query ? action : { ...action, query: action.message }, {
         context: compactObject({
           ...selectionContextFromAction(action),
           ...(action.context || {}),
+          ...(action.contextPatch || {}),
+          entities: compactObject({
+            ...(action.context?.entities || {}),
+            ...(action.contextPatch?.entities || {}),
+            ...(action.entities || {}),
+          }),
         }),
         filters: action.filters,
         replaceContext: Boolean(action.replaceContext),
@@ -1481,10 +1537,16 @@ export default function AgentChatPage() {
     }
 
     if (type === "show_more_inline" && action.message) {
-      sendMessage(action.message, {
+      sendMessage(action.query ? action : { ...action, query: action.message }, {
         context: compactObject({
           ...selectionContextFromAction(action),
           ...(action.context || {}),
+          ...(action.contextPatch || {}),
+          entities: compactObject({
+            ...(action.context?.entities || {}),
+            ...(action.contextPatch?.entities || {}),
+            ...(action.entities || {}),
+          }),
         }),
         filters: action.filters,
         replaceContext: Boolean(action.replaceContext),

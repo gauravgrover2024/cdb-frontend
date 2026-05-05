@@ -78,7 +78,16 @@ export default function AgentMessage({
                   </pre>
                 </details>
               ) : null}
-              <FollowUpSuggestions suggestions={message.followUpSuggestions} onSelect={onFollowUp} />
+              <FollowUpSuggestions
+                suggestions={
+                  (Array.isArray(message.conversationSuggestions) &&
+                  message.conversationSuggestions.length
+                    ? message.conversationSuggestions
+                    : message.followUpSuggestions) || []
+                }
+                onSelect={onFollowUp}
+                title="Next Best Actions"
+              />
             </>
           ) : null}
         </div>

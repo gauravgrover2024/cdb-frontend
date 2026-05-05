@@ -9,8 +9,8 @@ import {
   Fuel,
   Gauge,
   Heart,
+  Info,
   Layers3,
-  ListFilter,
   Search,
   Settings,
   ShieldCheck,
@@ -19,18 +19,18 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react";
-import { formatCurrency, asArray, humanize } from "../utils";
+import { formatCurrency, asArray } from "../utils";
 import { ModernCanvasShell } from "./BaseComponents";
 import { valueFrom } from "../canvas-utils";
 
 const cx = (...parts) => parts.filter(Boolean).join(" ");
 
 const ALL_CATEGORY = "All Features";
+const SNAPSHOT_CATEGORY = "Snapshot";
 
 const CATEGORY_ORDER = [
-  ALL_CATEGORY,
+  SNAPSHOT_CATEGORY,
   "Price Breakup",
-  "Snapshot",
   "Engine & Transmission",
   "Fuel & Performance",
   "Safety",
@@ -100,6 +100,23 @@ const POSITIVE_VALUES = new Set([
   "offered",
 ]);
 
+const CATEGORY_ICONS = {
+  [SNAPSHOT_CATEGORY]: Sparkles,
+  "Price Breakup": CircleDollarSign,
+  "Engine & Transmission": Settings,
+  "Fuel & Performance": Fuel,
+  Safety: ShieldCheck,
+  "Comfort & Convenience": BadgeCheck,
+  Interior: Car,
+  Exterior: Car,
+  "Entertainment & Communication": Sparkles,
+  "ADAS Feature": BadgeCheck,
+  "Dimensions & Capacity": Gauge,
+  Ownership: ShieldCheck,
+  Features: Layers3,
+  Other: Layers3,
+};
+
 const firstMeaningfulValue = (...values) => {
   for (const value of values) {
     if (value !== undefined && value !== null && value !== "") return value;
@@ -146,11 +163,250 @@ const normalizeText = (value = "") =>
   primitiveText(value, "")
     .toLowerCase()
     .replace(/&/g, " and ")
+    .replace(/amp/g, " ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-const titleFromKey = (value = "") =>
-  humanize(String(value || "").replace(/\|/g, " "));
+const prettyLabel = (value = "") =>
+  String(value || "")
+    .replace(/\|/g, " ")
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const normalizeCategoryName = (value = "") => {
+  const text = normalizeText(value);
+
+  if (!text) return "Features";
+  if (
+    /engine|transmission|gearbox|clutch|drive type|displacement|cylinder/.test(
+      text,
+    )
+  ) {
+    return "Engine & Transmission";
+  }
+  if (
+    /mileage|fuel|range|power|torque|performance|turbo|bhp|ps|nm|kmpl/.test(
+      text,
+    )
+  ) {
+    return "Fuel & Performance";
+  }
+  if (
+    /airbag|safety|abs|esc|hill|brake|camera|sensor|adas|ncap|isofix|tpms/.test(
+      text,
+    )
+  ) {
+    return "Safety";
+  }
+  if (
+    /seat|sunroof|ac|climate|comfort|ventilated|cruise|parking|steering/.test(
+      text,
+    )
+  ) {
+    return "Comfort & Convenience";
+  }
+  if (
+    /screen|audio|speaker|connected|infotainment|bluetooth|android|apple|wireless|navigation/.test(
+      text,
+    )
+  ) {
+    return "Entertainment & Communication";
+  }
+  if (/adas|lane|blind|collision|adaptive|driver assistance/.test(text)) {
+    return "ADAS Feature";
+  }
+  if (
+    /length|width|height|wheelbase|ground|boot|dimension|seating|capacity/.test(
+      text,
+    )
+  ) {
+    return "Dimensions & Capacity";
+  }
+  if (/warranty|service|maintenance|ownership/.test(text)) return "Ownership";
+  if (
+    /exterior|headlamp|tail lamp|wheel|tyre|roof rail|fog|lamp|mirror/.test(
+      text,
+    )
+  ) {
+    return "Exterior";
+  }
+  if (/interior|dashboard|upholstery|cabin|ambient/.test(text))
+    return "Interior";
+
+  return "Features";
+};
+
+const canonicalFeatureLabel = (rawLabel = "") => {
+  const source = normalizeText(rawLabel);
+  if (!source) return "";
+
+  if (/power steering/.test(source)) return "Power Steering";
+  if (/engine type|engine$|engine /.test(source)) return "Engine";
+  if (/displacement|engine displacement|cc/.test(source)) return "Displacement";
+  if (/max power|power output|power$/.test(source)) return "Max Power";
+  if (/max torque|torque$/.test(source)) return "Max Torque";
+  if (/transmission type|transmission$|gearbox type/.test(source))
+    return "Transmission";
+  if (/gear box|gearbox|number of gears|speed gearbox/.test(source))
+    return "Gearbox";
+  if (/arai mileage|mileage|fuel efficiency|kmpl/.test(source))
+    return "Mileage";
+  if (/no of airbags|number of airbags|airbags/.test(source)) return "Airbags";
+  if (/global ncap|ncap|safety rating/.test(source)) return "Global NCAP";
+  if (/boot space|boot capacity|luggage space/.test(source))
+    return "Boot Space";
+  if (/sunroof|moonroof|voice assisted sunroof|panoramic sunroof/.test(source))
+    return "Sunroof";
+  if (/adas|advanced driver assistance/.test(source)) return "ADAS";
+  if (
+    /touchscreen|infotainment screen|infotainment system|display size/.test(
+      source,
+    )
+  ) {
+    return "Infotainment Screen";
+  }
+  if (/wireless charger|wireless charging/.test(source))
+    return "Wireless Charger";
+  if (/ventilated seats|ventilated front seats/.test(source))
+    return "Ventilated Seats";
+  if (/warranty|standard warranty/.test(source)) return "Warranty";
+  if (/parking camera|rear camera|360 camera|360 degree camera/.test(source))
+    return "Camera";
+  if (/parking sensor|rear parking sensor|front parking sensor/.test(source)) {
+    return "Parking Sensors";
+  }
+  if (/tyre pressure|tpms/.test(source)) return "TPMS";
+  if (/isofix/.test(source)) return "ISOFIX Child Seat Mounts";
+  if (/cruise control/.test(source)) return "Cruise Control";
+  if (/climate control|automatic climate/.test(source))
+    return "Climate Control";
+  if (/apple carplay/.test(source)) return "Apple CarPlay";
+  if (/android auto/.test(source)) return "Android Auto";
+  if (/speakers|speaker count|audio system/.test(source)) return "Speakers";
+
+  return prettyLabel(rawLabel);
+};
+
+const canonicalFeatureKey = (label = "") =>
+  normalizeText(canonicalFeatureLabel(label) || label);
+
+const categoryForCanonicalLabel = (label = "", sourceCategory = "") => {
+  const category = normalizeCategoryName(label);
+  if (category !== "Features") return category;
+
+  const normalizedSource = normalizeText(sourceCategory);
+
+  if (/engine|transmission/.test(normalizedSource))
+    return "Engine & Transmission";
+  if (/fuel|performance/.test(normalizedSource)) return "Fuel & Performance";
+  if (/safety/.test(normalizedSource)) return "Safety";
+  if (/comfort|convenience/.test(normalizedSource))
+    return "Comfort & Convenience";
+  if (/entertainment|communication|infotainment/.test(normalizedSource)) {
+    return "Entertainment & Communication";
+  }
+  if (/adas/.test(normalizedSource)) return "ADAS Feature";
+  if (/dimension|capacity/.test(normalizedSource))
+    return "Dimensions & Capacity";
+  if (/ownership|warranty/.test(normalizedSource)) return "Ownership";
+  if (/interior/.test(normalizedSource)) return "Interior";
+  if (/exterior/.test(normalizedSource)) return "Exterior";
+
+  return "Features";
+};
+
+const categorySort = (a, b) => {
+  const ai = CATEGORY_ORDER.indexOf(a);
+  const bi = CATEGORY_ORDER.indexOf(b);
+
+  if (ai !== -1 || bi !== -1) {
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  }
+
+  return a.localeCompare(b);
+};
+
+const moneyNumber = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (!raw) return 0;
+
+  const parsed = Number(raw.replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(parsed)) return 0;
+
+  if (raw.includes("crore") || raw.includes(" cr")) return parsed * 10000000;
+  if (raw.includes("lakh") || raw.includes(" lac")) return parsed * 100000;
+
+  return parsed;
+};
+
+const formatMoney = (value) => {
+  const amount = moneyNumber(value);
+  return amount > 0 ? formatCurrency(amount) : primitiveText(value, "—");
+};
+
+const cleanFeatureValue = (value) => {
+  if (value === null || value === undefined) return "";
+
+  if (typeof value === "boolean") return value ? "Yes" : "—";
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? String(value) : "";
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(cleanFeatureValue).filter(Boolean).join(", ");
+  }
+
+  if (typeof value === "object") {
+    return cleanFeatureValue(
+      value.value ??
+        value.featureValue ??
+        value.feature_value ??
+        value.displayValue ??
+        value.available ??
+        value.status ??
+        value.label ??
+        value.name ??
+        value.title ??
+        "",
+    );
+  }
+
+  const text = String(value).trim();
+  if (!text) return "";
+
+  const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+
+  if (NEGATIVE_VALUES.has(normalized)) return "—";
+  if (POSITIVE_VALUES.has(normalized)) return "Yes";
+
+  return text;
+};
+
+const isEmptyDisplayValue = (value) => {
+  const text = primitiveText(value, "").trim().toLowerCase();
+  return !text || NEGATIVE_VALUES.has(text);
+};
+
+const normalizeComparable = (value) =>
+  primitiveText(value, "")
+    .toLowerCase()
+    .replace(/[₹,\s]/g, "")
+    .trim();
+
+const rowHasDifference = (row) => {
+  const normalized = row.values
+    .map((value) => normalizeComparable(value))
+    .filter(Boolean);
+  return new Set(normalized).size > 1;
+};
 
 const isUsableImageUrl = (value) => {
   if (!value || typeof value !== "string") return false;
@@ -193,6 +449,21 @@ const findImageIn = (value, depth = 0) => {
 
   return "";
 };
+
+const modelBrand = (model) =>
+  primitiveText(valueFrom(model, ["brand", "make"], ""), "");
+
+const modelNameOnly = (model, index = 0) =>
+  primitiveText(
+    valueFrom(model, ["model", "name", "title"], ""),
+    `Model ${index + 1}`,
+  );
+
+const modelCardKey = (model, index) =>
+  primitiveText(
+    valueFrom(model, ["id", "_id", "modelId"], ""),
+    `${modelBrand(model)}-${modelNameOnly(model, index)}-${index}`,
+  );
 
 const vehicleLookupText = (vehicle = {}, model = {}) =>
   normalizeText(
@@ -313,73 +584,6 @@ const getVehicleImage = (data = {}, vehicle = {}, model = {}) =>
   findImageIn(model.raw) ||
   findImageIn(model.data) ||
   findVehicleImageFromData(data, vehicle, model);
-
-const moneyNumber = (value) => {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-
-  const raw = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  if (!raw) return 0;
-
-  const parsed = Number(raw.replace(/[^\d.]/g, ""));
-  if (!Number.isFinite(parsed)) return 0;
-
-  if (raw.includes("crore") || raw.includes(" cr")) return parsed * 10000000;
-  if (raw.includes("lakh") || raw.includes(" lac")) return parsed * 100000;
-
-  return parsed;
-};
-
-const formatMoney = (value) => {
-  const amount = moneyNumber(value);
-  return amount > 0 ? formatCurrency(amount) : primitiveText(value, "—");
-};
-
-const isEmptyDisplayValue = (value) => {
-  const text = primitiveText(value, "").trim().toLowerCase();
-  return !text || NEGATIVE_VALUES.has(text);
-};
-
-const normalizeComparable = (value) =>
-  primitiveText(value, "")
-    .toLowerCase()
-    .replace(/[₹,\s]/g, "")
-    .trim();
-
-const rowHasDifference = (row) => {
-  const normalized = row.values
-    .map((value) => normalizeComparable(value))
-    .filter(Boolean);
-
-  return new Set(normalized).size > 1;
-};
-
-const categorySort = (a, b) => {
-  const ai = CATEGORY_ORDER.indexOf(a);
-  const bi = CATEGORY_ORDER.indexOf(b);
-
-  if (ai !== -1 || bi !== -1) {
-    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-  }
-
-  return a.localeCompare(b);
-};
-
-const modelBrand = (model) =>
-  primitiveText(valueFrom(model, ["brand", "make"], ""), "");
-
-const modelNameOnly = (model, index = 0) =>
-  primitiveText(
-    valueFrom(model, ["model", "name", "title"], ""),
-    `Model ${index + 1}`,
-  );
-
-const modelCardKey = (model, index) =>
-  primitiveText(
-    valueFrom(model, ["id", "_id", "modelId"], ""),
-    `${modelBrand(model)}-${modelNameOnly(model, index)}-${index}`,
-  );
 
 const normalizeVariantOption = (variant, model, index = 0) => {
   const brand = modelBrand(model);
@@ -533,221 +737,121 @@ const modelPriceRange = (model) => {
   return "Price unavailable";
 };
 
-const getPriceBreakupRows = (vehicles = []) => {
-  const rowDefs = [
-    {
-      key: "exShowroom",
-      category: "Price Breakup",
-      label: "Ex-showroom price",
-      get: (vehicle) =>
-        valueFrom(
-          vehicle,
-          ["exShowroomPrice", "exShowroom", "ex_showroom", "price"],
-          "",
-        ),
-    },
-    {
-      key: "rto",
-      category: "Price Breakup",
-      label: "RTO / Road tax",
-      get: (vehicle) =>
-        valueFrom(vehicle, ["rto", "rtoCharges", "rto_charges"], ""),
-    },
-    {
-      key: "insurance",
-      category: "Price Breakup",
-      label: "Insurance",
-      get: (vehicle) =>
-        valueFrom(
-          vehicle,
-          ["insurance", "insuranceCharges", "insurance_charges"],
-          "",
-        ),
-    },
-    {
-      key: "tcs",
-      category: "Price Breakup",
-      label: "TCS",
-      get: (vehicle) =>
-        valueFrom(vehicle, ["tcs", "tcsCharges", "other_tcsCharges"], ""),
-    },
-    {
-      key: "handling",
-      category: "Price Breakup",
-      label: "Handling / Other charges",
-      get: (vehicle) =>
-        valueFrom(
-          vehicle,
-          [
-            "handlingOtherCharges",
-            "handlingCharges",
-            "otherCharges",
-            "other_totalOtherCharges",
-          ],
-          "",
-        ),
-    },
-    {
-      key: "optional",
-      category: "Price Breakup",
-      label: "Optional accessories",
-      get: (vehicle) =>
-        valueFrom(
-          vehicle,
-          [
-            "optionalOtherTotal",
-            "optionalTotal",
-            "optional_total",
-            "optional_totalAccessories",
-            "optional_totalAccessoriesInRs",
-          ],
-          "",
-        ) ||
-        asArray(vehicle.optionalItems).reduce(
-          (sum, item) => sum + moneyNumber(item.amount),
-          0,
-        ),
-    },
-    {
-      key: "onRoad",
-      category: "Price Breakup",
-      label: "Total on-road price",
-      get: (vehicle) => variantOptionOnRoad(vehicle),
-    },
-  ];
+const featureSourceFields = (record = {}) => [
+  record.features,
+  record.featureGroups,
+  record.feature_groups,
+  record.specs,
+  record.specifications,
+  record.specification,
+  record.details,
+  record.featureData,
+  record.featuresData,
+  record.data?.features,
+  record.data?.featureGroups,
+  record.data?.feature_groups,
+  record.data?.specs,
+  record.data?.specifications,
+];
 
-  return rowDefs
-    .map((definition) => ({
-      id: `price-${definition.key}`,
-      category: definition.category,
-      label: definition.label,
-      values: vehicles.map(definition.get),
-      valueType: "money",
-      priority: 0,
-    }))
-    .filter((row) => row.values.some((value) => moneyNumber(value) > 0));
-};
+const vehicleIdentityMatches = (candidate = {}, target = {}) => {
+  const candidateVariant = normalizeText(
+    candidate.variant ||
+      candidate.variantName ||
+      candidate.variant_name ||
+      candidate.name,
+  );
+  const targetVariant = normalizeText(
+    target.variant || target.variantName || target.variant_name || target.name,
+  );
 
-const featureGroupForLabel = (label, fallback = "Features") => {
-  const text = normalizeText(label);
-
-  if (
-    /engine|transmission|gearbox|clutch|drive type|displacement|cylinder/.test(
-      text,
-    )
-  ) {
-    return "Engine & Transmission";
-  }
-
-  if (
-    /mileage|fuel|range|power|torque|performance|turbo|bhp|ps|nm|kmpl/.test(
-      text,
-    )
-  ) {
-    return "Fuel & Performance";
-  }
-
-  if (
-    /airbag|safety|abs|esc|hill|brake|camera|sensor|adas|ncap|isofix|tpms/.test(
-      text,
-    )
-  ) {
-    return "Safety";
-  }
-
-  if (
-    /seat|sunroof|ac|climate|comfort|ventilated|cruise|parking|steering/.test(
-      text,
-    )
-  ) {
-    return "Comfort & Convenience";
-  }
-
-  if (
-    /screen|audio|speaker|connected|infotainment|bluetooth|android|apple|wireless|navigation/.test(
-      text,
-    )
-  ) {
-    return "Entertainment & Communication";
-  }
-
-  if (/adas|lane|blind|collision|adaptive|driver assistance/.test(text)) {
-    return "ADAS Feature";
-  }
-
-  if (
-    /length|width|height|wheelbase|ground|boot|dimension|seating|capacity/.test(
-      text,
-    )
-  ) {
-    return "Dimensions & Capacity";
-  }
-
-  if (/warranty|service|maintenance|ownership/.test(text)) return "Ownership";
-
-  if (/exterior|headlamp|tail lamp|wheel|tyre|roof rail|fog/.test(text))
-    return "Exterior";
-
-  if (/interior|dashboard|upholstery|cabin/.test(text)) return "Interior";
-
-  return fallback || "Features";
-};
-
-const cleanFeatureValue = (value) => {
-  if (value === null || value === undefined) return "";
-
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) && value > 0 ? String(value) : "";
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(cleanFeatureValue).filter(Boolean).join(", ");
-  }
-
-  if (typeof value === "object") {
-    return cleanFeatureValue(
-      value.value ??
-        value.featureValue ??
-        value.feature_value ??
-        value.displayValue ??
-        value.available ??
-        value.status ??
-        value.label ??
-        value.name ??
-        value.title ??
-        "",
+  if (candidateVariant && targetVariant) {
+    return (
+      candidateVariant === targetVariant ||
+      candidateVariant.includes(targetVariant) ||
+      targetVariant.includes(candidateVariant)
     );
   }
 
-  const text = String(value).trim();
-  if (!text) return "";
+  const candidateModel = normalizeText(candidate.model || candidate.modelName);
+  const targetModel = normalizeText(target.model);
 
-  const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+  return Boolean(
+    candidateModel && targetModel && candidateModel === targetModel,
+  );
+};
 
-  if (NEGATIVE_VALUES.has(normalized)) return "—";
-  if (POSITIVE_VALUES.has(normalized)) return "Yes";
+const vehicleFeatureSources = (vehicle = {}, data = {}) => {
+  const sources = [
+    ...featureSourceFields(vehicle),
+    ...featureSourceFields(vehicle.raw || {}),
+    ...featureSourceFields(vehicle.data || {}),
+  ];
 
-  return text;
+  const possibleRows = [
+    ...asArray(data.selectedDefaultVariants),
+    ...asArray(data.selectedVariantRows),
+    ...asArray(data.variantRows),
+    ...asArray(data.variants),
+    ...asArray(data.options),
+    ...asArray(data.rows),
+    ...asArray(data.records),
+    ...asArray(data.features),
+    ...asArray(data.featureDocs),
+  ];
+
+  possibleRows.forEach((row) => {
+    if (vehicleIdentityMatches(row, vehicle)) {
+      sources.push(...featureSourceFields(row));
+    }
+  });
+
+  const objectBuckets = [
+    data.featuresByVariant,
+    data.featureGroupsByVariant,
+    data.variantFeatures,
+    data.featuresMap,
+  ];
+
+  objectBuckets.forEach((bucket) => {
+    if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) return;
+
+    const vehicleText = vehicleLookupText(vehicle);
+
+    Object.entries(bucket).forEach(([key, value]) => {
+      const normalizedKey = normalizeText(key);
+
+      if (
+        normalizedKey === vehicleText ||
+        vehicleText.includes(normalizedKey) ||
+        normalizedKey.includes(vehicleText)
+      ) {
+        sources.push(value);
+      }
+    });
+  });
+
+  return sources.filter(Boolean);
 };
 
 const flattenFeatures = (input, fallbackGroup = "Features") => {
   const rows = [];
 
   const pushRow = (category, label, value) => {
-    const cleanLabel = titleFromKey(label);
-    if (!cleanLabel || cleanLabel === "Feature") return;
+    const finalLabel = canonicalFeatureLabel(label);
+    if (!finalLabel || finalLabel === "Feature") return;
 
     const cleanValue = cleanFeatureValue(value);
     if (!cleanValue) return;
 
     rows.push({
-      category: humanize(
-        category || featureGroupForLabel(cleanLabel, fallbackGroup),
+      category: categoryForCanonicalLabel(
+        finalLabel,
+        category || fallbackGroup,
       ),
-      label: cleanLabel,
+      label: finalLabel,
       value: cleanValue,
+      sourceCategory: category || fallbackGroup,
     });
   };
 
@@ -855,101 +959,16 @@ const flattenFeatures = (input, fallbackGroup = "Features") => {
   return rows;
 };
 
-const featureSourceFields = (record = {}) => [
-  record.features,
-  record.featureGroups,
-  record.feature_groups,
-  record.specs,
-  record.specifications,
-  record.specification,
-  record.details,
-  record.featureData,
-  record.featuresData,
-  record.data?.features,
-  record.data?.featureGroups,
-  record.data?.feature_groups,
-  record.data?.specs,
-  record.data?.specifications,
-];
+const mergeValuePreference = (current, next) => {
+  if (isEmptyDisplayValue(current)) return next;
+  if (isEmptyDisplayValue(next)) return current;
 
-const vehicleIdentityMatches = (candidate = {}, target = {}) => {
-  const candidateVariant = normalizeText(
-    candidate.variant ||
-      candidate.variantName ||
-      candidate.variant_name ||
-      candidate.name,
-  );
-  const targetVariant = normalizeText(
-    target.variant || target.variantName || target.variant_name || target.name,
-  );
+  const currentText = primitiveText(current, "");
+  const nextText = primitiveText(next, "");
 
-  if (candidateVariant && targetVariant) {
-    return (
-      candidateVariant === targetVariant ||
-      candidateVariant.includes(targetVariant) ||
-      targetVariant.includes(candidateVariant)
-    );
-  }
-
-  const candidateModel = normalizeText(candidate.model || candidate.modelName);
-  const targetModel = normalizeText(target.model);
-
-  return Boolean(
-    candidateModel && targetModel && candidateModel === targetModel,
-  );
-};
-
-const vehicleFeatureSources = (vehicle = {}, data = {}) => {
-  const sources = [
-    ...featureSourceFields(vehicle),
-    ...featureSourceFields(vehicle.raw || {}),
-    ...featureSourceFields(vehicle.data || {}),
-  ];
-
-  const possibleRows = [
-    ...asArray(data.selectedDefaultVariants),
-    ...asArray(data.selectedVariantRows),
-    ...asArray(data.variantRows),
-    ...asArray(data.variants),
-    ...asArray(data.options),
-    ...asArray(data.rows),
-    ...asArray(data.records),
-    ...asArray(data.features),
-    ...asArray(data.featureDocs),
-  ];
-
-  possibleRows.forEach((row) => {
-    if (vehicleIdentityMatches(row, vehicle)) {
-      sources.push(...featureSourceFields(row));
-    }
-  });
-
-  const objectBuckets = [
-    data.featuresByVariant,
-    data.featureGroupsByVariant,
-    data.variantFeatures,
-    data.featuresMap,
-  ];
-
-  objectBuckets.forEach((bucket) => {
-    if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) return;
-
-    const vehicleText = vehicleLookupText(vehicle);
-
-    Object.entries(bucket).forEach(([key, value]) => {
-      const normalizedKey = normalizeText(key);
-
-      if (
-        normalizedKey === vehicleText ||
-        vehicleText.includes(normalizedKey) ||
-        normalizedKey.includes(vehicleText)
-      ) {
-        sources.push(value);
-      }
-    });
-  });
-
-  return sources.filter(Boolean);
+  if (currentText.length < nextText.length && currentText === "Yes")
+    return next;
+  return current;
 };
 
 const featureRowsFromVehicles = (vehicles, data = {}) => {
@@ -958,19 +977,18 @@ const featureRowsFromVehicles = (vehicles, data = {}) => {
 
     vehicleFeatureSources(vehicle, data).forEach((source) => {
       flattenFeatures(source).forEach((item) => {
-        const label = primitiveText(item.label, "");
-        if (!label) return;
+        const key = canonicalFeatureKey(item.label);
+        if (!key) return;
 
-        const category = humanize(item.category || featureGroupForLabel(label));
-        const key = `${category}__${label}`.toLowerCase();
+        const existing = map.get(key);
 
-        if (!map.has(key)) {
-          map.set(key, {
-            category,
-            label,
-            value: item.value,
-          });
-        }
+        map.set(key, {
+          category: item.category,
+          label: item.label,
+          value: existing
+            ? mergeValuePreference(existing.value, item.value)
+            : item.value,
+        });
       });
     });
 
@@ -986,14 +1004,244 @@ const featureRowsFromVehicles = (vehicles, data = {}) => {
 
     return {
       id: `feature-${key}-${index}`,
+      key,
       category: sample?.category || "Features",
-      label: sample?.label || "Feature",
+      label: sample?.label || prettyLabel(key),
       values: maps.map((map) => map.get(key)?.value || "—"),
       valueType: "feature",
-      priority: 10,
+      priority: 300 + index,
     };
   });
 };
+
+const getOptionalBreakdownColumns = (vehicles = []) =>
+  vehicles.map((vehicle, index) => ({
+    id: `optional-breakdown-${index}`,
+    title: [vehicle.model, vehicle.variant].filter(Boolean).join(" "),
+    items: asArray(vehicle.optionalItems)
+      .map((item, itemIndex) => ({
+        id: `${index}-${itemIndex}`,
+        label: primitiveText(
+          item?.label || item?.name || item?.title,
+          `Item ${itemIndex + 1}`,
+        ),
+        amount: formatMoney(item?.amount),
+      }))
+      .filter((item) => item.amount !== "—"),
+  }));
+
+const getPriceBreakupRows = (vehicles = []) => {
+  const optionalBreakdowns = getOptionalBreakdownColumns(vehicles);
+
+  const rowDefs = [
+    {
+      key: "exShowroom",
+      label: "Ex-showroom price",
+      get: (vehicle) =>
+        valueFrom(
+          vehicle,
+          ["exShowroomPrice", "exShowroom", "ex_showroom", "price"],
+          "",
+        ),
+      priority: 0,
+    },
+    {
+      key: "rto",
+      label: "RTO / Road tax",
+      get: (vehicle) =>
+        valueFrom(vehicle, ["rto", "rtoCharges", "rto_charges"], ""),
+      priority: 1,
+    },
+    {
+      key: "insurance",
+      label: "Insurance",
+      get: (vehicle) =>
+        valueFrom(
+          vehicle,
+          ["insurance", "insuranceCharges", "insurance_charges"],
+          "",
+        ),
+      priority: 2,
+    },
+    {
+      key: "tcs",
+      label: "TCS",
+      get: (vehicle) =>
+        valueFrom(vehicle, ["tcs", "tcsCharges", "other_tcsCharges"], ""),
+      priority: 3,
+    },
+    {
+      key: "other",
+      label: "Handling / Other charges",
+      get: (vehicle) =>
+        valueFrom(
+          vehicle,
+          [
+            "handlingOtherCharges",
+            "handlingCharges",
+            "otherCharges",
+            "other_totalOtherCharges",
+          ],
+          "",
+        ),
+      priority: 4,
+    },
+    {
+      key: "optional",
+      label: "Optional accessories",
+      get: (vehicle) =>
+        valueFrom(
+          vehicle,
+          [
+            "optionalOtherTotal",
+            "optionalTotal",
+            "optional_total",
+            "optional_totalAccessories",
+            "optional_totalAccessoriesInRs",
+          ],
+          "",
+        ) ||
+        asArray(vehicle.optionalItems).reduce(
+          (sum, item) => sum + moneyNumber(item.amount),
+          0,
+        ),
+      priority: 5,
+      meta: {
+        tooltipTitle: "Optional accessories breakup",
+        tooltipColumns: optionalBreakdowns,
+      },
+    },
+    {
+      key: "onRoad",
+      label: "Total on-road price",
+      get: (vehicle) => variantOptionOnRoad(vehicle),
+      priority: 6,
+    },
+  ];
+
+  return rowDefs
+    .map((definition) => ({
+      id: `price-${definition.key}`,
+      key: canonicalFeatureKey(definition.label),
+      category: "Price Breakup",
+      label: definition.label,
+      values: vehicles.map(definition.get),
+      valueType: "money",
+      priority: definition.priority,
+      meta: definition.meta,
+    }))
+    .filter((row) => {
+      if (row.key === canonicalFeatureKey("Optional accessories")) {
+        const hasBreakdown = row.meta?.tooltipColumns?.some(
+          (col) => col.items?.length,
+        );
+        return (
+          hasBreakdown || row.values.some((value) => moneyNumber(value) > 0)
+        );
+      }
+
+      return row.values.some((value) => moneyNumber(value) > 0);
+    });
+};
+
+const coreRowsFromVehicles = (vehicles, models) =>
+  [
+    {
+      id: "core-fuel",
+      category: "Fuel & Performance",
+      label: "Fuel type",
+      values: vehicles.map((vehicle) => variantOptionFuel(vehicle)),
+      priority: 100,
+    },
+    {
+      id: "core-transmission",
+      category: "Engine & Transmission",
+      label: "Transmission",
+      values: vehicles.map((vehicle) => variantOptionTransmission(vehicle)),
+      priority: 101,
+    },
+    {
+      id: "core-engine",
+      category: "Engine & Transmission",
+      label: "Engine",
+      values: vehicles.map((vehicle) =>
+        valueFrom(
+          vehicle,
+          ["engine", "engineType", "engine_type", "displacement", "cc"],
+          "",
+        ),
+      ),
+      priority: 102,
+    },
+    {
+      id: "core-power",
+      category: "Fuel & Performance",
+      label: "Max Power",
+      values: vehicles.map((vehicle) =>
+        valueFrom(vehicle, ["power", "maxPower", "max_power", "ps"], ""),
+      ),
+      priority: 103,
+    },
+    {
+      id: "core-torque",
+      category: "Fuel & Performance",
+      label: "Max Torque",
+      values: vehicles.map((vehicle) =>
+        valueFrom(vehicle, ["torque", "maxTorque", "max_torque"], ""),
+      ),
+      priority: 104,
+    },
+    {
+      id: "core-mileage",
+      category: "Fuel & Performance",
+      label: "Mileage",
+      values: vehicles.map((vehicle) =>
+        valueFrom(
+          vehicle,
+          ["mileage", "araiMileage", "arai_mileage", "fuelEfficiency"],
+          "",
+        ),
+      ),
+      priority: 105,
+    },
+    {
+      id: "core-body-type",
+      category: "Dimensions & Capacity",
+      label: "Body type",
+      values: vehicles.map((vehicle, index) =>
+        valueFrom(
+          vehicle,
+          ["bodyType", "body_type", "body_type_bucket", "segment"],
+          valueFrom(models[index], ["bodyType", "body_type", "segment"], ""),
+        ),
+      ),
+      priority: 106,
+    },
+    {
+      id: "core-seats",
+      category: "Dimensions & Capacity",
+      label: "Seating capacity",
+      values: vehicles.map((vehicle, index) =>
+        variantOptionSeating(vehicle, models[index]),
+      ),
+      priority: 107,
+    },
+    {
+      id: "core-warranty",
+      category: "Ownership",
+      label: "Warranty",
+      values: vehicles.map((vehicle) =>
+        valueFrom(vehicle, ["warranty", "standardWarranty"], ""),
+      ),
+      priority: 108,
+    },
+  ]
+    .map((row) => ({
+      ...row,
+      key: canonicalFeatureKey(row.label),
+      valueType: "feature",
+    }))
+    .filter((row) => row.values.some((value) => !isEmptyDisplayValue(value)));
 
 const getSuppliedComparisonRows = (comparisonRows = [], vehicles = []) =>
   asArray(comparisonRows)
@@ -1004,6 +1252,7 @@ const getSuppliedComparisonRows = (comparisonRows = [], vehicles = []) =>
       );
       if (!label) return null;
 
+      const finalLabel = canonicalFeatureLabel(label);
       const values = Array.isArray(row?.values)
         ? row.values.slice(0, vehicles.length)
         : vehicles.map((vehicle, vehicleIndex) => {
@@ -1030,16 +1279,16 @@ const getSuppliedComparisonRows = (comparisonRows = [], vehicles = []) =>
 
       return {
         id: row.id || row.key || `supplied-${index}`,
-        category: humanize(
-          row.category ||
-            row.group ||
-            row.section ||
-            featureGroupForLabel(label),
+        key: canonicalFeatureKey(finalLabel),
+        category: categoryForCanonicalLabel(
+          finalLabel,
+          row.category || row.group || row.section,
         ),
-        label,
+        label: finalLabel,
         values: values.map(cleanFeatureValue),
         valueType: row.valueType || "feature",
-        priority: 20,
+        priority: 500 + index,
+        meta: row.meta,
       };
     })
     .filter(Boolean)
@@ -1048,103 +1297,23 @@ const getSuppliedComparisonRows = (comparisonRows = [], vehicles = []) =>
         !["variants", "variant count"].includes(row.label.toLowerCase().trim()),
     );
 
-const coreRowsFromVehicles = (vehicles, models) =>
-  [
-    {
-      id: "core-fuel",
-      category: "Fuel & Performance",
-      label: "Fuel type",
-      values: vehicles.map((vehicle) => variantOptionFuel(vehicle)),
-    },
-    {
-      id: "core-transmission",
-      category: "Engine & Transmission",
-      label: "Transmission",
-      values: vehicles.map((vehicle) => variantOptionTransmission(vehicle)),
-    },
-    {
-      id: "core-engine",
-      category: "Engine & Transmission",
-      label: "Engine",
-      values: vehicles.map((vehicle) =>
-        valueFrom(
-          vehicle,
-          ["engine", "engineType", "engine_type", "displacement", "cc"],
-          "",
-        ),
-      ),
-    },
-    {
-      id: "core-power",
-      category: "Fuel & Performance",
-      label: "Power",
-      values: vehicles.map((vehicle) =>
-        valueFrom(vehicle, ["power", "maxPower", "max_power", "ps"], ""),
-      ),
-    },
-    {
-      id: "core-torque",
-      category: "Fuel & Performance",
-      label: "Torque",
-      values: vehicles.map((vehicle) =>
-        valueFrom(vehicle, ["torque", "maxTorque", "max_torque"], ""),
-      ),
-    },
-    {
-      id: "core-mileage",
-      category: "Fuel & Performance",
-      label: "Mileage",
-      values: vehicles.map((vehicle) =>
-        valueFrom(
-          vehicle,
-          ["mileage", "araiMileage", "arai_mileage", "fuelEfficiency"],
-          "",
-        ),
-      ),
-    },
-    {
-      id: "core-body-type",
-      category: "Dimensions & Capacity",
-      label: "Body type",
-      values: vehicles.map((vehicle, index) =>
-        valueFrom(
-          vehicle,
-          ["bodyType", "body_type", "body_type_bucket", "segment"],
-          valueFrom(models[index], ["bodyType", "body_type", "segment"], ""),
-        ),
-      ),
-    },
-    {
-      id: "core-seats",
-      category: "Dimensions & Capacity",
-      label: "Seating capacity",
-      values: vehicles.map((vehicle, index) =>
-        variantOptionSeating(vehicle, models[index]),
-      ),
-    },
-    {
-      id: "core-warranty",
-      category: "Ownership",
-      label: "Warranty",
-      values: vehicles.map((vehicle) =>
-        valueFrom(vehicle, ["warranty", "standardWarranty"], ""),
-      ),
-    },
-  ].filter((row) => row.values.some((value) => !isEmptyDisplayValue(value)));
-
 const mergeRows = (rows = [], vehicleCount = 0) => {
   const map = new Map();
 
   rows.forEach((row, index) => {
-    const key = `${row.category}__${row.label}`.toLowerCase();
-    const values = asArray(row.values).slice(0, vehicleCount);
+    const key = row.key || canonicalFeatureKey(row.label);
+    if (!key) return;
 
+    const values = asArray(row.values).slice(0, vehicleCount);
     while (values.length < vehicleCount) values.push("—");
 
     const normalized = {
       ...row,
       id: row.id || `${key}-${index}`,
-      values: values.map((value) => cleanFeatureValue(value) || "—"),
+      key,
+      values: values.map((value) =>
+        row.valueType === "money" ? value : cleanFeatureValue(value) || "—",
+      ),
       order: index,
     };
 
@@ -1157,22 +1326,35 @@ const mergeRows = (rows = [], vehicleCount = 0) => {
 
     map.set(key, {
       ...existing,
+      category:
+        existing.category === "Features" && normalized.category !== "Features"
+          ? normalized.category
+          : existing.category,
       values: existing.values.map((value, valueIndex) =>
-        isEmptyDisplayValue(value) ? normalized.values[valueIndex] : value,
+        mergeValuePreference(value, normalized.values[valueIndex]),
       ),
+      valueType:
+        existing.valueType === "money" ? "money" : normalized.valueType,
+      priority: Math.min(
+        existing.priority || 9999,
+        normalized.priority || 9999,
+      ),
+      meta: existing.meta || normalized.meta,
     });
   });
 
-  return Array.from(map.values()).sort((a, b) => {
-    const categoryDelta = categorySort(a.category, b.category);
-    if (categoryDelta !== 0) return categoryDelta;
+  return Array.from(map.values())
+    .filter((row) => row.values.some((value) => !isEmptyDisplayValue(value)))
+    .sort((a, b) => {
+      const categoryDelta = categorySort(a.category, b.category);
+      if (categoryDelta !== 0) return categoryDelta;
 
-    if ((a.priority || 0) !== (b.priority || 0)) {
-      return (a.priority || 0) - (b.priority || 0);
-    }
+      if ((a.priority || 0) !== (b.priority || 0)) {
+        return (a.priority || 0) - (b.priority || 0);
+      }
 
-    return a.order - b.order;
-  });
+      return a.label.localeCompare(b.label);
+    });
 };
 
 const buildComparisonRows = ({ vehicles, models, comparisonRows, data }) =>
@@ -1180,105 +1362,117 @@ const buildComparisonRows = ({ vehicles, models, comparisonRows, data }) =>
     [
       ...getPriceBreakupRows(vehicles),
       ...coreRowsFromVehicles(vehicles, models),
-      ...getSuppliedComparisonRows(comparisonRows, vehicles),
       ...featureRowsFromVehicles(vehicles, data),
+      ...getSuppliedComparisonRows(comparisonRows, vehicles),
     ],
     vehicles.length,
   );
 
-const findBestRow = (rows, needles = []) => {
-  const normalizedNeedles = needles.map(normalizeText).filter(Boolean);
+const findBestRow = (rows, aliases = []) => {
+  const keys = aliases.map(canonicalFeatureKey).filter(Boolean);
+  const texts = aliases.map(normalizeText).filter(Boolean);
 
-  return rows.find((row) => {
-    const haystack = normalizeText(`${row.category} ${row.label}`);
-    return normalizedNeedles.some((needle) => haystack.includes(needle));
-  });
+  return (
+    rows.find((row) => keys.includes(row.key)) ||
+    rows.find((row) => {
+      const haystack = normalizeText(`${row.label} ${row.category}`);
+      return texts.some((text) => haystack.includes(text));
+    })
+  );
 };
 
 const buildSnapshotRows = (allRows) => {
   const definitions = [
     {
-      id: "snapshot-price",
-      icon: CircleDollarSign,
+      id: "snapshot-ex-showroom",
       label: "Ex-showroom price",
-      needles: ["ex showroom price", "ex-showroom price"],
-      fallbackCategory: "Price Breakup",
+      aliases: ["ex showroom price", "ex-showroom price"],
+      icon: CircleDollarSign,
+    },
+    {
+      id: "snapshot-on-road",
+      label: "On-road price",
+      aliases: ["total on road price", "on road price"],
+      icon: CircleDollarSign,
     },
     {
       id: "snapshot-engine",
-      icon: Gauge,
       label: "Engine",
-      needles: ["engine", "displacement"],
+      aliases: ["engine", "engine type"],
+      icon: Gauge,
     },
     {
       id: "snapshot-transmission",
-      icon: Settings,
       label: "Transmission",
-      needles: ["transmission", "gearbox"],
+      aliases: ["transmission", "transmission type"],
+      icon: Settings,
     },
     {
       id: "snapshot-mileage",
-      icon: Fuel,
       label: "Mileage",
-      needles: ["mileage", "arai mileage", "fuel efficiency"],
+      aliases: ["mileage", "arai mileage"],
+      icon: Fuel,
+    },
+    {
+      id: "snapshot-airbags",
+      label: "Airbags",
+      aliases: ["airbags", "number of airbags", "no of airbags"],
+      icon: ShieldCheck,
     },
     {
       id: "snapshot-safety",
+      label: "Global NCAP",
+      aliases: ["global ncap", "safety rating"],
       icon: ShieldCheck,
-      label: "Safety",
-      needles: ["safety rating", "global ncap", "airbags", "no of airbags"],
     },
     {
       id: "snapshot-boot",
-      icon: Car,
       label: "Boot space",
-      needles: ["boot space", "boot"],
+      aliases: ["boot space", "boot capacity"],
+      icon: Car,
     },
     {
       id: "snapshot-sunroof",
-      icon: Sparkles,
       label: "Sunroof",
-      needles: ["sunroof", "voice assisted sunroof", "panoramic sunroof"],
+      aliases: ["sunroof", "panoramic sunroof"],
+      icon: Sparkles,
     },
     {
       id: "snapshot-adas",
-      icon: BadgeCheck,
       label: "ADAS",
-      needles: [
-        "adas",
-        "advanced driver assistance",
-        "lane keep",
-        "blind spot",
-      ],
+      aliases: ["adas", "advanced driver assistance"],
+      icon: BadgeCheck,
     },
     {
       id: "snapshot-infotainment",
-      icon: ListFilter,
-      label: "Infotainment",
-      needles: ["touchscreen", "infotainment", "audio", "speakers"],
+      label: "Infotainment screen",
+      aliases: ["infotainment screen", "touchscreen"],
+      icon: Sparkles,
     },
     {
       id: "snapshot-warranty",
-      icon: ShieldCheck,
       label: "Warranty",
-      needles: ["warranty", "standard warranty"],
+      aliases: ["warranty", "standard warranty"],
+      icon: ShieldCheck,
     },
   ];
 
-  const usedRowIds = new Set();
+  const used = new Set();
 
   return definitions
     .map((definition) => {
-      const match = findBestRow(allRows, definition.needles);
-      if (!match || usedRowIds.has(match.id)) return null;
+      const row = findBestRow(allRows, definition.aliases);
+      if (!row || used.has(row.key)) return null;
 
-      usedRowIds.add(match.id);
+      used.add(row.key);
 
       return {
-        ...match,
+        ...row,
         id: definition.id,
         label: definition.label,
+        category: SNAPSHOT_CATEGORY,
         icon: definition.icon,
+        snapshot: true,
       };
     })
     .filter(Boolean);
@@ -1369,13 +1563,6 @@ const computeInsights = (vehicles, rows) => {
   };
 };
 
-const formatList = (items = []) => {
-  const clean = items.map((item) => primitiveText(item, "")).filter(Boolean);
-
-  if (clean.length <= 2) return clean.join(" & ");
-  return `${clean.slice(0, -1).join(", ")} & ${clean[clean.length - 1]}`;
-};
-
 function SearchInput({ value, onChange, placeholder }) {
   return (
     <div className="relative">
@@ -1398,6 +1585,74 @@ function SearchInput({ value, onChange, placeholder }) {
         >
           <XCircle size={16} />
         </button>
+      ) : null}
+    </div>
+  );
+}
+
+function InlineInfoTooltip({ title, columns = [] }) {
+  const [open, setOpen] = useState(false);
+
+  const hasAnyItems = columns.some((column) => column.items?.length);
+
+  if (!hasAnyItems) return null;
+
+  return (
+    <div
+      className="relative inline-flex"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#bfdbfe] bg-[#eff6ff] text-[#2563eb] transition hover:bg-[#dbeafe]"
+        aria-label={title || "More information"}
+      >
+        <Info size={12} />
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-7 z-50 w-[340px] max-w-[80vw] rounded-[18px] border border-[#dbe3ef] bg-white p-3 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.55)]">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-[#1e40af]">
+            {title || "Breakup"}
+          </p>
+
+          <div className="space-y-3">
+            {columns.map((column) => (
+              <div
+                key={column.id || column.title}
+                className="rounded-[14px] border border-[#eef2f7] bg-[#f8fafc] p-2.5"
+              >
+                <p className="text-xs font-black text-[#0f172a]">
+                  {column.title}
+                </p>
+
+                {column.items?.length ? (
+                  <div className="mt-2 space-y-1.5">
+                    {column.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start justify-between gap-2 text-xs"
+                      >
+                        <span className="font-semibold text-[#475569]">
+                          {item.label}
+                        </span>
+                        <span className="font-black text-[#0f172a]">
+                          {item.amount}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs font-semibold text-[#94a3b8]">
+                    No optional accessories captured.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -1426,7 +1681,7 @@ function ValueCell({ value, row, winner = false }) {
       className={cx(
         "inline-flex max-w-full whitespace-normal break-words rounded-full px-2.5 py-1 text-sm font-black leading-5",
         winner
-          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+          ? "bg-[#eff6ff] text-[#1d4ed8] ring-1 ring-[#bfdbfe]"
           : row?.valueType === "money"
             ? "text-[#2563eb]"
             : "text-[#0f172a]",
@@ -1462,7 +1717,7 @@ function VehicleArt({ data, vehicle, model, name }) {
   const image = getVehicleImage(data, vehicle, model);
 
   return (
-    <div className="relative mx-auto h-32 w-full overflow-hidden rounded-[24px] bg-[radial-gradient(circle_at_50%_38%,#ffffff_0%,#f8fafc_42%,#eaf2ff_100%)] sm:h-36">
+    <div className="relative mx-auto h-28 w-full overflow-hidden rounded-[22px] bg-[radial-gradient(circle_at_50%_38%,#ffffff_0%,#f8fafc_42%,#eaf2ff_100%)] sm:h-32">
       <div className="absolute inset-x-10 bottom-5 h-7 rounded-full bg-[#334155]/18 blur-xl" />
 
       {image ? (
@@ -1514,39 +1769,45 @@ function VehicleCompareCard({
   return (
     <article
       className={cx(
-        "relative overflow-hidden rounded-[28px] border bg-white/88 p-4 text-center shadow-[0_24px_76px_-64px_rgba(15,23,42,0.48)] backdrop-blur-2xl transition duration-200 hover:-translate-y-0.5",
+        "relative min-w-[270px] overflow-hidden rounded-[28px] border bg-white/88 p-4 text-left shadow-[0_24px_76px_-64px_rgba(15,23,42,0.48)] backdrop-blur-2xl transition duration-200 hover:-translate-y-0.5",
         winner
-          ? "border-[#f7c66f] ring-2 ring-[#fde68a]"
+          ? "border-[#93c5fd] ring-2 ring-[#dbeafe]"
           : "border-[#dbe3ef] hover:border-[#93c5fd]",
       )}
     >
       {winner ? (
-        <span className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-[#fffbeb] px-3 py-1.5 text-[11px] font-black text-[#b45309] ring-1 ring-[#fde68a]">
+        <span className="absolute right-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-[#eff6ff] px-3 py-1.5 text-[11px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
           <Trophy size={13} />
-          Winner
+          Best balance
         </span>
-      ) : null}
+      ) : (
+        <button
+          type="button"
+          className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/88 text-[#64748b] ring-1 ring-[#dbe3ef] transition hover:text-rose-500"
+          aria-label="Shortlist"
+        >
+          <Heart size={17} />
+        </button>
+      )}
 
-      <button
-        type="button"
-        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/88 text-[#64748b] ring-1 ring-[#dbe3ef] transition hover:text-rose-500"
-        aria-label="Shortlist"
-      >
-        <Heart size={17} />
-      </button>
+      <div className="flex items-start gap-3 pr-24">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[#eff6ff] text-[#2563eb] ring-1 ring-[#bfdbfe]">
+          <Car size={19} />
+        </div>
 
-      <div className="mx-auto max-w-[280px]">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563eb]">
-          {brand || `Option ${index + 1}`}
-        </p>
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563eb]">
+            {brand || `Option ${index + 1}`}
+          </p>
 
-        <h3 className="mt-1 font-serif text-[26px] font-semibold leading-tight tracking-[-0.055em] text-[#0f172a]">
-          {modelName}
-        </h3>
+          <h3 className="mt-0.5 truncate font-serif text-[24px] font-semibold leading-tight tracking-[-0.055em] text-[#0f172a]">
+            {modelName}
+          </h3>
 
-        <p className="mt-1 min-h-[20px] text-xs font-semibold leading-5 text-[#64748b]">
-          {variantName}
-        </p>
+          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-[#64748b]">
+            {variantName}
+          </p>
+        </div>
       </div>
 
       <div className="mt-3">
@@ -1558,19 +1819,21 @@ function VehicleCompareCard({
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-1.5">
         <SpecPill icon={Fuel} label={fuel} />
         <SpecPill icon={Settings} label={transmission} />
         <SpecPill icon={Car} label={seating ? `${seating} Seater` : ""} />
       </div>
 
-      <div className="mt-4 rounded-[20px] bg-[#f8fafc] px-3 py-3 ring-1 ring-[#e2e8f0]">
-        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94a3b8]">
-          Ex-showroom
-        </p>
-        <p className="mt-1 text-base font-black text-[#0f172a]">
-          {displayPrice}
-        </p>
+      <div className="mt-4 flex items-end justify-between gap-3 rounded-[20px] bg-[#f8fafc] px-3 py-3 ring-1 ring-[#e2e8f0]">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#94a3b8]">
+            Ex-showroom
+          </p>
+          <p className="mt-1 text-base font-black text-[#0f172a]">
+            {displayPrice}
+          </p>
+        </div>
       </div>
 
       {modelComparison && options.length ? (
@@ -1609,47 +1872,149 @@ function VehicleCompareCard({
   );
 }
 
-function SnapshotTable({ rows, vehicles, winnerIndex }) {
-  if (!rows.length) return null;
-
+function CategorySidebar({ categories, selectedCategory, onSelect }) {
   return (
-    <section className="overflow-hidden rounded-[28px] border border-[#dbe3ef] bg-white/90 shadow-[0_24px_80px_-68px_rgba(15,23,42,0.5)] backdrop-blur-2xl">
-      <div className="border-b border-[#e2e8f0] bg-[linear-gradient(135deg,#ffffff,#f8fafc)] px-4 py-4">
-        <div className="flex items-center gap-2">
-          <Sparkles size={17} className="text-[#2563eb]" />
-          <h3 className="text-sm font-black text-[#0f172a]">
-            At-a-glance comparison
-          </h3>
-        </div>
-        <p className="mt-1 text-xs font-semibold text-[#64748b]">
-          Key buying details extracted from price and feature catalogue.
-        </p>
-      </div>
+    <aside className="rounded-[24px] border border-[#dbe3ef] bg-white/86 p-3 shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)] backdrop-blur-2xl">
+      <p className="mb-3 px-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#64748b]">
+        Categories
+      </p>
 
-      <div className="overflow-x-auto">
-        <table
-          className="w-full border-separate border-spacing-0 text-sm"
-          style={{
-            minWidth: `${Math.max(760, 250 + vehicles.length * 220)}px`,
-          }}
-        >
-          <thead className="bg-[#f8fafc]">
-            <tr>
-              <th className="w-[250px] border-b border-[#e2e8f0] px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.14em] text-[#64748b]">
-                Detail
-              </th>
-              {vehicles.map((vehicle, index) => (
-                <th
-                  key={`${vehicle.model}-${vehicle.variant}-snapshot-head-${index}`}
+      <div className="space-y-2">
+        {categories.map((item) => {
+          const active = item.category === selectedCategory;
+          const Icon = CATEGORY_ICONS[item.category] || Layers3;
+
+          return (
+            <button
+              key={item.category}
+              type="button"
+              onClick={() => onSelect(item.category)}
+              className={cx(
+                "flex w-full items-center justify-between gap-3 rounded-[16px] px-3 py-3 text-left text-sm font-black transition ring-1",
+                active
+                  ? "bg-[#eff6ff] text-[#1d4ed8] ring-[#93c5fd]"
+                  : "bg-white text-[#475569] ring-[#e2e8f0] hover:bg-[#f8fbff] hover:text-[#1e40af]",
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span
                   className={cx(
-                    "border-b border-l border-[#e2e8f0] px-4 py-3 text-center text-[12px] font-black",
-                    winnerIndex === index
-                      ? "bg-[#fffbeb] text-[#92400e]"
-                      : "text-[#1e3a8a]",
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                    active
+                      ? "bg-white text-[#2563eb]"
+                      : "bg-[#f8fafc] text-[#64748b]",
                   )}
                 >
-                  <span className="mx-auto block max-w-[190px] whitespace-normal break-words leading-5">
-                    {[vehicle.model, vehicle.variant].filter(Boolean).join(" ")}
+                  <Icon size={14} />
+                </span>
+                <span className="truncate">{item.category}</span>
+              </span>
+
+              <span
+                className={cx(
+                  "rounded-full px-2 py-0.5 text-xs font-black",
+                  active
+                    ? "bg-white text-[#2563eb]"
+                    : "bg-[#f8fafc] text-[#94a3b8]",
+                )}
+              >
+                {item.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
+function MobileCategorySelector({ categories, selectedCategory, onSelect }) {
+  return (
+    <div className="space-y-2 lg:hidden">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#64748b]">
+        Categories
+      </p>
+
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {categories.map((item) => {
+          const active = item.category === selectedCategory;
+
+          return (
+            <button
+              key={item.category}
+              type="button"
+              onClick={() => onSelect(item.category)}
+              className={cx(
+                "inline-flex shrink-0 items-center gap-2 rounded-[14px] px-3 py-2 text-xs font-black ring-1 transition",
+                active
+                  ? "bg-[#2563eb] text-white ring-[#2563eb]"
+                  : "bg-white text-[#475569] ring-[#dbe3ef]",
+              )}
+            >
+              {item.category}
+              <span className={active ? "text-white/75" : "text-[#94a3b8]"}>
+                {item.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FeatureLabelCell({ row }) {
+  return (
+    <div className="flex items-start gap-2">
+      <p className="whitespace-normal break-words text-sm font-black leading-5 text-[#334155]">
+        {row.label}
+      </p>
+
+      {row.meta?.tooltipColumns?.some((column) => column.items?.length) ? (
+        <InlineInfoTooltip
+          title={row.meta?.tooltipTitle}
+          columns={row.meta?.tooltipColumns}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ComparisonTable({ rows, vehicles, winnerIndex }) {
+  const tableMinWidth = Math.max(860, 250 + vehicles.length * 250);
+
+  return (
+    <section className="hidden overflow-hidden rounded-[26px] border border-[#dbe3ef] bg-white/88 shadow-[0_26px_86px_-68px_rgba(15,23,42,0.58)] backdrop-blur-2xl lg:block">
+      <div className="max-h-[760px] overflow-auto">
+        <table
+          className="w-full border-separate border-spacing-0 text-sm"
+          style={{ minWidth: `${tableMinWidth}px` }}
+        >
+          <thead className="sticky top-0 z-30 bg-[#f8fafc]">
+            <tr>
+              <th
+                className="sticky left-0 z-40 border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-4 text-left text-[11px] font-black uppercase tracking-[0.14em] text-[#64748b] shadow-[6px_0_12px_-12px_rgba(15,23,42,0.35)]"
+                style={{ width: 250 }}
+              >
+                Feature
+              </th>
+
+              {vehicles.map((vehicle, index) => (
+                <th
+                  key={`${vehicle.model}-${vehicle.variant}-${index}`}
+                  className={cx(
+                    "border-b border-l border-[#e2e8f0] px-4 py-4 text-center text-[12px] font-black",
+                    winnerIndex === index
+                      ? "bg-[#eff6ff] text-[#1d4ed8]"
+                      : "text-[#1e3a8a]",
+                  )}
+                  style={{ width: 250 }}
+                >
+                  <span className="mx-auto block max-w-[220px] whitespace-normal break-words leading-5">
+                    {vehicle.model}
+                  </span>
+                  <span className="mx-auto mt-0.5 block max-w-[220px] whitespace-normal break-words text-[11px] font-semibold leading-4 text-[#64748b]">
+                    {vehicle.variant}
                   </span>
                 </th>
               ))}
@@ -1657,40 +2022,32 @@ function SnapshotTable({ rows, vehicles, winnerIndex }) {
           </thead>
 
           <tbody>
-            {rows.map((row) => {
-              const Icon = row.icon || BadgeCheck;
+            {rows.map((row) => (
+              <tr
+                key={row.id}
+                className="group transition duration-150 hover:bg-[#eff6ff]/45"
+              >
+                <td className="sticky left-0 z-20 border-b border-[#eef2f7] bg-white px-4 py-3 shadow-[6px_0_12px_-12px_rgba(15,23,42,0.28)] group-hover:bg-[#eff6ff]">
+                  <FeatureLabelCell row={row} />
+                </td>
 
-              return (
-                <tr key={row.id} className="transition hover:bg-[#eff6ff]/45">
-                  <td className="border-b border-[#eef2f7] px-4 py-3">
-                    <span className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#eff6ff] text-[#2563eb] ring-1 ring-[#bfdbfe]">
-                        <Icon size={15} />
-                      </span>
-                      <span className="font-black text-[#334155]">
-                        {row.label}
-                      </span>
-                    </span>
+                {row.values.map((value, index) => (
+                  <td
+                    key={`${row.id}-${index}`}
+                    className={cx(
+                      "border-b border-l border-[#eef2f7] px-4 py-3 text-center",
+                      winnerIndex === index ? "bg-[#eff6ff]/35" : "",
+                    )}
+                  >
+                    <ValueCell
+                      value={value}
+                      row={row}
+                      winner={rowHasDifference(row) && winnerIndex === index}
+                    />
                   </td>
-
-                  {row.values.map((value, index) => (
-                    <td
-                      key={`${row.id}-snapshot-${index}`}
-                      className={cx(
-                        "border-b border-l border-[#eef2f7] px-4 py-3 text-center",
-                        winnerIndex === index ? "bg-[#fffbeb]/45" : "",
-                      )}
-                    >
-                      <ValueCell
-                        value={value}
-                        row={row}
-                        winner={rowHasDifference(row) && winnerIndex === index}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -1698,121 +2055,55 @@ function SnapshotTable({ rows, vehicles, winnerIndex }) {
   );
 }
 
-function CategoryButton({ category, count, active, onClick }) {
+function MobileRows({ rows, vehicles, winnerIndex }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cx(
-        "flex w-full items-center justify-between gap-3 rounded-[18px] px-3 py-3 text-left text-sm font-black ring-1 transition",
-        active
-          ? "bg-[#eff6ff] text-[#1e40af] ring-[#93c5fd]"
-          : "bg-white/86 text-[#475569] ring-[#dbe3ef] hover:bg-[#eff6ff]/70 hover:text-[#1e40af]",
-      )}
-    >
-      <span className="truncate">{category}</span>
-      <span
-        className={cx(
-          "rounded-full px-2 py-0.5 text-[11px]",
-          active ? "bg-white text-[#2563eb]" : "bg-[#f8fafc] text-[#94a3b8]",
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function InsightRail({ vehicles, insights, onAction }) {
-  const winner = insights.winner;
-  const winnerName = winner
-    ? [winner.model, winner.variant].filter(Boolean).join(" ")
-    : "—";
-
-  return (
-    <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-      <section className="rounded-[28px] border border-[#dbe3ef] bg-white/88 p-4 shadow-[0_24px_80px_-64px_rgba(15,23,42,0.5)] backdrop-blur-2xl">
-        <div className="flex items-center gap-2">
-          <Sparkles size={17} className="text-[#d97706]" />
-          <h3 className="text-sm font-black text-[#0f172a]">Quick verdict</h3>
-        </div>
-
-        <div className="mt-4 rounded-[22px] bg-[#fffbeb] p-4 ring-1 ring-[#fde68a]">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#b45309]">
-            Overall winner
-          </p>
-          <div className="mt-2 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-lg font-black leading-6 text-[#0f172a]">
-                {winnerName}
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#64748b]">
-                Best balance based on visible price, mileage and feature
-                strengths.
-              </p>
-            </div>
-            <Trophy size={34} className="shrink-0 text-[#d97706]" />
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-[28px] border border-[#dbe3ef] bg-white/88 p-4 shadow-[0_24px_80px_-64px_rgba(15,23,42,0.5)] backdrop-blur-2xl">
-        <div className="flex items-center gap-2">
-          <BadgeCheck size={17} className="text-[#2563eb]" />
-          <h3 className="text-sm font-black text-[#0f172a]">
-            Best by category
-          </h3>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          {insights.winners.slice(0, 5).map((item) => {
-            const vehicle = vehicles[item.index];
-
-            return (
-              <div
-                key={`${item.label}-${item.index}`}
-                className="flex items-center justify-between gap-3 rounded-[18px] border border-[#e2e8f0] bg-[#f8fafc] p-3"
-              >
-                <div>
-                  <p className="text-xs font-black text-[#0f172a]">
-                    {item.label}
-                  </p>
-                  <p className="mt-0.5 text-[11px] font-semibold text-[#64748b]">
-                    {item.reason}
-                  </p>
-                </div>
-                <p className="max-w-[130px] text-right text-xs font-black leading-5 text-[#1e40af]">
-                  {[vehicle?.model, vehicle?.variant].filter(Boolean).join(" ")}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="rounded-[28px] border border-[#dbe3ef] bg-white/88 p-4 shadow-[0_24px_80px_-64px_rgba(15,23,42,0.5)] backdrop-blur-2xl">
-        <h3 className="text-sm font-black text-[#0f172a]">
-          Take the next step
-        </h3>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#64748b]">
-          Ask ACI Assist to explain the differences in simple buying language.
-        </p>
-
-        <button
-          type="button"
-          onClick={() =>
-            onAction?.({
-              type: "ask",
-              message: "Which one should I choose from this comparison?",
-            })
-          }
-          className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[16px] bg-[#0f172a] px-4 text-sm font-black text-white transition hover:bg-[#1e293b]"
+    <section className="space-y-3 lg:hidden">
+      {rows.map((row) => (
+        <article
+          key={`${row.id}-mobile`}
+          className="rounded-[24px] border border-[#dbe3ef] bg-white/88 p-4 shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)]"
         >
-          <Trophy size={16} />
-          Help me decide
-        </button>
-      </section>
-    </aside>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-base font-black text-[#0f172a]">{row.label}</h3>
+
+            {row.meta?.tooltipColumns?.some(
+              (column) => column.items?.length,
+            ) ? (
+              <InlineInfoTooltip
+                title={row.meta?.tooltipTitle}
+                columns={row.meta?.tooltipColumns}
+              />
+            ) : null}
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {vehicles.map((vehicle, index) => (
+              <div
+                key={`${row.id}-mobile-${index}`}
+                className={cx(
+                  "rounded-[18px] border p-3",
+                  winnerIndex === index
+                    ? "border-[#bfdbfe] bg-[#eff6ff]"
+                    : "border-[#e2e8f0] bg-[#f8fafc]",
+                )}
+              >
+                <p className="text-xs font-black text-[#64748b]">
+                  {[vehicle.model, vehicle.variant].filter(Boolean).join(" ")}
+                </p>
+
+                <div className="mt-1">
+                  <ValueCell
+                    value={row.values[index]}
+                    row={row}
+                    winner={rowHasDifference(row) && winnerIndex === index}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+      ))}
+    </section>
   );
 }
 
@@ -1821,12 +2112,16 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
   const isModelComparison = widget?.type === "vehicle_model_comparison";
 
   const models = asArray(data.models || widget?.models);
-  const rawVariants = asArray(data.variants || widget?.variants);
-  const comparisonRows = asArray(
-    data.comparisonRows || widget?.comparisonRows || data.rows || widget?.rows,
+  const rawVariants = asArray(
+    data.selectedDefaultVariants ||
+      data.selectedVariantRows ||
+      data.variants ||
+      widget?.variants ||
+      data.variantRows,
   );
+  const comparisonRows = asArray(data.comparisonRows || widget?.comparisonRows);
 
-  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
+  const [selectedCategory, setSelectedCategory] = useState(SNAPSHOT_CATEGORY);
   const [search, setSearch] = useState("");
   const [hideCommon, setHideCommon] = useState(false);
   const [selectedVariantsByModel, setSelectedVariantsByModel] = useState({});
@@ -1907,8 +2202,18 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
 
   const snapshotRows = useMemo(() => buildSnapshotRows(allRows), [allRows]);
 
+  const rowsWithSnapshot = useMemo(
+    () => [
+      ...snapshotRows,
+      ...allRows.filter((row) => row.category !== SNAPSHOT_CATEGORY),
+    ],
+    [snapshotRows, allRows],
+  );
+
   const categoryStats = useMemo(() => {
-    const source = hideCommon ? allRows.filter(rowHasDifference) : allRows;
+    const source = hideCommon
+      ? rowsWithSnapshot.filter(rowHasDifference)
+      : rowsWithSnapshot;
     const map = new Map();
 
     source.forEach((row) => {
@@ -1921,12 +2226,12 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
         .map(([category, count]) => ({ category, count }))
         .sort((a, b) => categorySort(a.category, b.category)),
     ];
-  }, [allRows, hideCommon]);
+  }, [rowsWithSnapshot, hideCommon]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return allRows.filter((row) => {
+    return rowsWithSnapshot.filter((row) => {
       const searchable =
         `${row.category} ${row.label} ${row.values.join(" ")}`.toLowerCase();
 
@@ -1937,7 +2242,7 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
 
       return matchesSearch && matchesCategory && matchesCommon;
     });
-  }, [allRows, search, selectedCategory, hideCommon]);
+  }, [rowsWithSnapshot, search, selectedCategory, hideCommon]);
 
   const insights = useMemo(
     () => computeInsights(comparisonVehicles, allRows),
@@ -1948,20 +2253,15 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
     widget?.title ||
     data?.title ||
     (isModelComparison
-      ? `Compare ${formatList(models.map((model, index) => modelNameOnly(model, index)))}`
+      ? `Compare ${models.map((model, index) => modelNameOnly(model, index)).join(", ")}`
       : "Variant comparison");
 
-  const differentRowsCount = allRows.filter(rowHasDifference).length;
-  const tableMinWidth = Math.max(820, 280 + comparisonVehicles.length * 240);
+  const differentRowsCount = rowsWithSnapshot.filter(rowHasDifference).length;
 
   return (
     <ModernCanvasShell
       title={title}
-      subtitle={
-        isModelComparison
-          ? "Lowest-priced variants are selected automatically. Change any variant from the dropdown."
-          : "Side-by-side comparison with category filters and difference view."
-      }
+      subtitle="Compare exact variants across price breakup, key specs and full feature catalogue."
       icon={Layers3}
       footer={footer}
       eyebrow="Compare"
@@ -1970,31 +2270,21 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
       bodyClassName="space-y-5"
     >
       <motion.section
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        className="relative overflow-hidden rounded-[30px] border border-[#dbe3ef] bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_54%,#eff6ff_100%)] p-5 shadow-[0_30px_90px_-72px_rgba(15,23,42,0.55)]"
+        transition={{ duration: 0.16, ease: "easeOut" }}
+        className="relative overflow-hidden rounded-[24px] border border-[#dbe3ef] bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_58%,#eff6ff_100%)] px-4 py-3 shadow-[0_20px_70px_-60px_rgba(15,23,42,0.45)]"
       >
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#dbeafe]/70 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-[30%] h-64 w-64 rounded-full bg-[#e0e7ff]/50 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-[#dbeafe]/70 blur-3xl" />
 
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/86 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#1e40af] ring-1 ring-[#bfdbfe]">
-              <Sparkles size={13} />
-              Smart comparison
-            </p>
+        <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-white/86 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#1e40af] ring-1 ring-[#bfdbfe]">
+                <Sparkles size={13} />
+                Smart comparison
+              </p>
 
-            <h2 className="font-serif text-[34px] font-semibold leading-[1.03] tracking-[-0.065em] text-[#0f172a] sm:text-[44px]">
-              {title}
-            </h2>
-
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#64748b] sm:text-base">
-              Compare selected variants across price breakup, engine, mileage,
-              safety, comfort, ADAS, infotainment and full feature categories.
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-2">
               <StatPill
                 icon={isModelComparison ? Car : BadgeCheck}
                 value={comparisonVehicles.length}
@@ -2002,9 +2292,9 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
               />
 
               <StatPill
-                icon={ListFilter}
-                value={allRows.length}
-                label="comparison rows"
+                icon={Layers3}
+                value={rowsWithSnapshot.length}
+                label="matched rows"
               />
 
               <StatPill
@@ -2013,341 +2303,188 @@ export function VehicleComparisonCanvas({ widget, onAction, footer }) {
                 label="differences"
               />
             </div>
+
+            <p className="mt-2 max-w-4xl text-sm font-semibold leading-6 text-[#64748b]">
+              Lowest-priced variants are selected automatically. Change any
+              variant from the dropdown and the price breakup plus feature table
+              updates instantly.
+            </p>
           </div>
 
-          <div className="hidden rounded-[24px] border border-[#dbe3ef] bg-white/76 p-4 shadow-sm backdrop-blur-xl lg:block lg:min-w-[280px]">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#94a3b8]">
-              Current winner
-            </p>
-            <p className="mt-1 text-lg font-black text-[#0f172a]">
-              {insights.winner
-                ? [insights.winner.model, insights.winner.variant]
-                    .filter(Boolean)
-                    .join(" ")
-                : "—"}
-            </p>
-            <p className="mt-2 text-xs font-semibold leading-5 text-[#64748b]">
-              Based on visible price, mileage and feature strengths.
-            </p>
-          </div>
+          {insights.winner ? (
+            <div className="shrink-0 rounded-[20px] border border-[#bfdbfe] bg-white/82 px-4 py-3 shadow-sm backdrop-blur-xl lg:min-w-[280px]">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#2563eb]">
+                Suggested pick
+              </p>
+
+              <p className="mt-1 text-sm font-black leading-5 text-[#0f172a]">
+                {[insights.winner.model, insights.winner.variant]
+                  .filter(Boolean)
+                  .join(" ")}
+              </p>
+
+              <p className="mt-1 text-[11px] font-semibold leading-4 text-[#64748b]">
+                Based on visible price, mileage and feature strengths.
+              </p>
+            </div>
+          ) : null}
         </div>
       </motion.section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="min-w-0 space-y-5">
-          <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-            {comparisonVehicles.map((vehicle, index) => {
-              const selection = isModelComparison
-                ? modelSelections[index]
-                : null;
+      <section className="grid gap-4 xl:grid-cols-3">
+        {comparisonVehicles.map((vehicle, index) => {
+          const selection = isModelComparison ? modelSelections[index] : null;
 
-              return (
-                <VehicleCompareCard
-                  key={`${vehicle.brand}-${vehicle.model}-${vehicle.variant}-${index}`}
-                  data={data}
-                  model={selection?.model || modelsForRows[index]}
-                  vehicle={vehicle}
-                  options={selection?.options || []}
-                  selectedKey={
-                    selection?.selectedKey || variantOptionKey(vehicle, index)
-                  }
-                  onSelect={(nextKey) => {
-                    if (!selection) return;
+          return (
+            <VehicleCompareCard
+              key={`${vehicle.brand}-${vehicle.model}-${vehicle.variant}-${index}`}
+              data={data}
+              model={selection?.model || modelsForRows[index]}
+              vehicle={vehicle}
+              options={selection?.options || []}
+              selectedKey={
+                selection?.selectedKey || variantOptionKey(vehicle, index)
+              }
+              onSelect={(nextKey) => {
+                if (!selection) return;
 
-                    setSelectedVariantsByModel((current) => ({
-                      ...current,
-                      [selection.key]: nextKey,
-                    }));
-                  }}
-                  index={index}
-                  winner={insights.winnerIndex === index}
-                  modelComparison={isModelComparison}
-                />
-              );
-            })}
-          </section>
+                setSelectedVariantsByModel((current) => ({
+                  ...current,
+                  [selection.key]: nextKey,
+                }));
+              }}
+              index={index}
+              winner={insights.winnerIndex === index}
+              modelComparison={isModelComparison}
+            />
+          );
+        })}
+      </section>
 
-          <SnapshotTable
-            rows={snapshotRows}
+      <section className="rounded-[26px] border border-[#dbe3ef] bg-white/82 p-4 shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)] backdrop-blur-2xl">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_250px] lg:items-center">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search features, price breakup, sunroof, ADAS, boot space..."
+          />
+
+          <button
+            type="button"
+            onClick={() => setHideCommon((value) => !value)}
+            className={cx(
+              "flex h-11 items-center justify-between gap-3 rounded-[16px] border px-4 text-left text-sm font-black transition",
+              hideCommon
+                ? "border-[#2563eb] bg-[#eff6ff] text-[#1e40af]"
+                : "border-[#dbe3ef] bg-white text-[#334155] hover:border-[#93c5fd] hover:bg-[#eff6ff]/65",
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <SlidersHorizontal size={16} />
+              Hide common features
+            </span>
+
+            <span
+              className={cx(
+                "relative h-5 w-9 rounded-full transition",
+                hideCommon ? "bg-[#2563eb]" : "bg-[#cbd5e1]",
+              )}
+            >
+              <span
+                className={cx(
+                  "absolute top-1 h-3 w-3 rounded-full bg-white transition",
+                  hideCommon ? "left-5" : "left-1",
+                )}
+              />
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[250px_minmax(0,1fr)]">
+        <div className="hidden lg:block">
+          <CategorySidebar
+            categories={categoryStats}
+            selectedCategory={selectedCategory}
+            onSelect={setSelectedCategory}
+          />
+        </div>
+
+        <div className="min-w-0 space-y-4">
+          <MobileCategorySelector
+            categories={categoryStats}
+            selectedCategory={selectedCategory}
+            onSelect={setSelectedCategory}
+          />
+
+          <ComparisonTable
+            rows={filteredRows}
             vehicles={comparisonVehicles}
             winnerIndex={insights.winnerIndex}
           />
 
-          <section className="rounded-[26px] border border-[#dbe3ef] bg-white/82 p-4 shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)] backdrop-blur-2xl">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_250px] lg:items-center">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search price breakup, safety, sunroof, ADAS, boot space..."
-              />
+          <MobileRows
+            rows={filteredRows}
+            vehicles={comparisonVehicles}
+            winnerIndex={insights.winnerIndex}
+          />
+        </div>
+      </section>
 
-              <button
-                type="button"
-                onClick={() => setHideCommon((value) => !value)}
-                className={cx(
-                  "flex h-11 items-center justify-between gap-3 rounded-[16px] border px-4 text-left text-sm font-black transition",
-                  hideCommon
-                    ? "border-[#2563eb] bg-[#eff6ff] text-[#1e40af]"
-                    : "border-[#dbe3ef] bg-white text-[#334155] hover:border-[#93c5fd] hover:bg-[#eff6ff]/65",
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <SlidersHorizontal size={16} />
-                  Hide common features
-                </span>
+      {!filteredRows.length ? (
+        <div className="rounded-[26px] border border-[#dbe3ef] bg-white/88 p-10 text-center shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)]">
+          <CircleDollarSign size={34} className="mx-auto text-[#cbd5e1]" />
+          <p className="mt-4 text-base font-black text-[#0f172a]">
+            No comparison rows found
+          </p>
+          <p className="mt-1 text-sm font-semibold text-[#64748b]">
+            Clear search or turn off “Hide common features”.
+          </p>
+        </div>
+      ) : null}
 
-                <span
-                  className={cx(
-                    "relative h-5 w-9 rounded-full transition",
-                    hideCommon ? "bg-[#2563eb]" : "bg-[#cbd5e1]",
-                  )}
-                >
-                  <span
-                    className={cx(
-                      "absolute top-1 h-3 w-3 rounded-full bg-white transition",
-                      hideCommon ? "left-5" : "left-1",
-                    )}
-                  />
-                </span>
-              </button>
-            </div>
-
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 xl:hidden">
-              {categoryStats.map((item) => {
-                const active = item.category === selectedCategory;
-
-                return (
-                  <button
-                    key={item.category}
-                    type="button"
-                    onClick={() => setSelectedCategory(item.category)}
-                    className={cx(
-                      "inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-xs font-black ring-1 transition",
-                      active
-                        ? "bg-[#2563eb] text-white ring-[#2563eb]"
-                        : "bg-white text-[#475569] ring-[#dbe3ef] hover:bg-[#eff6ff] hover:text-[#1e40af]",
-                    )}
-                  >
-                    {item.category}
-                    <span
-                      className={active ? "text-white/75" : "text-[#94a3b8]"}
-                    >
-                      {item.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <div className="grid gap-4 xl:grid-cols-[230px_minmax(0,1fr)]">
-            <aside className="hidden rounded-[26px] border border-[#dbe3ef] bg-white/82 p-3 shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)] backdrop-blur-2xl xl:block">
-              <p className="px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#64748b]">
-                Categories
-              </p>
-
-              <div className="space-y-2">
-                {categoryStats.map((item) => (
-                  <CategoryButton
-                    key={item.category}
-                    category={item.category}
-                    count={item.count}
-                    active={item.category === selectedCategory}
-                    onClick={() => setSelectedCategory(item.category)}
-                  />
-                ))}
-              </div>
-            </aside>
-
-            <section className="hidden overflow-hidden rounded-[26px] border border-[#dbe3ef] bg-white/88 shadow-[0_26px_86px_-68px_rgba(15,23,42,0.58)] backdrop-blur-2xl lg:block">
-              <div className="max-h-[760px] overflow-auto">
-                <table
-                  className="w-full border-separate border-spacing-0 text-sm"
-                  style={{ minWidth: `${tableMinWidth}px` }}
-                >
-                  <thead className="sticky top-0 z-30 bg-[#f8fafc]">
-                    <tr>
-                      <th
-                        className="sticky left-0 z-40 border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-4 text-left text-[11px] font-black uppercase tracking-[0.14em] text-[#64748b] shadow-[6px_0_12px_-12px_rgba(15,23,42,0.35)]"
-                        style={{ width: 280 }}
-                      >
-                        Feature
-                      </th>
-
-                      {comparisonVehicles.map((vehicle, index) => (
-                        <th
-                          key={`${vehicle.model}-${vehicle.variant}-${index}`}
-                          className={cx(
-                            "border-b border-l border-[#e2e8f0] px-4 py-4 text-center text-[12px] font-black",
-                            insights.winnerIndex === index
-                              ? "bg-[#fffbeb] text-[#92400e]"
-                              : "text-[#1e3a8a]",
-                          )}
-                          style={{ width: 240 }}
-                        >
-                          <span className="mx-auto block max-w-[210px] whitespace-normal break-words leading-5">
-                            {[vehicle.model, vehicle.variant]
-                              .filter(Boolean)
-                              .join(" ")}
-                          </span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {filteredRows.map((row) => (
-                      <tr
-                        key={row.id}
-                        className="group transition duration-150 hover:bg-[#eff6ff]/45"
-                      >
-                        <td className="sticky left-0 z-20 border-b border-[#eef2f7] bg-white px-4 py-3 shadow-[6px_0_12px_-12px_rgba(15,23,42,0.28)] group-hover:bg-[#eff6ff]">
-                          <p
-                            className={cx(
-                              "text-[10px] font-black uppercase tracking-[0.14em]",
-                              row.category === "Price Breakup"
-                                ? "text-[#2563eb]"
-                                : "text-[#94a3b8]",
-                            )}
-                          >
-                            {row.category}
-                          </p>
-
-                          <p className="mt-1 whitespace-normal break-words text-sm font-black leading-5 text-[#334155]">
-                            {row.label}
-                          </p>
-                        </td>
-
-                        {row.values.map((value, index) => (
-                          <td
-                            key={`${row.id}-${index}`}
-                            className={cx(
-                              "border-b border-l border-[#eef2f7] px-4 py-3 text-center",
-                              insights.winnerIndex === index
-                                ? "bg-[#fffbeb]/45"
-                                : "",
-                            )}
-                          >
-                            <ValueCell
-                              value={value}
-                              row={row}
-                              winner={
-                                rowHasDifference(row) &&
-                                insights.winnerIndex === index
-                              }
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="space-y-3 lg:hidden">
-              {filteredRows.map((row) => (
-                <article
-                  key={`${row.id}-mobile`}
-                  className="rounded-[24px] border border-[#dbe3ef] bg-white/88 p-4 shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)]"
-                >
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#2563eb]">
-                    {row.category}
-                  </p>
-
-                  <h3 className="mt-1 text-base font-black text-[#0f172a]">
-                    {row.label}
-                  </h3>
-
-                  <div className="mt-4 space-y-2">
-                    {comparisonVehicles.map((vehicle, index) => (
-                      <div
-                        key={`${row.id}-mobile-${index}`}
-                        className={cx(
-                          "rounded-[18px] border p-3",
-                          insights.winnerIndex === index
-                            ? "border-[#fde68a] bg-[#fffbeb]"
-                            : "border-[#e2e8f0] bg-[#f8fafc]",
-                        )}
-                      >
-                        <p className="text-xs font-black text-[#64748b]">
-                          {[vehicle.model, vehicle.variant]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </p>
-
-                        <div className="mt-1">
-                          <ValueCell
-                            value={row.values[index]}
-                            row={row}
-                            winner={
-                              rowHasDifference(row) &&
-                              insights.winnerIndex === index
-                            }
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </section>
-
-            {!filteredRows.length ? (
-              <div className="rounded-[26px] border border-[#dbe3ef] bg-white/88 p-10 text-center shadow-[0_20px_70px_-62px_rgba(15,23,42,0.42)]">
-                <CircleDollarSign
-                  size={34}
-                  className="mx-auto text-[#cbd5e1]"
-                />
-
-                <p className="mt-4 text-base font-black text-[#0f172a]">
-                  No comparison rows found
-                </p>
-
-                <p className="mt-1 text-sm font-semibold text-[#64748b]">
-                  Try clearing search or showing common features again.
-                </p>
-              </div>
-            ) : null}
+      <section className="rounded-[28px] border border-[#dbe3ef] bg-[linear-gradient(135deg,#ffffff,#f8fafc_58%,#eff6ff)] p-5 shadow-[0_24px_80px_-64px_rgba(15,23,42,0.45)]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] bg-[radial-gradient(circle_at_34%_25%,#1e3a8a_0,#0f172a_48%,#020617_100%)] text-[#93c5fd] shadow-[inset_0_0_30px_rgba(147,197,253,0.28)]">
+            <Sparkles size={28} />
           </div>
 
-          <section className="rounded-[28px] border border-[#dbe3ef] bg-[linear-gradient(135deg,#ffffff,#f8fafc_58%,#fffbeb)] p-5 shadow-[0_24px_80px_-64px_rgba(15,23,42,0.45)]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[24px] bg-[radial-gradient(circle_at_34%_25%,#1e3a8a_0,#0f172a_48%,#020617_100%)] text-[#93c5fd] shadow-[inset_0_0_30px_rgba(147,197,253,0.28)]">
-                <Sparkles size={28} />
-              </div>
+          <div>
+            <h3 className="font-serif text-2xl font-semibold tracking-[-0.05em] text-[#0f172a]">
+              ACI Assist summary
+            </h3>
+            <p className="mt-2 text-sm font-semibold leading-7 text-[#475569]">
+              {insights.winner ? (
+                <>
+                  Based on the visible price breakup and feature catalogue,{" "}
+                  <span className="font-black text-[#0f172a]">
+                    {[insights.winner.model, insights.winner.variant]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </span>{" "}
+                  looks like the strongest all-rounder.
+                </>
+              ) : (
+                "Use the table to compare price breakup, features, dimensions and ownership details side by side."
+              )}
+            </p>
 
-              <div>
-                <h3 className="font-serif text-2xl font-semibold tracking-[-0.05em] text-[#0f172a]">
-                  ACI Assist summary
-                </h3>
-                <p className="mt-2 text-sm font-semibold leading-7 text-[#475569]">
-                  {insights.winner ? (
-                    <>
-                      Based on the visible price breakup and feature catalogue,{" "}
-                      <span className="font-black text-[#0f172a]">
-                        {[insights.winner.model, insights.winner.variant]
-                          .filter(Boolean)
-                          .join(" ")}
-                      </span>{" "}
-                      looks like the strongest all-rounder. Use the variant
-                      dropdowns above and the comparison will update instantly.
-                    </>
-                  ) : (
-                    "Use the table to compare price breakup, features, dimensions and ownership details side by side."
-                  )}
-                </p>
-              </div>
-            </div>
-          </section>
+            <button
+              type="button"
+              onClick={() =>
+                onAction?.({
+                  type: "ask",
+                  message: "Which one should I choose from this comparison?",
+                })
+              }
+              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-[16px] bg-[#0f172a] px-5 text-sm font-black text-white transition hover:bg-[#1e293b]"
+            >
+              <Trophy size={16} />
+              Help me decide
+            </button>
+          </div>
         </div>
-
-        <InsightRail
-          vehicles={comparisonVehicles}
-          insights={insights}
-          onAction={onAction}
-        />
-      </div>
+      </section>
     </ModernCanvasShell>
   );
 }

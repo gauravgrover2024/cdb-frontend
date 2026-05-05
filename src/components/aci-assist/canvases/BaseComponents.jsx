@@ -371,8 +371,14 @@ export function ModernCanvasFooter({ message, showQueryPlan, onFollowUp }) {
       ) : null}
 
       <FollowUpSuggestions
-        suggestions={message?.followUpSuggestions}
+        suggestions={
+          (Array.isArray(message?.conversationSuggestions) &&
+          message.conversationSuggestions.length
+            ? message.conversationSuggestions
+            : message?.followUpSuggestions) || []
+        }
         onSelect={onFollowUp}
+        title="Next Best Actions"
       />
     </div>
   );
