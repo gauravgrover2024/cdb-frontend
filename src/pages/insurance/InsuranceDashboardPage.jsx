@@ -89,17 +89,34 @@ const premiumNum = (c) => {
 };
 
 const paymentReceivedNum = (c) => {
+  const ledgerRows = (
+    Array.isArray(c?.paymentHistory)
+      ? c.paymentHistory
+      : Array.isArray(c?.payment_history)
+        ? c.payment_history
+        : []
+  ).map(normalizeInsuranceLedgerRow);
+  if (ledgerRows.length > 0) {
+    const totals = computeInsurancePaymentTotals(ledgerRows, premiumNum(c));
+    const ledgerTotal =
+      Number(totals?.insurerPaidByAutocredits || 0) +
+      Number(totals?.insurerPaidByCustomer || 0) +
+      Number(totals?.customerRecovered || 0);
+    if (Number.isFinite(ledgerTotal) && ledgerTotal > 0) return ledgerTotal;
+  }
+
   const customer = Number(
-    c?.customerPaymentReceived || c?.customer_payment_received || 0,
+    c?.customerPaymentReceived ?? c?.customer_payment_received ?? 0,
   );
   const inhouse = Number(
-    c?.inhousePaymentReceived || c?.inhouse_payment_received || 0,
+    c?.inhousePaymentReceived ?? c?.inhouse_payment_received ?? 0,
   );
   const total = customer + inhouse;
   return Number.isFinite(total) ? total : 0;
 };
 
-const hasPolicyNumber = (c) => hasDisplayValue(c?.newPolicyNumber);
+const hasPolicyNumber = (c) =>
+  hasDisplayValue(c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number);
 
 const vehicleTypeLower = (c) =>
   String(c?.typesOfVehicle || "")
@@ -399,14 +416,20 @@ const isCompletedPolicy = (c) => {
   if (st === "submitted" || st === "issued" || st === "completed") return true;
   
   // 2. Already has a policy number
-  const hasPolicyNo = c?.policyNumber && 
-                     typeof c.policyNumber === "string" && 
-                     c.policyNumber.trim() !== "" && 
-                     c.policyNumber.toLowerCase() !== "not issued";
+  const policyNo = String(
+    c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number || "",
+  ).trim();
+  const hasPolicyNo = policyNo !== "" && policyNo.toLowerCase() !== "not issued";
   if (hasPolicyNo) return true;
 
   // 3. Accepted Quote or Insurer assigned
-  if (c?.acceptedQuoteId || c?.accepted_quote_id || c?.insurer) return true;
+  if (
+    c?.acceptedQuoteId ||
+    c?.accepted_quote_id ||
+    hasDisplayValue(c?.newInsuranceCompany || c?.insurer)
+  ) {
+    return true;
+  }
 
   // 4. Payment recorded
   const payTotal = paymentReceivedNum(c);
@@ -421,7 +444,7 @@ const isCompletedPolicy = (c) => {
   return false;
 };
 
-const isDraftPolicy = (c) => !isCompletedPolicy(c) && normalizeStatus(c?.status) === "draft";
+const isDraftPolicy = (c) => !isCompletedPolicy(c);
 
 const isPaymentDuePolicy = (c) => getInsurancePaymentDueSnapshot(c).isDue;
 
@@ -890,9 +913,10 @@ const PolicyCard = ({
   onTrend,
   onExtend,
   onDocs,
+  onPolicyBreakup,
 }) => {
   const isCompleted = isCompletedPolicy(policy);
-  const isDraft = !isCompleted && policy.status === "draft";
+  const isDraft = !isCompleted;
   const openDues = policy.openDues || 0;
   const pulseDays = Number.isFinite(Number(policy.expiryDays))
     ? Number(policy.expiryDays)
@@ -908,12 +932,14 @@ const PolicyCard = ({
   };
 
   const config = isCompleted
-    ? (policy.status === "draft" ? statusConfig.completed : (statusConfig[policy.status] || statusConfig.completed))
-    : (statusConfig[policy.status] || statusConfig.draft);
+    ? statusConfig.completed
+    : policy.status === "cancelled"
+      ? statusConfig.cancelled
+      : statusConfig.draft;
 
   const accentColor = isDraft
     ? "#f43f5e"
-    : isCompletedPolicy({ status: policy.status })
+    : isCompleted
       ? "#10b981"
       : "#3b82f6";
 
@@ -1095,7 +1121,7 @@ const PolicyCard = ({
       </div>
 
       {/* 4-Column Grid */}
-      <div className="grid grid-cols-4 gap-0">
+      <div className="grid grid-cols-1 gap-0 md:grid-cols-2 xl:grid-cols-4">
         {/* Column 1 Customer & Vehicle */}
         <div className="p-3 border-r " style={{ borderColor: "#f1f5f9" }}>
           <div
@@ -1204,12 +1230,13 @@ const PolicyCard = ({
         {/* Column 2 Policy */}
         <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
           <div
-            className="rounded-2xl "
+            className="rounded-2xl cursor-pointer transition-transform duration-150 hover:scale-[1.01]"
             style={{
               borderColor: "#e2e8f0",
               background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
               boxShadow: "0 8px 24px rgba(15, 23, 42, 0.04)",
             }}
+            onClick={onPolicyBreakup}
           >
             {/* Header */}
             <div
@@ -1267,7 +1294,9 @@ const PolicyCard = ({
                 <p className="text-[11px] text-slate-500 truncate">
                   Expiry: {policy.expiryLabel || "—"}
                   {Number.isFinite(Number(policy.expiryDays))
-                    ? ` · ${policy.expiryDays}d`
+                    ? Number(policy.expiryDays) < 0
+                      ? ` · Expired ${Math.abs(Number(policy.expiryDays))}d ago`
+                      : ` · ${Number(policy.expiryDays)}d left`
                     : ""}
                 </p>
                 <p
@@ -1286,6 +1315,16 @@ const PolicyCard = ({
                     Ref Contact: {policy.referenceContact}
                   </p>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPolicyBreakup?.();
+                  }}
+                  className="mt-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  View Premium Breakup
+                </button>
               </div>
             </div>
           </div>
@@ -1568,6 +1607,10 @@ const InsuranceDashboardPage = () => {
   const [trendModal, setTrendModal] = useState({
     open: false,
     vehicleLabel: "",
+  });
+  const [policyModal, setPolicyModal] = useState({
+    open: false,
+    policy: null,
   });
   const [docsModal, setDocsModal] = useState({
     open: false,
@@ -2034,6 +2077,11 @@ const InsuranceDashboardPage = () => {
           : idv
             ? formatInr(idv)
             : "—";
+      const includedAddOns = hasAcceptedQuote
+        ? Object.entries(acceptedQuote?.addOnsIncluded || {})
+            .filter(([, included]) => Boolean(included))
+            .map(([name]) => name)
+        : [];
 
       // Status & dates
       const st = normalizeStatus(record.status);
@@ -2231,6 +2279,30 @@ const InsuranceDashboardPage = () => {
         paymentPercent,
         openDues: openDuesFromAcRecovery,
         alreadyRenewed: renewedCaseIds.has(String(id)),
+        quoteCoverageType: acceptedQuote?.coverageType || record?.newPolicyType || "Comprehensive",
+        quoteDuration:
+          acceptedQuote?.policyDuration || record?.newInsuranceDuration || "1 Year",
+        breakup: {
+          ownDamage: Number(acceptedBreakup?.odAmt || 0),
+          basicOwnDamage: Number(
+            acceptedQuote?.basicOwnDamage ||
+              acceptedQuote?.odAmount ||
+              acceptedBreakup?.odAmt ||
+              0,
+          ),
+          ncbPercent: Number(acceptedQuote?.ncbDiscount || record?.newNcbDiscount || 0),
+          ncbAmount: Number(acceptedBreakup?.ncbAmount || 0),
+          thirdParty: Number(acceptedBreakup?.tpAmt || 0),
+          basicThirdParty: Number(
+            acceptedQuote?.basicThirdParty ||
+              acceptedQuote?.thirdPartyAmount ||
+              acceptedBreakup?.tpAmt ||
+              0,
+          ),
+          addOnsTotal: Number(acceptedBreakup?.addOnsTotal || 0),
+          totalAmount: Number(acceptedBreakup?.totalPremium || premium || 0),
+          includedAddOns,
+        },
         record,
       };
     });
@@ -2242,7 +2314,7 @@ const InsuranceDashboardPage = () => {
 
   return (
     <div
-      className="min-h-screen p-4 overflow-auto bg-slate-50"
+      className="h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden p-4 bg-slate-50"
       style={{
         ...FONT_VARS,
         fontFamily: "var(--default-font-family)",
@@ -2283,7 +2355,7 @@ const InsuranceDashboardPage = () => {
   `}</style>
 
               <div
-                className="flex justify-end"
+                className="w-full lg:w-auto"
                 style={{
                   fontFamily:
                     'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
@@ -2294,8 +2366,8 @@ const InsuranceDashboardPage = () => {
                   fontVariationSettings: '"opsz" 14',
                 }}
               >
-                <div className="flex items-center rounded-[18px] bg-white px-3 py-2.5 shadow-[0_2px_10px_rgba(148,163,184,0.12)]">
-                  <div className="min-w-[150px] px-4 text-center">
+                <div className="grid grid-cols-2 gap-2 rounded-[18px] bg-white p-2 shadow-[0_2px_10px_rgba(148,163,184,0.12)] sm:grid-cols-4 sm:gap-0 sm:px-3 sm:py-2.5">
+                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[150px] sm:border-0 sm:px-4">
                     <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
                       Policy Issued Today
                     </p>
@@ -2307,9 +2379,9 @@ const InsuranceDashboardPage = () => {
                     </p>
                   </div>
 
-                  <div className="h-9 w-px bg-slate-200" />
+                  <div className="hidden h-9 w-px bg-slate-200 sm:block" />
 
-                  <div className="min-w-[172px] px-4 text-center">
+                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[172px] sm:border-0 sm:px-4">
                     <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
                       Renewals Converted
                     </p>
@@ -2321,9 +2393,9 @@ const InsuranceDashboardPage = () => {
                     </p>
                   </div>
 
-                  <div className="h-9 w-px bg-slate-200" />
+                  <div className="hidden h-9 w-px bg-slate-200 sm:block" />
 
-                  <div className="min-w-[172px] px-4 text-center">
+                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[172px] sm:border-0 sm:px-4">
                     <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
                       Renewals Pending
                     </p>
@@ -2335,9 +2407,9 @@ const InsuranceDashboardPage = () => {
                     </p>
                   </div>
 
-                  <div className="h-9 w-px bg-slate-200" />
+                  <div className="hidden h-9 w-px bg-slate-200 sm:block" />
 
-                  <div className="min-w-[108px] px-4 text-center">
+                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[108px] sm:border-0 sm:px-4">
                     <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
                       Conversion
                     </p>
@@ -2573,6 +2645,12 @@ const InsuranceDashboardPage = () => {
                     record: policy.record,
                   });
                 }}
+                onPolicyBreakup={() =>
+                  setPolicyModal({
+                    open: true,
+                    policy,
+                  })
+                }
               />
             ))}
           </AnimatePresence>
@@ -2601,6 +2679,105 @@ const InsuranceDashboardPage = () => {
       </div>
 
       {/* Trend Modal */}
+      <Modal
+        open={policyModal.open}
+        centered
+        width={760}
+        footer={null}
+        onCancel={() => setPolicyModal({ open: false, policy: null })}
+        title={
+          <div className="pr-6">
+            <p className="text-xs uppercase tracking-[0.1em] text-slate-500">
+              Premium Breakup
+            </p>
+            <p className="text-sm font-semibold text-slate-800">
+              {policyModal.policy?.insurer || "Insurance Company"}
+            </p>
+          </div>
+        }
+      >
+        {policyModal.policy ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-base font-bold text-slate-900">
+                {policyModal.policy.insurer || "—"}
+              </p>
+              <p className="text-sm text-slate-600">
+                {policyModal.policy.quoteCoverageType || "Comprehensive"} ·{" "}
+                {policyModal.policy.quoteDuration || "1 Year"}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-700">
+                IDV: {policyModal.policy.idvInline || "—"}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-3">
+              <h4 className="text-sm font-bold text-slate-800">Premium Breakup</h4>
+              <div className="mt-2 space-y-1 text-sm text-slate-700">
+                <div className="flex justify-between">
+                  <span>Own Damage</span>
+                  <span>{formatInr(policyModal.policy.breakup.ownDamage)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Basic Own Damage</span>
+                  <span>{formatInr(policyModal.policy.breakup.basicOwnDamage)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>NCB Discount ({policyModal.policy.breakup.ncbPercent}%)</span>
+                  <span>-{formatInr(policyModal.policy.breakup.ncbAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Third Party</span>
+                  <span>{formatInr(policyModal.policy.breakup.thirdParty)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Basic Third Party</span>
+                  <span>{formatInr(policyModal.policy.breakup.basicThirdParty)}</span>
+                </div>
+                {policyModal.policy.breakup.addOnsTotal > 0 ? (
+                  <div className="flex justify-between">
+                    <span>Add Ons</span>
+                    <span>{formatInr(policyModal.policy.breakup.addOnsTotal)}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {policyModal.policy.breakup.includedAddOns?.length ? (
+                <div className="mt-3 border-t border-slate-200 pt-2">
+                  <div className="flex flex-wrap gap-2">
+                    {policyModal.policy.breakup.includedAddOns
+                      .slice(0, 4)
+                      .map((addon) => (
+                        <span
+                          key={addon}
+                          className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"
+                        >
+                          {addon} included
+                        </span>
+                      ))}
+                  </div>
+                  {policyModal.policy.breakup.includedAddOns.length > 4 ? (
+                    <p className="mt-2 text-xs font-semibold text-slate-500">
+                      +{policyModal.policy.breakup.includedAddOns.length - 4} More Add-ons
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="mt-3 border-t border-slate-200 pt-2">
+                <div className="flex items-center justify-between text-base font-bold text-slate-900">
+                  <span>Total Amount</span>
+                  <span>{formatInr(policyModal.policy.breakup.totalAmount)}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Prices are inclusive of GST
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
       <Modal
         open={trendModal.open}
         centered

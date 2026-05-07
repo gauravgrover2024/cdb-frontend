@@ -75,6 +75,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Back",
       "GST Certificate (P1)",
       "GST Certificate (P2)",
+      "GST Certificate (P3)",
       "Form 29",
       "Form 30 page 1",
       "Form 30 page 2",
@@ -92,6 +93,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Back",
       "GST Certificate (P1)",
       "GST Certificate (P2)",
+      "GST Certificate (P3)",
     ],
   },
   "policy-already-expired": {
@@ -105,6 +107,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Back",
       "GST Certificate (P1)",
       "GST Certificate (P2)",
+      "GST Certificate (P3)",
       "Inspection Report",
     ],
   },
@@ -119,6 +122,7 @@ const DOCUMENT_MATRIX = {
       "Aadhaar Back",
       "GST Certificate (P1)",
       "GST Certificate (P2)",
+      "GST Certificate (P3)",
     ],
   },
 };

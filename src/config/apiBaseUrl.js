@@ -8,10 +8,12 @@ const normalizeBase = (raw) =>
 const envBase = normalizeBase(process.env.REACT_APP_API_BASE_URL);
 const isBrowser = typeof window !== "undefined";
 const browserHost = isBrowser ? String(window.location?.hostname || "") : "";
+const isDevMode = process.env.NODE_ENV === "development";
 const isBrowserLocal =
   /^(localhost|127\.0\.0\.1)$/i.test(browserHost) ||
   /^192\.168\./.test(browserHost) ||
-  /^10\./.test(browserHost);
+  /^10\./.test(browserHost) ||
+  /^172\.(1[6-9]|2\d|3[0-1])\./.test(browserHost);
 
 // Resolution rules (simple + reliable):
 // 1) If REACT_APP_API_BASE_URL is set in .env, always use it (highest priority)
@@ -22,6 +24,9 @@ let API_BASE_URL;
 if (envBase) {
   // .env variable is set and has a value
   API_BASE_URL = envBase;
+} else if (isDevMode && isBrowser && browserHost) {
+  // In local development, always prefer local backend on same host.
+  API_BASE_URL = `http://${browserHost}:5050`;
 } else if (isBrowserLocal && browserHost) {
   // Not set in .env, but running locally → use localhost:5050
   API_BASE_URL = `http://${browserHost}:5050`;
