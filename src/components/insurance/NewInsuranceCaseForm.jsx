@@ -44,7 +44,7 @@ import {
 } from "./steps/payoutRates";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
-import "./insurance-lively.css";
+import "./insurance-header-pills.css";
 import {
   lookupCityByPincode,
   normalizePincode,
@@ -53,6 +53,7 @@ import {
   collectLinkedDocumentsForInsurance,
   mergeLinkedIntoExistingDocuments,
 } from "../../utils/insuranceLinkedDocuments";
+import { useNavigate } from "react-router-dom";
 
 const { Text, Title } = Typography;
 
@@ -779,6 +780,7 @@ const NewInsuranceCaseForm = ({
   initialValues = null,
   onDelete,
 }) => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     ...initialFormState,
@@ -2112,7 +2114,22 @@ const NewInsuranceCaseForm = ({
   }, [step]);
 
   useEffect(() => {
-    if (!initialValues) return;
+    if (!initialValues) {
+      setFormData({ ...initialFormState });
+      setQuotes([]);
+      setAcceptedQuoteId(null);
+      setQuoteDraft({
+        ...initialQuoteDraft,
+        addOns: { ...initialQuoteDraft.addOns },
+      });
+      setDocuments([]);
+      setPaymentHistory([]);
+      setInsuranceDbId(null);
+      setSubmitted(false);
+      setCaseReference("");
+      setShowErrors(false);
+      return;
+    }
     const derivedSource = String(
       initialValues?.source ||
         initialValues?.sourceOrigin ||
@@ -2579,6 +2596,19 @@ const NewInsuranceCaseForm = ({
       try {
         const payload = buildPersistPayload(patch);
         if (!insuranceDbId) {
+          const hasName = Boolean(
+            String(payload?.customerName || payload?.companyName || "").trim(),
+          );
+          const mobile = String(payload?.mobile || "").trim();
+          if (!hasName || !/^\d{10}$/.test(mobile)) {
+            const errorText =
+              "Customer/company name and valid 10-digit mobile are required to create insurance case.";
+            setSaveError(errorText);
+            if (!silent) message.error(errorText);
+            return null;
+          }
+        }
+        if (!insuranceDbId) {
           const res = await insuranceApi.create(payload);
           const created = res?.data || res;
           const id = created?._id || created?.id || created?.data?._id;
@@ -2883,6 +2913,19 @@ const NewInsuranceCaseForm = ({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    const handleSaveAndNewInsurance = async () => {
+      const saved = await persistNow({ silent: false });
+      if (!saved) return;
+      navigate(`/insurance/new?fresh=${Date.now()}`);
+    };
+
+    window.addEventListener("SAVE_AND_NEW_INSURANCE", handleSaveAndNewInsurance);
+    return () => {
+      window.removeEventListener("SAVE_AND_NEW_INSURANCE", handleSaveAndNewInsurance);
+    };
+  }, [navigate, persistNow]);
 
   const resetQuoteDraft = useCallback(() => {
     setQuoteDraft({
@@ -3227,7 +3270,7 @@ const NewInsuranceCaseForm = ({
       return {
         key: "insurance-step-validation",
         content:
-          "Customer/company name, 10-digit mobile, email, address (city + pin) and other required fields must be filled — fix highlighted errors before continuing.",
+          "Customer/company name, 10-digit mobile, address (city + pin) and required fields must be filled before continuing.",
       };
     }
     if (step === 2 && Object.keys(step2Errors).length) {

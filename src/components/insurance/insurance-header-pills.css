@@ -1,0 +1,109 @@
+.step1-status-chip {
+  border-radius: 9999px !important;
+  border: 1px solid #cfdcf3 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+.step1-status-chip.is-filled {
+  border-color: #bcd3fb !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+.step1-status-chip.is-policy {
+  border-color: #cfc3fb !important;
+  background: #f3efff !important;
+  color: #6d28d9 !important;
+}
+
+.step1-status-chip.is-flow {
+  border-color: #a7f3d0 !important;
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+.step1-status-chip.is-case {
+  border-color: #fde68a !important;
+  background: #fffbeb !important;
+  color: #b45309 !important;
+}
+
+.ins-lively-pill {
+  border-radius: 9999px !important;
+  border: 1px solid #cfdcf3 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+.ins-lively-pill.soft {
+  border-color: #a7f3d0 !important;
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
+.ins-lively-pill.warn {
+  border-color: #fde68a !important;
+  background: #fffbeb !important;
+  color: #b45309 !important;
+}
+
+/* Insurance form internal headers/cards */
+.step1-customer-info .rounded-\[30px\],
+.step1-customer-info .rounded-\[28px\],
+.insurance-step4 .rounded-\[30px\],
+.insurance-step4 .rounded-\[28px\],
+.insurance-step5 .rounded-\[30px\],
+.insurance-step5 .rounded-\[28px\],
+.insurance-step6-docs .rounded-\[30px\],
+.insurance-step6-docs .rounded-\[28px\],
+.insurance-step7 .rounded-\[30px\],
+.insurance-step7 .rounded-\[28px\],
+.insurance-step8 .rounded-\[30px\],
+.insurance-step8 .rounded-\[28px\] {
+  border-radius: 14px !important;
+}
+
+.step1-customer-info [class*="bg-gradient-to-r"],
+.insurance-step4 [class*="bg-gradient-to-r"],
+.insurance-step5 [class*="bg-gradient-to-r"],
+.insurance-step6-docs [class*="bg-gradient-to-r"],
+.insurance-step7 [class*="bg-gradient-to-r"],
+.insurance-step8 [class*="bg-gradient-to-r"] {
+  background: #ffffff !important;
+  background-image: none !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06) !important;
+}
+
+.step1-customer-info .text-\[24px\],
+.insurance-step4 .text-\[24px\],
+.insurance-step5 .text-\[24px\],
+.insurance-step7 .text-\[24px\],
+.insurance-step8 .text-\[24px\] {
+  font-size: 1.2rem !important;
+  line-height: 1.25 !important;
+}
+
+.step1-customer-info .text-\[22px\],
+.insurance-step6-docs .text-\[22px\] {
+  font-size: 1.15rem !important;
+  line-height: 1.25 !important;
+}
+
+@media (max-width: 768px) {
+  .step1-customer-info .text-\[24px\],
+  .insurance-step4 .text-\[24px\],
+  .insurance-step5 .text-\[24px\],
+  .insurance-step7 .text-\[24px\],
+  .insurance-step8 .text-\[24px\],
+  .step1-customer-info .text-\[22px\],
+  .insurance-step6-docs .text-\[22px\] {
+    font-size: 1.05rem !important;
+    line-height: 1.3 !important;
+  }
+}

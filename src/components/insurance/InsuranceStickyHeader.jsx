@@ -260,7 +260,7 @@ const InsuranceStickyHeader = ({
       {/* ── Step Rail — floating above footer ── */}
       <div className="fixed bottom-[100px] left-1/2 z-[120] -translate-x-1/2 px-3 sm:bottom-[108px]">
         <div
-          className="flex max-w-[calc(100vw-24px)] items-center gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1 sm:max-w-[calc(100vw-40px)] sm:px-2"
+          className="flex max-w-[calc(100vw-24px)] items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-1.5 sm:max-w-[calc(100vw-40px)] sm:px-2.5"
           style={{
             boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
             scrollbarWidth: "none",
@@ -275,20 +275,29 @@ const InsuranceStickyHeader = ({
                 type="button"
                 onClick={() => onStepClick?.(stepNum)}
                 title={STEP_NAMES[stepNum]}
-                className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded-md px-1.5 text-[11px] font-semibold tracking-tight transition-all duration-150 sm:h-8 sm:px-2 sm:text-xs"
+                className="inline-flex h-9 min-w-[96px] shrink-0 items-center justify-center gap-1 rounded-lg border px-2 text-[12px] font-semibold tracking-tight transition-all duration-150"
                 style={
                   isActive
                     ? {
-                        background: "linear-gradient(90deg, #6366f1, #0ea5e9)",
+                        background: "#2563eb",
+                        borderColor: "#2563eb",
                         color: "#fff",
-                        boxShadow: "0 2px 8px rgba(99,102,241,0.35)",
+                        boxShadow: "0 2px 8px rgba(37,99,235,0.28)",
                       }
                     : isDone
-                      ? { background: "#f0fdf4", color: "#16a34a" }
-                      : { color: "#64748b" }
+                      ? {
+                          background: "#f0fdf4",
+                          borderColor: "#bbf7d0",
+                          color: "#15803d",
+                        }
+                      : {
+                          background: "#ffffff",
+                          borderColor: "#e2e8f0",
+                          color: "#475569",
+                        }
                 }
               >
-                <Icon name={STEP_ICONS[stepNum]} size={11} />
+                <Icon name={STEP_ICONS[stepNum]} size={13} />
                 <span className="whitespace-nowrap">
                   {STEP_SHORT_NAMES[stepNum]}
                 </span>

@@ -8,13 +8,14 @@ import {
   Settings,
   UserCircle2,
 } from "lucide-react";
-import { Modal } from "antd";
+import { Modal, message } from "antd";
 import Icon from "../AppIcon";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { FEATURE_ACCESS } from "../../hooks/useRBAC";
 import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
 import PayoutSetupModal from "../payout/PayoutSetupModal";
+import { openNewCaseConfirmation } from "./NewCaseConfirmation";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,12 @@ const Header = () => {
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    // Ensure stale toast/modal UI does not survive route refreshes.
+    Modal.destroyAll();
+    message.destroy();
+  }, []);
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -395,28 +402,38 @@ const Header = () => {
         location.pathname.startsWith("/insurance/edit");
 
       if (isInInsuranceForm) {
-        Modal.confirm({
-          title: "New Insurance Case",
-          content:
-            "You are currently working on an insurance case. Would you like to save your progress before starting a new one?",
-          okText: "Save & New",
-          cancelText: "Discard & Start Fresh",
-          okButtonProps: {
-            className: "bg-blue-600 hover:bg-blue-700 border-blue-600",
-          },
-          cancelButtonProps: {
-            danger: true,
-          },
-          maskClosable: true,
-          onOk: () => {
+        openNewCaseConfirmation({
+          moduleLabel: "Insurance",
+          onSaveAndNew: () => {
             window.dispatchEvent(new CustomEvent("SAVE_AND_NEW_INSURANCE"));
             setMobileMenuOpen(false);
             setProfileOpen(false);
           },
-          onCancel: (e) => {
-            // e is an object if it's from a button click, but might be different if from ESC
-            if (e?.triggerCancel) return; // User clicked outside or ESC
+          onDiscardAndStartFresh: () => {
             navigate(path);
+            setMobileMenuOpen(false);
+            setProfileOpen(false);
+          },
+        });
+        return;
+      }
+    }
+
+    if (path === "/loans/new") {
+      const isInLoanForm =
+        location.pathname === "/loans/new" ||
+        location.pathname.startsWith("/loans/edit");
+
+      if (isInLoanForm) {
+        openNewCaseConfirmation({
+          moduleLabel: "Loan",
+          onSaveAndNew: () => {
+            window.dispatchEvent(new CustomEvent("SAVE_AND_NEW_LOAN"));
+            setMobileMenuOpen(false);
+            setProfileOpen(false);
+          },
+          onDiscardAndStartFresh: () => {
+            startNewLoanCase(navigate, "global-header");
             setMobileMenuOpen(false);
             setProfileOpen(false);
           },
