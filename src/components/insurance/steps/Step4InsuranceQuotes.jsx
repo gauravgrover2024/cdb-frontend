@@ -31,7 +31,6 @@ import {
   escapeHtmlText,
   scheduleWindowPrint,
 } from "../../../utils/scheduleWindowPrint";
-import "./Step4InsuranceQuotes.css";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";

@@ -17,30 +17,40 @@ import dayjs from "dayjs";
 
 const { Text } = Typography;
 
-const shellStyle =
-  "rounded-[28px] border border-slate-200 bg-white shadow-[0_16px_42px_rgba(15,23,42,0.07)]";
+const shellStyle = "rounded-2xl border border-slate-200 bg-white shadow-sm";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500";
 
-const labelClass =
-  "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600";
+const labelClass = "text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600";
 
-const fieldWrapClass = "insurance-field-wrap";
+const fieldWrapClass = "w-full";
 
-const controlStyle = {};
-const inputControlStyle = {};
+const controlStyle = { width: "100%" };
+const inputControlStyle = { width: "100%" };
 const textAreaStyle = { minHeight: 86 };
 
-const CleanField = ({ label, required, children, extra }) => (
-  <div className="pb-1 insurance-field-block" data-ins-field="true">
+const CleanField = ({ label, required, children, extra }) => {
+  const normalizedChild = React.isValidElement(children)
+    ? React.cloneElement(children, {
+        className: ["w-full", children.props.className].filter(Boolean).join(" "),
+        style: {
+          width: "100%",
+          ...(children.props.style || {}),
+        },
+      })
+    : children;
+
+  return (
+    <div className="pb-1 space-y-2" data-ins-field="true">
     <div className={labelClass}>
       {label} {required ? <span className="text-[#FF8EAD]">*</span> : null}
     </div>
-    {children}
+    {normalizedChild}
     {extra ? <div className="mt-1">{extra}</div> : null}
   </div>
-);
+  );
+};
 
 const SummaryRow = ({ label, value }) => (
   <div className="flex items-start justify-between gap-3 py-2">
@@ -761,7 +771,7 @@ const Step1CustomerInfo = ({
 
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
-                <CleanField label="Email Address" required>
+                <CleanField label="Email Address">
                   <Input allowClear
                     value={formData.email}
                     onChange={handleChange("email")}
@@ -1069,138 +1079,12 @@ const Step1CustomerInfo = ({
   ];
 
   return (
-    <div className="step1-customer-info step1-revamp flex flex-col gap-6">
-      <style>
-        {`
-          .step1-revamp {
-            --step1-primary: #2563eb;
-            --step1-secondary: #7c3aed;
-            --step1-accent: #0ea5e9;
-            --step1-success: #10b981;
-            --step1-warning: #f59e0b;
-            --step1-surface: #ffffff;
-            --step1-border: #d9e4f7;
-          }
-
-          .step1-revamp .ant-radio-button-wrapper-checked,
-          .step1-revamp .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled),
-          .step1-revamp .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled):hover {
-            background: var(--step1-primary) !important;
-            border-color: var(--step1-primary) !important;
-            color: #ffffff !important;
-            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
-          }
-
-          .step1-revamp .ant-radio-button-wrapper-checked span {
-            color: #ffffff !important;
-          }
-
-          .step1-revamp .ant-radio-button-wrapper {
-            border-color: #c4d5f6 !important;
-            color: #334155 !important;
-            background: #ffffff !important;
-          }
-
-          .step1-revamp .ant-radio-button-wrapper:hover {
-            border-color: var(--step1-accent) !important;
-            color: #0f172a !important;
-          }
-
-          .step1-revamp .ant-input,
-          .step1-revamp .ant-input-affix-wrapper,
-          .step1-revamp .ant-select-selector,
-          .step1-revamp .ant-picker,
-          .step1-revamp .ant-input-number,
-          .step1-revamp textarea.ant-input {
-            border-color: var(--step1-border) !important;
-            background: #ffffff !important;
-          }
-
-          .step1-revamp .ant-input:hover,
-          .step1-revamp .ant-input-affix-wrapper:hover,
-          .step1-revamp .ant-select:hover .ant-select-selector,
-          .step1-revamp .ant-picker:hover,
-          .step1-revamp .ant-input-number:hover {
-            border-color: #b8cdf5 !important;
-          }
-
-          .step1-revamp .ant-input:focus,
-          .step1-revamp .ant-input-focused,
-          .step1-revamp .ant-input-affix-wrapper-focused,
-          .step1-revamp .ant-select-focused .ant-select-selector,
-          .step1-revamp .ant-picker-focused,
-          .step1-revamp .ant-input-number-focused,
-          .step1-revamp .ant-input-number:focus {
-            border-color: var(--step1-primary) !important;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
-          }
-
-          .step1-revamp .ant-collapse > .ant-collapse-item {
-            border-bottom: 1px solid #eef2f7 !important;
-          }
-
-          .step1-revamp .ant-collapse > .ant-collapse-item:last-child {
-            border-bottom: none !important;
-          }
-
-          .step1-revamp .ant-collapse > .ant-collapse-item > .ant-collapse-header {
-            padding-left: 4px !important;
-            padding-right: 4px !important;
-          }
-
-          .step1-revamp .customer-autocomplete-dropdown .ant-select-item {
-            padding: 6px !important;
-            border-radius: 14px !important;
-          }
-
-          .step1-revamp .customer-autocomplete-dropdown .ant-select-item-option-active {
-            background: #eff6ff !important;
-          }
-
-          .step1-revamp .customer-autocomplete-dropdown .ant-select-item-option-selected {
-            background: #e0ecff !important;
-          }
-
-          .step1-revamp .step1-status-chip {
-            border-radius: 999px !important;
-            border: 1px solid #cfdcf3 !important;
-            background: #ffffff !important;
-            color: #334155 !important;
-            font-weight: 700 !important;
-            box-shadow: none !important;
-          }
-
-          .step1-revamp .step1-status-chip.is-filled {
-            border-color: #bcd3fb !important;
-            background: #eff6ff !important;
-            color: #1d4ed8 !important;
-          }
-
-          .step1-revamp .step1-status-chip.is-policy {
-            border-color: #cfc3fb !important;
-            background: #f3efff !important;
-            color: #6d28d9 !important;
-          }
-
-          .step1-revamp .step1-status-chip.is-flow {
-            border-color: #a7f3d0 !important;
-            background: #ecfdf5 !important;
-            color: #047857 !important;
-          }
-
-          .step1-revamp .step1-status-chip.is-case {
-            border-color: #fde68a !important;
-            background: #fffbeb !important;
-            color: #b45309 !important;
-          }
-        `}
-      </style>
-
-      <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] md:p-6">
+    <div className="step1-customer-info flex flex-col gap-6">
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Customer information</div>
-            <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
+            <div className="mt-1 text-[22px] font-black tracking-tight text-slate-800">
               Customer details
             </div>
             <div className="mt-1 text-sm text-slate-500">
@@ -1258,7 +1142,7 @@ const Step1CustomerInfo = ({
       <Row gutter={[20, 20]}>
         <Col xs={24} xl={8} className="xl:self-stretch">
           <div className="xl:sticky xl:top-[150px] self-start">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-slate-200 shadow-[0_10px_26px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200 shadow-sm">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
@@ -1380,7 +1264,7 @@ const Step1CustomerInfo = ({
         </Col>
 
         <Col xs={24} xl={16}>
-          <div className={`${shellStyle} p-3 md:p-4`}>
+          <div className={`${shellStyle} p-4 md:p-5`}>
             <Collapse
               ghost
               defaultActiveKey={["1", "2", "3"]}

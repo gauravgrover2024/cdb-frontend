@@ -82,6 +82,14 @@ const InsuranceCasePage = () => {
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
+      if (!isEditMode && !isRenewalMode) {
+        setLoadedCase(null);
+        setRenewFromCase(null);
+        setLoading(false);
+        setError("");
+        return;
+      }
+
       if (isRenewalMode && renewFromId) {
         setLoading(true);
         setError("");

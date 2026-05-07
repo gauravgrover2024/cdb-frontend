@@ -49,6 +49,7 @@ import {
   sumLoanBreakupCustomFields,
   toLoanBreakupNumber,
 } from "./loan-form/shared/loanBreakupFields";
+import { startNewLoanCase } from "../utils/startNewLoanCase";
 
 // ... (existing imports/code) ...
 
@@ -2592,7 +2593,13 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   );
 
   const handleSaveLoan = useCallback(
-    async (shouldExit = false, extraData = {}, silent = false) => {
+    async (
+      shouldExit = false,
+      extraData = {},
+      silent = false,
+      options = {},
+    ) => {
+      const navigateAfterSave = options?.navigateAfterSave ?? true;
       try {
         if (!silent) setSaving(true);
 
@@ -2661,10 +2668,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             );
           }
 
-          if (shouldExit) {
-            if (!silent) navigate("/loans");
-          } else {
-            navigate(`/loans/edit/${newLoanId}`, { replace: true });
+          if (navigateAfterSave) {
+            if (shouldExit) {
+              if (!silent) navigate("/loans");
+            } else {
+              navigate(`/loans/edit/${newLoanId}`, { replace: true });
+            }
           }
 
           return true;
@@ -2683,7 +2692,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         sessionStorage.removeItem("customer_form_draft");
         sessionStorage.removeItem("customers_list_cache");
 
-        if (shouldExit && !silent) navigate("/loans");
+        if (navigateAfterSave && shouldExit && !silent) navigate("/loans");
         return true;
       } catch (e) {
         console.error("Save failed:", e);
@@ -2704,6 +2713,21 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       syncCustomerData,
     ],
   );
+
+  useEffect(() => {
+    const handleSaveAndNewLoan = async () => {
+      const saved = await handleSaveLoan(false, {}, true, {
+        navigateAfterSave: false,
+      });
+      if (!saved) return;
+      startNewLoanCase(navigate, "save-and-new-loan");
+    };
+
+    window.addEventListener("SAVE_AND_NEW_LOAN", handleSaveAndNewLoan);
+    return () => {
+      window.removeEventListener("SAVE_AND_NEW_LOAN", handleSaveAndNewLoan);
+    };
+  }, [handleSaveLoan, navigate]);
 
   // ----------------------------
   // Actions
