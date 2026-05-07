@@ -8,6 +8,7 @@ import {
   Settings,
   UserCircle2,
 } from "lucide-react";
+import { Modal } from "antd";
 import Icon from "../AppIcon";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
@@ -388,6 +389,42 @@ const Header = () => {
   };
 
   const handleNavigation = (path) => {
+    if (path === "/insurance/new") {
+      const isInInsuranceForm =
+        location.pathname === "/insurance/new" ||
+        location.pathname.startsWith("/insurance/edit");
+
+      if (isInInsuranceForm) {
+        Modal.confirm({
+          title: "New Insurance Case",
+          content:
+            "You are currently working on an insurance case. Would you like to save your progress before starting a new one?",
+          okText: "Save & New",
+          cancelText: "Discard & Start Fresh",
+          okButtonProps: {
+            className: "bg-blue-600 hover:bg-blue-700 border-blue-600",
+          },
+          cancelButtonProps: {
+            danger: true,
+          },
+          maskClosable: true,
+          onOk: () => {
+            window.dispatchEvent(new CustomEvent("SAVE_AND_NEW_INSURANCE"));
+            setMobileMenuOpen(false);
+            setProfileOpen(false);
+          },
+          onCancel: (e) => {
+            // e is an object if it's from a button click, but might be different if from ESC
+            if (e?.triggerCancel) return; // User clicked outside or ESC
+            navigate(path);
+            setMobileMenuOpen(false);
+            setProfileOpen(false);
+          },
+        });
+        return;
+      }
+    }
+
     if (path === "__payout_setup__") {
       setIsPayoutModalOpen(true);
       setMobileMenuOpen(false);
