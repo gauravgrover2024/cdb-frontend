@@ -67,6 +67,11 @@ const TYPE_OF_VEHICLE_OPTIONS = [
   { label: "Commercial", value: "Commercial" },
 ];
 
+const getPolicyTypePillLabel = (value) => {
+  if (String(value || "").trim() === "Extended Warranty") return "EW Policy";
+  return "Insurance";
+};
+
 const normalizeVehicleToken = (value) =>
   String(value || "")
     .toLowerCase()
@@ -775,7 +780,53 @@ const Step2VehicleDetails = ({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="step2-vehicle-details step2-revamp flex flex-col gap-6">
+      <style>
+        {`
+          .step2-revamp {
+            --step2-primary: #2563eb;
+            --step2-secondary: #7c3aed;
+            --step2-accent: #0ea5e9;
+            --step2-success: #10b981;
+            --step2-warning: #f59e0b;
+            --step2-surface: #ffffff;
+            --step2-border: #d9e4f7;
+          }
+
+          .step2-revamp .step1-status-chip {
+            border-radius: 999px !important;
+            border: 1px solid #cfdcf3 !important;
+            background: #ffffff !important;
+            color: #334155 !important;
+            font-weight: 700 !important;
+            box-shadow: none !important;
+          }
+
+          .step2-revamp .step1-status-chip.is-filled {
+            border-color: #bcd3fb !important;
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
+          }
+
+          .step2-revamp .step1-status-chip.is-policy {
+            border-color: #cfc3fb !important;
+            background: #f3efff !important;
+            color: #6d28d9 !important;
+          }
+
+          .step2-revamp .step1-status-chip.is-flow {
+            border-color: #a7f3d0 !important;
+            background: #ecfdf5 !important;
+            color: #047857 !important;
+          }
+
+          .step2-revamp .step1-status-chip.is-case {
+            border-color: #fde68a !important;
+            background: #fffbeb !important;
+            color: #b45309 !important;
+          }
+        `}
+      </style>
       <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-4 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] sm:p-5 md:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
@@ -791,10 +842,48 @@ const Step2VehicleDetails = ({
 
           <div className="flex flex-wrap gap-2">
             <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              color="default"
+              className={`step1-status-chip !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
+                formData.buyerType === "Individual" ||
+                formData.buyerType === "Company"
+                  ? "is-filled"
+                  : ""
+              }`}
             >
-              Reg No: {registrationPreview}
+              {formData.buyerType || "Buyer Type Pending"}
+            </Tag>
+
+            <Tag
+              className={`step1-status-chip !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
+                formData.vehicleType === "New Car" ||
+                formData.vehicleType === "Used Car"
+                  ? "is-filled"
+                  : ""
+              }`}
+            >
+              {formData.vehicleType || "Vehicle Type Pending"}
+            </Tag>
+
+            {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
+              <Tag className="step1-status-chip is-flow !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
+                {formData.usedCarFlowType || "Used-car flow pending"}
+              </Tag>
+            ) : null}
+
+            <Tag className="step1-status-chip is-policy !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
+              {getPolicyTypePillLabel(formData.policyCategory)}
+            </Tag>
+
+            <Tag className="step1-status-chip is-case !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
+              {String(formData.buyerType || "").toLowerCase() === "company"
+                ? "Company Case"
+                : "Individual Case"}
+            </Tag>
+
+            <Tag
+              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !ml-2"
+              color="blue"
+            >
+              Reg: {registrationPreview}
             </Tag>
             <Tag
               className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"

@@ -710,7 +710,7 @@ const validateStep1 = (data) => {
     !/^\d{10}$/.test((data.alternatePhone || "").trim())
   )
     errors.alternatePhone = "Enter a valid 10-digit alternate number";
-  if (!(data.email || "").trim()) errors.email = "Email address is required";
+  // if (!(data.email || "").trim()) errors.email = "Email address is required";
   if (!(data.pincode || "").trim()) errors.pincode = "Pincode is required";
   else if (!/^\d{6}$/.test((data.pincode || "").trim()))
     errors.pincode = "Enter a valid 6-digit pincode";

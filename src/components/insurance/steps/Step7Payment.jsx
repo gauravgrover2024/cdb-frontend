@@ -1383,15 +1383,13 @@ const Step7Payment = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
-        {!isMobile ? (
-          <div className="flex flex-col rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-5 py-4">
-              {ledgerComposerHeadingInner}
-            </div>
-            {renderComposer()}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="flex flex-col rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-5 py-4">
+            {ledgerComposerHeadingInner}
           </div>
-        ) : null}
+          {renderComposer()}
+        </div>
 
         <div className="flex flex-col rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
@@ -1435,11 +1433,7 @@ const Step7Payment = ({
             </div>
           </div>
 
-          {isMobile ? (
-            <div className="border-b border-slate-100 px-5 py-4">
-              {ledgerComposerHeadingInner}
-            </div>
-          ) : null}
+
 
           <div className="flex-1 overflow-auto p-4">
             {tableRows.length === 0 ? (
@@ -1719,28 +1713,7 @@ const Step7Payment = ({
         </div>
       </div>
 
-      {isMobile ? (
-        <>
-          <Button
-            type="primary"
-            shape="circle"
-            icon={<PlusOutlined />}
-            onClick={() => setMobileComposerOpen(true)}
-            className="!fixed !bottom-6 !right-6 !z-50 !flex !h-14 !w-14 !items-center !justify-center !border-0 !shadow-xl"
-            style={{ backgroundColor: UI.sage.solid }}
-          />
-          <Drawer
-            title={<div className="pr-8">{ledgerComposerHeadingInner}</div>}
-            placement="bottom"
-            height="82vh"
-            open={mobileComposerOpen}
-            onClose={() => setMobileComposerOpen(false)}
-            className="rounded-t-2xl"
-          >
-            {renderComposer()}
-          </Drawer>
-        </>
-      ) : null}
+
     </div>
   );
 };
