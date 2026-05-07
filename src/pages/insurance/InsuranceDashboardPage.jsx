@@ -28,6 +28,7 @@ import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { insuranceApi } from "../../api/insurance";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
+import InsuranceDocumentsModal from "../../components/insurance/InsuranceDocumentsModal";
 
 dayjs.extend(customParseFormat);
 
@@ -393,14 +394,38 @@ const getInsurancePaymentDueSnapshot = (record = {}) => {
 
 const isCompletedPolicy = (c) => {
   const st = normalizeStatus(c?.status);
-  return st === "submitted" || st === "issued";
+  
+  // 1. Explicit completion statuses
+  if (st === "submitted" || st === "issued" || st === "completed") return true;
+  
+  // 2. Already has a policy number
+  const hasPolicyNo = c?.policyNumber && 
+                     typeof c.policyNumber === "string" && 
+                     c.policyNumber.trim() !== "" && 
+                     c.policyNumber.toLowerCase() !== "not issued";
+  if (hasPolicyNo) return true;
+
+  // 3. Accepted Quote or Insurer assigned
+  if (c?.acceptedQuoteId || c?.accepted_quote_id || c?.insurer) return true;
+
+  // 4. Payment recorded
+  const payTotal = paymentReceivedNum(c);
+  if (payTotal > 0) return true;
+
+  // 5. Lifecycle pulse states (Already Renewed, Active, Expiring Soon, Expired)
+  // If it has a captured expiry, it means it's a real policy, not a draft entry.
+  const days = daysUntilExpiry(c);
+  if (c?.alreadyRenewed) return true;
+  if (days !== null && Number.isFinite(days)) return true;
+
+  return false;
 };
 
-const isDraftPolicy = (c) => normalizeStatus(c?.status) === "draft";
+const isDraftPolicy = (c) => !isCompletedPolicy(c) && normalizeStatus(c?.status) === "draft";
 
 const isPaymentDuePolicy = (c) => getInsurancePaymentDueSnapshot(c).isDue;
 
-const matchesPolicyFilter = (c, key) => {
+const matchesPolicyFilter = (c, key, renewedCaseIds = new Set()) => {
   const days = daysUntilExpiry(c);
   switch (key) {
     case "all":
@@ -412,9 +437,9 @@ const matchesPolicyFilter = (c, key) => {
     case "paymentDue":
       return isPaymentDuePolicy(c);
     case "renewal30":
-      return days !== null && days >= 0 && days <= 45;
+      return isExpiringSoonCase(c, renewedCaseIds);
     case "expired":
-      return days !== null && days < 0;
+      return isExpiredCase(c, renewedCaseIds);
     case "2w":
       return isTwoWheeler(c);
     case "4w":
@@ -866,7 +891,8 @@ const PolicyCard = ({
   onExtend,
   onDocs,
 }) => {
-  const isDraft = policy.status === "draft";
+  const isCompleted = isCompletedPolicy(policy);
+  const isDraft = !isCompleted && policy.status === "draft";
   const openDues = policy.openDues || 0;
   const pulseDays = Number.isFinite(Number(policy.expiryDays))
     ? Number(policy.expiryDays)
@@ -881,7 +907,9 @@ const PolicyCard = ({
     completed: { color: "#10b981", bg: "#ecfdf5", label: "Completed" },
   };
 
-  const config = statusConfig[policy.status] || statusConfig.draft;
+  const config = isCompleted
+    ? (policy.status === "draft" ? statusConfig.completed : (statusConfig[policy.status] || statusConfig.completed))
+    : (statusConfig[policy.status] || statusConfig.draft);
 
   const accentColor = isDraft
     ? "#f43f5e"
@@ -948,10 +976,7 @@ const PolicyCard = ({
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span
-                className="px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide"
-                style={{ background: config.bg, color: config.color }}
-              >
+              <span className="px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-700">
                 {policy.caseId}
               </span>
 
@@ -1437,16 +1462,18 @@ const PolicyCard = ({
                     Workflow
                   </p>
                 </div>
-                <span
-                  className="px-3 py-1.5 rounded-full text-[11px] font-black uppercase shadow-sm"
-                  style={{
-                    background: policyPulseTone.bg,
-                    color: policyPulseTone.color,
-                    border: `1px solid ${policyPulseTone.color}44`,
-                  }}
-                >
-                  {policyPulseTone.label}
-                </span>
+                {!isDraft && (
+                  <span
+                    className="px-3 py-1.5 rounded-full text-[11px] font-black uppercase shadow-sm"
+                    style={{
+                      background: policyPulseTone.bg,
+                      color: policyPulseTone.color,
+                      border: `1px solid ${policyPulseTone.color}44`,
+                    }}
+                  >
+                    {policyPulseTone.label}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1468,50 +1495,52 @@ const PolicyCard = ({
                 </div>
               </div>
 
-              <div>
-                <div
-                  className="rounded-xl border px-2.5 py-2"
-                  style={{
-                    borderColor: `${policyPulseTone.color}33`,
-                    background: policyPulseTone.bg,
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="h-7 w-7 rounded-full inline-flex items-center justify-center"
-                        style={{
-                          background: "#ffffff",
-                          color: policyPulseTone.color,
-                        }}
-                      >
-                        <Clock3 size={13} />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                          Policy Pulse
-                        </p>
-                        <p
-                          className="text-[11px] font-semibold truncate"
+              {!isDraft && (
+                <div>
+                  <div
+                    className="rounded-xl border px-2.5 py-2"
+                    style={{
+                      borderColor: `${policyPulseTone.color}33`,
+                      background: policyPulseTone.bg,
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="h-7 w-7 rounded-full inline-flex items-center justify-center"
+                          style={{
+                            background: "#ffffff",
+                            color: policyPulseTone.color,
+                          }}
+                        >
+                          <Clock3 size={13} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                            Policy Pulse
+                          </p>
+                          <p
+                            className="text-[11px] font-semibold truncate"
+                            style={{ color: policyPulseTone.color }}
+                          >
+                            {policyPulseTone.detail}
+                          </p>
+                        </div>
+                      </div>
+                      {policy.canRenewNow ? (
+                        <button
+                          type="button"
+                          onClick={onRenew}
+                          className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em]"
                           style={{ color: policyPulseTone.color }}
                         >
-                          {policyPulseTone.detail}
-                        </p>
-                      </div>
+                          Renew Now
+                        </button>
+                      ) : null}
                     </div>
-                    {policy.canRenewNow ? (
-                      <button
-                        type="button"
-                        onClick={onRenew}
-                        className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em]"
-                        style={{ color: policyPulseTone.color }}
-                      >
-                        Renew Now
-                      </button>
-                    ) : null}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1538,9 +1567,12 @@ const InsuranceDashboardPage = () => {
   const [previewStageKey, setPreviewStageKey] = useState(null);
   const [trendModal, setTrendModal] = useState({
     open: false,
-    regKey: "",
-    regLabel: "",
     vehicleLabel: "",
+  });
+  const [docsModal, setDocsModal] = useState({
+    open: false,
+    caseId: null,
+    record: null,
   });
   const [page, setPage] = useState(1);
   const pageSize = 12;
@@ -1719,15 +1751,14 @@ const InsuranceDashboardPage = () => {
     const rows = Array.isArray(cases) ? cases : [];
     return {
       all: rows.length,
-      completed: rows.filter((c) => matchesPolicyFilter(c, "completed")).length,
-      draft: rows.filter((c) => matchesPolicyFilter(c, "draft")).length,
-      paymentDue: rows.filter((c) => matchesPolicyFilter(c, "paymentDue"))
-        .length,
+      completed: rows.filter((c) => matchesPolicyFilter(c, "completed", renewedCaseIds)).length,
+      draft: rows.filter((c) => matchesPolicyFilter(c, "draft", renewedCaseIds)).length,
+      paymentDue: rows.filter((c) => matchesPolicyFilter(c, "paymentDue", renewedCaseIds)).length,
       expiring: rows.filter((c) => isExpiringSoonCase(c, renewedCaseIds)).length,
       expired: rows.filter((c) => isExpiredCase(c, renewedCaseIds)).length,
-      "2w": rows.filter((c) => matchesPolicyFilter(c, "2w")).length,
-      "4w": rows.filter((c) => matchesPolicyFilter(c, "4w")).length,
-      comm: rows.filter((c) => matchesPolicyFilter(c, "comm")).length,
+      "2w": rows.filter((c) => matchesPolicyFilter(c, "2w", renewedCaseIds)).length,
+      "4w": rows.filter((c) => matchesPolicyFilter(c, "4w", renewedCaseIds)).length,
+      comm: rows.filter((c) => matchesPolicyFilter(c, "comm", renewedCaseIds)).length,
     };
   }, [cases, renewedCaseIds]);
 
@@ -1737,7 +1768,7 @@ const InsuranceDashboardPage = () => {
         if (!isExpiringSoonCase(c, renewedCaseIds)) return false;
       } else if (policyFilter === "expired") {
         if (!isExpiredCase(c, renewedCaseIds)) return false;
-      } else if (!matchesPolicyFilter(c, policyFilter)) {
+      } else if (!matchesPolicyFilter(c, policyFilter, renewedCaseIds)) {
         return false;
       }
       const q = search.trim().toLowerCase();
@@ -1946,8 +1977,8 @@ const InsuranceDashboardPage = () => {
           .toLowerCase() === "broker"
           ? record.brokerName || "Broker"
           : String(record.policyDoneBy || "")
-                .trim()
-                .toLowerCase() === "showroom"
+            .trim()
+            .toLowerCase() === "showroom"
             ? record.showroomName || "Showroom"
             : policyIssuedBy;
       const channelDealerNo =
@@ -2103,21 +2134,21 @@ const InsuranceDashboardPage = () => {
       const receiptFlowRow = receiptVisible
         ? effectiveCustomerRecovered > 0
           ? {
-              label: "Receipt from customer",
-              amount: effectiveCustomerRecovered,
-              type: "good",
-              date: latestReceiptRow?.date || null,
-              progressBase: receiptBase,
-            }
+            label: "Receipt from customer",
+            amount: effectiveCustomerRecovered,
+            type: "good",
+            date: latestReceiptRow?.date || null,
+            progressBase: receiptBase,
+          }
           : insurerPaymentPending
             ? null
             : {
-                label: "Customer outstanding",
-                amount: customerOutstanding,
-                type: customerOutstanding > 0 ? "warning" : "neutral",
-                date: null,
-                progressBase: receiptBase,
-              }
+              label: "Customer outstanding",
+              amount: customerOutstanding,
+              type: customerOutstanding > 0 ? "warning" : "neutral",
+              date: null,
+              progressBase: receiptBase,
+            }
         : null;
 
       const subventionRows = [];
@@ -2536,9 +2567,11 @@ const InsuranceDashboardPage = () => {
                   })
                 }
                 onDocs={() => {
-                  setSelectedCase(policy.record);
-                  setPreviewStageKey("documents");
-                  setPreviewVisible(true);
+                  setDocsModal({
+                    open: true,
+                    caseId: getCaseId(policy.record),
+                    record: policy.record,
+                  });
                 }}
               />
             ))}
@@ -2713,6 +2746,15 @@ const InsuranceDashboardPage = () => {
         data={selectedCase}
         initialStageKey={previewStageKey}
       />
+
+      {docsModal.open && (
+        <InsuranceDocumentsModal
+          open={docsModal.open}
+          caseId={docsModal.caseId}
+          insuranceCase={docsModal.record}
+          onClose={() => setDocsModal((p) => ({ ...p, open: false }))}
+        />
+      )}
     </div>
   );
 };

@@ -72,11 +72,10 @@ function HeaderWrapper() {
     <>
       <Header />
       <div
-        className={`bg-background overflow-visible ${
-          isFullWidth
+        className={`bg-background overflow-visible ${isFullWidth
             ? "min-h-[calc(100vh-4rem)] px-3 pt-2 pb-6"
             : "min-h-[calc(100vh-4rem)] px-3 pt-2.5 sm:px-4 sm:pt-3 md:px-6 md:pt-4 lg:px-8"
-        }`}
+          }`}
       >
         <Outlet />
       </div>
