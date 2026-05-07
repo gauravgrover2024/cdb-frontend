@@ -38,7 +38,9 @@ import DetailedBankViewPage from "./pages/superadmin/DetailedBankViewPage";
 import ProfilePage from "./pages/ProfilePage";
 import CustomerProfilePage from "./pages/customers/CustomerProfilePage";
 import InsuranceDashboardPage from "./pages/insurance/InsuranceDashboardPage";
+import InsuranceDashboardAccuratePage from "./pages/insurance/InsuranceDashboardAccuratePage";
 import InsuranceCasePage from "./pages/insurance/InsuranceCasePage";
+import InsuranceRenewalCasesPage from "./pages/insurance/InsuranceRenewalCasesPage";
 import UsedCarsProcurementPage from "./modules/used-cars/pages/UsedCarsProcurementPage";
 import UsedCarsInspectionPage from "./modules/used-cars/pages/UsedCarsInspectionPage";
 import UsedCarsBackgroundCheckPage from "./modules/used-cars/pages/UsedCarsBackgroundCheckPage";
@@ -127,12 +129,20 @@ function App() {
               element={R(FEATURE_ACCESS.INSURANCE, <InsuranceDashboardPage />)}
             />
             <Route
+              path="insurance/dashboard-v2"
+              element={R(FEATURE_ACCESS.INSURANCE, <InsuranceDashboardAccuratePage />)}
+            />
+            <Route
               path="insurance/new"
               element={R(FEATURE_ACCESS.INSURANCE, <InsuranceCasePage />)}
             />
             <Route
               path="insurance/edit/:caseId"
               element={R(FEATURE_ACCESS.INSURANCE, <InsuranceCasePage />)}
+            />
+            <Route
+              path="insurance/renewals"
+              element={R(FEATURE_ACCESS.INSURANCE, <InsuranceRenewalCasesPage />)}
             />
             {/* Customers */}
             <Route

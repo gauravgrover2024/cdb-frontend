@@ -151,9 +151,21 @@ const Header = () => {
           roles: FEATURE_ACCESS.INSURANCE,
         },
         {
+          label: "Insurance Dashboard V2",
+          path: "/insurance/dashboard-v2",
+          desc: "Open the accurate insurance dashboard",
+          roles: FEATURE_ACCESS.INSURANCE,
+        },
+        {
           label: "New Case",
           path: "/insurance/new",
           desc: "Create a new insurance case",
+          roles: FEATURE_ACCESS.INSURANCE,
+        },
+        {
+          label: "Renewal Cases",
+          path: "/insurance/renewals",
+          desc: "Assign and track pending renewals",
           roles: FEATURE_ACCESS.INSURANCE,
         },
       ],

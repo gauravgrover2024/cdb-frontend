@@ -16,7 +16,14 @@ export const useRBAC = () => {
 
   const isSuperAdmin = () => hasRole("superadmin");
   const isAdmin = () => hasAnyRole(["admin", "superadmin"]);
-  const isStaff = () => hasAnyRole(["staff", "admin", "superadmin"]);
+  const isStaff = () =>
+    hasAnyRole([
+      "staff",
+      "admin",
+      "superadmin",
+      "team_lead",
+      "insurance_team_lead",
+    ]);
 
   const canAccess = (requiredRoles) =>
     hasAnyRole(Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles]);
@@ -44,7 +51,7 @@ export const PERMISSIONS = {
 export const FEATURE_ACCESS = {
   // Accessible to all authenticated staff+
   ANALYTICS: ["staff", "admin", "superadmin"],
-  INSURANCE: ["staff", "admin", "superadmin"],
+  INSURANCE: ["staff", "admin", "superadmin", "team_lead", "insurance_team_lead"],
   CUSTOMERS: ["staff", "admin", "superadmin"],
   LOANS: ["staff", "admin", "superadmin"],
   USED_CARS: ["staff", "admin", "superadmin"],

@@ -79,4 +79,22 @@ export const insuranceApi = {
       },
     );
   },
+
+  getRenewalCases: async (params = {}) => {
+    return await apiClient.get("/api/insurance/renewals/cases", { params });
+  },
+  getRenewalSummary: async () => {
+    return await apiClient.get("/api/insurance/renewals/summary");
+  },
+
+  assignRenewalCases: async (payload = {}) => {
+    return await apiClient.post("/api/insurance/renewals/assign", payload);
+  },
+
+  updateRenewalLead: async (id, payload = {}) => {
+    return await apiClient.patch(
+      `/api/insurance/renewals/${encodeURIComponent(String(id || "").trim())}/lead`,
+      payload,
+    );
+  },
 };

@@ -131,6 +131,9 @@ const isImageUrl = (url = "") =>
   /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(String(url));
 const isVideoUrl = (url = "") =>
   /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(String(url));
+const isPdfUrl = (url = "") =>
+  /\.pdf(\?|#|$)/i.test(String(url)) ||
+  String(url).toLowerCase().startsWith("data:application/pdf");
 
 const getInitials = (value = "") =>
   String(value)
@@ -334,6 +337,45 @@ const buildAccessibleDocumentUrlPreview = (value = "") => {
   return `${API_BASE_PREVIEW}/api/upload/file?url=${encodeURIComponent(url)}`;
 };
 
+const normalizePreviewDocuments = (raw = {}) => {
+  const candidates = [
+    raw?.documents,
+    raw?.document_library,
+    raw?.docs,
+    raw?.attachments,
+  ];
+  const firstArray = candidates.find((entry) => Array.isArray(entry));
+  if (!Array.isArray(firstArray)) return [];
+  return firstArray
+    .map((doc, index) => {
+      if (!doc || typeof doc !== "object") return null;
+      const rawUrl = String(
+        firstFilled(
+          doc?.previewUrl,
+          doc?.url,
+          doc?.fileUrl,
+          doc?.secure_url,
+          doc?.downloadUrl,
+        ) || "",
+      ).trim();
+      if (!rawUrl) return null;
+      return {
+        ...doc,
+        id:
+          doc?.id ||
+          doc?._id ||
+          doc?.public_id ||
+          doc?.storageKey ||
+          `doc-${index}`,
+        name: firstFilled(doc?.name, doc?.originalName, doc?.original_name, ""),
+        previewUrl: buildAccessibleDocumentUrlPreview(rawUrl),
+        url: buildAccessibleDocumentUrlPreview(rawUrl),
+        rawUrl,
+      };
+    })
+    .filter(Boolean);
+};
+
 /** Merge list-row / partial API payloads into the shape the preview UI expects */
 const normalizeCaseForPreview = (raw = {}) => {
   if (!raw || typeof raw !== "object") return {};
@@ -343,11 +385,7 @@ const normalizeCaseForPreview = (raw = {}) => {
       : {};
   const coalesce = (...vals) => vals.find((v) => hasValue(v));
 
-  const docs = Array.isArray(raw.documents)
-    ? raw.documents
-    : Array.isArray(raw.document_library)
-      ? raw.document_library
-      : [];
+  const docs = normalizePreviewDocuments(raw);
 
   const ledger = Array.isArray(raw.paymentHistory)
     ? raw.paymentHistory
@@ -369,10 +407,13 @@ const normalizeCaseForPreview = (raw = {}) => {
     paymentHistory: ledger,
     payoutPercent:
       raw.payoutPercent ?? raw.payoutPercentage ?? raw.payout_percent,
-    dealerChannelNumber: coalesce(
+    dealerChannelNo: coalesce(
+      raw.channelDealerNo,
+      raw.channel_dealer_no,
       raw.dealerChannelNumber,
       raw.dealer_channel_number,
     ),
+    assignedTo: coalesce(raw.assignedTo, raw.employeeUserId, raw.employeeUserID),
     acceptedQuoteId: coalesce(raw.acceptedQuoteId, raw.accepted_quote_id),
     nomineeAge: coalesce(raw.nomineeAge, raw.nominee_age),
     nomineeRelationship: coalesce(
@@ -1076,16 +1117,18 @@ const InsurancePreview = ({
       setDetailLoading(false);
       return undefined;
     }
-    const mongoId = String(incomingData._id || "").trim();
+    const caseRef = String(
+      incomingData._id || incomingData.id || incomingData.caseId || "",
+    ).trim();
     setDetailPayload(null);
-    if (!mongoId) {
+    if (!caseRef) {
       setDetailLoading(false);
       return undefined;
     }
     let cancelled = false;
     setDetailLoading(true);
     insuranceApi
-      .getById(mongoId)
+      .getById(caseRef)
       .then((res) => {
         if (cancelled) return;
         const body = res?.data?.data ?? res?.data ?? null;
@@ -1100,7 +1143,7 @@ const InsurancePreview = ({
     return () => {
       cancelled = true;
     };
-  }, [visible, incomingData?._id]);
+  }, [visible, incomingData?._id, incomingData?.id, incomingData?.caseId]);
 
   const data = useMemo(() => {
     if (!incomingData) return {};
@@ -1344,8 +1387,9 @@ const InsurancePreview = ({
           ? "image"
           : isVideoUrl(url)
             ? "video"
-            : null;
-        if (!kind) return null;
+            : isPdfUrl(url)
+              ? "pdf"
+              : "file";
         return {
           key: String(doc?.id || idx),
           name: asText(firstFilled(doc?.name, doc?.tag, `Media ${idx + 1}`)),
@@ -1664,14 +1708,22 @@ const InsurancePreview = ({
                     { label: "Dealer / Channel", value: data.dealerChannelName },
                     {
                       label: "Channel / Dealer No.",
-                      value: data.dealerChannelNumber,
+                      value: data.dealerChannelNo,
                     },
                     {
                       label: "Dealer / Channel Address",
                       value: data.dealerChannelAddress,
                     },
                     { label: "Payout Applicable", value: data.payoutApplicable },
-                    { label: "Payout %", value: data.payoutPercent },
+                    {
+                      label: "Payout %",
+                      value: data.payoutPercent,
+                      formatter: asPercent,
+                    },
+                    {
+                      label: "Assigned To (User ID)",
+                      value: data.assignedTo,
+                    },
                     { label: "Source Origin", value: data.sourceOrigin },
                     { label: "Customer Name", value: data.customerName },
                     { label: "Company Name", value: data.companyName },
@@ -2136,11 +2188,28 @@ const InsurancePreview = ({
                                   className="h-full w-full rounded-lg object-contain"
                                 />
                               ) : (
-                                <video
-                                  src={item.url}
-                                  controls
-                                  className="h-full w-full rounded-lg object-contain"
-                                />
+                                item.kind === "video" ? (
+                                  <video
+                                    src={item.url}
+                                    controls
+                                    className="h-full w-full rounded-lg object-contain"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                                    <FileOutlined className="text-2xl" />
+                                    <span className="mt-2 text-xs font-bold uppercase tracking-wider">
+                                      {item.kind === "pdf" ? "PDF" : "Document"}
+                                    </span>
+                                    <a
+                                      href={item.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="mt-2 inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-slate-50 dark:border-slate-600 dark:text-indigo-400 dark:hover:bg-slate-800"
+                                    >
+                                      Open
+                                    </a>
+                                  </div>
+                                )
                               )}
                             </div>
                             <div className="border-t border-border60 px-3 py-2">

@@ -13,7 +13,7 @@ export const getEmployees = async () => {
     } catch {
       /* ignore */
     }
-    const response = await apiClient.get("/api/auth/users", {
+    const response = await apiClient.get("/api/auth/assignable-users", {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     });
     const raw = response?.data ?? response;
@@ -21,8 +21,20 @@ export const getEmployees = async () => {
     if (Array.isArray(raw?.data)) return raw.data;
     return [];
   } catch (error) {
-    console.error("Error fetching employees:", error);
-    return [];
+    try {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+      const fallback = await apiClient.get("/api/auth/users", {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      });
+      const raw = fallback?.data ?? fallback;
+      if (Array.isArray(raw)) return raw;
+      if (Array.isArray(raw?.data)) return raw.data;
+      return [];
+    } catch (innerError) {
+      console.error("Error fetching employees:", innerError || error);
+      return [];
+    }
   }
 };
 

@@ -49,7 +49,9 @@ const Step8Payout = ({
   }
   
   const payoutBaseAmount = odAmount + adjustedAddOnsAmount;
-  const payoutPercentage = Number(formData.payoutPercentage ?? 10);
+  const payoutPercentage = Number(
+    formData.payoutPercent ?? formData.payoutPercentage ?? 10,
+  );
   const subventionAmount = Number(formData.subventionAmount || 0);
   const calculatedPayoutAmount = (payoutBaseAmount * payoutPercentage) / 100;
   const calculatedNetAmount = calculatedPayoutAmount - subventionAmount;

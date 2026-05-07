@@ -36,17 +36,43 @@ const hasValue = (v) =>
 
 const looksLikeUrl = (v) => {
   if (!hasValue(v) || typeof v !== "string") return false;
-  const s = v.trim().toLowerCase();
+  const s = v.trim();
+  const l = s.toLowerCase();
   return (
-    s.startsWith("http://") ||
-    s.startsWith("https://") ||
-    s.startsWith("data:application/pdf") ||
-    s.startsWith("data:image/")
+    l.startsWith("http://") ||
+    l.startsWith("https://") ||
+    l.startsWith("data:application/pdf") ||
+    l.startsWith("data:image/") ||
+    l.startsWith("blob:") ||
+    s.startsWith("/uploads/") ||
+    s.startsWith("uploads/") ||
+    s.startsWith("/api/upload/file") ||
+    s.startsWith("api/upload/file")
   );
 };
 
-const isImageUrl = (url = "") => /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(url) || url.startsWith("data:image/");
-const isPdfUrl = (url = "") => /\.pdf(\?|#|$)/i.test(url) || url.startsWith("data:application/pdf");
+const safeDecode = (value = "") => {
+  const input = String(value || "");
+  if (!input) return "";
+  try {
+    return decodeURIComponent(input);
+  } catch {
+    return input;
+  }
+};
+
+const isImageUrl = (url = "") => {
+  const raw = String(url || "");
+  const decoded = safeDecode(raw);
+  const value = `${raw} ${decoded}`.toLowerCase();
+  return /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(value) || value.startsWith("data:image/");
+};
+const isPdfUrl = (url = "") => {
+  const raw = String(url || "");
+  const decoded = safeDecode(raw);
+  const value = `${raw} ${decoded}`.toLowerCase();
+  return /\.pdf(\?|#|$)/i.test(value) || value.startsWith("data:application/pdf");
+};
 const API_BASE = String(API_BASE_URL || "").replace(/\/+$/, "");
 
 const looksLikeR2Host = (value = "") => {
@@ -61,7 +87,7 @@ const looksLikeR2Host = (value = "") => {
 
 const buildAccessibleDocumentUrl = (value = "") => {
   const url = String(value || "").trim();
-  if (!url || url.startsWith("data:")) return url;
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
 
   const isR2Path =
     looksLikeR2Host(url) ||
@@ -79,7 +105,8 @@ const getSourceFromPath = (path = "") => {
   }
   if (p.includes("policy") || p.includes("insurance")) return "Insurance Policy";
   if (p.includes("vehicle") || p.includes("rc_") || p.includes("registration")) return "Vehicle Documents";
-  return null;
+  if (p.includes("documents") || p.includes("uploads") || p.includes("files")) return "Case Documents";
+  return "Case Documents";
 };
 
 const getDocFilterType = (doc = {}) => {
@@ -107,6 +134,28 @@ const getDocTagText = (doc = {}, index = -1) => {
   return index >= 0 ? `Document ${index + 1}` : "Document";
 };
 
+const normalizeDocUrlKey = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    const path = String(parsed.pathname || "");
+    if (path.includes("/api/upload/file")) {
+      const original = parsed.searchParams.get("url");
+      if (original) {
+        try {
+          return decodeURIComponent(original).split("#")[0].trim().toLowerCase();
+        } catch {
+          return String(original).split("#")[0].trim().toLowerCase();
+        }
+      }
+    }
+    return parsed.toString().split("#")[0].trim().toLowerCase();
+  } catch {
+    return raw.split("#")[0].trim().toLowerCase();
+  }
+};
+
 const extractAllDocuments = (data) => {
   if (!data || typeof data !== "object") return [];
   const found = [];
@@ -114,7 +163,6 @@ const extractAllDocuments = (data) => {
   const pushDoc = ({ path, url, tag, source, name }) => {
     if (!looksLikeUrl(url)) return;
     const finalSource = source || getSourceFromPath(path);
-    if (!finalSource) return;
 
     found.push({
       id: `${path}:${url}`,
@@ -124,8 +172,8 @@ const extractAllDocuments = (data) => {
       url: buildAccessibleDocumentUrl(url),
       tag: hasValue(tag) ? String(tag) : "",
       source: finalSource,
-      isImage: isImageUrl(url),
-      isPdf: isPdfUrl(url),
+      isImage: isImageUrl(url) || isImageUrl(buildAccessibleDocumentUrl(url)),
+      isPdf: isPdfUrl(url) || isPdfUrl(buildAccessibleDocumentUrl(url)),
     });
   };
 
@@ -148,7 +196,13 @@ const extractAllDocuments = (data) => {
     }
 
     if (typeof value === "object") {
-      const objectUrl = value.url || value.secure_url || value.fileUrl || value.docUrl;
+      const objectUrl =
+        value.url ||
+        value.previewUrl ||
+        value.rawUrl ||
+        value.secure_url ||
+        value.fileUrl ||
+        value.docUrl;
       if (looksLikeUrl(objectUrl)) {
         pushDoc({
           path,
@@ -168,8 +222,11 @@ const extractAllDocuments = (data) => {
   walk(data);
 
   const seenByUrl = new Map();
-  found.forEach((doc) => {
-    const dedupeKey = doc.rawUrl || doc.url;
+  found.forEach((doc, index) => {
+    const dedupeKey =
+      normalizeDocUrlKey(doc.rawUrl) ||
+      normalizeDocUrlKey(doc.url) ||
+      `${String(doc.path || "").toLowerCase()}::${String(doc.name || doc.tag || "").toLowerCase()}::${index}`;
     if (!seenByUrl.has(dedupeKey)) {
       seenByUrl.set(dedupeKey, doc);
     }
@@ -270,6 +327,93 @@ const InsuranceDocumentsModal = ({ insuranceCase, caseId, open, onClose }) => {
     });
   };
 
+  const handlePrintAll = () => {
+    if (!filteredDocs.length) return;
+
+    const printableDocs = filteredDocs
+      .map((doc) => ({
+        label: getDocTagText(doc),
+        url: String(doc.url || doc.rawUrl || "").trim(),
+        isImage: Boolean(doc.isImage),
+      }))
+      .filter((doc) => Boolean(doc.url));
+
+    if (!printableDocs.length) return;
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=768");
+    if (!printWindow) return;
+
+    const escaped = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    const sections = printableDocs
+      .map((doc, idx) => {
+        const safeLabel = escaped(doc.label || `Document ${idx + 1}`);
+        const safeUrl = escaped(doc.url);
+        if (doc.isImage) {
+          return `
+            <section class="doc">
+              <h2>${safeLabel}</h2>
+              <img src="${safeUrl}" alt="${safeLabel}" />
+            </section>
+          `;
+        }
+        return `
+          <section class="doc">
+            <h2>${safeLabel}</h2>
+            <iframe src="${safeUrl}" title="${safeLabel}"></iframe>
+          </section>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Insurance Documents Print</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; font-family: Arial, sans-serif; background: #ffffff; color: #0f172a; }
+            .wrap { padding: 20px; }
+            .doc { page-break-after: always; break-after: page; margin-bottom: 16px; }
+            .doc:last-child { page-break-after: auto; break-after: auto; }
+            h2 { margin: 0 0 10px; font-size: 14px; font-weight: 700; }
+            iframe, img { width: 100%; min-height: calc(100vh - 80px); border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+            img { object-fit: contain; }
+            @media print {
+              .wrap { padding: 0; }
+              h2 { margin: 0 0 6px; font-size: 12px; }
+              iframe, img { min-height: 92vh; border: none; border-radius: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="wrap">${sections}</div>
+          <script>
+            const trigger = () => {
+              setTimeout(() => {
+                window.focus();
+                window.print();
+              }, 700);
+            };
+            window.addEventListener("load", trigger);
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   const scrollGroup = (source, direction = "right") => {
     const node = groupRefs.current[source];
     if (!node) return;
@@ -350,6 +494,15 @@ const InsuranceDocumentsModal = ({ insuranceCase, caseId, open, onClose }) => {
             >
               <Icon name="Download" size={13} />
               Download All
+            </button>
+            <button
+              type="button"
+              onClick={handlePrintAll}
+              disabled={!filteredDocs.length}
+              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-1.5 font-bold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 disabled:opacity-50 disabled:shadow-none"
+            >
+              <Icon name="Printer" size={13} />
+              Print All
             </button>
           </div>
         </div>
