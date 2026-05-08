@@ -19,6 +19,7 @@ import {
 } from "@ant-design/icons";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
+import PremiumBreakupCard from "../PremiumBreakupCard";
 
 const shellStyle =
   "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
@@ -42,37 +43,6 @@ const CleanField = ({ label, required, hint, children, extra }) => (
     {children}
     {hint ? <div className={microHintClass}>{hint}</div> : null}
     {extra ? <div className="mt-1">{extra}</div> : null}
-  </div>
-);
-
-const BreakupRow = ({ label, value, bold, muted, indent }) => (
-  <div
-    className={`flex items-center justify-between py-1.5 ${
-      bold ? "mt-1 border-t border-slate-100 pt-2.5" : ""
-    } ${indent ? "pl-3" : ""}`}
-  >
-    <span
-      className={`text-[12px] ${
-        bold
-          ? "font-bold text-slate-800"
-          : muted
-            ? "text-slate-500"
-            : "text-slate-500"
-      }`}
-    >
-      {label}
-    </span>
-    <span
-      className={`tabular-nums text-[12px] ${
-        bold
-          ? "font-black text-slate-900"
-          : muted
-            ? "text-slate-500"
-            : "font-semibold text-slate-700"
-      }`}
-    >
-      {value}
-    </span>
   </div>
 );
 
@@ -269,7 +239,9 @@ const Step5NewPolicyDetails = ({
     acceptedQuoteBreakup?.tpAmt || acceptedQuote?.thirdPartyAmount || 0,
   );
 
-  const acceptedNcbAmount = Number(acceptedQuoteBreakup?.ncbReferenceAmount || 0);
+  const acceptedNcbAmount = Number(
+    acceptedQuoteBreakup?.ncbReferenceAmount || 0,
+  );
 
   const companyInitial = getInitial(acceptedCompany);
   const acceptedLogoCandidates = React.useMemo(
@@ -286,10 +258,6 @@ const Step5NewPolicyDetails = ({
       name: k,
       amt: Number(acceptedQuote?.addOns?.[k] || 0),
     }));
-
-  const visibleAcceptedAddons = showAllAcceptedAddons
-    ? includedAddons
-    : includedAddons.slice(0, 4);
 
   const acceptedAddOnsTotal =
     acceptedQuoteBreakup?.addOnsTotal !== undefined
@@ -506,8 +474,9 @@ const Step5NewPolicyDetails = ({
                   <InputNumber
                     min={0}
                     value={Number(formData.exShowroomPrice || 0)}
-                    onChange={(v) => setField("exShowroomPrice", Number(v || 0))}
-                   
+                    onChange={(v) =>
+                      setField("exShowroomPrice", Number(v || 0))
+                    }
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -519,11 +488,11 @@ const Step5NewPolicyDetails = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Date of Sale of Vehicle" required>
-                    <Input allowClear
+                    <Input
+                      allowClear
                       type="date"
                       value={formData.dateOfSale}
                       onChange={handleChange("dateOfSale")}
-                     
                     />
                   </CleanField>
                 </div>
@@ -533,11 +502,11 @@ const Step5NewPolicyDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Date of Purchase" required>
-                      <Input allowClear
+                      <Input
+                        allowClear
                         type="date"
                         value={formData.dateOfPurchase}
                         onChange={handleChange("dateOfPurchase")}
-                       
                       />
                     </CleanField>
                   </div>
@@ -551,7 +520,6 @@ const Step5NewPolicyDetails = ({
                         onChange={(v) =>
                           setField("odometerReading", Number(v || 0))
                         }
-                       
                         placeholder="Kms"
                       />
                     </CleanField>
@@ -563,11 +531,11 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Purchase Date" required>
-                  <Input allowClear
+                  <Input
+                    allowClear
                     type="date"
                     value={formData.policyPurchaseDate}
                     onChange={handleChange("policyPurchaseDate")}
-                   
                   />
                 </CleanField>
               </div>
@@ -576,10 +544,10 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Duration" required>
-                  <Select allowClear
+                  <Select
+                    allowClear
                     value={formData.newInsuranceDuration}
                     onChange={(v) => setField("newInsuranceDuration", v)}
-                   
                     options={ewDurationOptions}
                   />
                 </CleanField>
@@ -589,7 +557,8 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date" required>
-                  <Input allowClear
+                  <Input
+                    allowClear
                     type="date"
                     value={formData.ewCommencementDate}
                     onChange={(e) => {
@@ -597,7 +566,6 @@ const Step5NewPolicyDetails = ({
                       setField("ewCommencementDate", value);
                       setField("newPolicyStartDate", value);
                     }}
-                   
                   />
                 </CleanField>
               </div>
@@ -606,10 +574,11 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy End Date" required>
-                  <Input allowClear
+                  <Input
+                    allowClear
                     type="date"
                     value={formData.ewExpiryDate}
-                    style={{ pointerEvents: 'none', cursor: 'default' }}
+                    style={{ pointerEvents: "none", cursor: "default" }}
                     readOnly
                     tabIndex={-1}
                   />
@@ -620,10 +589,10 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Kms Coverage" required>
-                  <Input allowClear
+                  <Input
+                    allowClear
                     value={String(formData.kmsCoverage ?? "")}
                     onChange={(e) => setField("kmsCoverage", e.target.value)}
-                   
                     placeholder="e.g. 100000 or Unlimited"
                   />
                 </CleanField>
@@ -636,8 +605,9 @@ const Step5NewPolicyDetails = ({
                   <InputNumber
                     min={0}
                     value={Number(formData.newTotalPremium || 0)}
-                    onChange={(v) => setField("newTotalPremium", Number(v || 0))}
-                   
+                    onChange={(v) =>
+                      setField("newTotalPremium", Number(v || 0))
+                    }
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -647,11 +617,11 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24}>
               <CleanField label="Remarks">
-                <Input.TextArea allowClear
+                <Input.TextArea
+                  allowClear
                   rows={2}
                   value={formData.newRemarks}
                   onChange={handleChange("newRemarks")}
-                 
                   placeholder="Notes..."
                 />
               </CleanField>
@@ -722,7 +692,8 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8} lg={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Type" required>
-                  <Select allowClear
+                  <Select
+                    allowClear
                     value={formData.newPolicyType}
                     onChange={(v) => {
                       setField("newPolicyType", v);
@@ -731,7 +702,6 @@ const Step5NewPolicyDetails = ({
                       setField("newTpExpiryDate", "");
                       setIsPolicyStartDateManual(false);
                     }}
-                   
                     options={[
                       { label: "Comprehensive", value: "Comprehensive" },
                       { label: "Stand Alone OD", value: "Stand Alone OD" },
@@ -748,10 +718,10 @@ const Step5NewPolicyDetails = ({
                   label="Policy Number"
                   extra={longPolicyNumberPreview}
                 >
-                  <Input allowClear
+                  <Input
+                    allowClear
                     value={formData.newPolicyNumber}
                     onChange={handleChange("newPolicyNumber")}
-                   
                     title={formData.newPolicyNumber || ""}
                   />
                 </CleanField>
@@ -761,7 +731,8 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Issue Date" required>
-                  <DatePicker allowClear
+                  <DatePicker
+                    allowClear
                     value={
                       formData.newIssueDate
                         ? dayjs(formData.newIssueDate)
@@ -780,25 +751,24 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date" required>
-                  <DatePicker allowClear
+                  <DatePicker
+                    allowClear
                     value={
                       formData.newPolicyStartDate
                         ? dayjs(formData.newPolicyStartDate)
                         : null
                     }
-                    onChange={(d) =>
-                      {
-                        const next = d ? d.format("YYYY-MM-DD") : "";
-                        setIsPolicyStartDateManual(Boolean(next));
-                        if (!next) {
-                          setField("newOdExpiryDate", "");
-                          setField("newTpExpiryDate", "");
-                        }
-                        handleNewPolicyStartOrDuration({
-                          newPolicyStartDate: next,
-                        });
+                    onChange={(d) => {
+                      const next = d ? d.format("YYYY-MM-DD") : "";
+                      setIsPolicyStartDateManual(Boolean(next));
+                      if (!next) {
+                        setField("newOdExpiryDate", "");
+                        setField("newTpExpiryDate", "");
                       }
-                    }
+                      handleNewPolicyStartOrDuration({
+                        newPolicyStartDate: next,
+                      });
+                    }}
                     format={["DD/MM/YYYY", "D/M/YYYY"]}
                     popupClassName="insurance-themed-calendar"
                   />
@@ -809,14 +779,14 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Duration" required>
-                  <Select allowClear
+                  <Select
+                    allowClear
                     value={formData.newInsuranceDuration}
                     onChange={(v) =>
                       handleNewPolicyStartOrDuration({
                         newInsuranceDuration: v,
                       })
                     }
-                   
                     options={durationSelectOptions}
                     placeholder="Duration"
                     disabled={!formData.newPolicyType}
@@ -828,7 +798,8 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="OD Expiry Date">
-                  <Input allowClear
+                  <Input
+                    allowClear
                     type="text"
                     value={
                       hasManualPolicyStartDate
@@ -836,7 +807,7 @@ const Step5NewPolicyDetails = ({
                         : ""
                     }
                     placeholder="Select policy start date"
-                    style={{ pointerEvents: 'none', cursor: 'default' }}
+                    style={{ pointerEvents: "none", cursor: "default" }}
                     readOnly
                     tabIndex={-1}
                   />
@@ -847,7 +818,8 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="TP Expiry Date">
-                  <Input allowClear
+                  <Input
+                    allowClear
                     type="text"
                     value={
                       hasManualPolicyStartDate
@@ -855,7 +827,7 @@ const Step5NewPolicyDetails = ({
                         : ""
                     }
                     placeholder="Select policy start date"
-                    style={{ pointerEvents: 'none', cursor: 'default' }}
+                    style={{ pointerEvents: "none", cursor: "default" }}
                     readOnly
                     tabIndex={-1}
                   />
@@ -866,10 +838,10 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="NCB Discount (%)">
-                  <Select allowClear
+                  <Select
+                    allowClear
                     value={Number(formData.newNcbDiscount || 0)}
                     onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
-                   
                     options={NCB_OPTIONS}
                   />
                 </CleanField>
@@ -895,7 +867,6 @@ const Step5NewPolicyDetails = ({
                       setField("newVehicleIdv", nextVehicleIdv);
                       setField("newIdvAmount", nextTotal);
                     }}
-                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -918,7 +889,6 @@ const Step5NewPolicyDetails = ({
                       setField("newCngIdv", nextCngIdv);
                       setField("newIdvAmount", nextTotal);
                     }}
-                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -941,7 +911,6 @@ const Step5NewPolicyDetails = ({
                       setField("newAccessoriesIdv", nextAccessoriesIdv);
                       setField("newIdvAmount", nextTotal);
                     }}
-                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -958,7 +927,6 @@ const Step5NewPolicyDetails = ({
                     onChange={(v) =>
                       setField("newTotalPremium", Number(v || 0))
                     }
-                   
                     placeholder="₹ 0"
                     {...amountInputProps}
                   />
@@ -969,10 +937,10 @@ const Step5NewPolicyDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Hypothecation">
-                  <Select allowClear
+                  <Select
+                    allowClear
                     value={formData.newHypothecation}
                     onChange={(v) => setField("newHypothecation", v)}
-                   
                     options={HYPOTHECATION_OPTIONS}
                     showSearch
                     filterOption={(input, option) =>
@@ -987,11 +955,11 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={16}>
               <CleanField label="Remarks">
-                <Input.TextArea allowClear
+                <Input.TextArea
+                  allowClear
                   rows={2}
                   value={formData.newRemarks}
                   onChange={handleChange("newRemarks")}
-                 
                   placeholder="Notes..."
                 />
               </CleanField>
@@ -1107,99 +1075,22 @@ const Step5NewPolicyDetails = ({
 
               <div className="mx-5 border-t border-slate-100" />
 
-              <div className="px-5 pt-5 pb-3">
-                <p className="m-0 mb-3 text-sm font-black text-slate-800">
-                  Premium Breakup
-                </p>
-
-                <BreakupRow
-                  label="Own Damage"
-                  value={formatCurrency(acceptedOdAmount)}
-                  bold
-                />
-                <BreakupRow
-                  label="Basic Own Damage"
-                  value={formatCurrency(acceptedOdAmount)}
-                  indent
-                  muted
-                />
-
-                {acceptedNcb > 0 && (
-                  <BreakupRow
-                    label={`NCB Discount (${acceptedNcb}%)`}
-                    value={`-${formatCurrency(acceptedNcbAmount)}`}
-                    indent
-                    muted
-                  />
-                )}
-
-                <BreakupRow
-                  label="Third Party"
-                  value={formatCurrency(acceptedTpAmount)}
-                  bold
-                />
-                <BreakupRow
-                  label="Basic Third Party"
-                  value={formatCurrency(acceptedTpAmount)}
-                  indent
-                  muted
-                />
-
-                {includedAddons.length > 0 && (
-                  <>
-                    <BreakupRow
-                      label="Add Ons"
-                      value={formatCurrency(acceptedAddOnsTotal)}
-                      bold
-                    />
-                    {visibleAcceptedAddons.map(({ name, amt }) => (
-                      <BreakupRow
-                        key={name}
-                        label={name}
-                        value={amt > 0 ? formatCurrency(amt) : "included"}
-                        indent
-                        muted
-                      />
-                    ))}
-                    {includedAddons.length > 4 && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllAcceptedAddons((p) => !p)}
-                        className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-slate-600 transition-colors hover:text-slate-700 cursor-pointer"
-                      >
-                        <span
-                          className={`inline-block transition-transform duration-200 ${
-                            showAllAcceptedAddons ? "rotate-180" : ""
-                          }`}
-                        >
-                          ▾
-                        </span>
-                        {showAllAcceptedAddons
-                          ? "Show Less"
-                          : `+${includedAddons.length - 4} More Add-ons`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="mx-5 border-t border-dashed border-slate-200" />
-
-              <div className="px-5 py-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-slate-800">
-                    Total Amount
-                  </span>
-                  <span className="text-xl font-black tabular-nums text-slate-900">
-                    {acceptedPremium > 0
-                      ? formatCurrency(acceptedPremium)
-                      : "—"}
-                  </span>
-                </div>
-                <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
-                  Prices are inclusive of GST
-                </p>
-              </div>
+              <PremiumBreakupCard
+                breakup={{
+                  ownDamage: acceptedOdAmount,
+                  basicOwnDamage: acceptedOdAmount,
+                  ncbPercent: acceptedNcb,
+                  ncbAmount: acceptedNcbAmount,
+                  thirdParty: acceptedTpAmount,
+                  basicThirdParty: acceptedTpAmount,
+                  addOnsTotal: acceptedAddOnsTotal,
+                }}
+                formatCurrency={formatCurrency}
+                includedAddons={includedAddons}
+                showAllAddons={showAllAcceptedAddons}
+                onToggleAddons={() => setShowAllAcceptedAddons((p) => !p)}
+                totalAmount={acceptedPremium}
+              />
             </div>
 
             <div className={`${shellStyle} p-4`}>

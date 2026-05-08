@@ -29,6 +29,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import { insuranceApi } from "../../api/insurance";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
 import InsuranceDocumentsModal from "../../components/insurance/InsuranceDocumentsModal";
+import PremiumBreakupCard from "../../components/insurance/PremiumBreakupCard";
 
 dayjs.extend(customParseFormat);
 
@@ -75,10 +76,10 @@ const premiumNum = (c) => {
   const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(c);
   const acceptedPremium = Number(
     acceptedQuote?.totalPremium ??
-    acceptedQuote?.grossPremium ??
-    acceptedQuote?.finalPremium ??
-    acceptedBreakup?.totalPremium ??
-    0,
+      acceptedQuote?.grossPremium ??
+      acceptedQuote?.finalPremium ??
+      acceptedBreakup?.totalPremium ??
+      0,
   );
   if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
     return acceptedPremium;
@@ -116,7 +117,9 @@ const paymentReceivedNum = (c) => {
 };
 
 const hasPolicyNumber = (c) =>
-  hasDisplayValue(c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number);
+  hasDisplayValue(
+    c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number,
+  );
 
 const vehicleTypeLower = (c) =>
   String(c?.typesOfVehicle || "")
@@ -214,7 +217,9 @@ const daysUntilExpiry = (c) => {
 const isExpiringSoonCase = (record = {}, renewedCaseIds = new Set()) => {
   const days = daysUntilExpiry(record);
   const caseId = String(getCaseId(record) || "");
-  return days !== null && days >= 0 && days <= 45 && !renewedCaseIds.has(caseId);
+  return (
+    days !== null && days >= 0 && days <= 45 && !renewedCaseIds.has(caseId)
+  );
 };
 
 const isExpiredCase = (record = {}, renewedCaseIds = new Set()) => {
@@ -279,8 +284,8 @@ const getPolicyOriginType = (record = {}) => {
   );
   const persistedClassification = normalizeUsedCarFlowLabel(
     record.policyOriginType ||
-    record.journeyClassification ||
-    record.journeyType,
+      record.journeyClassification ||
+      record.journeyType,
   );
 
   if (vehicleType === "used car") {
@@ -411,15 +416,16 @@ const getInsurancePaymentDueSnapshot = (record = {}) => {
 
 const isCompletedPolicy = (c) => {
   const st = normalizeStatus(c?.status);
-  
+
   // 1. Explicit completion statuses
   if (st === "submitted" || st === "issued" || st === "completed") return true;
-  
+
   // 2. Already has a policy number
   const policyNo = String(
     c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number || "",
   ).trim();
-  const hasPolicyNo = policyNo !== "" && policyNo.toLowerCase() !== "not issued";
+  const hasPolicyNo =
+    policyNo !== "" && policyNo.toLowerCase() !== "not issued";
   if (hasPolicyNo) return true;
 
   // 3. Accepted Quote or Insurer assigned
@@ -511,7 +517,7 @@ const buildTrendSeries = (history = [], width = 220, height = 56, pad = 6) => {
         idx === 0 ||
         idx === rows.length - 1 ||
         String(row?.policyStartYear || "") !==
-        String(rows[idx - 1]?.policyStartYear || ""),
+          String(rows[idx - 1]?.policyStartYear || ""),
     };
   });
   const premiumPath = points
@@ -734,21 +740,21 @@ const computeInsuranceQuoteBreakup = (quote) => {
     : 0;
   const odAmt = includesOd
     ? Number(
-      quote.odAmount ??
-      quote.ownDamage ??
-      quote.basicOwnDamage ??
-      quote.odPremium ??
-      0,
-    )
+        quote.odAmount ??
+          quote.ownDamage ??
+          quote.basicOwnDamage ??
+          quote.odPremium ??
+          0,
+      )
     : 0;
   const tpAmt = includesTp
     ? Number(
-      quote.thirdPartyAmount ??
-      quote.thirdParty ??
-      quote.basicThirdParty ??
-      quote.tpPremium ??
-      0,
-    )
+        quote.thirdPartyAmount ??
+          quote.thirdParty ??
+          quote.basicThirdParty ??
+          quote.tpPremium ??
+          0,
+      )
     : 0;
   const ncbPct = Number(
     quote.ncbDiscount ?? quote.newNcbDiscount ?? quote.ncb_percentage ?? 0,
@@ -759,10 +765,10 @@ const computeInsuranceQuoteBreakup = (quote) => {
   const computedTotalPremium = taxableAmount + gstAmount;
   const storedTotalPremium = Number(
     quote.totalPremium ??
-    quote.newTotalPremium ??
-    quote.grossPremium ??
-    quote.finalPremium ??
-    0,
+      quote.newTotalPremium ??
+      quote.grossPremium ??
+      quote.finalPremium ??
+      0,
   );
   const totalPremium =
     Number.isFinite(storedTotalPremium) && storedTotalPremium > 0
@@ -853,8 +859,6 @@ const MetricCard = ({
   );
 };
 
-
-
 const CHIP_COLORS = {
   All: { active: "#6366f1", shadow: "#6366f140" },
   Draft: { active: "#f43f5e", shadow: "#f43f5e40" },
@@ -882,8 +886,13 @@ const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
       }}
     >
       <div className="flex items-center gap-2 px-3 py-1.5">
-        {Icon && <Icon size={13} style={{ color: isActive ? "#fff" : c.active }} />}
-        <span className="text-[13px] font-semibold" style={{ color: isActive ? "#fff" : "#374151" }}>
+        {Icon && (
+          <Icon size={13} style={{ color: isActive ? "#fff" : c.active }} />
+        )}
+        <span
+          className="text-[13px] font-semibold"
+          style={{ color: isActive ? "#fff" : "#374151" }}
+        >
           {label}
         </span>
         <span
@@ -937,11 +946,7 @@ const PolicyCard = ({
       ? statusConfig.cancelled
       : statusConfig.draft;
 
-  const accentColor = isDraft
-    ? "#f43f5e"
-    : isCompleted
-      ? "#10b981"
-      : "#3b82f6";
+  const accentColor = isDraft ? "#f43f5e" : isCompleted ? "#10b981" : "#3b82f6";
 
   const paymentRows = Array.isArray(policy.paymentTimeline)
     ? policy.paymentTimeline
@@ -1167,20 +1172,29 @@ const PolicyCard = ({
 
                 <div className="mt-2.5 space-y-1.5">
                   <div className="flex items-center gap-1.5 text-[10px]">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Source:</span>
-                    <span className="text-slate-700 font-bold">{policy.source || "Direct"}</span>
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">
+                      Source:
+                    </span>
+                    <span className="text-slate-700 font-bold">
+                      {policy.source || "Direct"}
+                    </span>
                   </div>
                   {policy.isIndirectSource && policy.sourceDetailsName && (
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-fit max-w-full">
                       <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                      <span className="text-[10px] font-bold text-indigo-700 truncate" title={policy.sourceDetailsName}>
+                      <span
+                        className="text-[10px] font-bold text-indigo-700 truncate"
+                        title={policy.sourceDetailsName}
+                      >
                         {policy.sourceDetailsName}
                       </span>
                     </div>
                   )}
                   {policy.referenceName ? (
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                      <span className="font-bold uppercase tracking-wider text-slate-400">Reference:</span>
+                      <span className="font-bold uppercase tracking-wider text-slate-400">
+                        Reference:
+                      </span>
                       <span className="truncate font-semibold text-slate-700">
                         {policy.referenceName}
                       </span>
@@ -1245,10 +1259,12 @@ const PolicyCard = ({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
-                    <Shield size={11} />
-                    Policy
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
+                      <Shield size={11} />
+                      Policy
+                    </p>
+                  </div>
                   <p
                     className="text-[13px] font-semibold text-slate-900 mt-1 truncate"
                     title={policy.insurer}
@@ -1315,16 +1331,6 @@ const PolicyCard = ({
                     Ref Contact: {policy.referenceContact}
                   </p>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPolicyBreakup?.();
-                  }}
-                  className="mt-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  View Premium Breakup
-                </button>
               </div>
             </div>
           </div>
@@ -1583,12 +1589,10 @@ const PolicyCard = ({
             </div>
           </div>
         </div>
-
       </div>
     </motion.div>
   );
 };
-
 
 // ============================================
 // MAIN DASHBOARD COMPONENT
@@ -1720,7 +1724,9 @@ const InsuranceDashboardPage = () => {
       (sum, row) => sum + row.due.amount,
       0,
     );
-    const renewal30 = cases.filter((c) => isExpiringSoonCase(c, renewedIds)).length;
+    const renewal30 = cases.filter((c) =>
+      isExpiringSoonCase(c, renewedIds),
+    ).length;
     const today = dayjs();
     const currentMonth = today.format("YYYY-MM");
     const policyIssuedTodayRows = cases.filter((c) => {
@@ -1794,14 +1800,23 @@ const InsuranceDashboardPage = () => {
     const rows = Array.isArray(cases) ? cases : [];
     return {
       all: rows.length,
-      completed: rows.filter((c) => matchesPolicyFilter(c, "completed", renewedCaseIds)).length,
-      draft: rows.filter((c) => matchesPolicyFilter(c, "draft", renewedCaseIds)).length,
-      paymentDue: rows.filter((c) => matchesPolicyFilter(c, "paymentDue", renewedCaseIds)).length,
-      expiring: rows.filter((c) => isExpiringSoonCase(c, renewedCaseIds)).length,
+      completed: rows.filter((c) =>
+        matchesPolicyFilter(c, "completed", renewedCaseIds),
+      ).length,
+      draft: rows.filter((c) => matchesPolicyFilter(c, "draft", renewedCaseIds))
+        .length,
+      paymentDue: rows.filter((c) =>
+        matchesPolicyFilter(c, "paymentDue", renewedCaseIds),
+      ).length,
+      expiring: rows.filter((c) => isExpiringSoonCase(c, renewedCaseIds))
+        .length,
       expired: rows.filter((c) => isExpiredCase(c, renewedCaseIds)).length,
-      "2w": rows.filter((c) => matchesPolicyFilter(c, "2w", renewedCaseIds)).length,
-      "4w": rows.filter((c) => matchesPolicyFilter(c, "4w", renewedCaseIds)).length,
-      comm: rows.filter((c) => matchesPolicyFilter(c, "comm", renewedCaseIds)).length,
+      "2w": rows.filter((c) => matchesPolicyFilter(c, "2w", renewedCaseIds))
+        .length,
+      "4w": rows.filter((c) => matchesPolicyFilter(c, "4w", renewedCaseIds))
+        .length,
+      comm: rows.filter((c) => matchesPolicyFilter(c, "comm", renewedCaseIds))
+        .length,
     };
   }, [cases, renewedCaseIds]);
 
@@ -1930,9 +1945,9 @@ const InsuranceDashboardPage = () => {
         snap.contactPersonName || record.contactPersonName || "";
       const sourceIdentity = String(
         record.sourceName ||
-        record.dealerChannelName ||
-        record.referenceName ||
-        "",
+          record.dealerChannelName ||
+          record.referenceName ||
+          "",
       )
         .trim()
         .toLowerCase();
@@ -2020,8 +2035,8 @@ const InsuranceDashboardPage = () => {
           .toLowerCase() === "broker"
           ? record.brokerName || "Broker"
           : String(record.policyDoneBy || "")
-            .trim()
-            .toLowerCase() === "showroom"
+                .trim()
+                .toLowerCase() === "showroom"
             ? record.showroomName || "Showroom"
             : policyIssuedBy;
       const channelDealerNo =
@@ -2116,8 +2131,8 @@ const InsuranceDashboardPage = () => {
 
       const fallbackInsurerPaidByCustomer = Number(
         record.customerPaymentToInsurer ||
-        record.customer_payment_to_insurer ||
-        0,
+          record.customer_payment_to_insurer ||
+          0,
       );
       const fallbackInsurerPaidByAc = Math.max(
         0,
@@ -2142,23 +2157,23 @@ const InsuranceDashboardPage = () => {
         effectiveInsurerPaidTotal > 0
           ? effectiveInsurerMode === INSURER_SETTLEMENT_MODE.CUSTOMER
             ? {
-              label: "Customer paid insurer",
-              amount: effectiveInsurerPaidByCustomer,
-              type: "good",
-              date: latestInsurerRow?.date || null,
-            }
+                label: "Customer paid insurer",
+                amount: effectiveInsurerPaidByCustomer,
+                type: "good",
+                date: latestInsurerRow?.date || null,
+              }
             : {
-              label: "Autocredits paid insurer",
-              amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
-              type: "good",
-              date: latestInsurerRow?.date || null,
-            }
+                label: "Autocredits paid insurer",
+                amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
+                type: "good",
+                date: latestInsurerRow?.date || null,
+              }
           : {
-            label: "Insurer payment pending",
-            amount: Math.max(0, premium - effectiveInsurerPaidTotal),
-            type: premium > 0 ? "warning" : "neutral",
-            date: null,
-          };
+              label: "Insurer payment pending",
+              amount: Math.max(0, premium - effectiveInsurerPaidTotal),
+              type: premium > 0 ? "warning" : "neutral",
+              date: null,
+            };
 
       const effectiveSubventionNr = ledgerTotals.subventionNotRecoverable;
       const effectiveSubventionRefund = Math.max(
@@ -2182,21 +2197,21 @@ const InsuranceDashboardPage = () => {
       const receiptFlowRow = receiptVisible
         ? effectiveCustomerRecovered > 0
           ? {
-            label: "Receipt from customer",
-            amount: effectiveCustomerRecovered,
-            type: "good",
-            date: latestReceiptRow?.date || null,
-            progressBase: receiptBase,
-          }
+              label: "Receipt from customer",
+              amount: effectiveCustomerRecovered,
+              type: "good",
+              date: latestReceiptRow?.date || null,
+              progressBase: receiptBase,
+            }
           : insurerPaymentPending
             ? null
             : {
-              label: "Customer outstanding",
-              amount: customerOutstanding,
-              type: customerOutstanding > 0 ? "warning" : "neutral",
-              date: null,
-              progressBase: receiptBase,
-            }
+                label: "Customer outstanding",
+                amount: customerOutstanding,
+                type: customerOutstanding > 0 ? "warning" : "neutral",
+                date: null,
+                progressBase: receiptBase,
+              }
         : null;
 
       const subventionRows = [];
@@ -2279,9 +2294,14 @@ const InsuranceDashboardPage = () => {
         paymentPercent,
         openDues: openDuesFromAcRecovery,
         alreadyRenewed: renewedCaseIds.has(String(id)),
-        quoteCoverageType: acceptedQuote?.coverageType || record?.newPolicyType || "Comprehensive",
+        quoteCoverageType:
+          acceptedQuote?.coverageType ||
+          record?.newPolicyType ||
+          "Comprehensive",
         quoteDuration:
-          acceptedQuote?.policyDuration || record?.newInsuranceDuration || "1 Year",
+          acceptedQuote?.policyDuration ||
+          record?.newInsuranceDuration ||
+          "1 Year",
         breakup: {
           ownDamage: Number(acceptedBreakup?.odAmt || 0),
           basicOwnDamage: Number(
@@ -2290,7 +2310,9 @@ const InsuranceDashboardPage = () => {
               acceptedBreakup?.odAmt ||
               0,
           ),
-          ncbPercent: Number(acceptedQuote?.ncbDiscount || record?.newNcbDiscount || 0),
+          ncbPercent: Number(
+            acceptedQuote?.ncbDiscount || record?.newNcbDiscount || 0,
+          ),
           ncbAmount: Number(acceptedBreakup?.ncbAmount || 0),
           thirdParty: Number(acceptedBreakup?.tpAmt || 0),
           basicThirdParty: Number(
@@ -2606,11 +2628,20 @@ const InsuranceDashboardPage = () => {
             animate={{ opacity: 1 }}
             className="rounded-xl border border-slate-200 bg-white py-16 text-center"
           >
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl" style={{ background: "linear-gradient(135deg,#4f46e520,#0ea5e920)" }}>
+            <div
+              className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl"
+              style={{
+                background: "linear-gradient(135deg,#4f46e520,#0ea5e920)",
+              }}
+            >
               <Search size={36} className="text-indigo-400" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">No policies found</h3>
-            <p className="text-sm text-slate-500">Try adjusting your filters or search query</p>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              No policies found
+            </h3>
+            <p className="text-sm text-slate-500">
+              Try adjusting your filters or search query
+            </p>
           </motion.div>
         )}
 
@@ -2678,11 +2709,11 @@ const InsuranceDashboardPage = () => {
         )}
       </div>
 
-      {/* Trend Modal */}
+      {/* Premium Breakup Modal */}
       <Modal
         open={policyModal.open}
         centered
-        width={760}
+        width={480}
         footer={null}
         onCancel={() => setPolicyModal({ open: false, policy: null })}
         title={
@@ -2697,83 +2728,18 @@ const InsuranceDashboardPage = () => {
         }
       >
         {policyModal.policy ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-base font-bold text-slate-900">
-                {policyModal.policy.insurer || "—"}
-              </p>
-              <p className="text-sm text-slate-600">
-                {policyModal.policy.quoteCoverageType || "Comprehensive"} ·{" "}
-                {policyModal.policy.quoteDuration || "1 Year"}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-slate-700">
-                IDV: {policyModal.policy.idvInline || "—"}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 p-3">
-              <h4 className="text-sm font-bold text-slate-800">Premium Breakup</h4>
-              <div className="mt-2 space-y-1 text-sm text-slate-700">
-                <div className="flex justify-between">
-                  <span>Own Damage</span>
-                  <span>{formatInr(policyModal.policy.breakup.ownDamage)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Basic Own Damage</span>
-                  <span>{formatInr(policyModal.policy.breakup.basicOwnDamage)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>NCB Discount ({policyModal.policy.breakup.ncbPercent}%)</span>
-                  <span>-{formatInr(policyModal.policy.breakup.ncbAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Third Party</span>
-                  <span>{formatInr(policyModal.policy.breakup.thirdParty)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Basic Third Party</span>
-                  <span>{formatInr(policyModal.policy.breakup.basicThirdParty)}</span>
-                </div>
-                {policyModal.policy.breakup.addOnsTotal > 0 ? (
-                  <div className="flex justify-between">
-                    <span>Add Ons</span>
-                    <span>{formatInr(policyModal.policy.breakup.addOnsTotal)}</span>
-                  </div>
-                ) : null}
-              </div>
-
-              {policyModal.policy.breakup.includedAddOns?.length ? (
-                <div className="mt-3 border-t border-slate-200 pt-2">
-                  <div className="flex flex-wrap gap-2">
-                    {policyModal.policy.breakup.includedAddOns
-                      .slice(0, 4)
-                      .map((addon) => (
-                        <span
-                          key={addon}
-                          className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"
-                        >
-                          {addon} included
-                        </span>
-                      ))}
-                  </div>
-                  {policyModal.policy.breakup.includedAddOns.length > 4 ? (
-                    <p className="mt-2 text-xs font-semibold text-slate-500">
-                      +{policyModal.policy.breakup.includedAddOns.length - 4} More Add-ons
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <div className="mt-3 border-t border-slate-200 pt-2">
-                <div className="flex items-center justify-between text-base font-bold text-slate-900">
-                  <span>Total Amount</span>
-                  <span>{formatInr(policyModal.policy.breakup.totalAmount)}</span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  Prices are inclusive of GST
-                </p>
-              </div>
-            </div>
+          <div className="rounded-xl border border-slate-200 bg-white">
+            <PremiumBreakupCard
+              breakup={policyModal.policy.breakup}
+              formatCurrency={formatInr}
+              includedAddons={(
+                policyModal.policy.breakup.includedAddOns || []
+              ).map((addon) => ({ name: addon, amt: 0 }))}
+              showAllAddons={false}
+              onToggleAddons={() => {}}
+              totalAmount={policyModal.policy.breakup.totalAmount}
+              title="Premium Breakup"
+            />
           </div>
         ) : null}
       </Modal>

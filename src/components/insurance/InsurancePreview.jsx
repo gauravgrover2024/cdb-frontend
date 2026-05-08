@@ -33,6 +33,7 @@ import {
 } from "../../utils/scheduleWindowPrint";
 import { insuranceApi } from "../../api/insurance";
 import API_BASE_URL from "../../config/apiBaseUrl";
+import PremiumBreakupCard from "./PremiumBreakupCard";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 const EMPTY_LIST = Object.freeze([]);
@@ -65,7 +66,11 @@ const toINR = (num) =>
   }).format(Number(num) || 0);
 
 const openPreviewPrintWindow = ({ title, lines = [] }) => {
-  const popup = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
+  const popup = window.open(
+    "",
+    "_blank",
+    "noopener,noreferrer,width=960,height=720",
+  );
   if (!popup) return false;
   const safeTitle = escapeHtmlText(title);
   const safeBody = escapeHtmlText(lines.filter(Boolean).join("\n"));
@@ -413,7 +418,11 @@ const normalizeCaseForPreview = (raw = {}) => {
       raw.dealerChannelNumber,
       raw.dealer_channel_number,
     ),
-    assignedTo: coalesce(raw.assignedTo, raw.employeeUserId, raw.employeeUserID),
+    assignedTo: coalesce(
+      raw.assignedTo,
+      raw.employeeUserId,
+      raw.employeeUserID,
+    ),
     acceptedQuoteId: coalesce(raw.acceptedQuoteId, raw.accepted_quote_id),
     nomineeAge: coalesce(raw.nomineeAge, raw.nominee_age),
     nomineeRelationship: coalesce(
@@ -548,23 +557,6 @@ const formatStoredOrComputedIdv = (row) => {
 const formatStoredOrComputedPremium = (row) =>
   toINR(computeQuoteBreakupFromRow(row).totalPremium);
 
-const BreakupRow = ({ label, value, bold, muted, indent }) => (
-  <div
-    className={`flex items-center justify-between py-1.5 ${bold ? "border-t border-slate-100 mt-1 pt-2.5" : ""} ${indent ? "pl-3" : ""}`}
-  >
-    <span
-      className={`text-[12px] ${bold ? "font-bold text-slate-800 dark:text-slate-100" : muted ? "text-slate-500 dark:text-slate-400" : "text-slate-500 dark:text-slate-300"}`}
-    >
-      {label}
-    </span>
-    <span
-      className={`tabular-nums text-[12px] ${bold ? "font-black text-slate-900 dark:text-slate-50" : muted ? "text-slate-500 dark:text-slate-400" : "font-semibold text-slate-700 dark:text-slate-200"}`}
-    >
-      {value}
-    </span>
-  </div>
-);
-
 const addonPalette = [
   {
     bg: "bg-[#9FC0FF]/35",
@@ -608,9 +600,6 @@ const QuotePreviewCard = ({
     .filter(([, v]) => v)
     .map(([k]) => ({ name: k, amt: Number(row?.addOns?.[k] || 0) }));
 
-  const visibleAddons = showAllAddons
-    ? includedAddons
-    : includedAddons.slice(0, 4);
   const initial = (row?.insuranceCompany || "?")
     .toString()
     .slice(0, 2)
@@ -689,101 +678,23 @@ const QuotePreviewCard = ({
 
       <div className="mx-5 border-t border-slate-100 dark:border-slate-800" />
 
-      <div className="px-5 pt-5 pb-3">
-        <p className="m-0 mb-3 text-sm font-black text-slate-800 dark:text-slate-100">
-          Premium Breakup
-        </p>
-
-        <BreakupRow label="Own Damage" value={toINR(odAfterNcb)} bold />
-        <BreakupRow
-          label="Own Damage before NCB"
-          value={toINR(odBeforeNcb)}
-          indent
-          muted
-        />
-
-        {ncbPct > 0 && (
-          <BreakupRow
-            label={`NCB Discount (${ncbPct}%)`}
-            value={`-${toINR(ncbAmount)}`}
-            indent
-            muted
-          />
-        )}
-
-        <BreakupRow
-          label="Third Party"
-          value={toINR(breakup?.tpAmt ?? 0)}
-          bold
-        />
-        <BreakupRow
-          label="Basic Third Party"
-          value={toINR(breakup?.tpAmt ?? 0)}
-          indent
-          muted
-        />
-
-        {includedAddons.length > 0 && (
-          <>
-            <BreakupRow
-              label="Add Ons"
-              value={toINR(breakup?.addOnsTotal ?? 0)}
-              bold
-            />
-            {visibleAddons.map(({ name, amt }) => (
-              <BreakupRow
-                key={name}
-                label={name}
-                value={amt > 0 ? toINR(amt) : "included"}
-                indent
-                muted
-              />
-            ))}
-            {includedAddons.length > 4 && (
-              <button
-                type="button"
-                onClick={() => setShowAllAddons((p) => !p)}
-                className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-slate-600 hover:text-slate-700 transition-colors"
-              >
-                <span
-                  className={cx(
-                    "inline-block transition-transform duration-200",
-                    showAllAddons ? "rotate-180" : "",
-                  )}
-                >
-                  ▾
-                </span>
-                {showAllAddons
-                  ? "Show Less"
-                  : `+${includedAddons.length - 4} More Add-ons`}
-              </button>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="mx-5 border-t border-dashed border-slate-200 dark:border-slate-800" />
-
-      <div className="px-5 py-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-black text-slate-800 dark:text-slate-100">
-            Total Amount
-          </span>
-          <span
-            className={cx(
-              "text-xl font-black tabular-nums",
-              isAccepted
-                ? "text-slate-800 dark:text-slate-100"
-                : "text-slate-900 dark:text-slate-50",
-            )}
-          >
-            {formatStoredOrComputedPremium(row)}
-          </span>
-        </div>
-        <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
-          Prices are inclusive of GST
-        </p>
-      </div>
+      <PremiumBreakupCard
+        breakup={{
+          ownDamage: odAfterNcb,
+          ownDamageBeforeNcb: odBeforeNcb,
+          ncbPercent: ncbPct,
+          ncbAmount: ncbAmount,
+          thirdParty: breakup?.tpAmt ?? 0,
+          basicThirdParty: breakup?.tpAmt ?? 0,
+          addOnsTotal: breakup?.addOnsTotal ?? 0,
+        }}
+        formatCurrency={toINR}
+        includedAddons={includedAddons}
+        showAllAddons={showAllAddons}
+        onToggleAddons={() => setShowAllAddons((p) => !p)}
+        totalAmount={formatStoredOrComputedPremium(row)}
+        isAccepted={isAccepted}
+      />
 
       <div className="px-5 pb-5">
         <div className="flex items-center gap-2">
@@ -1360,7 +1271,9 @@ const InsurancePreview = ({
           : "",
         `Premium: ${toINR(premiumAmount)}`,
         `Status: ${caseStatus}`,
-        exp.raw ? `Next expiry: ${asDateInput(exp.raw)} (${exp.days ?? "—"} days)` : "",
+        exp.raw
+          ? `Next expiry: ${asDateInput(exp.raw)} (${exp.days ?? "—"} days)`
+          : "",
         data?.policyDoneBy ? `Policy issued via: ${data.policyDoneBy}` : "",
         data?.brokerName ? `Broker: ${data.brokerName}` : "",
         data?.showroomName ? `Showroom: ${data.showroomName}` : "",
@@ -1375,12 +1288,7 @@ const InsurancePreview = ({
     return (documents || [])
       .map((doc, idx) => {
         const url = String(
-          firstFilled(
-            doc?.previewUrl,
-            doc?.url,
-            doc?.fileUrl,
-            doc?.secure_url,
-          ),
+          firstFilled(doc?.previewUrl, doc?.url, doc?.fileUrl, doc?.secure_url),
         ).trim();
         if (!url) return null;
         const kind = isImageUrl(url)
@@ -1703,9 +1611,15 @@ const InsurancePreview = ({
                     { label: "Policy Done By", value: data.policyDoneBy },
                     { label: "Broker Name", value: data.brokerName },
                     { label: "Showroom Name", value: data.showroomName },
-                    { label: "Source", value: data.source || data.sourceOrigin },
+                    {
+                      label: "Source",
+                      value: data.source || data.sourceOrigin,
+                    },
                     { label: "Source Name", value: data.sourceName },
-                    { label: "Dealer / Channel", value: data.dealerChannelName },
+                    {
+                      label: "Dealer / Channel",
+                      value: data.dealerChannelName,
+                    },
                     {
                       label: "Channel / Dealer No.",
                       value: data.dealerChannelNo,
@@ -1714,7 +1628,10 @@ const InsurancePreview = ({
                       label: "Dealer / Channel Address",
                       value: data.dealerChannelAddress,
                     },
-                    { label: "Payout Applicable", value: data.payoutApplicable },
+                    {
+                      label: "Payout Applicable",
+                      value: data.payoutApplicable,
+                    },
                     {
                       label: "Payout %",
                       value: data.payoutPercent,
@@ -2187,29 +2104,27 @@ const InsurancePreview = ({
                                   alt={item.name}
                                   className="h-full w-full rounded-lg object-contain"
                                 />
+                              ) : item.kind === "video" ? (
+                                <video
+                                  src={item.url}
+                                  controls
+                                  className="h-full w-full rounded-lg object-contain"
+                                />
                               ) : (
-                                item.kind === "video" ? (
-                                  <video
-                                    src={item.url}
-                                    controls
-                                    className="h-full w-full rounded-lg object-contain"
-                                  />
-                                ) : (
-                                  <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                                    <FileOutlined className="text-2xl" />
-                                    <span className="mt-2 text-xs font-bold uppercase tracking-wider">
-                                      {item.kind === "pdf" ? "PDF" : "Document"}
-                                    </span>
-                                    <a
-                                      href={item.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="mt-2 inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-slate-50 dark:border-slate-600 dark:text-indigo-400 dark:hover:bg-slate-800"
-                                    >
-                                      Open
-                                    </a>
-                                  </div>
-                                )
+                                <div className="flex h-full w-full flex-col items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                                  <FileOutlined className="text-2xl" />
+                                  <span className="mt-2 text-xs font-bold uppercase tracking-wider">
+                                    {item.kind === "pdf" ? "PDF" : "Document"}
+                                  </span>
+                                  <a
+                                    href={item.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-2 inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-slate-50 dark:border-slate-600 dark:text-indigo-400 dark:hover:bg-slate-800"
+                                  >
+                                    Open
+                                  </a>
+                                </div>
                               )}
                             </div>
                             <div className="border-t border-border60 px-3 py-2">
