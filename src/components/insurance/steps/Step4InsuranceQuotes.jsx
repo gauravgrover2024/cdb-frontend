@@ -106,7 +106,12 @@ const normalizeInsurerName = (value) =>
 const getIncludedAddonNames = (quote = {}) =>
   addOnCatalog.filter((name) => Boolean(quote?.addOnsIncluded?.[name]));
 
-const buildQuoteSummaryText = ({ quote = {}, breakup = {}, customerName = "", vehicleLabel = "" }) => {
+const buildQuoteSummaryText = ({
+  quote = {},
+  breakup = {},
+  customerName = "",
+  vehicleLabel = "",
+}) => {
   const addOns = getIncludedAddonNames(quote);
   return [
     customerName ? `Customer: ${customerName}` : "",
@@ -122,7 +127,11 @@ const buildQuoteSummaryText = ({ quote = {}, breakup = {}, customerName = "", ve
 };
 
 const openQuotePrintWindow = ({ title, content }) => {
-  const nextWindow = window.open("", "_blank", "noopener,noreferrer,width=960,height=720");
+  const nextWindow = window.open(
+    "",
+    "_blank",
+    "noopener,noreferrer,width=960,height=720",
+  );
   if (!nextWindow) return false;
   const safeTitle = escapeHtmlText(title);
   const safeBody = escapeHtmlText(content);
@@ -168,10 +177,18 @@ const buildPremiumChangeInsight = ({
   const currentCoverageType = String(quote?.coverageType || "").trim();
   const currentInsurer = String(quote?.insuranceCompany || "").trim();
 
-  const previousPremium = Number(previousPolicyContext?.previousTotalPremium || 0);
-  const previousOd = Number(previousPolicyContext?.previousOwnDamageAmount || 0);
-  const previousTp = Number(previousPolicyContext?.previousThirdPartyAmount || 0);
-  const previousAddOns = Number(previousPolicyContext?.previousAddOnsTotal || 0);
+  const previousPremium = Number(
+    previousPolicyContext?.previousTotalPremium || 0,
+  );
+  const previousOd = Number(
+    previousPolicyContext?.previousOwnDamageAmount || 0,
+  );
+  const previousTp = Number(
+    previousPolicyContext?.previousThirdPartyAmount || 0,
+  );
+  const previousAddOns = Number(
+    previousPolicyContext?.previousAddOnsTotal || 0,
+  );
   const previousNcb = Number(previousPolicyContext?.previousNcbDiscount || 0);
   const previousIdv = Number(previousPolicyContext?.previousIdvAmount || 0);
   const previousCoverageType = String(
@@ -210,7 +227,9 @@ const buildPremiumChangeInsight = ({
     reasons.push(`OD moved ${toINR(previousOd)} → ${toINR(currentOd)}`);
   }
   if (previousTp > 0 && Math.round(previousTp) !== Math.round(currentTp)) {
-    reasons.push(`Third-party moved ${toINR(previousTp)} → ${toINR(currentTp)}`);
+    reasons.push(
+      `Third-party moved ${toINR(previousTp)} → ${toINR(currentTp)}`,
+    );
   }
   if (
     previousAddOns > 0 ||
@@ -218,10 +237,18 @@ const buildPremiumChangeInsight = ({
     previousAddOnNames.length > 0 ||
     currentAddOnNames.length > 0
   ) {
-    const prevSet = new Set(previousAddOnNames.map((name) => name.toLowerCase()));
-    const currSet = new Set(currentAddOnNames.map((name) => name.toLowerCase()));
-    const added = currentAddOnNames.filter((name) => !prevSet.has(name.toLowerCase()));
-    const removed = previousAddOnNames.filter((name) => !currSet.has(name.toLowerCase()));
+    const prevSet = new Set(
+      previousAddOnNames.map((name) => name.toLowerCase()),
+    );
+    const currSet = new Set(
+      currentAddOnNames.map((name) => name.toLowerCase()),
+    );
+    const added = currentAddOnNames.filter(
+      (name) => !prevSet.has(name.toLowerCase()),
+    );
+    const removed = previousAddOnNames.filter(
+      (name) => !currSet.has(name.toLowerCase()),
+    );
     if (
       Math.round(previousAddOns) !== Math.round(currentAddOns) ||
       added.length ||
@@ -241,16 +268,27 @@ const buildPremiumChangeInsight = ({
   if (Math.round(previousNcb) !== Math.round(currentNcb)) {
     reasons.push(`NCB changed ${previousNcb}% → ${currentNcb}%`);
   }
-  if (previousIdv > 0 && currentIdv > 0 && Math.round(previousIdv) !== Math.round(currentIdv)) {
+  if (
+    previousIdv > 0 &&
+    currentIdv > 0 &&
+    Math.round(previousIdv) !== Math.round(currentIdv)
+  ) {
     reasons.push(`IDV changed ${toINR(previousIdv)} → ${toINR(currentIdv)}`);
   }
-  if (previousCoverageType && currentCoverageType && previousCoverageType !== currentCoverageType) {
-    reasons.push(`Policy type changed (${previousCoverageType} → ${currentCoverageType})`);
+  if (
+    previousCoverageType &&
+    currentCoverageType &&
+    previousCoverageType !== currentCoverageType
+  ) {
+    reasons.push(
+      `Policy type changed (${previousCoverageType} → ${currentCoverageType})`,
+    );
   }
   if (
     previousInsurer &&
     currentInsurer &&
-    normalizeInsurerName(previousInsurer) !== normalizeInsurerName(currentInsurer)
+    normalizeInsurerName(previousInsurer) !==
+      normalizeInsurerName(currentInsurer)
   ) {
     reasons.push(`Insurer changed (${previousInsurer} → ${currentInsurer})`);
   }
@@ -533,7 +571,9 @@ const QuoteCard = ({
                   Est. Payout
                 </p>
                 <p className="m-0 text-xs font-bold tabular-nums text-emerald-600">
-                  {toINR((row.payoutBaseAmount || 0) * (row.payoutPercentage / 100))}
+                  {toINR(
+                    (row.payoutBaseAmount || 0) * (row.payoutPercentage / 100),
+                  )}
                 </p>
               </div>
             )}
@@ -571,7 +611,8 @@ const QuoteCard = ({
           muted
         />
 
-        {(includedAddons.length > 0 || Number(breakup?.addOnsTotal || 0) > 0) && (
+        {(includedAddons.length > 0 ||
+          Number(breakup?.addOnsTotal || 0) > 0) && (
           <>
             <BreakupRow
               label="Add Ons"
@@ -670,11 +711,11 @@ const QuoteCard = ({
           {premiumChangeInsight ? (
             <button
               onClick={() => setShowInsightModal(true)}
-            title="Why premium changed"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-blue-50 text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
-          >
-            <EyeOutlined className="text-xs" />
-          </button>
+              title="Why premium changed"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-blue-50 text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+            >
+              <EyeOutlined className="text-xs" />
+            </button>
           ) : null}
 
           <Popconfirm
@@ -718,7 +759,10 @@ const QuoteCard = ({
             </p>
             <div className="mt-2 space-y-1.5">
               {(premiumChangeInsight?.reasons || []).map((reason, idx) => (
-                <div key={`${reason}-${idx}`} className="text-[12px] text-slate-700">
+                <div
+                  key={`${reason}-${idx}`}
+                  className="text-[12px] text-slate-700"
+                >
                   {idx + 1}. {reason}
                 </div>
               ))}
@@ -758,7 +802,8 @@ const Step4InsuranceQuotes = ({
   onResetQuoteDraft,
   previousPolicyContext = {},
 }) => {
-  const [acceptedQuoteModalOpen, setAcceptedQuoteModalOpen] = React.useState(false);
+  const [acceptedQuoteModalOpen, setAcceptedQuoteModalOpen] =
+    React.useState(false);
   const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
   const odAmt = Number(quoteComputed?.odAmt || 0);
   const tpAmt = Number(quoteComputed?.tpAmt || 0);
@@ -770,7 +815,9 @@ const Step4InsuranceQuotes = ({
   const ncbPct = Number(quoteDraft?.ncbDiscount || 0);
   const coverageType = String(quoteDraft?.coverageType || "Comprehensive");
   const previousSelectedAddOns = React.useMemo(() => {
-    const fromPayload = Array.isArray(previousPolicyContext?.previousSelectedAddOns)
+    const fromPayload = Array.isArray(
+      previousPolicyContext?.previousSelectedAddOns,
+    )
       ? previousPolicyContext.previousSelectedAddOns
       : [];
     const normalized = fromPayload
@@ -977,7 +1024,8 @@ const Step4InsuranceQuotes = ({
               </FieldBlock>
 
               <FieldBlock label="Coverage Type" required>
-                <Select allowClear
+                <Select
+                  allowClear
                   size="large"
                   value={quoteDraft.coverageType}
                   onChange={(v) =>
@@ -994,7 +1042,8 @@ const Step4InsuranceQuotes = ({
               </FieldBlock>
 
               <FieldBlock label="Policy Duration" required>
-                <Select allowClear
+                <Select
+                  allowClear
                   size="large"
                   value={quoteDraft.policyDuration}
                   onChange={(v) =>
@@ -1035,7 +1084,8 @@ const Step4InsuranceQuotes = ({
                   </>
                 }
               >
-                <Select allowClear
+                <Select
+                  allowClear
                   size="large"
                   value={Number(quoteDraft.ncbDiscount || 0)}
                   onChange={(v) =>
@@ -1056,7 +1106,10 @@ const Step4InsuranceQuotes = ({
                   max={100}
                   value={quoteDraft.payoutPercentage || 0}
                   onChange={(v) =>
-                    setQuoteDraft((p) => ({ ...p, payoutPercentage: Number(v || 0) }))
+                    setQuoteDraft((p) => ({
+                      ...p,
+                      payoutPercentage: Number(v || 0),
+                    }))
                   }
                   addonAfter="%"
                   className="w-full quote-control"
@@ -1068,11 +1121,13 @@ const Step4InsuranceQuotes = ({
                 label="Hypothecation"
                 helper={
                   <span>
-                    Quote-level value. Defaults from previous policy and remains editable.
+                    Quote-level value. Defaults from previous policy and remains
+                    editable.
                   </span>
                 }
               >
-                <Select allowClear
+                <Select
+                  allowClear
                   size="large"
                   value={quoteDraft.hypothecation || "Not Applicable"}
                   onChange={(v) =>
@@ -1098,7 +1153,9 @@ const Step4InsuranceQuotes = ({
                 helper={
                   <>
                     Suggested IDV:{" "}
-                    <b className="text-slate-700">{toINR(Number(suggestedIdv || 0))}</b>
+                    <b className="text-slate-700">
+                      {toINR(Number(suggestedIdv || 0))}
+                    </b>
                     {Number(suggestedIdv || 0) > 0 &&
                     Number(quoteDraft.vehicleIdv || 0) !==
                       Number(suggestedIdv || 0) ? (
@@ -1129,7 +1186,6 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -1143,7 +1199,6 @@ const Step4InsuranceQuotes = ({
                     setQuoteDraft((p) => ({ ...p, cngIdv: Number(v || 0) }))
                   }
                   className="w-full quote-control"
-                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -1160,7 +1215,6 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -1177,7 +1231,6 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -1194,7 +1247,6 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -1211,7 +1263,6 @@ const Step4InsuranceQuotes = ({
                     }))
                   }
                   className="w-full quote-control"
-                  
                   {...inrInputProps}
                 />
               </FieldBlock>
@@ -1384,7 +1435,7 @@ const Step4InsuranceQuotes = ({
                           min={0}
                           size="small"
                           value={amt}
-                         addonBefore="₹"
+                          addonBefore="₹"
                           controls={false}
                           placeholder="0"
                           {...inrInputProps}
@@ -1415,7 +1466,7 @@ const Step4InsuranceQuotes = ({
 
           {/* Action Row */}
           <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-r from-white via-slate-50/50 to-white p-3 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
-              <Button
+            <Button
               type="primary"
               size="large"
               icon={<PlusOutlined />}
@@ -1509,9 +1560,7 @@ const Step4InsuranceQuotes = ({
                   </span>
                 </div>
                 <div className="flex items-baseline justify-between gap-2 text-[12px]">
-                  <span className="text-slate-500">
-                    GST (18% of taxable)
-                  </span>
+                  <span className="text-slate-500">GST (18% of taxable)</span>
                   <span className="font-semibold tabular-nums text-slate-800">
                     {toINR(gstAmount)}
                   </span>
@@ -1694,25 +1743,40 @@ const Step4InsuranceQuotes = ({
                 {acceptedQuote.insuranceCompany || "Accepted Quote"}
               </div>
               <div className="mt-1 text-sm text-slate-600">
-                {acceptedQuote.coverageType || "—"} · {acceptedQuote.policyDuration || "—"}
+                {acceptedQuote.coverageType || "—"} ·{" "}
+                {acceptedQuote.policyDuration || "—"}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Premium</div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Premium
+                </div>
                 <div className="mt-1 text-lg font-black text-slate-900">
-                  {toINR(acceptedQuoteBreakup?.totalPremium || acceptedQuote?.totalPremium || 0)}
+                  {toINR(
+                    acceptedQuoteBreakup?.totalPremium ||
+                      acceptedQuote?.totalPremium ||
+                      0,
+                  )}
                 </div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">IDV</div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  IDV
+                </div>
                 <div className="mt-1 text-lg font-black text-slate-900">
-                  {toINR(acceptedQuoteBreakup?.totalIdv || acceptedQuote?.totalIdv || 0)}
+                  {toINR(
+                    acceptedQuoteBreakup?.totalIdv ||
+                      acceptedQuote?.totalIdv ||
+                      0,
+                  )}
                 </div>
               </div>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Accepted Add-ons</div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                Accepted Add-ons
+              </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {acceptedQuoteAddOns.length ? (
                   acceptedQuoteAddOns.map((addon) => (
@@ -1724,7 +1788,9 @@ const Step4InsuranceQuotes = ({
                     </span>
                   ))
                 ) : (
-                  <span className="text-sm text-slate-500">No add-ons selected.</span>
+                  <span className="text-sm text-slate-500">
+                    No add-ons selected.
+                  </span>
                 )}
               </div>
             </div>
