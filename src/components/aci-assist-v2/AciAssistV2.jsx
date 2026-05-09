@@ -10,6 +10,7 @@ import {
 } from "./data/homeScreenData";
 import AciAssistStyles from "./shared/AciAssistStyles";
 import { normalizeAciAction } from "./shared/AciAssistShared";
+import { askAciAssistV2 } from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
 import AciAssistCarOverviewScreen from "./screens/AciAssistCarOverviewScreen";
 import AciAssistColorsScreen from "./screens/AciAssistColorsScreen";
@@ -22,12 +23,53 @@ const SCREEN = {
   PRICELIST: "pricelist",
 };
 
+const mergeVehicle = (fallback, incoming) => {
+  if (!incoming) return fallback;
+
+  return {
+    ...(fallback || {}),
+    ...incoming,
+    id: incoming.id || incoming._id || fallback?.id,
+    make: incoming.make || incoming.brand || fallback?.make || fallback?.brand,
+    brand: incoming.brand || incoming.make || fallback?.brand || fallback?.make,
+    model: incoming.model || fallback?.model,
+    displayName:
+      incoming.displayName ||
+      incoming.name ||
+      [incoming.brand || incoming.make || fallback?.brand || fallback?.make, incoming.model || fallback?.model]
+        .filter(Boolean)
+        .join(" ") ||
+      fallback?.displayName,
+    imageUrl:
+      incoming.imageUrl ||
+      incoming.heroImageUrl ||
+      incoming.vehicleImageUrl ||
+      incoming.image ||
+      fallback?.imageUrl,
+  };
+};
+
+const isCanvasInteractionOnly = (action) => {
+  return Boolean(
+    action.payload?.color ||
+      action.payload?.selectedColor ||
+      action.selectedColor ||
+      action.type === "color_selected" ||
+      action.type === "select_color_mood" ||
+      action.type === "save_color" ||
+      action.type === "save_color_insight",
+  );
+};
+
 export default function AciAssistV2() {
   const [screen, setScreen] = useState(SCREEN.HOME);
   const [selectedVehicleId, setSelectedVehicleId] = useState("hyundai-creta");
+  const [activeVehicleOverride, setActiveVehicleOverride] = useState(null);
   const [savedIds, setSavedIds] = useState(() => new Set(["hyundai-verna"]));
   const [lastAction, setLastAction] = useState(null);
   const [activeCanvasPayload, setActiveCanvasPayload] = useState(null);
+  const [isBackendLoading, setIsBackendLoading] = useState(false);
+  const [backendError, setBackendError] = useState("");
 
   const homeData = useMemo(
     () => ({
@@ -37,9 +79,14 @@ export default function AciAssistV2() {
     [],
   );
 
-  const selectedVehicle = useMemo(
+  const fallbackSelectedVehicle = useMemo(
     () => getAciVehicleById(selectedVehicleId),
     [selectedVehicleId],
+  );
+
+  const selectedVehicle = useMemo(
+    () => mergeVehicle(fallbackSelectedVehicle, activeVehicleOverride),
+    [fallbackSelectedVehicle, activeVehicleOverride],
   );
 
   const dispatchBrowserEvent = (action) => {
@@ -58,11 +105,19 @@ export default function AciAssistV2() {
     dispatchBrowserEvent(action);
   };
 
-  const openVehicle = (vehicle, sourceAction = {}) => {
-    const nextVehicle = vehicle || selectedVehicle;
-    if (!nextVehicle?.id) return;
+  const setSelectedVehicle = (vehicle) => {
+    const nextVehicle = mergeVehicle(selectedVehicle, vehicle);
+    if (!nextVehicle?.id) return nextVehicle;
 
     setSelectedVehicleId(nextVehicle.id);
+    setActiveVehicleOverride(nextVehicle);
+    return nextVehicle;
+  };
+
+  const openVehicle = (vehicle, sourceAction = {}) => {
+    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
+    if (!nextVehicle?.id) return;
+
     setActiveCanvasPayload(null);
     setScreen(SCREEN.CAR_OVERVIEW);
 
@@ -73,11 +128,15 @@ export default function AciAssistV2() {
   };
 
   const openColors = (vehicle, sourceAction = {}) => {
-    const nextVehicle = vehicle || selectedVehicle;
+    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
     if (!nextVehicle?.id) return;
 
-    setSelectedVehicleId(nextVehicle.id);
-    setActiveCanvasPayload(sourceAction.payload || sourceAction.widget || null);
+    setActiveCanvasPayload(
+      sourceAction.widget ||
+        sourceAction.payload?.widget ||
+        sourceAction.payload ||
+        null,
+    );
     setScreen(SCREEN.COLORS);
 
     rememberAction({
@@ -100,11 +159,15 @@ export default function AciAssistV2() {
   };
 
   const openPriceList = (vehicle, sourceAction = {}) => {
-    const nextVehicle = vehicle || selectedVehicle;
+    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
     if (!nextVehicle?.id) return;
 
-    setSelectedVehicleId(nextVehicle.id);
-    setActiveCanvasPayload(sourceAction.payload || sourceAction.widget || null);
+    setActiveCanvasPayload(
+      sourceAction.widget ||
+        sourceAction.payload?.widget ||
+        sourceAction.payload ||
+        null,
+    );
     setScreen(SCREEN.PRICELIST);
 
     rememberAction({
@@ -158,21 +221,118 @@ export default function AciAssistV2() {
     });
   };
 
-  const handleAciAction = (rawAction) => {
+  const buildContextForBackend = (action, targetVehicle) => ({
+    selectedVehicle: targetVehicle || selectedVehicle,
+    activeScreen: screen,
+    activeCanvasPayload,
+    anchorModel: targetVehicle?.model || selectedVehicle?.model,
+    anchorMake: targetVehicle?.make || selectedVehicle?.make,
+    anchorCity: targetVehicle?.city || selectedVehicle?.city,
+    ...(action.contextPatch || {}),
+  });
+
+  const routeBackendResponse = (action, backend, targetVehicle) => {
+    const backendVehicle = mergeVehicle(
+      targetVehicle || selectedVehicle,
+      backend.vehicle || backend.contextPatch?.selectedVehicle,
+    );
+    const canvasType = backend.canvasType || action.canvasType;
+    const widget = {
+      ...(backend.widget || {}),
+      ...(backend.rows?.length ? { rows: backend.rows } : {}),
+      ...(backend.colors?.length ? { colors: backend.colors } : {}),
+      contextPatch: backend.contextPatch || {},
+      actions: backend.actions || [],
+      leadingQuestions: backend.leadingQuestions || [],
+      answer: backend.answer || "",
+    };
+
+    const enrichedAction = {
+      ...action,
+      answer: backend.answer,
+      canvasType,
+      widget,
+      payload: {
+        ...(action.payload || {}),
+        widget,
+        backendRaw: backend.raw,
+      },
+      vehicle: backendVehicle,
+    };
+
+    if (canvasType === ACI_CANVAS_TYPES.PRICELIST) {
+      openPriceList(backendVehicle, enrichedAction);
+      return true;
+    }
+
+    if (canvasType === ACI_CANVAS_TYPES.COLORS) {
+      openColors(backendVehicle, enrichedAction);
+      return true;
+    }
+
+    if (
+      canvasType === ACI_CANVAS_TYPES.CAR_OVERVIEW ||
+      action.intent === ACI_INTENTS.OPEN_VEHICLE
+    ) {
+      openVehicle(backendVehicle, enrichedAction);
+      return true;
+    }
+
+    if (backendVehicle && !action.canvasType && !action.intent) {
+      openVehicle(backendVehicle, enrichedAction);
+      return true;
+    }
+
+    rememberAction({
+      ...enrichedAction,
+      contextPatch: {
+        selectedVehicle: selectedVehicle,
+        ...(action.contextPatch || {}),
+      },
+    });
+
+    return false;
+  };
+
+  const shouldAskBackend = (action) => {
+    const actionText = `${action.label || ""} ${action.query || ""}`.toLowerCase();
+
+    if (!action.query && !action.label) return false;
+    if (isCanvasInteractionOnly(action)) return false;
+
+    return Boolean(
+      action.canvasType ||
+        action.intent ||
+        actionText.includes("price") ||
+        actionText.includes("pricelist") ||
+        actionText.includes("color") ||
+        actionText.includes("colour") ||
+        actionText.includes("creta") ||
+        actionText.includes("verna") ||
+        actionText.includes("safari") ||
+        actionText.includes("seltos") ||
+        actionText.includes("city") ||
+        actionText.includes("slavia"),
+    );
+  };
+
+  const handleAciAction = async (rawAction) => {
     const action = normalizeAciAction(rawAction);
     const actionText = `${action.label || ""} ${action.query || ""}`.toLowerCase();
 
     if (action.type === "go_home" || action.label === "Home") {
       setScreen(SCREEN.HOME);
       setActiveCanvasPayload(null);
+      setBackendError("");
       rememberAction(action);
       return;
     }
 
     if (action.type === "back_to_car" || actionText.startsWith("back to")) {
-      if (action.vehicle?.id) setSelectedVehicleId(action.vehicle.id);
+      if (action.vehicle?.id) setSelectedVehicle(action.vehicle);
       setScreen(SCREEN.CAR_OVERVIEW);
       setActiveCanvasPayload(null);
+      setBackendError("");
       rememberAction(action);
       return;
     }
@@ -182,9 +342,44 @@ export default function AciAssistV2() {
       return;
     }
 
+    if (isCanvasInteractionOnly(action)) {
+      rememberAction({
+        ...action,
+        contextPatch: {
+          selectedVehicle,
+          anchorModel: selectedVehicle?.model,
+          anchorMake: selectedVehicle?.make,
+          anchorCity: selectedVehicle?.city,
+          ...(action.contextPatch || {}),
+        },
+      });
+      return;
+    }
+
     const explicitVehicle = action.vehicle || null;
     const vehicleFromQuery = getAciVehicleByQuery(action.query || action.label);
-    const targetVehicle = explicitVehicle || vehicleFromQuery;
+    const targetVehicle = explicitVehicle || vehicleFromQuery || selectedVehicle;
+
+    if (shouldAskBackend(action)) {
+      setIsBackendLoading(true);
+      setBackendError("");
+
+      try {
+        const backend = await askAciAssistV2({
+          message: action.query || action.label,
+          context: buildContextForBackend(action, targetVehicle),
+        });
+
+        setIsBackendLoading(false);
+
+        const routed = routeBackendResponse(action, backend, targetVehicle);
+        if (routed) return;
+      } catch (error) {
+        console.error("ACI Assist V2 backend failed. Falling back to local route.", error);
+        setIsBackendLoading(false);
+        setBackendError(error?.message || "Backend request failed");
+      }
+    }
 
     const shouldOpenPriceList =
       action.canvasType === ACI_CANVAS_TYPES.PRICELIST ||
@@ -194,43 +389,32 @@ export default function AciAssistV2() {
       actionText.includes("prices");
 
     if (shouldOpenPriceList) {
-      openPriceList(targetVehicle || selectedVehicle, action);
+      openPriceList(targetVehicle, action);
       return;
     }
 
     const shouldOpenColors =
-      action.canvasType === ACI_CANVAS_TYPES.COLORS &&
-      !action.payload?.color &&
-      !action.payload?.selectedColor &&
-      !action.selectedColor &&
-      (
-        action.type === "open_canvas" ||
-        action.id?.includes("colors") ||
-        actionText.includes("color") ||
-        actionText.includes("colour")
-      );
+      action.canvasType === ACI_CANVAS_TYPES.COLORS ||
+      action.intent === ACI_INTENTS.COLORS ||
+      actionText.includes("color") ||
+      actionText.includes("colour");
 
     if (shouldOpenColors) {
-      openColors(targetVehicle || selectedVehicle, action);
+      openColors(targetVehicle, action);
       return;
     }
 
     const shouldOpenVehicle =
       action.type === "open_vehicle" ||
       action.intent === ACI_INTENTS.OPEN_VEHICLE ||
-      (
-        !explicitVehicle &&
-        Boolean(vehicleFromQuery) &&
-        !action.canvasType &&
-        !action.intent
-      );
+      Boolean(vehicleFromQuery);
 
     if (shouldOpenVehicle) {
-      openVehicle(targetVehicle || selectedVehicle, action);
+      openVehicle(targetVehicle, action);
       return;
     }
 
-    const enrichedAction = {
+    rememberAction({
       ...action,
       contextPatch: {
         selectedVehicle,
@@ -239,36 +423,7 @@ export default function AciAssistV2() {
         anchorCity: selectedVehicle?.city,
         ...(action.contextPatch || {}),
       },
-    };
-
-    rememberAction(enrichedAction);
-
-    /**
-     * Backend wiring point:
-     *
-     * aiAgentApi.chat({
-     *   message: enrichedAction.query,
-     *   context: {
-     *     selectedVehicle,
-     *     ...enrichedAction.contextPatch,
-     *   },
-     * })
-     *
-     * Expected backend pricelist contract:
-     * response.canvasType = "pricelist_canvas"
-     * response.vehicle = { id, make, model, displayName, city, imageUrl }
-     * response.widget = {
-     *   city,
-     *   rows: [
-     *     {
-     *       id, variant, fuel, transmission,
-     *       exShowroomPrice, rto, insurance, otherChargesTotal, onRoadPrice,
-     *       otherItems: [{ label, amount }],
-     *       keyFeatures: []
-     *     }
-     *   ]
-     * }
-     */
+    });
   };
 
   return (
@@ -294,10 +449,62 @@ export default function AciAssistV2() {
           place-items: center;
         }
 
+        .aci-v2-backend-state {
+          position: fixed;
+          left: 50%;
+          top: 12px;
+          transform: translateX(-50%);
+          z-index: 300;
+          min-height: 34px;
+          border-radius: 999px;
+          border: 1px solid #dbe3ef;
+          background: rgba(255,255,255,.94);
+          box-shadow: 0 18px 44px -34px rgba(15,23,42,.45);
+          backdrop-filter: blur(14px);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 0 14px;
+          color: #475569;
+          font-size: 12px;
+          font-weight: 750;
+          pointer-events: none;
+        }
+
+        .aci-v2-backend-state.error {
+          color: #b45309;
+          background: #fff7ed;
+          border-color: #fed7aa;
+        }
+
+        .aci-v2-pulse {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: var(--blue);
+          animation: aciPulse 1s infinite ease-in-out;
+        }
+
+        @keyframes aciPulse {
+          0%, 100% { opacity: .35; transform: scale(.75); }
+          50% { opacity: 1; transform: scale(1); }
+        }
+
         .aci-action-toast {
           display: none;
         }
       `}</style>
+
+      {isBackendLoading ? (
+        <div className="aci-v2-backend-state">
+          <span className="aci-v2-pulse" />
+          Fetching live ACI data
+        </div>
+      ) : backendError ? (
+        <div className="aci-v2-backend-state error">
+          Using fallback data · backend not reached
+        </div>
+      ) : null}
 
       {screen === SCREEN.HOME ? (
         <AciAssistHomeScreen
