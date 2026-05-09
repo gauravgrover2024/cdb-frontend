@@ -58,15 +58,6 @@ const IMAGE_KEYS = [
 "src",
 ];
 
-const MODEL_IMAGE_MAP = {
-"hyundai verna": "/aci-cars/hyundai-verna.png",
-"tata safari": "/aci-cars/tata-safari.png",
-"kia seltos": "/aci-cars/kia-seltos.png",
-"hyundai creta": "/images/cretaimage.png",
-"honda city": "/aci-cars/honda-city.png",
-"skoda slavia": "/aci-cars/skoda-slavia.png",
-};
-
 const fadeUp = {
 hidden: { opacity: 0, y: 16, filter: "blur(6px)" },
 visible: {
@@ -233,19 +224,7 @@ searchValue(rows);
 
 if (direct) return direct;
 
-const key = [getVehicleBrand(vehicle), getVehicleModel(vehicle)]
-.filter(Boolean)
-.join(" ")
-.toLowerCase();
-
-const slug = [getVehicleBrand(vehicle), getVehicleModel(vehicle)]
-.filter(Boolean)
-.join("-")
-.toLowerCase()
-.replace(/[^a-z0-9]+/g, "-")
-.replace(/^-|-$/g, "");
-
-return MODEL_IMAGE_MAP[key] || (slug ? `/aci-cars/${slug}.png` : "");
+return "";
 };
 
 const getRawRows = ({ vehicle, widget, message }) => {
@@ -457,7 +436,7 @@ const sourceRows = rawRows.length
 ? []
 : generateFallbackRows(vehicle, widget);
 
-return sourceRows.map((row, index) => {
+const normalizedRows = sourceRows.map((row, index) => {
 const parts = pricePartsFromRow(row);
 const variant = getVariantName(row, index, vehicle);
 
@@ -486,6 +465,21 @@ row.popular ||
 index === Math.min(3, sourceRows.length - 1),
 };
 });
+
+const deduped = [];
+const seen = new Set();
+for (const row of normalizedRows) {
+  const dedupeKey = [
+    compactText(row.variant).toLowerCase(),
+    compactText(row.fuelTransmission).toLowerCase(),
+  ].join("|");
+
+  if (seen.has(dedupeKey)) continue;
+  seen.add(dedupeKey);
+  deduped.push(row);
+}
+
+return deduped;
 };
 
 const rowKeyOf = (row, index) => row.id || row._id || row.variantId || `${row.variant}-${index}`;
@@ -1385,7 +1379,7 @@ setImageFailed={setImageFailed}
 />
 
 <motion.div className="mobile-variant-list" variants={fadeUp}>
-{rows.slice(0, 8).map((row, index) => {
+{rows.map((row, index) => {
 const rowKey = rowKeyOf(row, index);
 
 return (

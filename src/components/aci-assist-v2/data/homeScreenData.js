@@ -18,7 +18,7 @@ import {
 export const ACI_HOME_IMAGES = {
   avatar:
     "https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=240&auto=format&fit=crop",
-  creta: "/images/cretaimage.png",
+  creta: "",
 };
 
 export const ACI_CANVAS_TYPES = {

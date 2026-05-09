@@ -26,6 +26,14 @@ const SCREEN = {
 const mergeVehicle = (fallback, incoming) => {
   if (!incoming) return fallback;
 
+  const fallbackId = fallback?.id || fallback?._id || "";
+  const incomingId = incoming?.id || incoming?._id || "";
+  const fallbackModel = String(fallback?.model || "").toLowerCase();
+  const incomingModel = String(incoming?.model || "").toLowerCase();
+  const isSameVehicle =
+    (fallbackId && incomingId && fallbackId === incomingId) ||
+    (fallbackModel && incomingModel && fallbackModel === incomingModel);
+
   return {
     ...(fallback || {}),
     ...incoming,
@@ -45,7 +53,7 @@ const mergeVehicle = (fallback, incoming) => {
       incoming.heroImageUrl ||
       incoming.vehicleImageUrl ||
       incoming.image ||
-      fallback?.imageUrl,
+      (isSameVehicle ? fallback?.imageUrl : ""),
   };
 };
 
