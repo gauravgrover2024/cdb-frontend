@@ -34,14 +34,8 @@ import Step6NewPolicyDetails from "./steps/Step5NewPolicyDetails";
 import Step7Documents from "./steps/Step6Documents";
 import Step8Payment from "./steps/Step7Payment";
 import Step9Payout from "./steps/Step8Payout";
-import {
-  STEP_TITLES,
-  durationOptions,
-  addOnCatalog,
-} from "./steps/allSteps";
-import {
-  DEFAULT_PAYOUT_PERCENTAGE,
-} from "./steps/payoutRates";
+import { STEP_TITLES, durationOptions, addOnCatalog } from "./steps/allSteps";
+import { DEFAULT_PAYOUT_PERCENTAGE } from "./steps/payoutRates";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
 import "./insurance-header-pills.css";
@@ -101,9 +95,7 @@ const normalizeCustomerForInsurance = (raw) => {
   const aadhaarNumber = String(
     raw.aadhaarNumber || raw.aadharNumber || raw.aadhaar || "",
   ).trim();
-  const gstNumber = String(
-    raw.gstNumber || raw.gstin || raw.gst || "",
-  ).trim();
+  const gstNumber = String(raw.gstNumber || raw.gstin || raw.gst || "").trim();
   const residenceAddress = String(
     raw.residenceAddress ||
       raw.currentAddress ||
@@ -112,9 +104,7 @@ const normalizeCustomerForInsurance = (raw) => {
       raw.officeAddress ||
       "",
   ).trim();
-  const pincode = String(
-    raw.pincode || raw.permanentPincode || raw.zip || "",
-  )
+  const pincode = String(raw.pincode || raw.permanentPincode || raw.zip || "")
     .replace(/\D/g, "")
     .slice(0, 6);
   const city = String(
@@ -327,7 +317,10 @@ const getSuggestedStep4Ncb = ({
   return STEP4_NCB_STEPPING[normalizedPrevious] ?? 0;
 };
 
-const getStep4DurationOptions = ({ coverageType = "Comprehensive", isNewCar }) => {
+const getStep4DurationOptions = ({
+  coverageType = "Comprehensive",
+  isNewCar,
+}) => {
   if (coverageType === "Comprehensive") {
     return isNewCar
       ? ["1yr OD + 3yr TP", "2yr OD + 3yr TP", "3yr OD + 3yr TP"]
@@ -337,8 +330,10 @@ const getStep4DurationOptions = ({ coverageType = "Comprehensive", isNewCar }) =
   return ["1 Year", "2 Years", "3 Years"];
 };
 
-const getDefaultStep4PolicyDuration = ({ coverageType = "Comprehensive", isNewCar }) =>
-  getStep4DurationOptions({ coverageType, isNewCar })[0] || "";
+const getDefaultStep4PolicyDuration = ({
+  coverageType = "Comprehensive",
+  isNewCar,
+}) => getStep4DurationOptions({ coverageType, isNewCar })[0] || "";
 
 const isValidMongoObjectId = (value) =>
   /^[a-f\d]{24}$/i.test(String(value || "").trim());
@@ -361,10 +356,12 @@ const buildQuoteSignature = (quote = {}) => {
       ? "Stand Alone OD"
       : normalizedCoverageRaw;
   const normalizedDuration = String(quote.policyDuration || "").trim();
-  const included = quote.addOnsIncluded && typeof quote.addOnsIncluded === "object"
-    ? quote.addOnsIncluded
-    : {};
-  const addOns = quote.addOns && typeof quote.addOns === "object" ? quote.addOns : {};
+  const included =
+    quote.addOnsIncluded && typeof quote.addOnsIncluded === "object"
+      ? quote.addOnsIncluded
+      : {};
+  const addOns =
+    quote.addOns && typeof quote.addOns === "object" ? quote.addOns : {};
   const addOnSignature = addOnCatalog
     .map((name) => {
       const isIncluded = included[name] ? 1 : 0;
@@ -547,7 +544,9 @@ const computeQuoteBreakupFromRow = (q) => {
     if (!included[name]) return sum;
     return sum + Number(addOns[name] || 0);
   }, 0);
-  const hasAnySelectedAddOn = addOnCatalog.some((name) => Boolean(included[name]));
+  const hasAnySelectedAddOn = addOnCatalog.some((name) =>
+    Boolean(included[name]),
+  );
   const flatAddOnsAmount = Number(q.addOnsAmount || 0);
   const hasFlatOverride =
     flatAddOnsAmount > 0 &&
@@ -644,7 +643,11 @@ const calcExpiryDate = (startDate, years) => {
   return d.toISOString().slice(0, 10);
 };
 
-const buildAutoReceivableRow = (companyName, payoutPercentage, payoutAmount) => {
+const buildAutoReceivableRow = (
+  companyName,
+  payoutPercentage,
+  payoutAmount,
+) => {
   const year = new Date().getFullYear();
   const random = Math.floor(Math.random() * 999999)
     .toString()
@@ -670,7 +673,9 @@ const buildAutoReceivableRow = (companyName, payoutPercentage, payoutAmount) => 
 const validateStep1 = (data) => {
   const errors = {};
   const isCompany = data.buyerType === "Company";
-  const sourceMode = String(data.source || data.sourceOrigin || "Direct").trim();
+  const sourceMode = String(
+    data.source || data.sourceOrigin || "Direct",
+  ).trim();
   const policyDoneBy = String(data.policyDoneBy || "").trim();
   if (!(data.employeeName || "").trim())
     errors.employeeName = "Employee name is required";
@@ -783,14 +788,23 @@ const validateStep3 = (data) => {
 
 const FINAL_REQUIRED_DOCS_BY_SCENARIO = {
   "new-car-insurance": ["Invoice"],
-  "used-car-insurance": ["RC Copy", "Form 29", "Form 30 page 1", "Form 30 page 2"],
+  "used-car-insurance": [
+    "RC Copy",
+    "Form 29",
+    "Form 30 page 1",
+    "Form 30 page 2",
+  ],
   "used-car-renewal": ["RC Copy", "Previous Year Policy"],
   "policy-already-expired": ["RC Copy", "Previous Year Policy"],
 };
 
 const getInsuranceDocScenario = (data = {}) => {
-  const vehicleType = String(data?.vehicleType || "").trim().toLowerCase();
-  const usedFlow = String(data?.usedCarFlowType || "").trim().toLowerCase();
+  const vehicleType = String(data?.vehicleType || "")
+    .trim()
+    .toLowerCase();
+  const usedFlow = String(data?.usedCarFlowType || "")
+    .trim()
+    .toLowerCase();
   if (vehicleType === "new car") return "new-car-insurance";
   if (usedFlow.includes("expired")) return "policy-already-expired";
   if (usedFlow.includes("renew") || usedFlow.includes("rollover"))
@@ -847,8 +861,8 @@ const NewInsuranceCaseForm = ({
   const [caseReference, setCaseReference] = useState("");
 
   const persistTimerRef = React.useRef(null);
-  const persistInFlightRef = React.useRef(false);
-  const persistQueuedRef = React.useRef(false);
+  /** Serializes persist calls so concurrent autosave + step navigation always await a real result (never implicit `undefined`). */
+  const persistChainRef = React.useRef(Promise.resolve());
   const stickyHeaderRef = React.useRef(null);
   const keyboardActionsRef = React.useRef({
     goNext: null,
@@ -964,7 +978,8 @@ const NewInsuranceCaseForm = ({
       return {
         ...prev,
         customerId: id || prev.customerId,
-        customerName: String(row.customerName || "").trim() || prev.customerName,
+        customerName:
+          String(row.customerName || "").trim() || prev.customerName,
         companyName:
           String(row.companyName || "").trim() ||
           String(row.customerName || "").trim() ||
@@ -983,7 +998,9 @@ const NewInsuranceCaseForm = ({
         city: row.city || prev.city,
         nomineeName: row.nomineeName || prev.nomineeName,
         nomineeRelationship:
-          row.nomineeRelation || row.nomineeRelationship || prev.nomineeRelationship,
+          row.nomineeRelation ||
+          row.nomineeRelationship ||
+          prev.nomineeRelationship,
         nomineeDob: row.nomineeDob || prev.nomineeDob,
         nomineeAge: getAgeFromDob(row.nomineeDob) || prev.nomineeAge,
       };
@@ -1031,7 +1048,10 @@ const NewInsuranceCaseForm = ({
 
         setDocuments((prev) => mergeLinkedIntoExistingDocuments(prev, linked));
       } catch (err) {
-        console.error("[Insurance][CustomerDocs] Linked documents merge failed:", err);
+        console.error(
+          "[Insurance][CustomerDocs] Linked documents merge failed:",
+          err,
+        );
       }
     };
 
@@ -1129,9 +1149,7 @@ const NewInsuranceCaseForm = ({
         } while (page.length === limit && guard < 20);
 
         if (ignore) return;
-        setBankOptions(
-          Array.from(bankSet).sort((a, b) => a.localeCompare(b)),
-        );
+        setBankOptions(Array.from(bankSet).sort((a, b) => a.localeCompare(b)));
       } catch (err) {
         console.error("[Insurance][LoanApprovalBanks] load failed:", err);
         if (!ignore) setBankOptions([]);
@@ -1168,7 +1186,6 @@ const NewInsuranceCaseForm = ({
       }))
       .filter((opt) => opt.value);
   }, [employeesList, formData.employeeName]);
-
 
   const parseCubicCapacityValue = useCallback((value) => {
     if (value === undefined || value === null) return "";
@@ -1309,7 +1326,8 @@ const NewInsuranceCaseForm = ({
           vehicle.make ||
           vehicle.brand ||
           prev.vehicleMake,
-        vehicleModel: vehicle.vehicleModel || vehicle.model || prev.vehicleModel,
+        vehicleModel:
+          vehicle.vehicleModel || vehicle.model || prev.vehicleModel,
         vehicleVariant:
           vehicle.vehicleVariant ||
           vehicle.variant ||
@@ -1364,7 +1382,9 @@ const NewInsuranceCaseForm = ({
   );
 
   const handleRegistrationSearch = useCallback((q) => {
-    const query = String(q || "").trim().toUpperCase();
+    const query = String(q || "")
+      .trim()
+      .toUpperCase();
     if (registrationLookupDebounceRef.current) {
       clearTimeout(registrationLookupDebounceRef.current);
     }
@@ -1385,7 +1405,9 @@ const NewInsuranceCaseForm = ({
           ).trim();
           const make = String(row?.make || row?.vehicleMake || "").trim();
           const model = String(row?.model || row?.vehicleModel || "").trim();
-          const variant = String(row?.variant || row?.vehicleVariant || "").trim();
+          const variant = String(
+            row?.variant || row?.vehicleVariant || "",
+          ).trim();
           const customerName = String(row?.customerName || "").trim();
           const primaryMobile = String(row?.primaryMobile || "").trim();
           return {
@@ -1485,9 +1507,10 @@ const NewInsuranceCaseForm = ({
             selectedCustomerId &&
             rowCustomerId &&
             selectedCustomerId === rowCustomerId;
-          const mobileMatch = mobile.length >= 4
-            ? rowMobile.replace(/\D/g, "").endsWith(mobile.slice(-4))
-            : false;
+          const mobileMatch =
+            mobile.length >= 4
+              ? rowMobile.replace(/\D/g, "").endsWith(mobile.slice(-4))
+              : false;
 
           // Strict matching to avoid cross-customer bleed:
           // 1) Prefer exact customer-id matches (when available)
@@ -1525,7 +1548,11 @@ const NewInsuranceCaseForm = ({
       const nextMake = String(make || "").trim();
       const nextModel = String(model || "").trim();
       const nextVariant = String(variant || "").trim();
-      const pickBest = (options = [], rawValue = "", normalizer = normalizeVehicleToken) => {
+      const pickBest = (
+        options = [],
+        rawValue = "",
+        normalizer = normalizeVehicleToken,
+      ) => {
         const input = String(rawValue || "").trim();
         if (!input) return "";
         const inputToken = normalizer(input);
@@ -1538,7 +1565,8 @@ const NewInsuranceCaseForm = ({
           const optionToken = normalizer(option);
           return (
             optionToken &&
-            (optionToken.includes(inputToken) || inputToken.includes(optionToken))
+            (optionToken.includes(inputToken) ||
+              inputToken.includes(optionToken))
           );
         });
         return fuzzy || input;
@@ -1556,7 +1584,11 @@ const NewInsuranceCaseForm = ({
         const baseMakeOptions = Array.from(
           new Set([...(makeOptions || []), nextMake]),
         ).sort((a, b) => a.localeCompare(b));
-        resolvedMake = pickBest(baseMakeOptions, nextMake, normalizeVehicleMakeToken);
+        resolvedMake = pickBest(
+          baseMakeOptions,
+          nextMake,
+          normalizeVehicleMakeToken,
+        );
       }
 
       if (resolvedMake) {
@@ -1571,7 +1603,9 @@ const NewInsuranceCaseForm = ({
             ...fetched,
             ...(nextModel ? [nextModel] : []),
           ]);
-          const modelList = Array.from(merged).sort((a, b) => a.localeCompare(b));
+          const modelList = Array.from(merged).sort((a, b) =>
+            a.localeCompare(b),
+          );
           setModelOptions(modelList);
           resolvedModel = pickBest(modelList, nextModel, normalizeVehicleToken);
         } catch (err) {
@@ -1598,10 +1632,10 @@ const NewInsuranceCaseForm = ({
             ...fetched,
             ...(nextVariant ? [nextVariant] : []),
           ]);
-          const variantList = Array.from(merged).sort((a, b) => a.localeCompare(b));
-          setVariantOptions(
-            variantList,
+          const variantList = Array.from(merged).sort((a, b) =>
+            a.localeCompare(b),
           );
+          setVariantOptions(variantList);
           resolvedVariant = pickBest(
             variantList,
             nextVariant,
@@ -1624,7 +1658,12 @@ const NewInsuranceCaseForm = ({
         variant: resolvedVariant || nextVariant,
       };
     },
-    [includeDiscontinuedVehicles, makeOptions, normalizeVehicleMakeToken, normalizeVehicleToken],
+    [
+      includeDiscontinuedVehicles,
+      makeOptions,
+      normalizeVehicleMakeToken,
+      normalizeVehicleToken,
+    ],
   );
 
   useEffect(() => {
@@ -1696,12 +1735,19 @@ const NewInsuranceCaseForm = ({
     return () => {
       ignore = true;
     };
-  }, [formData.vehicleMake, formData.vehicleModel, includeDiscontinuedVehicles]);
+  }, [
+    formData.vehicleMake,
+    formData.vehicleModel,
+    includeDiscontinuedVehicles,
+  ]);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
-      if (!isNewCar || String(formData.registrationAllotted || "Yes") !== "No") {
+      if (
+        !isNewCar ||
+        String(formData.registrationAllotted || "Yes") !== "No"
+      ) {
         return;
       }
       const existingReg = String(formData.registrationNumber || "").trim();
@@ -1841,7 +1887,10 @@ const NewInsuranceCaseForm = ({
           fallbackRow = details;
           if (!fuelCandidate) {
             fuelCandidate = normalizeFuelLabel(
-              details?.fuelType || details?.fuel || details?.vehicleFuelType || "",
+              details?.fuelType ||
+                details?.fuel ||
+                details?.vehicleFuelType ||
+                "",
             );
           }
           if (!finalCubic) {
@@ -1863,15 +1912,21 @@ const NewInsuranceCaseForm = ({
           : [];
         if (!fuelCandidate) {
           const fuelFeature = featureRows.find((row) =>
-            String(row?.name || "").toLowerCase().includes("fuel"),
+            String(row?.name || "")
+              .toLowerCase()
+              .includes("fuel"),
           );
           fuelCandidate = normalizeFuelLabel(fuelFeature?.value || "");
         }
         if (!finalCubic) {
           const displacementFeature = featureRows.find((row) =>
-            String(row?.name || "").toLowerCase().includes("displacement"),
+            String(row?.name || "")
+              .toLowerCase()
+              .includes("displacement"),
           );
-          finalCubic = parseCubicCapacityValue(displacementFeature?.value || "");
+          finalCubic = parseCubicCapacityValue(
+            displacementFeature?.value || "",
+          );
         }
       }
 
@@ -1880,7 +1935,10 @@ const NewInsuranceCaseForm = ({
           const searchSeed = [resolvedMake, resolvedModel, resolvedVariant]
             .filter(Boolean)
             .join(" ");
-          const searchRes = await vehiclesApi.searchMasterRecords(searchSeed, 12);
+          const searchRes = await vehiclesApi.searchMasterRecords(
+            searchSeed,
+            12,
+          );
           const rows = Array.isArray(searchRes?.data) ? searchRes.data : [];
           const targetMake = normalizeVehicleToken(resolvedMake);
           const targetMakeAlias = normalizeVehicleMakeToken(resolvedMake);
@@ -1892,13 +1950,19 @@ const NewInsuranceCaseForm = ({
                 row?.make || row?.vehicleMake,
               );
               const md = normalizeVehicleToken(row?.model || row?.vehicleModel);
-              const vr = normalizeVehicleToken(row?.variant || row?.vehicleVariant);
+              const vr = normalizeVehicleToken(
+                row?.variant || row?.vehicleVariant,
+              );
               return (
-                (mk.includes(targetMakeAlias) || targetMakeAlias.includes(mk) || mk.includes(targetMake)) &&
+                (mk.includes(targetMakeAlias) ||
+                  targetMakeAlias.includes(mk) ||
+                  mk.includes(targetMake)) &&
                 md.includes(targetModel) &&
                 (vr.includes(targetVariant) || targetVariant.includes(vr))
               );
-            }) || rows[0] || null;
+            }) ||
+            rows[0] ||
+            null;
 
           if (fallbackRow) {
             if (!fuelCandidate) {
@@ -1944,8 +2008,7 @@ const NewInsuranceCaseForm = ({
       setFormData((prev) => ({
         ...prev,
         fuelType:
-          fuelCandidate ||
-          (preserveExistingOnMiss ? prev.fuelType || "" : ""),
+          fuelCandidate || (preserveExistingOnMiss ? prev.fuelType || "" : ""),
         cubicCapacity:
           finalCubic ||
           (preserveExistingOnMiss ? prev.cubicCapacity || "" : ""),
@@ -1976,7 +2039,11 @@ const NewInsuranceCaseForm = ({
   );
 
   useEffect(() => {
-    if (!formData.vehicleMake || !formData.vehicleModel || !formData.vehicleVariant) {
+    if (
+      !formData.vehicleMake ||
+      !formData.vehicleModel ||
+      !formData.vehicleVariant
+    ) {
       return;
     }
     refreshVehicleDerivedFields({
@@ -2024,7 +2091,12 @@ const NewInsuranceCaseForm = ({
 
     const registrationNumber = String(formData.registrationNumber || "").trim();
 
-    if (!registrationNumber && (!make || !model || !variant) && !engineNumber && !chassisNumber) {
+    if (
+      !registrationNumber &&
+      (!make || !model || !variant) &&
+      !engineNumber &&
+      !chassisNumber
+    ) {
       setVehiclePotentialMatch(null);
       setVehiclePotentialMatches([]);
       setVehicleMatchLoading(false);
@@ -2210,7 +2282,9 @@ const NewInsuranceCaseForm = ({
         initialValues?.dealerAddress ||
         initialFormState.dealerChannelAddress,
       payoutApplicable:
-        initialValues?.payoutApplicable || initialFormState.payoutApplicable || "No",
+        initialValues?.payoutApplicable ||
+        initialFormState.payoutApplicable ||
+        "No",
       payoutPercent:
         initialValues?.payoutPercent ??
         initialValues?.payoutPercentage ??
@@ -2295,7 +2369,10 @@ const NewInsuranceCaseForm = ({
       setPaymentHistory(initialValues.payment_history);
     else setPaymentHistory([]);
 
-    if (initialValues?.acceptedQuoteId === undefined && !normalizedQuotes.length) {
+    if (
+      initialValues?.acceptedQuoteId === undefined &&
+      !normalizedQuotes.length
+    ) {
       setAcceptedQuoteId(null);
     }
     if (initialValues?.currentStep)
@@ -2364,7 +2441,10 @@ const NewInsuranceCaseForm = ({
   }, [formData.pincode]);
 
   useEffect(() => {
-    if (!isNewCar && String(formData.registrationAllotted || "").trim() !== "Yes") {
+    if (
+      !isNewCar &&
+      String(formData.registrationAllotted || "").trim() !== "Yes"
+    ) {
       setFormData((prev) => ({ ...prev, registrationAllotted: "Yes" }));
     }
   }, [formData.registrationAllotted, isNewCar]);
@@ -2383,11 +2463,7 @@ const NewInsuranceCaseForm = ({
       if (stepNumber === 5) return true; // Premium Breakup removed from flow
       return false;
     },
-    [
-      isExtendedWarranty,
-      isNewCar,
-      shouldSkipPreviousPolicyForUsedCar,
-    ],
+    [isExtendedWarranty, isNewCar, shouldSkipPreviousPolicyForUsedCar],
   );
   const step1Errors = useMemo(() => validateStep1(formData), [formData]);
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
@@ -2405,8 +2481,10 @@ const NewInsuranceCaseForm = ({
     documents.length > 0 && docsTaggedCount === documents.length;
   const finalSubmitErrors = useMemo(() => {
     const errors = [];
-    if (Object.keys(step1Errors).length) errors.push("Case details are incomplete.");
-    if (Object.keys(step2Errors).length) errors.push("Vehicle details are incomplete.");
+    if (Object.keys(step1Errors).length)
+      errors.push("Case details are incomplete.");
+    if (Object.keys(step2Errors).length)
+      errors.push("Vehicle details are incomplete.");
     if (!shouldSkipStep(3) && Object.keys(step3Errors).length)
       errors.push("Previous policy details are incomplete.");
     if (!shouldSkipStep(4) && quotes.length === 0)
@@ -2537,7 +2615,9 @@ const NewInsuranceCaseForm = ({
         coverageType: prev.coverageType || "Comprehensive",
         isNewCar,
       });
-      const resolvedDuration = durationOptionsForCurrent.includes(currentDuration)
+      const resolvedDuration = durationOptionsForCurrent.includes(
+        currentDuration,
+      )
         ? currentDuration
         : nextDuration;
       const nextNcb = Number(step4SuggestedNcb || 0);
@@ -2607,14 +2687,8 @@ const NewInsuranceCaseForm = ({
 
   const buildPersistPayload = useCallback(
     (patch = {}) => {
-      const {
-        _id,
-        __v,
-        id,
-        createdAt,
-        updatedAt,
-        ...safeFormData
-      } = formData || {};
+      const { _id, __v, id, createdAt, updatedAt, ...safeFormData } =
+        formData || {};
       const safePatch = { ...(patch || {}) };
       delete safePatch._id;
       delete safePatch.__v;
@@ -2622,12 +2696,12 @@ const NewInsuranceCaseForm = ({
       delete safePatch.createdAt;
       delete safePatch.updatedAt;
 
-      const normalizedSource = String(
-        safeFormData.source || safeFormData.sourceOrigin || "Direct",
-      ).trim() || "Direct";
-      const normalizedPaymentHistory = normalizePaymentHistoryForPersist(
-        paymentHistory,
-      );
+      const normalizedSource =
+        String(
+          safeFormData.source || safeFormData.sourceOrigin || "Direct",
+        ).trim() || "Direct";
+      const normalizedPaymentHistory =
+        normalizePaymentHistoryForPersist(paymentHistory);
       const customerPaymentExpected = Number(
         safeFormData.customerPaymentExpected || 0,
       );
@@ -2642,16 +2716,33 @@ const NewInsuranceCaseForm = ({
       );
 
       // Naming Logic
-      const customerName = (safeFormData.customerName || safeFormData.companyName || "New Customer").trim();
-      const vehicleIdent = (safeFormData.registrationNumber || 
-        `${safeFormData.vehicleMake || ""} ${safeFormData.vehicleModel || ""} ${safeFormData.vehicleVariant || ""}`.trim()) || 
+      const customerName = (
+        safeFormData.customerName ||
+        safeFormData.companyName ||
+        "New Customer"
+      ).trim();
+      const vehicleIdent =
+        safeFormData.registrationNumber ||
+        `${safeFormData.vehicleMake || ""} ${safeFormData.vehicleModel || ""} ${safeFormData.vehicleVariant || ""}`.trim() ||
         "Unknown Vehicle";
-      
-      const startYear = safeFormData.newPolicyStartDate ? dayjs(safeFormData.newPolicyStartDate).year() : (safeFormData.previousPolicyStartDate ? dayjs(safeFormData.previousPolicyStartDate).year() : "");
-      const endYear = safeFormData.newOdExpiryDate ? dayjs(safeFormData.newOdExpiryDate).year() : "";
-      const yearRange = (startYear && endYear) ? `${startYear} - ${endYear}` : (startYear ? `${startYear}` : "");
-      
-      const policyName = `${customerName} ${vehicleIdent} ${yearRange ? `* ${yearRange}` : ""}`.trim();
+
+      const startYear = safeFormData.newPolicyStartDate
+        ? dayjs(safeFormData.newPolicyStartDate).year()
+        : safeFormData.previousPolicyStartDate
+          ? dayjs(safeFormData.previousPolicyStartDate).year()
+          : "";
+      const endYear = safeFormData.newOdExpiryDate
+        ? dayjs(safeFormData.newOdExpiryDate).year()
+        : "";
+      const yearRange =
+        startYear && endYear
+          ? `${startYear} - ${endYear}`
+          : startYear
+            ? `${startYear}`
+            : "";
+
+      const policyName =
+        `${customerName} ${vehicleIdent} ${yearRange ? `* ${yearRange}` : ""}`.trim();
       const payoutPercentValue = Number(
         safeFormData.payoutPercent ?? safeFormData.payoutPercentage ?? 0,
       );
@@ -2670,12 +2761,15 @@ const NewInsuranceCaseForm = ({
         customerPaymentReceived,
         inhousePaymentExpected,
         inhousePaymentReceived,
-        assignedTo:
-          String(safeFormData.assignedTo || safeFormData.employeeUserId || "").trim(),
+        assignedTo: String(
+          safeFormData.assignedTo || safeFormData.employeeUserId || "",
+        ).trim(),
         status: safePatch.status || "draft",
         currentStep: step,
         policyName,
-        payoutPercent: Number.isFinite(payoutPercentValue) ? payoutPercentValue : 0,
+        payoutPercent: Number.isFinite(payoutPercentValue)
+          ? payoutPercentValue
+          : 0,
         ...safePatch,
       };
     },
@@ -2684,61 +2778,55 @@ const NewInsuranceCaseForm = ({
 
   const persistNow = useCallback(
     async ({ silent = true, patch = {} } = {}) => {
-      if (persistInFlightRef.current) {
-        persistQueuedRef.current = true;
-        return;
-      }
+      const run = async () => {
+        setSaving(true);
+        setSaveError("");
 
-      persistInFlightRef.current = true;
-      persistQueuedRef.current = false;
-      setSaving(true);
-      setSaveError("");
-
-      try {
-        const payload = buildPersistPayload(patch);
-        if (!insuranceDbId) {
-          const hasName = Boolean(
-            String(payload?.customerName || payload?.companyName || "").trim(),
-          );
-          const mobile = String(payload?.mobile || "").trim();
-          if (!hasName || !/^\d{10}$/.test(mobile)) {
-            const errorText =
-              "Customer/company name and valid 10-digit mobile are required to create insurance case.";
-            setSaveError(errorText);
-            if (!silent) message.error(errorText);
-            return null;
+        try {
+          const payload = buildPersistPayload(patch);
+          if (!insuranceDbId) {
+            const hasName = Boolean(
+              String(
+                payload?.customerName || payload?.companyName || "",
+              ).trim(),
+            );
+            const mobile = String(payload?.mobile || "").trim();
+            if (!hasName || !/^\d{10}$/.test(mobile)) {
+              const errorText =
+                "Customer/company name and valid 10-digit mobile are required to create insurance case.";
+              setSaveError(errorText);
+              if (!silent) message.error(errorText);
+              return null;
+            }
           }
-        }
-        if (!insuranceDbId) {
-          const res = await insuranceApi.create(payload);
-          const created = res?.data || res;
-          const id = created?._id || created?.id || created?.data?._id;
-          if (id) setInsuranceDbId(id);
-          setLastSavedAt(new Date().toISOString());
-          if (!silent) message.success("Draft saved ✓");
-          return created;
-        } else {
+          if (!insuranceDbId) {
+            const res = await insuranceApi.create(payload);
+            const created = res?.data || res;
+            const id = created?._id || created?.id || created?.data?._id;
+            if (id) setInsuranceDbId(id);
+            setLastSavedAt(new Date().toISOString());
+            if (!silent) message.success("Draft saved ✓");
+            return created;
+          }
           const res = await insuranceApi.update(insuranceDbId, payload);
           setLastSavedAt(new Date().toISOString());
           if (!silent) message.success("Draft saved ✓");
           return res?.data || res;
+        } catch (err) {
+          console.error("[Insurance] Persist failed:", err);
+          setSaveError(err?.message || "Save failed");
+          if (!silent) {
+            message.error(err?.message || "Failed to autosave insurance case");
+          }
+          return null;
+        } finally {
+          setSaving(false);
         }
-      } catch (err) {
-        console.error("[Insurance] Persist failed:", err);
-        setSaveError(err?.message || "Save failed");
-        if (!silent) {
-          message.error(err?.message || "Failed to autosave insurance case");
-        }
-        return null;
-      } finally {
-        persistInFlightRef.current = false;
-        setSaving(false);
-        if (persistQueuedRef.current) {
-          // One extra flush to capture latest changes.
-          persistQueuedRef.current = false;
-          persistNow({ silent: true });
-        }
-      }
+      };
+
+      const next = persistChainRef.current.then(run);
+      persistChainRef.current = next.catch(() => {});
+      return next;
     },
     [buildPersistPayload, insuranceDbId],
   );
@@ -2763,7 +2851,8 @@ const NewInsuranceCaseForm = ({
       let caseId = insuranceDbId;
       if (!caseId) {
         const created = await persistNow({ silent: true });
-        caseId = created?._id || created?.id || created?.data?._id || insuranceDbId;
+        caseId =
+          created?._id || created?.id || created?.data?._id || insuranceDbId;
       }
 
       if (!caseId) {
@@ -2777,8 +2866,10 @@ const NewInsuranceCaseForm = ({
         });
         const responseData = res?.data || res || {};
         const maybeHistory =
-          (Array.isArray(responseData?.paymentHistory) && responseData.paymentHistory) ||
-          (Array.isArray(responseData?.payment_history) && responseData.payment_history) ||
+          (Array.isArray(responseData?.paymentHistory) &&
+            responseData.paymentHistory) ||
+          (Array.isArray(responseData?.payment_history) &&
+            responseData.payment_history) ||
           (Array.isArray(responseData?.data?.paymentHistory) &&
             responseData.data.paymentHistory) ||
           (Array.isArray(responseData?.data?.payment_history) &&
@@ -2802,12 +2893,17 @@ const NewInsuranceCaseForm = ({
                 row?.idempotencyKey || row?._id || row?.id || "",
               ).trim();
               const incomingKey = String(
-                maybeEntry?.idempotencyKey || maybeEntry?._id || maybeEntry?.id || "",
+                maybeEntry?.idempotencyKey ||
+                  maybeEntry?._id ||
+                  maybeEntry?.id ||
+                  "",
               ).trim();
               return rowKey && incomingKey && rowKey === incomingKey;
             });
             if (matchIndex === -1) return [...rows, maybeEntry];
-            return rows.map((row, idx) => (idx === matchIndex ? maybeEntry : row));
+            return rows.map((row, idx) =>
+              idx === matchIndex ? maybeEntry : row,
+            );
           });
         }
 
@@ -2938,7 +3034,8 @@ const NewInsuranceCaseForm = ({
   const handleClearForm = () => {
     Modal.confirm({
       title: "Clear Form",
-      content: "Are you sure you want to clear all fields? This action cannot be undone.",
+      content:
+        "Are you sure you want to clear all fields? This action cannot be undone.",
       okText: "Clear",
       okType: "danger",
       cancelText: "Cancel",
@@ -2955,7 +3052,8 @@ const NewInsuranceCaseForm = ({
   const handleDiscard = () => {
     Modal.confirm({
       title: "Discard Changes",
-      content: "Are you sure you want to discard all changes and exit without saving?",
+      content:
+        "Are you sure you want to discard all changes and exit without saving?",
       okText: "Discard & Exit",
       okType: "danger",
       cancelText: "Cancel",
@@ -3006,7 +3104,10 @@ const NewInsuranceCaseForm = ({
         }
       }
 
-      if (event.altKey && (event.key === "ArrowRight" || event.key.toLowerCase() === "n")) {
+      if (
+        event.altKey &&
+        (event.key === "ArrowRight" || event.key.toLowerCase() === "n")
+      ) {
         event.preventDefault();
         keyboardActionsRef.current.goNext?.();
       }
@@ -3023,9 +3124,15 @@ const NewInsuranceCaseForm = ({
       navigate(`/insurance/new?fresh=${Date.now()}`);
     };
 
-    window.addEventListener("SAVE_AND_NEW_INSURANCE", handleSaveAndNewInsurance);
+    window.addEventListener(
+      "SAVE_AND_NEW_INSURANCE",
+      handleSaveAndNewInsurance,
+    );
     return () => {
-      window.removeEventListener("SAVE_AND_NEW_INSURANCE", handleSaveAndNewInsurance);
+      window.removeEventListener(
+        "SAVE_AND_NEW_INSURANCE",
+        handleSaveAndNewInsurance,
+      );
     };
   }, [navigate, persistNow]);
 
@@ -3090,7 +3197,9 @@ const NewInsuranceCaseForm = ({
       gstAmount: quoteComputed.gstAmount,
       totalPremium: quoteComputed.totalPremium,
       payoutPercentage: Number(quoteDraft.payoutPercentage || 0),
-      payoutBaseAmount: Number(quoteComputed.odAmt || 0) + Number(quoteComputed.addOnsTotal || 0),
+      payoutBaseAmount:
+        Number(quoteComputed.odAmt || 0) +
+        Number(quoteComputed.addOnsTotal || 0),
     };
 
     const nextSignature = buildQuoteSignature(normalizedQuotePayload);
@@ -3136,7 +3245,8 @@ const NewInsuranceCaseForm = ({
     const q = quotes.find((x) => String(getQuoteRowId(x)) === String(id));
     if (!q) return;
 
-    const policyStartDate = formData.newPolicyStartDate || new Date().toISOString().slice(0, 10);
+    const policyStartDate =
+      formData.newPolicyStartDate || new Date().toISOString().slice(0, 10);
     let selectedPayoutPercentage = DEFAULT_PAYOUT_PERCENTAGE;
     try {
       const payoutRateRes = await insuranceApi.getPayoutRate({
@@ -3178,7 +3288,11 @@ const NewInsuranceCaseForm = ({
 
           // TATA AIG RSA Exclusion: Exclude Rs 116 from payout base as per requirements
           let adjustedAddOnsAmount = addOnsAmount;
-          if (String(q.insuranceCompany || "").toUpperCase().includes("TATA AIG")) {
+          if (
+            String(q.insuranceCompany || "")
+              .toUpperCase()
+              .includes("TATA AIG")
+          ) {
             adjustedAddOnsAmount = Math.max(0, addOnsAmount - 116);
           }
 
@@ -3199,7 +3313,9 @@ const NewInsuranceCaseForm = ({
               .trim()
               .toLowerCase()
               .replace(/\s+/g, " ");
-          const previousInsurer = normalizeInsurer(prev.previousInsuranceCompany);
+          const previousInsurer = normalizeInsurer(
+            prev.previousInsuranceCompany,
+          );
           const acceptedInsurer = normalizeInsurer(q.insuranceCompany);
           let policyJourneyClassification = String(
             prev.policyJourneyClassification || "",
@@ -3383,13 +3499,15 @@ const NewInsuranceCaseForm = ({
     if (step === 2 && Object.keys(step2Errors).length) {
       return {
         key: "insurance-step-validation",
-        content: "Fix the required vehicle information fields before moving ahead.",
+        content:
+          "Fix the required vehicle information fields before moving ahead.",
       };
     }
     if (step === 3 && Object.keys(step3Errors).length) {
       return {
         key: "insurance-step-validation",
-        content: "Review previous policy details before moving ahead. Claim last year is mandatory for this flow.",
+        content:
+          "Review previous policy details before moving ahead. Claim last year is mandatory for this flow.",
       };
     }
     if (step === 4 && !shouldSkipStep(4) && quotes.length === 0) {
@@ -3433,7 +3551,9 @@ const NewInsuranceCaseForm = ({
 
     const syncStickyHeaderHeight = () => {
       const nextHeight = Math.ceil(node.getBoundingClientRect().height || 0);
-      setStickyHeaderHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+      setStickyHeaderHeight((prev) =>
+        prev === nextHeight ? prev : nextHeight,
+      );
     };
 
     syncStickyHeaderHeight();
@@ -3980,7 +4100,6 @@ const NewInsuranceCaseForm = ({
           </Row>
         </Space>
       </Modal>
-
     </div>
   );
 };
