@@ -303,13 +303,27 @@ function DesktopRightRail({ data, onAction, savedIds, onToggleSaved }) {
                 <em>{car.price}</em>
               </span>
 
-              <AciSavedButton
-                vehicle={car}
-                saved={savedIds.has(car.id)}
-                onToggleSaved={onToggleSaved}
-                className="saved-heart-button"
-                size={18}
-              />
+              <span
+                role="button"
+                tabIndex={0}
+                className={`saved-heart-button ${savedIds.has(car.id) ? "is-saved" : ""}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onToggleSaved?.(car);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onToggleSaved?.(car);
+                  }
+                }}
+                aria-label={savedIds.has(car.id) ? `Remove ${car.name}` : `Save ${car.name}`}
+                aria-pressed={savedIds.has(car.id)}
+              >
+                <Heart size={18} fill={savedIds.has(car.id) ? "currentColor" : "none"} />
+              </span>
             </button>
           ))}
         </div>

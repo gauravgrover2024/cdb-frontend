@@ -4,7 +4,6 @@ import {
 ArrowLeft,
 Banknote,
 Bell,
-Calculator,
 Car,
 Check,
 ChevronDown,
@@ -16,7 +15,6 @@ Mic,
 SendHorizontal,
 ShieldCheck,
 Sparkles,
-WalletCards,
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
@@ -109,18 +107,6 @@ compactText(value || "")
 const asArray = (value) => {
 if (!value) return [];
 return Array.isArray(value) ? value : [value];
-};
-
-const valueFrom = (source, keys, fallback = "") => {
-if (!source || typeof source !== "object") return fallback;
-
-for (const key of keys) {
-if (source[key] !== undefined && source[key] !== null && source[key] !== "") {
-return source[key];
-}
-}
-
-return fallback;
 };
 
 const parseMoney = (value) => {
@@ -465,7 +451,11 @@ recommended: index === 3,
 
 const normalizeRows = ({ vehicle, widget, message }) => {
 const rawRows = getRawRows({ vehicle, widget, message });
-const sourceRows = rawRows.length ? rawRows : generateFallbackRows(vehicle, widget);
+const sourceRows = rawRows.length
+? rawRows
+: widget?.__fromBackend
+? []
+: generateFallbackRows(vehicle, widget);
 
 return sourceRows.map((row, index) => {
 const parts = pricePartsFromRow(row);
@@ -1510,7 +1500,11 @@ widget,
 message,
 onAction,
 }) {
-const activeVehicle = vehicle || data?.selectedVehicle || {};
+const activeVehicle = useMemo(
+() => vehicle || data?.selectedVehicle || {},
+[vehicle, data?.selectedVehicle],
+);
+const backendLiveMode = Boolean(widget?.__fromBackend);
 const rows = useMemo(
 () =>
 normalizeRows({
@@ -1559,6 +1553,84 @@ const image = useMemo(
 useEffect(() => {
 setImageFailed(false);
 }, [image]);
+
+if (backendLiveMode && !rows.length) {
+return (
+<div className="aci-price-root">
+<style>{`
+.aci-price-root {
+min-height: 100vh;
+display: grid;
+place-items: center;
+padding: 28px;
+font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+color: #0f172a;
+}
+
+.aci-live-empty {
+width: min(560px, 100%);
+border: 1px solid #dbe3ef;
+border-radius: 28px;
+background: rgba(255,255,255,.96);
+box-shadow: 0 24px 74px -56px rgba(15,23,42,.52);
+padding: 28px;
+text-align: center;
+}
+
+.aci-live-empty h2 {
+margin: 0;
+font-family: Georgia, "Times New Roman", serif;
+font-size: 34px;
+line-height: 1;
+letter-spacing: -.05em;
+}
+
+.aci-live-empty p {
+margin: 14px 0 22px;
+color: #64748b;
+line-height: 1.5;
+}
+
+.aci-live-empty button {
+height: 44px;
+border: 0;
+border-radius: 999px;
+padding: 0 18px;
+background: linear-gradient(135deg, #2563eb, #1455ef);
+color: white;
+font-weight: 750;
+cursor: pointer;
+}
+`}</style>
+
+<section className="aci-live-empty">
+<h2>No live price rows found</h2>
+<p>
+Backend was reached, but it did not return variant price rows for{" "}
+{getVehicleTitle(activeVehicle)} in {humanize(city)}.
+</p>
+<button
+type="button"
+onClick={() =>
+firePriceAction(
+`Back to ${getVehicleTitle(activeVehicle)}`,
+{
+vehicle: activeVehicle,
+type: "back_to_car",
+intent: ACI_INTENTS.OPEN_VEHICLE,
+canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+},
+onAction,
+)
+}
+>
+Back to car page
+</button>
+</section>
+</div>
+);
+}
 
 const priceValues = rows
 .map((row) => pricePartsFromRow(row).exShowroom || pricePartsFromRow(row).onRoad)

@@ -1,4 +1,7 @@
+import API_BASE_URL from "../../../config/apiBaseUrl";
+
 const DEFAULT_CHAT_ENDPOINT = "/api/ai-agent/chat";
+const DEFAULT_PUBLIC_CHAT_ENDPOINT = "/api/ai-agent/public-chat";
 
 const cleanJoin = (base = "", path = "") => {
   if (!base) return path;
@@ -8,19 +11,77 @@ const cleanJoin = (base = "", path = "") => {
 
 const getAuthToken = () => {
   try {
-    return (
+    const directKeys = [
+      "token",
+      "authToken",
+      "accessToken",
+      "userInfo.token",
+      "user.token",
+      "authUser.token",
+      "currentUser.token",
+    ];
+
+    for (const key of directKeys) {
+      const sessionValue = sessionStorage.getItem(key);
+      if (sessionValue) return sessionValue;
+
+      const localValue = localStorage.getItem(key);
+      if (localValue) return localValue;
+    }
+
+    const direct =
       sessionStorage.getItem("token") ||
       sessionStorage.getItem("authToken") ||
+      sessionStorage.getItem("accessToken") ||
       localStorage.getItem("token") ||
       localStorage.getItem("authToken") ||
-      ""
-    );
+      localStorage.getItem("accessToken") ||
+      "";
+
+    if (direct) return direct;
+
+    const stores = [sessionStorage, localStorage];
+    const keys = [
+      "userInfo",
+      "user",
+      "authUser",
+      "currentUser",
+      "profile",
+      "cdbUser",
+    ];
+
+    for (const store of stores) {
+      for (const key of keys) {
+        const raw = store.getItem(key);
+        if (!raw) continue;
+
+        try {
+          const parsed = JSON.parse(raw);
+          const token =
+            parsed?.token ||
+            parsed?.authToken ||
+            parsed?.accessToken ||
+            parsed?.auth?.token ||
+            parsed?.jwt ||
+            parsed?.data?.token ||
+            parsed?.user?.token ||
+            "";
+
+          if (token) return token;
+        } catch {
+          // ignore malformed storage values
+        }
+      }
+    }
+
+    return "";
   } catch {
     return "";
   }
 };
 
-const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
+const isObject = (value) =>
+  value && typeof value === "object" && !Array.isArray(value);
 
 const firstObject = (...values) => {
   for (const value of values) {
@@ -39,7 +100,9 @@ const looksLikePriceRow = (item) => {
 
   const keys = Object.keys(item).map(normalizeKey);
   const hasVariant = keys.some((key) =>
-    ["variant", "variantname", "trim", "version", "name", "title"].includes(key),
+    ["variant", "variantname", "trim", "version", "name", "title"].includes(
+      key,
+    ),
   );
 
   const hasPrice = keys.some((key) =>
@@ -64,11 +127,25 @@ const looksLikeColorRow = (item) => {
 
   const keys = Object.keys(item).map(normalizeKey);
   const hasName = keys.some((key) =>
-    ["color", "colorname", "name", "label", "desktopname", "mobilename"].includes(key),
+    [
+      "color",
+      "colorname",
+      "name",
+      "label",
+      "desktopname",
+      "mobilename",
+    ].includes(key),
   );
 
   const hasColorValue = keys.some((key) =>
-    ["hex", "hexcode", "colorhex", "imageurl", "carimageurl", "swatchimage"].includes(key),
+    [
+      "hex",
+      "hexcode",
+      "colorhex",
+      "imageurl",
+      "carimageurl",
+      "swatchimage",
+    ].includes(key),
   );
 
   return hasName && hasColorValue;
@@ -78,9 +155,19 @@ const looksLikeVehicle = (item) => {
   if (!isObject(item)) return false;
 
   const keys = Object.keys(item).map(normalizeKey);
-  const hasModel = keys.includes("model") || keys.includes("displayname") || keys.includes("name");
+  const hasModel =
+    keys.includes("model") ||
+    keys.includes("displayname") ||
+    keys.includes("name");
   const hasVehicleSignal = keys.some((key) =>
-    ["make", "brand", "variant", "city", "imageurl", "priceRange".toLowerCase()].includes(key),
+    [
+      "make",
+      "brand",
+      "variant",
+      "city",
+      "imageurl",
+      "priceRange".toLowerCase(),
+    ].includes(key),
   );
 
   return hasModel && hasVehicleSignal;
@@ -343,12 +430,16 @@ export const normalizeAciBackendResponse = (raw) => {
 };
 
 export async function askAciAssistV2({ message, context = {}, signal } = {}) {
-  const apiBase = process.env.REACT_APP_API_BASE_URL || "";
-  const endpoint =
+  const token = getAuthToken();
+  const apiBase = process.env.REACT_APP_API_BASE_URL || API_BASE_URL || "";
+  const privateEndpoint =
     process.env.REACT_APP_ACI_ASSIST_CHAT_ENDPOINT || DEFAULT_CHAT_ENDPOINT;
+  const publicEndpoint =
+    process.env.REACT_APP_ACI_ASSIST_PUBLIC_CHAT_ENDPOINT ||
+    DEFAULT_PUBLIC_CHAT_ENDPOINT;
+  const endpoint = token ? privateEndpoint : publicEndpoint;
 
   const url = cleanJoin(apiBase, endpoint);
-  const token = getAuthToken();
 
   const response = await fetch(url, {
     method: "POST",
@@ -376,7 +467,9 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
     const error = new Error(
       typeof body === "string"
         ? body
-        : body?.message || body?.error || `ACI backend failed with ${response.status}`,
+        : body?.message ||
+            body?.error ||
+            `ACI backend failed with ${response.status}`,
     );
     error.status = response.status;
     error.body = body;
@@ -384,6 +477,8 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
   }
 
   const normalized = normalizeAciBackendResponse(body);
-  console.log("ACI Assist V2 normalized backend:", normalized);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("ACI Assist V2 normalized backend:", normalized);
+  }
   return normalized;
 }
