@@ -20,18 +20,143 @@ const getAuthToken = () => {
   }
 };
 
-const firstArray = (...values) => {
+const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
+
+const firstObject = (...values) => {
+  for (const value of values) {
+    if (isObject(value)) return value;
+  }
+  return null;
+};
+
+const normalizeKey = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+const looksLikePriceRow = (item) => {
+  if (!isObject(item)) return false;
+
+  const keys = Object.keys(item).map(normalizeKey);
+  const hasVariant = keys.some((key) =>
+    ["variant", "variantname", "trim", "version", "name", "title"].includes(key),
+  );
+
+  const hasPrice = keys.some((key) =>
+    [
+      "exshowroomprice",
+      "exshowroom",
+      "exshowroompriceinr",
+      "onroadprice",
+      "onroad",
+      "price",
+      "rto",
+      "insurance",
+      "roadtax",
+    ].includes(key),
+  );
+
+  return hasVariant && hasPrice;
+};
+
+const looksLikeColorRow = (item) => {
+  if (!isObject(item)) return false;
+
+  const keys = Object.keys(item).map(normalizeKey);
+  const hasName = keys.some((key) =>
+    ["color", "colorname", "name", "label", "desktopname", "mobilename"].includes(key),
+  );
+
+  const hasColorValue = keys.some((key) =>
+    ["hex", "hexcode", "colorhex", "imageurl", "carimageurl", "swatchimage"].includes(key),
+  );
+
+  return hasName && hasColorValue;
+};
+
+const looksLikeVehicle = (item) => {
+  if (!isObject(item)) return false;
+
+  const keys = Object.keys(item).map(normalizeKey);
+  const hasModel = keys.includes("model") || keys.includes("displayname") || keys.includes("name");
+  const hasVehicleSignal = keys.some((key) =>
+    ["make", "brand", "variant", "city", "imageurl", "priceRange".toLowerCase()].includes(key),
+  );
+
+  return hasModel && hasVehicleSignal;
+};
+
+const collectDeep = (root, predicate, limit = 500) => {
+  const found = [];
+  const seen = new WeakSet();
+
+  const walk = (value, depth = 0) => {
+    if (!value || depth > 8 || found.length >= limit) return;
+
+    if (Array.isArray(value)) {
+      if (value.length && value.every((item) => predicate(item))) {
+        found.push(value);
+        return;
+      }
+
+      for (const item of value) walk(item, depth + 1);
+      return;
+    }
+
+    if (!isObject(value)) return;
+    if (seen.has(value)) return;
+    seen.add(value);
+
+    for (const child of Object.values(value)) {
+      walk(child, depth + 1);
+    }
+  };
+
+  walk(root);
+  return found;
+};
+
+const firstMatchingArray = (root, predicate) => {
+  const arrays = collectDeep(root, predicate);
+  return arrays.sort((a, b) => b.length - a.length)[0] || [];
+};
+
+const firstMatchingObject = (root, predicate) => {
+  const seen = new WeakSet();
+
+  const walk = (value, depth = 0) => {
+    if (!value || depth > 8) return null;
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = walk(item, depth + 1);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    if (!isObject(value)) return null;
+    if (seen.has(value)) return null;
+    seen.add(value);
+
+    if (predicate(value)) return value;
+
+    for (const child of Object.values(value)) {
+      const found = walk(child, depth + 1);
+      if (found) return found;
+    }
+
+    return null;
+  };
+
+  return walk(root);
+};
+
+const firstArrayFromKnownPaths = (...values) => {
   for (const value of values) {
     if (Array.isArray(value) && value.length) return value;
   }
   return [];
-};
-
-const firstObject = (...values) => {
-  for (const value of values) {
-    if (value && typeof value === "object" && !Array.isArray(value)) return value;
-  }
-  return null;
 };
 
 export const normalizeAciBackendResponse = (raw) => {
@@ -59,9 +184,11 @@ export const normalizeAciBackendResponse = (raw) => {
     root.ui ||
     root.payload?.canvas ||
     root.payload?.widget ||
+    container.canvas ||
+    container.widget ||
     {};
 
-  const widget =
+  const knownWidget =
     root.widget ||
     root.canvasWidget ||
     root.payload?.widget ||
@@ -69,20 +196,11 @@ export const normalizeAciBackendResponse = (raw) => {
     canvas.data ||
     canvas.payload ||
     root.data ||
+    container.widget ||
+    container.data ||
     {};
 
-  const vehicle =
-    firstObject(
-      root.vehicle,
-      root.selectedVehicle,
-      root.context?.selectedVehicle,
-      root.payload?.vehicle,
-      canvas.vehicle,
-      widget.vehicle,
-      widget.selectedVehicle,
-    ) || null;
-
-  const rows = firstArray(
+  const knownRows = firstArrayFromKnownPaths(
     root.rows,
     root.items,
     root.variants,
@@ -92,24 +210,64 @@ export const normalizeAciBackendResponse = (raw) => {
     root.widget?.rows,
     root.widget?.items,
     root.widget?.variants,
-    widget.rows,
-    widget.items,
-    widget.variants,
+    knownWidget.rows,
+    knownWidget.items,
+    knownWidget.variants,
     canvas.rows,
     canvas.items,
     canvas.variants,
+    container.rows,
+    container.items,
+    container.variants,
+    container.data?.rows,
+    container.data?.variants,
   );
 
-  const colors = firstArray(
+  const deepPriceRows = firstMatchingArray(container, looksLikePriceRow);
+  const rows = knownRows.length ? knownRows : deepPriceRows;
+
+  const knownColors = firstArrayFromKnownPaths(
     root.colors,
     root.exteriorColors,
     root.availableColors,
     root.data?.colors,
     root.widget?.colors,
-    widget.colors,
-    widget.exteriorColors,
+    knownWidget.colors,
+    knownWidget.exteriorColors,
+    knownWidget.availableColors,
     canvas.colors,
+    container.colors,
+    container.exteriorColors,
+    container.availableColors,
+    container.data?.colors,
   );
+
+  const deepColors = firstMatchingArray(container, looksLikeColorRow);
+  const colors = knownColors.length ? knownColors : deepColors;
+
+  const contextPatch =
+    root.contextPatch ||
+    root.context_patch ||
+    root.summary?.contextPatch ||
+    container.contextPatch ||
+    container.context_patch ||
+    {};
+
+  const vehicle =
+    firstObject(
+      root.vehicle,
+      root.selectedVehicle,
+      root.context?.selectedVehicle,
+      root.payload?.vehicle,
+      contextPatch.selectedVehicle,
+      canvas.vehicle,
+      knownWidget.vehicle,
+      knownWidget.selectedVehicle,
+      container.vehicle,
+      container.selectedVehicle,
+    ) ||
+    firstMatchingObject(container, looksLikeVehicle) ||
+    null;
 
   const canvasType =
     root.canvasType ||
@@ -119,7 +277,8 @@ export const normalizeAciBackendResponse = (raw) => {
     canvas.canvasType ||
     canvas.canvas_type ||
     canvas.type ||
-    widget.canvasType ||
+    knownWidget.canvasType ||
+    container.canvasType ||
     "";
 
   return {
@@ -130,30 +289,21 @@ export const normalizeAciBackendResponse = (raw) => {
       root.text ||
       root.message ||
       root.reply ||
-      raw?.answer ||
+      container.answer ||
       "",
     canvasType,
     vehicle,
-    widget: {
-      ...widget,
-      ...(rows.length ? { rows } : {}),
-      ...(colors.length ? { colors } : {}),
-    },
-    rows,
-    colors,
-    contextPatch:
-      root.contextPatch ||
-      root.context_patch ||
-      root.summary?.contextPatch ||
-      {},
+    contextPatch,
     actions:
       root.actions ||
       root.quickActions ||
       root.suggestedActions ||
+      container.actions ||
       [],
     leadingQuestions:
       root.leadingQuestions ||
       root.leading_questions ||
+      container.leadingQuestions ||
       [],
     suggestions:
       root.suggestions ||
@@ -161,6 +311,34 @@ export const normalizeAciBackendResponse = (raw) => {
       root.follow_up_suggestions ||
       root.leadingQuestions ||
       [],
+    widget: {
+      ...knownWidget,
+      __fromBackend: true,
+      __rawCanvasType: canvasType,
+      ...(rows.length ? { rows } : {}),
+      ...(colors.length ? { colors } : {}),
+      contextPatch,
+      actions:
+        root.actions ||
+        root.quickActions ||
+        root.suggestedActions ||
+        container.actions ||
+        [],
+      leadingQuestions:
+        root.leadingQuestions ||
+        root.leading_questions ||
+        container.leadingQuestions ||
+        [],
+      answer:
+        root.answer ||
+        root.text ||
+        root.message ||
+        root.reply ||
+        container.answer ||
+        "",
+    },
+    rows,
+    colors,
   };
 };
 
@@ -205,5 +383,7 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
     throw error;
   }
 
-  return normalizeAciBackendResponse(body);
+  const normalized = normalizeAciBackendResponse(body);
+  console.log("ACI Assist V2 normalized backend:", normalized);
+  return normalized;
 }
