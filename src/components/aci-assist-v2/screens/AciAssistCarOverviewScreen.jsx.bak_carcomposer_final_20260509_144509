@@ -1,0 +1,2143 @@
+import React, { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Bell,
+  Calculator,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Fuel,
+  Gauge,
+  Heart,
+  IndianRupee,
+  Palette,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Wallet,
+  Scale,
+} from "lucide-react";
+
+import {
+  ACI_CANVAS_TYPES,
+  ACI_HOME_IMAGES,
+  ACI_INTENTS,
+  buildVehicleQuickActions,
+  makeAciAction,
+} from "../data/homeScreenData";
+import {
+  AciAssistantOrb,
+  AciComposer,
+  AciLogo,
+  AciSavedButton,
+  AciVehiclePhoto,
+  AciVehicleVisual,
+  emitAciAction,
+  fadeUp,
+  stagger,
+} from "../shared/AciAssistShared";
+
+function ColorOrb({ hex, name, selected }) {
+  const isLight = useMemo(() => {
+    const clean = String(hex || "#ffffff").replace("#", "");
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 170;
+  }, [hex]);
+
+  return (
+    <div
+      className={`color-orb ${selected ? "selected" : ""} ${
+        isLight ? "light" : "dark"
+      }`}
+      style={{
+        background: `radial-gradient(circle at 32% 26%, rgba(255,255,255,.94), ${hex} 34%, ${hex} 62%, rgba(15,23,42,.38) 140%)`,
+      }}
+      title={name}
+    >
+      <span />
+      {selected ? (
+        <b>
+          <Check size={11} strokeWidth={3} />
+        </b>
+      ) : null}
+    </div>
+  );
+}
+
+function DesktopHeader({ data, onAction }) {
+  return (
+    <motion.header
+      className="desktop-header"
+      initial={{ opacity: 0, y: -14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45 }}
+    >
+      <div className="desktop-header-left">
+        <AciLogo compact onAction={onAction} />
+      </div>
+
+      <div className="desktop-header-center">
+        <label className="desktop-search">
+          <Search size={18} />
+          <input placeholder="Search cars, prices, features, EMI, compare..." />
+          <button
+            type="button"
+            onClick={() => emitAciAction({ label: "Command search" }, onAction)}
+          >
+            ⌘ K
+          </button>
+        </label>
+      </div>
+
+      <div className="desktop-header-right">
+        <button
+          type="button"
+          className="bell-button"
+          onClick={() => emitAciAction({ label: "Notifications" }, onAction)}
+          aria-label="Notifications"
+        >
+          <Bell size={22} />
+          <i />
+        </button>
+
+        <button
+          type="button"
+          className="avatar-button"
+          onClick={() => emitAciAction({ label: "Profile" }, onAction)}
+          aria-label="Profile"
+        >
+          <img src={data.avatarUrl} alt="Profile" />
+        </button>
+
+        <button
+          type="button"
+          className="plain-button"
+          onClick={() => emitAciAction({ label: "Profile menu" }, onAction)}
+          aria-label="Profile menu"
+        >
+          <ChevronDown size={16} />
+        </button>
+      </div>
+    </motion.header>
+  );
+}
+
+function DesktopHero({ vehicle, onAction, savedIds, onToggleSaved }) {
+  return (
+    <motion.section className="desktop-creta-hero" variants={fadeUp}>
+      <div className="hero-copy">
+        <div className="hero-badges">
+          <button
+            type="button"
+            className="soft-badge blue"
+            onClick={() =>
+              emitAciAction(
+                {
+                  label: "Selected car hub",
+                  query: vehicle.displayName,
+                  intent: ACI_INTENTS.OPEN_VEHICLE,
+                  canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+                  vehicle,
+                },
+                onAction,
+              )
+            }
+          >
+            <ShieldCheck size={14} />
+            Selected car hub
+          </button>
+
+          <button
+            type="button"
+            className="soft-badge gold"
+            onClick={() =>
+              emitAciAction(
+                {
+                  label: "ACI Assist remembers this car",
+                  query: vehicle.displayName,
+                  type: "context_info",
+                  vehicle,
+                },
+                onAction,
+              )
+            }
+          >
+            <Sparkles size={14} />
+            ACI Assist remembers this car
+          </button>
+
+          <AciSavedButton
+            vehicle={vehicle}
+            saved={savedIds.has(vehicle.id)}
+            onToggleSaved={onToggleSaved}
+            className="soft-badge save-badge"
+            size={15}
+          />
+        </div>
+
+        <h1>{vehicle.displayName}</h1>
+
+        <button
+          type="button"
+          className="hero-subtitle"
+          onClick={() =>
+            emitAciAction(
+              {
+                label: "Change city",
+                query: `Change city for ${vehicle.model}`,
+                type: "change_city",
+                vehicle,
+              },
+              onAction,
+            )
+          }
+        >
+          {vehicle.subtitle || `${vehicle.segment} · ${vehicle.city} prices`}
+          <ChevronDown size={16} />
+        </button>
+
+        <div className="hero-chips">
+          {(vehicle.chips || [
+            `${vehicle.variantCount || 0} variants`,
+            vehicle.fuelText,
+            vehicle.transmissionText,
+          ]).map((chip) => (
+            <button
+              type="button"
+              key={chip}
+              onClick={() =>
+                emitAciAction(
+                  {
+                    label: chip,
+                    query: `${vehicle.model} ${chip}`,
+                    vehicle,
+                    contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+                  },
+                  onAction,
+                )
+              }
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <motion.div
+        className="hero-car-stage"
+        initial={{ opacity: 0, x: 22 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.65 }}
+      >
+        <AciVehicleVisual
+          vehicle={vehicle}
+          height={238}
+          className="hero-creta-photo"
+        />
+      </motion.div>
+
+      <aside className="price-card">
+        <p>Starting on-road price</p>
+        <strong>{vehicle.startingOnRoadPrice || vehicle.priceRange}</strong>
+        {vehicle.exShowroomPrice ? (
+          <span>Ex-showroom: {vehicle.exShowroomPrice}</span>
+        ) : (
+          <span>{vehicle.city || "Delhi"} price range</span>
+        )}
+
+        <button
+          type="button"
+          onClick={() =>
+            emitAciAction(
+              {
+                label: "View all variants",
+                query: `${vehicle.model} pricelist`,
+                intent: ACI_INTENTS.PRICELIST,
+                canvasType: ACI_CANVAS_TYPES.PRICELIST,
+                vehicle,
+                contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+              },
+              onAction,
+            )
+          }
+        >
+          View all variants <ChevronRight size={17} />
+        </button>
+      </aside>
+    </motion.section>
+  );
+}
+
+function DesktopActionStrip({ vehicle, onAction }) {
+  const actions = buildVehicleQuickActions(vehicle);
+
+  return (
+    <motion.section className="desktop-action-strip" variants={fadeUp}>
+      <h2>What do you want to do?</h2>
+
+      <div>
+        {actions.map((item) => {
+          const iconMap = {
+            "Price list": IndianRupee,
+            "Calculate EMI": Calculator,
+            Compare: Scale,
+            Colors: Palette,
+            Features: Sparkles,
+            "Get quotation": FileText,
+          };
+          const Icon = iconMap[item.label] || Sparkles;
+
+          return (
+            <button
+              type="button"
+              key={item.id}
+              className={`action-pill ${item.tone || "blue"}`}
+              onClick={() => emitAciAction(item, onAction)}
+            >
+              <Icon size={16} />
+              <span>{item.label}</span>
+              <ChevronRight size={14} />
+            </button>
+          );
+        })}
+      </div>
+    </motion.section>
+  );
+}
+
+function PanelHead({ title, sub, action = "View all", hideAction = false, onAction }) {
+  return (
+    <div className="panel-head">
+      <div>
+        <h3>{title}</h3>
+        {sub ? <p>{sub}</p> : null}
+      </div>
+
+      {!hideAction ? (
+        <button type="button" onClick={() => emitAciAction({ label: action }, onAction)}>
+          {action} <ChevronRight size={14} />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function AssistantPanel({ vehicle, onAction }) {
+  const suggestions = [
+    makeAciAction({
+      label: "Best automatic variants",
+      query: `Best automatic variants of ${vehicle.model}`,
+      intent: ACI_INTENTS.RECOMMENDATIONS,
+      canvasType: ACI_CANVAS_TYPES.RECOMMENDATIONS,
+      vehicle,
+    }),
+    makeAciAction({
+      label: `Compare with ${vehicle.compareWith?.model || "Seltos"}`,
+      query: `Compare ${vehicle.model} with ${vehicle.compareWith?.model || "Seltos"}`,
+      intent: ACI_INTENTS.COMPARISON,
+      canvasType: ACI_CANVAS_TYPES.COMPARISON,
+      vehicle,
+    }),
+    makeAciAction({
+      label: "EMI under ₹20 lakh",
+      query: `EMI options for ${vehicle.model} under 20 lakh`,
+      intent: ACI_INTENTS.EMI,
+      canvasType: ACI_CANVAS_TYPES.EMI,
+      vehicle,
+    }),
+  ];
+
+  return (
+    <motion.section className="panel assistant-panel" variants={fadeUp}>
+      <div className="assistant-title">
+        <Sparkles size={17} />
+        <div>
+          <h3>ACI Assistant</h3>
+          <p>Your intelligent co-pilot</p>
+        </div>
+      </div>
+
+      <div className="chat-row">
+        <AciAssistantOrb small />
+        <div className="chat-bubble assistant">
+          <strong>
+            Hi! I’m <span>ACI Assist.</span>
+          </strong>
+          <br />
+          How can I help you with {vehicle.displayName} today?
+        </div>
+      </div>
+
+      <div className="chat-bubble user">Show me the top automatic variants</div>
+
+      <div className="chat-row">
+        <AciAssistantOrb small />
+        <div className="chat-bubble assistant">
+          Sure! I’ll keep {vehicle.model} selected and answer price, EMI,
+          colors, features and quotation questions using this car as context.
+        </div>
+      </div>
+
+      <div className="assistant-suggestions">
+        {suggestions.map((item) => (
+          <button type="button" key={item.label} onClick={() => emitAciAction(item, onAction)}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </motion.section>
+  );
+}
+
+function HighlightsPanel({ vehicle, onAction }) {
+  const items =
+    vehicle.highlights?.length
+      ? vehicle.highlights
+      : [
+          { icon: Sparkles, value: vehicle.variantCount || "—", label: "Variants" },
+          { icon: Fuel, value: vehicle.fuelText || "—", label: "Fuel options" },
+          { icon: Scale, value: vehicle.transmissionText || "—", label: "Transmissions" },
+          { icon: Gauge, value: "—", label: "Mileage" },
+          { icon: Star, value: "—", label: "Safety" },
+        ];
+
+  return (
+    <motion.section className="panel highlights-panel" variants={fadeUp}>
+      <PanelHead
+        title="Variant highlights"
+        sub={`Key highlights across the ${vehicle.model} range`}
+        hideAction
+      />
+
+      <div className="stats-grid">
+        {items.map((item) => {
+          const Icon = item.icon || Sparkles;
+
+          return (
+            <button
+              type="button"
+              className="stat-card"
+              key={item.label}
+              onClick={() =>
+                emitAciAction(
+                  {
+                    label: item.label,
+                    query: `${vehicle.model} ${item.label}`,
+                    vehicle,
+                  },
+                  onAction,
+                )
+              }
+            >
+              <Icon size={17} />
+              <strong>{item.value}</strong>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </motion.section>
+  );
+}
+
+function PopularVariantsPanel({ vehicle, onAction, savedIds, onToggleSaved, mobile = false }) {
+  const variants = vehicle.variants?.length
+    ? vehicle.variants
+    : [
+        {
+          id: `${vehicle.id}-default`,
+          tag: "POPULAR",
+          name: vehicle.selectedVariant || "Popular variant",
+          fuel: vehicle.fuelText || "",
+          transmission: vehicle.transmissionText || "",
+          price: vehicle.startingOnRoadPrice || vehicle.priceRange,
+          sub: `On-road ${vehicle.city || "Delhi"}`,
+          meta: ["", ""],
+        },
+      ];
+
+  const visible = mobile ? variants.slice(0, 2) : variants;
+
+  return (
+    <motion.section
+      className={`panel variants-panel ${mobile ? "mobile-variants-panel" : ""}`}
+      variants={fadeUp}
+    >
+      <PanelHead
+        title="Popular variants"
+        sub={mobile ? "" : "Top picks by our customers"}
+        hideAction={mobile}
+        onAction={onAction}
+      />
+
+      <div className="variant-card-grid">
+        {visible.map((variant) => {
+          const variantVehicle = {
+            ...vehicle,
+            id: variant.id || `${vehicle.id}-${variant.name}`,
+            displayName: `${vehicle.displayName} ${variant.name}`,
+            variant: variant.name,
+          };
+
+          return (
+            <article className="variant-card" key={variant.id || variant.name}>
+              <div className="variant-image-zone">
+                <span className="variant-badge">{variant.tag}</span>
+
+                <AciSavedButton
+                  vehicle={variantVehicle}
+                  saved={savedIds.has(variantVehicle.id)}
+                  onToggleSaved={onToggleSaved}
+                  className="variant-heart"
+                  size={17}
+                />
+
+                <AciVehicleVisual
+                  vehicle={vehicle}
+                  height={94}
+                  className="variant-creta-photo"
+                />
+              </div>
+
+              <button
+                type="button"
+                className="variant-content"
+                onClick={() =>
+                  emitAciAction(
+                    {
+                      label: variant.name,
+                      query: `${vehicle.model} ${variant.name} price`,
+                      intent: ACI_INTENTS.PRICELIST,
+                      canvasType: ACI_CANVAS_TYPES.PRICELIST,
+                      vehicle,
+                      contextPatch: {
+                        selectedVehicle: vehicle,
+                        anchorModel: vehicle.model,
+                        anchorVariant: variant.name,
+                      },
+                    },
+                    onAction,
+                  )
+                }
+              >
+                <h4>{variant.name}</h4>
+                <p>
+                  {[variant.fuel, variant.transmission].filter(Boolean).join(" · ")}
+                </p>
+                <strong>{variant.price}</strong>
+                <small>{variant.sub}</small>
+              </button>
+
+              <div className="variant-meta">
+                {(variant.meta || []).filter(Boolean).map((meta) => (
+                  <button
+                    type="button"
+                    key={meta}
+                    onClick={() =>
+                      emitAciAction(
+                        {
+                          label: `${variant.name} ${meta}`,
+                          query: `${vehicle.model} ${variant.name} ${meta}`,
+                          vehicle,
+                        },
+                        onAction,
+                      )
+                    }
+                  >
+                    <Gauge size={12} /> {meta}
+                  </button>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </motion.section>
+  );
+}
+
+function ColorsPanel({ vehicle, onAction, mobile = false }) {
+  const colors = vehicle.colors?.length
+    ? vehicle.colors
+    : [{ name: "Available colors", hex: "#2563eb" }];
+
+  const [selected, setSelected] = useState(0);
+  const active = colors[selected];
+
+  return (
+    <motion.section
+      className={`panel colors-panel ${mobile ? "mobile-colors-panel" : ""}`}
+      variants={fadeUp}
+    >
+      <PanelHead
+        title="Colors"
+        sub={mobile ? "" : "Choose your perfect shade"}
+        onAction={onAction}
+      />
+
+      <div className="colors-row">
+        {colors.map((color, index) => (
+          <button
+            type="button"
+            key={color.name}
+            onClick={() => {
+              setSelected(index);
+              emitAciAction(
+                {
+                  label: color.name,
+                  query: `${vehicle.model} ${color.name} color`,
+                  intent: ACI_INTENTS.COLORS,
+                  canvasType: ACI_CANVAS_TYPES.COLORS,
+                  vehicle,
+                  payload: { color },
+                },
+                onAction,
+              );
+            }}
+            aria-label={color.name}
+          >
+            <ColorOrb
+              hex={color.hex}
+              name={color.name}
+              selected={index === selected}
+            />
+          </button>
+        ))}
+      </div>
+
+      <div className="selected-color">
+        <strong>{active.name}</strong>
+      </div>
+    </motion.section>
+  );
+}
+
+function ComparePanel({ vehicle, onAction, mobile = false }) {
+  const compareWith = vehicle.compareWith || {
+    model: "Seltos",
+    displayName: "Kia Seltos",
+    variant: "HTX IVT",
+    price: "—",
+    bodyType: "suv",
+    label: "SELTOS",
+  };
+
+  const query = `Compare ${vehicle.model} with ${compareWith.model}`;
+
+  if (mobile) {
+    return (
+      <motion.section className="panel mobile-compare-panel" variants={fadeUp}>
+        <button
+          type="button"
+          className="mobile-compare-row"
+          onClick={() =>
+            emitAciAction(
+              {
+                label: query,
+                query,
+                intent: ACI_INTENTS.COMPARISON,
+                canvasType: ACI_CANVAS_TYPES.COMPARISON,
+                vehicle,
+              },
+              onAction,
+            )
+          }
+        >
+          <span>
+            <Scale size={26} />
+          </span>
+
+          <div>
+            <h3>{query}</h3>
+          </div>
+
+          <div className="mobile-compare-cars">
+            <AciVehicleVisual vehicle={vehicle} height={48} />
+            <b>VS</b>
+            <AciVehicleVisual vehicle={compareWith} height={48} />
+          </div>
+        </button>
+      </motion.section>
+    );
+  }
+
+  return (
+    <motion.section className="panel compare-panel" variants={fadeUp}>
+      <PanelHead
+        title={`Compare with ${compareWith.model}`}
+        sub={`See how ${vehicle.model} compares`}
+        action="View comparison"
+        onAction={() =>
+          emitAciAction(
+            {
+              label: "View comparison",
+              query,
+              intent: ACI_INTENTS.COMPARISON,
+              canvasType: ACI_CANVAS_TYPES.COMPARISON,
+              vehicle,
+            },
+            onAction,
+          )
+        }
+      />
+
+      <div className="compare-cars">
+        <button
+          type="button"
+          onClick={() => emitAciAction({ label: vehicle.displayName, query: vehicle.displayName, vehicle }, onAction)}
+        >
+          <div>
+            <AciVehicleVisual
+              vehicle={vehicle}
+              height={74}
+              className="compare-creta-photo"
+            />
+          </div>
+          <strong>{vehicle.model} {vehicle.selectedVariant || ""}</strong>
+          <b>{vehicle.startingOnRoadPrice || vehicle.priceRange}</b>
+          <small>On-road {vehicle.city || "Delhi"}</small>
+        </button>
+
+        <span>VS</span>
+
+        <button
+          type="button"
+          onClick={() => emitAciAction({ label: compareWith.displayName, query: compareWith.displayName, vehicle: compareWith }, onAction)}
+        >
+          <div>
+            <AciVehicleVisual vehicle={compareWith} height={74} />
+          </div>
+          <strong>{compareWith.model} {compareWith.variant || ""}</strong>
+          <b>{compareWith.price}</b>
+          <small>On-road {vehicle.city || "Delhi"}</small>
+        </button>
+      </div>
+
+      <div className="compare-facts">
+        {[
+          { icon: Gauge, top: "Mileage", bottom: "18.4 km/l" },
+          { icon: Wallet, top: "Boot Space", bottom: "433 L" },
+          { icon: ShieldCheck, top: "Safety", bottom: "5★" },
+        ].map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <button
+              type="button"
+              key={item.top}
+              onClick={() =>
+                emitAciAction(
+                  {
+                    label: `${item.top} ${item.bottom}`,
+                    query: `${query} ${item.top}`,
+                    intent: ACI_INTENTS.COMPARISON,
+                    canvasType: ACI_CANVAS_TYPES.COMPARISON,
+                    vehicle,
+                  },
+                  onAction,
+                )
+              }
+            >
+              <Icon size={13} />
+              <span>
+                <strong>{item.top}</strong>
+                <em>{item.bottom}</em>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </motion.section>
+  );
+}
+
+function DesktopPage({ data, vehicle, onAction, savedIds, onToggleSaved }) {
+  return (
+    <>
+      <DesktopHeader data={data} onAction={onAction} />
+
+      <motion.main
+        className="desktop-page"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+      >
+        <DesktopHero
+          vehicle={vehicle}
+          onAction={onAction}
+          savedIds={savedIds}
+          onToggleSaved={onToggleSaved}
+        />
+
+        <DesktopActionStrip vehicle={vehicle} onAction={onAction} />
+
+        <section className="desktop-grid">
+          <AssistantPanel vehicle={vehicle} onAction={onAction} />
+
+          <div className="column">
+            <HighlightsPanel vehicle={vehicle} onAction={onAction} />
+            <PopularVariantsPanel
+              vehicle={vehicle}
+              onAction={onAction}
+              savedIds={savedIds}
+              onToggleSaved={onToggleSaved}
+            />
+          </div>
+
+          <div className="column">
+            <ColorsPanel vehicle={vehicle} onAction={onAction} />
+            <ComparePanel vehicle={vehicle} onAction={onAction} />
+          </div>
+        </section>
+
+        <AciComposer
+          onAction={onAction}
+          selectedVehicle={vehicle}
+          placeholder={`Type ${vehicle.model}, price, EMI, compare, quote...`}
+        />
+      </motion.main>
+    </>
+  );
+}
+
+function MobileHeader({ data, onAction }) {
+  return (
+    <header className="mobile-header">
+      <AciLogo mobile compact onAction={onAction} />
+
+      <div>
+        <button
+          type="button"
+          className="mobile-bell"
+          onClick={() => emitAciAction({ label: "Notifications" }, onAction)}
+          aria-label="Notifications"
+        >
+          <Bell size={27} />
+          <i />
+        </button>
+
+        <button
+          type="button"
+          className="mobile-avatar"
+          onClick={() => emitAciAction({ label: "Profile" }, onAction)}
+          aria-label="Profile"
+        >
+          <img src={data.avatarUrl} alt="Profile" />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function MobilePage({ data, vehicle, onAction, savedIds, onToggleSaved }) {
+  const actions = buildVehicleQuickActions(vehicle).filter((item) =>
+    ["Price list", "Calculate EMI", "Compare", "Get quotation"].includes(item.label),
+  );
+
+  return (
+    <motion.main
+      className="mobile-page"
+      variants={stagger}
+      initial="hidden"
+      animate="visible"
+    >
+      <MobileHeader data={data} onAction={onAction} />
+
+      <motion.section className="mobile-creta-hero" variants={fadeUp}>
+        <div className="mobile-creta-top">
+          <div className="mobile-creta-copy">
+            <h1>{vehicle.displayName}</h1>
+            <p>{vehicle.subtitle || `${vehicle.segment} · ${vehicle.city} prices`}</p>
+          </div>
+
+          <div className="mobile-creta-visual">
+            <AciVehicleVisual
+              vehicle={vehicle}
+              height={128}
+              className="mobile-hero-creta-photo"
+            />
+          </div>
+        </div>
+
+        <div className="mobile-price-row">
+          <div>
+            <div className="mobile-price-inline">
+              <p>Starting on-road price</p>
+              <strong>{vehicle.startingOnRoadPrice || vehicle.priceRange}</strong>
+            </div>
+            {vehicle.exShowroomPrice ? <span>Ex-showroom: {vehicle.exShowroomPrice}</span> : null}
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              emitAciAction(
+                {
+                  label: "View variants",
+                  query: `${vehicle.model} pricelist`,
+                  intent: ACI_INTENTS.PRICELIST,
+                  canvasType: ACI_CANVAS_TYPES.PRICELIST,
+                  vehicle,
+                },
+                onAction,
+              )
+            }
+          >
+            View variants <ChevronRight size={18} />
+          </button>
+        </div>
+      </motion.section>
+
+      <motion.section className="mobile-action-block" variants={fadeUp}>
+        <h2>What would you like to do?</h2>
+
+        <div>
+          {actions.map((item) => {
+            const iconMap = {
+              "Price list": IndianRupee,
+              "Calculate EMI": Calculator,
+              Compare: Scale,
+              "Get quotation": FileText,
+            };
+            const Icon = iconMap[item.label] || Sparkles;
+
+            return (
+              <button
+                type="button"
+                key={item.id}
+                onClick={() => emitAciAction(item, onAction)}
+              >
+                <Icon size={24} />
+                <span>{item.label === "Calculate EMI" ? "EMI" : item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </motion.section>
+
+      <motion.section className="mobile-help-panel" variants={fadeUp}>
+        <h3>Need help choosing the right {vehicle.model} variant?</h3>
+
+        <div className="mobile-help-pills">
+          {[
+            `Best automatic ${vehicle.model}`,
+            `Compare with ${vehicle.compareWith?.model || "Seltos"}`,
+            "EMI under ₹20k",
+          ].map((item) => (
+            <button
+              type="button"
+              key={item}
+              onClick={() => emitAciAction({ label: item, query: item, vehicle }, onAction)}
+            >
+              {item.replace(vehicle.model, "").trim() || item}
+            </button>
+          ))}
+        </div>
+      </motion.section>
+
+      <PopularVariantsPanel
+        vehicle={vehicle}
+        onAction={onAction}
+        savedIds={savedIds}
+        onToggleSaved={onToggleSaved}
+        mobile
+      />
+
+      <HighlightsPanel vehicle={vehicle} onAction={onAction} />
+      <ColorsPanel vehicle={vehicle} onAction={onAction} mobile />
+      <ComparePanel vehicle={vehicle} onAction={onAction} mobile />
+
+      <AciComposer mobile onAction={onAction} selectedVehicle={vehicle} />
+    </motion.main>
+  );
+}
+
+export default function AciAssistCarOverviewScreen({
+  data,
+  vehicle,
+  onAction,
+  savedIds = new Set(),
+  onToggleSaved,
+}) {
+  const selectedVehicle = vehicle || data.selectedVehicle;
+
+  return (
+    <div className="aci-page aci-car-overview-page">
+      <CarOverviewScreenStyles />
+      <DesktopPage
+        data={data}
+        vehicle={selectedVehicle}
+        onAction={onAction}
+        savedIds={savedIds}
+        onToggleSaved={onToggleSaved}
+      />
+      <MobilePage
+        data={data}
+        vehicle={selectedVehicle}
+        onAction={onAction}
+        savedIds={savedIds}
+        onToggleSaved={onToggleSaved}
+      />
+    </div>
+  );
+}
+
+function CarOverviewScreenStyles() {
+  return (
+    <style>{`
+      .aci-page {
+        min-height: 100vh;
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background:
+          radial-gradient(circle at 86% -6%, rgba(37,99,235,.08), transparent 28%),
+          linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .desktop-page {
+        width: min(100%, 1510px);
+        margin-inline: auto;
+        padding: 10px 40px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .desktop-creta-hero,
+      .desktop-action-strip,
+      .panel,
+      .mobile-creta-hero,
+      .mobile-action-block button,
+      .mobile-help-panel,
+      .mobile-highlights,
+      .mobile-compare-panel {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,.94);
+        box-shadow: var(--shadow), inset 0 1px 0 #fff;
+        backdrop-filter: blur(18px);
+      }
+
+      .desktop-creta-hero {
+        min-height: 286px;
+        border-radius: 28px;
+        padding: 34px 42px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(440px, 1fr) minmax(360px, 450px) 250px;
+        align-items: center;
+        gap: 20px;
+        background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(242,247,255,.96));
+      }
+
+      .hero-copy h1 {
+        margin: 0;
+        color: #080d25;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(60px, 5.2vw, 84px);
+        line-height: .9;
+        letter-spacing: -.07em;
+        font-weight: 700;
+      }
+
+      .hero-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+
+      .soft-badge {
+        min-height: 32px;
+        padding: 0 14px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 650;
+        border: 1px solid #dbe3ef;
+        background: #fff;
+      }
+
+      .soft-badge.blue {
+        border-color: rgba(37,99,235,.20);
+        background: #f5f8ff;
+        color: var(--blue);
+      }
+
+      .soft-badge.gold {
+        border-color: rgba(183,121,31,.20);
+        background: #fff7ea;
+        color: #b7791f;
+      }
+
+      .soft-badge.save-badge {
+        color: #64748b;
+      }
+
+      .soft-badge.save-badge.is-saved {
+        color: var(--blue);
+        border-color: rgba(37,99,235,.20);
+        background: #f5f8ff;
+      }
+
+      .hero-subtitle {
+        margin-top: 20px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #465063;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 16px;
+        font-weight: 560;
+      }
+
+      .hero-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .hero-chips button {
+        height: 38px;
+        padding: 0 17px;
+        border-radius: 14px;
+        border: 1px solid #dbe3ef;
+        background: rgba(255,255,255,.84);
+        color: #1e293b;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .hero-car-stage {
+        display: grid;
+        place-items: center;
+        min-height: 220px;
+      }
+
+      .hero-creta-photo {
+        width: min(455px, 100%);
+        height: 238px;
+        object-fit: contain;
+        filter: drop-shadow(0 18px 16px rgba(15,23,42,.14));
+      }
+
+      .price-card {
+        padding: 24px 22px;
+        border-radius: 24px;
+        border: 1px solid #dfe7f2;
+        background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(244,248,255,.95));
+        box-shadow: 0 18px 44px -34px rgba(15,23,42,.28);
+      }
+
+      .price-card p {
+        margin: 0;
+        color: #667085;
+        text-transform: uppercase;
+        letter-spacing: .15em;
+        font-size: 12px;
+        line-height: 1.5;
+        font-weight: 650;
+      }
+
+      .price-card strong {
+        display: block;
+        margin-top: 11px;
+        color: #07102b;
+        font-size: 36px;
+        line-height: 1;
+        letter-spacing: -.05em;
+        font-weight: 760;
+      }
+
+      .price-card span {
+        display: block;
+        margin-top: 12px;
+        color: #667085;
+        font-size: 14px;
+        font-weight: 520;
+      }
+
+      .price-card button {
+        width: 100%;
+        height: 47px;
+        margin-top: 20px;
+        border: 0;
+        border-radius: 999px;
+        color: #fff;
+        background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+        box-shadow: 0 18px 36px -20px rgba(37,99,235,.48);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .desktop-action-strip {
+        min-height: 76px;
+        border-radius: 25px;
+        padding: 16px 28px;
+        display: grid;
+        grid-template-columns: 290px 1fr;
+        align-items: center;
+        gap: 18px;
+        background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(245,249,255,.94));
+      }
+
+      .desktop-action-strip h2 {
+        margin: 0;
+        color: #0f172a;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 21px;
+        line-height: 1.08;
+        letter-spacing: -.04em;
+        font-weight: 560;
+      }
+
+      .desktop-action-strip > div {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .action-pill {
+        height: 42px;
+        min-width: 118px;
+        padding: 0 15px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .action-pill.blue {
+        border: 1px solid rgba(37,99,235,.18);
+        background: rgba(255,255,255,.84);
+        color: var(--blue);
+      }
+
+      .action-pill.gold {
+        border: 1px solid rgba(183,121,31,.24);
+        background: #fff7ea;
+        color: #b7791f;
+      }
+
+      .desktop-grid {
+        display: grid;
+        grid-template-columns: minmax(340px, .94fr) minmax(470px, 1.22fr) minmax(350px, .92fr);
+        gap: 14px;
+        align-items: stretch;
+      }
+
+      .column {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: 218px 384px;
+        gap: 14px;
+      }
+
+      .panel {
+        border-radius: 24px;
+        padding: 18px;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .assistant-panel {
+        min-height: 616px;
+        background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(246,250,255,.95));
+      }
+
+      .highlights-panel,
+      .colors-panel {
+        height: 218px;
+      }
+
+      .variants-panel,
+      .compare-panel {
+        height: 384px;
+      }
+
+      .assistant-title {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+
+      .assistant-title svg {
+        color: #c68a2a;
+        fill: currentColor;
+      }
+
+      .assistant-title h3,
+      .panel-head h3 {
+        font-family: Georgia, "Times New Roman", serif;
+        margin: 0;
+        color: #10172f;
+        font-size: 19px;
+        line-height: 1;
+        letter-spacing: -.04em;
+        font-weight: 560;
+      }
+
+      .assistant-title p,
+      .panel-head p {
+        margin: 6px 0 0;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 460;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panel-head button {
+        border: 0;
+        background: transparent;
+        color: var(--blue);
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .chat-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        margin-bottom: 14px;
+      }
+
+      .chat-bubble {
+        border: 1px solid #e3e9f2;
+        box-shadow: 0 16px 36px -34px rgba(15,23,42,.28);
+        font-size: 12px;
+        line-height: 1.55;
+        font-weight: 460;
+        padding: 14px 16px;
+      }
+
+      .chat-bubble.assistant {
+        max-width: 300px;
+        border-radius: 20px;
+        background: rgba(255,255,255,.94);
+      }
+
+      .chat-bubble.assistant span {
+        color: var(--blue);
+      }
+
+      .chat-bubble.user {
+        max-width: 292px;
+        margin: 0 16px 14px auto;
+        border-radius: 20px;
+        color: #1e40af;
+        background: #eef5ff;
+      }
+
+      .assistant-suggestions {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        overflow: hidden;
+      }
+
+      .assistant-suggestions button {
+        height: 30px;
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0 7px;
+        border-radius: 999px;
+        border: 1px solid #dce7f7;
+        background: rgba(255,255,255,.88);
+        color: #244a91;
+        font-size: 9px;
+        font-weight: 650;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .stats-grid {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+      }
+
+      .stat-card {
+        min-height: 98px;
+        border-radius: 17px;
+        border: 1px solid #ead9b9;
+        background: #ffffff;
+        color: var(--gold);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 6px;
+        box-shadow: 0 14px 32px -28px rgba(15,23,42,.14);
+      }
+
+      .stat-card svg {
+        color: var(--gold);
+      }
+
+      .stat-card strong {
+        color: #0f172a;
+        font-size: 15px;
+        line-height: 1;
+        font-weight: 640;
+      }
+
+      .stat-card span {
+        color: #475569;
+        font-size: 9.5px;
+        line-height: 1.15;
+        font-weight: 520;
+      }
+
+      .variant-card-grid {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .variant-card {
+        min-width: 0;
+        border-radius: 22px;
+        border: 1px solid #dfe7f2;
+        background: #fff;
+        box-shadow: 0 16px 40px -38px rgba(15,23,42,.34);
+        overflow: hidden;
+      }
+
+      .variant-image-zone {
+        position: relative;
+        height: 124px;
+        margin: 10px 10px 0;
+        border-radius: 17px;
+        overflow: hidden;
+        display: grid;
+        place-items: end center;
+        background: linear-gradient(135deg, #fff 0%, #eef4fb 100%);
+      }
+
+      .variant-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 4;
+        padding: 5px 8px;
+        border-radius: 9px;
+        background: #edf4ff;
+        color: var(--blue);
+        font-size: 8px;
+        font-weight: 700;
+      }
+
+      .variant-heart {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 4;
+        width: 31px;
+        height: 31px;
+        border-radius: 999px;
+        border: 1px solid #d9e1ec;
+        background: rgba(255,255,255,.94);
+        color: #586579;
+        display: grid;
+        place-items: center;
+      }
+
+      .variant-heart.is-saved {
+        color: var(--blue);
+        background: #eef5ff;
+      }
+
+      .variant-creta-photo {
+        width: 118%;
+        height: 94px;
+        object-fit: contain;
+        object-position: center bottom;
+        filter: drop-shadow(0 12px 10px rgba(15,23,42,.10));
+      }
+
+      .variant-content {
+        width: 100%;
+        padding: 12px 14px 8px;
+        border: 0;
+        background: transparent;
+        text-align: left;
+      }
+
+      .variant-content h4 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 15px;
+        line-height: 1.12;
+        font-weight: 640;
+      }
+
+      .variant-content p {
+        margin: 5px 0 10px;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 460;
+      }
+
+      .variant-content strong {
+        display: block;
+        color: #0f172a;
+        font-size: 13px;
+        line-height: 1;
+        font-weight: 650;
+      }
+
+      .variant-content small {
+        display: block;
+        margin-top: 4px;
+        color: #7c8aa0;
+        font-size: 9.5px;
+        font-weight: 460;
+      }
+
+      .variant-meta {
+        padding: 0 14px 13px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .variant-meta button {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: #475569;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9.5px;
+        font-weight: 520;
+        white-space: nowrap;
+      }
+
+      .colors-row {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        justify-content: space-between;
+      }
+
+      .colors-row button {
+        border: 0;
+        background: transparent;
+        padding: 0;
+      }
+
+      .color-orb {
+        position: relative;
+        width: 50px;
+        height: 50px;
+        border-radius: 999px;
+        box-shadow:
+          inset 0 8px 16px rgba(255,255,255,.34),
+          inset 0 -12px 20px rgba(15,23,42,.22),
+          0 14px 28px -20px rgba(15,23,42,.45);
+      }
+
+      .color-orb.light {
+        border: 1px solid #dbe3ef;
+      }
+
+      .color-orb.dark {
+        border: 1px solid rgba(255,255,255,.5);
+      }
+
+      .color-orb > span {
+        position: absolute;
+        left: 22%;
+        top: 18%;
+        width: 24%;
+        height: 24%;
+        border-radius: 999px;
+        background: rgba(255,255,255,.70);
+        filter: blur(2px);
+      }
+
+      .color-orb b {
+        position: absolute;
+        right: -2px;
+        top: -2px;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--blue);
+        color: white;
+        display: grid;
+        place-items: center;
+        border: 2px solid white;
+        box-shadow: 0 6px 16px rgba(37,99,235,.35);
+      }
+
+      .selected-color {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .selected-color strong {
+        color: #1e293b;
+        font-size: 13px;
+        font-weight: 640;
+      }
+
+      .compare-cars {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: 1fr 38px 1fr;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .compare-cars > button {
+        min-width: 0;
+        padding: 11px;
+        border-radius: 18px;
+        border: 1px solid #e1e8f2;
+        background: #fff;
+        text-align: left;
+      }
+
+      .compare-cars > button > div {
+        height: 86px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #fff 0%, #f5f8fc 100%);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      .compare-creta-photo {
+        width: 110%;
+        height: 74px;
+        object-fit: contain;
+        object-position: center bottom;
+        filter: drop-shadow(0 10px 8px rgba(15,23,42,.10));
+      }
+
+      .compare-cars strong,
+      .compare-cars b,
+      .compare-cars small {
+        display: block;
+      }
+
+      .compare-cars strong {
+        margin-top: 8px;
+        color: #1d4ed8;
+        font-size: 11.5px;
+        line-height: 1.15;
+        font-weight: 650;
+      }
+
+      .compare-cars b {
+        margin-top: 4px;
+        color: #0f172a;
+        font-size: 11.5px;
+        font-weight: 650;
+      }
+
+      .compare-cars small {
+        margin-top: 2px;
+        color: #7c8aa0;
+        font-size: 9px;
+        font-weight: 460;
+      }
+
+      .compare-cars > span {
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        border: 1px solid #e1e8f2;
+        background: #fff;
+        color: #64748b;
+        display: grid;
+        place-items: center;
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .compare-facts {
+        margin-top: 11px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .compare-facts button {
+        min-height: 46px;
+        padding: 6px 7px;
+        border-radius: 13px;
+        border: 1px solid #e1e8f2;
+        background: #fff;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        text-align: center;
+      }
+
+      .compare-facts button svg {
+        color: var(--blue);
+        flex: 0 0 auto;
+      }
+
+      .compare-facts button span {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        line-height: 1.05;
+      }
+
+      .compare-facts button span strong {
+        color: #475569;
+        font-size: 9.5px;
+        font-weight: 620;
+      }
+
+      .compare-facts button span em {
+        color: #0f172a;
+        font-size: 10px;
+        font-style: normal;
+        font-weight: 680;
+      }
+
+      .mobile-page {
+        display: none;
+      }
+
+      @media (max-width: 1240px) and (min-width: 901px) {
+        .desktop-creta-hero {
+          grid-template-columns: minmax(340px, 1fr) minmax(280px, 360px);
+        }
+
+        .price-card {
+          display: none;
+        }
+
+        .desktop-action-strip {
+          grid-template-columns: 1fr;
+        }
+
+        .desktop-action-strip h2 {
+          display: none;
+        }
+
+        .desktop-action-strip > div {
+          justify-content: center;
+        }
+
+        .desktop-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .assistant-panel {
+          display: none;
+        }
+
+        .column {
+          grid-template-rows: auto auto;
+        }
+
+        .highlights-panel,
+        .colors-panel,
+        .variants-panel,
+        .compare-panel {
+          height: auto;
+        }
+      }
+
+      @media (max-width: 900px) {
+        .desktop-header,
+        .desktop-page {
+          display: none;
+        }
+
+        .aci-page {
+          background:
+            radial-gradient(circle at 50% 100%, rgba(37,99,235,.12), transparent 25%),
+            linear-gradient(180deg, #fff 0%, #fbfcff 54%, #f8fbff 100%);
+        }
+
+        .mobile-page {
+          width: 100%;
+          max-width: 430px;
+          min-height: 100vh;
+          margin: 0 auto;
+          padding: 18px 14px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .mobile-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 4px;
+        }
+
+        .mobile-header > div {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .mobile-bell {
+          position: relative;
+          width: 36px;
+          height: 36px;
+          border: 0;
+          background: transparent;
+          color: #596174;
+          display: grid;
+          place-items: center;
+        }
+
+        .mobile-avatar {
+          width: 48px;
+          height: 48px;
+        }
+
+        .mobile-creta-hero {
+          border-radius: 26px;
+          padding: 18px 16px 16px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          background: linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%);
+        }
+
+        .mobile-creta-top {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 164px;
+          align-items: end;
+          gap: 8px;
+        }
+
+        .mobile-creta-copy h1 {
+          margin: 0;
+          color: #07102b;
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: 33px;
+          line-height: .94;
+          letter-spacing: -.065em;
+          font-weight: 700;
+        }
+
+        .mobile-creta-copy p {
+          max-width: 182px;
+          margin: 10px 0 0;
+          color: #475569;
+          font-size: 13px;
+          line-height: 1.35;
+          font-weight: 520;
+        }
+
+        .mobile-creta-visual {
+          display: flex;
+          justify-content: flex-end;
+          align-items: flex-end;
+          min-height: 128px;
+        }
+
+        .mobile-hero-creta-photo {
+          width: 192px;
+          height: 128px;
+          object-fit: contain;
+          object-position: center bottom;
+          filter: drop-shadow(0 14px 12px rgba(15,23,42,.14));
+        }
+
+        .mobile-price-row {
+          min-height: 78px;
+          border-radius: 20px;
+          border: 1px solid #dfe7f2;
+          background: rgba(255,255,255,.96);
+          padding: 14px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 124px;
+          gap: 10px;
+          align-items: center;
+          box-shadow: 0 18px 44px -38px rgba(15,23,42,.24);
+        }
+
+        .mobile-price-inline {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: baseline;
+          column-gap: 8px;
+          row-gap: 3px;
+        }
+
+        .mobile-price-inline p {
+          margin: 0;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: .12em;
+          font-size: 8px;
+          line-height: 1;
+          font-weight: 700;
+        }
+
+        .mobile-price-inline strong {
+          color: #0f172a;
+          font-size: 23px;
+          line-height: 1;
+          letter-spacing: -.05em;
+          font-weight: 760;
+        }
+
+        .mobile-price-row span {
+          display: block;
+          margin-top: 6px;
+          color: #64748b;
+          font-size: 11px;
+        }
+
+        .mobile-price-row button {
+          width: 124px;
+          height: 44px;
+          border: 0;
+          border-radius: 14px;
+          background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 650;
+          box-shadow: 0 18px 34px -22px rgba(37,99,235,.60);
+        }
+
+        .mobile-action-block {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .mobile-action-block h2 {
+          margin: 0;
+          padding: 0 14px;
+          font-family: Georgia, "Times New Roman", serif;
+          font-size: 18px;
+          font-weight: 600;
+          letter-spacing: -.035em;
+        }
+
+        .mobile-action-block > div {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .mobile-action-block button {
+          height: 74px;
+          border-radius: 18px;
+          color: var(--blue);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 620;
+        }
+
+        .mobile-help-panel {
+          min-height: 94px;
+          border-radius: 22px;
+          padding: 15px 14px 14px;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: center;
+          gap: 13px;
+        }
+
+        .mobile-help-panel h3 {
+          margin: 0;
+          color: #1e293b;
+          font-size: 13.8px;
+          line-height: 1.2;
+          font-weight: 620;
+          text-align: center;
+        }
+
+        .mobile-help-pills {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          gap: 7px;
+        }
+
+        .mobile-help-pills button {
+          height: 31px;
+          padding: 0 10px;
+          border-radius: 999px;
+          border: 1px solid #dfe7f2;
+          background: #fff;
+          color: var(--blue);
+          font-size: 10px;
+          font-weight: 650;
+          white-space: nowrap;
+          flex: 0 0 auto;
+          box-shadow: 0 10px 24px -22px rgba(15,23,42,.22);
+        }
+
+        .mobile-variants-panel,
+        .mobile-colors-panel,
+        .mobile-compare-panel {
+          height: auto;
+          border-radius: 22px;
+        }
+
+        .mobile-variants-panel .variant-card-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .mobile-variants-panel .variant-image-zone {
+          height: 112px;
+        }
+
+        .mobile-variants-panel .variant-creta-photo {
+          height: 82px;
+        }
+
+        .mobile-colors-panel .colors-row {
+          justify-content: flex-start;
+          gap: 17px;
+        }
+
+        .mobile-colors-panel .color-orb {
+          width: 42px;
+          height: 42px;
+        }
+
+        .mobile-compare-panel {
+          padding: 12px;
+        }
+
+        .mobile-compare-row {
+          width: 100%;
+          border: 0;
+          background: transparent;
+          display: grid;
+          grid-template-columns: 54px 1fr 130px;
+          gap: 10px;
+          align-items: center;
+          text-align: left;
+        }
+
+        .mobile-compare-row > span {
+          width: 48px;
+          height: 48px;
+          border-radius: 16px;
+          background: #f1f6ff;
+          color: var(--blue);
+          display: grid;
+          place-items: center;
+        }
+
+        .mobile-compare-row h3 {
+          margin: 0;
+          color: #1e293b;
+          font-size: 14px;
+          line-height: 1.25;
+          font-weight: 620;
+        }
+
+        .mobile-compare-cars {
+          display: grid;
+          grid-template-columns: 1fr 28px 1fr;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .mobile-compare-cars img {
+          width: 58px;
+          height: 38px;
+          object-fit: contain;
+        }
+
+        .mobile-compare-cars b {
+          width: 26px;
+          height: 26px;
+          border-radius: 999px;
+          border: 1px solid #dfe7f2;
+          display: grid;
+          place-items: center;
+          font-size: 9px;
+          color: #64748b;
+        }
+      }
+
+      /* ACI_CAR_FIXED_COMPOSER_SPACE_START */
+      .aci-car-overview-page {
+        padding-bottom: 118px;
+      }
+
+      .desktop-page {
+        padding-bottom: 118px !important;
+      }
+
+      @media (max-width: 900px) {
+        .mobile-page {
+          padding-bottom: 112px !important;
+        }
+      }
+      /* ACI_CAR_FIXED_COMPOSER_SPACE_END */
+
+    `}</style>
+  );
+}
