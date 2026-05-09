@@ -437,7 +437,10 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
   const publicEndpoint =
     process.env.REACT_APP_ACI_ASSIST_PUBLIC_CHAT_ENDPOINT ||
     DEFAULT_PUBLIC_CHAT_ENDPOINT;
-  const endpoint = token ? privateEndpoint : publicEndpoint;
+  const isPortalPage =
+    typeof window !== "undefined" &&
+    /^\/portal(?:\/|$)/i.test(String(window.location?.pathname || ""));
+  const endpoint = isPortalPage || !token ? publicEndpoint : privateEndpoint;
 
   const url = cleanJoin(apiBase, endpoint);
 
