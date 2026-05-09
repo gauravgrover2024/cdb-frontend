@@ -22,6 +22,7 @@ const SCREEN = {
   COLORS: "colors",
   PRICELIST: "pricelist",
 };
+const IMAGE_CACHE_KEY = "aci_v2_live_model_images_v1";
 
 const mergeVehicle = (fallback, incoming) => {
   if (!incoming) return fallback;
@@ -120,11 +121,31 @@ export default function AciAssistV2() {
     let cancelled = false;
 
     const hydrateHomeImages = async () => {
+      try {
+        const cached = localStorage.getItem(IMAGE_CACHE_KEY);
+        if (cached && !cancelled) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === "object") {
+            const normalized = Object.fromEntries(
+              Object.entries(parsed)
+                .map(([id, value]) => [
+                  id,
+                  typeof value === "string" ? value : value?.url || "",
+                ])
+                .filter(([, value]) => Boolean(value)),
+            );
+            setLiveModelImages((prev) => ({ ...normalized, ...prev }));
+          }
+        }
+      } catch {
+        // ignore cache read issues
+      }
+
       const candidates = [
+        homeData?.selectedVehicle,
         ...(homeData?.trendingCars || []),
         ...(homeData?.rightRail?.savedCars || []),
         ...(homeData?.mobile?.popularCars || []),
-        homeData?.selectedVehicle,
       ].filter(Boolean);
 
       const byId = {};
@@ -133,47 +154,83 @@ export default function AciAssistV2() {
         byId[vehicle.id] = vehicle;
       }
 
-      const entries = await Promise.allSettled(
-        Object.values(byId).map(async (vehicle) => {
+      const list = Object.values(byId).slice(0, 6);
+      const now = Date.now();
+      const recentMs = 1000 * 60 * 60 * 6;
+
+      const cachedMap = (() => {
+        try {
+          const cached = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || "{}");
+          return cached && typeof cached === "object" ? cached : {};
+        } catch {
+          return {};
+        }
+      })();
+
+      await Promise.allSettled(
+        list.map(async (vehicle) => {
+          if (cancelled || !vehicle?.id) return;
+
+          const cachedEntry = cachedMap[vehicle.id];
+          if (
+            cachedEntry?.url &&
+            cachedEntry?.ts &&
+            now - Number(cachedEntry.ts) < recentMs
+          ) {
+            if (!cancelled) {
+              setLiveModelImages((prev) => ({
+                ...prev,
+                [vehicle.id]: cachedEntry.url,
+              }));
+            }
+            return;
+          }
+
           const modelLabel =
             vehicle.displayName ||
             vehicle.name ||
             [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" ");
-          if (!modelLabel) return null;
+          if (!modelLabel) return;
 
-          const backend = await askAciAssistV2({
-            message: `Show colors of ${modelLabel}`,
-            context: {
-              selectedVehicle: {
-                model: vehicle.model || modelLabel,
-                make: vehicle.make || vehicle.brand || "",
-                city: vehicle.city || "Delhi",
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3500);
+
+          try {
+            const backend = await askAciAssistV2({
+              message: `Show colors of ${modelLabel}`,
+              context: {
+                selectedVehicle: {
+                  model: vehicle.model || modelLabel,
+                  make: vehicle.make || vehicle.brand || "",
+                  city: vehicle.city || "Delhi",
+                },
               },
-            },
-          });
+              signal: controller.signal,
+            });
 
-          const image =
-            backend?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
-            backend?.widget?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
-            "";
-          if (!image) return null;
+            const image =
+              backend?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
+              backend?.widget?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
+              "";
+            if (!image || cancelled) return;
 
-          return [vehicle.id, image];
+            setLiveModelImages((prev) => {
+              const next = { ...prev, [vehicle.id]: image };
+              try {
+                const persist = { ...cachedMap, [vehicle.id]: { url: image, ts: Date.now() } };
+                localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(persist));
+              } catch {
+                // ignore cache write issues
+              }
+              return next;
+            });
+          } catch {
+            // silent: keep existing/fallback image
+          } finally {
+            clearTimeout(timeout);
+          }
         }),
       );
-
-      if (cancelled) return;
-
-      const next = {};
-      for (const result of entries) {
-        if (result.status !== "fulfilled" || !result.value) continue;
-        const [id, image] = result.value;
-        if (id && image) next[id] = image;
-      }
-
-      if (Object.keys(next).length) {
-        setLiveModelImages((prev) => ({ ...prev, ...next }));
-      }
     };
 
     hydrateHomeImages().catch(() => {});

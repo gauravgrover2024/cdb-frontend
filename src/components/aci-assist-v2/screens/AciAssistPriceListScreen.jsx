@@ -185,8 +185,9 @@ const text = value.trim();
 
 if (
 /^(data:image\/|blob:)/i.test(text) ||
+ /^(https?:)?\/\//i.test(text) ||
 /\.(png|jpe?g|webp|avif|gif|svg)(\?|#|$)/i.test(text) ||
-/cloudinary|imgix|googleusercontent|cardekho|carwale|acko|spinny|cars24|cdn|uploads|images/i.test(text)
+/cloudinary|imgix|googleusercontent|cardekho|carwale|acko|spinny|cars24|cdn|uploads/i.test(text)
 ) {
 return text;
 }
