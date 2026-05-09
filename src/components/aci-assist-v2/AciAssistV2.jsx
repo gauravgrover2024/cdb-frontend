@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ACI_ASSIST_HOME_DATA,
   ACI_CANVAS_TYPES,
@@ -98,6 +98,7 @@ export default function AciAssistV2() {
   const [activeCanvasPayload, setActiveCanvasPayload] = useState(null);
   const [isBackendLoading, setIsBackendLoading] = useState(false);
   const [backendError, setBackendError] = useState("");
+  const [liveModelImages, setLiveModelImages] = useState({});
 
   const homeData = useMemo(
     () => ({
@@ -106,6 +107,95 @@ export default function AciAssistV2() {
     }),
     [],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateHomeImages = async () => {
+      const candidates = [
+        ...(homeData?.trendingCars || []),
+        ...(homeData?.rightRail?.savedCars || []),
+        ...(homeData?.mobile?.popularCars || []),
+        homeData?.selectedVehicle,
+      ].filter(Boolean);
+
+      const byId = {};
+      for (const vehicle of candidates) {
+        if (!vehicle?.id || byId[vehicle.id]) continue;
+        byId[vehicle.id] = vehicle;
+      }
+
+      const entries = await Promise.allSettled(
+        Object.values(byId).map(async (vehicle) => {
+          const modelLabel =
+            vehicle.displayName ||
+            vehicle.name ||
+            [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" ");
+          if (!modelLabel) return null;
+
+          const backend = await askAciAssistV2({
+            message: `Show colors of ${modelLabel}`,
+            context: {
+              selectedVehicle: {
+                model: vehicle.model || modelLabel,
+                make: vehicle.make || vehicle.brand || "",
+                city: vehicle.city || "Delhi",
+              },
+            },
+          });
+
+          const image =
+            backend?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
+            backend?.widget?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
+            "";
+          if (!image) return null;
+
+          return [vehicle.id, image];
+        }),
+      );
+
+      if (cancelled) return;
+
+      const next = {};
+      for (const result of entries) {
+        if (result.status !== "fulfilled" || !result.value) continue;
+        const [id, image] = result.value;
+        if (id && image) next[id] = image;
+      }
+
+      if (Object.keys(next).length) {
+        setLiveModelImages((prev) => ({ ...prev, ...next }));
+      }
+    };
+
+    hydrateHomeImages().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [homeData]);
+
+  const homeDataWithLiveImages = useMemo(() => {
+    const patchImage = (vehicle) => {
+      if (!vehicle) return vehicle;
+      const imageUrl = liveModelImages[vehicle.id] || vehicle.imageUrl || "";
+      return { ...vehicle, imageUrl };
+    };
+
+    return {
+      ...homeData,
+      selectedVehicle: patchImage(homeData?.selectedVehicle),
+      trendingCars: (homeData?.trendingCars || []).map(patchImage),
+      rightRail: {
+        ...(homeData?.rightRail || {}),
+        savedCars: (homeData?.rightRail?.savedCars || []).map(patchImage),
+      },
+      mobile: {
+        ...(homeData?.mobile || {}),
+        popularCars: (homeData?.mobile?.popularCars || []).map(patchImage),
+      },
+    };
+  }, [homeData, liveModelImages]);
 
   const fallbackSelectedVehicle = useMemo(
     () => getAciVehicleById(selectedVehicleId),
@@ -537,28 +627,28 @@ export default function AciAssistV2() {
 
       {screen === SCREEN.HOME ? (
         <AciAssistHomeScreen
-          data={homeData}
+          data={homeDataWithLiveImages}
           onAction={handleAciAction}
           savedIds={savedIds}
           onToggleSaved={toggleSaved}
         />
       ) : screen === SCREEN.COLORS ? (
         <AciAssistColorsScreen
-          data={homeData}
+          data={homeDataWithLiveImages}
           vehicle={selectedVehicle}
           widget={activeCanvasPayload}
           onAction={handleAciAction}
         />
       ) : screen === SCREEN.PRICELIST ? (
         <AciAssistPriceListScreen
-          data={homeData}
+          data={homeDataWithLiveImages}
           vehicle={selectedVehicle}
           widget={activeCanvasPayload}
           onAction={handleAciAction}
         />
       ) : (
         <AciAssistCarOverviewScreen
-          data={homeData}
+          data={homeDataWithLiveImages}
           vehicle={selectedVehicle}
           onAction={handleAciAction}
           savedIds={savedIds}
