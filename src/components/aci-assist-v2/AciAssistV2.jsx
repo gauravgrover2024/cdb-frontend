@@ -61,6 +61,34 @@ const isCanvasInteractionOnly = (action) => {
   );
 };
 
+const normalizeCanvasType = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const isPriceListCanvas = (value = "") => {
+  const canvasType = normalizeCanvasType(value);
+  return canvasType === ACI_CANVAS_TYPES.PRICELIST || canvasType === "pricelist_canvas";
+};
+
+const isColorsCanvas = (value = "") => {
+  const canvasType = normalizeCanvasType(value);
+  return (
+    canvasType === ACI_CANVAS_TYPES.COLORS ||
+    canvasType === "color_gallery_canvas" ||
+    canvasType === "color_studio_canvas"
+  );
+};
+
+const isCarOverviewCanvas = (value = "") => {
+  const canvasType = normalizeCanvasType(value);
+  return (
+    canvasType === ACI_CANVAS_TYPES.CAR_OVERVIEW ||
+    canvasType === "car_overview_canvas" ||
+    canvasType === "vehicle_overview_canvas"
+  );
+};
+
 export default function AciAssistV2() {
   const [screen, setScreen] = useState(SCREEN.HOME);
   const [selectedVehicleId, setSelectedVehicleId] = useState("hyundai-creta");
@@ -260,25 +288,26 @@ export default function AciAssistV2() {
       vehicle: backendVehicle,
     };
 
-    if (canvasType === ACI_CANVAS_TYPES.PRICELIST) {
+    if (isPriceListCanvas(canvasType)) {
       openPriceList(backendVehicle, enrichedAction);
       return true;
     }
 
-    if (canvasType === ACI_CANVAS_TYPES.COLORS) {
+    if (isColorsCanvas(canvasType)) {
       openColors(backendVehicle, enrichedAction);
       return true;
     }
 
-    if (
-      canvasType === ACI_CANVAS_TYPES.CAR_OVERVIEW ||
-      action.intent === ACI_INTENTS.OPEN_VEHICLE
-    ) {
+    if (isCarOverviewCanvas(canvasType) || action.intent === ACI_INTENTS.OPEN_VEHICLE) {
       openVehicle(backendVehicle, enrichedAction);
       return true;
     }
 
-    if (backendVehicle && !action.canvasType && !action.intent) {
+    if (
+      backendVehicle?.model &&
+      !action.canvasType &&
+      !action.intent
+    ) {
       openVehicle(backendVehicle, enrichedAction);
       return true;
     }
@@ -382,7 +411,7 @@ export default function AciAssistV2() {
     }
 
     const shouldOpenPriceList =
-      action.canvasType === ACI_CANVAS_TYPES.PRICELIST ||
+      isPriceListCanvas(action.canvasType) ||
       action.intent === ACI_INTENTS.PRICELIST ||
       actionText.includes("price list") ||
       actionText.includes("pricelist") ||
@@ -394,7 +423,7 @@ export default function AciAssistV2() {
     }
 
     const shouldOpenColors =
-      action.canvasType === ACI_CANVAS_TYPES.COLORS ||
+      isColorsCanvas(action.canvasType) ||
       action.intent === ACI_INTENTS.COLORS ||
       actionText.includes("color") ||
       actionText.includes("colour");

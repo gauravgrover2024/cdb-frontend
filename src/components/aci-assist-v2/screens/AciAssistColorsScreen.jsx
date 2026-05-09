@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Bell,
-  Bookmark,
   Building2,
   Check,
   ChevronDown,
@@ -1155,7 +1154,10 @@ export default function AciAssistColorsScreen({
   widget,
   onAction,
 }) {
-  const activeVehicle = vehicle || data?.selectedVehicle || {};
+  const activeVehicle = useMemo(
+    () => vehicle || data?.selectedVehicle || {},
+    [vehicle, data?.selectedVehicle],
+  );
   const colors = useMemo(
     () => normalizeColors(activeVehicle, widget),
     [activeVehicle, widget],
