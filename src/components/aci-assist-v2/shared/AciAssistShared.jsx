@@ -2,6 +2,15 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Heart, Mic, SendHorizontal, Sparkles } from "lucide-react";
 
+const isUsableImageUrl = (value = "") => {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (/^data:image\//i.test(text)) return true;
+  if (/^(https?:)?\/\//i.test(text)) return true;
+  if (text.startsWith("/")) return true;
+  return false;
+};
+
 export const fadeUp = {
   hidden: { opacity: 0, y: 18, filter: "blur(5px)" },
   visible: {
@@ -217,7 +226,7 @@ export function AciVehicleVisual({
   height = 120,
   className = "",
 }) {
-  if (vehicle?.imageUrl) {
+  if (isUsableImageUrl(vehicle?.imageUrl)) {
     return (
       <AciVehiclePhoto
         imageUrl={vehicle.imageUrl}
