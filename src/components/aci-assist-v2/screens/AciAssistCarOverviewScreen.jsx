@@ -309,7 +309,14 @@ function DesktopActionStrip({ vehicle, onAction }) {
   );
 }
 
-function PanelHead({ title, sub, action = "View all", hideAction = false, onAction }) {
+function PanelHead({
+  title,
+  sub,
+  action = "View all",
+  hideAction = false,
+  onAction,
+  actionOnClick = null,
+}) {
   return (
     <div className="panel-head">
       <div>
@@ -318,7 +325,16 @@ function PanelHead({ title, sub, action = "View all", hideAction = false, onActi
       </div>
 
       {!hideAction ? (
-        <button type="button" onClick={() => emitAciAction({ label: action }, onAction)}>
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof actionOnClick === "function") {
+              actionOnClick();
+              return;
+            }
+            emitAciAction({ label: action }, onAction);
+          }}
+        >
           {action} <ChevronRight size={14} />
         </button>
       ) : null}
@@ -471,7 +487,25 @@ function PopularVariantsPanel({ vehicle, onAction, savedIds, onToggleSaved, mobi
         title="Popular variants"
         sub={mobile ? "" : "Top picks by our customers"}
         hideAction={mobile}
-        onAction={onAction}
+        actionOnClick={() =>
+          emitAciAction(
+            {
+              id: `${vehicle.id}-variants-view-all`,
+              label: "View all variants",
+              query: `${vehicle.model} pricelist`,
+              intent: ACI_INTENTS.PRICELIST,
+              canvasType: ACI_CANVAS_TYPES.PRICELIST,
+              vehicle,
+              contextPatch: {
+                selectedVehicle: vehicle,
+                anchorModel: vehicle.model,
+                anchorMake: vehicle.make,
+                anchorCity: vehicle.city,
+              },
+            },
+            onAction,
+          )
+        }
       />
 
       <div className="variant-card-grid">
@@ -577,7 +611,7 @@ function ColorsPanel({ vehicle, onAction, mobile = false }) {
         title="Colors"
         sub={mobile ? "" : "Choose your perfect shade"}
         action="View all"
-        onAction={() =>
+        actionOnClick={() =>
           emitAciAction(
             {
               id: `${vehicle.id}-colors-view-all`,
@@ -691,7 +725,7 @@ function ComparePanel({ vehicle, onAction, mobile = false }) {
         title={`Compare with ${compareWith.model}`}
         sub={`See how ${vehicle.model} compares`}
         action="View comparison"
-        onAction={() =>
+        actionOnClick={() =>
           emitAciAction(
             {
               label: "View comparison",
