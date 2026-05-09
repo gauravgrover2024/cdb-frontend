@@ -193,16 +193,24 @@ const getVehicleImage = (vehicle, color) =>
   vehicle?.carImageUrl ||
   "";
 
-const normalizeColors = (vehicle) => {
+const normalizeColors = (vehicle, widget) => {
   const source =
+    widget?.colors ||
+    widget?.exteriorColors ||
+    widget?.availableColors ||
     vehicle?.exteriorColors ||
     vehicle?.availableColors ||
     vehicle?.colors ||
-    FALLBACK_COLORS;
+    [];
 
-  if (!Array.isArray(source) || !source.length) return FALLBACK_COLORS;
+  if (widget?.__fromBackend && (!Array.isArray(source) || !source.length)) {
+    return [];
+  }
 
-  return source.map((raw, index) => {
+  const finalSource =
+    Array.isArray(source) && source.length ? source : FALLBACK_COLORS;
+
+  return finalSource.map((raw, index) => {
     const fallback = FALLBACK_COLORS[index % FALLBACK_COLORS.length];
     const name =
       raw.desktopName ||
@@ -215,8 +223,10 @@ const normalizeColors = (vehicle) => {
     return {
       id: raw.id || makeSlug(name, `color-${index + 1}`),
       name,
-      mobileName: raw.mobileName || raw.name || raw.colorName || fallback.mobileName,
-      desktopName: raw.desktopName || raw.name || raw.colorName || fallback.desktopName,
+      mobileName:
+        raw.mobileName || raw.name || raw.colorName || fallback.mobileName,
+      desktopName:
+        raw.desktopName || raw.name || raw.colorName || fallback.desktopName,
       hex: raw.hex || raw.hexCode || raw.colorHex || fallback.hex,
       deep: raw.deep || raw.darkHex || raw.deepHex || fallback.deep,
       filter: raw.filter || raw.cssFilter || fallback.filter,
@@ -244,7 +254,9 @@ function fireAction(label, payload = {}, onAction) {
 
   emitAciAction(
     {
-      id: payload.id || makeSlug(`${label}-${vehicle?.id || vehicle?.model || ""}`),
+      id:
+        payload.id ||
+        makeSlug(`${label}-${vehicle?.id || vehicle?.model || ""}`),
       label,
       query,
       type: payload.type || "colors_action",
@@ -273,7 +285,9 @@ function Logo({ mobile = false, onAction }) {
     <button
       type="button"
       className={`colors-logo ${mobile ? "mobile" : ""}`}
-      onClick={() => fireAction("Home", { type: "go_home", intent: "" }, onAction)}
+      onClick={() =>
+        fireAction("Home", { type: "go_home", intent: "" }, onAction)
+      }
     >
       <span>ACI</span>
       <strong>ASSIST</strong>
@@ -508,7 +522,9 @@ function Composer({ vehicle, onAction }) {
           <Sparkles size={22} />
         </button>
 
-        <input placeholder={`Ask ACI Assist anything about ${getVehicleTitle(vehicle)}...`} />
+        <input
+          placeholder={`Ask ACI Assist anything about ${getVehicleTitle(vehicle)}...`}
+        />
 
         <button
           type="button"
@@ -541,7 +557,9 @@ function MobileChatbar({ vehicle, onAction }) {
           <Sparkles size={21} />
         </button>
 
-        <input placeholder={`Ask ACI Assist about ${getVehicleModel(vehicle)} colors...`} />
+        <input
+          placeholder={`Ask ACI Assist about ${getVehicleModel(vehicle)} colors...`}
+        />
 
         <button
           type="button"
@@ -579,7 +597,11 @@ function DesktopGallery({ selectedColor, selectedMood, vehicle }) {
           className="desktop-gallery-angle"
           animate={{ opacity: 1, scale: 1 }}
         >
-          <VehicleArtwork color={selectedColor} vehicle={vehicle} size="desktop" />
+          <VehicleArtwork
+            color={selectedColor}
+            vehicle={vehicle}
+            size="desktop"
+          />
         </motion.div>
       </div>
     </motion.section>
@@ -639,8 +661,6 @@ function DesktopRail({
           <Heart size={17} />
           Save color
         </button>
-
-        
       </motion.article>
 
       <motion.article className="rail-card popular-card" variants={fadeUp}>
@@ -781,7 +801,10 @@ function DesktopColorsPage({
                 </span>
               </h1>
 
-              <p>Explore all exterior colors available for {getVehicleTitle(vehicle)}.</p>
+              <p>
+                Explore all exterior colors available for{" "}
+                {getVehicleTitle(vehicle)}.
+              </p>
             </div>
 
             <button
@@ -1041,7 +1064,11 @@ function MobileMoods({
                   <Icon size={18} />
                 </span>
 
-                <VehicleArtwork color={selectedColor} vehicle={vehicle} size="mood" />
+                <VehicleArtwork
+                  color={selectedColor}
+                  vehicle={vehicle}
+                  size="mood"
+                />
               </div>
 
               <strong>{mood.name}</strong>
@@ -1122,9 +1149,17 @@ function MobileColorsPage({
   );
 }
 
-export default function AciAssistColorsScreen({ data, vehicle, onAction }) {
+export default function AciAssistColorsScreen({
+  data,
+  vehicle,
+  widget,
+  onAction,
+}) {
   const activeVehicle = vehicle || data?.selectedVehicle || {};
-  const colors = useMemo(() => normalizeColors(activeVehicle), [activeVehicle]);
+  const colors = useMemo(
+    () => normalizeColors(activeVehicle, widget),
+    [activeVehicle, widget],
+  );
   const [selectedColorId, setSelectedColorId] = useState(colors[0]?.id || "");
   const [selectedMood, setSelectedMood] = useState(MOODS[0]);
 
@@ -1134,18 +1169,95 @@ export default function AciAssistColorsScreen({ data, vehicle, onAction }) {
     }
   }, [colors, selectedColorId]);
 
+  if (!colors.length) {
+    return (
+      <div className="aci-colors-root">
+        <style>{`
+          .aci-colors-root {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 28px;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+            color: #0f172a;
+          }
+
+          .aci-live-empty {
+            width: min(520px, 100%);
+            border: 1px solid #dbe3ef;
+            border-radius: 28px;
+            background: rgba(255,255,255,.96);
+            box-shadow: 0 24px 74px -56px rgba(15,23,42,.52);
+            padding: 28px;
+            text-align: center;
+          }
+
+          .aci-live-empty h2 {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 34px;
+            line-height: 1;
+            letter-spacing: -.05em;
+          }
+
+          .aci-live-empty p {
+            margin: 14px 0 22px;
+            color: #64748b;
+            line-height: 1.5;
+          }
+
+          .aci-live-empty button {
+            height: 44px;
+            border: 0;
+            border-radius: 999px;
+            padding: 0 18px;
+            background: linear-gradient(135deg, #2563eb, #1455ef);
+            color: white;
+            font-weight: 750;
+            cursor: pointer;
+          }
+        `}</style>
+
+        <section className="aci-live-empty">
+          <h2>No live color data found</h2>
+          <p>
+            Backend was reached, but it did not return colors for{" "}
+            {getVehicleTitle(activeVehicle)}. I am not showing demo colors here.
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              fireAction(
+                `Back to ${getVehicleTitle(activeVehicle)}`,
+                {
+                  vehicle: activeVehicle,
+                  type: "back_to_car",
+                  intent: ACI_INTENTS.OPEN_VEHICLE,
+                  canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+                },
+                onAction,
+              )
+            }
+          >
+            Back to car page
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   const selectedColor =
-    colors.find((item) => item.id === selectedColorId) || colors[0] || FALLBACK_COLORS[0];
+    colors.find((item) => item.id === selectedColorId) ||
+    colors[0] ||
+    FALLBACK_COLORS[0];
 
   const setSelectedColor = (color) => setSelectedColorId(color.id);
 
-  const meta = useMemo(
-    () => ({
-      color: selectedColor.mobileName,
-      mood: selectedMood.name,
-    }),
-    [selectedColor, selectedMood],
-  );
+  const meta = {
+    color: selectedColor.mobileName,
+    mood: selectedMood.name,
+  };
 
   return (
     <div
