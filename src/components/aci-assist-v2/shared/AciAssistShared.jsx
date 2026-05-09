@@ -129,6 +129,7 @@ export function AciVehiclePhoto({
   imageUrl,
   className = "",
   alt = "Vehicle",
+  onError,
 }) {
   if (!imageUrl) return null;
 
@@ -136,6 +137,7 @@ export function AciVehiclePhoto({
     <img
       src={imageUrl}
       alt={alt}
+      onError={onError}
       className={`creta-photo vehicle-photo ${className}`}
       draggable="false"
     />
@@ -226,12 +228,20 @@ export function AciVehicleVisual({
   height = 120,
   className = "",
 }) {
-  if (isUsableImageUrl(vehicle?.imageUrl)) {
+  const imageUrl = vehicle?.imageUrl || "";
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
+
+  if (isUsableImageUrl(imageUrl) && !imageFailed) {
     return (
       <AciVehiclePhoto
-        imageUrl={vehicle.imageUrl}
+        imageUrl={imageUrl}
         alt={vehicle.name || vehicle.displayName || vehicle.label || "Vehicle"}
         className={className}
+        onError={() => setImageFailed(true)}
       />
     );
   }

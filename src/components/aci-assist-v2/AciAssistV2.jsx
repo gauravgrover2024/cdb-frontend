@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ACI_ASSIST_HOME_DATA,
   ACI_CANVAS_TYPES,
@@ -10,7 +10,10 @@ import {
 } from "./data/homeScreenData";
 import AciAssistStyles from "./shared/AciAssistStyles";
 import { normalizeAciAction } from "./shared/AciAssistShared";
-import { askAciAssistV2 } from "./services/aciAssistV2Api";
+import {
+  askAciAssistV2,
+  fetchAciVehicleLiveSnapshot,
+} from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
 import AciAssistCarOverviewScreen from "./screens/AciAssistCarOverviewScreen";
 import AciAssistColorsScreen from "./screens/AciAssistColorsScreen";
@@ -23,6 +26,16 @@ const SCREEN = {
   PRICELIST: "pricelist",
 };
 const IMAGE_CACHE_KEY = "aci_v2_live_model_images_v1";
+
+const vehicleIdentityKey = (vehicle = {}) =>
+  String(vehicle?.id || vehicle?._id || "")
+    .trim()
+    .toLowerCase() ||
+  `${String(vehicle?.make || vehicle?.brand || "")
+    .trim()
+    .toLowerCase()}|${String(vehicle?.model || "")
+    .trim()
+    .toLowerCase()}`;
 
 const mergeVehicle = (fallback, incoming) => {
   if (!incoming) return fallback;
@@ -98,6 +111,19 @@ const isCarOverviewCanvas = (value = "") => {
   );
 };
 
+const mergeVehicleData = (base = {}, incoming = {}) => ({
+  ...base,
+  ...incoming,
+  colors:
+    Array.isArray(incoming?.colors) && incoming.colors.length
+      ? incoming.colors
+      : base?.colors,
+  variants:
+    Array.isArray(incoming?.variants) && incoming.variants.length
+      ? incoming.variants
+      : base?.variants,
+});
+
 export default function AciAssistV2() {
   const [screen, setScreen] = useState(SCREEN.HOME);
   const [selectedVehicleId, setSelectedVehicleId] = useState("hyundai-creta");
@@ -108,6 +134,8 @@ export default function AciAssistV2() {
   const [isBackendLoading, setIsBackendLoading] = useState(false);
   const [backendError, setBackendError] = useState("");
   const [liveModelImages, setLiveModelImages] = useState({});
+  const [liveVehiclePatches, setLiveVehiclePatches] = useState({});
+  const pendingLiveFetchRef = useRef(new Map());
 
   const homeData = useMemo(
     () => ({
@@ -116,6 +144,69 @@ export default function AciAssistV2() {
     }),
     [],
   );
+
+  const hydrateVehicleLive = useCallback(async (vehicle, { timeoutMs = 4200 } = {}) => {
+    const key = vehicleIdentityKey(vehicle);
+    if (!key || !vehicle?.model) return null;
+
+    const existingPending = pendingLiveFetchRef.current.get(key);
+    if (existingPending) return existingPending;
+
+    const task = (async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const snapshot = await fetchAciVehicleLiveSnapshot({
+          make: vehicle.make || vehicle.brand || "",
+          model: vehicle.model || "",
+          city: vehicle.city || "Delhi",
+          signal: controller.signal,
+        });
+
+        const patch = snapshot?.vehicle || null;
+        if (!patch) return null;
+
+        const mergedPatch = mergeVehicleData(vehicle, patch);
+        setLiveVehiclePatches((prev) => ({
+          ...prev,
+          [key]: mergeVehicleData(prev[key] || {}, mergedPatch),
+        }));
+
+        if (mergedPatch.imageUrl) {
+          setLiveModelImages((prev) => ({
+            ...prev,
+            [vehicle.id]: mergedPatch.imageUrl,
+          }));
+          try {
+            const cached = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || "{}");
+            localStorage.setItem(
+              IMAGE_CACHE_KEY,
+              JSON.stringify({
+                ...(cached && typeof cached === "object" ? cached : {}),
+                [vehicle.id]: { url: mergedPatch.imageUrl, ts: Date.now() },
+              }),
+            );
+          } catch {
+            // ignore cache write errors
+          }
+        }
+
+        return snapshot;
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timeout);
+      }
+    })();
+
+    pendingLiveFetchRef.current.set(key, task);
+    try {
+      return await task;
+    } finally {
+      pendingLiveFetchRef.current.delete(key);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,49 +277,7 @@ export default function AciAssistV2() {
             return;
           }
 
-          const modelLabel =
-            vehicle.displayName ||
-            vehicle.name ||
-            [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" ");
-          if (!modelLabel) return;
-
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 3500);
-
-          try {
-            const backend = await askAciAssistV2({
-              message: `Show colors of ${modelLabel}`,
-              context: {
-                selectedVehicle: {
-                  model: vehicle.model || modelLabel,
-                  make: vehicle.make || vehicle.brand || "",
-                  city: vehicle.city || "Delhi",
-                },
-              },
-              signal: controller.signal,
-            });
-
-            const image =
-              backend?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
-              backend?.widget?.colors?.find((item) => item?.imageUrl)?.imageUrl ||
-              "";
-            if (!image || cancelled) return;
-
-            setLiveModelImages((prev) => {
-              const next = { ...prev, [vehicle.id]: image };
-              try {
-                const persist = { ...cachedMap, [vehicle.id]: { url: image, ts: Date.now() } };
-                localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(persist));
-              } catch {
-                // ignore cache write issues
-              }
-              return next;
-            });
-          } catch {
-            // silent: keep existing/fallback image
-          } finally {
-            clearTimeout(timeout);
-          }
+          await hydrateVehicleLive(vehicle, { timeoutMs: 3200 });
         }),
       );
     };
@@ -238,13 +287,16 @@ export default function AciAssistV2() {
     return () => {
       cancelled = true;
     };
-  }, [homeData]);
+  }, [homeData, hydrateVehicleLive]);
 
   const homeDataWithLiveImages = useMemo(() => {
     const patchImage = (vehicle) => {
       if (!vehicle) return vehicle;
-      const imageUrl = liveModelImages[vehicle.id] || vehicle.imageUrl || "";
-      return { ...vehicle, imageUrl };
+      const key = vehicleIdentityKey(vehicle);
+      const patch = liveVehiclePatches[key] || {};
+      const merged = mergeVehicleData(vehicle, patch);
+      const imageUrl = liveModelImages[vehicle.id] || merged.imageUrl || "";
+      return { ...merged, imageUrl };
     };
 
     return {
@@ -260,7 +312,7 @@ export default function AciAssistV2() {
         popularCars: (homeData?.mobile?.popularCars || []).map(patchImage),
       },
     };
-  }, [homeData, liveModelImages]);
+  }, [homeData, liveModelImages, liveVehiclePatches]);
 
   const fallbackSelectedVehicle = useMemo(
     () => getAciVehicleById(selectedVehicleId),
@@ -268,8 +320,15 @@ export default function AciAssistV2() {
   );
 
   const selectedVehicle = useMemo(
-    () => mergeVehicle(fallbackSelectedVehicle, activeVehicleOverride),
-    [fallbackSelectedVehicle, activeVehicleOverride],
+    () =>
+      mergeVehicleData(
+        mergeVehicle(
+          fallbackSelectedVehicle,
+          liveVehiclePatches[vehicleIdentityKey(fallbackSelectedVehicle)] || null,
+        ),
+        activeVehicleOverride || {},
+      ),
+    [fallbackSelectedVehicle, activeVehicleOverride, liveVehiclePatches],
   );
 
   const dispatchBrowserEvent = (action) => {
@@ -292,9 +351,24 @@ export default function AciAssistV2() {
     const nextVehicle = mergeVehicle(selectedVehicle, vehicle);
     if (!nextVehicle?.id) return nextVehicle;
 
+    const key = vehicleIdentityKey(nextVehicle);
+    const patchedVehicle = mergeVehicleData(
+      nextVehicle,
+      liveVehiclePatches[key] || {},
+    );
+
     setSelectedVehicleId(nextVehicle.id);
-    setActiveVehicleOverride(nextVehicle);
-    return nextVehicle;
+    setActiveVehicleOverride(patchedVehicle);
+
+    hydrateVehicleLive(patchedVehicle).then((snapshot) => {
+      const liveVehicle = snapshot?.vehicle;
+      if (!liveVehicle) return;
+      setActiveVehicleOverride((prev) =>
+        mergeVehicleData(mergeVehicle(prev || patchedVehicle, liveVehicle), liveVehicle),
+      );
+    });
+
+    return patchedVehicle;
   };
 
   const openVehicle = (vehicle, sourceAction = {}) => {
@@ -314,11 +388,14 @@ export default function AciAssistV2() {
     const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
     if (!nextVehicle?.id) return;
 
-    setActiveCanvasPayload(
+    const canvasPayload =
       sourceAction.widget ||
-        sourceAction.payload?.widget ||
-        sourceAction.payload ||
-        null,
+      sourceAction.payload?.widget ||
+      sourceAction.payload ||
+      { __fromBackend: true };
+
+    setActiveCanvasPayload(
+      canvasPayload,
     );
     setScreen(SCREEN.COLORS);
 
@@ -345,11 +422,14 @@ export default function AciAssistV2() {
     const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
     if (!nextVehicle?.id) return;
 
-    setActiveCanvasPayload(
+    const canvasPayload =
       sourceAction.widget ||
-        sourceAction.payload?.widget ||
-        sourceAction.payload ||
-        null,
+      sourceAction.payload?.widget ||
+      sourceAction.payload ||
+      { __fromBackend: true };
+
+    setActiveCanvasPayload(
+      canvasPayload,
     );
     setScreen(SCREEN.PRICELIST);
 
@@ -487,16 +567,11 @@ export default function AciAssistV2() {
     return Boolean(
       action.canvasType ||
         action.intent ||
-        actionText.includes("price") ||
-        actionText.includes("pricelist") ||
-        actionText.includes("color") ||
-        actionText.includes("colour") ||
-        actionText.includes("creta") ||
-        actionText.includes("verna") ||
-        actionText.includes("safari") ||
-        actionText.includes("seltos") ||
-        actionText.includes("city") ||
-        actionText.includes("slavia"),
+        actionText.includes("compare") ||
+        actionText.includes("emi") ||
+        actionText.includes("feature") ||
+        actionText.includes("quotation") ||
+        actionText.includes("quote"),
     );
   };
 
@@ -544,6 +619,45 @@ export default function AciAssistV2() {
     const vehicleFromQuery = getAciVehicleByQuery(action.query || action.label);
     const targetVehicle = explicitVehicle || vehicleFromQuery || selectedVehicle;
 
+    const shouldOpenPriceList =
+      isPriceListCanvas(action.canvasType) ||
+      action.intent === ACI_INTENTS.PRICELIST ||
+      actionText.includes("price list") ||
+      actionText.includes("pricelist") ||
+      actionText.includes("prices");
+
+    if (shouldOpenPriceList) {
+      setBackendError("");
+      openPriceList(targetVehicle, action);
+      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
+      return;
+    }
+
+    const shouldOpenColors =
+      isColorsCanvas(action.canvasType) ||
+      action.intent === ACI_INTENTS.COLORS ||
+      actionText.includes("color") ||
+      actionText.includes("colour");
+
+    if (shouldOpenColors) {
+      setBackendError("");
+      openColors(targetVehicle, action);
+      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
+      return;
+    }
+
+    const shouldOpenVehicle =
+      action.type === "open_vehicle" ||
+      action.intent === ACI_INTENTS.OPEN_VEHICLE ||
+      Boolean(vehicleFromQuery);
+
+    if (shouldOpenVehicle) {
+      setBackendError("");
+      openVehicle(targetVehicle, action);
+      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
+      return;
+    }
+
     if (shouldAskBackend(action)) {
       setIsBackendLoading(true);
       setBackendError("");
@@ -563,39 +677,6 @@ export default function AciAssistV2() {
         setIsBackendLoading(false);
         setBackendError(error?.message || "Backend request failed");
       }
-    }
-
-    const shouldOpenPriceList =
-      isPriceListCanvas(action.canvasType) ||
-      action.intent === ACI_INTENTS.PRICELIST ||
-      actionText.includes("price list") ||
-      actionText.includes("pricelist") ||
-      actionText.includes("prices");
-
-    if (shouldOpenPriceList) {
-      openPriceList(targetVehicle, action);
-      return;
-    }
-
-    const shouldOpenColors =
-      isColorsCanvas(action.canvasType) ||
-      action.intent === ACI_INTENTS.COLORS ||
-      actionText.includes("color") ||
-      actionText.includes("colour");
-
-    if (shouldOpenColors) {
-      openColors(targetVehicle, action);
-      return;
-    }
-
-    const shouldOpenVehicle =
-      action.type === "open_vehicle" ||
-      action.intent === ACI_INTENTS.OPEN_VEHICLE ||
-      Boolean(vehicleFromQuery);
-
-    if (shouldOpenVehicle) {
-      openVehicle(targetVehicle, action);
-      return;
     }
 
     rememberAction({

@@ -2,6 +2,10 @@ import API_BASE_URL from "../../../config/apiBaseUrl";
 
 const DEFAULT_CHAT_ENDPOINT = "/api/ai-agent/chat";
 const DEFAULT_PUBLIC_CHAT_ENDPOINT = "/api/ai-agent/public-chat";
+const VEHICLE_MEDIA_ENDPOINT = "/api/vehicles/media";
+const VEHICLE_VARIANTS_ENDPOINT = "/api/vehicles/distinct/variants-with-price";
+const LIVE_SNAPSHOT_TTL_MS = 1000 * 60 * 10;
+const liveSnapshotMemory = new Map();
 
 const cleanJoin = (base = "", path = "") => {
   if (!base) return path;
@@ -246,6 +250,156 @@ const firstArrayFromKnownPaths = (...values) => {
   return [];
 };
 
+const parseAmount = (value) => {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  const text = String(value).replace(/,/g, "").trim();
+  if (!text) return 0;
+
+  const match = text.match(/[-+]?\d*\.?\d+/);
+  if (!match) return 0;
+
+  const number = Number(match[0]);
+  if (!Number.isFinite(number)) return 0;
+
+  if (/crore|cr\b/i.test(text)) return Math.round(number * 10000000);
+  if (/lakh|lac|l\b/i.test(text)) return Math.round(number * 100000);
+  if (number > 0 && number < 250) return Math.round(number * 100000);
+  return Math.round(number);
+};
+
+const formatCompactAmount = (value) => {
+  const amount = Number(value || 0);
+  if (!amount) return "";
+  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
+  return `₹${(amount / 100000).toFixed(2)}L`;
+};
+
+const normalizeHex = (value = "") => {
+  const hex = String(value || "").trim().replace(/^#/, "");
+  if (!hex) return "";
+  if (/^[0-9a-f]{3}$/i.test(hex)) {
+    return `#${hex
+      .split("")
+      .map((part) => `${part}${part}`)
+      .join("")
+      .toUpperCase()}`;
+  }
+  if (/^[0-9a-f]{6}$/i.test(hex)) return `#${hex.toUpperCase()}`;
+  return "";
+};
+
+const canonicalVehicleKey = ({ make = "", model = "", city = "" } = {}) =>
+  `${String(make || "").trim().toLowerCase()}|${String(model || "")
+    .trim()
+    .toLowerCase()}|${String(city || "").trim().toLowerCase()}`;
+
+const normalizeLiveVariant = (row = {}, index = 0, city = "Delhi") => {
+  const name =
+    row.variant ||
+    row.variantName ||
+    row.name ||
+    row.title ||
+    row.trim ||
+    `Variant ${index + 1}`;
+  const fuel = row.fuel || row.fuel_type || row.fuelType || "";
+  const transmission =
+    row.transmission || row.transmissionType || row.gearbox || "";
+  const exShowroom = parseAmount(
+    row.exShowroom ?? row.ex_showroom ?? row.exShowroomPrice ?? row.exPrice,
+  );
+  const onRoad = parseAmount(
+    row.onRoadPrice ??
+      row.on_road_price_cardekho ??
+      row.total_on_road_with_accessories ??
+      row.on_road_price ??
+      row.price,
+  );
+
+  return {
+    ...row,
+    id: row._id || row.id || `${name}-${index}`,
+    name,
+    variant: name,
+    fuel,
+    transmission,
+    exShowroomPrice: exShowroom,
+    onRoadPrice: onRoad || exShowroom,
+    price: formatCompactAmount(onRoad || exShowroom),
+    sub: `On-road ${city || "Delhi"}`,
+    note: row.note || row.summary || row.description || "Variant details",
+  };
+};
+
+const normalizeLiveColor = (row = {}, index = 0) => {
+  const name =
+    row.color_name ||
+    row.colorName ||
+    row.name ||
+    row.label ||
+    row.desktopName ||
+    row.mobileName ||
+    `Color ${index + 1}`;
+  return {
+    ...row,
+    id: row._id || row.id || `${name}-${index}`,
+    name,
+    desktopName: row.desktopName || name,
+    mobileName: row.mobileName || name,
+    hex:
+      normalizeHex(
+        row.color_hex || row.hex || row.hexCode || row.colorHex || "",
+      ) || "#2563EB",
+    imageUrl: row.image_url || row.imageUrl || row.car_image_url || "",
+    carImageUrl: row.car_image_url || row.image_url || row.imageUrl || "",
+  };
+};
+
+const queryString = (params = {}) => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+    search.set(key, value);
+  });
+  return search.toString();
+};
+
+const readLiveSnapshotCache = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("aci_v2_live_snapshot_cache");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeLiveSnapshotCache = (cache) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("aci_v2_live_snapshot_cache", JSON.stringify(cache));
+  } catch {
+    // ignore cache write errors
+  }
+};
+
+const fetchJsonSafe = async (url, token = "", signal) => {
+  const response = await fetch(url, {
+    method: "GET",
+    signal,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
+  });
+
+  if (!response.ok) return null;
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+  return response.json();
+};
+
 export const normalizeAciBackendResponse = (raw) => {
   const container =
     raw?.data?.response ||
@@ -484,4 +638,149 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
     console.log("ACI Assist V2 normalized backend:", normalized);
   }
   return normalized;
+}
+
+export async function fetchAciVehicleLiveSnapshot({
+  make = "",
+  model = "",
+  city = "",
+  signal,
+} = {}) {
+  const normalizedMake = String(make || "").trim();
+  const normalizedModel = String(model || "").trim();
+  const normalizedCity = String(city || "Delhi").trim();
+
+  if (!normalizedMake || !normalizedModel) {
+    return {
+      ok: false,
+      reason: "missing_make_or_model",
+      vehicle: null,
+      rows: [],
+      colors: [],
+    };
+  }
+
+  const key = canonicalVehicleKey({
+    make: normalizedMake,
+    model: normalizedModel,
+    city: normalizedCity,
+  });
+  const now = Date.now();
+
+  const memoryHit = liveSnapshotMemory.get(key);
+  if (memoryHit && now - Number(memoryHit.ts || 0) < LIVE_SNAPSHOT_TTL_MS) {
+    return memoryHit.payload;
+  }
+
+  const localCache = readLiveSnapshotCache();
+  const localHit = localCache[key];
+  if (localHit && now - Number(localHit.ts || 0) < LIVE_SNAPSHOT_TTL_MS) {
+    liveSnapshotMemory.set(key, localHit);
+    return localHit.payload;
+  }
+
+  const apiBase = process.env.REACT_APP_API_BASE_URL || API_BASE_URL || "";
+  const mediaUrl = cleanJoin(
+    apiBase,
+    `${VEHICLE_MEDIA_ENDPOINT}?${queryString({
+      make: normalizedMake,
+      model: normalizedModel,
+    })}`,
+  );
+  const variantsUrl = cleanJoin(
+    apiBase,
+    `${VEHICLE_VARIANTS_ENDPOINT}?${queryString({
+      make: normalizedMake,
+      model: normalizedModel,
+      city: normalizedCity,
+    })}`,
+  );
+
+  const token = getAuthToken();
+  const [mediaRes, variantsRes] = await Promise.allSettled([
+    fetchJsonSafe(mediaUrl, token, signal),
+    fetchJsonSafe(variantsUrl, token, signal),
+  ]);
+
+  const mediaRows = Array.isArray(mediaRes.value?.data)
+    ? mediaRes.value.data
+    : [];
+  const variantRowsRaw = Array.isArray(variantsRes.value?.data)
+    ? variantsRes.value.data
+    : [];
+
+  const variantRows = variantRowsRaw
+    .map((item, index) => normalizeLiveVariant(item, index, normalizedCity))
+    .filter((item) => item.variant && (item.exShowroomPrice || item.onRoadPrice));
+
+  const colors = mediaRows
+    .map((item, index) => normalizeLiveColor(item, index))
+    .filter((item) => item.name)
+    .filter((item, index, list) => {
+      const keyName = `${String(item.name || "")
+        .trim()
+        .toLowerCase()}|${item.hex}`;
+      return list.findIndex((entry) => {
+        const entryKey = `${String(entry.name || "")
+          .trim()
+          .toLowerCase()}|${entry.hex}`;
+        return keyName === entryKey;
+      }) === index;
+    });
+
+  const onRoadValues = variantRows
+    .map((item) => parseAmount(item.onRoadPrice))
+    .filter(Boolean);
+  const exValues = variantRows
+    .map((item) => parseAmount(item.exShowroomPrice))
+    .filter(Boolean);
+  const minOnRoad = onRoadValues.length ? Math.min(...onRoadValues) : 0;
+  const maxOnRoad = onRoadValues.length ? Math.max(...onRoadValues) : 0;
+  const minEx = exValues.length ? Math.min(...exValues) : 0;
+  const heroImage =
+    colors.find((item) => item.imageUrl)?.imageUrl ||
+    variantRows.find((item) => item.imageUrl)?.imageUrl ||
+    "";
+
+  const payload = {
+    ok: true,
+    source: "vehicle_snapshot",
+    vehicle: {
+      make: normalizedMake,
+      brand: normalizedMake,
+      model: normalizedModel,
+      city: normalizedCity,
+      imageUrl: heroImage,
+      heroImageUrl: heroImage,
+      colors,
+      variants: variantRows,
+      variantCount: variantRows.length || undefined,
+      selectedVariant: variantRows[0]?.variant || "",
+      startingOnRoadPrice: formatCompactAmount(minOnRoad),
+      exShowroomPrice: formatCompactAmount(minEx),
+      priceRange:
+        minOnRoad && maxOnRoad
+          ? `${formatCompactAmount(minOnRoad)} – ${formatCompactAmount(maxOnRoad)}`
+          : "",
+    },
+    rows: variantRows,
+    colors,
+  };
+
+  const entry = { ts: now, payload };
+  liveSnapshotMemory.set(key, entry);
+  writeLiveSnapshotCache({
+    ...localCache,
+    [key]: entry,
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("ACI Assist V2 live snapshot:", {
+      key,
+      rows: payload.rows.length,
+      colors: payload.colors.length,
+    });
+  }
+
+  return payload;
 }
