@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import {
   ACI_ASSIST_HOME_DATA,
+  ACI_CANVAS_TYPES,
   ACI_HOME_IMAGES,
   ACI_INTENTS,
   buildVehicleAction,
@@ -11,10 +12,14 @@ import AciAssistStyles from "./shared/AciAssistStyles";
 import { normalizeAciAction } from "./shared/AciAssistShared";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
 import AciAssistCarOverviewScreen from "./screens/AciAssistCarOverviewScreen";
+import AciAssistColorsScreen from "./screens/AciAssistColorsScreen";
+import AciAssistPriceListScreen from "./screens/AciAssistPriceListScreen";
 
 const SCREEN = {
   HOME: "home",
   CAR_OVERVIEW: "car_overview",
+  COLORS: "colors",
+  PRICELIST: "pricelist",
 };
 
 export default function AciAssistV2() {
@@ -22,6 +27,7 @@ export default function AciAssistV2() {
   const [selectedVehicleId, setSelectedVehicleId] = useState("hyundai-creta");
   const [savedIds, setSavedIds] = useState(() => new Set(["hyundai-verna"]));
   const [lastAction, setLastAction] = useState(null);
+  const [activeCanvasPayload, setActiveCanvasPayload] = useState(null);
 
   const homeData = useMemo(
     () => ({
@@ -46,22 +52,78 @@ export default function AciAssistV2() {
     );
   };
 
+  const rememberAction = (action) => {
+    setLastAction(action);
+    console.log("ACI Assist V2 action:", action);
+    dispatchBrowserEvent(action);
+  };
+
   const openVehicle = (vehicle, sourceAction = {}) => {
     const nextVehicle = vehicle || selectedVehicle;
-
     if (!nextVehicle?.id) return;
 
     setSelectedVehicleId(nextVehicle.id);
+    setActiveCanvasPayload(null);
     setScreen(SCREEN.CAR_OVERVIEW);
 
-    const openAction = {
+    rememberAction({
       ...buildVehicleAction(nextVehicle),
       sourceAction,
-    };
+    });
+  };
 
-    setLastAction(openAction);
-    console.log("ACI Assist V2 open vehicle:", openAction);
-    dispatchBrowserEvent(openAction);
+  const openColors = (vehicle, sourceAction = {}) => {
+    const nextVehicle = vehicle || selectedVehicle;
+    if (!nextVehicle?.id) return;
+
+    setSelectedVehicleId(nextVehicle.id);
+    setActiveCanvasPayload(sourceAction.payload || sourceAction.widget || null);
+    setScreen(SCREEN.COLORS);
+
+    rememberAction({
+      ...sourceAction,
+      id: sourceAction.id || `${nextVehicle.id}-colors-open`,
+      label: sourceAction.label || `Colors of ${nextVehicle.displayName}`,
+      query: sourceAction.query || `Show colors of ${nextVehicle.displayName}`,
+      type: "open_canvas",
+      intent: ACI_INTENTS.COLORS,
+      canvasType: ACI_CANVAS_TYPES.COLORS,
+      vehicle: nextVehicle,
+      contextPatch: {
+        selectedVehicle: nextVehicle,
+        anchorModel: nextVehicle.model,
+        anchorMake: nextVehicle.make,
+        anchorCity: nextVehicle.city,
+        ...(sourceAction.contextPatch || {}),
+      },
+    });
+  };
+
+  const openPriceList = (vehicle, sourceAction = {}) => {
+    const nextVehicle = vehicle || selectedVehicle;
+    if (!nextVehicle?.id) return;
+
+    setSelectedVehicleId(nextVehicle.id);
+    setActiveCanvasPayload(sourceAction.payload || sourceAction.widget || null);
+    setScreen(SCREEN.PRICELIST);
+
+    rememberAction({
+      ...sourceAction,
+      id: sourceAction.id || `${nextVehicle.id}-pricelist-open`,
+      label: sourceAction.label || `${nextVehicle.displayName} price list`,
+      query: sourceAction.query || `${nextVehicle.displayName} pricelist`,
+      type: "open_canvas",
+      intent: ACI_INTENTS.PRICELIST,
+      canvasType: ACI_CANVAS_TYPES.PRICELIST,
+      vehicle: nextVehicle,
+      contextPatch: {
+        selectedVehicle: nextVehicle,
+        anchorModel: nextVehicle.model,
+        anchorMake: nextVehicle.make,
+        anchorCity: nextVehicle.city,
+        ...(sourceAction.contextPatch || {}),
+      },
+    });
   };
 
   const toggleSaved = (vehicle) => {
@@ -71,31 +133,26 @@ export default function AciAssistV2() {
       const next = new Set(prev);
       const saved = next.has(vehicle.id);
 
-      if (saved) {
-        next.delete(vehicle.id);
-      } else {
-        next.add(vehicle.id);
-      }
+      if (saved) next.delete(vehicle.id);
+      else next.add(vehicle.id);
 
-      const action = normalizeAciAction({
-        id: `${saved ? "unsave" : "save"}-${vehicle.id}`,
-        label: saved
-          ? `Removed ${vehicle.displayName || vehicle.name}`
-          : `Saved ${vehicle.displayName || vehicle.name}`,
-        query: saved
-          ? `Remove saved car ${vehicle.displayName || vehicle.name}`
-          : `Save car ${vehicle.displayName || vehicle.name}`,
-        type: "toggle_saved",
-        intent: ACI_INTENTS.TOGGLE_SAVED,
-        vehicle,
-        payload: {
-          saved: !saved,
-        },
-      });
-
-      setLastAction(action);
-      console.log("ACI Assist V2 saved toggle:", action);
-      dispatchBrowserEvent(action);
+      rememberAction(
+        normalizeAciAction({
+          id: `${saved ? "unsave" : "save"}-${vehicle.id}`,
+          label: saved
+            ? `Removed ${vehicle.displayName || vehicle.name}`
+            : `Saved ${vehicle.displayName || vehicle.name}`,
+          query: saved
+            ? `Remove saved car ${vehicle.displayName || vehicle.name}`
+            : `Save car ${vehicle.displayName || vehicle.name}`,
+          type: "toggle_saved",
+          intent: ACI_INTENTS.TOGGLE_SAVED,
+          vehicle,
+          payload: {
+            saved: !saved,
+          },
+        }),
+      );
 
       return next;
     });
@@ -103,11 +160,20 @@ export default function AciAssistV2() {
 
   const handleAciAction = (rawAction) => {
     const action = normalizeAciAction(rawAction);
+    const actionText = `${action.label || ""} ${action.query || ""}`.toLowerCase();
 
-    if (action.type === "go_home") {
+    if (action.type === "go_home" || action.label === "Home") {
       setScreen(SCREEN.HOME);
-      setLastAction(action);
-      dispatchBrowserEvent(action);
+      setActiveCanvasPayload(null);
+      rememberAction(action);
+      return;
+    }
+
+    if (action.type === "back_to_car" || actionText.startsWith("back to")) {
+      if (action.vehicle?.id) setSelectedVehicleId(action.vehicle.id);
+      setScreen(SCREEN.CAR_OVERVIEW);
+      setActiveCanvasPayload(null);
+      rememberAction(action);
       return;
     }
 
@@ -116,15 +182,50 @@ export default function AciAssistV2() {
       return;
     }
 
-    const explicitVehicle = action.vehicle;
+    const explicitVehicle = action.vehicle || null;
     const vehicleFromQuery = getAciVehicleByQuery(action.query || action.label);
     const targetVehicle = explicitVehicle || vehicleFromQuery;
 
-    if (
+    const shouldOpenPriceList =
+      action.canvasType === ACI_CANVAS_TYPES.PRICELIST ||
+      action.intent === ACI_INTENTS.PRICELIST ||
+      actionText.includes("price list") ||
+      actionText.includes("pricelist") ||
+      actionText.includes("prices");
+
+    if (shouldOpenPriceList) {
+      openPriceList(targetVehicle || selectedVehicle, action);
+      return;
+    }
+
+    const shouldOpenColors =
+      action.canvasType === ACI_CANVAS_TYPES.COLORS &&
+      !action.payload?.color &&
+      !action.payload?.selectedColor &&
+      !action.selectedColor &&
+      (
+        action.type === "open_canvas" ||
+        action.id?.includes("colors") ||
+        actionText.includes("color") ||
+        actionText.includes("colour")
+      );
+
+    if (shouldOpenColors) {
+      openColors(targetVehicle || selectedVehicle, action);
+      return;
+    }
+
+    const shouldOpenVehicle =
       action.type === "open_vehicle" ||
       action.intent === ACI_INTENTS.OPEN_VEHICLE ||
-      targetVehicle
-    ) {
+      (
+        !explicitVehicle &&
+        Boolean(vehicleFromQuery) &&
+        !action.canvasType &&
+        !action.intent
+      );
+
+    if (shouldOpenVehicle) {
       openVehicle(targetVehicle || selectedVehicle, action);
       return;
     }
@@ -140,14 +241,11 @@ export default function AciAssistV2() {
       },
     };
 
-    setLastAction(enrichedAction);
-    console.log("ACI Assist V2 action:", enrichedAction);
-    dispatchBrowserEvent(enrichedAction);
+    rememberAction(enrichedAction);
 
     /**
      * Backend wiring point:
      *
-     * Replace the console/event with:
      * aiAgentApi.chat({
      *   message: enrichedAction.query,
      *   context: {
@@ -156,7 +254,20 @@ export default function AciAssistV2() {
      *   },
      * })
      *
-     * Then route response.canvasType to the correct canvas.
+     * Expected backend pricelist contract:
+     * response.canvasType = "pricelist_canvas"
+     * response.vehicle = { id, make, model, displayName, city, imageUrl }
+     * response.widget = {
+     *   city,
+     *   rows: [
+     *     {
+     *       id, variant, fuel, transmission,
+     *       exShowroomPrice, rto, insurance, otherChargesTotal, onRoadPrice,
+     *       otherItems: [{ label, amount }],
+     *       keyFeatures: []
+     *     }
+     *   ]
+     * }
      */
   };
 
@@ -167,7 +278,9 @@ export default function AciAssistV2() {
       <style>{`
         .heart-button.is-saved,
         .mobile-heart.is-saved,
-        .saved-heart-button.is-saved {
+        .saved-heart-button.is-saved,
+        .variant-heart.is-saved,
+        .soft-badge.save-badge.is-saved {
           color: var(--blue) !important;
         }
 
@@ -182,36 +295,7 @@ export default function AciAssistV2() {
         }
 
         .aci-action-toast {
-          position: fixed;
-          right: 22px;
-          bottom: 22px;
-          z-index: 200;
-          max-width: 320px;
-          border-radius: 18px;
-          border: 1px solid #dbe3ef;
-          background: rgba(255,255,255,.96);
-          box-shadow: 0 22px 66px -40px rgba(15,23,42,.48);
-          padding: 12px 14px;
-          color: #334155;
-          font-size: 12px;
-          line-height: 1.4;
-          backdrop-filter: blur(18px);
-        }
-
-        .aci-action-toast strong {
-          display: block;
-          color: #0f172a;
-          font-size: 13px;
-          margin-bottom: 3px;
-        }
-
-        @media (max-width: 900px) {
-          .aci-action-toast {
-            left: 14px;
-            right: 14px;
-            bottom: 14px;
-            display: none;
-          }
+          display: none;
         }
       `}</style>
 
@@ -221,6 +305,20 @@ export default function AciAssistV2() {
           onAction={handleAciAction}
           savedIds={savedIds}
           onToggleSaved={toggleSaved}
+        />
+      ) : screen === SCREEN.COLORS ? (
+        <AciAssistColorsScreen
+          data={homeData}
+          vehicle={selectedVehicle}
+          widget={activeCanvasPayload}
+          onAction={handleAciAction}
+        />
+      ) : screen === SCREEN.PRICELIST ? (
+        <AciAssistPriceListScreen
+          data={homeData}
+          vehicle={selectedVehicle}
+          widget={activeCanvasPayload}
+          onAction={handleAciAction}
         />
       ) : (
         <AciAssistCarOverviewScreen

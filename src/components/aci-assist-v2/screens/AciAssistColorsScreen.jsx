@@ -1,0 +1,2805 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  Bell,
+  Bookmark,
+  Building2,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Heart,
+  Info,
+  Mic,
+  Palette,
+  SendHorizontal,
+  Sparkles,
+  Sun,
+  Trees,
+} from "lucide-react";
+
+import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
+import { emitAciAction } from "../shared/AciAssistShared";
+
+const FALLBACK_COLORS = [
+  {
+    id: "gold",
+    mobileName: "Cosmic Gold",
+    desktopName: "Pearl White",
+    name: "Pearl White",
+    hex: "#d7ba72",
+    deep: "#8f6d32",
+    filter: "sepia(.55) saturate(1.18) hue-rotate(358deg) brightness(1.06)",
+    votes: 10,
+    description:
+      "Warm, premium and distinctive. Looks elegant in city lighting and hides light dust well.",
+  },
+  {
+    id: "white",
+    mobileName: "Lunar White",
+    desktopName: "Pearl White",
+    name: "Pearl White",
+    hex: "#f4f0e7",
+    deep: "#c9c7be",
+    filter: "grayscale(1) brightness(1.55) contrast(.86) saturate(.18)",
+    votes: 24,
+    description:
+      "Clean, timeless and airy. A practical shade that keeps the car looking fresh.",
+  },
+  {
+    id: "silver",
+    mobileName: "Stellar Frost",
+    desktopName: "Meteor Grey",
+    name: "Meteor Grey",
+    hex: "#c8d0d8",
+    deep: "#7f8a96",
+    filter: "grayscale(1) brightness(1.12) contrast(.98)",
+    votes: 16,
+    description:
+      "Balanced metallic tone. Sophisticated, easy to maintain and forgiving in daily use.",
+  },
+  {
+    id: "blue",
+    mobileName: "Galaxy Blue",
+    desktopName: "Cosmic Dark Blue",
+    name: "Cosmic Dark Blue",
+    hex: "#0b3f7f",
+    deep: "#071d3c",
+    filter: "saturate(1.15) contrast(1.04) brightness(.94)",
+    votes: 38,
+    description:
+      "Deep. Confident. Timeless. A bold blue shade that reflects strength and adventure.",
+  },
+  {
+    id: "black",
+    mobileName: "Oberon Black",
+    desktopName: "Oberon Black",
+    name: "Oberon Black",
+    hex: "#111214",
+    deep: "#020617",
+    filter: "grayscale(1) brightness(.43) contrast(1.34)",
+    votes: 8,
+    description:
+      "Bold, sharp and premium. Best for buyers who love strong road presence.",
+  },
+  {
+    id: "copper",
+    mobileName: "Supernova Copper",
+    desktopName: "Flame Red",
+    name: "Flame Red",
+    hex: "#a85a32",
+    deep: "#6d321c",
+    filter: "sepia(.65) saturate(1.7) hue-rotate(330deg) brightness(.96)",
+    votes: 4,
+    description:
+      "Expressive and warm. A standout shade without feeling too loud.",
+  },
+];
+
+const MOODS = [
+  {
+    id: "daylight",
+    name: "Daylight",
+    icon: Sun,
+    note: "Looks clean and balanced under natural light.",
+    desktopBg:
+      "radial-gradient(circle at 16% 18%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 82% 30%, rgba(191,219,254,.72), transparent 26%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
+    mobileBg:
+      "radial-gradient(circle at 18% 24%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 83% 34%, rgba(191,219,254,.7), transparent 28%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
+  },
+  {
+    id: "showroom",
+    name: "Showroom",
+    icon: Building2,
+    note: "Looks premium in city lighting.",
+    desktopBg:
+      "radial-gradient(circle at 54% 5%, rgba(251,191,36,.18), transparent 32%), radial-gradient(circle at 18% 18%, rgba(255,255,255,.96), transparent 28%), linear-gradient(135deg,#fbf5eb 0%,#ffffff 48%,#eee6dc 100%)",
+    mobileBg:
+      "radial-gradient(circle at 54% 5%, rgba(251,191,36,.18), transparent 32%), radial-gradient(circle at 18% 18%, rgba(255,255,255,.96), transparent 28%), linear-gradient(135deg,#fbf5eb 0%,#ffffff 48%,#eee6dc 100%)",
+  },
+  {
+    id: "outdoors",
+    name: "Outdoors",
+    icon: Trees,
+    note: "Shows strong road presence outdoors.",
+    desktopBg:
+      "radial-gradient(circle at 82% 22%, rgba(100,116,139,.22), transparent 26%), radial-gradient(circle at 15% 72%, rgba(34,197,94,.18), transparent 28%), linear-gradient(135deg,#ecfdf5 0%,#ffffff 46%,#e0ecff 100%)",
+    mobileBg:
+      "radial-gradient(circle at 82% 22%, rgba(100,116,139,.22), transparent 26%), radial-gradient(circle at 15% 72%, rgba(34,197,94,.18), transparent 28%), linear-gradient(135deg,#ecfdf5 0%,#ffffff 46%,#e0ecff 100%)",
+  },
+];
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16, filter: "blur(7px)" },
+  visible: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+const stagger = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.06,
+      delayChildren: 0.03,
+    },
+  },
+};
+
+const makeSlug = (value = "", fallback = "item") =>
+  String(value || fallback)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || fallback;
+
+const getVehicleTitle = (vehicle) =>
+  vehicle?.displayName ||
+  vehicle?.name ||
+  [vehicle?.brand || vehicle?.make, vehicle?.model].filter(Boolean).join(" ") ||
+  "Selected car";
+
+const getVehicleModel = (vehicle) => vehicle?.model || getVehicleTitle(vehicle);
+
+const getVehicleVariant = (vehicle) =>
+  vehicle?.selectedVariant ||
+  vehicle?.variant ||
+  vehicle?.variants?.[0]?.name ||
+  "";
+
+const getVehiclePrice = (vehicle) =>
+  vehicle?.priceRange ||
+  vehicle?.startingOnRoadPrice ||
+  vehicle?.price ||
+  "Price available on request";
+
+const getVehicleLabel = (vehicle) =>
+  vehicle?.label ||
+  vehicle?.model ||
+  getVehicleTitle(vehicle).split(" ").slice(-1)[0] ||
+  "CAR";
+
+const getVehicleImage = (vehicle, color) =>
+  color?.imageUrl ||
+  color?.carImageUrl ||
+  vehicle?.colorImages?.[color?.id] ||
+  vehicle?.images?.side ||
+  vehicle?.images?.hero ||
+  vehicle?.imageUrl ||
+  vehicle?.heroImageUrl ||
+  vehicle?.carImageUrl ||
+  "";
+
+const normalizeColors = (vehicle) => {
+  const source =
+    vehicle?.exteriorColors ||
+    vehicle?.availableColors ||
+    vehicle?.colors ||
+    FALLBACK_COLORS;
+
+  if (!Array.isArray(source) || !source.length) return FALLBACK_COLORS;
+
+  return source.map((raw, index) => {
+    const fallback = FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+    const name =
+      raw.desktopName ||
+      raw.mobileName ||
+      raw.name ||
+      raw.colorName ||
+      raw.label ||
+      fallback.name;
+
+    return {
+      id: raw.id || makeSlug(name, `color-${index + 1}`),
+      name,
+      mobileName: raw.mobileName || raw.name || raw.colorName || fallback.mobileName,
+      desktopName: raw.desktopName || raw.name || raw.colorName || fallback.desktopName,
+      hex: raw.hex || raw.hexCode || raw.colorHex || fallback.hex,
+      deep: raw.deep || raw.darkHex || raw.deepHex || fallback.deep,
+      filter: raw.filter || raw.cssFilter || fallback.filter,
+      votes: Number(raw.votes ?? raw.popularity ?? fallback.votes ?? 8),
+      description:
+        raw.description ||
+        raw.note ||
+        raw.summary ||
+        fallback.description ||
+        "A premium exterior color available for this model.",
+      imageUrl: raw.imageUrl || raw.carImageUrl || "",
+      raw,
+    };
+  });
+};
+
+function fireAction(label, payload = {}, onAction) {
+  const vehicle = payload.vehicle || null;
+  const color = payload.color || payload.selectedColor || null;
+  const query =
+    payload.query ||
+    (vehicle
+      ? `${label} ${getVehicleTitle(vehicle)}${color ? ` ${color.desktopName || color.name}` : ""}`
+      : label);
+
+  emitAciAction(
+    {
+      id: payload.id || makeSlug(`${label}-${vehicle?.id || vehicle?.model || ""}`),
+      label,
+      query,
+      type: payload.type || "colors_action",
+      intent: payload.intent || ACI_INTENTS.COLORS,
+      canvasType: payload.canvasType || ACI_CANVAS_TYPES.COLORS,
+      vehicle,
+      payload: {
+        ...payload,
+        color,
+      },
+      contextPatch: {
+        selectedVehicle: vehicle,
+        anchorModel: vehicle?.model,
+        anchorMake: vehicle?.make || vehicle?.brand,
+        anchorCity: vehicle?.city,
+        selectedColor: color,
+        ...(payload.contextPatch || {}),
+      },
+    },
+    onAction,
+  );
+}
+
+function Logo({ mobile = false, onAction }) {
+  return (
+    <button
+      type="button"
+      className={`colors-logo ${mobile ? "mobile" : ""}`}
+      onClick={() => fireAction("Home", { type: "go_home", intent: "" }, onAction)}
+    >
+      <span>ACI</span>
+      <strong>ASSIST</strong>
+      {!mobile ? <Sparkles size={14} /> : null}
+    </button>
+  );
+}
+
+function ColorOrb({ color, selected, large = false }) {
+  return (
+    <span
+      className={`color-orb ${selected ? "selected" : ""} ${large ? "large" : ""}`}
+      style={{
+        background: `
+          radial-gradient(circle at 32% 24%, rgba(255,255,255,.98), transparent 18%),
+          radial-gradient(circle at 40% 34%, ${color.hex}, ${color.deep} 78%)
+        `,
+      }}
+    >
+      <i />
+      {selected ? (
+        <b>
+          <Check size={large ? 18 : 12} strokeWidth={3.4} />
+        </b>
+      ) : null}
+    </span>
+  );
+}
+
+function CarVector({ color, vehicle }) {
+  const id = React.useId().replace(/:/g, "");
+  const label = String(getVehicleLabel(vehicle)).slice(0, 10).toUpperCase();
+
+  return (
+    <svg
+      viewBox="0 0 820 430"
+      className="safari-vector"
+      role="img"
+      aria-label={getVehicleTitle(vehicle)}
+    >
+      <defs>
+        <linearGradient id={`paint-${id}`} x1="0" x2="1">
+          <stop offset="0%" stopColor={color.deep} />
+          <stop offset="45%" stopColor={color.hex} />
+          <stop offset="100%" stopColor={color.deep} />
+        </linearGradient>
+
+        <linearGradient id={`glass-${id}`} x1="0" x2="1">
+          <stop offset="0%" stopColor="#dbeafe" />
+          <stop offset="100%" stopColor="#172033" />
+        </linearGradient>
+
+        <filter
+          id={`shadow-${id}`}
+          x="-20%"
+          y="-20%"
+          width="140%"
+          height="150%"
+        >
+          <feDropShadow
+            dx="0"
+            dy="20"
+            stdDeviation="18"
+            floodColor="#0f172a"
+            floodOpacity=".2"
+          />
+        </filter>
+      </defs>
+
+      <ellipse cx="410" cy="360" rx="270" ry="36" fill="rgba(15,23,42,.14)" />
+
+      <g filter={`url(#shadow-${id})`}>
+        <path
+          d="M84 292 L129 212 Q166 145 246 136 L420 127 Q503 123 570 169 L671 233 Q714 261 735 305 L743 326 L76 326 Z"
+          fill={`url(#paint-${id})`}
+        />
+
+        <path
+          d="M237 147 L423 138 Q496 136 554 174 L612 222 L174 222 Z"
+          fill={`url(#glass-${id})`}
+          opacity=".94"
+        />
+
+        <path
+          d="M132 236 L642 236"
+          stroke="rgba(255,255,255,.55)"
+          strokeWidth="10"
+          strokeLinecap="round"
+        />
+        <path
+          d="M113 290 L198 290"
+          stroke="#f8fafc"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        <path
+          d="M593 290 L715 290"
+          stroke="#f8fafc"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+
+        <rect x="338" y="280" width="122" height="34" rx="8" fill="#f8fafc" />
+        <text
+          x="399"
+          y="302"
+          textAnchor="middle"
+          fontSize="17"
+          fontWeight="900"
+          fill="#0f172a"
+        >
+          {label}
+        </text>
+
+        <circle cx="216" cy="326" r="55" fill="#0f172a" />
+        <circle cx="216" cy="326" r="30" fill="#d8dee8" />
+        <circle cx="216" cy="326" r="13" fill="#64748b" />
+
+        <circle cx="622" cy="326" r="55" fill="#0f172a" />
+        <circle cx="622" cy="326" r="30" fill="#d8dee8" />
+        <circle cx="622" cy="326" r="13" fill="#64748b" />
+
+        <path
+          d="M192 136 L574 136"
+          stroke="rgba(15,23,42,.42)"
+          strokeWidth="11"
+          strokeLinecap="round"
+        />
+
+        <path
+          d="M118 260 Q370 218 721 263"
+          stroke="rgba(255,255,255,.18)"
+          strokeWidth="8"
+          fill="none"
+        />
+      </g>
+    </svg>
+  );
+}
+
+function VehicleArtwork({ color, vehicle, size = "desktop" }) {
+  const [failed, setFailed] = useState(false);
+  const imageUrl = getVehicleImage(vehicle, color);
+  const hasColorSpecificImage = Boolean(color?.imageUrl || color?.carImageUrl);
+
+  return (
+    <div
+      className={`safari-vehicle ${size}`}
+      style={{
+        "--paint": color.hex,
+        "--deep": color.deep,
+        "--car-filter": hasColorSpecificImage ? "none" : color.filter,
+      }}
+    >
+      <div className="safari-vehicle-inner">
+        {imageUrl && !failed ? (
+          <>
+            <img
+              src={imageUrl}
+              alt={`${getVehicleTitle(vehicle)} in ${color.mobileName}`}
+              onError={() => setFailed(true)}
+              draggable="false"
+            />
+
+            {!hasColorSpecificImage ? (
+              <motion.span
+                className="paint-layer"
+                animate={{
+                  backgroundColor: color.hex,
+                  opacity:
+                    color.id === "white"
+                      ? 0.08
+                      : color.id === "black"
+                        ? 0.12
+                        : 0.18,
+                }}
+                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              />
+            ) : null}
+          </>
+        ) : (
+          <CarVector color={color} vehicle={vehicle} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DesktopHeader({ data, onAction }) {
+  return (
+    <motion.header className="colors-desktop-header" variants={fadeUp}>
+      <Logo onAction={onAction} />
+
+      <div className="desktop-actions">
+        <button
+          type="button"
+          className="icon-bell"
+          onClick={() => fireAction("Notifications", {}, onAction)}
+        >
+          <Bell size={22} />
+          <i />
+        </button>
+
+        <button
+          type="button"
+          className="avatar-button"
+          onClick={() => fireAction("Profile", {}, onAction)}
+        >
+          <img src={data?.avatarUrl} alt="Profile" />
+        </button>
+
+        <button
+          type="button"
+          className="plain-icon"
+          onClick={() => fireAction("Profile menu", {}, onAction)}
+        >
+          <ChevronDown size={16} />
+        </button>
+      </div>
+    </motion.header>
+  );
+}
+
+function Composer({ vehicle, onAction }) {
+  return (
+    <section className="colors-composer-dock">
+      <div className="colors-composer">
+        <button
+          type="button"
+          onClick={() => fireAction("Assistant", { vehicle }, onAction)}
+        >
+          <Sparkles size={22} />
+        </button>
+
+        <input placeholder={`Ask ACI Assist anything about ${getVehicleTitle(vehicle)}...`} />
+
+        <button
+          type="button"
+          onClick={() => fireAction("Voice input", { vehicle }, onAction)}
+        >
+          <Mic size={21} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => fireAction("Send", { vehicle }, onAction)}
+        >
+          <SendHorizontal size={23} />
+        </button>
+      </div>
+
+      <p>ACI Assist can make mistakes. Please verify important information.</p>
+    </section>
+  );
+}
+
+function MobileChatbar({ vehicle, onAction }) {
+  return (
+    <motion.section className="mobile-chat-dock" variants={fadeUp}>
+      <div className="mobile-chatbar">
+        <button
+          type="button"
+          onClick={() => fireAction("Assistant", { vehicle }, onAction)}
+        >
+          <Sparkles size={21} />
+        </button>
+
+        <input placeholder={`Ask ACI Assist about ${getVehicleModel(vehicle)} colors...`} />
+
+        <button
+          type="button"
+          onClick={() => fireAction("Voice input", { vehicle }, onAction)}
+        >
+          <Mic size={22} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => fireAction("Send", { vehicle }, onAction)}
+        >
+          <SendHorizontal size={23} />
+        </button>
+      </div>
+    </motion.section>
+  );
+}
+
+function DesktopGallery({ selectedColor, selectedMood, vehicle }) {
+  return (
+    <motion.section className="desktop-gallery-card" variants={fadeUp}>
+      <div
+        className="desktop-stage"
+        style={{ background: selectedMood.desktopBg }}
+      >
+        <span className="stage-pill">
+          <ColorOrb color={selectedColor} selected={false} />
+          {selectedColor.desktopName}
+        </span>
+
+        <div className="stage-lines" />
+
+        <motion.div
+          className="desktop-gallery-angle"
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <VehicleArtwork color={selectedColor} vehicle={vehicle} size="desktop" />
+        </motion.div>
+      </div>
+    </motion.section>
+  );
+}
+
+function DesktopRail({
+  colors,
+  selectedColor,
+  selectedMood,
+  setSelectedMood,
+  vehicle,
+  onAction,
+}) {
+  const topChoices = [...colors].sort((a, b) => b.votes - a.votes).slice(0, 3);
+
+  return (
+    <aside className="colors-rail">
+      <motion.article
+        className="rail-card selected-color-card"
+        variants={fadeUp}
+      >
+        <h3>Selected color</h3>
+
+        <div
+          className="selected-color-banner"
+          style={{
+            background: `linear-gradient(135deg, ${selectedColor.hex}, ${selectedColor.deep})`,
+          }}
+        >
+          <ColorOrb color={selectedColor} selected={false} />
+
+          <div>
+            <strong>{selectedColor.desktopName}</strong>
+            <span>{selectedColor.description.split(".")[0]}.</span>
+          </div>
+        </div>
+
+        <p>{selectedColor.description}</p>
+
+        <button
+          type="button"
+          className="primary-rail-button"
+          onClick={() =>
+            fireAction(
+              "Save color",
+              {
+                vehicle,
+                selectedColor,
+                color: selectedColor,
+                type: "save_color",
+              },
+              onAction,
+            )
+          }
+        >
+          <Heart size={17} />
+          Save color
+        </button>
+
+        
+      </motion.article>
+
+      <motion.article className="rail-card popular-card" variants={fadeUp}>
+        <div className="rail-title-row">
+          <h3>Popular choice</h3>
+          <Info size={16} />
+        </div>
+
+        <div className="popular-choice-list">
+          {topChoices.map((item, index) => (
+            <div key={item.id}>
+              <span>{index + 1}</span>
+              <strong>{item.desktopName}</strong>
+              <em>{item.votes}%</em>
+              <i style={{ width: `${Math.max(48, item.votes * 2.1)}px` }} />
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="rail-link"
+          onClick={() =>
+            fireAction(
+              "View insights",
+              {
+                vehicle,
+                type: "color_insights",
+                query: `Color insights for ${getVehicleTitle(vehicle)}`,
+              },
+              onAction,
+            )
+          }
+        >
+          View all insights <ChevronRight size={15} />
+        </button>
+      </motion.article>
+
+      <motion.article className="rail-card rail-moods" variants={fadeUp}>
+        <div className="rail-title-row">
+          <h3>See it in different moods</h3>
+          <Info size={16} />
+        </div>
+
+        <div className="rail-mood-list">
+          {MOODS.map((mood) => {
+            const Icon = mood.icon;
+            const active = mood.id === selectedMood.id;
+
+            return (
+              <button
+                type="button"
+                key={mood.id}
+                className={active ? "active" : ""}
+                onClick={() => {
+                  setSelectedMood(mood);
+                  fireAction(
+                    "Mood selected",
+                    {
+                      vehicle,
+                      selectedColor,
+                      color: selectedColor,
+                      mood,
+                      type: "select_color_mood",
+                    },
+                    onAction,
+                  );
+                }}
+              >
+                <span style={{ background: mood.desktopBg }}>
+                  <Icon size={18} />
+                </span>
+
+                <div>
+                  <strong>{mood.name}</strong>
+                  <em>{mood.note}</em>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </motion.article>
+
+      <p className="rail-note">
+        Colors may vary slightly based on lighting conditions and screen
+        settings.
+      </p>
+    </aside>
+  );
+}
+
+function DesktopColorsPage({
+  colors,
+  selectedColor,
+  setSelectedColor,
+  selectedMood,
+  setSelectedMood,
+  vehicle,
+  data,
+  onAction,
+}) {
+  return (
+    <>
+      <DesktopHeader data={data} onAction={onAction} />
+
+      <motion.main
+        className="colors-desktop-page"
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+      >
+        <section className="desktop-main">
+          <motion.div className="desktop-title" variants={fadeUp}>
+            <div>
+              <button
+                type="button"
+                onClick={() =>
+                  fireAction(
+                    `Back to ${getVehicleTitle(vehicle)}`,
+                    {
+                      vehicle,
+                      type: "back_to_car",
+                      intent: ACI_INTENTS.OPEN_VEHICLE,
+                      canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+                    },
+                    onAction,
+                  )
+                }
+              >
+                <ArrowLeft size={17} />
+                Back to {getVehicleTitle(vehicle)}
+              </button>
+
+              <h1>
+                {getVehicleTitle(vehicle)}
+                <span>
+                  <Check size={14} strokeWidth={4} />
+                </span>
+              </h1>
+
+              <p>Explore all exterior colors available for {getVehicleTitle(vehicle)}.</p>
+            </div>
+
+            <button
+              type="button"
+              className="change-model"
+              onClick={() =>
+                fireAction(
+                  "Change model",
+                  {
+                    vehicle,
+                    type: "change_model",
+                    query: "Change model for colors",
+                  },
+                  onAction,
+                )
+              }
+            >
+              Change model
+            </button>
+          </motion.div>
+
+          <DesktopGallery
+            selectedColor={selectedColor}
+            selectedMood={selectedMood}
+            vehicle={vehicle}
+          />
+
+          <motion.section className="available-colors" variants={fadeUp}>
+            <h2>Available colors</h2>
+
+            <div className="available-grid">
+              {colors.map((color) => {
+                const active = color.id === selectedColor.id;
+
+                return (
+                  <motion.button
+                    type="button"
+                    key={color.id}
+                    className={active ? "active" : ""}
+                    onClick={() => {
+                      setSelectedColor(color);
+                      fireAction(
+                        "Color selected",
+                        {
+                          vehicle,
+                          selectedColor: color,
+                          color,
+                          type: "color_selected",
+                          query: `${getVehicleTitle(vehicle)} ${color.desktopName} color`,
+                        },
+                        onAction,
+                      );
+                    }}
+                    whileHover={{ y: -4 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <ColorOrb color={color} selected={active} />
+                    <span>{color.desktopName}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.section>
+
+          <Composer vehicle={vehicle} onAction={onAction} />
+        </section>
+
+        <DesktopRail
+          colors={colors}
+          selectedColor={selectedColor}
+          selectedMood={selectedMood}
+          setSelectedMood={setSelectedMood}
+          vehicle={vehicle}
+          onAction={onAction}
+        />
+      </motion.main>
+    </>
+  );
+}
+
+function MobileHeader({ data, vehicle, onAction }) {
+  return (
+    <motion.header className="colors-mobile-header" variants={fadeUp}>
+      <button
+        type="button"
+        className="mobile-back"
+        onClick={() =>
+          fireAction(
+            `Back to ${getVehicleTitle(vehicle)}`,
+            {
+              vehicle,
+              type: "back_to_car",
+              intent: ACI_INTENTS.OPEN_VEHICLE,
+              canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+            },
+            onAction,
+          )
+        }
+      >
+        <ArrowLeft size={28} />
+      </button>
+
+      <Logo mobile onAction={onAction} />
+
+      <div>
+        <button
+          type="button"
+          className="mobile-bell"
+          onClick={() => fireAction("Notifications", {}, onAction)}
+        >
+          <Bell size={24} />
+          <i />
+        </button>
+
+        <button
+          type="button"
+          className="mobile-avatar"
+          onClick={() => fireAction("Profile", {}, onAction)}
+        >
+          <img src={data?.avatarUrl} alt="Profile" />
+        </button>
+      </div>
+    </motion.header>
+  );
+}
+
+function MobileHero({
+  selectedColor,
+  selectedMood,
+  vehicle,
+  colors,
+  onNextColor,
+  onPrevColor,
+}) {
+  return (
+    <motion.section className="mobile-hero-section" variants={fadeUp}>
+      <div className="mobile-title">
+        <h1>Choose your color</h1>
+        <p>
+          {[getVehicleModel(vehicle), getVehicleVariant(vehicle)]
+            .filter(Boolean)
+            .join(" ")}
+        </p>
+      </div>
+
+      <motion.div
+        className="mobile-car-card"
+        style={{ background: selectedMood.mobileBg }}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.14}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -42) onNextColor();
+          if (info.offset.x > 42) onPrevColor();
+        }}
+      >
+        <div className="mobile-card-lines" />
+
+        <div className="mobile-price">
+          <strong>{getVehiclePrice(vehicle)}</strong>
+          <Info size={15} />
+        </div>
+
+        <span className="mobile-count">
+          <Palette size={17} />
+          {colors.length} colors
+        </span>
+
+        <VehicleArtwork color={selectedColor} vehicle={vehicle} size="mobile" />
+      </motion.div>
+    </motion.section>
+  );
+}
+
+function MobileColorPicker({
+  colors,
+  selectedColor,
+  setSelectedColor,
+  vehicle,
+  onAction,
+}) {
+  return (
+    <motion.section className="mobile-color-picker" variants={fadeUp}>
+      {colors.map((color) => {
+        const active = color.id === selectedColor.id;
+
+        return (
+          <motion.button
+            type="button"
+            key={color.id}
+            className={active ? "active" : ""}
+            onClick={() => {
+              setSelectedColor(color);
+              fireAction(
+                "Color selected",
+                {
+                  vehicle,
+                  selectedColor: color,
+                  color,
+                  type: "color_selected",
+                  query: `${getVehicleTitle(vehicle)} ${color.mobileName} color`,
+                },
+                onAction,
+              );
+            }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <ColorOrb color={color} selected={active} large />
+            <span>{color.mobileName}</span>
+          </motion.button>
+        );
+      })}
+    </motion.section>
+  );
+}
+
+function MobileMoods({
+  selectedColor,
+  selectedMood,
+  setSelectedMood,
+  vehicle,
+  onAction,
+}) {
+  return (
+    <motion.section className="mobile-moods" variants={fadeUp}>
+      <h2>See it in different moods</h2>
+
+      <div className="mood-row">
+        {MOODS.map((mood) => {
+          const Icon = mood.icon;
+          const active = mood.id === selectedMood.id;
+
+          return (
+            <motion.button
+              type="button"
+              key={mood.id}
+              className={active ? "active" : ""}
+              onClick={() => {
+                setSelectedMood(mood);
+                fireAction(
+                  "Mood selected",
+                  {
+                    vehicle,
+                    selectedColor,
+                    color: selectedColor,
+                    mood,
+                    type: "select_color_mood",
+                  },
+                  onAction,
+                );
+              }}
+              whileHover={{ y: -3 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div style={{ background: mood.mobileBg }}>
+                <span>
+                  <Icon size={18} />
+                </span>
+
+                <VehicleArtwork color={selectedColor} vehicle={vehicle} size="mood" />
+              </div>
+
+              <strong>{mood.name}</strong>
+            </motion.button>
+          );
+        })}
+      </div>
+    </motion.section>
+  );
+}
+
+function MobileColorsPage({
+  colors,
+  selectedColor,
+  setSelectedColor,
+  selectedMood,
+  setSelectedMood,
+  vehicle,
+  data,
+  onAction,
+}) {
+  const currentIndex = colors.findIndex((item) => item.id === selectedColor.id);
+
+  const setByIndex = (nextIndex) => {
+    const safeIndex = (nextIndex + colors.length) % colors.length;
+    const nextColor = colors[safeIndex];
+
+    setSelectedColor(nextColor);
+    fireAction(
+      "Color selected",
+      {
+        vehicle,
+        selectedColor: nextColor,
+        color: nextColor,
+        type: "color_selected",
+        query: `${getVehicleTitle(vehicle)} ${nextColor.mobileName} color`,
+      },
+      onAction,
+    );
+  };
+
+  return (
+    <motion.main
+      className="colors-mobile-page"
+      variants={stagger}
+      initial="hidden"
+      animate="visible"
+    >
+      <MobileHeader data={data} vehicle={vehicle} onAction={onAction} />
+
+      <MobileHero
+        colors={colors}
+        vehicle={vehicle}
+        selectedColor={selectedColor}
+        selectedMood={selectedMood}
+        onNextColor={() => setByIndex(currentIndex + 1)}
+        onPrevColor={() => setByIndex(currentIndex - 1)}
+      />
+
+      <MobileColorPicker
+        colors={colors}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        vehicle={vehicle}
+        onAction={onAction}
+      />
+
+      <MobileMoods
+        selectedColor={selectedColor}
+        selectedMood={selectedMood}
+        setSelectedMood={setSelectedMood}
+        vehicle={vehicle}
+        onAction={onAction}
+      />
+
+      <MobileChatbar vehicle={vehicle} onAction={onAction} />
+    </motion.main>
+  );
+}
+
+export default function AciAssistColorsScreen({ data, vehicle, onAction }) {
+  const activeVehicle = vehicle || data?.selectedVehicle || {};
+  const colors = useMemo(() => normalizeColors(activeVehicle), [activeVehicle]);
+  const [selectedColorId, setSelectedColorId] = useState(colors[0]?.id || "");
+  const [selectedMood, setSelectedMood] = useState(MOODS[0]);
+
+  useEffect(() => {
+    if (!colors.some((item) => item.id === selectedColorId)) {
+      setSelectedColorId(colors[0]?.id || "");
+    }
+  }, [colors, selectedColorId]);
+
+  const selectedColor =
+    colors.find((item) => item.id === selectedColorId) || colors[0] || FALLBACK_COLORS[0];
+
+  const setSelectedColor = (color) => setSelectedColorId(color.id);
+
+  const meta = useMemo(
+    () => ({
+      color: selectedColor.mobileName,
+      mood: selectedMood.name,
+    }),
+    [selectedColor, selectedMood],
+  );
+
+  return (
+    <div
+      className="aci-colors-root"
+      data-color={meta.color}
+      data-mood={meta.mood}
+    >
+      <style>{`
+        :root {
+          --blue: #2563eb;
+          --blue-dark: #1455ef;
+          --ink: #080f2b;
+          --text: #334155;
+          --muted: #64748b;
+          --line: #dbe3ef;
+          --surface: rgba(255,255,255,.94);
+          --shadow: 0 24px 74px -56px rgba(15,23,42,.52);
+          --serif: Georgia, "Times New Roman", serif;
+        }
+
+        html,
+        body,
+        #root {
+          min-height: 100%;
+          margin: 0;
+          overflow-x: hidden;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        button,
+        input {
+          font-family: inherit;
+        }
+
+        button {
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .aci-colors-root {
+          min-height: 100vh;
+          padding-bottom: 118px;
+          color: var(--ink);
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+          background:
+            radial-gradient(circle at 85% -8%, rgba(37,99,235,.08), transparent 28%),
+            linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+          -webkit-font-smoothing: antialiased;
+        }
+
+        .colors-mobile-page {
+          display: none;
+        }
+
+        .colors-logo {
+          border: 0;
+          background: transparent;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 11px;
+          color: var(--ink);
+        }
+
+        .colors-logo span {
+          color: var(--blue);
+          font-size: 34px;
+          line-height: .9;
+          font-weight: 900;
+          letter-spacing: -4px;
+          transform: skewX(-9deg);
+        }
+
+        .colors-logo strong {
+          font-size: 15px;
+          line-height: 1;
+          letter-spacing: 6px;
+          font-weight: 760;
+        }
+
+        .colors-logo svg {
+          color: var(--blue);
+          fill: currentColor;
+        }
+
+        .colors-desktop-header,
+        .colors-desktop-page {
+          width: min(100%, 1510px);
+          margin-inline: auto;
+        }
+
+        .colors-desktop-header {
+          position: sticky;
+          top: 0;
+          z-index: 80;
+          height: 82px;
+          padding: 14px 40px 8px;
+          display: grid;
+          grid-template-columns: 1fr auto;
+          align-items: center;
+          gap: 20px;
+          background: linear-gradient(180deg, rgba(255,255,255,.97), rgba(255,255,255,.88));
+          backdrop-filter: blur(18px);
+        }
+
+        .desktop-gallery-card,
+        .available-grid button,
+        .rail-card,
+        .colors-composer,
+        .mobile-car-card,
+        .mobile-moods,
+        .mobile-back,
+        .mobile-color-picker .color-orb {
+          border: 1px solid var(--line);
+          background: var(--surface);
+          box-shadow: var(--shadow), inset 0 1px 0 #fff;
+          backdrop-filter: blur(18px);
+        }
+
+        .desktop-actions {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 13px;
+        }
+
+        .icon-bell,
+        .plain-icon {
+          position: relative;
+          width: 38px;
+          height: 38px;
+          border: 0;
+          background: transparent;
+          display: grid;
+          place-items: center;
+          color: #475569;
+        }
+
+        .icon-bell i,
+        .mobile-bell i {
+          position: absolute;
+          top: 5px;
+          right: 7px;
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: var(--blue);
+          border: 2px solid #fff;
+        }
+
+        .avatar-button,
+        .mobile-avatar {
+          width: 48px;
+          height: 48px;
+          border: 0;
+          border-radius: 999px;
+          padding: 3px;
+          background: #fff;
+          box-shadow:
+            0 0 0 1px #dbe5f2,
+            0 10px 24px -14px rgba(37,99,235,.45);
+        }
+
+        .avatar-button img,
+        .mobile-avatar img {
+          width: 100%;
+          height: 100%;
+          border-radius: inherit;
+          object-fit: cover;
+          display: block;
+        }
+
+        .colors-desktop-page {
+          padding: 20px 40px 130px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 300px;
+          gap: 24px;
+          align-items: start;
+        }
+
+        .desktop-main {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 17px;
+        }
+
+        .desktop-title {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 24px;
+        }
+
+        .desktop-title button {
+          border: 0;
+          background: transparent;
+          color: #334155;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 620;
+        }
+
+        .desktop-title h1 {
+          margin: 21px 0 8px;
+          color: #0b1028;
+          font-family: var(--serif);
+          font-size: 38px;
+          line-height: .95;
+          letter-spacing: -.055em;
+          font-weight: 610;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .desktop-title h1 span {
+          width: 21px;
+          height: 21px;
+          border-radius: 999px;
+          background: var(--blue);
+          color: white;
+          display: grid;
+          place-items: center;
+        }
+
+        .desktop-title p {
+          margin: 0;
+          color: #475569;
+          font-size: 14px;
+          font-weight: 460;
+        }
+
+        .change-model {
+          height: 40px;
+          padding: 0 17px !important;
+          border-radius: 13px !important;
+          border: 1px solid #dfe7f2 !important;
+          background: #fff !important;
+          color: #334155 !important;
+          box-shadow: 0 12px 28px -24px rgba(15,23,42,.28);
+        }
+
+        .desktop-gallery-card {
+          border-radius: 24px;
+          overflow: hidden;
+        }
+
+        .desktop-stage {
+          position: relative;
+          min-height: 425px;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          border-radius: 23px;
+        }
+
+        .desktop-stage::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(165deg, rgba(255,255,255,.24), transparent 42%),
+            radial-gradient(circle at 50% 88%, rgba(15,23,42,.13), transparent 36%);
+          pointer-events: none;
+        }
+
+        .stage-lines,
+        .mobile-card-lines {
+          position: absolute;
+          inset: 0;
+          opacity: .78;
+          background:
+            repeating-radial-gradient(
+              ellipse at 78% 36%,
+              rgba(255,255,255,.42) 0,
+              rgba(255,255,255,.42) 2px,
+              transparent 3px,
+              transparent 24px
+            );
+          pointer-events: none;
+        }
+
+        .stage-pill {
+          position: absolute;
+          top: 22px;
+          left: 22px;
+          z-index: 6;
+          height: 36px;
+          padding: 0 13px 0 9px;
+          border-radius: 12px;
+          background: rgba(255,255,255,.93);
+          color: #1e293b;
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          font-size: 13px;
+          font-weight: 650;
+          box-shadow: 0 14px 30px -24px rgba(15,23,42,.36);
+        }
+
+        .stage-pill .color-orb {
+          width: 18px;
+          height: 18px;
+          border: 0;
+          box-shadow: inset 0 3px 6px rgba(255,255,255,.32);
+        }
+
+        .stage-pill .color-orb i {
+          display: none;
+        }
+
+        .desktop-gallery-angle {
+          width: min(820px, 93%);
+          position: relative;
+          z-index: 4;
+        }
+
+        .safari-vehicle {
+          position: relative;
+          z-index: 4;
+          width: 100%;
+          display: grid;
+          place-items: center;
+          pointer-events: none;
+        }
+
+        .safari-vehicle-inner {
+          position: relative;
+          width: 100%;
+          display: grid;
+          place-items: center;
+        }
+
+        .safari-vehicle img {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
+          user-select: none;
+          filter: var(--car-filter) drop-shadow(0 24px 24px rgba(15,23,42,.22));
+          mix-blend-mode: multiply;
+          transition: filter .34s ease, opacity .34s ease;
+        }
+
+        .paint-layer {
+          position: absolute;
+          inset: 6% 7% 8%;
+          background: var(--paint);
+          opacity: .18;
+          mix-blend-mode: color;
+          pointer-events: none;
+          border-radius: 38%;
+          transition: background-color .34s ease, opacity .34s ease;
+        }
+
+        .safari-vehicle.desktop {
+          width: 100%;
+          transform: translateY(24px);
+        }
+
+        .safari-vehicle.mood {
+          position: absolute;
+          width: 138%;
+          left: -20%;
+          bottom: -15px;
+        }
+
+        .safari-vector {
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+
+        .available-colors h2 {
+          margin: 0 0 12px;
+          color: #1e293b;
+          font-size: 15px;
+          font-weight: 650;
+        }
+
+        .available-grid {
+          display: grid;
+          grid-template-columns: repeat(6, minmax(0, 1fr));
+          gap: 16px;
+        }
+
+        .available-grid button {
+          min-height: 136px;
+          border-radius: 17px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 13px;
+          color: #334155;
+          font-size: 12px;
+          font-weight: 560;
+        }
+
+        .available-grid button.active {
+          border-color: var(--blue);
+          box-shadow:
+            0 0 0 3px rgba(37,99,235,.08),
+            0 22px 60px -50px rgba(37,99,235,.7);
+        }
+
+        .color-orb {
+          position: relative;
+          width: 58px;
+          height: 58px;
+          flex: 0 0 auto;
+          border-radius: 999px;
+          box-shadow:
+            inset 0 8px 16px rgba(255,255,255,.34),
+            inset 0 -12px 22px rgba(15,23,42,.24),
+            0 14px 28px -20px rgba(15,23,42,.45);
+          border: 1px solid rgba(255,255,255,.78);
+        }
+
+        .color-orb.large {
+          width: 44px;
+          height: 44px;
+        }
+
+        .color-orb.selected {
+          box-shadow:
+            0 0 0 3px #fff,
+            0 0 0 5px var(--blue),
+            inset 0 8px 16px rgba(255,255,255,.32),
+            inset 0 -12px 22px rgba(15,23,42,.24),
+            0 16px 30px -18px rgba(37,99,235,.45);
+        }
+
+        .color-orb i {
+          position: absolute;
+          left: 21%;
+          top: 17%;
+          width: 25%;
+          height: 25%;
+          border-radius: 999px;
+          background: rgba(255,255,255,.72);
+          filter: blur(2px);
+        }
+
+        .color-orb b {
+          position: absolute;
+          right: -4px;
+          top: -4px;
+          width: 21px;
+          height: 21px;
+          border-radius: 999px;
+          background: var(--blue);
+          color: white;
+          display: grid;
+          place-items: center;
+          border: 2px solid white;
+          box-shadow: 0 6px 16px rgba(37,99,235,.38);
+        }
+
+        .color-orb.large b {
+          width: 23px;
+          height: 23px;
+          right: -7px;
+          top: -7px;
+        }
+
+        .colors-rail {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .rail-card {
+          border-radius: 20px;
+          padding: 16px;
+        }
+
+        .rail-card h3,
+        .rail-title-row h3 {
+          margin: 0;
+          color: #0f172a;
+          font-size: 16px;
+          line-height: 1;
+          font-weight: 650;
+        }
+
+        .selected-color-banner {
+          min-height: 102px;
+          margin-top: 16px;
+          border-radius: 14px;
+          padding: 16px;
+          color: white;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          overflow: hidden;
+        }
+
+        .selected-color-banner .color-orb {
+          width: 54px;
+          height: 54px;
+          border: 2px solid rgba(255,255,255,.7);
+        }
+
+        .selected-color-banner .color-orb b {
+          display: none;
+        }
+
+        .selected-color-banner strong {
+          display: block;
+          font-size: 15px;
+          line-height: 1.1;
+          font-weight: 720;
+        }
+
+        .selected-color-banner span {
+          display: block;
+          margin-top: 5px;
+          font-size: 11px;
+          line-height: 1.4;
+          opacity: .88;
+        }
+
+        .selected-color-card p {
+          margin: 15px 0 17px;
+          color: #64748b;
+          font-size: 12px;
+          line-height: 1.55;
+        }
+
+        .primary-rail-button,
+        .secondary-rail-button {
+          width: 100%;
+          height: 40px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-size: 12px;
+          font-weight: 650;
+          margin-top: 10px;
+        }
+
+        .primary-rail-button {
+          border: 0;
+          background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+          color: #fff;
+        }
+
+        .secondary-rail-button {
+          border: 1px solid rgba(37,99,235,.28);
+          background: #fff;
+          color: var(--blue);
+        }
+
+        .rail-title-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .rail-title-row svg {
+          color: #64748b;
+        }
+
+        .popular-choice-list {
+          margin-top: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .popular-choice-list div {
+          position: relative;
+          display: grid;
+          grid-template-columns: 22px 1fr 40px;
+          gap: 9px;
+          align-items: center;
+          padding-bottom: 10px;
+        }
+
+        .popular-choice-list span {
+          color: #0f172a;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .popular-choice-list strong {
+          color: #334155;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .popular-choice-list em {
+          color: #64748b;
+          font-size: 12px;
+          font-style: normal;
+          text-align: right;
+        }
+
+        .popular-choice-list div::after {
+          content: "";
+          position: absolute;
+          left: 31px;
+          right: 42px;
+          bottom: 0;
+          height: 3px;
+          border-radius: 999px;
+          background: #e5e7eb;
+        }
+
+        .popular-choice-list i {
+          position: absolute;
+          left: 31px;
+          bottom: 0;
+          height: 3px;
+          border-radius: 999px;
+          background: var(--blue);
+          z-index: 2;
+        }
+
+        .rail-link {
+          margin-top: 18px;
+          border: 0;
+          background: transparent;
+          color: var(--blue);
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 12px;
+          font-weight: 650;
+        }
+
+        .rail-mood-list {
+          margin-top: 15px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .rail-mood-list button {
+          border: 1px solid #dfe7f2;
+          background: #fff;
+          border-radius: 14px;
+          padding: 8px;
+          display: grid;
+          grid-template-columns: 58px 1fr;
+          gap: 10px;
+          align-items: center;
+          text-align: left;
+        }
+
+        .rail-mood-list button.active {
+          border-color: var(--blue);
+          box-shadow: 0 0 0 3px rgba(37,99,235,.09);
+        }
+
+        .rail-mood-list button > span {
+          height: 46px;
+          border-radius: 12px;
+          color: var(--blue);
+          display: grid;
+          place-items: center;
+        }
+
+        .rail-mood-list strong {
+          display: block;
+          color: #0f172a;
+          font-size: 12px;
+          font-weight: 650;
+        }
+
+        .rail-mood-list em {
+          display: block;
+          margin-top: 3px;
+          color: #64748b;
+          font-size: 10px;
+          line-height: 1.25;
+          font-style: normal;
+        }
+
+        .rail-note {
+          margin: 0;
+          color: #94a3b8;
+          font-size: 11px;
+          line-height: 1.4;
+          padding: 0 8px;
+        }
+
+        .colors-composer-dock {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 160;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 12px 24px 14px;
+          background: linear-gradient(
+            180deg,
+            rgba(248,251,255,0),
+            rgba(248,251,255,.88) 28%,
+            rgba(248,251,255,.98) 100%
+          );
+          backdrop-filter: blur(14px);
+        }
+
+        .colors-composer {
+          width: min(860px, calc(100vw - 64px));
+          min-height: 62px;
+          padding: 6px 8px 6px 10px;
+          border-radius: 30px;
+          display: grid;
+          grid-template-columns: 48px 1fr 36px 54px;
+          gap: 10px;
+          align-items: center;
+          border: 1px solid #cbd5e1;
+          background: rgba(255,255,255,.97);
+          box-shadow: var(--shadow), inset 0 1px 0 #fff;
+        }
+
+        .colors-composer button:first-child {
+          width: 48px;
+          height: 48px;
+          border: 1px solid #e0e7f1;
+          border-radius: 19px;
+          background: radial-gradient(circle at 35% 28%, #fff 0%, #eef5ff 100%);
+          color: var(--blue);
+          display: grid;
+          place-items: center;
+        }
+
+        .colors-composer button:first-child svg {
+          fill: currentColor;
+        }
+
+        .colors-composer input {
+          min-width: 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #1e293b;
+          font-size: 14px;
+          font-weight: 460;
+        }
+
+        .colors-composer input::placeholder {
+          color: #94a3b8;
+        }
+
+        .colors-composer button:nth-of-type(2) {
+          width: 36px;
+          height: 36px;
+          border: 0;
+          background: transparent;
+          color: #526075;
+          display: grid;
+          place-items: center;
+        }
+
+        .colors-composer button:last-child {
+          width: 54px;
+          height: 48px;
+          border: 0;
+          border-radius: 18px;
+          color: #fff;
+          background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+          display: grid;
+          place-items: center;
+          box-shadow: 0 18px 36px -22px rgba(37,99,235,.58);
+        }
+
+        .colors-composer-dock p {
+          margin: 8px 0 0;
+          color: #94a3b8;
+          font-size: 10px;
+          font-weight: 460;
+        }
+
+        @media (max-width: 1180px) and (min-width: 901px) {
+          .colors-desktop-header {
+            padding-inline: 24px;
+          }
+
+          .colors-desktop-page {
+            grid-template-columns: 1fr;
+            padding-inline: 24px;
+          }
+
+          .colors-rail {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+          }
+
+          .rail-note {
+            display: none;
+          }
+        }
+
+        @media (max-width: 900px) {
+          .colors-desktop-header,
+          .colors-desktop-page {
+            display: none;
+          }
+
+          .aci-colors-root {
+            padding-bottom: 96px;
+            background:
+              radial-gradient(circle at 50% 100%, rgba(37,99,235,.11), transparent 26%),
+              linear-gradient(180deg, #fff 0%, #fbfcff 55%, #f8fbff 100%);
+          }
+
+          .colors-mobile-page {
+            width: 100%;
+            max-width: 430px;
+            min-height: 100vh;
+            margin: 0 auto;
+            padding: 18px 14px 108px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+          }
+
+          .colors-mobile-header {
+            display: grid;
+            grid-template-columns: 50px minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+          }
+
+          .mobile-back {
+            width: 50px;
+            height: 50px;
+            border-radius: 999px;
+            border: 0;
+            background: #fff;
+            color: #0f172a;
+            display: grid;
+            place-items: center;
+          }
+
+          .colors-logo.mobile {
+            justify-self: start;
+            gap: 10px;
+          }
+
+          .colors-logo.mobile span {
+            font-size: 31px;
+          }
+
+          .colors-logo.mobile strong {
+            font-size: 14px;
+            letter-spacing: 6px;
+          }
+
+          .colors-mobile-header > div {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+
+          .mobile-bell {
+            position: relative;
+            width: 34px;
+            height: 34px;
+            border: 0;
+            background: transparent;
+            color: #596174;
+            display: grid;
+            place-items: center;
+          }
+
+          .mobile-avatar {
+            width: 44px;
+            height: 44px;
+          }
+
+          .mobile-title h1 {
+            margin: 0 0 7px;
+            color: #07102b;
+            font-family: var(--serif);
+            font-size: 34px;
+            line-height: .97;
+            letter-spacing: -.06em;
+            font-weight: 620;
+          }
+
+          .mobile-title p {
+            margin: 0 0 14px;
+            color: #7b8494;
+            font-size: 18px;
+            line-height: 1;
+            font-weight: 450;
+          }
+
+          .mobile-car-card {
+            position: relative;
+            min-height: 314px;
+            border-radius: 27px;
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+          }
+
+          .mobile-car-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+              linear-gradient(165deg, rgba(255,255,255,.24), transparent 42%),
+              radial-gradient(circle at 50% 88%, rgba(15,23,42,.12), transparent 36%);
+            pointer-events: none;
+          }
+
+          .mobile-card-lines {
+            opacity: .82;
+          }
+
+          .mobile-price {
+            position: absolute;
+            z-index: 8;
+            left: 15px;
+            top: 17px;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+          }
+
+          .mobile-price strong {
+            color: #475569;
+            font-size: 16px;
+            line-height: 1;
+            font-weight: 600;
+            letter-spacing: -.02em;
+          }
+
+          .mobile-count {
+            position: absolute;
+            z-index: 8;
+            right: 15px;
+            top: 14px;
+            height: 38px;
+            padding: 0 13px;
+            border-radius: 999px;
+            border: 1px solid #dfe7f2;
+            background: rgba(255,255,255,.78);
+            color: #475569;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13px;
+            font-weight: 540;
+          }
+
+          .safari-vehicle.mobile {
+            width: 126%;
+            transform: translateY(31px);
+          }
+
+          .safari-vehicle.mobile img {
+            filter: var(--car-filter) drop-shadow(0 24px 24px rgba(15,23,42,.23));
+          }
+
+          .mobile-color-picker {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px 8px;
+            align-items: start;
+            padding: 0 4px;
+          }
+
+          .mobile-color-picker button {
+            border: 0;
+            background: transparent;
+            padding: 0;
+            color: #475569;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 9px;
+            min-width: 0;
+          }
+
+          .mobile-color-picker span:not(.color-orb) {
+            min-height: 28px;
+            color: #475569;
+            font-size: 10.5px;
+            line-height: 1.15;
+            font-weight: 430;
+            text-align: center;
+          }
+
+          .mobile-color-picker button.active span:not(.color-orb) {
+            color: var(--blue);
+            font-weight: 560;
+          }
+
+          .mobile-moods {
+            border-radius: 22px;
+            padding: 11px;
+          }
+
+          .mobile-moods h2 {
+            margin: 0 0 10px;
+            color: #07102b;
+            font-family: var(--serif);
+            font-size: 21px;
+            line-height: 1;
+            letter-spacing: -.045em;
+            font-weight: 560;
+          }
+
+          .mood-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+          }
+
+          .mood-row button {
+            border: 0;
+            background: transparent;
+            padding: 0;
+            color: #475569;
+          }
+
+          .mood-row button > div {
+            position: relative;
+            height: 78px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 2px solid transparent;
+          }
+
+          .mood-row button.active > div {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 4px rgba(37,99,235,.09);
+          }
+
+          .mood-row button > div > span {
+            position: absolute;
+            z-index: 6;
+            left: 8px;
+            top: 8px;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.9);
+            color: #475569;
+            display: grid;
+            place-items: center;
+          }
+
+          .mood-row strong {
+            display: block;
+            margin-top: 6px;
+            color: #475569;
+            font-size: 11.5px;
+            font-weight: 430;
+            text-align: center;
+          }
+
+          .mood-row button.active strong {
+            color: var(--blue);
+            font-weight: 560;
+          }
+
+          .safari-vehicle.mood {
+            width: 136%;
+            left: -18%;
+            bottom: -15px;
+          }
+
+          .mobile-chat-dock {
+            position: fixed;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+            z-index: 160;
+            width: min(430px, 100vw);
+            padding: 10px 14px 14px;
+            background: linear-gradient(
+              180deg,
+              rgba(248,251,255,0),
+              rgba(248,251,255,.92) 26%,
+              rgba(248,251,255,1) 100%
+            );
+            backdrop-filter: blur(14px);
+          }
+
+          .mobile-chatbar {
+            min-height: 60px;
+            border-radius: 28px;
+            border: 1px solid rgba(37,99,235,.18);
+            background: rgba(255,255,255,.97);
+            box-shadow:
+              0 0 0 5px rgba(37,99,235,.04),
+              0 20px 44px -34px rgba(37,99,235,.45),
+              inset 0 1px 0 rgba(255,255,255,1);
+            display: grid;
+            grid-template-columns: 42px 1fr 30px 48px;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 7px 6px 8px;
+          }
+
+          .mobile-chatbar button:first-child {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #e0e7f1;
+            border-radius: 18px;
+            background: radial-gradient(circle at 35% 28%, #fff 0%, #eef5ff 100%);
+            color: var(--blue);
+            display: grid;
+            place-items: center;
+          }
+
+          .mobile-chatbar button:first-child svg {
+            fill: currentColor;
+          }
+
+          .mobile-chatbar input {
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: #1e293b;
+            font-size: 13px;
+            font-weight: 460;
+          }
+
+          .mobile-chatbar input::placeholder {
+            color: #94a3b8;
+          }
+
+          .mobile-chatbar button:nth-of-type(2) {
+            width: 30px;
+            height: 36px;
+            border: 0;
+            background: transparent;
+            color: #526075;
+            display: grid;
+            place-items: center;
+          }
+
+          .mobile-chatbar button:last-child {
+            width: 48px;
+            height: 46px;
+            border: 0;
+            border-radius: 17px;
+            color: #fff;
+            background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+            display: grid;
+            place-items: center;
+            box-shadow: 0 18px 36px -22px rgba(37,99,235,.58);
+          }
+        }
+
+        @media (max-width: 390px) {
+          .colors-mobile-page {
+            padding-inline: 12px;
+          }
+
+          .colors-mobile-header {
+            grid-template-columns: 48px minmax(0, 1fr) auto;
+          }
+
+          .mobile-back {
+            width: 48px;
+            height: 48px;
+          }
+
+          .colors-logo.mobile span {
+            font-size: 29px;
+          }
+
+          .colors-logo.mobile strong {
+            font-size: 13px;
+            letter-spacing: 5.6px;
+          }
+
+          .mobile-title h1 {
+            font-size: 31px;
+          }
+
+          .mobile-title p {
+            font-size: 16px;
+          }
+
+          .mobile-car-card {
+            min-height: 292px;
+          }
+
+          .safari-vehicle.mobile {
+            width: 136%;
+          }
+
+          .color-orb.large {
+            width: 42px;
+            height: 42px;
+          }
+
+          .mobile-color-picker span:not(.color-orb) {
+            font-size: 10px;
+          }
+        }
+
+        /* ACI_COLORS_POLISH_FIXES_START */
+
+        /* Desktop: reduce wasted top space */
+        .colors-desktop-header {
+          height: 58px !important;
+          padding: 8px 40px 4px !important;
+        }
+
+        .colors-desktop-page {
+          padding-top: 6px !important;
+        }
+
+        .desktop-title h1 {
+          margin-top: 8px !important;
+        }
+
+        .desktop-title p {
+          margin-top: 2px !important;
+        }
+
+        .desktop-stage {
+          min-height: 382px !important;
+        }
+
+        .desktop-gallery-angle {
+          width: min(760px, 88%) !important;
+        }
+
+        .safari-vehicle.desktop {
+          transform: translateY(10px) !important;
+        }
+
+        /* Mobile: remove horizontal overflow completely */
+        @media (max-width: 900px) {
+          html,
+          body,
+          #root,
+          .aci-colors-root {
+            overflow-x: hidden !important;
+          }
+
+          .aci-colors-root {
+            padding-bottom: 90px !important;
+          }
+
+          .colors-mobile-page {
+            max-width: min(430px, 100vw) !important;
+            padding: 10px 14px 92px !important;
+            gap: 10px !important;
+            overflow-x: hidden !important;
+          }
+
+          .colors-mobile-header {
+            min-height: 46px !important;
+          }
+
+          .mobile-back {
+            width: 44px !important;
+            height: 44px !important;
+          }
+
+          .mobile-avatar {
+            width: 40px !important;
+            height: 40px !important;
+          }
+
+          .colors-logo.mobile span {
+            font-size: 28px !important;
+          }
+
+          .colors-logo.mobile strong {
+            font-size: 12px !important;
+            letter-spacing: 5px !important;
+          }
+
+          .mobile-title h1 {
+            margin-top: 0 !important;
+            font-size: 30px !important;
+          }
+
+          .mobile-title p {
+            margin-bottom: 10px !important;
+            font-size: 15px !important;
+          }
+
+          .mobile-car-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 284px !important;
+            overflow: hidden !important;
+            border-radius: 26px !important;
+          }
+
+          .mobile-price {
+            left: 14px !important;
+            top: 14px !important;
+          }
+
+          .mobile-count {
+            right: 14px !important;
+            top: 12px !important;
+          }
+
+          .safari-vehicle.mobile {
+            width: 108% !important;
+            max-width: 108% !important;
+            transform: translateY(18px) !important;
+            overflow: hidden !important;
+          }
+
+          .safari-vehicle.mobile .safari-vehicle-inner {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+          }
+
+          .safari-vehicle.mobile img {
+            width: 100% !important;
+            max-width: 100% !important;
+            object-fit: contain !important;
+            object-position: center center !important;
+          }
+
+          .safari-vehicle.mobile .safari-vector {
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+
+          .mobile-color-picker {
+            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+            gap: 8px 6px !important;
+            padding: 0 !important;
+          }
+
+          .mobile-color-picker button {
+            min-width: 0 !important;
+          }
+
+          .color-orb.large {
+            width: 40px !important;
+            height: 40px !important;
+          }
+
+          .mobile-color-picker span:not(.color-orb) {
+            font-size: 10px !important;
+            line-height: 1.12 !important;
+          }
+
+          .mobile-moods {
+            padding: 10px !important;
+          }
+
+          .mobile-moods h2 {
+            margin-bottom: 9px !important;
+            font-size: 21px !important;
+          }
+
+          .mood-row {
+            gap: 7px !important;
+          }
+
+          .mood-row button > div {
+            height: 72px !important;
+          }
+
+          .safari-vehicle.mood {
+            width: 116% !important;
+            left: -8% !important;
+            bottom: -10px !important;
+          }
+
+          /* Mobile chatbar: center it and remove blue glow/blur */
+          .mobile-chat-dock {
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            transform: none !important;
+            width: 100% !important;
+            max-width: none !important;
+            padding: 8px 14px 12px !important;
+            display: flex !important;
+            justify-content: center !important;
+            background: linear-gradient(
+              180deg,
+              rgba(248,251,255,0),
+              rgba(248,251,255,.88) 30%,
+              rgba(248,251,255,.98) 100%
+            ) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+          }
+
+          .mobile-chatbar {
+            width: min(402px, 100%) !important;
+            min-height: 58px !important;
+            border-radius: 27px !important;
+            border: 1px solid #dbe3ef !important;
+            background: rgba(255,255,255,.98) !important;
+            box-shadow:
+              0 16px 36px -28px rgba(15,23,42,.26),
+              inset 0 1px 0 rgba(255,255,255,1) !important;
+          }
+
+          .mobile-chatbar button:first-child {
+            box-shadow: none !important;
+            background: #f5f8ff !important;
+          }
+
+          .mobile-chatbar button:last-child {
+            box-shadow: 0 14px 26px -20px rgba(37,99,235,.45) !important;
+          }
+        }
+
+        @media (max-width: 390px) {
+          .colors-mobile-page {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+
+          .mobile-car-card {
+            min-height: 268px !important;
+          }
+
+          .safari-vehicle.mobile {
+            width: 112% !important;
+            max-width: 112% !important;
+          }
+
+          .mobile-chat-dock {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+        }
+
+        /* ACI_COLORS_POLISH_FIXES_END */
+
+
+        /* ACI_COLORS_CHATBAR_AND_CAR_SIZE_FIX_START */
+
+        /* Desktop: reduce bottom reserve above fixed chatbar */
+        .aci-colors-root {
+          padding-bottom: 78px !important;
+        }
+
+        .colors-desktop-page {
+          padding-bottom: 86px !important;
+        }
+
+        .colors-composer-dock {
+          padding: 6px 24px 8px !important;
+          background: transparent !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        .colors-composer {
+          min-height: 58px !important;
+          box-shadow:
+            0 14px 34px -28px rgba(15,23,42,.24),
+            inset 0 1px 0 rgba(255,255,255,1) !important;
+        }
+
+        /* Desktop car should sit inside stage without feeling oversized */
+        .desktop-stage {
+          min-height: 360px !important;
+        }
+
+        .desktop-gallery-angle {
+          width: min(650px, 76%) !important;
+        }
+
+        .safari-vehicle.desktop {
+          width: 100% !important;
+          transform: translateY(4px) !important;
+        }
+
+        .safari-vehicle.desktop img {
+          max-height: 315px !important;
+          object-fit: contain !important;
+        }
+
+        @media (max-width: 900px) {
+          /* Remove the artificial blank reserve above the fixed chatbar */
+          .aci-colors-root {
+            padding-bottom: 68px !important;
+          }
+
+          .colors-mobile-page {
+            padding-bottom: 70px !important;
+            min-height: auto !important;
+          }
+
+          /* Mobile car must fit fully inside the card */
+          .mobile-car-card {
+            min-height: 276px !important;
+            max-height: 276px !important;
+            overflow: hidden !important;
+            display: grid !important;
+            place-items: center !important;
+          }
+
+          .safari-vehicle.mobile {
+            width: 86% !important;
+            max-width: 86% !important;
+            transform: translateY(10px) !important;
+          }
+
+          .safari-vehicle.mobile .safari-vehicle-inner {
+            width: 100% !important;
+            max-width: 100% !important;
+            display: grid !important;
+            place-items: center !important;
+          }
+
+          .safari-vehicle.mobile img {
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: 218px !important;
+            object-fit: contain !important;
+            object-position: center center !important;
+            transform: none !important;
+          }
+
+          .safari-vehicle.mobile .safari-vector {
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: 220px !important;
+          }
+
+          /* Mood thumbnails also should not crop aggressively */
+          .safari-vehicle.mood {
+            width: 92% !important;
+            left: 4% !important;
+            bottom: -6px !important;
+          }
+
+          .safari-vehicle.mood img {
+            max-height: 64px !important;
+            object-fit: contain !important;
+          }
+
+          .mood-row button > div {
+            height: 68px !important;
+          }
+
+          /* Chatbar: no big gradient/blur area above it */
+          .mobile-chat-dock {
+            padding: 4px 14px 8px !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+          }
+
+          .mobile-chatbar {
+            min-height: 54px !important;
+            border-radius: 25px !important;
+            box-shadow:
+              0 12px 28px -24px rgba(15,23,42,.24),
+              inset 0 1px 0 rgba(255,255,255,1) !important;
+          }
+
+          .mobile-chatbar button:first-child {
+            width: 38px !important;
+            height: 38px !important;
+          }
+
+          .mobile-chatbar button:last-child {
+            width: 44px !important;
+            height: 42px !important;
+          }
+
+          .mobile-chatbar input {
+            font-size: 12.5px !important;
+          }
+        }
+
+        @media (max-width: 390px) {
+          .mobile-car-card {
+            min-height: 258px !important;
+            max-height: 258px !important;
+          }
+
+          .safari-vehicle.mobile {
+            width: 88% !important;
+            max-width: 88% !important;
+            transform: translateY(8px) !important;
+          }
+
+          .safari-vehicle.mobile img {
+            max-height: 202px !important;
+          }
+
+          .safari-vehicle.mobile .safari-vector {
+            max-height: 204px !important;
+          }
+
+          .colors-mobile-page {
+            padding-bottom: 66px !important;
+          }
+
+          .mobile-chat-dock {
+            padding-bottom: 7px !important;
+          }
+        }
+
+        /* ACI_COLORS_CHATBAR_AND_CAR_SIZE_FIX_END */
+
+      `}</style>
+
+      <DesktopColorsPage
+        colors={colors}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        selectedMood={selectedMood}
+        setSelectedMood={setSelectedMood}
+        vehicle={activeVehicle}
+        data={data}
+        onAction={onAction}
+      />
+
+      <MobileColorsPage
+        colors={colors}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        selectedMood={selectedMood}
+        setSelectedMood={setSelectedMood}
+        vehicle={activeVehicle}
+        data={data}
+        onAction={onAction}
+      />
+    </div>
+  );
+}
