@@ -461,20 +461,7 @@ function HighlightsPanel({ vehicle, onAction }) {
 }
 
 function PopularVariantsPanel({ vehicle, onAction, savedIds, onToggleSaved, mobile = false }) {
-  const variants = vehicle.variants?.length
-    ? vehicle.variants
-    : [
-        {
-          id: `${vehicle.id}-default`,
-          tag: "POPULAR",
-          name: vehicle.selectedVariant || "Popular variant",
-          fuel: vehicle.fuelText || "",
-          transmission: vehicle.transmissionText || "",
-          price: vehicle.startingOnRoadPrice || vehicle.priceRange,
-          sub: `On-road ${vehicle.city || "Delhi"}`,
-          meta: ["", ""],
-        },
-      ];
+  const variants = Array.isArray(vehicle.variants) ? vehicle.variants : [];
 
   const visible = mobile ? variants.slice(0, 2) : variants;
 
@@ -509,7 +496,17 @@ function PopularVariantsPanel({ vehicle, onAction, savedIds, onToggleSaved, mobi
       />
 
       <div className="variant-card-grid">
-        {visible.map((variant) => {
+        {!visible.length ? (
+          <article className="variant-card">
+            <div className="variant-content" style={{ cursor: "default" }}>
+              <h4>Live variants are loading</h4>
+              <p>
+                I am fetching all variants for {vehicle.model} from backend
+                collections.
+              </p>
+            </div>
+          </article>
+        ) : visible.map((variant) => {
           const variantVehicle = {
             ...vehicle,
             id: variant.id || `${vehicle.id}-${variant.name}`,
@@ -595,9 +592,7 @@ function PopularVariantsPanel({ vehicle, onAction, savedIds, onToggleSaved, mobi
 }
 
 function ColorsPanel({ vehicle, onAction, mobile = false }) {
-  const colors = vehicle.colors?.length
-    ? vehicle.colors
-    : [{ name: "Available colors", hex: "#2563eb" }];
+  const colors = Array.isArray(vehicle.colors) ? vehicle.colors : [];
 
   const [selected, setSelected] = useState(0);
   const active = colors[selected];
@@ -634,7 +629,11 @@ function ColorsPanel({ vehicle, onAction, mobile = false }) {
       />
 
       <div className="colors-row">
-        {colors.map((color, index) => (
+        {!colors.length ? (
+          <p style={{ margin: 0, color: "#64748b", fontWeight: 600 }}>
+            Live color swatches are loading.
+          </p>
+        ) : colors.map((color, index) => (
           <button
             type="button"
             key={color.name}
@@ -663,9 +662,11 @@ function ColorsPanel({ vehicle, onAction, mobile = false }) {
         ))}
       </div>
 
-      <div className="selected-color">
-        <strong>{active.name}</strong>
-      </div>
+      {active ? (
+        <div className="selected-color">
+          <strong>{active.name}</strong>
+        </div>
+      ) : null}
     </motion.section>
   );
 }
