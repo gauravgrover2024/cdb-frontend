@@ -576,7 +576,27 @@ function ColorsPanel({ vehicle, onAction, mobile = false }) {
       <PanelHead
         title="Colors"
         sub={mobile ? "" : "Choose your perfect shade"}
-        onAction={onAction}
+        action="View all"
+        onAction={() =>
+          emitAciAction(
+            {
+              id: `${vehicle.id}-colors-view-all`,
+              label: "View all colors",
+              query: `Show colors of ${vehicle.model}`,
+              intent: ACI_INTENTS.COLORS,
+              canvasType: ACI_CANVAS_TYPES.COLORS,
+              type: "open_canvas",
+              vehicle,
+              contextPatch: {
+                selectedVehicle: vehicle,
+                anchorModel: vehicle.model,
+                anchorMake: vehicle.make,
+                anchorCity: vehicle.city,
+              },
+            },
+            onAction,
+          )
+        }
       />
 
       <div className="colors-row">
