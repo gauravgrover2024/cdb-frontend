@@ -9,7 +9,6 @@ import {
   FileText,
   Fuel,
   Gauge,
-  Heart,
   IndianRupee,
   Palette,
   Search,
@@ -22,7 +21,6 @@ import {
 
 import {
   ACI_CANVAS_TYPES,
-  ACI_HOME_IMAGES,
   ACI_INTENTS,
   buildVehicleQuickActions,
   makeAciAction,
@@ -32,7 +30,6 @@ import {
   AciComposer,
   AciLogo,
   AciSavedButton,
-  AciVehiclePhoto,
   AciVehicleVisual,
   emitAciAction,
   fadeUp,
