@@ -365,6 +365,30 @@ const queryString = (params = {}) => {
   return search.toString();
 };
 
+const uniqueNonEmpty = (items = []) =>
+  [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
+
+const resolveApiBaseCandidates = () => {
+  const envBase = process.env.REACT_APP_API_BASE_URL || "";
+  const configuredBase = API_BASE_URL || "";
+  const browserHost =
+    typeof window !== "undefined"
+      ? String(window.location?.hostname || "").trim()
+      : "";
+
+  const localCandidate =
+    browserHost && /^(localhost|127\.0\.0\.1)$/i.test(browserHost)
+      ? `http://${browserHost}:5050`
+      : "";
+
+  return uniqueNonEmpty([
+    envBase,
+    configuredBase,
+    localCandidate,
+    "https://cdb-api.vercel.app",
+  ]);
+};
+
 const readLiveSnapshotCache = () => {
   if (typeof window === "undefined") return {};
   try {
@@ -679,35 +703,47 @@ export async function fetchAciVehicleLiveSnapshot({
     return localHit.payload;
   }
 
-  const apiBase = process.env.REACT_APP_API_BASE_URL || API_BASE_URL || "";
-  const mediaUrl = cleanJoin(
-    apiBase,
-    `${VEHICLE_MEDIA_ENDPOINT}?${queryString({
-      make: normalizedMake,
-      model: normalizedModel,
-    })}`,
-  );
-  const variantsUrl = cleanJoin(
-    apiBase,
-    `${VEHICLE_VARIANTS_ENDPOINT}?${queryString({
-      make: normalizedMake,
-      model: normalizedModel,
-      city: normalizedCity,
-    })}`,
-  );
-
   const token = getAuthToken();
-  const [mediaRes, variantsRes] = await Promise.allSettled([
-    fetchJsonSafe(mediaUrl, token, signal),
-    fetchJsonSafe(variantsUrl, token, signal),
-  ]);
+  let mediaRows = [];
+  let variantRowsRaw = [];
 
-  const mediaRows = Array.isArray(mediaRes.value?.data)
-    ? mediaRes.value.data
-    : [];
-  const variantRowsRaw = Array.isArray(variantsRes.value?.data)
-    ? variantsRes.value.data
-    : [];
+  const candidates = resolveApiBaseCandidates();
+  for (const apiBase of candidates) {
+    const mediaUrl = cleanJoin(
+      apiBase,
+      `${VEHICLE_MEDIA_ENDPOINT}?${queryString({
+        make: normalizedMake,
+        model: normalizedModel,
+      })}`,
+    );
+    const variantsUrl = cleanJoin(
+      apiBase,
+      `${VEHICLE_VARIANTS_ENDPOINT}?${queryString({
+        make: normalizedMake,
+        model: normalizedModel,
+        city: normalizedCity,
+      })}`,
+    );
+
+    const [mediaRes, variantsRes] = await Promise.allSettled([
+      fetchJsonSafe(mediaUrl, token, signal),
+      fetchJsonSafe(variantsUrl, token, signal),
+    ]);
+
+    const nextMediaRows = Array.isArray(mediaRes.value?.data)
+      ? mediaRes.value.data
+      : [];
+    const nextVariantRows = Array.isArray(variantsRes.value?.data)
+      ? variantsRes.value.data
+      : [];
+
+    mediaRows = mediaRows.length ? mediaRows : nextMediaRows;
+    variantRowsRaw = variantRowsRaw.length ? variantRowsRaw : nextVariantRows;
+
+    if (nextMediaRows.length || nextVariantRows.length) {
+      break;
+    }
+  }
 
   const variantRows = variantRowsRaw
     .map((item, index) => normalizeLiveVariant(item, index, normalizedCity))
